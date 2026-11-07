@@ -6,8 +6,8 @@ extends Resource
 
 enum Kind { RIBBON, DOTS }
 
-@export var id := "sunset_ribbon"
-@export var display_name := "Sunset Ribbon"
+@export var id := "world_ribbon"
+@export var display_name := "World Ribbon"
 @export var kind: Kind = Kind.RIBBON
 ## Seconds a point stays in the trail.
 @export var lifetime := 0.28
@@ -16,10 +16,16 @@ enum Kind { RIBBON, DOTS }
 @export var tail_color := Color("#FFD0E800")
 ## Minimum distance between stored points, in pixels.
 @export var spacing := 3.0
+## Take the colors from the world's trail token instead of head/tail_color
+## (the free default trail; shop trails bring their own colors).
+@export var use_world_color := false
 
 
-static func sunset_ribbon() -> TrailStyle:
-	return TrailStyle.new()
+## The free default: a ribbon in the current world's trail color.
+static func world_ribbon() -> TrailStyle:
+	var t := TrailStyle.new()
+	t.use_world_color = true
+	return t
 
 
 static func spark_dots() -> TrailStyle:

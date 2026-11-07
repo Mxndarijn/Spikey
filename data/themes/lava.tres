@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_v3cnx"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_eyoxb"]
+
+[resource]
+script = ExtResource("2_eyoxb")
+id = "lava"
+display_name = "Lava Forge"
+order = 3
+sky_top = Color(1, 0.7019608, 0.2784314, 1)
+sky_mid = Color(0.9098039, 0.27058825, 0.17254902, 1)
+sky_bottom = Color(0.7607843, 0.22745098, 0.13333334, 1)
+glow = Color(1, 0.8784314, 0.5411765, 1)
+spike = Color(0.101960786, 0.039215688, 0.047058824, 1)
+spike_edge = Color(1, 0.47843137, 0.18431373, 1)
+world_accent = Color(1, 0.47843137, 0.18431373, 1)
+trail = Color(1, 0.8784314, 0.5411765, 1)
+particle = Color(1, 0.7019608, 0.2784314, 1)

@@ -12,6 +12,16 @@ const BOUNCE_SQUASH := 0.22
 const SQUASH_RECOVER := 7.0
 const TILT_MAX := 0.45
 const TILT_FOLLOW := 14.0
+## Placeholder character art. Characters will bring their own (data/characters/).
+const COLORS := {
+	"body": Color("#FF5E7E"),
+	"belly": Color("#FFD0D9"),
+	"wing": Color("#D83A63"),
+	"beak": Color("#FFB52E"),
+	"beak_dark": Color("#E58F0C"),
+	"blush": Color("#FFB0C0"),
+	"eye": Color("#1E1B2E"),
+}
 
 var _run: RunController
 var _flap_timer := 0.0
@@ -73,7 +83,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var c := SunsetPalette.bird
+	var c := COLORS
 	var dead := _run != null and _run.sim != null and _run.sim.is_over()
 	# Tail
 	draw_colored_polygon(

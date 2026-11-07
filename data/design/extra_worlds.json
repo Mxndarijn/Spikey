@@ -1,0 +1,4 @@
+{
+  "_about": "Worlds beyond the design kit's launch set (paid, seasonal), since the kit page shows at most 8. Same world tokens as the kit. Example entry: {\"id\": \"neon_night\", \"name\": \"Neon Night\", \"premium\": true, \"price\": 1200, \"tokens\": {\"sky-top\": \"#...\", \"sky-mid\": \"#...\", \"sky-bottom\": \"#...\", \"glow\": \"#...\", \"spike\": \"#...\", \"spike-edge\": \"#...\", \"world-accent\": \"#...\", \"trail\": \"#...\", \"particle\": \"#...\"}}. Run tools/import_design_kit.gd after editing.",
+  "worlds": []
+}

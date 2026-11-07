@@ -1,24 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://game/ui/hud.gd" id="1_hud"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_round"]
-bg_color = Color(0.168627, 0.105882, 0.360784, 1)
-corner_radius_top_left = 22
-corner_radius_top_right = 22
-corner_radius_bottom_right = 22
-corner_radius_bottom_left = 22
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.168627, 0.105882, 0.360784, 0.92)
-corner_radius_top_left = 24
-corner_radius_top_right = 24
-corner_radius_bottom_right = 24
-corner_radius_bottom_left = 24
-content_margin_left = 24.0
-content_margin_top = 20.0
-content_margin_right = 24.0
-content_margin_bottom = 20.0
+[ext_resource type="Texture2D" path="res://assets/ui/icons/pause.svg" id="2_pause"]
 
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -40,11 +23,10 @@ offset_top = 48.0
 offset_right = 60.0
 offset_bottom = 92.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_round")
-theme_override_styles/hover = SubResource("StyleBoxFlat_round")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_round")
-text = "II"
+theme_type_variation = &"PauseButton"
+icon = ExtResource("2_pause")
+icon_alignment = 1
+expand_icon = false
 
 [node name="Hint" type="Label" parent="Root"]
 unique_name_in_owner = true
@@ -55,11 +37,21 @@ anchor_right = 1.0
 anchor_bottom = 0.62
 offset_bottom = 30.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.95)
-theme_override_colors/font_outline_color = Color(0.168627, 0.105882, 0.360784, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"SkyLabel"
 text = "Tap to flap"
+horizontal_alignment = 1
+
+[node name="Toast" type="Label" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_top = 104.0
+offset_bottom = 134.0
+mouse_filter = 2
+theme_type_variation = &"SkyLabel"
+text = "World"
 horizontal_alignment = 1
 
 [node name="PausedOverlay" type="ColorRect" parent="Root"]
@@ -70,64 +62,88 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-color = Color(0.105882, 0.0705882, 0.25098, 0.55)
 
-[node name="Label" type="Label" parent="Root/PausedOverlay"]
+[node name="Center" type="CenterContainer" parent="Root/PausedOverlay"]
 layout_mode = 1
-anchors_preset = 14
-anchor_top = 0.5
+anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_top = -40.0
-offset_bottom = 40.0
+anchor_bottom = 1.0
 mouse_filter = 2
-theme_override_font_sizes/font_size = 26
-text = "Paused
-tap to resume"
+
+[node name="VBox" type="VBoxContainer" parent="Root/PausedOverlay/Center"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Root/PausedOverlay/Center/VBox"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+text = "Paused"
 horizontal_alignment = 1
 
-[node name="GameOverPanel" type="PanelContainer" parent="Root"]
+[node name="Resume" type="Label" parent="Root/PausedOverlay/Center/VBox"]
+layout_mode = 2
+theme_type_variation = &"SkyLabel"
+text = "Tap to resume"
+horizontal_alignment = 1
+
+[node name="GameOver" type="ColorRect" parent="Root"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.15
-anchor_top = 0.3
-anchor_right = 0.85
-anchor_bottom = 0.3
-offset_bottom = 190.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="VBox" type="VBoxContainer" parent="Root/GameOverPanel"]
+[node name="Center" type="CenterContainer" parent="Root/GameOver"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Root/GameOver/Center"]
+custom_minimum_size = Vector2(252, 0)
 layout_mode = 2
 mouse_filter = 2
-alignment = 1
+theme_type_variation = &"SheetPanel"
 
-[node name="Title" type="Label" parent="Root/GameOverPanel/VBox"]
+[node name="VBox" type="VBoxContainer" parent="Root/GameOver/Center/Panel"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
 text = "Game over"
 horizontal_alignment = 1
 
-[node name="FinalScore" type="Label" parent="Root/GameOverPanel/VBox"]
+[node name="FinalScore" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 64
+theme_type_variation = &"ScoreLabel"
 text = "0"
 horizontal_alignment = 1
 
-[node name="BestScore" type="Label" parent="Root/GameOverPanel/VBox"]
+[node name="NewBest" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.760784, 0.101961, 1)
-theme_override_font_sizes/font_size = 18
+size_flags_horizontal = 4
+theme_type_variation = &"TagLabel"
+text = "NEW BEST"
+horizontal_alignment = 1
+
+[node name="BestScore" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
 text = "Best 0"
 horizontal_alignment = 1
 
-[node name="Again" type="Label" parent="Root/GameOverPanel/VBox"]
+[node name="PlayAgain" type="Button" parent="Root/GameOver/Center/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.75)
-theme_override_font_sizes/font_size = 15
-text = "tap to play again"
-horizontal_alignment = 1
+focus_mode = 0
+theme_type_variation = &"ActionButton"
+text = "Play again"

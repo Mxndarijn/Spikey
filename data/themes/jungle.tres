@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_i0sjl"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_u6hrh"]
+
+[resource]
+script = ExtResource("2_u6hrh")
+id = "jungle"
+display_name = "Jungle Canopy"
+order = 1
+sky_top = Color(0.72156864, 0.9098039, 0.41568628, 1)
+sky_mid = Color(0.24705882, 0.70980394, 0.41960785, 1)
+sky_bottom = Color(0.12156863, 0.5411765, 0.36078432, 1)
+glow = Color(1, 0.9529412, 0.6901961, 1)
+spike = Color(0.05490196, 0.16470589, 0.12156863, 1)
+spike_edge = Color(0.14117648, 0.3137255, 0.23137255, 1)
+world_accent = Color(1, 0.7882353, 0.23529412, 1)
+trail = Color(1, 0.9529412, 0.6901961, 1)
+particle = Color(0.8509804, 0.9764706, 0.6156863, 1)

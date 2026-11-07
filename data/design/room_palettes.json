@@ -1,0 +1,8 @@
+{
+  "_about": "Extra times of day per world, on top of the base sky from tokens.json. Room 0 uses the base sky, then these in order. Run tools/import_design_kit.gd after editing. Every stop must keep the world's spike color at 3:1 or more.",
+  "sunset": [
+    { "name": "Dawn", "sky": ["#FFC94D", "#FF8A5B", "#FF5E9C"] },
+    { "name": "Noon", "sky": ["#2EC4F1", "#7FD8F5", "#FFE3A3"] },
+    { "name": "Golden Hour", "sky": ["#3FD9A3", "#2EC4F1", "#7B5CFF"] }
+  ]
+}

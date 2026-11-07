@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_fs8bc"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_xcoeg"]
+
+[resource]
+script = ExtResource("2_xcoeg")
+id = "star"
+display_name = "Star Station"
+order = 6
+sky_top = Color(0.29411766, 0.21568628, 0.65882355, 1)
+sky_mid = Color(0.16470589, 0.10980392, 0.4, 1)
+sky_bottom = Color(0.07058824, 0.039215688, 0.2, 1)
+glow = Color(1, 0.8156863, 0.9098039, 1)
+spike = Color(0.7882353, 0.827451, 0.9019608, 1)
+spike_edge = Color(1, 1, 1, 1)
+world_accent = Color(0.49019608, 0.8862745, 1, 1)
+trail = Color(0.49019608, 0.8862745, 1, 1)

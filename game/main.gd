@@ -1,10 +1,15 @@
 extends Node2D
 ## Phase 1 run screen: wires input, RunController, views and HUD together.
+## Press T to switch world (stand-in for the theme picker screen).
 
 const RESTART_DELAY_MS := 450
 
 var _best := 0
 var _game_over_at_ms := -1
+## The world the player picked. Later: saved in the profile.
+var _theme := ThemeCatalog.default_theme()
+## Later: the trail the player equipped in the shop.
+var _trail_style := TrailStyle.world_ribbon()
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -21,23 +26,46 @@ func _ready() -> void:
 	_run.room_changed.connect(_room.on_room_changed)
 	_run.died.connect(_on_died)
 	_hud.pause_pressed.connect(_toggle_pause)
+	_hud.play_again_pressed.connect(_try_restart)
 	_new_run()
 
 
 func _new_run() -> void:
 	# Local seed for now; Phase 3 asks the server for a one-time seed.
 	_run.new_run(randi())
-	_room.bind(_run)
+	_room.bind(_run, _theme)
 	_bird.bind(_run)
-	# Later: the trail the player equipped in the shop.
-	_trail.bind(_bird, TrailStyle.sunset_ribbon())
+	_trail.bind(_bird, _trail_style, _theme)
 	_hud.show_ready()
 	_game_over_at_ms = -1
+
+
+## Switches world right away; cosmetic only, so it is safe mid-run.
+func set_world(id: String) -> void:
+	var t := ThemeCatalog.find(id)
+	if t != null:
+		_apply_theme(t)
+
+
+func _apply_theme(t: ThemeDef) -> void:
+	_theme = t
+	_room.set_theme(t)
+	_trail.set_theme(t)
+	_hud.show_toast(t.display_name)
+
+
+func _try_restart() -> void:
+	if Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
+		_new_run()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") or _is_key(event, KEY_P):
 		_toggle_pause()
+		get_viewport().set_input_as_handled()
+		return
+	if _is_key(event, KEY_T):
+		_apply_theme(ThemeCatalog.next(_theme))
 		get_viewport().set_input_as_handled()
 		return
 	if not _is_tap(event):
@@ -46,8 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _run.paused:
 		_set_paused(false)
 	elif _run.sim.is_over():
-		if Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
-			_new_run()
+		_try_restart()
 	else:
 		_run.request_tap()
 
@@ -71,9 +98,10 @@ func _set_paused(value: bool) -> void:
 func _on_died(replay: Replay) -> void:
 	_bird.on_death()
 	_trail.stop()
+	var is_new_best := replay.score > _best
 	_best = maxi(_best, replay.score)
 	_game_over_at_ms = Time.get_ticks_msec()
-	_hud.show_game_over(replay.score, _best)
+	_hud.show_game_over(replay.score, _best, is_new_best)
 
 
 static func _is_tap(event: InputEvent) -> bool:

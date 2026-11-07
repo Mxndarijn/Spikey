@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_06y7g"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_bspw0"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_06y7g")
+name = "Dawn"
+sky_top = Color(1, 0.7882353, 0.3019608, 1)
+sky_mid = Color(1, 0.5411765, 0.35686275, 1)
+sky_bottom = Color(1, 0.36862746, 0.6117647, 1)
+
+[sub_resource type="Resource" id="palette_1"]
+script = ExtResource("1_06y7g")
+name = "Noon"
+sky_top = Color(0.18039216, 0.76862746, 0.94509804, 1)
+sky_mid = Color(0.49803922, 0.84705883, 0.9607843, 1)
+sky_bottom = Color(1, 0.8901961, 0.6392157, 1)
+
+[sub_resource type="Resource" id="palette_2"]
+script = ExtResource("1_06y7g")
+name = "Golden Hour"
+sky_top = Color(0.24705882, 0.8509804, 0.6392157, 1)
+sky_mid = Color(0.18039216, 0.76862746, 0.94509804, 1)
+sky_bottom = Color(0.48235294, 0.36078432, 1, 1)
+
+[resource]
+script = ExtResource("2_bspw0")
+id = "sunset"
+display_name = "Sunset Glow"
+sky_top = Color(1, 0.5411765, 0.35686275, 1)
+sky_mid = Color(1, 0.36862746, 0.6117647, 1)
+sky_bottom = Color(0.48235294, 0.36078432, 1, 1)
+glow = Color(1, 0.8901961, 0.6392157, 1)
+spike = Color(0.16862746, 0.105882354, 0.36078432, 1)
+spike_edge = Color(0.2901961, 0.20784314, 0.5647059, 1)
+world_accent = Color(1, 0.36862746, 0.6117647, 1)
+particle = Color(1, 0.94509804, 0.7882353, 1)
+room_palettes = Array[ExtResource("1_06y7g")]([SubResource("palette_0"), SubResource("palette_1"), SubResource("palette_2")])

@@ -10,10 +10,10 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   (filter tests: `-TestFilter replay`). Fix failures and rerun; never skip a check.
 - The user playtests at each milestone. Keep changes small and testable.
 - Godot path: `$env:GODOT` or `tools/godot_path.txt` (untracked, local machine).
-- Never pop up a game window on the user's PC. Tests and tools run with
-  `--headless`. To see the game, use `tools/screenshot.ps1 -Out <png>`: it renders
-  off-screen, without focus, and closes itself. Never launch the game visibly
-  unless the user asks.
+- Never pop up a game window on the user's PC. Every Godot run is `--headless`
+  (check script, tests, tools). On Windows, rendering always shows a window,
+  even off-screen, so `tools/screenshot.ps1` runs only when the user asks for
+  screenshots in that conversation.
 
 ## Hard rules
 
@@ -30,6 +30,12 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   are cosmetic only.
 - Monetization is cosmetic only plus an optional rewarded-ad revive. Nothing
   pay-to-win.
+- Visual design follows the Spike Cage Design Kit
+  (https://claude.ai/artifact/2nzQWN24GGt8WCpsoJFGd8, read its `project/README.md`
+  and `project/tokens.json`): fonts Baloo 2 + Nunito, its color, spacing, radius
+  and size tokens. World tokens change with the theme picker; UI tokens never do.
+  Every theme (free, paid or seasonal) must provide all world tokens and keep
+  `spike` at 3:1 or more against every sky stop.
 - Static typing everywhere. Format with `gdformat --line-length 100`.
 - Tests: `tests/**/test_*.gd`, extend `TestCase`, methods named `test_*`.
   Any logged error fails the test.

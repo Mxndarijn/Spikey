@@ -35,3 +35,20 @@ Ideas agreed on but not scheduled yet. Move an item into a phase when we start i
   `game/style/` procedural drawing kept as the fallback.
 - Add to the check: the planned screenshot comparison of key screens (menu,
   each theme, game over) once these screens have real art.
+
+## Design kit in the game
+
+- The design kit (https://claude.ai/artifact/2nzQWN24GGt8WCpsoJFGd8) is the
+  source for colors, fonts, sizes and components. Wired in: see
+  `data/design/README.md` (importer, UiTokens, UiTheme, ThemeDef per world,
+  contract and sync tests). T switches world in-game until the picker exists.
+- Still to do:
+  - Fonts are bundled (Baloo 2, Nunito, variable, `assets/fonts/`). Before
+    release: ship the OFL texts with the app (export filter `*.txt` or an
+    in-game credits/licenses screen), since the license asks for that.
+  - Room palettes (times of day) for the six launch worlds; only Sunset Glow
+    has extra ones now. Other worlds show a room-change flash instead.
+  - Theme picker screen built from the kit's ThemeCard; coin pill in the HUD.
+  - Particles per world (`particle` token), color-blind spikes and reduced
+    flashing settings (`RoomView.flash_enabled`).
+  - Paid and seasonal worlds go in `data/design/extra_worlds.json`.

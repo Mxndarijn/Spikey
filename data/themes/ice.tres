@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_bacuj"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_xd5ck"]
+
+[resource]
+script = ExtResource("2_xd5ck")
+id = "ice"
+display_name = "Ice Cavern"
+order = 2
+sky_top = Color(0.9019608, 0.9647059, 1, 1)
+sky_mid = Color(0.62352943, 0.84705883, 0.9607843, 1)
+sky_bottom = Color(0.2901961, 0.56078434, 0.8509804, 1)
+spike = Color(0.09019608, 0.22745098, 0.41960785, 1)
+spike_edge = Color(0.17254902, 0.36078432, 0.6039216, 1)
+world_accent = Color(0.36078432, 0.78431374, 1, 1)

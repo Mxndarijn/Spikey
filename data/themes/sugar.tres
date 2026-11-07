@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_p88wh"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_7b5am"]
+
+[resource]
+script = ExtResource("2_7b5am")
+id = "sugar"
+display_name = "Sugar Rush"
+order = 5
+sky_top = Color(1, 0.89411765, 0.9411765, 1)
+sky_mid = Color(1, 0.7019608, 0.81960785, 1)
+sky_bottom = Color(0.77254903, 0.5411765, 0.9411765, 1)
+spike = Color(0.47843137, 0.12156863, 0.3019608, 1)
+spike_edge = Color(0.65882355, 0.20392157, 0.43529412, 1)
+world_accent = Color(1, 0.37254903, 0.63529414, 1)

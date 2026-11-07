@@ -3,21 +3,34 @@ extends Node2D
 ## Draws a fading trail behind the bird, styled by a TrailStyle.
 ## Follows the drawn bird position, so it never touches gameplay.
 
-var style := TrailStyle.sunset_ribbon()
+const WORLD_HEAD_ALPHA := 0.85
+
+var style := TrailStyle.world_ribbon()
 
 var _bird: Node2D
+var _head := Color.WHITE
+var _tail := Color.TRANSPARENT
 var _points := PackedVector2Array()
 var _ages := PackedFloat32Array()
 var _emitting := true
 
 
-func bind(bird: Node2D, trail_style: TrailStyle = null) -> void:
+func bind(bird: Node2D, trail_style: TrailStyle, theme: ThemeDef) -> void:
 	_bird = bird
-	if trail_style != null:
-		style = trail_style
+	style = trail_style
+	set_theme(theme)
 	_points.clear()
 	_ages.clear()
 	_emitting = false
+
+
+func set_theme(theme: ThemeDef) -> void:
+	if style.use_world_color:
+		_head = Color(theme.trail, WORLD_HEAD_ALPHA)
+		_tail = Color(theme.trail, 0.0)
+	else:
+		_head = style.head_color
+		_tail = style.tail_color
 
 
 ## Starts adding points (when the run starts).
@@ -75,7 +88,7 @@ func _draw_ribbon() -> void:
 		var w := style.width * 0.5 * f
 		left.append(_points[i] + normal * w)
 		right.append(_points[i] - normal * w)
-		colors.append(style.tail_color.lerp(style.head_color, f))
+		colors.append(_tail.lerp(_head, f))
 	# Two triangles per segment via draw_primitive: no triangulation, so thin or
 	# folded segments at sharp turns can't fail to draw.
 	var no_uv := PackedVector2Array()
@@ -95,4 +108,4 @@ func _draw_ribbon() -> void:
 func _draw_dots() -> void:
 	for i in _points.size():
 		var f := _fade(i)
-		draw_circle(_points[i], style.width * 0.5 * f, style.tail_color.lerp(style.head_color, f))
+		draw_circle(_points[i], style.width * 0.5 * f, _tail.lerp(_head, f))

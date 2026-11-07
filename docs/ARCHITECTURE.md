@@ -40,7 +40,8 @@ flowchart TD
 | `game/` | Scenes, drawing, input, audio, haptics, UI | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
 | `meta/` (later) | Save file, wallet, unlocks, cosmetics, achievements, ranks | `sim/` (read events) | Change gameplay |
 | `services/` (later) | HTTP to seed/leaderboard server, ads, Game Center / Play Games mirror | — | Hold game rules |
-| `data/` (later) | Characters, hats, themes, spike skins as `.tres` Resources | — | Hold hitbox or physics values |
+| `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
+| `assets/` | SVG icons and UI art, fonts | — | — |
 | `server/` | Headless verifier; later the cloud wrapper around it | `sim/` | Fork the sim (it runs the same files) |
 | `tests/` | Unit tests, golden replays, bot simulations | everything | — |
 | `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | — |

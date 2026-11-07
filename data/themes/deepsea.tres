@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_6mqo7"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_3lwny"]
+
+[resource]
+script = ExtResource("2_3lwny")
+id = "deepsea"
+display_name = "Deep Sea"
+order = 4
+sky_top = Color(0.43137255, 0.90588236, 0.8784314, 1)
+sky_mid = Color(0.16862746, 0.6901961, 0.7882353, 1)
+sky_bottom = Color(0.101960786, 0.49803922, 0.6901961, 1)
+glow = Color(0.8784314, 0.9843137, 1, 1)
+spike = Color(0.023529412, 0.15686275, 0.23921569, 1)
+spike_edge = Color(0.07058824, 0.28627452, 0.41568628, 1)
+world_accent = Color(1, 0.47843137, 0.5411765, 1)
+trail = Color(0.8784314, 0.9843137, 1, 1)
+particle = Color(0.8784314, 0.9843137, 1, 1)
