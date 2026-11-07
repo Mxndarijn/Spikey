@@ -1,0 +1,15 @@
+# Godot
+.godot/
+/android/
+*.translation
+export_presets.cfg
+/build/
+
+# Local tool config
+tools/godot_path.txt
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+*.tmp
