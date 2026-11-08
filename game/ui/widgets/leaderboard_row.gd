@@ -1,13 +1,12 @@
 class_name LeaderboardRow
 extends PanelContainer
-## One leaderboard row (Sticker Pop): rank, flyer, name, the mint "verified"
-## shield and the score. The player's own row is cream.
+## One leaderboard row (minimal kit): a flat paper pill with the rank, a small
+## flyer, the name and the score. The player's own row is gold.
 
 const VERIFIED_ICON := preload("res://assets/ui/icons/verified.svg")
-const HEIGHT := 44.0
-const RANK_WIDTH := 26.0
+const HEIGHT := 48.0
+const RANK_WIDTH := 34.0
 const FLYER := 32.0
-const LINE := Color("#ECE8F4")
 
 var entry: LeaderboardBoard.Entry
 
@@ -16,46 +15,60 @@ func _init(e: LeaderboardBoard.Entry) -> void:
 	entry = e
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(0, HEIGHT)
-	var box := StyleBoxFlat.new()
-	box.bg_color = UiTheme.SELECTED_FILL if e.is_me else Color(UiTokens.PANEL, 0.0)
-	box.border_width_bottom = 2
-	box.border_color = LINE
-	box.content_margin_left = UiTokens.SPACE_2
-	box.content_margin_right = 10
-	add_theme_stylebox_override("panel", box)
+	add_theme_stylebox_override("panel", pill(UiTokens.ACTION if e.is_me else UiTokens.PANEL))
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	row.add_theme_constant_override("separation", 10)
 	add_child(row)
+	row.add_child(rank_label(str(e.rank)))
+	row.add_child(icon(flyer_texture(e.flyer_id), FLYER))
+	row.add_child(name_label(e.player_name))
+	row.add_child(score_label(e.score))
+
+
+## The row's box: a flat pill, a little more room on the score side.
+static func pill(fill: Color) -> StyleBoxFlat:
+	var box := UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0)
+	box.content_margin_left = 10
+	box.content_margin_right = 14
+	return box
+
+
+## The place, 14/800, in a 34px column.
+static func rank_label(text: String) -> Label:
 	var rank := Label.new()
 	rank.theme_type_variation = &"InkLabel"
-	rank.add_theme_font_size_override("font_size", 16)
-	rank.add_theme_color_override("font_color", UiTokens.ON_PANEL_MUTED)
+	rank.add_theme_font_size_override("font_size", 14)
 	rank.custom_minimum_size = Vector2(RANK_WIDTH, 0)
-	rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rank.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rank.text = str(e.rank)
-	row.add_child(rank)
-	row.add_child(icon(flyer_texture(e.flyer_id), FLYER))
-	var name_label := Label.new()
-	name_label.theme_type_variation = &"StatusLabel"
-	name_label.add_theme_font_size_override("font_size", 15)
-	name_label.text = e.player_name
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	name_label.custom_minimum_size = Vector2(40, 0)
-	row.add_child(name_label)
-	if e.verified:
-		var mark := icon(VERIFIED_ICON, 14)
-		mark.tooltip_text = "Verified by the server"
-		row.add_child(mark)
-	var score := Label.new()
-	score.theme_type_variation = &"CoinLabel"
-	score.add_theme_font_size_override("font_size", 20)
-	score.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	score.text = str(e.score)
-	row.add_child(score)
+	rank.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rank.text = text
+	return rank
+
+
+## The name, 15/800, taking the free width and trimmed when too long.
+static func name_label(text: String) -> Label:
+	var l := Label.new()
+	l.theme_type_variation = &"InkLabel"
+	l.add_theme_font_size_override("font_size", 15)
+	l.text = text
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.custom_minimum_size = Vector2(40, 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+## The score in the display font, 18.
+static func score_label(score: int) -> Label:
+	var l := Label.new()
+	l.theme_type_variation = &"NameLabel"
+	l.add_theme_font_size_override("font_size", 18)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.text = str(score)
+	return l
 
 
 ## A flyer's idle art, or the first flyer's when the id is unknown.

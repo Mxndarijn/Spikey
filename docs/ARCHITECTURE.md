@@ -1,4 +1,4 @@
-# Spikey — Architecture
+# Flapjaw — Architecture
 
 Godot 4 (GDScript), portrait mobile game for iOS and Android, with verified
 leaderboards that re-simulate every submitted run on a server.
@@ -152,8 +152,10 @@ _process           views draw, interpolating between previous and current tick
   procedurally in the "Soft light" style (gradient sky with blurred patches of
   its own sky stops, one glow bloom, drifting particles, rounded two-tone
   spikes; the ceiling and floor rows are unbroken and reach the kill lines).
-  Menus and HUD use the Open Sky UI (frost pills, outlined type on the sky). Real
-  sprites replace it later without touching the sim.
+  Menus and HUD use the minimal kit (`UiTheme`): ink text straight on the room,
+  flat cream cards only for grids and forms, one round main button per screen,
+  the cradle dock on Home and Game over, Archivo as the only font. Real sprites
+  replace the drawing later without touching the sim.
 - Pause just stops calling `step()`. The app auto-pauses when it loses focus.
 - Display: 360 × 640 viewport, `canvas_items` stretch, portrait, Compatibility
   renderer (best for 2D on older phones).

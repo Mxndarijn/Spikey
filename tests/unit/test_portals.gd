@@ -41,6 +41,29 @@ func test_exit_opens_every_ten_points_on_the_wall_ahead() -> void:
 	assert_false(plain.state.exit_open, "no exit at 5")
 
 
+func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	for start in [[9, 3], [49, 8]]:
+		var sim := _sim_at(start[0], start[1])
+		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		assert_true(sim.state.exit_open)
+		var openings := sim.exit_slots()
+		assert_ne(openings, 0, "the exit frees some slots")
+		assert_eq(sim.wall_mask(0), all & ~openings, "every other slot has a spike")
+		assert_ne(sim.wall_mask(1), all, "the wall without the exit is a normal wall")
+	var missed := _sim_at(9)
+	_hit_wall(missed, 1, 300 * SimConfig.SUB)
+	var y := missed.state.exit_a_y
+	missed.state.y = (
+		y + SimConfig.EXIT_HALF * 3 if y < 320 * SimConfig.SUB else y - SimConfig.EXIT_HALF * 3
+	)
+	missed.state.vy = 0
+	missed.state.vx = -SimConfig.SPEED_X
+	missed.state.x = missed.room.wall_left() + SimConfig.BIRD_RADIUS + SimConfig.SPIKE_DEPTH / 2
+	missed._check_spikes()
+	assert_false(missed.state.alive, "missing the exit hits a spike")
+
+
 func test_flying_through_moves_to_the_next_room_without_stopping() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
@@ -63,6 +86,21 @@ func test_flying_through_moves_to_the_next_room_without_stopping() -> void:
 	sim.step(false)
 	assert_true(sim.state.x < x, "it keeps flying")
 	assert_true(sim.room.t > t, "the new room runs right away")
+
+
+func test_the_bird_comes_out_flying_level() -> void:
+	for vy in [SimConfig.MAX_FALL_VY, SimConfig.FLAP_VY]:
+		var sim := _sim_at(9)
+		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		var room_before := sim.state.room_index
+		var r := SimConfig.BIRD_RADIUS
+		sim.state.y = sim.state.exit_a_y
+		sim.state.vy = vy
+		sim.state.vx = -SimConfig.SPEED_X
+		sim.state.x = sim.room.wall_left() + r - 1
+		sim._check_walls()
+		assert_eq(sim.state.room_index, room_before + 1, "through the exit")
+		assert_eq(sim.state.vy, 0, "level, not falling or rising (was %d)" % vy)
 
 
 func test_missing_the_exit_is_a_normal_bounce_and_it_stays_open() -> void:

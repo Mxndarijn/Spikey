@@ -1,56 +1,237 @@
 {
-  "_about": "Extra times of day per world, on top of the base sky from tokens.json. Room 0 uses the base sky, then these in order. Run tools/import_design_kit.gd after editing. Every stop must keep the world's spike color at 3:1 or more.",
+  "_about": "Extra times of day per world, on top of the base sky from tokens.json. Room 0 uses the base sky, then these in order. Only the sky changes; hills and props keep their colours. Run tools/import_design_kit.gd after editing. Every stop must keep the world's spike color at 3:1 or more.",
   "sunset": [
-    { "name": "Dawn", "sky": ["#FFC94D", "#FF8A5B", "#FF5E9C"] },
-    { "name": "Noon", "sky": ["#2EC4F1", "#7FD8F5", "#FFE3A3"] },
-    { "name": "Golden Hour", "sky": ["#3FD9A3", "#2EC4F1", "#7B5CFF"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFDDBB",
+        "#FFA880",
+        "#FFA880"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FFA880",
+        "#FF8A76",
+        "#FF8A76"
+      ]
+    }
   ],
   "jungle": [
-    { "name": "Morning Mist", "sky": ["#E8F8CF", "#A6DD8E", "#5BAE74"] },
-    { "name": "Golden Canopy", "sky": ["#FFE27A", "#9CCB55", "#3E9A5E"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#E6F7C6",
+        "#AFE38B",
+        "#AFE38B"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#AFE38B",
+        "#84D179",
+        "#84D179"
+      ]
+    }
   ],
   "ice": [
-    { "name": "Pale Dawn", "sky": ["#FFF1F6", "#D2E8FA", "#8DBAEA"] },
-    { "name": "Glacier Noon", "sky": ["#F2FFFC", "#B8F0E6", "#6CC6D8"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#F2FAFF",
+        "#C6E9FB",
+        "#C6E9FB"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#C6E9FB",
+        "#A1D8F5",
+        "#A1D8F5"
+      ]
+    }
   ],
   "lava": [
-    { "name": "Smoke", "sky": ["#FFD9A0", "#F5915A", "#D25A34"] },
-    { "name": "Ash Glow", "sky": ["#FFE6B0", "#FFAA5C", "#E0643A"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFDAAF",
+        "#FFA36A",
+        "#FFA36A"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FFA36A",
+        "#F88058",
+        "#F88058"
+      ]
+    }
   ],
   "deepsea": [
-    { "name": "Shallows", "sky": ["#B8FFF0", "#5FD8D0", "#2C9FC0"] },
-    { "name": "Reef", "sky": ["#A8F0FF", "#6CCBE8", "#3A90D0"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#BBF4EF",
+        "#63D5DA",
+        "#63D5DA"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#63D5DA",
+        "#3ABACE",
+        "#3ABACE"
+      ]
+    }
   ],
   "sugar": [
-    { "name": "Lemon Fizz", "sky": ["#FFF8D6", "#FFD8A8", "#F5A3C8"] },
-    { "name": "Mint Swirl", "sky": ["#E6FFF4", "#B8F0DA", "#D6A8F0"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFF2F8",
+        "#FFD0E3",
+        "#FFD0E3"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FFD0E3",
+        "#FDB4D2",
+        "#FDB4D2"
+      ]
+    }
   ],
   "star": [
-    { "name": "Nebula", "sky": ["#5A2A8C", "#2E1666", "#100833"] },
-    { "name": "Deep Space", "sky": ["#22306E", "#141C4C", "#070B24"] }
+    {
+      "name": "Midnight",
+      "sky": [
+        "#291F64",
+        "#191245",
+        "#191245"
+      ]
+    },
+    {
+      "name": "Twilight",
+      "sky": [
+        "#302379",
+        "#201759",
+        "#201759"
+      ]
+    }
   ],
   "autumn": [
-    { "name": "Crisp Morning", "sky": ["#FFF0C8", "#FFC98A", "#F08C55"] },
-    { "name": "Harvest Dusk", "sky": ["#FFC98A", "#FF8E5C", "#C8603C"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFF0D0",
+        "#FFCC91",
+        "#FFCC91"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FFCC91",
+        "#FBAE70",
+        "#FBAE70"
+      ]
+    }
   ],
   "desert": [
-    { "name": "High Noon", "sky": ["#FFF3D6", "#FFD39A", "#F0A060"] },
-    { "name": "Purple Hour", "sky": ["#FFC6C0", "#D891A8", "#A06A9A"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFEBD4",
+        "#FABE9C",
+        "#FABE9C"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FABE9C",
+        "#ED9D86",
+        "#ED9D86"
+      ]
+    }
   ],
   "blossom": [
-    { "name": "Spring Rain", "sky": ["#F3F0FF", "#D9D0F5", "#B8A8E6"] },
-    { "name": "Petal Sunset", "sky": ["#FFE6D6", "#FFB8C8", "#E894B8"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#FFF8FA",
+        "#FFDFEA",
+        "#FFDFEA"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#FFDFEA",
+        "#FCC7DA",
+        "#FCC7DA"
+      ]
+    }
   ],
   "neon": [
-    { "name": "Midnight", "sky": ["#1E0B45", "#120830", "#06031A"] },
-    { "name": "Synth Dawn", "sky": ["#5A1E8A", "#3A1466", "#1A0A3A"] }
+    {
+      "name": "Midnight",
+      "sky": [
+        "#290E54",
+        "#160830",
+        "#160830"
+      ]
+    },
+    {
+      "name": "Twilight",
+      "sky": [
+        "#2C105E",
+        "#1C0A40",
+        "#1C0A40"
+      ]
+    }
   ],
   "haunted": [
-    { "name": "Witching Hour", "sky": ["#2E1F5C", "#1A1240", "#0A0618"] },
-    { "name": "Blood Moon", "sky": ["#4A1E3E", "#2E1028", "#140712"] }
+    {
+      "name": "Midnight",
+      "sky": [
+        "#37265E",
+        "#1E143E",
+        "#1E143E"
+      ]
+    },
+    {
+      "name": "Twilight",
+      "sky": [
+        "#3C2A6F",
+        "#25194C",
+        "#25194C"
+      ]
+    }
   ],
   "winterfest": [
-    { "name": "Snow Day", "sky": ["#FFFFFF", "#E2F0FA", "#AACFEE"] },
-    { "name": "Candlelight", "sky": ["#FFF4E0", "#FFDDB8", "#F0B48C"] }
+    {
+      "name": "Morning",
+      "sky": [
+        "#F9FDFF",
+        "#E0F2FD",
+        "#E0F2FD"
+      ]
+    },
+    {
+      "name": "Dusk",
+      "sky": [
+        "#E0F2FD",
+        "#C8E6F9",
+        "#C8E6F9"
+      ]
+    }
   ]
 }

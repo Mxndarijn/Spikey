@@ -1,21 +1,27 @@
 class_name RoomsScreen
 extends Control
-## Every room kind, for practice (Sticker Pop): a back button, the title and how
-## many rooms the player has cleared in real runs, tabs that jump to a group,
-## and a scrolling list of groups with a card per room. A room opens for
-## practice once a real run has met it.
+## Every room kind, for practice (minimal kit): a back arrow, the title and how
+## many rooms the player has cleared in real runs (a check and the number), a
+## paper tab bar with the room groups, the group's "5 of 8 open" line on the
+## room, and a scrolling two-column grid of flat paper room cards. A room opens
+## for practice once a real run has met it.
 
 signal closed
 signal room_opened(id: String)
 
-const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const CHECK_ICON := preload("res://assets/ui/icons/check.svg")
 ## Two cards per row, so each card has room for its picture, name and status.
 const COLUMNS := 2
-## Keeps every card, tab and pill clear of the screen edges.
-const SIDE := 20
+## Keeps the header, tabs and cards clear of the screen edges.
+const SIDE := 14
+const TOP := 40
+## The list stops this far above the bottom of the screen.
+const BOTTOM := 40
+const GAP := 10
+## The group line sits a little further in than the cards (20px from the edge).
+const CAPTION_INSET := 6
+## Groups that need a word more than "5 of 8 open".
 const NOTES := {
-	"starter": "Clear a room by surviving all 10 of its points in a real run.",
 	"seasonal":
 	(
 		"Seasonal rooms show up in runs during their season."
@@ -43,99 +49,61 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_theme_constant_override("margin_left", SIDE)
 	margin.add_theme_constant_override("margin_right", SIDE)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
-	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_6)
+	margin.add_theme_constant_override("margin_top", TOP)
+	margin.add_theme_constant_override("margin_bottom", BOTTOM)
 	add_child(margin)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", UiTokens.SPACE_3)
+	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
-	col.add_child(_header())
+	col.add_child(UiKit.header("Rooms", closed.emit, _clears()))
 	col.add_child(_tab_bar())
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", UiTokens.SPACE_4)
-	var pad := MarginContainer.new()
-	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Room for the cards' drop shadows inside the scroll area.
-	pad.add_theme_constant_override("margin_right", 6)
-	pad.add_theme_constant_override("margin_left", 2)
-	pad.add_theme_constant_override("margin_bottom", 40)
-	pad.add_child(list)
-	_scroll.add_child(pad)
+	_scroll.add_child(list)
 	col.add_child(_scroll)
 	for g in RoomInfo.GROUPS:
 		var section := _section(g)
 		_sections[g] = section
 		list.add_child(section)
-	_cleared.text = "%d cleared" % _profile.total_clears()
 	_select_tab("starter")
 
 
-func _header() -> Control:
+## The header's right side: (DEV,) a check and the total clears in real runs.
+func _clears() -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	var back := Button.new()
-	back.theme_type_variation = &"RoundButton"
-	back.icon = BACK_ICON
-	back.tooltip_text = "Back"
-	back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	back.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
-	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	back.focus_mode = Control.FOCUS_NONE
-	back.pressed.connect(closed.emit)
-	row.add_child(back)
-	var title := Label.new()
-	title.theme_type_variation = &"TitleLabel"
-	title.add_theme_font_size_override("font_size", 32)
-	title.text = "Rooms"
-	var tilt := Tilt.new(title, -3.0)
-	tilt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(tilt)
+	row.add_theme_constant_override("separation", 4)
 	if DevMode.enabled():
 		row.add_child(_dev_tag())
-	var pill := PanelContainer.new()
-	pill.theme_type_variation = &"PillPanel"
-	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var inner := HBoxContainer.new()
-	inner.add_theme_constant_override("separation", 5)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var badge := PanelContainer.new()
-	badge.theme_type_variation = &"UsePill"
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(UiKit.spacer())
 	var check := TextureRect.new()
 	check.texture = CHECK_ICON
-	check.custom_minimum_size = Vector2(12, 12)
+	check.custom_minimum_size = Vector2(16, 16)
 	check.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	check.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	check.modulate = UiTokens.INK_LINE
-	badge.add_child(check)
-	inner.add_child(badge)
-	_cleared.theme_type_variation = &"CoinLabel"
-	_cleared.add_theme_font_size_override("font_size", 16)
-	inner.add_child(_cleared)
-	pill.add_child(inner)
-	row.add_child(pill)
+	check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	check.modulate = UiTokens.ON_SKY
+	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(check)
+	_cleared.theme_type_variation = &"SkyCaption"
+	_cleared.text = UiKit.thousands(_profile.total_clears())
+	_cleared.tooltip_text = "Rooms cleared in real runs"
+	row.add_child(_cleared)
 	return row
 
 
 ## "DEV": every room is open because the game runs from the editor or a debug build.
 func _dev_tag() -> Control:
 	var tag := PanelContainer.new()
-	tag.add_theme_stylebox_override(
-		"panel", UiTheme.sticker(UiTokens.INK_LINE, UiTokens.RADIUS_S, Vector2.ZERO, 4)
-	)
+	tag.theme_type_variation = &"UsePill"
 	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tag.tooltip_text = "Developer mode: every room is open for practice"
 	var l := Label.new()
-	l.theme_type_variation = &"StatusLabel"
-	l.add_theme_color_override("font_color", UiTokens.PANEL)
+	l.theme_type_variation = &"OnInkLabel"
 	l.text = "DEV"
 	tag.add_child(l)
 	_dev = tag
@@ -156,7 +124,6 @@ func _tab_bar() -> Control:
 	for g in RoomInfo.GROUPS:
 		var tab := Button.new()
 		tab.theme_type_variation = &"TabButton"
-		tab.add_theme_font_size_override("font_size", 12)
 		_tight(tab)
 		tab.text = (RoomInfo.GROUP_NAMES[g] as String).replace("-game", "")
 		tab.toggle_mode = true
@@ -183,40 +150,27 @@ func _tight(tab: Button) -> void:
 
 func _section(g: String) -> Control:
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	box.add_theme_constant_override("separation", GAP)
 	var rooms := RoomInfo.rooms_in(g)
 	var open := 0
 	for def in rooms:
 		if RoomInfo.is_open(_profile, def):
 			open += 1
-	var head := HBoxContainer.new()
-	var title := Label.new()
-	title.theme_type_variation = &"SkyLabel"
-	title.add_theme_font_size_override("font_size", 22)
-	title.text = RoomInfo.GROUP_NAMES[g]
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	var count := Label.new()
-	count.theme_type_variation = &"SkyCaption"
-	count.text = "%d of %d open" % [open, rooms.size()]
-	count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(count)
-	box.add_child(head)
+	var head := VBoxContainer.new()
+	head.add_theme_constant_override("separation", 2)
+	var count := UiKit.label(
+		"%s, %d of %d open" % [RoomInfo.GROUP_NAMES[g], open, rooms.size()], &"SkyCaption", false
+	)
+	head.add_child(_inset(count))
 	if NOTES.has(g):
-		var note := PanelContainer.new()
-		note.theme_type_variation = &"HintPill"
-		note.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		var text := Label.new()
-		text.theme_type_variation = &"StatusLabel"
-		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		text.custom_minimum_size = Vector2(280, 0)
-		text.text = NOTES[g]
-		note.add_child(text)
-		box.add_child(note)
+		var note := UiKit.label(NOTES[g], &"RoomMuted", false)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		head.add_child(_inset(note))
+	box.add_child(head)
 	var grid := GridContainer.new()
 	grid.columns = COLUMNS
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
+	grid.add_theme_constant_override("h_separation", GAP)
+	grid.add_theme_constant_override("v_separation", GAP)
 	for def in rooms:
 		var card := RoomCard.new(_profile, def)
 		card.pressed.connect(room_opened.emit.bind(def.id))
@@ -224,6 +178,15 @@ func _section(g: String) -> Control:
 		_cards.append(card)
 	box.add_child(grid)
 	return box
+
+
+func _inset(c: Control) -> Control:
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_theme_constant_override("margin_left", CAPTION_INSET)
+	m.add_theme_constant_override("margin_right", CAPTION_INSET)
+	m.add_child(c)
+	return m
 
 
 ## Highlights a group's tab and shows only that group's rooms, from the top.
@@ -253,5 +216,6 @@ func cards() -> Array[RoomCard]:
 	return _cards
 
 
+## The total clears shown in the header ("84").
 func cleared_text() -> String:
 	return _cleared.text

@@ -1,21 +1,33 @@
 class_name RoomDetailScreen
 extends Control
-## One room kind (Sticker Pop): its name, a big tilted preview, its group and
-## start score, the pitch, difficulty, how many times it was cleared in real
-## runs, and a gold Practice button.
+## One room kind (minimal kit): a back arrow and the room's name, its rounded
+## picture, one paper card with its group and start score, the pitch, the
+## difficulty and how many times it was cleared in real runs, and the practice
+## note; then the round ink Practice button. A locked room shows why in place
+## of its clears and its Practice button is disabled.
 
 signal closed
 signal practice_pressed(id: String)
 
-const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const PREVIEW := Vector2(150, 184)
+const PREVIEW := Vector2(200, 180)
+const PREVIEW_RADIUS := 22.0
+const TOP := 40
+## The Practice button ends this far above the bottom of the screen.
+const BOTTOM := 40
+const SIDE := 20
+const CARD_PAD_X := 18
+const CARD_PAD_Y := 14
+## Names longer than this get a smaller title so they clear the back arrow.
+const LONG_NAME := 11
 
 var room_id := ""
 
 var _profile: Profile
 var _def: RoomDef
 var _cleared := Label.new()
+var _practice: Button
+var _why: Label
 
 
 func _init(profile: Profile, id: String) -> void:
@@ -28,169 +40,163 @@ func _ready() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", UiTokens.SPACE_4 + 4)
-	margin.add_theme_constant_override("margin_right", UiTokens.SPACE_4 + 4)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
-	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_6 + 8)
+	margin.add_theme_constant_override("margin_left", SIDE - 6)
+	margin.add_theme_constant_override("margin_right", SIDE - 6)
+	margin.add_theme_constant_override("margin_top", TOP)
+	margin.add_theme_constant_override("margin_bottom", BOTTOM)
 	add_child(margin)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 8)
+	col.add_theme_constant_override("separation", 0)
 	margin.add_child(col)
-	col.add_child(_header())
+	var header := UiKit.header(RoomInfo.name_of(room_id), closed.emit)
+	if RoomInfo.name_of(room_id).length() > LONG_NAME:
+		(header.get_node("Title") as Label).add_theme_font_size_override("font_size", 26)
+	UiKit.back_of(header).tooltip_text = "Back to rooms"
+	col.add_child(header)
+	col.add_child(UiKit.spacer(10))
 	col.add_child(_preview())
-	col.add_child(_pills())
-	col.add_child(_pitch())
-	col.add_child(_stats())
-	var gap := Control.new()
-	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(gap)
-	var practice := Button.new()
-	practice.theme_type_variation = &"ActionButton"
-	practice.text = "Practice"
-	practice.icon = PLAY_ICON
-	practice.add_theme_font_size_override("font_size", 24)
-	practice.custom_minimum_size = Vector2(0, 60)
-	practice.focus_mode = Control.FOCUS_NONE
-	practice.disabled = _def == null or not RoomInfo.is_open(_profile, _def)
-	practice.pressed.connect(practice_pressed.emit.bind(room_id))
-	col.add_child(practice)
-	var note := Label.new()
-	note.theme_type_variation = &"SkyCaption"
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note.text = "Practice never counts for coins, best score or cleared rooms."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.custom_minimum_size = Vector2(280, 0)
-	col.add_child(note)
+	col.add_child(UiKit.spacer(14))
+	col.add_child(_card())
+	col.add_child(UiKit.spacer(8, true))
+	_practice = UiKit.primary(PLAY_ICON, "Practice")
+	_practice.disabled = not _is_open()
+	if _practice.disabled:
+		_practice.modulate.a = UiTokens.OPACITY_DISABLED
+	_practice.pressed.connect(practice_pressed.emit.bind(room_id))
+	col.add_child(_practice)
 
 
-func _header() -> Control:
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	var back := Button.new()
-	back.theme_type_variation = &"RoundButton"
-	back.icon = BACK_ICON
-	back.tooltip_text = "Back to rooms"
-	back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	back.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
-	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	back.focus_mode = Control.FOCUS_NONE
-	back.pressed.connect(closed.emit)
-	row.add_child(back)
-	var title := Label.new()
-	title.theme_type_variation = &"TitleLabel"
-	title.add_theme_font_size_override("font_size", 32)
-	title.text = RoomInfo.name_of(room_id)
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	var tilt := Tilt.new(title, -2.0)
-	tilt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(tilt)
-	return row
+func _is_open() -> bool:
+	return _def != null and RoomInfo.is_open(_profile, _def)
+
+
+## Why a locked room can't be practised yet ("Reach 90 points").
+func _reason() -> String:
+	if _def == null:
+		return ""
+	return RoomInfo.status(_profile, _def)
 
 
 func _preview() -> Control:
-	var card := PanelContainer.new()
-	card.theme_type_variation = &"StickerPanel"
-	card.add_theme_stylebox_override(
-		"panel", UiTheme.sticker(UiTokens.PANEL, UiTokens.RADIUS_M, UiTheme.DROP_SELECTED, 6)
-	)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var thumb := RoomThumb.new()
 	thumb.world = RoomInfo.preview_world(room_id)
 	thumb.glyph = RoomInfo.glyph(room_id)
+	thumb.radius = PREVIEW_RADIUS
 	thumb.custom_minimum_size = PREVIEW
-	card.add_child(thumb)
-	var tilt := Tilt.new(card, -1.5)
-	tilt.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return tilt
+	thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return thumb
 
 
-func _pills() -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+## The one paper card: group and start, the pitch, difficulty and clears, the note.
+func _card() -> Control:
+	var inner := float(UiTokens.SIZE_VIEWPORT_W - SIDE * 2 - CARD_PAD_X * 2)
+	var outer := MarginContainer.new()
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outer.add_theme_constant_override("margin_left", 6)
+	outer.add_theme_constant_override("margin_right", 6)
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_M, CARD_PAD_Y)
+	box.content_margin_left = CARD_PAD_X
+	box.content_margin_right = CARD_PAD_X
+	card.add_theme_stylebox_override("panel", box)
+	outer.add_child(card)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 10)
+	card.add_child(col)
+	var where := UiKit.label(_where(), &"MutedLabel", false)
+	where.add_theme_font_override("font", GameFonts.ui(800))
+	col.add_child(where)
+	var pitch := UiKit.label(RoomInfo.pitch(room_id), &"CaptionLabel", false)
+	pitch.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_BODY)
+	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pitch.custom_minimum_size = Vector2(inner, 0)
+	col.add_child(pitch)
+	col.add_child(_facts())
+	var foot := VBoxContainer.new()
+	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	var line := ColorRect.new()
+	line.color = UiTokens.EDGE
+	line.custom_minimum_size = Vector2(0, 2)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.add_child(line)
+	var note := UiKit.label(
+		"Practice never counts for coins, best score or cleared rooms.", &"MutedLabel", false
+	)
+	note.add_theme_font_override("font", GameFonts.ui(600))
+	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(inner, 0)
+	foot.add_child(note)
+	col.add_child(foot)
+	return outer
+
+
+## "Mid-game, from 30 points" (seasonal rooms: "October only, ...").
+func _where() -> String:
 	if _def == null:
-		return row
+		return ""
 	var first := RoomInfo.group_label(_def)
 	if _def.season != Seasons.NONE:
 		first = "%s only" % RoomInfo.season_name(_def)
-	for text in [first, "From %d points" % _def.from_score]:
-		var pill := PanelContainer.new()
-		pill.theme_type_variation = &"HintPill"
-		pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var l := Label.new()
-		l.theme_type_variation = &"StatusLabel"
-		l.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION + 1)
-		l.text = text
-		pill.add_child(l)
-		row.add_child(pill)
-	return row
+	if _def.from_score <= 0:
+		return "%s, from the start" % first
+	return "%s, from %d points" % [first, _def.from_score]
 
 
-func _pitch() -> Control:
-	var card := PanelContainer.new()
-	card.theme_type_variation = &"StickerPanel"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := Label.new()
-	l.theme_type_variation = &"CaptionLabel"
-	l.add_theme_font_size_override("font_size", 15)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.text = RoomInfo.pitch(room_id)
-	card.add_child(l)
-	var tilt := Tilt.new(card, 0.8)
-	tilt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return tilt
-
-
-func _stats() -> Control:
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	var diff := _stat_card("Difficulty", -1.0)
-	var pips := DifficultyPips.new(RoomInfo.difficulty(room_id))
+## The difficulty pips over "Difficulty 3 of 5", and the clears over "cleared".
+func _facts() -> Control:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 18)
+	var diff := VBoxContainer.new()
+	diff.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	diff.alignment = BoxContainer.ALIGNMENT_CENTER
+	diff.add_theme_constant_override("separation", 4)
+	var level := RoomInfo.difficulty(room_id)
+	var pips := DifficultyPips.new(level)
+	pips.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diff.add_child(pips)
-	var of := Label.new()
-	of.theme_type_variation = &"StatusLabel"
-	of.text = "%d of 5" % RoomInfo.difficulty(room_id)
-	diff.add_child(of)
-	grid.add_child(diff.get_parent().get_parent())
-	var cleared := _stat_card("Cleared in real runs", 1.0)
+	diff.add_child(UiKit.label("Difficulty %d of 5" % level, &"CaptionLabel", false))
+	row.add_child(diff)
+	var clears := VBoxContainer.new()
+	clears.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clears.add_theme_constant_override("separation", 0)
 	_cleared.theme_type_variation = &"NameLabel"
-	_cleared.add_theme_font_size_override("font_size", 28)
+	_cleared.add_theme_font_size_override("font_size", 22)
 	_cleared.text = cleared_text()
-	cleared.add_child(_cleared)
-	var hint := Label.new()
-	hint.theme_type_variation = &"MutedLabel"
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.text = "All 10 points survived"
-	cleared.add_child(hint)
-	grid.add_child(cleared.get_parent().get_parent())
-	return grid
-
-
-## A small sticker card with a caption; returns the column to fill.
-func _stat_card(caption: String, tilt: float) -> VBoxContainer:
-	var card := PanelContainer.new()
-	card.theme_type_variation = &"StickerPanel"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_theme_stylebox_override(
-		"panel", UiTheme.sticker(UiTokens.PANEL, UiTokens.RADIUS_M, UiTheme.DROP_CARD, 8)
-	)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 3)
-	var l := Label.new()
-	l.theme_type_variation = &"MutedLabel"
-	l.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
-	l.text = caption
-	box.add_child(l)
-	card.add_child(box)
-	var holder := Tilt.new(card, tilt)
-	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return box
+	_cleared.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clears.add_child(_cleared)
+	clears.add_child(UiKit.label("cleared", &"CaptionLabel", false))
+	row.add_child(clears)
+	if not _is_open():
+		# A locked room says why in place of its clears (it has none yet).
+		clears.visible = false
+		var locked := VBoxContainer.new()
+		locked.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		locked.add_theme_constant_override("separation", 0)
+		var head := UiKit.label("Locked", &"NameLabel", false)
+		head.add_theme_font_size_override("font_size", 22)
+		locked.add_child(head)
+		_why = UiKit.label(_reason(), &"CaptionLabel", false)
+		locked.add_child(_why)
+		row.add_child(locked)
+	return row
 
 
 func cleared_text() -> String:
 	var n := _profile.clears(room_id)
 	return "%d×" % n if n > 0 else "Not yet"
+
+
+## Why a locked room can't be practised ("" when it is open).
+func locked_reason() -> String:
+	return _why.text if _why != null else ""
+
+
+## The Practice button (disabled for locked rooms), for tests.
+func practice_button() -> Button:
+	return _practice

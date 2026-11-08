@@ -50,6 +50,9 @@ func _process(_delta: float) -> bool:
 			return true
 		_main.start_practice(_ids[_i])
 		return false
+	# The off-screen window has no focus, and the game pauses when focus goes.
+	if _main._run.paused:
+		_main._set_paused(false)
 	var sim: GameSim = _main._run.sim
 	if sim != null and not sim.is_over() and _bot.decide(sim):
 		_main._run.request_tap()

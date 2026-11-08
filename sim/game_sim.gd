@@ -143,12 +143,12 @@ func step(tap: bool) -> void:
 	state.tick += 1
 
 
-## The spikes a wall shows right now, with the exit opening kept free.
+## The spikes a wall shows right now. A wall with an open exit is spiked
+## everywhere except the opening(s): the exit is the only way through.
 func wall_mask(side: int) -> int:
-	var mask := room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
 	if state.exit_open and state.exit_side == side:
-		mask &= ~exit_slots()
-	return mask
+		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~exit_slots()
+	return room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
 
 
 ## Wall slots that overlap the open exit(s), so no spike sits in an opening.
@@ -250,9 +250,10 @@ func _check_spikes() -> void:
 	var r := SimConfig.BIRD_RADIUS
 	var left := room.wall_left()
 	var right := room.wall_right()
-	if state.x - r <= left + SimConfig.SPIKE_DEPTH and _hits_wall(0, left, 1):
+	var reach := RoomRuntime.TIDE_MAX_DEPTH
+	if state.x - r <= left + reach and _hits_wall(0, left, 1):
 		kill(SimState.DeathCause.SPIKE_LEFT)
-	elif state.x + r >= right - SimConfig.SPIKE_DEPTH and _hits_wall(1, right, -1):
+	elif state.x + r >= right - reach and _hits_wall(1, right, -1):
 		kill(SimState.DeathCause.SPIKE_RIGHT)
 
 
@@ -371,9 +372,10 @@ func _go_through(side: int, kind: int) -> void:
 	else:
 		state.x = room.wall_right() - r
 		state.vx = -SimConfig.SPEED_X
-	# Keep flying, but drop any upward speed: an exit high up while rising would
-	# otherwise throw the bird into the new room's ceiling.
-	state.vy = maxi(state.vy * room.def.gravity_sign, 0) * room.def.gravity_sign
+	# Come out flying level: no speed up or down, so a bird that fell into the
+	# exit doesn't drop straight into the new room's floor (or, rising, into
+	# its ceiling).
+	state.vy = 0
 	state.left_spikes = 0
 	state.right_spikes = 0
 	events.append(Event.ROOM_CHANGE)

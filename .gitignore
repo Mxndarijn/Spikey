@@ -6,6 +6,8 @@
 
 # Local tool config
 tools/godot_path.txt
+# Supabase project address + public key (docs/LEADERBOARD_SETUP.md)
+services/supabase_config.json
 
 # OS / editors
 .DS_Store

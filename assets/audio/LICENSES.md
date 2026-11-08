@@ -1,6 +1,6 @@
 # Audio licences
 
-Every file in this folder was made for Spikey. Nothing here comes from a third party.
+Every file in this folder was made for Flapjaw. Nothing here comes from a third party.
 
 | Files | Made with | Licence |
 | --- | --- | --- |

@@ -1,6 +1,6 @@
 class_name ItemChip
 extends Button
-## A sticker card on the home screen for the flyer or world in use: its picture,
+## A flat paper card for the flyer or world in use: its picture,
 ## a small "Flyer" or "World" label and the name. Tapping it opens that shop tab.
 
 const FLYER_PICTURE := 52.0
@@ -20,11 +20,13 @@ func _init(p_kind: String, id: String, world: ThemeDef) -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var what := "Flyer" if kind == Catalog.FLYER else "World"
 	tooltip_text = "Change %s" % what.to_lower()
-	var box := UiTheme.sticker(UiTokens.PANEL, UiTokens.RADIUS_M, UiTheme.DROP_CARD, 4)
+	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_M, 4)
 	for state in ["normal", "hover"]:
 		add_theme_stylebox_override(state, box)
 	for state in ["pressed", "hover_pressed"]:
-		add_theme_stylebox_override(state, box.pressed())
+		add_theme_stylebox_override(
+			state, UiTheme.flat(UiTheme.SELECTED_FILL, UiTokens.RADIUS_M, 4)
+		)
 	_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 4)
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_row.add_theme_constant_override("separation", UiTokens.SPACE_2)
@@ -40,6 +42,7 @@ func _init(p_kind: String, id: String, world: ThemeDef) -> void:
 		thumb.custom_minimum_size = Vector2(FLYER_PICTURE, FLYER_PICTURE)
 	else:
 		thumb.custom_minimum_size = WORLD_PICTURE
+		thumb.outlined = false
 		thumb.world = Catalog.world(id) if Catalog.world(id) != null else world
 	_row.add_child(thumb)
 	var text := VBoxContainer.new()

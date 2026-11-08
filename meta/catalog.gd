@@ -62,17 +62,11 @@ static func trails() -> Array[TrailStyle]:
 	return _trails
 
 
-## Exit portal looks, in display order. A new style is one line here (see
-## PortalStyle).
+## Exit portal looks, in display order, Match my world first. A new style is
+## one line in PortalStyle.STYLES.
 static func portals() -> Array[PortalStyle]:
 	if _portals.is_empty():
-		_portals = [
-			PortalStyle.cloud_hole(),
-			PortalStyle.ink_splat(),
-			PortalStyle.feather_ring(),
-			PortalStyle.breakout_crack(),
-			PortalStyle.ripple_mirror(),
-		]
+		_portals = PortalStyle.all()
 	return _portals
 
 

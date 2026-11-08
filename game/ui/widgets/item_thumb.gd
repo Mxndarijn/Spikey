@@ -1,15 +1,20 @@
 class_name ItemThumb
 extends Control
-## A small picture of an item (Sticker Pop): a flyer on its own, or a mini room
-## (rounded, ink outline) in a world's sky with its glow and spike rows, with an
-## optional flyer, trail or exit portal (on the right wall) in it, or a music
-## record. Drawn from the world's own tokens, so new and paid worlds need no
-## extra art.
+## A small picture of an item: a flyer on its own, or a mini room (rounded,
+## flat, or with an ink outline) in a world's sky with its glow and spike rows,
+## with an optional flyer, trail or exit portal (on the right wall) in it, or a
+## music record. `open` leaves the room out (the trail, flyer and portal drawn
+## straight on the live room: the Customize preview); `scenic` is the item
+## popup's clean picture (the sky, a far hill, the flyer big with three puffs).
+## Drawn from the world's own tokens, so new and paid worlds need no extra art.
 
 const BORDER := 3.0
 const CORNER := 10.0
 const SPIKE_W := 14.0
 const SPIKE_H := 9.0
+const SCENIC_CORNER := 18.0
+## The popup flyer's body on the 264 x 160 canvas (big: 64 px across).
+const SCENIC_BODY := 64.0
 
 var world: ThemeDef:
 	set(value):
@@ -42,6 +47,21 @@ var bare := false:
 	set(value):
 		bare = value
 		queue_redraw()
+## The ink outline round the mini room (the minimal kit's tiles go without).
+var outlined := true:
+	set(value):
+		outlined = value
+		queue_redraw()
+## No mini room: the trail, flyer and portal on a clear background.
+var open := false:
+	set(value):
+		open = value
+		queue_redraw()
+## The popup picture: the world's sky with a far hill and the flyer big.
+var scenic := false:
+	set(value):
+		scenic = value
+		queue_redraw()
 
 
 func _init() -> void:
@@ -55,6 +75,9 @@ func _draw() -> void:
 		return
 	var a := UiTokens.OPACITY_DISABLED if dimmed else 1.0
 	var r := Rect2(Vector2.ZERO, size)
+	if scenic:
+		_draw_scenic(a)
+		return
 	if bare:
 		if flyer != null:
 			var s := minf(size.x, size.y)
@@ -62,7 +85,8 @@ func _draw() -> void:
 				flyer, Rect2((size - Vector2(s, s)) / 2.0, Vector2(s, s)), false, Color(1, 1, 1, a)
 			)
 		return
-	_room(r.grow(-BORDER / 2.0), a)
+	if not open:
+		_room(r.grow(-BORDER / 2.0), a)
 	if portal != null:
 		var door := portal.draw_thumb(self, r, world, a)
 		if trail == null and flyer == null:
@@ -79,7 +103,40 @@ func _draw() -> void:
 			# The flyer leads its trail (the loadout pictures).
 			at = head - Vector2(s * 0.45, s * 0.55)
 		draw_texture_rect(flyer, Rect2(at, Vector2(s, s)), false, Color(1, 1, 1, a))
-	_outline(r.grow(-BORDER / 2.0), Color(UiTokens.INK_LINE, a))
+	if outlined and not open:
+		_outline(r.grow(-BORDER / 2.0), Color(UiTokens.INK_LINE, a))
+
+
+## The popup picture (laid out on a 264 x 160 canvas, scaled to fit): the sky
+## top to bottom in rounded corners, a far hill, three white puffs growing
+## toward the flyer, and the flyer big.
+func _draw_scenic(a: float) -> void:
+	var r := Rect2(Vector2.ZERO, size)
+	var frame := _rounded(r, SCENIC_CORNER)
+	var cols := PackedColorArray()
+	for p in frame:
+		cols.append(Color(_sky_at(p.y / size.y), a))
+	draw_polygon(frame, cols)
+	var hill := PackedVector2Array()
+	for i in 17:
+		var x := size.x * i / 16.0
+		var t := x / size.x
+		hill.append(Vector2(x, size.y * (0.8 - 0.07 * sin(t * PI * 1.6 + 0.4))))
+	hill.append(Vector2(size.x + 1.0, size.y + 1.0))
+	hill.append(Vector2(-1.0, size.y + 1.0))
+	for part in Geometry2D.intersect_polygons(hill, frame):
+		draw_colored_polygon(part, Color(world.hill_far, a))
+	var k := minf(size.x / 264.0, size.y / 160.0)
+	var o := (size - Vector2(264.0, 160.0) * k) / 2.0
+	for puff: Vector3 in [Vector3(70, 104, 4), Vector3(92, 96, 6), Vector3(114, 88, 8)]:
+		var op := 0.3 + (puff.z - 4.0) * 0.0875
+		draw_circle(o + Vector2(puff.x, puff.y) * k, puff.z * k, Color(1, 1, 1, op * a))
+	if flyer != null:
+		var s := SCENIC_BODY * BirdView.ART_CANVAS / 64.0 * k
+		var c := o + Vector2(150, 76) * k
+		draw_texture_rect(
+			flyer, Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color(1, 1, 1, a)
+		)
 
 
 ## The sky (mid stop at 55%), the glow and spike rows, in a rounded rectangle.

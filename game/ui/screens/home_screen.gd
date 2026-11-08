@@ -1,45 +1,45 @@
 class_name HomeScreen
 extends Control
-## The main menu over the live room (Sticker Pop): the Leaderboard button
-## (best score and today's rank in one sticker), the coins and a gear for the
-## sound settings, the tilted
-## wordmark ("Spikey"), the flyer
-## bobbing in the room, one loadout card (flyer, world and trail; tap it to
-## customize), then a big
-## gold Play button between round white Rooms and Shop buttons.
+## The main menu over the live room, with no boxes: the coin balance top
+## right, the "flapjaw" wordmark, "Best 87, #14 today" under it, the flyer in
+## use bobbing big in the middle of the room with its puff trail, and the
+## cradle dock at the bottom: Rooms, Style | Play | #rank, Settings.
+## Settings opens the settings sheet over Home.
 
 signal play_pressed
-## The Shop button: opens Customize too.
+## Style (the dock): opens Customize on a tab.
 signal shop_pressed(tab: String)
-## The loadout card: opens Customize.
+## Kept for main: opens Customize on Flyers.
 signal customize_pressed
 signal rooms_pressed
-## The Best / Rank sticker: opens the leaderboards.
+## The #rank item: opens the leaderboards.
 signal leaderboard_pressed
-## A sound setting changed in the gear's popup (already in the profile):
-## main saves it and applies it.
+## A setting changed in the settings sheet (already in the profile): main
+## saves it and applies it.
 signal settings_changed
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const SHOP_ICON := preload("res://assets/ui/icons/shop.svg")
+const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
 const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
 const SETTINGS_ICON := preload("res://assets/ui/icons/settings.svg")
-## Rooms and Shop sit either side of Play as labelled round buttons.
-const SIDE_BUTTON := 68.0
-const PLAY_HEIGHT := 72.0
-const PLAY_FONT := 30
-## The wordmark: one word, ending above the flyer bobbing at the start height
-## (tests/unit/test_screen_fit.gd).
-const LOGO_SIZE := 72
-const LOGO_TILT := -4.0
-const CARD_TILT := -1.0
+const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
+## The wordmark: one word, wide Archivo 900, ending well above the flyer.
+const WORDMARK := "flapjaw"
+const LOGO_TOP := 118.0
+## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
+const LOGO_SIZE := 64
+const STATS_TOP := 236.0
+## The flyer's centre and body size on Home (bigger than in a run).
+const FLYER_CENTER := Vector2(196, 346)
+const FLYER_BODY := 52.0
 
 var _profile: Profile
-var _loadout: LoadoutCard
-var _logo: Tilt
-var _rank: RankButton
+var _logo: Label
+var _stats: Label
+var _flyer: FlyerArt
+var _dock: Dock
 var _daily_rank := 0
-var _settings: SoundSettings
+var _settings: SettingsSheet
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -50,171 +50,120 @@ func _init(profile: Profile, daily_rank: int = 0) -> void:
 
 
 func _ready() -> void:
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", UiTokens.SPACE_4 + 4)
-	margin.add_theme_constant_override("margin_right", UiTokens.SPACE_4 + 4)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6)
-	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_7 + 2)
-	add_child(margin)
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	margin.add_child(col)
-
-	var top := HBoxContainer.new()
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rank = RankButton.new(_profile.best_score, _daily_rank)
-	_rank.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_rank.pressed.connect(leaderboard_pressed.emit)
-	top.add_child(_rank)
-	var fill := Control.new()
-	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(fill)
 	var coins := CoinPill.new()
 	coins.set_amount(_profile.coins)
-	coins.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# Coins and the gear sit close together; the row has no other gaps (the
-	# filler spaces it), so it fits 360 px next to the Leaderboard button.
-	var corner := HBoxContainer.new()
-	corner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	corner.add_theme_constant_override("separation", UiTokens.SPACE_1 + 2)
-	corner.add_child(coins)
-	var gear := Button.new()
-	gear.theme_type_variation = &"RoundButton"
-	gear.icon = SETTINGS_ICON
-	gear.tooltip_text = "Sound settings"
-	gear.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gear.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
-	gear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	gear.focus_mode = Control.FOCUS_NONE
-	gear.pressed.connect(open_settings)
-	corner.add_child(gear)
-	top.add_theme_constant_override("separation", 0)
-	top.add_child(corner)
-	col.add_child(top)
+	coins.name = "Coins"
+	add_child(coins)
+	coins.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	coins.offset_left -= 20
+	coins.offset_right -= 20
+	coins.offset_top = 50
+	coins.offset_bottom = 50 + CoinPill.ICON_SIZE
 
-	_logo = Tilt.new(_wordmark(), LOGO_TILT)
-	_logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(_logo)
+	_logo = _row_label(WORDMARK, &"LogoLabel", LOGO_TOP)
+	_logo.add_theme_font_size_override("font_size", LOGO_SIZE)
+	_stats = _row_label(stats_text(_profile.best_score, _daily_rank), &"SkyCaption", STATS_TOP)
 
-	# Room for the flyer, which bobs in the middle of the room behind the menu.
-	var gap := Control.new()
-	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(gap)
+	var character := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+	if character == null:
+		character = Catalog.flyers()[0]
+	_flyer = FlyerArt.new(character.idle, FLYER_BODY)
+	_flyer.name = "Flyer"
+	var box := _flyer.custom_minimum_size
+	_flyer.position = FLYER_CENTER - Vector2(box.x / 2.0 + FLYER_BODY * 0.3, box.y / 2.0)
+	_flyer.size = box
+	add_child(_flyer)
 
-	_loadout = LoadoutCard.new(_profile)
-	_loadout.pressed.connect(customize_pressed.emit)
-	var card := Tilt.new(_loadout, CARD_TILT)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(card)
-
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, UiTokens.SPACE_3)
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(spacer)
-
-	var bottom := HBoxContainer.new()
-	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bottom.add_theme_constant_override("separation", 10)
-	var rooms := _side_button(ROOMS_ICON, "Rooms")
-	(rooms.get_child(0) as Button).pressed.connect(rooms_pressed.emit)
-	bottom.add_child(rooms)
-	var play := Button.new()
-	play.theme_type_variation = &"ActionButton"
-	play.text = "Play"
-	play.icon = PLAY_ICON
-	play.add_theme_font_size_override("font_size", PLAY_FONT)
-	_big_drop(play, UiTokens.ACTION, UiTheme.BORDER_BOLD)
-	play.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	play.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	play.custom_minimum_size = Vector2(0, PLAY_HEIGHT)
-	play.focus_mode = Control.FOCUS_NONE
-	play.pressed.connect(play_pressed.emit)
-	bottom.add_child(play)
-	var shop := _side_button(SHOP_ICON, "Shop")
-	(shop.get_child(0) as Button).pressed.connect(shop_pressed.emit.bind(Catalog.FLYER))
-	bottom.add_child(shop)
-	col.add_child(bottom)
+	_dock = (
+		Dock
+		. new(
+			[
+				{"id": "rooms", "icon": ROOMS_ICON, "text": "Rooms"},
+				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
+			],
+			[
+				{"id": "rank", "icon": TROPHY_ICON, "text": rank_text(), "tip": "Leaderboards"},
+				{"id": "settings", "icon": SETTINGS_ICON, "text": "Settings"},
+			],
+			{"id": "play", "icon": PLAY_ICON, "text": "Play"}
+		)
+	)
+	_dock.pressed.connect(_on_dock)
+	add_child(_dock)
 
 
-## The gear: the sound settings popup over the home screen.
-func open_settings() -> SoundSettings:
+func _row_label(text: String, variation: StringName, top: float) -> Label:
+	var l := UiKit.label(text, variation)
+	add_child(l)
+	l.anchor_right = 1.0
+	l.offset_top = top
+	l.offset_bottom = top + l.get_combined_minimum_size().y
+	return l
+
+
+func _on_dock(id: String) -> void:
+	match id:
+		"play":
+			play_pressed.emit()
+		"rooms":
+			rooms_pressed.emit()
+		"style":
+			shop_pressed.emit(Catalog.FLYER)
+		"rank":
+			leaderboard_pressed.emit()
+		"settings":
+			open_settings()
+
+
+## "Best 87, #14 today"; just "Best 87" before today's first ranked run.
+static func stats_text(best: int, rank: int) -> String:
+	if rank > 0:
+		return "Best %d, #%d today" % [best, rank]
+	return "Best %d" % best
+
+
+## The dock's leaderboard item: today's rank, or "Ranks" without one.
+func rank_text() -> String:
+	return "#%d" % _daily_rank if _daily_rank > 0 else "Ranks"
+
+
+## The settings sheet over Home (the dock's Settings).
+func open_settings() -> SettingsSheet:
 	if _settings == null:
-		_settings = SoundSettings.new(_profile)
+		_settings = SettingsSheet.new(_profile)
 		_settings.changed.connect(settings_changed.emit)
 		_settings.closed.connect(func() -> void: _settings = null)
 		add_child(_settings)
 	return _settings
 
 
-func settings() -> SoundSettings:
+func settings() -> SettingsSheet:
 	return _settings
 
 
-## "Spikey" in white, outlined with an ink drop.
-func _wordmark() -> Control:
-	var l := Label.new()
-	l.theme_type_variation = &"LogoLabel"
-	l.add_theme_font_size_override("font_size", LOGO_SIZE)
-	l.text = "Spikey"
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
-
-
-## A round white button with its name under it (Rooms, Shop).
-func _side_button(icon: Texture2D, label: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 6)
-	var b := Button.new()
-	b.theme_type_variation = &"RoundButton"
-	b.icon = icon
-	b.tooltip_text = label
-	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	b.add_theme_constant_override("icon_max_width", 30)
-	_big_drop(b, UiTokens.PANEL, UiTheme.BORDER)
-	b.custom_minimum_size = Vector2(SIDE_BUTTON, SIDE_BUTTON)
-	b.focus_mode = Control.FOCUS_NONE
-	box.add_child(b)
-	var l := Label.new()
-	l.theme_type_variation = &"SkyCaption"
-	l.text = label
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(l)
-	return box
-
-
-## Play and Shop drop 6px straight down, like the board's big buttons.
-func _big_drop(b: Button, fill: Color, border: int) -> void:
-	var box := UiTheme.sticker(fill, UiTokens.RADIUS_PILL, Vector2(0, 6), 8, border)
-	b.add_theme_stylebox_override("normal", box)
-	b.add_theme_stylebox_override("hover", box)
-	b.add_theme_stylebox_override("pressed", box.pressed())
-	b.add_theme_stylebox_override("hover_pressed", box.pressed())
-
-
-## The wordmark (tilted), for tests.
+## The wordmark, for tests.
 func logo() -> Control:
 	return _logo
 
 
-## Today's rank arrived (or changed): shows it on the Leaderboard button.
+## The big flyer, for tests.
+func flyer() -> FlyerArt:
+	return _flyer
+
+
+func dock() -> Dock:
+	return _dock
+
+
+func stats_line() -> String:
+	return _stats.text
+
+
+## Today's rank arrived (or changed): shows it under the wordmark and in the dock.
 func set_daily_rank(rank: int) -> void:
 	_daily_rank = rank
-	if _rank != null:
-		_rank.set_rank(rank)
-
-
-## The Leaderboard button (best score and today's rank), for tests.
-func rank_button() -> RankButton:
-	return _rank
-
-
-## The loadout card (flyer, world and trail in use), for tests.
-func loadout() -> LoadoutCard:
-	return _loadout
+	if _stats != null:
+		_stats.text = stats_text(_profile.best_score, rank)
+	if _dock != null:
+		_dock.set_text("rank", rank_text())

@@ -77,6 +77,10 @@ func _process(delta: float) -> void:
 	var s := _run.sim.state
 	var t := Engine.get_physics_interpolation_fraction()
 	var prev := _run.prev_state
+	# Going through a portal moves the bird to the other wall in one step: show it
+	# there at once instead of sliding it across the room.
+	if absi(s.x - prev.x) > SimConfig.WORLD_W / 2:
+		t = 1.0
 	var px := lerpf(prev.x, s.x, t) / SimConfig.SUB
 	var py := lerpf(prev.y, s.y, t) / SimConfig.SUB
 	if not s.started:

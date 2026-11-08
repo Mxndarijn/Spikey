@@ -23,7 +23,14 @@ const ROOMS := {
 	"open": ["Open Sky", "The cage at its simplest: two spike walls and you.", 1, "sunset", ""],
 	"crowded": ["Crowded", "Open Sky with more spikes on every wall.", 2, "sunset", "extra"],
 	"narrow": ["Narrow", "Open Sky, but the gaps between spikes are smaller.", 2, "ice", "extra"],
-	"tide": ["Tide Spikes", "Wall spikes breathe in and out like a tide.", 2, "deepsea", "extra"],
+	"tide":
+	[
+		"Tide Spikes",
+		"Wall spikes breathe in and out, extra long at high tide.",
+		2,
+		"deepsea",
+		"extra"
+	],
 	"isles":
 	[
 		"Floating Isles",
@@ -51,7 +58,7 @@ const ROOMS := {
 	"crawl":
 	["Caterpillar Crawl", "Spiky caterpillars walk the edges of the cage.", 3, "jungle", "crawl"],
 	"garden":
-	["Coin Garden", "Four coins and almost no spikes. Grab them all.", 1, "jungle", "coins"],
+	["Coin Garden", "Four coins and only a few spikes. Grab them all.", 1, "jungle", "coins"],
 	"bramble": ["Bramble Ball", "A big thorny ball ricochets around the room.", 3, "ice", "ball"],
 	"squeeze":
 	["Squeeze Box", "The walls creep inward while you play this room.", 4, "desert", "extra"],

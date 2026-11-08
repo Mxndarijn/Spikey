@@ -14,7 +14,11 @@ extends RefCounted
 ## 6: room tuning from playtests (fairer gates, stalactites, saw ring, beams,
 ##    updraft, pads); the bird comes out of a portal in the opposite wall and
 ##    keeps flying the same way; the open first room never comes back.
-const GAMEPLAY_VERSION := 6
+## 7: a wall with an open exit has spikes everywhere except the opening(s);
+##    the bird comes out of a portal flying level (no speed up or down).
+## 8: Coin Garden allows up to three spikes per wall (was one).
+## 9: Tide Spikes slide out to 1.5 times a normal spike (was 1 times).
+const GAMEPLAY_VERSION := 9
 const TICKS_PER_SECOND := 60
 const SUB := 64
 

@@ -16,6 +16,17 @@ const WORLD_TOKENS: Array[String] = [
 	"trail",
 	"particle",
 ]
+## Extra colours for the flat layered room scenes (data/design/world_scenes.json).
+const SCENE_TOKENS: Array[String] = [
+	"sun-ring",
+	"cloud",
+	"hill-far",
+	"hill-mid",
+	"hill-near",
+	"prop",
+	"ink",
+	"paper",
+]
 
 @export var id := ""
 @export var display_name := ""
@@ -30,6 +41,21 @@ const WORLD_TOKENS: Array[String] = [
 @export var world_accent := Color.WHITE
 @export var trail := Color.WHITE
 @export var particle := Color.WHITE
+## Scene colours: the ring around the sun or moon, clouds, the far, middle and
+## near hill layers, props (trees and the like), and the world's text (ink) and
+## chip (paper) colours.
+@export var sun_ring := Color.WHITE
+@export var cloud := Color.WHITE
+@export var hill_far := Color.WHITE
+@export var hill_mid := Color.WHITE
+@export var hill_near := Color.WHITE
+@export var prop := Color.BLACK
+@export var ink := Color.BLACK
+@export var paper := Color.WHITE
+## Where the sky blend from top to mid ends, as a fraction of the room height.
+@export var sky_split := 0.62
+## Night worlds have stars and a moon instead of a sun.
+@export var night := false
 ## Extra times of day. Room 0 uses the base sky, then each palette in turn.
 @export var room_palettes: Array[RoomPalette] = []
 ## Shop data for paid and seasonal worlds (Phase 2).
@@ -59,6 +85,6 @@ func all_sky_stops() -> Array[Color]:
 	return out
 
 
-## A world token by its design-kit name, e.g. "spike-edge".
+## A world or scene token by its design-kit name, e.g. "spike-edge" or "hill-far".
 func token(token_name: String) -> Color:
 	return get(token_name.replace("-", "_"))

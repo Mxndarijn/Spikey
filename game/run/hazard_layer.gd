@@ -5,13 +5,27 @@ extends Node2D
 ##   static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float)
 ## Rule from the design kit: anything deadly is drawn in the world's spike
 ## color; safe things (bumpers, bubbles, coins) never are.
+## Color-blind spikes (Settings): painters get a copy of the world whose spike
+## colour is ink and whose spike-edge is white, so deadly things turn dark with
+## white edges, like RoomView's spikes.
 
 const PAINTER_DIR := "res://game/run/painters"
+## Marks the color-blind copy of a world (the shared shapes add a white outline).
+const INK_META := &"color_blind_spikes"
+const INK_EDGE := Color("#FFFFFF")
+const INK_LINE_W := 2.0
 
 static var _painters := {}
 
+## Color-blind spikes: hazards in ink with white edges.
+var color_blind_spikes := false:
+	set(value):
+		color_blind_spikes = value
+		queue_redraw()
+
 var _run: RunController
 var _theme: ThemeDef
+var _ink_theme: ThemeDef
 var _time := 0.0
 
 
@@ -21,13 +35,27 @@ func _ready() -> void:
 
 func bind(run: RunController, theme: ThemeDef) -> void:
 	_run = run
-	_theme = theme
-	queue_redraw()
+	set_theme(theme)
 
 
 func set_theme(theme: ThemeDef) -> void:
 	_theme = theme
+	_ink_theme = ink_theme(theme)
 	queue_redraw()
+
+
+## The world as color-blind spikes draw it: ink spikes with a white edge.
+static func ink_theme(theme: ThemeDef) -> ThemeDef:
+	var t: ThemeDef = theme.duplicate()
+	t.spike = RoomView.INK_SPIKE
+	t.spike_edge = INK_EDGE
+	t.set_meta(INK_META, true)
+	return t
+
+
+## The world the painters get (the ink copy when color-blind spikes are on).
+func drawn_theme() -> ThemeDef:
+	return _ink_theme if color_blind_spikes else _theme
 
 
 static func painter_path(kind: String) -> String:
@@ -53,12 +81,13 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if _run == null or _run.sim == null or _theme == null:
 		return
+	var theme := drawn_theme()
 	for h in _run.sim.room.hazards:
 		if not h.alive:
 			continue
 		var p := painter(h.kind)
 		if p != null:
-			p.paint(self, h, _theme, _time)
+			p.paint(self, h, theme, _time)
 
 
 ## Sub-units to pixels.
@@ -82,7 +111,10 @@ static func spiky_ball(
 		pts.append(center + Vector2.RIGHT.rotated(a) * rr)
 	c.draw_colored_polygon(pts, theme.spike)
 	pts.append(pts[0])
-	c.draw_polyline(pts, theme.spike, 1.0, true)
+	if theme.has_meta(INK_META):
+		c.draw_polyline(pts, INK_EDGE, INK_LINE_W, true)
+	else:
+		c.draw_polyline(pts, theme.spike, 1.0, true)
 	c.draw_circle(center, r * 0.55, Color(theme.spike_edge, 0.55))
 
 
@@ -93,5 +125,10 @@ static func rock_box(c: CanvasItem, rect: Rect2, theme: ThemeDef, alpha: float =
 	box.set_corner_radius_all(int(minf(8.0, rect.size.y / 2.0)))
 	box.border_color = Color(theme.spike_edge, 0.8 * alpha)
 	box.border_width_top = 3
+	if theme.has_meta(INK_META):
+		# Color-blind spikes: a white edge all round.
+		box.border_color = Color(INK_EDGE, alpha)
+		box.set_border_width_all(int(INK_LINE_W))
+		box.border_width_top = 3
 	box.anti_aliasing = true
 	box.draw(c.get_canvas_item(), rect)

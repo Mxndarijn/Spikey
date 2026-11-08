@@ -17,6 +17,17 @@ func _profile(best: int = 87) -> Profile:
 	return p
 
 
+## Sample boards plus a fake run store: request_run answers with a tiny run.
+class RunService:
+	extends SampleLeaderboard
+	var asked := 0
+
+	func request_run(run_id: int) -> void:
+		asked = run_id
+		var run := {"run": run_id, "seed": 5, "taps": [3, 9], "gameplay_version": 1, "loadout": {}}
+		_deliver_run.call_deferred(run_id, run)
+
+
 func _tree() -> SceneTree:
 	return Engine.get_main_loop() as SceneTree
 
@@ -162,7 +173,7 @@ func test_screen_loads_then_shows_podium_list_and_your_row() -> void:
 	var service := SampleLeaderboard.new(p)
 	service.submit_run(87)
 	var screen := _screen(p, service)
-	assert_eq(screen.tab_names(), ["Daily", "Tier", "All-time", "Friends"])
+	assert_eq(screen.tab_names(), ["Daily", "All-time"])
 	assert_eq(screen.board_id(), LeaderboardService.DAILY, "opens on Daily")
 	assert_eq(screen.view, LeaderboardScreen.View.LOADING, "loading first")
 	await _tree().process_frame
@@ -181,21 +192,30 @@ func test_tabs_switch_boards() -> void:
 	var service := SampleLeaderboard.new(p)
 	var screen := _screen(p, service)
 	await _tree().process_frame
-	screen.select_board(LeaderboardService.TIER)
+	screen.select_board(LeaderboardService.ALL_TIME)
 	assert_eq(screen.view, LeaderboardScreen.View.LOADING)
 	await _tree().process_frame
-	assert_eq(screen.board().id, LeaderboardService.TIER)
-	assert_true(screen.caption_text().begins_with("Silver tier"), screen.caption_text())
-	screen.select_board(LeaderboardService.FRIENDS)
-	await _tree().process_frame
-	assert_eq(screen.view, LeaderboardScreen.View.SIGNED_OUT, "friends need a sign-in")
-	screen._sign_in()
-	await _tree().process_frame
-	assert_eq(screen.view, LeaderboardScreen.View.BOARD, "signed in, friends show")
+	assert_eq(screen.board().id, LeaderboardService.ALL_TIME)
+	assert_true(screen.caption_text().begins_with("Best run per player"), screen.caption_text())
+	screen.select_board(LeaderboardService.TIER)
+	assert_eq(screen.board_id(), LeaderboardService.ALL_TIME, "tier is not a tab for now")
 	service.online = false
-	screen.select_board(LeaderboardService.ALL_TIME)
+	screen.select_board(LeaderboardService.DAILY)
 	await _tree().process_frame
 	assert_eq(screen.view, LeaderboardScreen.View.OFFLINE)
+	_free(screen)
+
+
+## The signed-out card still works for when Friends comes back.
+func test_signed_out_card_signs_in() -> void:
+	var p := _profile()
+	var service := SampleLeaderboard.new(p)
+	var screen := _screen(p, service)
+	await _tree().process_frame
+	screen.show_board(service.build_board(LeaderboardService.FRIENDS))
+	assert_eq(screen.view, LeaderboardScreen.View.SIGNED_OUT)
+	screen._sign_in()
+	assert_true(service.is_signed_in())
 	_free(screen)
 
 
@@ -251,15 +271,17 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	p.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
+	# Sample boards, whatever services/supabase_config.json says on this machine.
+	main.leaderboard = SampleLeaderboard.new(p)
 	_tree().root.add_child(main)
 	var home := main._menus.current() as HomeScreen
 	assert_true(home != null, "starts on home")
 	if home == null:
 		main.free()
 		return
-	var button := home.rank_button()
-	assert_eq(button.best_text(), "87")
-	assert_eq(button.rank_text(), "#–", "no run today yet")
+	assert_eq(home.stats_line(), "Best 87", "no run today yet")
+	var button := home.dock().button("rank")
+	assert_eq(button.text, "Ranks", "the dock's leaderboard item")
 	assert_true(button.get_combined_minimum_size().y >= UiTokens.SIZE_TAP_MIN, "big enough to tap")
 	main.leaderboard.submit_run(87)
 	home.leaderboard_pressed.emit()
@@ -271,6 +293,34 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	assert_true(home != null, "back goes home")
 	if home != null:
 		var want := main.leaderboard.cached_rank(LeaderboardService.DAILY) as int
-		assert_eq(home.rank_button().rank_text(), "#%d" % want, "today's rank on home")
+		var shown := "#%d" % want if want > 0 else "Ranks"
+		assert_eq(home.dock().button("rank").text, shown, "today's rank on home")
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
+
+
+func test_tapping_a_score_with_a_replay_opens_the_sheet_and_hands_over_the_run() -> void:
+	var p := _profile()
+	var service := RunService.new(p)
+	service.submit_run(87)
+	var screen := _screen(p, service)
+	await _tree().process_frame
+	var b := service.build_board(LeaderboardService.DAILY)
+	b.entries[4].run_id = 41
+	screen.show_board(b)
+	screen.open_replay(b.entries[5])
+	assert_true(screen.replay_sheet() == null, "a run without a stored replay opens nothing")
+	screen.open_replay(b.entries[4])
+	assert_true(screen.replay_sheet() != null, "the sheet opens")
+	var got: Array[Dictionary] = []
+	screen.replay_requested.connect(func(run: Dictionary) -> void: got.append(run))
+	var watch := Button.new()
+	screen._watch(watch)
+	watch.free()
+	assert_eq(service.asked, 41, "asks the service for that run")
+	await _tree().process_frame
+	assert_eq(got.size(), 1, "the run is handed over for playback")
+	if got.size() == 1:
+		assert_eq(got[0].get("seed"), 5)
+	assert_true(screen.replay_sheet() == null, "the sheet closes")
+	_free(screen)

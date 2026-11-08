@@ -5,6 +5,7 @@ extends SceneTree
 ##   data/design/tokens.json        copy of the design kit's project/tokens.json
 ##   data/design/room_palettes.json extra times of day per world
 ##   data/design/extra_worlds.json  worlds beyond the kit (paid, seasonal)
+##   data/design/world_scenes.json  scene colours per world (hills, clouds, props)
 ## Writes:
 ##   game/style/ui_tokens.gd        UI tokens, spacing, radius, sizes, font sizes
 ##   data/themes/<id>.tres          one ThemeDef per world
@@ -13,6 +14,7 @@ extends SceneTree
 const TOKENS := "res://data/design/tokens.json"
 const PALETTES := "res://data/design/room_palettes.json"
 const EXTRA := "res://data/design/extra_worlds.json"
+const SCENES := "res://data/design/world_scenes.json"
 const UI_OUT := "res://game/style/ui_tokens.gd"
 const THEME_DIR := "res://data/themes"
 
@@ -21,11 +23,14 @@ func _initialize() -> void:
 	var tokens: Dictionary = _read_json(TOKENS)
 	var palettes: Dictionary = _read_json(PALETTES)
 	var extra: Dictionary = _read_json(EXTRA)
+	var scenes: Dictionary = _read_json(SCENES)
 	if tokens.is_empty():
 		quit(1)
 		return
 	_write_ui_tokens(tokens)
-	var written := _write_themes(tokens, palettes, extra.get("worlds", []))
+	var written := _write_themes(
+		tokens, palettes, extra.get("worlds", []), scenes.get("worlds", {})
+	)
 	for file in DirAccess.get_files_at(THEME_DIR):
 		if file.ends_with(".tres") and file.get_basename() not in written:
 			print("note: %s is not in the design data any more; delete it if unused" % file)
@@ -66,7 +71,10 @@ static func collect_worlds(tokens: Dictionary, extra_worlds: Array) -> Array[Dic
 	return out
 
 
-static func build_theme(world: Dictionary, order: int, palettes: Dictionary) -> ThemeDef:
+## `scenes` is world_scenes.json's "worlds": {id: {sun-ring, cloud, hill-far, ...}}.
+static func build_theme(
+	world: Dictionary, order: int, palettes: Dictionary, scenes: Dictionary = {}
+) -> ThemeDef:
 	var t := ThemeDef.new()
 	t.id = world.id
 	t.display_name = world.name
@@ -77,6 +85,12 @@ static func build_theme(world: Dictionary, order: int, palettes: Dictionary) -> 
 	for token_name in ThemeDef.WORLD_TOKENS:
 		if world.tokens.has(token_name):
 			t.set(token_name.replace("-", "_"), world.tokens[token_name])
+	var scene: Dictionary = scenes.get(world.id, {})
+	for token_name in ThemeDef.SCENE_TOKENS:
+		if scene.has(token_name):
+			t.set(token_name.replace("-", "_"), Color(scene[token_name]))
+	t.sky_split = float(scene.get("sky-split", t.sky_split))
+	t.night = bool(scene.get("night", false))
 	var list: Array[RoomPalette] = []
 	for p: Dictionary in palettes.get(world.id, []):
 		var rp := RoomPalette.new()
@@ -91,12 +105,14 @@ static func build_theme(world: Dictionary, order: int, palettes: Dictionary) -> 
 	return t
 
 
-func _write_themes(tokens: Dictionary, palettes: Dictionary, extra_worlds: Array) -> Array[String]:
+func _write_themes(
+	tokens: Dictionary, palettes: Dictionary, extra_worlds: Array, scenes: Dictionary
+) -> Array[String]:
 	DirAccess.make_dir_recursive_absolute(THEME_DIR)
 	var written: Array[String] = []
 	var worlds := collect_worlds(tokens, extra_worlds)
 	for i in worlds.size():
-		var t := build_theme(worlds[i], i, palettes)
+		var t := build_theme(worlds[i], i, palettes, scenes)
 		var err := ResourceSaver.save(t, THEME_DIR.path_join(t.id + ".tres"))
 		if err != OK:
 			printerr("could not save theme ", t.id, ": ", error_string(err))

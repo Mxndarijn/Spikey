@@ -84,7 +84,7 @@ func build_board(board_id: String) -> LeaderboardBoard:
 	return b
 
 
-func submit_run(score: int) -> void:
+func submit_run(score: int, _replay: Dictionary = {}) -> void:
 	_today_best = maxi(_today_best, score)
 
 

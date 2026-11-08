@@ -107,6 +107,35 @@ func test_rooms_screens_and_practice_draw() -> void:
 	DirAccess.remove_absolute(TEST_PATH)
 
 
+## Every world's scene in every time of day (room palettes fade in), with the
+## world's spikes and with color-blind ink spikes, plus the generic scene a
+## world without its own gets.
+func test_every_world_scene_draws_in_every_time_of_day() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var run := RunController.new()
+	var view := RoomView.new()
+	tree.root.add_child(run)
+	tree.root.add_child(view)
+	run.new_run(5)
+	run.sim.step(true)
+	for t in ThemeCatalog.all():
+		view.bind(run, t)
+		for ink in [false, true]:
+			view.color_blind_spikes = ink
+			for room in t.palette_count():
+				view.on_room_changed(room)
+				await _frames(2)
+				view._fade = 1.0
+				await _frames(1)
+	var unknown: ThemeDef = ThemeCatalog.all()[0].duplicate()
+	unknown.id = "not_a_world"
+	view.set_theme(unknown)
+	await _frames(2)
+	assert_eq(view._drawn_sky, view._shown_sky(), "the backdrop drew the room's sky")
+	run.free()
+	view.free()
+
+
 ## Puts a flyer (and optionally a world) in use, as Customize would; a first
 ## start already gave the default world.
 static func _use_flyer(main: Node, id: String, world: String = "") -> void:

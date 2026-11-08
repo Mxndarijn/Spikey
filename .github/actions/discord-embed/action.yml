@@ -1,6 +1,6 @@
 name: Discord embed
 description: >
-  Posts one embed to a Discord webhook. All Spikey CI messages go through here so they share
+  Posts one embed to a Discord webhook. All Flapjaw CI messages go through here so they share
   one look: title (linked), short description, inline fields, a footer with the workflow name
   and a timestamp. Needs jq and curl (on every GitHub-hosted runner).
 
@@ -52,7 +52,7 @@ runs:
         DESC: ${{ inputs.description }}
         COLOR: ${{ inputs.color }}
         FIELDS: ${{ inputs.fields }}
-        FOOTER: Spikey CI · ${{ github.workflow }} · run ${{ github.run_number }}
+        FOOTER: Flapjaw CI · ${{ github.workflow }} · run ${{ github.run_number }}
         FILE: ${{ inputs.file }}
         MAX_MB: ${{ inputs.max_file_mb }}
       run: |
@@ -71,7 +71,7 @@ runs:
           --arg footer "$FOOTER" --arg fields "$FIELDS" \
           --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson color "$COLOR" \
           '{
-            username: "Spikey Builds",
+            username: "Flapjaw Builds",
             embeds: [({
               title: $title,
               description: $desc,

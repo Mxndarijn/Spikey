@@ -1,4 +1,4 @@
--- Spikey leaderboards, friends version (Supabase free plan).
+-- Flapjaw leaderboards, friends version (Supabase free plan).
 -- Applied by .github/workflows/supabase-db.yml (supabase db push) when this folder
 -- changes on main. It can also be pasted into the SQL Editor by hand: running it
 -- again is safe, it only creates what is missing and replaces the functions.

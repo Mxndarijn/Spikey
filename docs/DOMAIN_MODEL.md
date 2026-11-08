@@ -1,4 +1,4 @@
-# Spikey — Domain Model
+# Flapjaw — Domain Model
 
 Class diagrams for the whole game, split by the same layers as
 [ARCHITECTURE.md](ARCHITECTURE.md). Arrows only point inward: content and meta

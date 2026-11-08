@@ -32,6 +32,8 @@ var _tapping := false
 
 
 func _initialize() -> void:
+	# Never play sound on the developer's PC (this tool opens a real window).
+	AudioServer.set_bus_mute(0, true)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:

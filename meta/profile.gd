@@ -27,6 +27,16 @@ var music_volume := 80
 var sfx_volume := 100
 var music_on := true
 var sfx_on := true
+## Settings > Play (the Settings sheet behind the Home gear).
+## A little buzz on flap and crash.
+var haptics := true
+## No room flash or shake, slow sky fades (RoomView.flash_enabled follows it).
+var reduced_flashing := false
+## Spikes turn dark with a white edge. Read by the room drawing (world-scenes);
+## the UI only stores it.
+var color_blind_spikes := false
+## Pause and other HUD icon buttons grow to 56px (UiKit.large_buttons).
+var large_buttons := false
 
 
 func _init() -> void:
@@ -36,7 +46,8 @@ func _init() -> void:
 	# The default trail and portal are everyone's from the start.
 	grant(Catalog.TRAIL, "world_ribbon")
 	equipped[Catalog.TRAIL] = "world_ribbon"
-	grant(Catalog.PORTAL, PortalStyle.DEFAULT_ID)
+	for id in Shop.starters(Catalog.PORTAL):
+		grant(Catalog.PORTAL, id)
 	equipped[Catalog.PORTAL] = PortalStyle.DEFAULT_ID
 	# Music: the two picks and the free starter track; Match my world plays.
 	for id in Catalog.MUSIC_PICKS + [MusicTrack.DEFAULT_ID]:
@@ -66,9 +77,11 @@ func equipped_id(kind: String) -> String:
 
 
 ## The exit portal look in use (saved with the rest of `equipped`); older saves
-## without one keep the default.
+## without one, or with a style that is gone (cloud_hole, ink_splat...), keep
+## the default.
 func equipped_portal() -> String:
-	return equipped_id(Catalog.PORTAL)
+	var id := equipped_id(Catalog.PORTAL)
+	return id if Catalog.portal(id) != null else PortalStyle.DEFAULT_ID
 
 
 ## Records a finished run and adds the coins collected in it.
@@ -126,6 +139,10 @@ func to_dict() -> Dictionary:
 		"sfx_volume": sfx_volume,
 		"music_on": music_on,
 		"sfx_on": sfx_on,
+		"haptics": haptics,
+		"reduced_flashing": reduced_flashing,
+		"color_blind_spikes": color_blind_spikes,
+		"large_buttons": large_buttons,
 	}
 
 
@@ -143,6 +160,10 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.sfx_volume = clampi(int(d.get("sfx_volume", p.sfx_volume)), 0, 100)
 	p.music_on = bool(d.get("music_on", true))
 	p.sfx_on = bool(d.get("sfx_on", true))
+	p.haptics = bool(d.get("haptics", true))
+	p.reduced_flashing = bool(d.get("reduced_flashing", false))
+	p.color_blind_spikes = bool(d.get("color_blind_spikes", false))
+	p.large_buttons = bool(d.get("large_buttons", false))
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in Catalog.KINDS:
@@ -157,6 +178,8 @@ static func from_dict(d: Dictionary) -> Profile:
 			var id: Variant = saved_equipped.get(kind, "")
 			if id is String:
 				p.equip(kind, id)
+	# A portal style that is gone falls back to Match my world.
+	p.equipped[Catalog.PORTAL] = p.equipped_portal()
 	var met: Variant = d.get("met_rooms", [])
 	if met is Array:
 		for id: Variant in met:

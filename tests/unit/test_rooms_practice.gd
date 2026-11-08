@@ -103,7 +103,7 @@ func test_rooms_screen_lists_every_room_and_locks_unmet_ones() -> void:
 	assert_eq(screen.cards().size(), RoomCatalog.all().size(), "a card per room kind")
 	for card in screen.cards():
 		assert_eq(card.disabled, card.room_id != "open", "%s locked unless met" % card.room_id)
-	assert_eq(screen.cleared_text(), "2 cleared")
+	assert_eq(screen.cleared_text(), "2", "the header shows the total clears")
 	screen.free()
 
 
@@ -115,10 +115,13 @@ func test_room_detail_shows_clears_and_only_practices_open_rooms() -> void:
 	open.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(open)
 	assert_eq(open.cleared_text(), "1×")
+	assert_false(open.practice_button().disabled, "an open room can be practised")
 	open.free()
 	var locked := RoomDetailScreen.new(p, "flip")
 	(Engine.get_main_loop() as SceneTree).root.add_child(locked)
 	assert_eq(locked.cleared_text(), "Not yet")
+	assert_true(locked.practice_button().disabled, "a locked room can't be practised")
+	assert_eq(locked.locked_reason(), RoomInfo.status(p, RoomCatalog.find("flip")), "says why")
 	locked.free()
 
 

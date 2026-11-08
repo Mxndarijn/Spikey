@@ -37,7 +37,7 @@ $godot = Resolve-Godot
 if (-not $godot) { Write-Host "Godot not found (set `$env:GODOT or tools/godot_path.txt)." -ForegroundColor Red; exit 2 }
 if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [Environment]::ProcessorCount - 2) }
 $Jobs = [Math]::Min($Jobs, $Seeds)
-if (-not $Out) { $Out = Join-Path ([IO.Path]::GetTempPath()) ("spikey_sweep_" + (Get-Date -Format "yyyyMMdd_HHmmss")) }
+if (-not $Out) { $Out = Join-Path ([IO.Path]::GetTempPath()) ("flapjaw_sweep_" + (Get-Date -Format "yyyyMMdd_HHmmss")) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 
 # Make sure new class names are known before the copies start.

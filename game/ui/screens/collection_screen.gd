@@ -1,11 +1,13 @@
 class_name CollectionScreen
 extends Control
-## Customize (Sticker Pop): the shop and the loadout in one screen, over the
-## live room. A live preview of the flyer, world, trail and exit portal (the
-## tapped item replaces the one in use), tabs for Flyers, Worlds, Trails,
-## Portals, Music and Hats (coming), and the items: yours first, then the ones
-## in the shop. Tapping an item opens a small popup with its one action: Use,
-## Get for free, Unlock for N or Need N more coins.
+## Customize (minimal kit): the shop and the loadout in one screen, over the
+## live room. A back arrow, the title and the coins; the flyer in use (or the
+## tapped one) standing on the room with its puff trail and a line under it
+## ("Buzz, in use"); the trail or exit portal of those tabs drawn with it (the
+## room behind already shows a tapped world); five tabs in a paper pill bar
+## (Flyers, Worlds, Trails, Portals, Music); and the items as flat paper tiles,
+## yours first, then the shop's. Tapping an item opens a small popup with its
+## one action: Use, Get for free, Unlock for N or Need N more coins.
 ## Music items are playlist rows whose play button previews the track; the
 ## track that was playing comes back when the preview stops or the screen
 ## closes (equipping hands over to main, which plays the new pick).
@@ -19,9 +21,10 @@ signal previewed(kind: String, id: String)
 ## Only the shop is left (the first-start pickers were removed).
 enum Mode { SHOP }
 
-const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
-## A tab with no items yet: hats come later and will share the hitbox too.
+const COIN_ICON := preload("res://assets/ui/coin.svg")
+const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
+## No tab and no items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
 const TAB_NAMES := {
 	Catalog.FLYER: "Flyers",
@@ -31,17 +34,19 @@ const TAB_NAMES := {
 	Catalog.MUSIC: "Music",
 	HATS: "Hats",
 }
-const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
-const POPUP_PICTURE := Vector2(160, 120)
-const PREVIEW_HEIGHT := 130.0
-const SHOP_ACTION_HEIGHT := 56.0
+## The popup's clean picture, as wide as its card's inside.
+const POPUP_PICTURE := Vector2(264, 160)
+## The popup card's side margins.
+const POPUP_SIDE := 28
+## The flyer standing on the room: its body, and the stage it stands on.
+const PREVIEW_BODY := 52.0
+const PREVIEW_HEIGHT := 84.0
+const SHOP_ACTION_HEIGHT := float(UiTokens.SIZE_BUTTON_H)
 const SHOP_COLUMNS := 3
-const SELECTED_TILT := 2.0
-## Wide music rows tilt less.
-const SELECTED_ROW_TILT := 1.0
-## Six tabs fit 360 px only with small type and tight padding.
+const GRID_GAP := 10
+const SIDE := 14
 const TAB_FONT := 13
-const TAB_PAD := 3
+const TAB_PAD := 2
 
 var mode: Mode
 var kind: String
@@ -55,15 +60,18 @@ var _detail_text := Label.new()
 var _badge_text := Label.new()
 var _action := Button.new()
 var _tabs := {}
-## Customize: your items, then the shop's, each under its own label.
+## Every item of the tab, yours first.
 var _owned_grid := GridContainer.new()
-var _shop_grid := GridContainer.new()
-var _owned_label := Label.new()
-var _shop_label := Label.new()
-## The popup for a tapped item (Customize).
+## The popup for a tapped item.
 var _popup := Control.new()
 var _popup_thumb := ItemThumb.new()
+## The preview on the room: the flyer with its puffs, or (Trails, Portals) a
+## picture with no room of its own, and the line under it.
+var _stage := Control.new()
+var _flyer_art := FlyerArt.new(null, PREVIEW_BODY)
 var _preview := ItemThumb.new()
+var _caption := Label.new()
+var _preview_portal: PortalStyle
 var _empty := PanelContainer.new()
 var _empty_text := Label.new()
 ## Music preview: the card id playing ("" for none) and the track to go back to.
@@ -81,11 +89,11 @@ func _ready() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", UiTokens.SPACE_4 + 4)
-	margin.add_theme_constant_override("margin_right", UiTokens.SPACE_4 + 4)
+	margin.add_theme_constant_override("margin_left", SIDE)
+	margin.add_theme_constant_override("margin_right", SIDE)
 	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
-	# Keeps the action button above the floor spikes.
-	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_6 + 8)
+	# Keeps the grid above the floor spikes.
+	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_7)
 	add_child(margin)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,6 +103,7 @@ func _ready() -> void:
 	_action.theme_type_variation = &"ActionButton"
 	_action.custom_minimum_size = Vector2(0, SHOP_ACTION_HEIGHT)
 	_action.focus_mode = Control.FOCUS_NONE
+	_action.add_theme_constant_override("icon_max_width", 22)
 	_action.pressed.connect(_on_action)
 	add_child(_build_popup())
 	_show_kind(kind)
@@ -110,68 +119,54 @@ func _notification(what: int) -> void:
 		_detail_name,
 		_detail_text,
 		_badge_text,
+		_action,
+		_stage,
+		_flyer_art,
 		_preview,
+		_caption,
 		_empty,
 		_popup,
 		_popup_thumb,
 		_owned_grid,
-		_shop_grid,
-		_owned_label,
-		_shop_label
 	]:
 		if is_instance_valid(n) and n.get_parent() == null:
 			n.free()
 
 
 func _build_shop(col: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	var back := Button.new()
-	back.theme_type_variation = &"RoundButton"
-	back.icon = BACK_ICON
-	back.tooltip_text = "Back"
-	back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	back.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
-	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	back.focus_mode = Control.FOCUS_NONE
-	back.pressed.connect(closed.emit)
-	row.add_child(back)
-	var title := _title("Customize", -3.0)
-	(title.content() as Label).add_theme_font_size_override("font_size", 34)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	(title.content() as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	row.add_child(title)
-	_coins.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_coins)
-	col.add_child(row)
+	col.add_child(UiKit.header("Customize", closed.emit, _coins))
 
-	# The live preview: what you'd look like with the tapped item.
-	var frame := PanelContainer.new()
-	frame.add_theme_stylebox_override(
-		"panel", UiTheme.sticker(UiTokens.PANEL, UiTokens.RADIUS_M, UiTheme.DROP_SELECTED, 5)
-	)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_preview.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
-	frame.add_child(_preview)
-	var tilted := Tilt.new(frame, -1.0)
-	tilted.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(tilted)
+	# The preview: the flyer standing on the room, no card.
+	_stage.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
+	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview.open = true
+	_preview.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stage.add_child(_preview)
+	_stage.add_child(_flyer_art)
+	_flyer_art.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	_flyer_art.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_flyer_art.grow_vertical = Control.GROW_DIRECTION_BOTH
+	col.add_child(_stage)
+	_caption.theme_type_variation = &"SkyCaption"
+	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_caption)
 
 	var bar := PanelContainer.new()
 	bar.theme_type_variation = &"TabStrip"
 	var tabs := HBoxContainer.new()
-	# No gaps: five tabs (Portals joined) only just fit the 360 px screen.
 	tabs.add_theme_constant_override("separation", 0)
 	bar.add_child(tabs)
 	var group := ButtonGroup.new()
-	for k: String in Catalog.KINDS + [HATS]:
+	for k: String in Catalog.KINDS:
 		var tab := Button.new()
 		tab.theme_type_variation = &"TabButton"
 		tab.text = TAB_NAMES[k]
 		tab.toggle_mode = true
 		tab.button_group = group
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Inside the bar's 3 px padding the strip is the 44 px tap height.
 		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
 		tab.focus_mode = Control.FOCUS_NONE
 		tab.pressed.connect(_show_kind.bind(k))
@@ -184,28 +179,18 @@ func _build_shop(col: VBoxContainer) -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# Room inside the scroll area for the cards' drops and the tilted card.
 	var pad := MarginContainer.new()
 	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pad.add_theme_constant_override("margin_top", 6)
-	pad.add_theme_constant_override("margin_left", 2)
-	pad.add_theme_constant_override("margin_right", 8)
-	pad.add_theme_constant_override("margin_bottom", 10)
+	pad.add_theme_constant_override("margin_top", 4)
+	pad.add_theme_constant_override("margin_bottom", 4)
 	var stack := VBoxContainer.new()
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for pair: Array in [
-		[_owned_label, _owned_grid, "Yours"], [_shop_label, _shop_grid, "In the shop"]
-	]:
-		var label: Label = pair[0]
-		label.theme_type_variation = &"SkyLabel"
-		label.add_theme_font_size_override("font_size", 20)
-		label.text = pair[2]
-		stack.add_child(label)
-		var g: GridContainer = pair[1]
-		g.columns = SHOP_COLUMNS
-		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stack.add_child(g)
-	_empty.theme_type_variation = &"StickerPanel"
+	_owned_grid.columns = SHOP_COLUMNS
+	_owned_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_owned_grid.add_theme_constant_override("h_separation", GRID_GAP)
+	_owned_grid.add_theme_constant_override("v_separation", GRID_GAP)
+	stack.add_child(_owned_grid)
+	_empty.theme_type_variation = &"Card"
 	_empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_empty_text.theme_type_variation = &"MutedLabel"
 	_empty_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -216,15 +201,16 @@ func _build_shop(col: VBoxContainer) -> void:
 	pad.add_child(stack)
 	scroll.add_child(pad)
 	col.add_child(scroll)
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 4)
-	col.add_child(gap)
 
 
-## Tabs keep only a little padding (copied from UiTheme: the tab isn't in the
-## tree yet, so its own get_theme_stylebox() would be Godot's).
+## Five tabs share 332 px equally (clip_text drops the text's own minimum
+## width, so a long name can't push the last tab into the bar's edge), with a
+## little less padding than the theme's (copied from
+## UiTheme: the tab isn't in the tree yet, so its own get_theme_stylebox()
+## would be Godot's).
 func _tight(tab: Button) -> void:
 	tab.add_theme_font_size_override("font_size", TAB_FONT)
+	tab.clip_text = true
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
 		box.content_margin_left = TAB_PAD
@@ -232,53 +218,57 @@ func _tight(tab: Button) -> void:
 		tab.add_theme_stylebox_override(state, box)
 
 
-## The item popup: dims the room, a sticker panel with the item's name,
-## picture, blurb and its one action. Tapping outside or Close dismisses it.
+## The item popup: dims the room; a paper card with the item's name and a
+## bare close X, a clean picture, the blurb and its one action. Tapping
+## outside or the X dismisses it.
 func _build_popup() -> Control:
 	_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_popup.visible = false
 	var dim := ColorRect.new()
-	dim.color = Color(UiTokens.INK_900, 0.45)
+	dim.color = UiTokens.SCRIM
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.gui_input.connect(_on_dim_input)
 	_popup.add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var side := MarginContainer.new()
+	side.set_anchors_preset(Control.PRESET_FULL_RECT)
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_theme_constant_override("margin_left", POPUP_SIDE)
+	side.add_theme_constant_override("margin_right", POPUP_SIDE)
+	_popup.add_child(side)
+	var center := VBoxContainer.new()
+	center.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_popup.add_child(center)
+	side.add_child(center)
 	var panel := PanelContainer.new()
 	panel.theme_type_variation = &"BigPanel"
-	panel.custom_minimum_size = Vector2(300, 0)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	box.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	var head := HBoxContainer.new()
 	_detail_name.theme_type_variation = &"NameLabel"
 	_detail_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_detail_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(_detail_name)
-	var close := Button.new()
-	close.theme_type_variation = &"RoundButton"
-	close.icon = CLOSE_ICON
-	close.tooltip_text = "Close"
-	close.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	close.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
-	close.focus_mode = Control.FOCUS_NONE
+	var close := UiKit.icon_button(CLOSE_ICON, "Close", &"InkButton", UiTokens.SIZE_TAP_MIN)
+	# Ink on the paper card, also in night worlds.
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		close.add_theme_color_override(state, UiTokens.INK_LINE)
 	close.pressed.connect(close_popup)
 	head.add_child(close)
 	box.add_child(head)
-	_popup_thumb.custom_minimum_size = POPUP_PICTURE
-	_popup_thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_popup_thumb.custom_minimum_size = Vector2(0, POPUP_PICTURE.y)
+	_popup_thumb.outlined = false
 	box.add_child(_popup_thumb)
-	_detail_text.theme_type_variation = &"MutedLabel"
+	_detail_text.theme_type_variation = &"InkLabel"
+	_detail_text.add_theme_font_size_override("font_size", 15)
 	_detail_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail_text.custom_minimum_size = Vector2(240, 0)
+	_detail_text.custom_minimum_size = Vector2(200, 0)
 	box.add_child(_detail_text)
-	_badge_text.theme_type_variation = &"StatusLabel"
+	_badge_text.theme_type_variation = &"MutedLabel"
 	box.add_child(_badge_text)
 	box.add_child(_action)
 	panel.add_child(box)
-	center.add_child(Tilt.new(panel, -1.0))
+	center.add_child(panel)
 	return _popup
 
 
@@ -304,15 +294,6 @@ func is_popup_open() -> bool:
 func _tap(id: String) -> void:
 	_select(id)
 	open_popup()
-
-
-func _title(text: String, tilt: float) -> Tilt:
-	var l := Label.new()
-	l.theme_type_variation = &"TitleLabel"
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var t := Tilt.new(l, tilt)
-	return t
 
 
 ## Ids this screen offers for the current kind: yours first, then the ones in
@@ -344,13 +325,12 @@ func step(delta: int) -> void:
 func _show_kind(k: String) -> void:
 	stop_preview()
 	kind = k
-	var columns := 1 if k == Catalog.MUSIC else SHOP_COLUMNS
-	_owned_grid.columns = columns
-	_shop_grid.columns = columns
+	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
 	if _tabs.has(k):
 		(_tabs[k] as Button).button_pressed = true
 	for c in _cards:
-		c.get_parent().queue_free()
+		_owned_grid.remove_child(c)
+		c.queue_free()
 	_cards.clear()
 	var backdrop := _backdrop()
 	var ids := item_ids()
@@ -358,15 +338,14 @@ func _show_kind(k: String) -> void:
 		var card := ItemCard.new(kind, id, backdrop)
 		card.pressed.connect(_tap.bind(id))
 		card.preview_pressed.connect(toggle_preview)
-		var holder := Tilt.new(card, 0.0)
-		holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		(_owned_grid if _profile.owns(kind, id) else _shop_grid).add_child(holder)
+		_owned_grid.add_child(card)
 		_cards.append(card)
 	close_popup()
 	_empty.visible = ids.is_empty()
 	_empty_text.text = _empty_message()
-	_owned_label.visible = ids.any(func(i: String) -> bool: return _profile.owns(kind, i))
-	_shop_label.visible = ids.any(func(i: String) -> bool: return not _profile.owns(kind, i))
+	# Music rows need the room: no flyer preview there.
+	_stage.visible = k != Catalog.MUSIC
+	_caption.visible = k != Catalog.MUSIC
 	var current := _profile.equipped_id(kind)
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
 
@@ -388,14 +367,11 @@ func _select(id: String) -> void:
 		previewed.emit(kind, id)
 
 
-## Redraws the cards, the detail sticker and the action button.
+## Redraws the cards, the preview, the popup and its action button.
 func refresh() -> void:
 	_coins.set_amount(_profile.coins)
 	for c in _cards:
-		var on := c.item_id == _selected
-		c.refresh(_profile, on)
-		var tilt := SELECTED_ROW_TILT if kind == Catalog.MUSIC else SELECTED_TILT
-		(c.get_parent() as Tilt).degrees = tilt if on else 0.0
+		c.refresh(_profile, c.item_id == _selected)
 	_detail_name.text = Catalog.display_name(kind, _selected)
 	_detail_text.text = _detail(kind, _selected)
 	_badge_text.text = badge_text(kind, _selected)
@@ -407,7 +383,26 @@ func refresh() -> void:
 	# In the popup, "In use" stays tappable: it just closes the popup.
 	if label[0] == "In use":
 		_action.disabled = false
-	_action.icon = LOCK_ICON if not label[1] and label[0] != "In use" else null
+	var buy: bool = label[1] and str(label[0]).begins_with("Unlock")
+	var short: bool = not label[1] and label[0] != "In use"
+	_action.icon = COIN_ICON if buy else (LOCK_ICON if short else null)
+	# The coin keeps its own colours on the ink button (white tints nothing).
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		_action.add_theme_color_override(state, Color.WHITE)
+	_caption.text = _caption_text()
+
+
+## "Buzz, in use" for the item in use, else the tapped item's name.
+func _caption_text() -> String:
+	if _selected.is_empty():
+		return ""
+	var item := ItemChip.short_name(kind, _selected)
+	return item + ", in use" if _profile.equipped_id(kind) == _selected else item
+
+
+## The line under the preview, for tests.
+func caption_text() -> String:
+	return _caption.text
 
 
 ## The id the preview shows for a kind: the tapped item, else the one in use.
@@ -417,37 +412,55 @@ func _preview_id(k: String) -> String:
 	return _profile.equipped_id(k)
 
 
-## The preview: the items in use, with the tapped one swapped in. The popup
-## picture shows the tapped item on its own.
+## The preview: the items in use, with the tapped one swapped in, on the
+## room (a tapped world is shown by the room itself). The popup picture shows
+## the tapped item on its own.
 func _show_preview() -> void:
+	_show_popup_picture()
+	var w := Catalog.world(_preview_id(Catalog.WORLD))
+	var f := Catalog.flyer(_preview_id(Catalog.FLYER))
+	var t := Catalog.trail(_preview_id(Catalog.TRAIL))
+	var p := Catalog.portal(_preview_id(Catalog.PORTAL))
+	_preview_portal = p if p != null else Catalog.portal(PortalStyle.DEFAULT_ID)
+	_flyer_art.texture = f.idle if f != null else null
+	# Trails: the flyer leads its trail; Portals: the exit on the right wall.
+	_preview.world = w if w != null else ThemeCatalog.default_theme()
+	_preview.flyer = f.idle if f != null and kind == Catalog.TRAIL else null
+	_preview.trail = null
+	_preview.portal = null
+	match kind:
+		Catalog.TRAIL:
+			_preview.trail = t if t != null else TrailStyle.world_ribbon()
+		Catalog.PORTAL:
+			_preview.portal = _preview_portal
+	_flyer_art.visible = kind != Catalog.TRAIL
+
+
+## The popup picture: flyers and worlds on a clean sky with a far hill (the
+## tapped world, or the player's), the other kinds as their small picture.
+func _show_popup_picture() -> void:
 	_popup_thumb.world = _backdrop()
 	_popup_thumb.flyer = null
 	_popup_thumb.trail = null
 	_popup_thumb.portal = null
 	_popup_thumb.music = ""
-	_popup_thumb.bare = kind == Catalog.FLYER
+	_popup_thumb.scenic = kind == Catalog.FLYER or kind == Catalog.WORLD
 	match kind:
 		Catalog.FLYER:
 			var pf := Catalog.flyer(_selected)
-			_popup_thumb.flyer = pf.flap if pf != null else null
+			_popup_thumb.flyer = pf.idle if pf != null else null
 		Catalog.WORLD:
 			var pw := Catalog.world(_selected)
 			if pw != null:
 				_popup_thumb.world = pw
+			var mine := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+			_popup_thumb.flyer = mine.idle if mine != null else null
 		Catalog.TRAIL:
 			_popup_thumb.trail = Catalog.trail(_selected)
 		Catalog.PORTAL:
 			_popup_thumb.portal = Catalog.portal(_selected)
 		Catalog.MUSIC:
 			_popup_thumb.music = _selected
-	var w := Catalog.world(_preview_id(Catalog.WORLD))
-	_preview.world = w if w != null else ThemeCatalog.default_theme()
-	var f := Catalog.flyer(_preview_id(Catalog.FLYER))
-	_preview.flyer = f.flap if f != null else null
-	var t := Catalog.trail(_preview_id(Catalog.TRAIL))
-	_preview.trail = t if t != null else TrailStyle.world_ribbon()
-	var p := Catalog.portal(_preview_id(Catalog.PORTAL))
-	_preview.portal = p if p != null else Catalog.portal(PortalStyle.DEFAULT_ID)
 
 
 ## What the preview shows, for tests: [flyer, world, trail] ids.
@@ -460,7 +473,7 @@ func preview_ids() -> Array[String]:
 
 ## The portal the preview shows, for tests.
 func preview_portal_id() -> String:
-	return _preview.portal.id if _preview.portal != null else ""
+	return _preview_portal.id if _preview_portal != null else ""
 
 
 ## [button text, enabled] for the selected item.
@@ -503,7 +516,7 @@ func _on_action() -> void:
 	_playing = ""
 	_resting = null
 	equipped.emit(kind, _selected)
-	# A bought item moves to Yours.
+	# A bought item moves up among yours.
 	_show_kind(kind)
 	_select(_profile.equipped_id(kind))
 

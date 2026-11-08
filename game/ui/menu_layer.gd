@@ -1,7 +1,8 @@
 class_name MenuLayer
 extends CanvasLayer
-## Holds the current menu screen (home, pickers, shop) above the room.
-## One screen at a time; the room and flyer keep animating behind it.
+## Holds the current menu screen (home, customize, rooms, leaderboards) above
+## the room. One screen at a time; the room keeps animating behind it.
+## The screens' theme follows the world: white room text on night rooms.
 
 var _root := Control.new()
 var _current: Control
@@ -13,6 +14,15 @@ func _init() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.theme = UiTheme.get_theme()
 	add_child(_root)
+
+
+## UiTheme.room_theme(world) for the world in use.
+func set_room_theme(t: Theme) -> void:
+	_root.theme = t
+
+
+func room_theme() -> Theme:
+	return _root.theme
 
 
 func show_screen(screen: Control) -> void:

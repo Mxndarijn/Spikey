@@ -1,47 +1,56 @@
 class_name GameFonts
 extends RefCounted
-## The design kit's fonts: Baloo 2 (display: scores, numbers, titles, at 800)
-## and Nunito (UI, 600 to 800). Both are variable fonts in assets/fonts/ under
-## the SIL Open Font License (license files next to them). If a file is missing,
-## the closest installed system font is used, so the game always has text.
+## The design kit's one font: Archivo, a variable font with a weight axis
+## (wght 100 to 900) and a width axis (wdth 62 to 125), in assets/fonts/ under
+## the SIL Open Font License (Archivo-OFL.txt next to it).
+## display(): weight 900 at width 125, for the wordmark, titles and scores.
+## ui(weight): normal width, for everything else (600 to 900).
+## If the file is missing, the closest installed system font is used, so the
+## game always has text.
 
-const DISPLAY_FILE := "res://assets/fonts/Baloo2-Variable.ttf"
-const UI_FILE := "res://assets/fonts/Nunito-Variable.ttf"
-const DISPLAY_WEIGHT := 800
-const DISPLAY_FALLBACK: Array[String] = ["Baloo 2", "Arial Rounded MT Bold", "Segoe UI Black"]
-const UI_FALLBACK: Array[String] = ["Nunito", "Segoe UI", "Roboto", "Helvetica Neue"]
+const FILE := "res://assets/fonts/Archivo-Variable.ttf"
+const LICENSE := "res://assets/fonts/Archivo-OFL.txt"
+const FAMILY := "Archivo"
+const DISPLAY_WEIGHT := 900
+const DISPLAY_WIDTH := 125
+const UI_WIDTH := 100
+const FALLBACK: Array[String] = ["Archivo", "Segoe UI", "Roboto", "Helvetica Neue", "Arial"]
 
-static var _display: Font
-static var _ui := {}
+## "weight:width" -> Font
+static var _cache := {}
 
 
 ## Drops the cached fonts (on exit, so Godot can free them).
 static func release() -> void:
-	_display = null
-	_ui.clear()
+	_cache.clear()
 
 
 static func display() -> Font:
-	if _display == null:
-		_display = _load(DISPLAY_FILE, DISPLAY_FALLBACK, DISPLAY_WEIGHT)
-	return _display
+	return wide(DISPLAY_WEIGHT, DISPLAY_WIDTH)
 
 
-## UI font at a weight from the kit (600, 700 or 800).
+## UI font at a weight from the kit (600, 700, 800 or 900).
 static func ui(weight: int = 700) -> Font:
-	if not _ui.has(weight):
-		_ui[weight] = _load(UI_FILE, UI_FALLBACK, weight)
-	return _ui[weight]
+	return wide(weight, UI_WIDTH)
 
 
-static func _load(path: String, fallback: Array[String], weight: int) -> Font:
-	if not ResourceLoader.exists(path):
+## Archivo at any weight and width (the canvas uses 112 for button labels).
+static func wide(weight: int, width: int) -> Font:
+	var key := "%d:%d" % [weight, width]
+	if not _cache.has(key):
+		_cache[key] = _load(weight, width)
+	return _cache[key]
+
+
+static func _load(weight: int, width: int) -> Font:
+	if not ResourceLoader.exists(FILE):
 		var f := SystemFont.new()
-		f.font_names = PackedStringArray(fallback)
+		f.font_names = PackedStringArray(FALLBACK)
 		f.font_weight = weight
+		f.font_stretch = width
 		return f
 	var v := FontVariation.new()
-	v.base_font = load(path)
-	var wght := TextServerManager.get_primary_interface().name_to_tag("wght")
-	v.variation_opentype = {wght: weight}
+	v.base_font = load(FILE)
+	var ts := TextServerManager.get_primary_interface()
+	v.variation_opentype = {ts.name_to_tag("wght"): weight, ts.name_to_tag("wdth"): width}
 	return v

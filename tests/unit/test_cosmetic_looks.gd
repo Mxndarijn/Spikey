@@ -43,6 +43,8 @@ func test_no_trail_or_particle_colour_is_a_spike_colour() -> void:
 		TrailPainter.STAR_DOT,
 	]
 	fixed.append_array(RoomView.SPRINKLE_COLORS)
+	fixed.append_array(RoomView.LEAF_COLORS)
+	fixed.append_array([RoomView.INK_SPIKE_EDGE, RoomView.INK_SPIKE_LINE])
 	for c: Color in fixed:
 		var hex := c.to_html(false)
 		assert_false(spikes.has(hex), "drawing colour %s is the %s spike" % [hex, spikes.get(hex)])
@@ -123,21 +125,85 @@ func test_music_note_appears_on_flap() -> void:
 	bird.free()
 
 
-## Every world draws its own particle at board size and opacity: at least as
-## many as the boards' density, never fainter than 0.4.
+## Falling things match the Worlds v4 boards: enough of them to read, at
+## the boards' opacity, and every kind is used.
 func test_particles_read_at_phone_scale() -> void:
-	assert_true(RoomView.MOTES.size() >= 16, "enough particles for a 360 x 640 room")
-	for a: float in RoomView.MOTE_ALPHAS:
-		assert_true(a >= 0.4 and a <= 0.85, "particle opacity %.2f in the board's range" % a)
 	var kinds := {}
 	for id: String in RoomView.MOTE_KIND:
 		kinds[RoomView.MOTE_KIND[id]] = true
+		assert_true(RoomView.MOTE_COUNT[id] >= 6, "%s has enough particles" % id)
+	for kind: String in RoomView.MOTE_ALPHA:
+		var a: float = RoomView.MOTE_ALPHA[kind]
+		assert_true(a >= 0.4 and a <= 1.0, "%s opacity %.2f in the boards' range" % [kind, a])
+	for a: float in RoomView.MOTE_ALPHAS:
+		assert_true(a >= 0.4 and a <= 0.9, "ember opacity %.2f in the board's range" % a)
 	assert_eq(kinds.size(), RoomView.MOTE_MOTION.size(), "every particle kind is used by a world")
 
 
 func test_snow_big_flakes_fall_slower() -> void:
 	var s: Array = RoomView.SNOW_SPEED
 	assert_true(s[0] > s[1] and s[1] > s[2], "small flakes fall fastest")
+	var r: Array = RoomView.SNOW_SIZES
+	assert_true(r[0] < r[1] and r[1] < r[2], "flake sizes grow")
+
+
+## Every fixed colour the room scenes use (constants in game/run/scenes/):
+## none is any world's spike colour, so only spikes look deadly.
+func test_no_scene_colour_is_a_spike_colour() -> void:
+	var spikes := _spike_colours()
+	var found := 0
+	for path in _scripts("res://game/run/scenes"):
+		var consts := (load(path) as GDScript).get_script_constant_map()
+		for key: String in consts:
+			for c in _colours(consts[key]):
+				found += 1
+				var hex := c.to_html(false)
+				assert_false(
+					spikes.has(hex), "%s %s is %s, the %s spike" % [path, key, hex, spikes.get(hex)]
+				)
+	assert_true(found > 40, "found the scene colours (%d)" % found)
+
+
+## No fixed scene colour is written inline: constants only, so the test above
+## sees them all.
+func test_scene_colours_are_constants() -> void:
+	for path in _scripts("res://game/run/scenes"):
+		var lines := FileAccess.get_file_as_string(path).split("\n")
+		for i in lines.size():
+			if lines[i].contains('Color("#') and not _in_const(lines, i):
+				fail("%s:%d writes a colour inline" % [path, i + 1])
+
+
+## Line i is a `const` line, or inside a multi-line const list.
+static func _in_const(lines: PackedStringArray, i: int) -> bool:
+	for j in range(i, -1, -1):
+		var l := lines[j]
+		if not l.begins_with("\t") or j == i and l.begins_with("const "):
+			return l.begins_with("const ")
+	return false
+
+
+static func _colours(v: Variant) -> Array[Color]:
+	var out: Array[Color] = []
+	if v is Color:
+		out.append(v)
+	elif v is Array:
+		for x: Variant in v:
+			out.append_array(_colours(x))
+	elif v is Dictionary:
+		for x: Variant in (v as Dictionary).values():
+			out.append_array(_colours(x))
+	return out
+
+
+static func _scripts(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".gd"):
+			out.append(dir.path_join(f))
+	for d in DirAccess.get_directories_at(dir):
+		out.append_array(_scripts(dir.path_join(d)))
+	return out
 
 
 ## The flap pose is its own art, so a flap visibly changes the flyer.

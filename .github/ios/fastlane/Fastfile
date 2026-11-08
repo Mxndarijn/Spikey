@@ -1,6 +1,6 @@
 default_platform(:ios)
 
-# Signs the Xcode project that Godot exported (build/ios/Spikey.xcodeproj) and uploads it to
+# Signs the Xcode project that Godot exported (build/ios/Flapjaw.xcodeproj) and uploads it to
 # TestFlight. Runs on a GitHub-hosted macOS runner; every credential comes from environment
 # variables that .github/workflows/ios-testflight.yml fills from repository secrets.
 # The version and build number are already stamped in by Godot's export (see the workflow).
@@ -37,7 +37,7 @@ platform :ios do
     update_code_signing_settings(
       use_automatic_signing: false,
       path: project,
-      targets: ["Spikey"],
+      targets: ["Flapjaw"],
       team_id: ENV.fetch("APPLE_TEAM_ID"),
       code_sign_identity: "Apple Distribution",
       profile_name: profile_name,
@@ -46,7 +46,7 @@ platform :ios do
 
     build_app(
       project: project,
-      scheme: "Spikey",
+      scheme: "Flapjaw",
       configuration: "Release",
       export_method: "app-store",
       output_directory: "output",

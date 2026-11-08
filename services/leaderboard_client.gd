@@ -1,18 +1,24 @@
 class_name LeaderboardService
 extends RefCounted
 ## The leaderboards, as the game sees them. The screens only talk to this
-## interface. Phase 3 adds a client that asks the seed + verification server
-## (docs/ARCHITECTURE.md, "Verified leaderboards"); until then SampleLeaderboard
-## serves made-up boards. This base class has no server: every board is offline.
+## interface. SupabaseLeaderboard is the real one (friends version, free plan);
+## SampleLeaderboard serves made-up boards when no Supabase project is set up.
+## A verification server can come later (docs/ARCHITECTURE.md, "Verified
+## leaderboards"). This base class has no server: every board is offline.
 
 ## A board asked for with request_board(), once it arrives.
 signal board_loaded(board: LeaderboardBoard)
+## A run asked for with request_run(): {"seed", "taps", "gameplay_version",
+## "loadout", "name", "score"}, or {} when it could not be loaded.
+signal run_loaded(run_id: int, run: Dictionary)
 
 const DAILY := "daily"
 const TIER := "tier"
 const ALL_TIME := "all_time"
 const FRIENDS := "friends"
-const BOARDS: Array[String] = [DAILY, TIER, ALL_TIME, FRIENDS]
+## The boards the screen shows. Tier and Friends wait for more players and for
+## Game Center / Play Games sign-in; SampleLeaderboard can still build them.
+const BOARDS: Array[String] = [DAILY, ALL_TIME]
 const TITLES := {DAILY: "Daily", TIER: "Tier", ALL_TIME: "All-time", FRIENDS: "Friends"}
 const NAME_MIN := 3
 const NAME_MAX := 14
@@ -36,9 +42,35 @@ func cached_rank(board_id: String) -> int:
 	return int(_ranks.get(board_id, 0))
 
 
-## A finished real run (never practice). The server client sends seed + taps.
-func submit_run(_score: int) -> void:
+## A finished real run (never practice), with its Replay.to_dict() so the
+## seed and taps are kept for checking later.
+func submit_run(_score: int, _replay: Dictionary = {}) -> void:
 	pass
+
+
+## The player's leaderboard name and flyer changed.
+func set_player(_player_name: String, _flyer_id: String) -> void:
+	pass
+
+
+## Asks for one run's replay (LeaderboardBoard.Entry.run_id); run_loaded fires later.
+func request_run(run_id: int) -> void:
+	_deliver_run.call_deferred(run_id, {})
+
+
+func _deliver_run(run_id: int, run: Dictionary) -> void:
+	run_loaded.emit(run_id, run)
+
+
+## The player's look for a replay: every cosmetic kind they have equipped
+## ({"flyer": "dash", "world": "ice", ...}). Cosmetic only, never gameplay.
+static func loadout_of(profile: Profile) -> Dictionary:
+	var out := {}
+	for kind in Catalog.KINDS:
+		var id := profile.equipped_id(kind)
+		if not id.is_empty():
+			out[kind] = id
+	return out
 
 
 ## Friends come from Game Center (iOS) or Play Games (Android).
@@ -84,6 +116,8 @@ static func name_problem(text: String) -> String:
 		)
 		if not ok:
 			return "Only letters, numbers, dots and underscores."
+	if not NameFilter.is_allowed(text):
+		return "That name isn't allowed. Pick another one."
 	return ""
 
 

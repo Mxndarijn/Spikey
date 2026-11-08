@@ -5,30 +5,39 @@
 
 [sub_resource type="Resource" id="palette_0"]
 script = ExtResource("1_v3cnx")
-name = "Smoke"
-sky_top = Color(1, 0.8509804, 0.627451, 1)
-sky_mid = Color(0.9607843, 0.5686275, 0.3529412, 1)
-sky_bottom = Color(0.8235294, 0.3529412, 0.20392157, 1)
+name = "Morning"
+sky_top = Color(1, 0.85490197, 0.6862745, 1)
+sky_mid = Color(1, 0.6392157, 0.41568628, 1)
+sky_bottom = Color(1, 0.6392157, 0.41568628, 1)
 
 [sub_resource type="Resource" id="palette_1"]
 script = ExtResource("1_v3cnx")
-name = "Ash Glow"
-sky_top = Color(1, 0.9019608, 0.6901961, 1)
-sky_mid = Color(1, 0.6666667, 0.36078432, 1)
-sky_bottom = Color(0.8784314, 0.39215687, 0.22745098, 1)
+name = "Dusk"
+sky_top = Color(1, 0.6392157, 0.41568628, 1)
+sky_mid = Color(0.972549, 0.5019608, 0.34509805, 1)
+sky_bottom = Color(0.972549, 0.5019608, 0.34509805, 1)
 
 [resource]
 script = ExtResource("2_eyoxb")
 id = "lava"
 display_name = "Lava Forge"
 order = 3
-sky_top = Color(1, 0.7019608, 0.2784314, 1)
-sky_mid = Color(0.9098039, 0.27058825, 0.17254902, 1)
-sky_bottom = Color(0.7607843, 0.22745098, 0.13333334, 1)
-glow = Color(1, 0.8784314, 0.5411765, 1)
-spike = Color(0.101960786, 0.039215688, 0.047058824, 1)
-spike_edge = Color(1, 0.47843137, 0.18431373, 1)
+sky_top = Color(1, 0.7607843, 0.47843137, 1)
+sky_mid = Color(1, 0.5411765, 0.36078432, 1)
+sky_bottom = Color(1, 0.5411765, 0.36078432, 1)
+glow = Color(1, 0.83137256, 0.6117647, 1)
+spike = Color(0.12156863, 0.043137256, 0.0627451, 1)
+spike_edge = Color(0.36862746, 0.30980393, 0.3254902, 1)
 world_accent = Color(1, 0.47843137, 0.18431373, 1)
 trail = Color(1, 0.8784314, 0.5411765, 1)
-particle = Color(1, 0.7019608, 0.2784314, 1)
+particle = Color(1, 0.8235294, 0.47843137, 1)
+sun_ring = Color(1, 0.79607844, 0.54901963, 1)
+cloud = Color(1, 0.7254902, 0.5568628, 1)
+hill_far = Color(0.9098039, 0.41568628, 0.30588236, 1)
+hill_mid = Color(0.83137256, 0.34117648, 0.27058825, 1)
+hill_near = Color(0.7529412, 0.2901961, 0.2509804, 1)
+prop = Color(0.5568628, 0.18431373, 0.17254902, 1)
+ink = Color(0.12156863, 0.043137256, 0.0627451, 1)
+paper = Color(1, 0.94509804, 0.9019608, 1)
+sky_split = 0.55
 room_palettes = Array[ExtResource("1_v3cnx")]([SubResource("palette_0"), SubResource("palette_1")])

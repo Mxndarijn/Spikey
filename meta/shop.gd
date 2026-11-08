@@ -50,10 +50,17 @@ const PRICES := {
 	Catalog.PORTAL:
 	{
 		PortalStyle.DEFAULT_ID: 0,
-		"ink_splat": 300,
-		"feather_ring": 300,
-		"breakout_crack": 400,
-		"ripple_mirror": 400,
+		"classic_spiral": 0,
+		"candy_swirl": 200,
+		"mint_breeze": 200,
+		"dotted": 250,
+		"ripple": 300,
+		"galaxy": 300,
+		"ink_swirl": 350,
+		"rainbow": 400,
+		"flame": 400,
+		"pixel": 450,
+		"golden": 600,
 	},
 	Catalog.MUSIC:
 	{

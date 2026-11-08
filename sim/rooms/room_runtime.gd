@@ -4,6 +4,8 @@ extends RefCounted
 ## change over time (tide spikes, blinking walls, squeezing walls, speed).
 
 const TIDE_PERIOD := 120
+## Tide spikes slide from flat to this far out: 1.5 times a normal spike.
+const TIDE_MAX_DEPTH := SimConfig.SPIKE_DEPTH * 3 / 2
 const BLINK_PERIOD := 60
 ## Squeeze Box: each point in the room moves both walls in by this much.
 const SQUEEZE_STEP := 6 * SimConfig.SUB
@@ -96,7 +98,8 @@ func wall_mask(side: int, base_mask: int) -> int:
 	return base_mask
 
 
-## How far a wall spike sticks out right now; tide spikes slide in and out.
+## How far a wall spike sticks out right now; tide spikes slide in and out,
+## from flat to longer than a normal spike.
 func slot_depth(side: int, slot: int) -> int:
 	if def.wall_mode != RoomDef.WallMode.TIDE:
 		return SimConfig.SPIKE_DEPTH
@@ -104,7 +107,7 @@ func slot_depth(side: int, slot: int) -> int:
 	if not RoomRules.has_slot(moving, slot):
 		return SimConfig.SPIKE_DEPTH
 	var phase := (slot * 29 + tide_salt) % TIDE_PERIOD
-	return SimTrig.ping_pong(t + phase, TIDE_PERIOD, SimConfig.SPIKE_DEPTH)
+	return SimTrig.ping_pong(t + phase, TIDE_PERIOD, TIDE_MAX_DEPTH)
 
 
 ## A wall just got new spikes: redraw the extra wall rules for it.

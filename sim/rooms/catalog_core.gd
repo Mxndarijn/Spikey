@@ -36,10 +36,10 @@ static func defs() -> Array[RoomDef]:
 		isles.hazards.append(_island.bind(i))
 	out.append(isles)
 
-	# Coin Garden: a breather with one spike per wall and four coins.
+	# Coin Garden: a breather with up to three spikes per wall and four coins.
 	var garden := RoomDef.new("garden", "bonus", 20)
 	garden.weight = 4
-	garden.max_spikes = 1
+	garden.max_spikes = 3
 	# A diamond of coins: [x, y] in pixels.
 	for p: Array in [[180, 220], [120, 320], [240, 320], [180, 420]]:
 		garden.hazards.append(_coin.bind(int(p[0]) * SUB, int(p[1]) * SUB, 0))

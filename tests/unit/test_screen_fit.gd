@@ -55,7 +55,8 @@ func test_home_fits() -> void:
 	_fits(HomeScreen.new(_profile()), "home")
 
 
-## The home wordmark must end above the flyer, which bobs at the start height.
+## Home stacks the wordmark, the stats line, the big flyer and the dock with
+## no overlaps, all above the floor spikes.
 func test_home_logo_clears_the_flyer() -> void:
 	var home := HomeScreen.new(_profile())
 	var holder := Control.new()
@@ -64,26 +65,60 @@ func test_home_logo_clears_the_flyer() -> void:
 	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
 	holder.add_child(home)
 	home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Headless runs don't lay containers out, so add the logo's position up
-	# from minimum sizes: top margin, the pill row, one gap, then the logo.
 	var logo := home.logo()
-	var col := logo.get_parent() as VBoxContainer
-	var margin := col.get_parent() as MarginContainer
-	var bottom := (
-		margin.get_theme_constant("margin_top")
-		+ (col.get_child(0) as Control).get_combined_minimum_size().y
-		+ col.get_theme_constant("separation")
-		+ logo.get_combined_minimum_size().y
-	)
-	var flyer_top := (
-		SimConfig.BIRD_START_Y / float(SimConfig.SUB)
-		- BirdView.ART_CANVAS * BirdView.ART_SCALE / 2.0
+	var logo_bottom := logo.offset_top + logo.get_combined_minimum_size().y
+	var flyer := home.flyer()
+	var art := flyer.art_size()
+	var flyer_top := flyer.position.y + flyer.size.y / 2.0 - art / 2.0 - flyer.bob_height
+	var flyer_bottom := flyer.position.y + flyer.size.y / 2.0 + art / 2.0 + flyer.bob_height
+	assert_true(
+		logo_bottom <= HomeScreen.STATS_TOP,
+		"logo ends at %d px, the stats line starts at %d px" % [logo_bottom, HomeScreen.STATS_TOP]
 	)
 	assert_true(
-		bottom <= flyer_top + 8.0,
-		"logo ends at %d px, the flyer starts at %d px" % [bottom, flyer_top]
+		HomeScreen.STATS_TOP + 24.0 <= flyer_top,
+		"the stats line ends above the flyer (%d px)" % flyer_top
+	)
+	var dock_top := UiTokens.SIZE_VIEWPORT_H - Dock.HEIGHT
+	assert_true(flyer_bottom <= dock_top, "the flyer ends above the dock (%d px)" % flyer_bottom)
+	var bar_bottom := dock_top + Dock.BAR_TOP + Dock.BAR_H
+	assert_true(
+		bar_bottom <= UiTokens.SIZE_VIEWPORT_H - FLOOR_CLEARANCE, "the dock clears the floor"
 	)
 	holder.free()
+
+
+## The settings sheet (all rows) fits between its top and bottom margins, and
+## every control in it is big enough to tap.
+func test_settings_sheet_fits() -> void:
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	var sheet := SettingsSheet.new(_profile())
+	holder.add_child(sheet)
+	var card := sheet.find_child("Card", true, false) as Control
+	var room := UiTokens.SIZE_VIEWPORT_H - SettingsSheet.MARGIN_TOP - SettingsSheet.MARGIN_BOTTOM
+	var need := card.get_combined_minimum_size()
+	assert_true(need.y <= room, "the sheet needs %d px, has %d" % [need.y, room])
+	assert_true(need.x <= UiTokens.SIZE_VIEWPORT_W - SettingsSheet.SIDE * 2, "and fits the width")
+	for b in sheet.find_children("*", "BaseButton", true, false):
+		var size := (b as Control).get_combined_minimum_size()
+		assert_true(size.y >= UiTokens.SIZE_TAP_MIN, "%s is tall enough to tap" % b.name)
+	holder.free()
+
+
+## The HUD's buttons are tap-sized, also with Large buttons on.
+func test_hud_buttons_are_big_enough() -> void:
+	var hud: Hud = load("res://game/ui/hud.tscn").instantiate()
+	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
+	assert_true(hud._pause_button.custom_minimum_size.x >= UiTokens.SIZE_TAP_MIN, "pause")
+	hud.set_large_buttons(true)
+	assert_eq(hud._pause_button.custom_minimum_size, Vector2(56, 56), "large pause button")
+	for b in hud.find_children("*", "BaseButton", true, false):
+		var size := (b as Control).get_combined_minimum_size()
+		assert_true(minf(size.x, size.y) >= UiTokens.SIZE_TAP_MIN, "%s is big enough" % b.name)
+	hud.free()
 
 
 func test_rooms_screens_fit() -> void:
@@ -153,3 +188,59 @@ func test_leaderboard_screens_fit() -> void:
 	_fits(loading, "leaderboard loading")
 	var naming := LeaderboardScreen.new(p, service)
 	_fits(naming, "leaderboard name dialog", naming.open_name_dialog)
+
+
+## Every item name fits its tile at the narrowest step ("Jungle Canopy").
+func test_item_names_fit_their_tiles() -> void:
+	for kind: String in [Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL, Catalog.PORTAL]:
+		for id: String in Catalog.ids(kind):
+			var l := Label.new()
+			l.text = ItemChip.short_name(kind, id)
+			ItemCard._fit_name(l, ItemCard.NAME_ROOM)
+			var font: Font = l.get_theme_font("font") if l.has_theme_font_override("font") else null
+			if font == null:
+				font = GameFonts.ui(800)
+			var size := (
+				l.get_theme_font_size("font_size")
+				if l.has_theme_font_size_override("font_size")
+				else 14
+			)
+			var w := font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			assert_true(w <= ItemCard.NAME_ROOM, "%s '%s' is %d px wide" % [kind, l.text, w])
+			l.free()
+
+
+## The five Customize tabs share the bar equally, so none reaches its edge.
+func test_customize_tabs_share_the_bar() -> void:
+	var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, Catalog.FLYER)
+	_fits(shop, "customize tabs", _check_tabs.bind(shop))
+
+
+func _check_tabs(shop: CollectionScreen) -> void:
+	var share := (UiTokens.SIZE_VIEWPORT_W - 28.0 - 6.0) / Catalog.KINDS.size()
+	for k: String in Catalog.KINDS:
+		var tab := shop._tabs[k] as Button
+		assert_true(tab.clip_text, "%s tab has no text minimum" % k)
+		var w := GameFonts.ui(800).get_string_size(tab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		assert_true(w + CollectionScreen.TAB_PAD * 2 + 8 <= share, "'%s' fits its tab" % tab.text)
+
+
+## Game over's stats stay clear of a crashed flyer lying on either wall.
+func test_game_over_stats_clear_the_walls() -> void:
+	var width := Hud.STAT_W * 3 + Hud.STAT_GAP * 2
+	var left := (UiTokens.SIZE_VIEWPORT_W - width) / 2.0
+	assert_true(left >= Hud.WALL_CLEAR, "the stats start at %d px" % left)
+	var flyer := BirdView.ART_CANVAS * BirdView.ART_SCALE
+	assert_true(Hud.WALL_CLEAR >= flyer / 2.0 + 18.0, "a flyer by the wall stays clear")
+
+
+## The wordmark keeps 24px of room at each side, whatever the game is called.
+func test_home_wordmark_fits_the_width() -> void:
+	var w := (
+		GameFonts
+		. display()
+		. get_string_size(HomeScreen.WORDMARK, HORIZONTAL_ALIGNMENT_LEFT, -1, HomeScreen.LOGO_SIZE)
+		. x
+	)
+	var room := UiTokens.SIZE_VIEWPORT_W - 48.0
+	assert_true(w <= room, "'%s' is %d px wide, room for %d" % [HomeScreen.WORDMARK, w, room])

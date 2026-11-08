@@ -1,4 +1,4 @@
-# Spikey
+# Flapjaw
 
 Godot 4.6, GDScript, portrait mobile arcade game (tap to flap, bounce wall to
 wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
@@ -30,7 +30,7 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   are cosmetic only.
 - Monetization is cosmetic only plus an optional rewarded-ad revive. Nothing
   pay-to-win.
-- Visual design follows the Spikey Design Kit
+- Visual design follows the Flapjaw Design Kit
   (https://claude.ai/artifact/2nzQWN24GGt8WCpsoJFGd8, read its `project/README.md`
   and `project/tokens.json`): fonts Baloo 2 + Nunito, its color, spacing, radius
   and size tokens. World tokens change with the theme picker; UI tokens never do.

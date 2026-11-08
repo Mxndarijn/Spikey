@@ -29,4 +29,4 @@ func test_spike_count_grows_and_caps() -> void:
 	assert_eq(RoomRules.spike_count(1, open), SimConfig.BASE_SPIKES)
 	assert_true(RoomRules.spike_count(30, open) > RoomRules.spike_count(1, open))
 	assert_eq(RoomRules.spike_count(10000, open), SimConfig.MAX_SPIKES)
-	assert_eq(RoomRules.spike_count(10000, RoomCatalog.find("garden")), 1, "bonus room cap")
+	assert_eq(RoomRules.spike_count(10000, RoomCatalog.find("garden")), 3, "bonus room cap")

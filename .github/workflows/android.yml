@@ -117,6 +117,21 @@ jobs:
             echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
           } >> "$GITHUB_ENV"
 
+      - name: Write the Supabase config (leaderboards)
+        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
+        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
+              > services/supabase_config.json
+            echo "Leaderboards: Supabase"
+          else
+            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
+          fi
+
       - name: Import project
         run: godot --headless --path . --import || godot --headless --path . --import
 
@@ -124,16 +139,16 @@ jobs:
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p build/android
-          godot --headless --path . --export-release "Android" build/android/Spikey.apk
-          test -f build/android/Spikey.apk
+          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
+          test -f build/android/Flapjaw.apk
 
       - name: Export debug APK (no keystore secrets set)
         if: env.ANDROID_KEYSTORE_BASE64 == ''
         run: |
           echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, building a debug-signed APK."
           mkdir -p build/android
-          godot --headless --path . --export-debug "Android" build/android/Spikey.apk
-          test -f build/android/Spikey.apk
+          godot --headless --path . --export-debug "Android" build/android/Flapjaw.apk
+          test -f build/android/Flapjaw.apk
 
       - name: Export AAB
         # The AAB needs Godot's Gradle build, which installs the Android build template into
@@ -141,8 +156,8 @@ jobs:
         if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           godot --headless --path . --install-android-build-template \
-            --export-release "Android AAB" build/android/Spikey.aab
-          test -f build/android/Spikey.aab
+            --export-release "Android AAB" build/android/Flapjaw.aab
+          test -f build/android/Flapjaw.aab
 
       - name: Warn about a skipped AAB
         if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 == ''
@@ -152,16 +167,16 @@ jobs:
         id: upload_apk
         uses: actions/upload-artifact@v4
         with:
-          name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-apk
-          path: build/android/Spikey.apk
+          name: flapjaw-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-apk
+          path: build/android/Flapjaw.apk
           if-no-files-found: error
 
       - name: Upload AAB
         if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         uses: actions/upload-artifact@v4
         with:
-          name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-aab
-          path: build/android/Spikey.aab
+          name: flapjaw-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-aab
+          path: build/android/Flapjaw.aab
           if-no-files-found: error
 
       - name: Read the commit message
@@ -183,12 +198,12 @@ jobs:
           SUBJECT: ${{ steps.commit.outputs.subject }}
           SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release key' || 'debug key, uninstall the previous build first' }}
         run: |
-          apk="build/android/Spikey-${VERSION}-${BUILD}.apk"
-          cp build/android/Spikey.apk "$apk"
+          apk="build/android/Flapjaw-${VERSION}-${BUILD}.apk"
+          cp build/android/Flapjaw.apk "$apk"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tag="$GITHUB_REF_NAME"; title="Spikey ${VERSION}"; pre=()
+            tag="$GITHUB_REF_NAME"; title="Flapjaw ${VERSION}"; pre=()
           else
-            tag="build-${BUILD}"; title="Spikey ${VERSION} test build ${BUILD}"; pre=(--prerelease)
+            tag="build-${BUILD}"; title="Flapjaw ${VERSION} test build ${BUILD}"; pre=(--prerelease)
           fi
           notes="${SUBJECT}"$'\n\n'"Android APK, signed with the ${SIGNED}. Commit ${GITHUB_SHA}."
           if gh release view "$tag" > /dev/null 2>&1; then
@@ -215,7 +230,7 @@ jobs:
           max_file_mb: ${{ vars.DISCORD_MAX_UPLOAD_MB || '10' }}
           # Android green.
           color: '3066993'
-          title: '🤖 Spikey ${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }}) for Android'
+          title: '🤖 Flapjaw ${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }}) for Android'
           url: ${{ steps.release.outputs.page_url }}
           description: |
             **[⬇️ Download APK](${{ steps.release.outputs.apk_url }})**, tap on your phone to install

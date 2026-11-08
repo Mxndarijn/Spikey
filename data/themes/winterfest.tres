@@ -5,28 +5,36 @@
 
 [sub_resource type="Resource" id="palette_0"]
 script = ExtResource("1_kd0ww")
-name = "Snow Day"
-sky_mid = Color(0.8862745, 0.9411765, 0.98039216, 1)
-sky_bottom = Color(0.6666667, 0.8117647, 0.93333334, 1)
+name = "Morning"
+sky_top = Color(0.9764706, 0.99215686, 1, 1)
+sky_mid = Color(0.8784314, 0.9490196, 0.99215686, 1)
+sky_bottom = Color(0.8784314, 0.9490196, 0.99215686, 1)
 
 [sub_resource type="Resource" id="palette_1"]
 script = ExtResource("1_kd0ww")
-name = "Candlelight"
-sky_top = Color(1, 0.95686275, 0.8784314, 1)
-sky_mid = Color(1, 0.8666667, 0.72156864, 1)
-sky_bottom = Color(0.9411765, 0.7058824, 0.54901963, 1)
+name = "Dusk"
+sky_top = Color(0.8784314, 0.9490196, 0.99215686, 1)
+sky_mid = Color(0.78431374, 0.9019608, 0.9764706, 1)
+sky_bottom = Color(0.78431374, 0.9019608, 0.9764706, 1)
 
 [resource]
 script = ExtResource("2_b4onl")
 id = "winterfest"
 display_name = "Winter Fest"
 order = 12
-sky_top = Color(0.9529412, 0.9843137, 1, 1)
-sky_mid = Color(0.8117647, 0.9137255, 0.9843137, 1)
-sky_bottom = Color(0.5568628, 0.7607843, 0.93333334, 1)
+sky_top = Color(0.9607843, 0.9882353, 1, 1)
+sky_mid = Color(0.8117647, 0.91764706, 0.9843137, 1)
+sky_bottom = Color(0.8117647, 0.91764706, 0.9843137, 1)
+glow = Color(0.9843137, 0.99607843, 1, 1)
 spike = Color(0.6392157, 0.07058824, 0.17254902, 1)
-spike_edge = Color(0.8784314, 0.21960784, 0.30980393, 1)
+spike_edge = Color(0.7411765, 0.32941177, 0.40392157, 1)
 world_accent = Color(0.18431373, 0.65882355, 0.30980393, 1)
+sun_ring = Color(0.96862745, 0.9882353, 1, 1)
+hill_far = Color(0.7176471, 0.8627451, 0.95686275, 1)
+hill_mid = Color(0.63529414, 0.80784315, 0.93333334, 1)
+hill_near = Color(0.56078434, 0.75686276, 0.9098039, 1)
+prop = Color(0.18039216, 0.49019608, 0.35686275, 1)
+ink = Color(0.11764706, 0.16470589, 0.26666668, 1)
 room_palettes = Array[ExtResource("1_kd0ww")]([SubResource("palette_0"), SubResource("palette_1")])
 premium = true
 price = 800

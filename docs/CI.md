@@ -1,6 +1,6 @@
 # CI: phone builds on GitHub Actions
 
-Three workflows in `.github/workflows/` build Spikey for phones. The repo has **no GitHub
+Three workflows in `.github/workflows/` build Flapjaw for phones. The repo has **no GitHub
 remote yet**, so none of this has run on GitHub. Create the repo, push, add the secrets below,
 then start the workflows from the Actions tab.
 

@@ -1,8 +1,9 @@
 extends TestCase
 ## Music as a Customize kind (catalog, prices, the pick in the save), the Music
-## tab with its previews, and the sound settings popup behind the home gear.
+## tab with its previews, and the settings sheet behind Home's Settings.
 
 const TEST_PATH := "user://test_music_profile.json"
+const MAIN_SCENE := "res://game/main.tscn"
 
 
 func _tree() -> SceneTree:
@@ -115,35 +116,94 @@ func test_music_tab_lists_previews_and_buys() -> void:
 	holder.free()
 
 
-func test_sound_settings_popup_edits_the_profile() -> void:
+func test_settings_sheet_edits_the_profile() -> void:
 	var holder := _holder()
 	var p := Profile.new()
 	var home := HomeScreen.new(p)
 	holder.add_child(home)
 	var changes := [0]
 	home.settings_changed.connect(func() -> void: changes[0] += 1)
-	var dialog := home.open_settings()
-	assert_true(dialog != null and dialog.get_parent() == home, "the gear opens the popup")
-	assert_eq(dialog.value_text("music"), "80", "shows the saved volume")
-	dialog.set_volume("music", 35)
+	var sheet := home.open_settings()
+	assert_true(sheet != null and sheet.get_parent() == home, "Settings opens the sheet")
+	assert_eq(sheet.value_text("music"), "80", "shows the saved volume")
+	sheet.set_volume("music", 35)
 	assert_eq(p.music_volume, 35)
-	assert_eq(dialog.value_text("music"), "35")
-	dialog.set_on("sfx", false)
-	assert_false(p.sfx_on, "the switch turns sounds off")
-	assert_true((dialog._sliders["sfx"] as StickerSlider).faded, "and fades its slider")
+	assert_eq(sheet.value_text("music"), "35")
+	sheet.set_on("sfx", false)
+	assert_false(p.sfx_on, "the round button turns sounds off")
+	assert_true(sheet.slider("sfx").faded, "and fades its slider")
 	assert_eq(changes[0], 2, "each change is reported")
-	var slider := dialog._sliders["music"] as StickerSlider
-	slider.size = Vector2(200, StickerSlider.HEIGHT)
+	for key: String in SettingsSheet.SWITCHES:
+		assert_true(sheet.switch(key) != null, "a %s switch" % key)
+	assert_true(sheet.switch("haptics").button_pressed, "haptics start on")
+	sheet.set_switch("reduced_flashing", true)
+	sheet.set_switch("large_buttons", true)
+	sheet.set_switch("color_blind_spikes", true)
+	assert_true(p.reduced_flashing and p.large_buttons and p.color_blind_spikes, "saved in profile")
+	assert_eq(changes[0], 5)
+	assert_false(sheet.is_showing_credits())
+	sheet.show_credits(true)
+	assert_true(sheet.is_showing_credits(), "Credits and licenses")
+	sheet.close_dialog()
+	assert_true(home.settings() == null, "the close button closes it")
+	holder.free()
+
+
+## The knob stays inside the bar at 0 and 100 (it used to run into the value).
+func test_volume_knob_stays_inside_the_bar() -> void:
+	var holder := _holder()
+	var slider := VolumeSlider.new()
+	holder.add_child(slider)
+	slider.size = Vector2(200, VolumeSlider.HEIGHT)
 	assert_eq(slider.value_at(0.0), 0.0)
 	assert_eq(slider.value_at(200.0), 100.0)
-	dialog.close_dialog()
-	assert_true(home.settings() == null, "Done closes it")
+	slider.value = 100
+	assert_eq(slider.knob_x() + VolumeSlider.KNOB / 2.0, 200.0, "the knob ends at the bar's end")
+	slider.value = 0
+	assert_eq(slider.knob_x() - VolumeSlider.KNOB / 2.0, 0.0, "and starts at its start")
 	holder.free()
+
+
+func test_play_settings_are_saved_and_applied() -> void:
+	DirAccess.remove_absolute(TEST_PATH)
+	var main: Node = load(MAIN_SCENE).instantiate()
+	main.profile_path = TEST_PATH
+	_tree().root.add_child(main)
+	var home := main._menus.current() as HomeScreen
+	if home == null:
+		fail("starts on home")
+		main.free()
+		return
+	var sheet := home.open_settings()
+	sheet.set_switch("reduced_flashing", true)
+	assert_false(main._room.flash_enabled, "reduced flashing turns the room flash off")
+	sheet.set_switch("large_buttons", true)
+	assert_eq(main._hud._pause_button.custom_minimum_size, Vector2(56, 56), "large pause")
+	sheet.set_switch("haptics", false)
+	var saved := Profile.load_or_new(TEST_PATH)
+	assert_true(saved.reduced_flashing and saved.large_buttons, "saved at once")
+	assert_false(saved.haptics)
+	sheet.set_switch("reduced_flashing", false)
+	assert_true(main._room.flash_enabled, "and back on")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+	UiKit.large_buttons = false
+
+
+func test_old_saves_get_the_play_setting_defaults() -> void:
+	var old := Profile.from_dict({"coins": 5})
+	assert_eq(
+		[old.haptics, old.reduced_flashing, old.color_blind_spikes, old.large_buttons],
+		[true, false, false, false]
+	)
+	var p := Profile.new()
+	p.color_blind_spikes = true
+	assert_true(Profile.from_dict(p.to_dict()).color_blind_spikes, "round trip")
 
 
 func test_main_saves_sound_settings_from_home() -> void:
 	DirAccess.remove_absolute(TEST_PATH)
-	var main: Node = load("res://game/main.tscn").instantiate()
+	var main: Node = load(MAIN_SCENE).instantiate()
 	main.profile_path = TEST_PATH
 	_tree().root.add_child(main)
 	_use_flyer(main, "buzz")

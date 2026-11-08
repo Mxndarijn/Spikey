@@ -4,6 +4,10 @@ extends Node2D
 ## Follows the drawn bird position, so it never touches gameplay.
 
 const WORLD_HEAD_ALPHA := 0.85
+## The bird moves a few pixels a frame; a bigger jump means it went through a
+## portal to the other wall, so the trail starts over instead of drawing a line
+## across the room.
+const JUMP_DISTANCE := 100.0
 
 var style := TrailStyle.world_ribbon()
 
@@ -56,6 +60,9 @@ func _process(delta: float) -> void:
 		_ages.remove_at(0)
 	if _emitting and not style.stamp_on_flap and _bird != null and _bird.is_visible_in_tree():
 		var p := _bird.position
+		if _points.size() > 0 and _points[_points.size() - 1].distance_to(p) > JUMP_DISTANCE:
+			_points.clear()
+			_ages.clear()
 		var last := _points.size() - 1
 		if last < 0 or _points[last].distance_to(p) >= style.spacing:
 			_points.append(p)

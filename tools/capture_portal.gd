@@ -8,6 +8,8 @@ extends SceneTree
 const PROFILE := "user://capture_portal_profile.json"
 ## Frames after the exit opens at which to take a shot.
 const SHOTS: Array[int] = [8, 20, 45, 90]
+## Give up (and close the window) after this many frames.
+const MAX_FRAMES := 1800
 
 var _main: Node
 var _out := "user://portal"
@@ -15,6 +17,7 @@ var _bot := PlannerBot.new(5)
 var _phase := 0
 var _since := -1
 var _fork := false
+var _frames := 0
 
 
 func _initialize() -> void:
@@ -37,10 +40,20 @@ func _process(_delta: float) -> bool:
 		_main.start_run()
 		_phase = 1
 		return false
+	_frames += 1
+	if _frames > MAX_FRAMES:
+		print("gave up waiting for an exit")
+		return true
+	# The off-screen window has no focus, and the game pauses when focus goes.
+	if _main._run.paused:
+		_main._set_paused(false)
 	var sim: GameSim = _main._run.sim
 	if sim == null or sim.is_over():
 		print("run ended before the exit")
 		return true
+	if _phase == 1 and sim.state.started and sim.state.score < 9:
+		# Jump to 9 points so the next bounce opens an exit.
+		sim.state.score = 9
 	if _phase == 2 and not _fork and sim.state.started:
 		# Second part: jump to 49 points so the next bounce opens a fork.
 		sim.state.score = 49

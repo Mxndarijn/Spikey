@@ -1,0 +1,161 @@
+{
+  "_about": "Extra scene colours per world for the flat layered rooms (Worlds v4). sun-ring: the ring around the sun or moon; cloud; hill-far/-mid/-near: the three rolling hill layers; prop: trees and other props on the hills; ink and paper: the world's text and chip colours; sky-split: where the sky blend ends (0..1 of the room height); night: stars and a moon instead of a sun. Run tools/import_design_kit.gd after editing. Spikes must stay 3:1 or more against every hill colour.",
+  "worlds": {
+    "sunset": {
+      "sun-ring": "#FFD09C",
+      "cloud": "#FFE3C8",
+      "hill-far": "#FF7E7B",
+      "hill-mid": "#F06C80",
+      "hill-near": "#E06084",
+      "prop": "#C9507F",
+      "ink": "#2A1740",
+      "paper": "#FFF4EA",
+      "sky-split": 0.62,
+      "night": false
+    },
+    "jungle": {
+      "sun-ring": "#DDF4AE",
+      "cloud": "#EAF8CF",
+      "hill-far": "#6CC478",
+      "hill-mid": "#55B26F",
+      "hill-near": "#45A067",
+      "prop": "#2F8656",
+      "ink": "#10291E",
+      "paper": "#F4FCE8",
+      "sky-split": 0.5,
+      "night": false
+    },
+    "ice": {
+      "sun-ring": "#F0FAFF",
+      "cloud": "#FFFFFF",
+      "hill-far": "#8FCDF0",
+      "hill-mid": "#7BBDE8",
+      "hill-near": "#6AAEE0",
+      "prop": "#4F95CF",
+      "ink": "#14305A",
+      "paper": "#F5FBFF",
+      "sky-split": 0.7,
+      "night": false
+    },
+    "lava": {
+      "sun-ring": "#FFCB8C",
+      "cloud": "#FFB98E",
+      "hill-far": "#E86A4E",
+      "hill-mid": "#D45745",
+      "hill-near": "#C04A40",
+      "prop": "#8E2F2C",
+      "ink": "#1F0B10",
+      "paper": "#FFF1E6",
+      "sky-split": 0.55,
+      "night": false
+    },
+    "deepsea": {
+      "sun-ring": "#A6F1EA",
+      "cloud": "#C9F7F2",
+      "hill-far": "#2FA9C4",
+      "hill-mid": "#2496B8",
+      "hill-near": "#1C84AA",
+      "prop": "#0F6B8E",
+      "ink": "#062A40",
+      "paper": "#EFFFFD",
+      "sky-split": 0.45,
+      "night": false
+    },
+    "sugar": {
+      "sun-ring": "#FFEFF6",
+      "cloud": "#FFFFFF",
+      "hill-far": "#F7A3CA",
+      "hill-mid": "#EE90C4",
+      "hill-near": "#E27FBF",
+      "prop": "#C966A8",
+      "ink": "#6E1745",
+      "paper": "#FFF7FB",
+      "sky-split": 0.6,
+      "night": false
+    },
+    "star": {
+      "sun-ring": "#34287F",
+      "cloud": "#2E2378",
+      "hill-far": "#2D2275",
+      "hill-mid": "#22195E",
+      "hill-near": "#19124A",
+      "prop": "#120C38",
+      "ink": "#F2F0FF",
+      "paper": "#362A86",
+      "sky-split": 0.6,
+      "night": true
+    },
+    "autumn": {
+      "sun-ring": "#FFEBC0",
+      "cloud": "#FFF1DC",
+      "hill-far": "#F29A5E",
+      "hill-mid": "#E2834F",
+      "hill-near": "#CC6E45",
+      "prop": "#A9532F",
+      "ink": "#3A1E12",
+      "paper": "#FFF6EA",
+      "sky-split": 0.6,
+      "night": false
+    },
+    "desert": {
+      "sun-ring": "#FFE3C4",
+      "cloud": "#FFE9D8",
+      "hill-far": "#D98A86",
+      "hill-mid": "#C47888",
+      "hill-near": "#A9678A",
+      "prop": "#7C4F7A",
+      "ink": "#2A1426",
+      "paper": "#FFF5EC",
+      "sky-split": 0.62,
+      "night": false
+    },
+    "blossom": {
+      "sun-ring": "#FFF6F9",
+      "cloud": "#FFFFFF",
+      "hill-far": "#F5B3CD",
+      "hill-mid": "#EBA0C2",
+      "hill-near": "#DE8EB8",
+      "prop": "#C76E9E",
+      "ink": "#4A1635",
+      "paper": "#FFF8FB",
+      "sky-split": 0.62,
+      "night": false
+    },
+    "neon": {
+      "sun-ring": "#2E1163",
+      "cloud": "#2A0F5A",
+      "hill-far": "#2A0F5A",
+      "hill-mid": "#200B48",
+      "hill-near": "#170838",
+      "prop": "#FF7FE0",
+      "ink": "#FFFFFF",
+      "paper": "#2E1466",
+      "sky-split": 0.6,
+      "night": true
+    },
+    "haunted": {
+      "sun-ring": "#3A2A6E",
+      "cloud": "#3A2B70",
+      "hill-far": "#34265F",
+      "hill-mid": "#271C4C",
+      "hill-near": "#1C143A",
+      "prop": "#120B26",
+      "ink": "#F5EEFF",
+      "paper": "#3A2B70",
+      "sky-split": 0.6,
+      "night": true
+    },
+    "winterfest": {
+      "sun-ring": "#F7FCFF",
+      "cloud": "#FFFFFF",
+      "hill-far": "#B7DCF4",
+      "hill-mid": "#A2CEEE",
+      "hill-near": "#8FC1E8",
+      "prop": "#2E7D5B",
+      "ink": "#1E2A44",
+      "paper": "#FFFFFF",
+      "sky-split": 0.62,
+      "night": false
+    }
+  }
+}

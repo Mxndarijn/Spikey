@@ -73,6 +73,21 @@ jobs:
           version: ${{ env.GODOT_VERSION }}
           templates: 'true'
 
+      - name: Write the Supabase config (leaderboards)
+        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
+        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
+              > services/supabase_config.json
+            echo "Leaderboards: Supabase"
+          else
+            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
+          fi
+
       - name: Import project
         run: godot --headless --path . --import || godot --headless --path . --import
 
@@ -81,8 +96,8 @@ jobs:
         # what we want here.
         run: |
           mkdir -p build/ios
-          godot --headless --path . --export-release "iOS" build/ios/Spikey.ipa
-          test -d build/ios/Spikey.xcodeproj
+          godot --headless --path . --export-release "iOS" build/ios/Flapjaw.ipa
+          test -d build/ios/Flapjaw.xcodeproj
 
       - name: Remove alpha from the app icons
         # App Store Connect rejects an app icon with transparency, and Godot renders the
@@ -93,7 +108,7 @@ jobs:
           python3 - <<'EOF'
           import glob
           from PIL import Image
-          for path in glob.glob("build/ios/Spikey/Images.xcassets/AppIcon.appiconset/*.png"):
+          for path in glob.glob("build/ios/Flapjaw/Images.xcassets/AppIcon.appiconset/*.png"):
               img = Image.open(path).convert("RGBA")
               bg = Image.new("RGBA", img.size, (0x2B, 0x1B, 0x5C, 255))
               bg.alpha_composite(img)
@@ -130,7 +145,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_CONTENT_BASE64: ${{ secrets.ASC_KEY_CONTENT_BASE64 }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      XCODE_PROJECT: ${{ github.workspace }}/build/ios/Spikey.xcodeproj
+      XCODE_PROJECT: ${{ github.workspace }}/build/ios/Flapjaw.xcodeproj
       SIGNING_DIR: ${{ github.workspace }}/signing
 
     steps:
@@ -178,7 +193,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: spikey-${{ needs.export.outputs.version }}-${{ needs.export.outputs.build }}-ipa
+          name: flapjaw-${{ needs.export.outputs.version }}-${{ needs.export.outputs.build }}-ipa
           path: .github/ios/output/*.ipa
           retention-days: 7
 
@@ -197,7 +212,7 @@ jobs:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           # iOS blue.
           color: '3447003'
-          title: '🍎 Spikey ${{ needs.export.outputs.version }} (${{ needs.export.outputs.build }}) for iOS'
+          title: '🍎 Flapjaw ${{ needs.export.outputs.version }} (${{ needs.export.outputs.build }}) for iOS'
           url: https://appstoreconnect.apple.com/apps
           description: |
             **Uploaded to TestFlight.** It shows up in the TestFlight app once Apple finishes processing (usually 5 to 30 minutes).

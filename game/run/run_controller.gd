@@ -19,6 +19,8 @@ var sim: GameSim
 ## State before the last tick, for smooth interpolation in the views.
 var prev_state: SimState
 var paused := false
+## Set while a recorded run plays back: taps come from it, never from input.
+var driver: ReplayDriver
 
 var _taps := PackedInt32Array()
 var _tap_pending := false
@@ -33,10 +35,18 @@ func new_run(seed_value: int, season: int = Seasons.NONE, practice_room: int = -
 	_taps.clear()
 	_tap_pending = false
 	paused = false
+	driver = null
+
+
+## Plays a recorded run back from its first tick (see ReplayDriver).
+func new_replay(p_driver: ReplayDriver) -> void:
+	new_run(p_driver.seed_value, p_driver.season)
+	p_driver.restart()
+	driver = p_driver
 
 
 func request_tap() -> void:
-	if sim != null and not paused and not sim.is_over():
+	if sim != null and not paused and not sim.is_over() and driver == null:
 		_tap_pending = true
 
 
@@ -52,8 +62,15 @@ func is_running() -> bool:
 func _physics_process(_delta: float) -> void:
 	if sim == null or paused or sim.is_over():
 		return
+	advance()
+
+
+## One sim tick with the pending tap (or the replay's tap for this tick).
+func advance() -> void:
 	var tap := _tap_pending
 	_tap_pending = false
+	if driver != null:
+		tap = driver.tap_at(sim.state.tick)
 	if tap:
 		_taps.append(sim.state.tick)
 	prev_state = sim.state.copy()

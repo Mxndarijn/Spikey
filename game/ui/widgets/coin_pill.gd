@@ -1,16 +1,17 @@
 class_name CoinPill
 extends PanelContainer
-## A number in a white sticker pill with an icon in front: the coin balance (design kit:
-## CoinPill), or with a word too, like the best score on the home screen.
+## A coin (or another icon) and a number straight on the room, no box: the coin
+## balance top right and the run's coins in the HUD. Ink on most rooms, white
+## on night rooms (the screen's theme decides). The name stays from the
+## sticker kit, where this was a pill.
 
 const COIN_ICON := preload("res://assets/ui/coin.svg")
-const ICON_SIZE := 24.0
+const ICON_SIZE := 22.0
 
 var _label := Label.new()
 
 
 func _init(icon: Texture2D = COIN_ICON, word: String = "") -> void:
-	theme_type_variation = &"PillPanel"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -25,17 +26,18 @@ func _init(icon: Texture2D = COIN_ICON, word: String = "") -> void:
 	row.add_child(pic)
 	if not word.is_empty():
 		var w := Label.new()
-		w.theme_type_variation = &"StatusLabel"
-		w.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_LABEL)
+		w.theme_type_variation = &"RoomMuted"
 		w.text = word
 		row.add_child(w)
-	_label.theme_type_variation = &"CoinLabel"
+	_label.theme_type_variation = &"RoomCoin"
+	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_label)
 
 
+## Coins read with thousands separators, as on the canvas ("1,240").
 func set_amount(value: int) -> void:
-	_label.text = str(value)
+	_label.text = UiKit.thousands(value)
 
 
 func amount_text() -> String:
-	return _label.text
+	return _label.text.replace(",", "")
