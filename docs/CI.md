@@ -28,7 +28,12 @@ workflows call it first, so a failing test stops the build.
 3. With the keystore secrets: exports a release-signed APK and, for `v*` tags or the "Build AAB"
    option, a release-signed AAB through Godot's Gradle build (preset "Android AAB").
    Without them: a debug-signed APK, signed with a key made fresh on each run.
-4. Uploads the APK/AAB as artifacts. Download from the run page, unzip, install the APK.
+4. Uploads the APK/AAB as artifacts (kept 90 days, need a GitHub login).
+5. Publishes the APK as a GitHub Release, a direct public download because the repo is
+   public: `v*` tags become a release named after the version, other runs a pre-release
+   tagged `build-<n>`. Old test pre-releases pile up; delete them on the Releases page
+   (also delete the tag) when the list gets long.
+6. Posts a Discord embed whose button downloads that APK (when `DISCORD_WEBHOOK_URL` is set).
 
 **iOS TestFlight**
 
@@ -55,7 +60,7 @@ there can be reused, except the provisioning profile and its name (that one is p
 | `ANDROID_KEY_ALIAS` | Key alias inside the keystore, e.g. `spikey` |
 | `DISCORD_WEBHOOK_URL` | Optional, shared with iOS. Discord channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL. Every successful Android build and TestFlight upload posts an embed (version, build, type, commit; Android also attaches the APK when it fits). |
 
-Optional repository **variable** (Settings → Secrets and variables → Actions → Variables): `DISCORD_MAX_UPLOAD_MB`, the server's upload limit (10 normally, 50 at boost level 2, 100 at level 3). Larger APKs are linked instead of attached. Zipping does not help: an APK is already a compressed zip.
+Optional repository **variable** (Settings → Secrets and variables → Actions → Variables): `DISCORD_MAX_UPLOAD_MB`, the server's upload limit (10 normally, 50 at boost level 2, 100 at level 3). Larger APKs are only linked (the APK is about 52 MB, almost all of it the Godot engine for arm64 + armv7). Zipping does not help: an APK is already a compressed zip.
 
 All three are optional for testing: without them you get a debug APK. They are required for an
 AAB and for any APK you want to update in place later.

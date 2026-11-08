@@ -32,6 +32,9 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # contents: write lets GITHUB_TOKEN create the GitHub Release that hosts the APK.
+    permissions:
+      contents: write
 
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -167,23 +170,55 @@ jobs:
           echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
           echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Publish the APK as a GitHub Release
+        # The repo is public, so a release asset is a direct download for anyone, no GitHub
+        # account needed (artifacts always need one). `v*` tags become a normal release named
+        # after the version; every other run becomes a pre-release tagged `build-<n>`.
+        # Re-running a build replaces its APK.
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          SUBJECT: ${{ steps.commit.outputs.subject }}
+          SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release key' || 'debug key, uninstall the previous build first' }}
+        run: |
+          apk="build/android/Spikey-${VERSION}-${BUILD}.apk"
+          cp build/android/Spikey.apk "$apk"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"; title="Spikey ${VERSION}"; pre=()
+          else
+            tag="build-${BUILD}"; title="Spikey ${VERSION} test build ${BUILD}"; pre=(--prerelease)
+          fi
+          notes="${SUBJECT}"$'\n\n'"Android APK, signed with the ${SIGNED}. Commit ${GITHUB_SHA}."
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "$title" \
+              --notes "$notes" "${pre[@]}"
+          fi
+          name="$(basename "$apk")"
+          echo "apk_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${tag}/${name}" >> "$GITHUB_OUTPUT"
+          echo "page_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${tag}" >> "$GITHUB_OUTPUT"
+          echo "file=${apk}" >> "$GITHUB_OUTPUT"
+
       - name: Announce on Discord
         # Optional: set the DISCORD_WEBHOOK_URL secret (Discord channel -> Edit -> Integrations
-        # -> Webhooks). The APK is attached when it fits the server's upload limit (repository
-        # variable DISCORD_MAX_UPLOAD_MB, default 10); the link to the artifact always works but
-        # needs a GitHub account with access to this repo.
+        # -> Webhooks). The button links to the APK on the GitHub Release. The APK is also
+        # attached when it fits the server's upload limit (repository variable
+        # DISCORD_MAX_UPLOAD_MB, default 10; today's APK is about 52 MB).
         if: success() && env.DISCORD_WEBHOOK_URL != ''
         uses: ./.github/actions/discord-embed
         with:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}
-          file: build/android/Spikey.apk
+          file: ${{ steps.release.outputs.file }}
           max_file_mb: ${{ vars.DISCORD_MAX_UPLOAD_MB || '10' }}
           # Android green.
           color: '3066993'
           title: '🤖 Spikey ${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }}) for Android'
-          url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }}
+          url: ${{ steps.release.outputs.page_url }}
           description: |
-            **[⬇️ Download APK](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }})** (unzip, then install)
+            **[⬇️ Download APK](${{ steps.release.outputs.apk_url }})**, tap on your phone to install
             > ${{ steps.commit.outputs.subject }}
           fields: |
             Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
