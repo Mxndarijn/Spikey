@@ -94,7 +94,22 @@ func _ready() -> void:
 	if not _profile.onboarded:
 		_first_start()
 	apply_settings()
+	get_viewport().size_changed.connect(fit_screen)
+	fit_screen()
 	show_home()
+
+
+## Puts the room (world, HUD and menus) where ScreenLayout says on this phone.
+func fit_screen() -> void:
+	set_room_rect(ScreenLayout.current(get_viewport()))
+
+
+## The world moves with Main (a Node2D); the HUD and menus are canvas layers,
+## so they get the rect themselves.
+func set_room_rect(rect: Rect2) -> void:
+	position = rect.position
+	_hud.room_rect = rect
+	_menus.set_room_rect(rect)
 
 
 ## Starts a run from the menus (Play).

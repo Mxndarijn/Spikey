@@ -78,7 +78,8 @@ so breaking them fails the check script.
 ### Rooms
 
 Every 10 points an exit portal opens on the wall the bird is heading to (a
-random height; no spikes in the opening). Flying into it moves to the next room;
+random spike slot; no spikes in the opening, and the whole spike-free gap
+around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
 same way, without stopping (gameplay version 6). Every 50 points a
@@ -157,7 +158,7 @@ _process           views draw, interpolating between previous and current tick
   the cradle dock on Home and Game over, Archivo as the only font. Real sprites
   replace the drawing later without touching the sim.
 - Pause just stops calling `step()`. The app auto-pauses when it loses focus.
-- Display: 360 × 640 viewport, `canvas_items` stretch, portrait, Compatibility
+- Display: 360 × 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` centres the fixed 360 × 640 room in the safe area and RoomView fills around it), portrait, Compatibility
   renderer (best for 2D on older phones).
 
 ## Verified leaderboards (Phase 3)

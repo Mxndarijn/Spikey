@@ -13,6 +13,8 @@ const GAP_MAX := 490 * SimConfig.SUB
 ## After a bounce, the column the bird meets first gets its gap within REACH
 ## of the bird's height (it has about half a second to get there), and the
 ## other column within MAX_STEP of that, so there is always a way through.
+## Out of a portal (a bounce at room step 0) the first gap stays at the bird's
+## height instead, since the player hasn't seen the room yet.
 const REACH := 40 * SimConfig.SUB
 const MAX_STEP := 60 * SimConfig.SUB
 ## No wall spike within this of the gap next to the wall ahead.
@@ -63,7 +65,12 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	if partner != null and (partner.x > x) == (sim.state.vx < 0):
 		near = partner
 		far = self
-	near.target_y = _around(rng, sim.state.y, REACH)
+	if t == 0:
+		# Just came out of a portal into this room: the player hasn't seen it
+		# yet, so the gap ahead stays at the bird's height (set in setup).
+		near.target_y = near.gap_y
+	else:
+		near.target_y = _around(rng, sim.state.y, REACH)
 	if far != null:
 		far.target_y = _around(rng, near.target_y, MAX_STEP)
 	_clear_wall_ahead(sim, far if far != null else near)

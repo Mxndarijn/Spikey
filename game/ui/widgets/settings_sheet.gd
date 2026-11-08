@@ -47,6 +47,7 @@ func _init(profile: Profile) -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
+	ScrimBleed.attach(scrim)
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scrim.gui_input.connect(_on_scrim_input)
 	add_child(scrim)

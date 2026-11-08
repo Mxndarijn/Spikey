@@ -45,6 +45,8 @@ var _pinned_note: Label
 var _dialog: NameDialog
 ## The "Watch replay" sheet and the run it is for (0: closed).
 var _sheet: Control
+## The board's row list; a drag on it is not a tap on a row.
+var _list_scroll: SmoothScroll
 var _sheet_run := 0
 var _sheet_status: Label
 
@@ -210,10 +212,9 @@ func _set_caption(left: String, right: String) -> void:
 
 
 func _list(board: LeaderboardBoard) -> Control:
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var scroll := SmoothScroll.new()
+	scroll.blocked = func() -> bool: return _dialog != null or _sheet != null
+	_list_scroll = scroll
 	scroll.custom_minimum_size = Vector2(0, LIST_MIN)
 	var rows := VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -224,7 +225,8 @@ func _list(board: LeaderboardBoard) -> Control:
 		_tappable(row, board.entries[i])
 		_rows.append(row)
 		rows.add_child(row)
-	return scroll
+	rows.add_child(UiKit.spacer(FadeMask.FADE))
+	return FadeMask.new(scroll)
 
 
 ## The player's own row, a gold pill: rank, flyer, "You (name)" over what the
@@ -367,6 +369,8 @@ func _tappable(target: Control, e: LeaderboardBoard.Entry) -> void:
 func _on_tap(event: InputEvent, e: LeaderboardBoard.Entry) -> void:
 	var mb := event as InputEventMouseButton
 	if mb != null and mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
+		if is_instance_valid(_list_scroll) and _list_scroll.swallow_tap():
+			return
 		open_replay(e)
 
 
@@ -380,6 +384,7 @@ func open_replay(e: LeaderboardBoard.Entry) -> void:
 	_sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
+	ScrimBleed.attach(scrim)
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scrim.gui_input.connect(_on_scrim_input)
 	_sheet.add_child(scrim)

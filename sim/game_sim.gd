@@ -308,8 +308,10 @@ func _check_walls() -> void:
 func _take_exit(side: int) -> bool:
 	if not state.exit_open or state.exit_side != side:
 		return false
-	# Most of the bird must be inside the opening.
-	var fit := SimConfig.EXIT_HALF - SimConfig.BIRD_RADIUS / 2
+	# Anywhere in the spike-free gap counts, so the bird can't bounce in the
+	# strip between the portal and the nearest spike. Past this, the bird's
+	# center is level with a spike base and _check_spikes has already killed it.
+	var fit := SimConfig.EXIT_FIT
 	var kind := -1
 	if absi(state.y - state.exit_a_y) <= fit:
 		kind = state.exit_a_kind
@@ -331,22 +333,33 @@ func _maybe_open_exit(side: int) -> void:
 	state.exit_side = side
 	var fork := state.score % SimConfig.FORK_EVERY == 0 and not is_practice()
 	if fork:
-		var top_span := SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF - SimConfig.EXIT_MIN_Y
-		var bottom_span := SimConfig.EXIT_MAX_Y - SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF
-		var top := SimConfig.EXIT_MIN_Y + _rng.next_below(top_span)
-		var bottom := SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF + _rng.next_below(bottom_span)
+		var top := _random_exit_y(
+			SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF
+		)
+		var bottom := _random_exit_y(
+			SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF, SimConfig.EXIT_MAX_Y
+		)
 		var calm_on_top := _rng.next_below(2) == 0
 		state.exit_a_y = top
 		state.exit_b_y = bottom
 		state.exit_a_kind = SimState.ExitKind.CALM if calm_on_top else SimState.ExitKind.WILD
 		state.exit_b_kind = SimState.ExitKind.WILD if calm_on_top else SimState.ExitKind.CALM
 	else:
-		var span := SimConfig.EXIT_MAX_Y - SimConfig.EXIT_MIN_Y + 1
-		state.exit_a_y = SimConfig.EXIT_MIN_Y + _rng.next_below(span)
+		state.exit_a_y = _random_exit_y(SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
 		state.exit_a_kind = SimState.ExitKind.NORMAL
 		state.exit_b_y = 0
 		state.exit_b_kind = SimState.ExitKind.NORMAL
 	events.append(Event.EXIT_OPEN)
+
+
+## A random exit height between lo and hi, on a spike slot's center. The
+## opening is then always that slot and one either side, with the portal in
+## the middle of it, so the gap is the same everywhere.
+func _random_exit_y(lo: int, hi: int) -> int:
+	var c0 := SimConfig.slot_center_y(0)
+	var first := (lo - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
+	var last := (hi - c0) / SimConfig.SLOT_SIZE
+	return SimConfig.slot_center_y(first + _rng.next_below(last - first + 1))
 
 
 ## Flies through an exit on wall `side` into the next room: the bird comes out

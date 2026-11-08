@@ -28,6 +28,7 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
+	ScrimBleed.attach(scrim)
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(scrim)
 	var margin := MarginContainer.new()

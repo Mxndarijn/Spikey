@@ -315,6 +315,8 @@ func test_stalactites_kill_and_leave_a_gap() -> void:
 func test_stalactites_move_on_bounce() -> void:
 	var sim := RoomsTest.sim_in_room("stalac", 11)
 	var rocks := _hazards(sim, "stalactite")
+	# Past the room's first step: a bounce at step 0 is a portal entry.
+	_advance(sim, 1)
 	var moved := false
 	for n in 8:
 		var before: int = rocks[0].target_y

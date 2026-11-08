@@ -10,10 +10,21 @@ var _current: Control
 
 func _init() -> void:
 	layer = 2
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.size = ScreenLayout.ROOM
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.theme = UiTheme.get_theme()
 	add_child(_root)
+
+
+## Screens cover the room (ScreenLayout), not the whole phone, so their
+## titles and docks stay clear of the ceiling and floor spikes.
+func set_room_rect(rect: Rect2) -> void:
+	_root.position = rect.position
+	_root.size = rect.size
+
+
+func room_rect() -> Rect2:
+	return Rect2(_root.position, _root.size)
 
 
 ## UiTheme.room_theme(world) for the world in use.

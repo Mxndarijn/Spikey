@@ -63,6 +63,13 @@ const WALL_CLEAR := 54.0
 
 ## Settings > Reduced flashing: the new-best moment stays still.
 var reduced_motion := false
+## The room on screen (ScreenLayout); the HUD is laid out over it. Main sets
+## it when the screen changes shape.
+var room_rect := Rect2(Vector2.ZERO, ScreenLayout.ROOM):
+	set(value):
+		room_rect = value
+		if _root != null:
+			_apply_room_rect()
 
 var _run: RunController
 var _toast_tween: Tween
@@ -99,6 +106,8 @@ var _daily_rank := 0
 
 func _ready() -> void:
 	_root.theme = UiTheme.get_theme()
+	_root.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_apply_room_rect()
 	_build_running()
 	_build_hint()
 	_build_paused()
@@ -193,6 +202,7 @@ func _build_hint() -> void:
 
 func _build_paused() -> void:
 	_paused.color = UiTokens.SCRIM
+	ScrimBleed.attach(_paused)
 	_paused.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_paused.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_paused)
@@ -424,10 +434,16 @@ func fly_coin(from: Vector2, total: int) -> void:
 	t.tween_callback(_land_coin.bind(coin, total))
 
 
-## Where flying coins land: the coin icon inside the counter.
+## Where flying coins land: the coin icon inside the counter, in room px.
 func _counter_target() -> Vector2:
 	var r := _run_coins.get_global_rect()
+	r.position -= _root.get_global_rect().position
 	return Vector2(r.position.x + CoinPill.ICON_SIZE / 2.0, r.position.y + r.size.y / 2.0)
+
+
+func _apply_room_rect() -> void:
+	_root.position = room_rect.position
+	_root.size = room_rect.size
 
 
 static func _fly_step(t: float, coin: Control, start: Vector2, bend: Vector2, end: Vector2) -> void:

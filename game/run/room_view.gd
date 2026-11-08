@@ -8,6 +8,10 @@ extends Node2D
 const W := float(UiTokens.SIZE_VIEWPORT_W)
 const H := float(UiTokens.SIZE_VIEWPORT_H)
 const BAND := 8.0
+## Phones taller or wider than 360 x 640 show space around the room
+## (ScreenLayout). The ceiling, floor and walls carry on into it in the band
+## colour, this far out (more than any phone needs).
+const SURROUND := 2048.0
 const SPIKE_DEPTH := float(UiTokens.SIZE_SPIKE_DEPTH)
 const SPIKE_HALF := UiTokens.SIZE_SPIKE_BASE / 2.0
 ## Ceiling and floor: one unbroken row of 9 wide spikes. Band + depth reach the
@@ -394,6 +398,8 @@ func _draw_score() -> void:
 
 func _draw_edges() -> void:
 	var body := INK_SPIKE if color_blind_spikes else _theme.spike
+	for r in surround_rects():
+		draw_rect(r, body)
 	draw_rect(Rect2(0, 0, W, BAND), body)
 	draw_rect(Rect2(0, H - BAND, W, BAND), body)
 	var count := int(W / (EDGE_SPIKE_HALF * 2.0))
@@ -402,6 +408,18 @@ func _draw_edges() -> void:
 		var cx := step * (i + 0.5)
 		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
 		_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
+
+
+## The band colour around the room: above, below, left and right of it.
+static func surround_rects() -> Array[Rect2]:
+	var s := SURROUND
+	var out: Array[Rect2] = [
+		Rect2(-s, -s, W + s * 2.0, s),
+		Rect2(-s, H, W + s * 2.0, s),
+		Rect2(-s, 0, s, H),
+		Rect2(W, 0, s, H),
+	]
+	return out
 
 
 func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir: float) -> void:

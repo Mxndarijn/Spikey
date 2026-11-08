@@ -30,7 +30,7 @@ const NOTES := {
 }
 
 var _profile: Profile
-var _scroll := ScrollContainer.new()
+var _scroll := SmoothScroll.new()
 var _sections := {}
 var _selected := ""
 var _tabs := {}
@@ -58,17 +58,15 @@ func _ready() -> void:
 	margin.add_child(col)
 	col.add_child(UiKit.header("Rooms", closed.emit, _clears()))
 	col.add_child(_tab_bar())
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(list)
-	col.add_child(_scroll)
+	col.add_child(FadeMask.new(_scroll))
 	for g in RoomInfo.GROUPS:
 		var section := _section(g)
 		_sections[g] = section
 		list.add_child(section)
+	list.add_child(UiKit.spacer(FadeMask.FADE))
 	_select_tab("starter")
 
 

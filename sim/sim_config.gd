@@ -18,7 +18,11 @@ extends RefCounted
 ##    the bird comes out of a portal flying level (no speed up or down).
 ## 8: Coin Garden allows up to three spikes per wall (was one).
 ## 9: Tide Spikes slide out to 1.5 times a normal spike (was 1 times).
-const GAMEPLAY_VERSION := 9
+## 10: exits sit on a spike slot's center, and the whole spike-free gap around
+##     one leads through (no more bouncing between the portal and a spike).
+##     Stalactite Run: out of a portal, the gap ahead stays at the bird's
+##     height (it no longer moves up to 40 px before the player sees the room).
+const GAMEPLAY_VERSION := 10
 const TICKS_PER_SECOND := 60
 const SUB := 64
 
@@ -68,6 +72,11 @@ const COIN_MAX_Y := 550 * SUB
 # opposite wall, still flying the same way. Every FORK_EVERY points there are
 # two exits, Calm and Wild, and the one taken sets the route until the next fork.
 const EXIT_HALF := 48 * SUB
+## Exits sit on a slot center, so the opening is that slot and one either side
+## and the nearest spikes are two slots away. A bird whose center reaches the
+## wall within EXIT_FIT of the exit goes through: that is the whole gap up to
+## the next spike's base.
+const EXIT_FIT := 2 * SLOT_SIZE - SPIKE_HALF_BASE
 const EXIT_MIN_Y := 110 * SUB
 const EXIT_MAX_Y := 530 * SUB
 ## Fork exits: one above this line, one below it.

@@ -3,6 +3,8 @@ extends TestCase
 ## moves to the next room, and the bird flies straight on into it. Every 50
 ## points a fork offers a Calm and a Wild exit.
 
+const RoomsTest := preload("res://tests/unit/test_rooms.gd")
+
 
 ## A run already at `score`, heading right, about to bounce off the left wall.
 static func _sim_at(score: int, seed_value: int = 3) -> GameSim:
@@ -54,9 +56,9 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	var missed := _sim_at(9)
 	_hit_wall(missed, 1, 300 * SimConfig.SUB)
 	var y := missed.state.exit_a_y
-	missed.state.y = (
-		y + SimConfig.EXIT_HALF * 3 if y < 320 * SimConfig.SUB else y - SimConfig.EXIT_HALF * 3
-	)
+	# Four slots away: level with a spike's tip.
+	var away := SimConfig.SLOT_SIZE * 4
+	missed.state.y = y + away if y < 320 * SimConfig.SUB else y - away
 	missed.state.vy = 0
 	missed.state.vx = -SimConfig.SPEED_X
 	missed.state.x = missed.room.wall_left() + SimConfig.BIRD_RADIUS + SimConfig.SPIKE_DEPTH / 2
@@ -185,3 +187,72 @@ func test_portals_draw() -> void:
 			await tree.process_frame
 	run.free()
 	view.free()
+
+
+## Every height on an exit wall either goes through the exit or hits a spike:
+## there is no strip beside the portal to bounce in and score.
+func test_no_safe_bounce_between_portal_and_spike() -> void:
+	for start in [[9, 3], [19, 5], [29, 11], [49, 8]]:
+		var opened := _sim_at(start[0], start[1])
+		_hit_wall(opened, 1, 300 * SimConfig.SUB)
+		assert_true(opened.state.exit_open)
+		var y := SimConfig.slot_center_y(0)
+		while y <= SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 1):
+			var sim := _sim_at(start[0], start[1])
+			_hit_wall(sim, 1, 300 * SimConfig.SUB)
+			var r := SimConfig.BIRD_RADIUS
+			sim.state.y = y
+			sim.state.vy = 0
+			sim.state.vx = -SimConfig.SPEED_X
+			sim.state.x = sim.room.wall_left() + r - 1
+			sim.events.clear()
+			sim._check_spikes()
+			if sim.state.alive:
+				sim._check_walls()
+				assert_true(
+					GameSim.Event.ROOM_CHANGE in sim.events,
+					"y %d px: through the exit, not a bounce" % (y / SimConfig.SUB)
+				)
+			y += SimConfig.SUB
+
+
+func test_exits_sit_on_slot_centers_with_the_portal_in_the_middle() -> void:
+	for start in [[9, 3], [19, 5], [29, 11], [49, 8]]:
+		var sim := _sim_at(start[0], start[1])
+		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		var s := sim.state
+		var ys := [s.exit_a_y]
+		if s.exit_b_kind != SimState.ExitKind.NORMAL:
+			ys.append(s.exit_b_y)
+		for ey: int in ys:
+			var slot := (ey - SimConfig.slot_center_y(0)) / SimConfig.SLOT_SIZE
+			assert_eq(SimConfig.slot_center_y(slot), ey, "on a slot center")
+			var three := 0b111 << (slot - 1)
+			assert_eq(sim.exit_slots() & three, three, "that slot and one either side")
+
+
+## Coming out of a portal, the player hasn't seen the room yet: the gap ahead
+## stays at the bird's height, and the other one stays reachable from it.
+func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
+	for seed_value in 12:
+		for heading_right in [true, false]:
+			var y := (130 + seed_value * 35) * SimConfig.SUB
+			var sim := RoomsTest.sim_in_room("stalac", 50 + seed_value)
+			sim.state.started = true
+			sim.state.y = y
+			sim.state.vx = SimConfig.SPEED_X if heading_right else -SimConfig.SPEED_X
+			var rocks: Array[Hazard] = []
+			for h in sim.room.hazards:
+				if h.kind == "stalactite":
+					rocks.append(h)
+			for h in rocks:
+				h.setup(sim, SimRng.new(seed_value))
+			for h in rocks:
+				h.on_bounce(sim, SimRng.new(200 + seed_value))
+			var near: Hazard = rocks[0] if heading_right == (rocks[0].x < rocks[1].x) else rocks[1]
+			var far: Hazard = rocks[1] if near == rocks[0] else rocks[0]
+			var want := clampi(y, 150 * SimConfig.SUB, 490 * SimConfig.SUB)
+			assert_eq(near.target_y, want, "gap ahead at the bird's height")
+			assert_eq(near.gap_y, want, "and already there")
+			var step := absi(far.target_y - near.target_y)
+			assert_true(step <= 60 * SimConfig.SUB, "next gap reachable")

@@ -79,6 +79,7 @@ func set_large_buttons(on: bool) -> void:
 
 func _build_over() -> void:
 	_over.color = UiTokens.SCRIM
+	ScrimBleed.attach(_over)
 	_over.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var title_box := MarginContainer.new()

@@ -175,14 +175,12 @@ func _build_shop(col: VBoxContainer) -> void:
 		tabs.add_child(tab)
 	col.add_child(bar)
 
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var scroll := SmoothScroll.new()
+	scroll.blocked = is_popup_open
 	var pad := MarginContainer.new()
 	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pad.add_theme_constant_override("margin_top", 4)
-	pad.add_theme_constant_override("margin_bottom", 4)
+	pad.add_theme_constant_override("margin_bottom", int(FadeMask.FADE))
 	var stack := VBoxContainer.new()
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_owned_grid.columns = SHOP_COLUMNS
@@ -200,7 +198,7 @@ func _build_shop(col: VBoxContainer) -> void:
 	stack.add_child(_empty)
 	pad.add_child(stack)
 	scroll.add_child(pad)
-	col.add_child(scroll)
+	col.add_child(FadeMask.new(scroll))
 
 
 ## Five tabs share 332 px equally (clip_text drops the text's own minimum
@@ -226,6 +224,7 @@ func _build_popup() -> Control:
 	_popup.visible = false
 	var dim := ColorRect.new()
 	dim.color = UiTokens.SCRIM
+	ScrimBleed.attach(dim)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.gui_input.connect(_on_dim_input)
 	_popup.add_child(dim)

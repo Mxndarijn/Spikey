@@ -105,6 +105,7 @@ func _scrim_link(text: String) -> Control:
 
 func _build_over() -> void:
 	_over.color = UiTokens.SCRIM
+	ScrimBleed.attach(_over)
 	_over.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_at(UiKit.label("Crashed", &"ScrimTitle"), 84)
