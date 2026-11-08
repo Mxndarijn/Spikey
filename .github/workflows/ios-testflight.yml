@@ -191,6 +191,13 @@ jobs:
       - name: Re-pack the certificate for the keychain
         run: |
           OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
+          size=$(wc -c < "$SIGNING_DIR/dist_cert.p12")
+          first=$(head -c1 "$SIGNING_DIR/dist_cert.p12" | xxd -p)
+          echo "Decoded .p12: $size bytes, first byte 0x$first (a real .p12 starts with 0x30)"
+          if [ "$size" -lt 500 ] || [ "$first" != "30" ]; then
+            echo "::error::IOS_DIST_CERT_P12_BASE64 doesn't decode to a .p12 file: set it again from the base64 of the .p12 itself."
+            exit 1
+          fi
           if ! "$OPENSSL" pkcs12 -in "$SIGNING_DIR/dist_cert.p12" -nodes -passin env:IOS_P12_PASSWORD \
               -out "$SIGNING_DIR/cert.pem" 2>/dev/null \
             && ! "$OPENSSL" pkcs12 -legacy -in "$SIGNING_DIR/dist_cert.p12" -nodes \
