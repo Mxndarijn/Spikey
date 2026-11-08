@@ -53,6 +53,7 @@ there can be reused, except the provisioning profile and its name (that one is p
 | `ANDROID_KEYSTORE_BASE64` | The upload keystore file, base64-encoded |
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore password (also used as the key password) |
 | `ANDROID_KEY_ALIAS` | Key alias inside the keystore, e.g. `spikey` |
+| `DISCORD_WEBHOOK_URL` | Optional. Discord webhook (channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL). Each successful Android build posts version, build number and a link to the APK. |
 
 All three are optional for testing: without them you get a debug APK. They are required for an
 AAB and for any APK you want to update in place later.

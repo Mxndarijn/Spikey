@@ -37,6 +37,7 @@ jobs:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       WANT_AAB: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.aab == true }}
 
     steps:
@@ -145,6 +146,7 @@ jobs:
         run: echo "::warning::AAB skipped, the Play Console needs a release-signed AAB. Add the ANDROID_KEYSTORE_* secrets."
 
       - name: Upload APK
+        id: upload_apk
         uses: actions/upload-artifact@v4
         with:
           name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-apk
@@ -158,6 +160,29 @@ jobs:
           name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-aab
           path: build/android/Spikey.aab
           if-no-files-found: error
+
+      - name: Announce on Discord
+        # Optional: set the DISCORD_WEBHOOK_URL secret (Discord channel -> Edit -> Integrations
+        # -> Webhooks). The APK is too big for a webhook upload, so the message links to the
+        # artifact; opening it needs a GitHub account with access to this repo.
+        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          APK_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          KIND: ${{ startsWith(github.ref, 'refs/tags/v') && 'Release' || 'Test build' }}
+          SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release-signed' || 'debug-signed (uninstall the old build first)' }}
+        run: |
+          commit="$(git log -1 --pretty=%s)"
+          jq -n \
+            --arg title "Spikey ${VERSION} (build ${BUILD}) for Android" \
+            --arg url "$APK_URL" \
+            --arg desc "${KIND}, ${SIGNED}.
+          [Download APK](${APK_URL}) · [Run](${RUN_URL})
+          Latest commit: ${commit}" \
+            '{username: "Spikey Builds", embeds: [{title: $title, url: $url, description: $desc, color: 5793266}]}' \
+            | curl --fail --silent --show-error -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL"
 
       - name: Clean up signing assets
         if: always()
