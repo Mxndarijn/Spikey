@@ -1,0 +1,92 @@
+name: Discord embed
+description: >
+  Posts one embed to a Discord webhook. All Spikey CI messages go through here so they share
+  one look: title (linked), short description, inline fields, a footer with the workflow name
+  and a timestamp. Needs jq and curl (on every GitHub-hosted runner).
+
+inputs:
+  webhook:
+    description: Discord webhook URL (pass the DISCORD_WEBHOOK_URL secret)
+    required: true
+  title:
+    description: Embed title
+    required: true
+  url:
+    description: Link for the title
+    required: false
+    default: ''
+  description:
+    description: Text under the title (Discord markdown, links allowed)
+    required: false
+    default: ''
+  color:
+    description: Side bar colour as a decimal number
+    required: false
+    default: '5793266'
+  fields:
+    description: One field per line as `Name|Value`, shown side by side
+    required: false
+    default: ''
+  file:
+    description: >
+      Optional file to attach (e.g. the APK). Attached only when it fits `max_file_mb`;
+      otherwise the embed is posted without it and says so.
+    required: false
+    default: ''
+  max_file_mb:
+    description: >
+      Discord's upload limit for this server: 10 MB normally, 50 MB at boost level 2,
+      100 MB at level 3
+    required: false
+    default: '10'
+
+runs:
+  using: composite
+  steps:
+    - name: Post to Discord
+      shell: bash
+      env:
+        WEBHOOK: ${{ inputs.webhook }}
+        TITLE: ${{ inputs.title }}
+        URL: ${{ inputs.url }}
+        DESC: ${{ inputs.description }}
+        COLOR: ${{ inputs.color }}
+        FIELDS: ${{ inputs.fields }}
+        FOOTER: Spikey CI · ${{ github.workflow }} · run ${{ github.run_number }}
+        FILE: ${{ inputs.file }}
+        MAX_MB: ${{ inputs.max_file_mb }}
+      run: |
+        attach=""
+        if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+          size=$(wc -c < "$FILE" | tr -d ' ')
+          size_mb=$(awk "BEGIN { printf \"%.1f\", $size / 1048576 }")
+          if [ "$size" -le $(( MAX_MB * 1024 * 1024 )) ]; then
+            attach="$FILE"
+          else
+            DESC="${DESC}"$'\n'"-# ${size_mb} MB is over this server's ${MAX_MB} MB upload limit, so it is not attached."
+          fi
+        fi
+        jq -n \
+          --arg title "$TITLE" --arg url "$URL" --arg desc "$DESC" \
+          --arg footer "$FOOTER" --arg fields "$FIELDS" \
+          --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson color "$COLOR" \
+          '{
+            username: "Spikey Builds",
+            embeds: [({
+              title: $title,
+              description: $desc,
+              color: $color,
+              fields: ($fields | split("\n") | map(select(length > 0) | split("|")
+                | {name: .[0], value: (.[1:] | join("|")), inline: true})),
+              footer: {text: $footer},
+              timestamp: $ts
+            } + (if $url == "" then {} else {url: $url} end))]
+          }' > "$RUNNER_TEMP/discord.json"
+        if [ -n "$attach" ]; then
+          curl --fail --silent --show-error \
+            -F "payload_json=<$RUNNER_TEMP/discord.json" \
+            -F "files[0]=@$attach" "$WEBHOOK"
+        else
+          curl --fail --silent --show-error -H "Content-Type: application/json" \
+            -d @"$RUNNER_TEMP/discord.json" "$WEBHOOK"
+        fi

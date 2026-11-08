@@ -161,28 +161,34 @@ jobs:
           path: build/android/Spikey.aab
           if-no-files-found: error
 
+      - name: Read the commit message
+        id: commit
+        run: |
+          echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Announce on Discord
         # Optional: set the DISCORD_WEBHOOK_URL secret (Discord channel -> Edit -> Integrations
-        # -> Webhooks). The APK is too big for a webhook upload, so the message links to the
-        # artifact; opening it needs a GitHub account with access to this repo.
+        # -> Webhooks). The APK is attached when it fits the server's upload limit (repository
+        # variable DISCORD_MAX_UPLOAD_MB, default 10); the link to the artifact always works but
+        # needs a GitHub account with access to this repo.
         if: success() && env.DISCORD_WEBHOOK_URL != ''
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          BUILD: ${{ steps.version.outputs.build }}
-          APK_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          KIND: ${{ startsWith(github.ref, 'refs/tags/v') && 'Release' || 'Test build' }}
-          SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release-signed' || 'debug-signed (uninstall the old build first)' }}
-        run: |
-          commit="$(git log -1 --pretty=%s)"
-          jq -n \
-            --arg title "Spikey ${VERSION} (build ${BUILD}) for Android" \
-            --arg url "$APK_URL" \
-            --arg desc "${KIND}, ${SIGNED}.
-          [Download APK](${APK_URL}) · [Run](${RUN_URL})
-          Latest commit: ${commit}" \
-            '{username: "Spikey Builds", embeds: [{title: $title, url: $url, description: $desc, color: 5793266}]}' \
-            | curl --fail --silent --show-error -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL"
+        uses: ./.github/actions/discord-embed
+        with:
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
+          file: build/android/Spikey.apk
+          max_file_mb: ${{ vars.DISCORD_MAX_UPLOAD_MB || '10' }}
+          # Android green.
+          color: '3066993'
+          title: '🤖 Spikey ${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }}) for Android'
+          url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }}
+          description: |
+            **[⬇️ Download APK](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_apk.outputs.artifact-id }})** (unzip, then install)
+            > ${{ steps.commit.outputs.subject }}
+          fields: |
+            Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
+            Signing|${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'Release key' || 'Debug key, uninstall the old build first' }}
+            Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
 
       - name: Clean up signing assets
         if: always()

@@ -129,6 +129,7 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_CONTENT_BASE64: ${{ secrets.ASC_KEY_CONTENT_BASE64 }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       XCODE_PROJECT: ${{ github.workspace }}/build/ios/Spikey.xcodeproj
       SIGNING_DIR: ${{ github.workspace }}/signing
 
@@ -180,6 +181,31 @@ jobs:
           name: spikey-${{ needs.export.outputs.version }}-${{ needs.export.outputs.build }}-ipa
           path: .github/ios/output/*.ipa
           retention-days: 7
+
+      - name: Read the commit message
+        id: commit
+        run: |
+          echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Announce on Discord
+        # Optional, same DISCORD_WEBHOOK_URL secret as the Android workflow. No file: an IPA
+        # only installs through TestFlight.
+        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        uses: ./.github/actions/discord-embed
+        with:
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
+          # iOS blue.
+          color: '3447003'
+          title: '🍎 Spikey ${{ needs.export.outputs.version }} (${{ needs.export.outputs.build }}) for iOS'
+          url: https://appstoreconnect.apple.com/apps
+          description: |
+            **Uploaded to TestFlight.** It shows up in the TestFlight app once Apple finishes processing (usually 5 to 30 minutes).
+            > ${{ steps.commit.outputs.subject }}
+          fields: |
+            Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
+            Install|TestFlight app on iPhone
+            Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
 
       - name: Clean up signing assets
         if: always()
