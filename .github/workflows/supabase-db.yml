@@ -1,0 +1,54 @@
+name: Supabase database
+
+# Applies the leaderboard database (supabase/migrations/*.sql) to the Supabase project
+# whenever that folder changes on main, or by hand from the Actions tab. `supabase db push`
+# remembers which migrations already ran, so each file is applied once.
+#
+# Secrets (docs/LEADERBOARD_SETUP.md), either:
+#   SUPABASE_DB_URL: the "Session pooler" connection string from Connect in the Supabase
+#     dashboard, with the database password filled in and percent-encoded
+#     (@ -> %40, : -> %3A, / -> %2F, # -> %23, ? -> %3F, % -> %25). GitHub's runners
+#     have no IPv6, so the "Direct connection" string does not work here.
+#   or SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF + SUPABASE_DB_PASSWORD (no encoding).
+# Without them the workflow does nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase-db.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-db
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: Apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push migrations
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            supabase db push --db-url "$SUPABASE_DB_URL"
+          elif [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            supabase link --project-ref "$SUPABASE_PROJECT_REF"
+            supabase db push
+          else
+            echo "::notice::No Supabase database secrets set, nothing applied. See docs/LEADERBOARD_SETUP.md."
+          fi

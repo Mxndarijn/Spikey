@@ -1,0 +1,4 @@
+# Supabase CLI project settings, used by .github/workflows/supabase-db.yml.
+# Only the database migrations in supabase/migrations/ are pushed. Auth settings
+# (anonymous sign-ins) stay in the dashboard: see docs/LEADERBOARD_SETUP.md.
+project_id = "spikey"
