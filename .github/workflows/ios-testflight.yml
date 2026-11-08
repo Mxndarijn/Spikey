@@ -185,6 +185,28 @@ jobs:
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
 
+      # A .p12 made with OpenSSL 3 (e.g. on Windows) uses AES/PBKDF2, which the macOS
+      # keychain can't import ("MAC verification failed"). Re-pack it in the older
+      # 3DES/SHA1 format the keychain reads, with the same password.
+      - name: Re-pack the certificate for the keychain
+        run: |
+          OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
+          if ! "$OPENSSL" pkcs12 -in "$SIGNING_DIR/dist_cert.p12" -nodes -passin env:IOS_P12_PASSWORD \
+              -out "$SIGNING_DIR/cert.pem" 2>/dev/null \
+            && ! "$OPENSSL" pkcs12 -legacy -in "$SIGNING_DIR/dist_cert.p12" -nodes \
+              -passin env:IOS_P12_PASSWORD -out "$SIGNING_DIR/cert.pem" 2>/dev/null; then
+            echo "::error::Can't open IOS_DIST_CERT_P12_BASE64 with IOS_P12_PASSWORD: the password is wrong or the file is damaged."
+            exit 1
+          fi
+          grep -q "PRIVATE KEY" "$SIGNING_DIR/cert.pem" \
+            || { echo "::error::The .p12 has no private key: export the certificate together with its key."; exit 1; }
+          "$OPENSSL" x509 -in "$SIGNING_DIR/cert.pem" -noout -subject
+          "$OPENSSL" pkcs12 -export -legacy -in "$SIGNING_DIR/cert.pem" -out "$SIGNING_DIR/dist_cert.p12" \
+            -passout env:IOS_P12_PASSWORD
+          rm -f "$SIGNING_DIR/cert.pem"
+        env:
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+
       - name: Build & upload to TestFlight
         run: bundle exec fastlane beta
         working-directory: .github/ios
