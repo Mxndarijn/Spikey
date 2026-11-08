@@ -45,10 +45,11 @@ jobs:
       - name: Push migrations
         run: |
           if [ -n "$SUPABASE_DB_URL" ]; then
-            supabase db push --db-url "$SUPABASE_DB_URL"
+            # --yes: nobody is there to answer "Apply N migrations?" in CI.
+            supabase db push --remote "$SUPABASE_DB_URL" --yes
           elif [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
             supabase link --project-ref "$SUPABASE_PROJECT_REF"
-            supabase db push
+            supabase db push --yes
           else
             echo "::notice::No Supabase database secrets set, nothing applied. See docs/LEADERBOARD_SETUP.md."
           fi
