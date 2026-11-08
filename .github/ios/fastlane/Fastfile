@@ -26,7 +26,9 @@ platform :ios do
 
     import_certificate(
       certificate_path: File.join(signing, "dist_cert.p12"),
-      certificate_password: ENV.fetch("IOS_P12_PASSWORD"),
+      # A secret set from a password file can end in a line break; the workflow
+      # re-packs the .p12 with the password without it.
+      certificate_password: ENV.fetch("IOS_P12_PASSWORD").delete("\r\n"),
       keychain_name: "fastlane_tmp_keychain",
       keychain_password: "",
     )

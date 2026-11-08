@@ -198,10 +198,18 @@ jobs:
             echo "::error::IOS_DIST_CERT_P12_BASE64 doesn't decode to a .p12 file: set it again from the base64 of the .p12 itself."
             exit 1
           fi
-          if ! "$OPENSSL" pkcs12 -in "$SIGNING_DIR/dist_cert.p12" -nodes -passin env:IOS_P12_PASSWORD \
-              -out "$SIGNING_DIR/cert.pem" 2>/dev/null \
-            && ! "$OPENSSL" pkcs12 -legacy -in "$SIGNING_DIR/dist_cert.p12" -nodes \
-              -passin env:IOS_P12_PASSWORD -out "$SIGNING_DIR/cert.pem" 2>/dev/null; then
+          # A secret set from a password file can end in a line break; the .p12's own
+          # password doesn't. Use it without trailing CR/LF (the Fastfile strips it too).
+          export P12_PASS="$(printf '%s' "$IOS_P12_PASSWORD" | tr -d '\r\n')"
+          opened=""
+          for mode in "" "-legacy"; do
+            if "$OPENSSL" pkcs12 $mode -in "$SIGNING_DIR/dist_cert.p12" -nodes -passin env:P12_PASS \
+                -out "$SIGNING_DIR/cert.pem" 2>/dev/null; then
+              opened=yes
+              break
+            fi
+          done
+          if [ -z "$opened" ]; then
             echo "::error::Can't open IOS_DIST_CERT_P12_BASE64 with IOS_P12_PASSWORD: the password is wrong or the file is damaged."
             exit 1
           fi
@@ -209,7 +217,7 @@ jobs:
             || { echo "::error::The .p12 has no private key: export the certificate together with its key."; exit 1; }
           "$OPENSSL" x509 -in "$SIGNING_DIR/cert.pem" -noout -subject
           "$OPENSSL" pkcs12 -export -legacy -in "$SIGNING_DIR/cert.pem" -out "$SIGNING_DIR/dist_cert.p12" \
-            -passout env:IOS_P12_PASSWORD
+            -passout env:P12_PASS
           rm -f "$SIGNING_DIR/cert.pem"
         env:
           IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
