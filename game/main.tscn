@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://game/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://game/run/run_controller.gd" id="2_run"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://game/run/bird_view.gd" id="4_bird"]
 [ext_resource type="PackedScene" path="res://game/ui/hud.tscn" id="5_hud"]
 [ext_resource type="Script" path="res://game/run/trail_view.gd" id="6_trail"]
+[ext_resource type="Script" path="res://game/run/coin_view.gd" id="7_coin"]
+[ext_resource type="Script" path="res://game/run/hazard_layer.gd" id="8_hazards"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -15,6 +17,12 @@ script = ExtResource("2_run")
 
 [node name="RoomView" type="Node2D" parent="."]
 script = ExtResource("3_room")
+
+[node name="HazardLayer" type="Node2D" parent="."]
+script = ExtResource("8_hazards")
+
+[node name="CoinView" type="Node2D" parent="."]
+script = ExtResource("7_coin")
 
 [node name="TrailView" type="Node2D" parent="."]
 script = ExtResource("6_trail")

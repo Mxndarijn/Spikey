@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_v7i3h"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_yugdn"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_v7i3h")
+name = "Crisp Morning"
+sky_top = Color(1, 0.9411765, 0.78431374, 1)
+sky_mid = Color(1, 0.7882353, 0.5411765, 1)
+sky_bottom = Color(0.9411765, 0.54901963, 0.33333334, 1)
+
+[sub_resource type="Resource" id="palette_1"]
+script = ExtResource("1_v7i3h")
+name = "Harvest Dusk"
+sky_top = Color(1, 0.7882353, 0.5411765, 1)
+sky_mid = Color(1, 0.5568628, 0.36078432, 1)
+sky_bottom = Color(0.78431374, 0.3764706, 0.23529412, 1)
+
+[resource]
+script = ExtResource("2_yugdn")
+id = "autumn"
+display_name = "Autumn Grove"
+order = 7
+sky_top = Color(1, 0.8862745, 0.6313726, 1)
+sky_mid = Color(1, 0.68235296, 0.36078432, 1)
+sky_bottom = Color(0.8784314, 0.4392157, 0.24705882, 1)
+glow = Color(1, 0.95686275, 0.8117647, 1)
+spike = Color(0.22745098, 0.11764706, 0.07058824, 1)
+spike_edge = Color(0.41960785, 0.22745098, 0.13333334, 1)
+world_accent = Color(1, 0.47843137, 0.23921569, 1)
+trail = Color(1, 0.95686275, 0.8117647, 1)
+particle = Color(1, 0.69411767, 0.36078432, 1)
+room_palettes = Array[ExtResource("1_v7i3h")]([SubResource("palette_0"), SubResource("palette_1")])
+price = 450

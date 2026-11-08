@@ -48,7 +48,8 @@ func _check_invariants(s: SimState, last_score: int, run: int) -> bool:
 	if s.score < last_score or s.score > last_score + 1:
 		fail("run %d tick %d: score jumped %d -> %d" % [run, s.tick, last_score, s.score])
 		ok = false
-	if s.room_index != s.score / SimConfig.POINTS_PER_ROOM:
+	# Rooms change through exits, which open every POINTS_PER_ROOM points.
+	if s.room_index > s.score / SimConfig.POINTS_PER_ROOM:
 		fail("run %d tick %d: room %d at score %d" % [run, s.tick, s.room_index, s.score])
 		ok = false
 	if s.left_spikes != 0 and s.right_spikes != 0:

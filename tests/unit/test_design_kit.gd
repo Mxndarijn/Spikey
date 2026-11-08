@@ -17,6 +17,8 @@ func test_catalog_has_the_launch_worlds() -> void:
 		ids.append(t.id)
 	for id in ["sunset", "jungle", "ice", "lava", "deepsea", "sugar", "star"]:
 		assert_true(id in ids, "world %s exists" % id)
+	for id in ["autumn", "desert", "blossom", "neon", "haunted", "winterfest"]:
+		assert_true(id in ids, "world %s exists" % id)
 	assert_eq(ThemeCatalog.default_theme().id, ThemeCatalog.DEFAULT_ID)
 
 
@@ -48,13 +50,49 @@ func test_ui_text_readable() -> void:
 		["on-panel-muted / panel", UiTokens.ON_PANEL_MUTED, UiTokens.PANEL],
 		["on-panel-muted / panel-raised", UiTokens.ON_PANEL_MUTED, UiTokens.PANEL_RAISED],
 		["on-action / action", UiTokens.ON_ACTION, UiTokens.ACTION],
-		["coin / panel", UiTokens.COIN, UiTokens.PANEL],
-		["success / panel", UiTokens.SUCCESS, UiTokens.PANEL],
+		["on-panel / coin pill", UiTokens.ON_PANEL, UiTokens.COIN],
+		["on-panel / success", UiTokens.ON_PANEL, UiTokens.SUCCESS],
+		["on-panel / selected card", UiTokens.ON_PANEL, UiTheme.SELECTED_FILL],
+		["on-panel / disabled button", UiTokens.ON_PANEL, UiTheme.DISABLED_FILL],
 		["danger / panel", UiTokens.DANGER, UiTokens.PANEL],
 	]
 	for p: Array in pairs:
 		var r := Contrast.ratio(p[1], p[2])
 		assert_true(r >= MIN_TEXT, "%s is %.2f:1, needs %.1f:1" % [p[0], r, MIN_TEXT])
+
+
+## Sticker Pop stickers are white with ink text and an ink outline in every
+## world; the outline is the flyers' own ink.
+func test_stickers_use_the_flyer_ink() -> void:
+	assert_eq(UiTokens.PANEL.to_html(false), "ffffff", "stickers are white")
+	assert_eq(UiTokens.INK_LINE.to_html(false), UiTokens.ON_PANEL.to_html(false), "ink text")
+	assert_true(Contrast.ratio(UiTokens.INK_LINE, UiTokens.PANEL) >= 7.0, "ink outline reads")
+
+
+## Spike colour means danger only: the UI's own fills and text never use it.
+func test_ui_never_uses_a_spike_colour() -> void:
+	var ui := [
+		UiTokens.ON_ACTION, UiTokens.ACTION, UiTokens.PANEL, UiTokens.INK_900, UiTokens.INK_LINE
+	]
+	for t in ThemeCatalog.all():
+		for c: Color in ui:
+			assert_true(
+				c.to_html(false) != t.spike.to_html(false),
+				"%s spike colour is used by the UI (%s)" % [t.id, c.to_html(false)]
+			)
+
+
+## The ceiling and floor kill all along: their spike rows must be unbroken and
+## reach the kill lines, so nothing deadly looks safe.
+func test_edge_spikes_cover_the_kill_lines() -> void:
+	var reach := RoomView.BAND + RoomView.EDGE_SPIKE_DEPTH
+	assert_true(
+		reach >= float(SimConfig.KILL_TOP) / SimConfig.SUB, "ceiling spikes reach the kill line"
+	)
+	var floor_line := float(SimConfig.WORLD_H - SimConfig.KILL_BOTTOM) / SimConfig.SUB
+	assert_true(reach >= floor_line, "floor spikes reach the kill line")
+	var count := int(RoomView.W / (RoomView.EDGE_SPIKE_HALF * 2.0))
+	assert_true(count * RoomView.EDGE_SPIKE_HALF * 2.0 >= RoomView.W - 0.5, "spikes touch")
 
 
 func test_generated_files_match_design_data() -> void:
@@ -94,3 +132,24 @@ func test_generated_files_match_design_data() -> void:
 static func _json(path: String) -> Dictionary:
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	return data if data is Dictionary else {}
+
+
+## Only spikes may use a world's spike colour, so no other token repeats it.
+func test_no_world_token_reuses_the_spike_colour() -> void:
+	for t in ThemeCatalog.all():
+		for token_name in ThemeDef.WORLD_TOKENS:
+			if token_name == "spike":
+				continue
+			assert_true(
+				t.token(token_name).to_html(false) != t.spike.to_html(false),
+				"%s: %s is the spike colour" % [t.id, token_name]
+			)
+
+
+func test_every_world_has_a_known_particle_kind() -> void:
+	for t in ThemeCatalog.all():
+		assert_true(RoomView.MOTE_KIND.has(t.id), "%s has its own particle kind" % t.id)
+		assert_true(
+			RoomView.MOTE_MOTION.has(RoomView.mote_kind(t.id)), "%s particle kind moves" % t.id
+		)
+	assert_eq(RoomView.mote_kind("not_a_world"), "dust", "unknown worlds get dust")

@@ -3,6 +3,20 @@
 [ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_bacuj"]
 [ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_xd5ck"]
 
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_bacuj")
+name = "Pale Dawn"
+sky_top = Color(1, 0.94509804, 0.9647059, 1)
+sky_mid = Color(0.8235294, 0.9098039, 0.98039216, 1)
+sky_bottom = Color(0.5529412, 0.7294118, 0.91764706, 1)
+
+[sub_resource type="Resource" id="palette_1"]
+script = ExtResource("1_bacuj")
+name = "Glacier Noon"
+sky_top = Color(0.9490196, 1, 0.9882353, 1)
+sky_mid = Color(0.72156864, 0.9411765, 0.9019608, 1)
+sky_bottom = Color(0.42352942, 0.7764706, 0.84705883, 1)
+
 [resource]
 script = ExtResource("2_xd5ck")
 id = "ice"
@@ -14,3 +28,4 @@ sky_bottom = Color(0.2901961, 0.56078434, 0.8509804, 1)
 spike = Color(0.09019608, 0.22745098, 0.41960785, 1)
 spike_edge = Color(0.17254902, 0.36078432, 0.6039216, 1)
 world_accent = Color(0.36078432, 0.78431374, 1, 1)
+room_palettes = Array[ExtResource("1_bacuj")]([SubResource("palette_0"), SubResource("palette_1")])

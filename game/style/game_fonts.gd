@@ -15,6 +15,12 @@ static var _display: Font
 static var _ui := {}
 
 
+## Drops the cached fonts (on exit, so Godot can free them).
+static func release() -> void:
+	_display = null
+	_ui.clear()
+
+
 static func display() -> Font:
 	if _display == null:
 		_display = _load(DISPLAY_FILE, DISPLAY_FALLBACK, DISPLAY_WEIGHT)

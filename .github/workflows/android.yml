@@ -1,0 +1,164 @@
+name: Android Build
+
+# Builds an installable APK (and, for releases, an AAB for the Play Console) and uploads them
+# as workflow artifacts. Runs on Linux, so it is cheap.
+#
+# Signing:
+#   * With the ANDROID_KEYSTORE_* secrets set: release-signed APK, plus an AAB on `v*` tags or
+#     when "Build AAB" is ticked. Keep using the same keystore forever; Android refuses to
+#     update an app signed with a different key.
+#   * Without them: a debug-signed APK with a throwaway key. Fine for sideloading on your own
+#     phone, but every run uses a new key, so uninstall the old build before installing.
+on:
+  workflow_dispatch:
+    inputs:
+      aab:
+        description: 'Also build an AAB for the Play Console (needs the keystore secrets)'
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+env:
+  GODOT_VERSION: 4.6-beta2
+
+jobs:
+  check:
+    name: Check
+    uses: ./.github/workflows/check.yml
+
+  build:
+    name: Build APK / AAB
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      WANT_AAB: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.aab == true }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The version code is the commit count; a shallow checkout would make it 1.
+          fetch-depth: 0
+
+      - name: Derive the version
+        id: version
+        run: |
+          echo "build=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp the version into the export presets
+        run: |
+          sed -i \
+            -e 's/^version\/code=.*/version\/code=${{ steps.version.outputs.build }}/' \
+            -e 's/^version\/name=.*/version\/name="${{ steps.version.outputs.version }}"/' \
+            export_presets.cfg
+          grep -E '^version/(code|name)=' export_presets.cfg
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # Godot 4 Android export needs JDK 17.
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools build-tools;35.0.1 platforms;android-35'
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          templates: 'true'
+
+      - name: Point Godot at the JDK and Android SDK
+        run: |
+          major_minor="$(echo "$GODOT_VERSION" | cut -d- -f1 | cut -d. -f1-2)"
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-${major_minor}.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          EOF
+
+      - name: Create a throwaway debug keystore
+        # Godot signs debug exports with this. Release builds use the secret keystore below.
+        run: |
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          {
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android"
+          } >> "$GITHUB_ENV"
+
+      - name: Decode the release keystore
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/release.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$ANDROID_KEY_ALIAS"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Import project
+        run: godot --headless --path . --import || godot --headless --path . --import
+
+      - name: Export release APK
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          mkdir -p build/android
+          godot --headless --path . --export-release "Android" build/android/Spikey.apk
+          test -f build/android/Spikey.apk
+
+      - name: Export debug APK (no keystore secrets set)
+        if: env.ANDROID_KEYSTORE_BASE64 == ''
+        run: |
+          echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, building a debug-signed APK."
+          mkdir -p build/android
+          godot --headless --path . --export-debug "Android" build/android/Spikey.apk
+          test -f build/android/Spikey.apk
+
+      - name: Export AAB
+        # The AAB needs Godot's Gradle build, which installs the Android build template into
+        # android/ (ignored by git) and takes a few minutes.
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          godot --headless --path . --install-android-build-template \
+            --export-release "Android AAB" build/android/Spikey.aab
+          test -f build/android/Spikey.aab
+
+      - name: Warn about a skipped AAB
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 == ''
+        run: echo "::warning::AAB skipped, the Play Console needs a release-signed AAB. Add the ANDROID_KEYSTORE_* secrets."
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-apk
+          path: build/android/Spikey.apk
+          if-no-files-found: error
+
+      - name: Upload AAB
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: spikey-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-aab
+          path: build/android/Spikey.aab
+          if-no-files-found: error
+
+      - name: Clean up signing assets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/debug.keystore"

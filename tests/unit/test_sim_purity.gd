@@ -20,24 +20,28 @@ const FORBIDDEN := {
 
 
 func test_sim_has_no_forbidden_constructs() -> void:
-	var dir := DirAccess.open(SIM_DIR)
-	assert_true(dir != null, "sim/ exists")
-	if dir == null:
-		return
-	var checked := 0
-	for file in dir.get_files():
-		if not file.ends_with(".gd"):
-			continue
-		checked += 1
-		var path := SIM_DIR.path_join(file)
+	assert_true(DirAccess.dir_exists_absolute(SIM_DIR), "sim/ exists")
+	var files := _scripts(SIM_DIR)
+	for path in files:
 		var lines := FileAccess.get_file_as_string(path).split("\n")
 		for i in lines.size():
 			var code := _strip_comment(lines[i])
 			for rule: String in FORBIDDEN:
 				var re := RegEx.create_from_string(FORBIDDEN[rule])
 				if re.search(code) != null:
-					fail("%s:%d %s -> %s" % [file, i + 1, rule, lines[i].strip_edges()])
-	assert_true(checked > 0, "found sim scripts")
+					fail("%s:%d %s -> %s" % [path, i + 1, rule, lines[i].strip_edges()])
+	assert_true(files.size() > 10, "found sim scripts in sim/ and its folders")
+
+
+## Every .gd under `dir`, including sim/rooms/ and sim/hazards/.
+static func _scripts(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	for sub in DirAccess.get_directories_at(dir):
+		out.append_array(_scripts(dir.path_join(sub)))
+	for file in DirAccess.get_files_at(dir):
+		if file.ends_with(".gd"):
+			out.append(dir.path_join(file))
+	return out
 
 
 static func _strip_comment(line: String) -> String:

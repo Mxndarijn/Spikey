@@ -1,4 +1,4 @@
-# Spike Cage
+# Spikey
 
 Tap to flap, bounce from wall to wall, don't touch the spikes. Built with
 Godot 4.6 for iOS and Android, with leaderboards verified by replaying every

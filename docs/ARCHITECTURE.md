@@ -1,4 +1,4 @@
-# Spike Cage — Architecture
+# Spikey — Architecture
 
 Godot 4 (GDScript), portrait mobile game for iOS and Android, with verified
 leaderboards that re-simulate every submitted run on a server.
@@ -38,8 +38,8 @@ flowchart TD
 |---|---|---|---|
 | `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data |
 | `game/` | Scenes, drawing, input, audio, haptics, UI | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
-| `meta/` (later) | Save file, wallet, unlocks, cosmetics, achievements, ranks | `sim/` (read events) | Change gameplay |
-| `services/` (later) | HTTP to seed/leaderboard server, ads, Game Center / Play Games mirror | — | Hold game rules |
+| `meta/` | `Profile` (save file: coins, owned, equipped, first start), `Shop` (prices, buying), `Catalog` (flyers, worlds, trails, exit portal looks). Later: achievements, ranks | `sim/` (read events) | Change gameplay |
+| `services/` | `LeaderboardService` (screens only talk to this; `SampleLeaderboard` serves made-up boards until the server exists). Later: HTTP to seed/leaderboard server, ads, Game Center / Play Games mirror | — | Hold game rules |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | — | — |
 | `server/` | Headless verifier; later the cloud wrapper around it | `sim/` | Fork the sim (it runs the same files) |
@@ -75,9 +75,55 @@ so breaking them fails the check script.
 - **Same hitbox for every character**: character and theme never enter the sim,
   so scores stay comparable and replays don't depend on cosmetics.
 
+### Rooms
+
+Every 10 points an exit portal opens on the wall the bird is heading to (a
+random height; no spikes in the opening). Flying into it moves to the next room;
+missing it is a normal bounce and it stays open. The bird comes out of a portal
+in the opposite wall of the new room at the same height and keeps flying the
+same way, without stopping (gameplay version 6). Every 50 points a
+fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
+mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
+picked by the seed
+(`RoomCatalog.pick_next`: weighted, never the same room twice, only rooms whose
+`from_score` is reached and whose season matches the run's).
+
+Fairness is checked by `tests/support/survival_search.gd` (SurvivalSearch): it
+runs many copies of the sim side by side, tapping and waiting on each, so if all
+of them die, no player could have lived. `tools/sweep.ps1` runs it (or the
+PlannerBot playtests in `tools/playtest.gd`) over many seeds on every CPU core;
+`tests/sim/test_rooms_survivable.gd` keeps the rooms it once caught fixed.
+
+Fairness rules that came out of it (gameplay version 6): in rooms with hazards
+the wall's free run lands within `RoomRules.GAP_REACH` of the bird; hazards
+placed at room start keep off the bird's first, forced hop
+(`GameSim.start_path`) and, where they can, out of a hover lane in front of it
+(`GameSim.blocks_start_lane`); paired columns (stalactites, gates) keep their
+gaps close and clear the wall ahead near them; the open first room is only the
+start and never comes back.
+
+- `sim/rooms/room_def.gd` (RoomDef): what a room is: group, from_score, weight,
+  season, wall rules (spike count/gap, tide, blink, squeeze), gravity, speed,
+  and the hazards it builds (factories, or `combos` for Double Trouble).
+- `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
+  seasonal, combo). `RoomCatalog.BATCHES` fixes the order; append new batches
+  at the end.
+- `sim/rooms/room_runtime.gd` (RoomRuntime): the live room: steps, points,
+  wall position and spike masks over time, steps per tick (fast/slow rooms).
+- `sim/rooms/hazard.gd` (Hazard) and `sim/hazards/*.gd`: one class per
+  obstacle (setup/step/kills/touch/on_bounce/on_flap/guards_edge/checksum).
+  Integer, tick-driven, so replays verify.
+- `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
+  painter per hazard kind; deadly parts in the world's spike color only.
+- Seasons (`sim/rooms/seasons.gd`) are a run input: `meta/season_calendar.gd`
+  maps today's date to a season, `GameSim`/`Replay` store it.
+
+Adding a room: write the hazard (or reuse one), its painter, a RoomDef in a
+batch file, and tests; bump `GAMEPLAY_VERSION` and regenerate goldens.
+
 ### Gameplay versions
 
-`SimConfig.GAMEPLAY_VERSION` (currently `1`) goes up whenever movement,
+`SimConfig.GAMEPLAY_VERSION` (currently `3`: the room system) goes up whenever movement,
 collision, generation or RNG draw order changes. Golden replays then fail on
 purpose. Regenerate them with `tools/make_golden.gd` only after bumping the
 version.
@@ -102,8 +148,11 @@ _process           views draw, interpolating between previous and current tick
 
 - `RunController` (Node) owns the `GameSim` and the `Replay` being recorded. It is
   the only place that touches the sim.
-- `RoomView` / `BirdView` read `sim.state` and draw. Sunset Glow is drawn
-  procedurally for Phase 1 (gradient sky, sun, deep-purple smooth spikes). Real
+- `RoomView` / `BirdView` read `sim.state` and draw. Rooms are drawn
+  procedurally in the "Soft light" style (gradient sky with blurred patches of
+  its own sky stops, one glow bloom, drifting particles, rounded two-tone
+  spikes; the ceiling and floor rows are unbroken and reach the kill lines).
+  Menus and HUD use the Open Sky UI (frost pills, outlined type on the sky). Real
   sprites replace it later without touching the sim.
 - Pause just stops calling `step()`. The app auto-pauses when it loses focus.
 - Display: 360 × 640 viewport, `canvas_items` stretch, portrait, Compatibility
@@ -131,16 +180,17 @@ small container that runs headless Godot for verification.
 | Sunset Glow art, Smooth classic spikes | `game/style/`, later `data/themes/*.tres` |
 | 6 launch characters, hats and accessories | `data/characters/`, `data/cosmetics/`, drawn by `BirdView`; never in `sim/` |
 | Bird trails (buyable cosmetic) | `TrailStyle` resource + `TrailView`; shop trails as `data/trails/*.tres` ([BACKLOG](BACKLOG.md)) |
+| Exit portal looks (buyable cosmetic) | `PortalStyle` (id, `kind`, `draw_portal`, `draw_thumb`) + `PortalPainter` (one draw function per kind); never changes the exit size |
 | Designed UI (game over, menus, buttons) | SVGs in `assets/ui/` + one shared UI `Theme` resource ([BACKLOG](BACKLOG.md)) |
 | 6 launch themes | `data/themes/` (palette, background props, spike skin) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |
-| Daily challenge room | Server hands everyone the same daily seed; own board |
+| Daily board | Best normal run of the day, resets at local midnight (replaced Hourly; the same-seed daily challenge was dropped) |
 | Boss rooms | New room kinds in `sim/room_rules.gd` (gameplay change, bumps version) |
 | Seasonal events | `data/events/` resources that swap themes and shop items by date (server-provided date, cosmetic only) |
 | Haptics and sound packs | `game/feedback/` listening to sim events; packs as resources |
 | Accessibility | Settings in `meta/settings`; color-blind spike palettes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
 | Fair monetization | `services/ads` (rewarded revive only), `meta/shop` (cosmetics only) |
-| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard` |
+| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
 input) and replayed by the server. Design that before adding revive.
@@ -169,6 +219,6 @@ plain headless mode.
 - **Phase 2, content**: 6 themes, moving obstacles, coins, feathers and stars,
   6 characters with hats, save file, sound and haptics, accessibility settings.
 - **Phase 3, progression**: achievements, ranks, seed server, verified boards
-  (hourly, tiers, daily, all-time, friends), boss rooms, seasonal events, ghosts.
+  (daily, tiers, all-time, friends), boss rooms, seasonal events, ghosts.
 - **Phase 4, launch**: Android and iOS export, store accounts, listing,
   privacy policy.

@@ -1,0 +1,122 @@
+extends Hazard
+## A piston in a side wall (Piston Press). It waits, glows as a warning, slams
+## across part of the room, holds, then pulls back. Deadly only while out.
+## After each wall bounce an idle piston may move to a new height.
+
+enum State { IDLE, GLOW, EXTEND, HOLD, RETRACT }
+
+const IDLE_TICKS := 70
+const GLOW_TICKS := 32
+const EXTEND_TICKS := 8
+const HOLD_TICKS := 34
+const RETRACT_TICKS := 30
+const PERIOD := IDLE_TICKS + GLOW_TICKS + EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS
+
+## How far the ram reaches into the room when fully out (nose included).
+const REACH := 200 * SimConfig.SUB
+## Half the height of the ram's body.
+const HALF_H := 18 * SimConfig.SUB
+## Where the piston can sit (centre heights), clear of the ceiling and floor.
+const Y_MIN := 110 * SimConfig.SUB
+const Y_MAX := 530 * SimConfig.SUB
+## Pistons in one room stay in their own half (upper / lower).
+const Y_MID := 320 * SimConfig.SUB
+
+## 0 = left wall, 1 = right wall.
+var side := 0
+## Centre height of the ram, sub-units.
+var y := 0
+## Steps before the first cycle starts (staggers pistons in one room).
+var delay := 0
+## 0 = upper half of the room, 1 = lower half.
+var half := 0
+
+
+func _init(p_side: int = 0, p_half: int = 0, p_delay: int = 0) -> void:
+	kind = "piston"
+	side = p_side
+	half = p_half
+	delay = p_delay
+
+
+func setup(_sim: GameSim, rng: SimRng) -> void:
+	_pick_y(rng)
+
+
+func on_bounce(_sim: GameSim, rng: SimRng) -> void:
+	# Always draw so the RNG order does not depend on the piston's state.
+	var old := y
+	_pick_y(rng)
+	if state() != State.IDLE:
+		y = old
+
+
+func _pick_y(rng: SimRng) -> void:
+	var lo := Y_MIN if half == 0 else Y_MID + HALF_H
+	var hi := Y_MID - HALF_H if half == 0 else Y_MAX
+	y = lo + rng.next_below(hi - lo + 1)
+
+
+## Steps into the current cycle, or -1 before the first one.
+func cycle_pos() -> int:
+	if t < delay:
+		return -1
+	return posmod(t - delay, PERIOD)
+
+
+func state() -> State:
+	var p := cycle_pos()
+	if p < IDLE_TICKS:
+		return State.IDLE
+	p -= IDLE_TICKS
+	if p < GLOW_TICKS:
+		return State.GLOW
+	p -= GLOW_TICKS
+	if p < EXTEND_TICKS:
+		return State.EXTEND
+	p -= EXTEND_TICKS
+	if p < HOLD_TICKS:
+		return State.HOLD
+	return State.RETRACT
+
+
+## 0..1024 how far into the warning glow (0 outside it).
+func glow() -> int:
+	if state() != State.GLOW:
+		return 0
+	return SimTrig.ONE * (cycle_pos() - IDLE_TICKS) / GLOW_TICKS
+
+
+## How far the ram is out of the wall right now, sub-units.
+func extent() -> int:
+	var p := cycle_pos() - IDLE_TICKS - GLOW_TICKS
+	match state():
+		State.EXTEND:
+			return REACH * (p + 1) / EXTEND_TICKS
+		State.HOLD:
+			return REACH
+		State.RETRACT:
+			p -= EXTEND_TICKS + HOLD_TICKS
+			return REACH * (RETRACT_TICKS - p - 1) / RETRACT_TICKS
+	return 0
+
+
+## The wall the piston sits in.
+func base_x() -> int:
+	return 0 if side == 0 else SimConfig.WORLD_W
+
+
+## The tip of the ram (equals base_x() while retracted).
+func tip_x() -> int:
+	return base_x() + extent() if side == 0 else base_x() - extent()
+
+
+func kills(sim: GameSim) -> bool:
+	var e := extent()
+	if e <= 0:
+		return false
+	return sim.bird_touches_rect(base_x(), y - HALF_H, tip_x(), y + HALF_H)
+
+
+func checksum(h: int) -> int:
+	return mix_all(h, [side, y, delay, half])

@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_m2u5t"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_myru1"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_m2u5t")
+name = "High Noon"
+sky_top = Color(1, 0.9529412, 0.8392157, 1)
+sky_mid = Color(1, 0.827451, 0.6039216, 1)
+sky_bottom = Color(0.9411765, 0.627451, 0.3764706, 1)
+
+[sub_resource type="Resource" id="palette_1"]
+script = ExtResource("1_m2u5t")
+name = "Purple Hour"
+sky_top = Color(1, 0.7764706, 0.7529412, 1)
+sky_mid = Color(0.84705883, 0.5686275, 0.65882355, 1)
+sky_bottom = Color(0.627451, 0.41568628, 0.6039216, 1)
+
+[resource]
+script = ExtResource("2_myru1")
+id = "desert"
+display_name = "Desert Dusk"
+order = 8
+sky_top = Color(1, 0.827451, 0.68235296, 1)
+sky_mid = Color(0.9411765, 0.58431375, 0.47843137, 1)
+sky_bottom = Color(0.6039216, 0.3529412, 0.5254902, 1)
+glow = Color(1, 0.9137255, 0.7490196, 1)
+spike = Color(0.16470589, 0.078431375, 0.14901961, 1)
+spike_edge = Color(0.36078432, 0.18039216, 0.32156864, 1)
+world_accent = Color(1, 0.72156864, 0.41960785, 1)
+trail = Color(1, 0.9137255, 0.7490196, 1)
+particle = Color(1, 0.8901961, 0.7764706, 1)
+room_palettes = Array[ExtResource("1_m2u5t")]([SubResource("palette_0"), SubResource("palette_1")])
+price = 450

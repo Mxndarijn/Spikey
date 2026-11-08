@@ -1,6 +1,6 @@
 # Design data
 
-The game's look comes from the Spike Cage Design Kit
+The game's look comes from the Spikey Design Kit
 (https://claude.ai/artifact/2nzQWN24GGt8WCpsoJFGd8).
 
 | File | What | Edit by |

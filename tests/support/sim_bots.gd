@@ -14,8 +14,14 @@ static func gap_seeker(sim: GameSim, rng: SimRng) -> bool:
 	var s := sim.state
 	if not s.started:
 		return true
-	var mask := s.right_spikes if s.vx > 0 else s.left_spikes
+	var side := 1 if s.vx > 0 else 0
+	var mask := sim.wall_mask(side)
 	var target := _gap_center_y(mask)
+	# Head for the exit when it is on the wall ahead (Wild at a fork).
+	if s.exit_open and s.exit_side == side:
+		target = s.exit_a_y
+		if s.exit_b_kind == SimState.ExitKind.WILD:
+			target = s.exit_b_y
 	var jitter := (rng.next_below(9) - 4) * SimConfig.SUB
 	var margin := 6 * SimConfig.SUB
 	return s.y > target + margin + jitter and s.vy >= 0

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CharacterDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/cosmetics/character_def.gd" id="1_def"]
+[ext_resource type="Texture2D" path="res://assets/flyers/nimbus/idle.svg" id="2_idle"]
+[ext_resource type="Texture2D" path="res://assets/flyers/nimbus/flap.svg" id="3_flap"]
+
+[resource]
+script = ExtResource("1_def")
+id = "nimbus"
+display_name = "Nimbus the Cloud"
+blurb = "A small cloud that puffs air behind it with every tap."
+order = 2
+idle = ExtResource("2_idle")
+flap = ExtResource("3_flap")
+fits_worlds = PackedStringArray("ice", "lava")

@@ -1,7 +1,12 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://game/ui/hud.gd" id="1_hud"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/pause.svg" id="2_pause"]
+[ext_resource type="Texture2D" path="res://assets/ui/medal.svg" id="4_medal"]
+[ext_resource type="Texture2D" path="res://assets/ui/coin.svg" id="5_coin"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/play.svg" id="6_play"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/home.svg" id="7_home"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/tap.svg" id="8_tap"]
 
 [node name="Hud" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -17,25 +22,49 @@ mouse_filter = 2
 
 [node name="PauseButton" type="Button" parent="Root"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
 offset_left = 16.0
-offset_top = 48.0
-offset_right = 60.0
+offset_top = 44.0
+offset_right = 64.0
 offset_bottom = 92.0
+tooltip_text = "Pause"
 focus_mode = 0
-theme_type_variation = &"PauseButton"
+theme_type_variation = &"RoundButton"
 icon = ExtResource("2_pause")
 icon_alignment = 1
-expand_icon = false
 
-[node name="Hint" type="Label" parent="Root"]
+[node name="Hint" type="Control" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
-anchor_top = 0.62
+anchor_top = 0.72
 anchor_right = 1.0
-anchor_bottom = 0.62
-offset_bottom = 30.0
+anchor_bottom = 0.72
+offset_bottom = 84.0
+mouse_filter = 2
+
+[node name="TapIcon" type="TextureRect" parent="Root/Hint"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -22.0
+offset_right = 22.0
+offset_bottom = 44.0
+mouse_filter = 2
+texture = ExtResource("8_tap")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TapToFlap" type="Label" parent="Root/Hint"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_top = 46.0
+offset_bottom = 84.0
+pivot_offset = Vector2(180, 19)
+rotation = -0.0349066
 mouse_filter = 2
 theme_type_variation = &"SkyLabel"
 text = "Tap to flap"
@@ -48,7 +77,7 @@ layout_mode = 1
 anchors_preset = -1
 anchor_right = 1.0
 offset_top = 104.0
-offset_bottom = 134.0
+offset_bottom = 140.0
 mouse_filter = 2
 theme_type_variation = &"SkyLabel"
 text = "World"
@@ -82,7 +111,8 @@ horizontal_alignment = 1
 
 [node name="Resume" type="Label" parent="Root/PausedOverlay/Center/VBox"]
 layout_mode = 2
-theme_type_variation = &"SkyLabel"
+theme_type_variation = &"SkyCaption"
+theme_override_font_sizes/font_size = 16
 text = "Tap to resume"
 horizontal_alignment = 1
 
@@ -95,55 +125,155 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="Center" type="CenterContainer" parent="Root/GameOver"]
+[node name="Title" type="Label" parent="Root/GameOver"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_top = 44.0
+offset_bottom = 100.0
+pivot_offset = Vector2(180, 28)
+rotation = -0.0523599
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 44
+text = "Game over"
+horizontal_alignment = 1
+
+[node name="Panel" type="PanelContainer" parent="Root/GameOver"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_left = 28.0
+offset_top = 128.0
+offset_right = -28.0
+offset_bottom = 428.0
+mouse_filter = 2
+theme_type_variation = &"BigPanel"
+
+[node name="VBox" type="VBoxContainer" parent="Root/GameOver/Panel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="ScoreCaption" type="Label" parent="Root/GameOver/Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Score"
+horizontal_alignment = 1
+
+[node name="FinalScore" type="Label" parent="Root/GameOver/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"BigScoreLabel"
+text = "0"
+horizontal_alignment = 1
+
+[node name="BestScore" type="Label" parent="Root/GameOver/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 15
+text = "Best 0"
+horizontal_alignment = 1
+
+[node name="Gap" type="Control" parent="Root/GameOver/Panel/VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CoinsPill" type="PanelContainer" parent="Root/GameOver/Panel/VBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_type_variation = &"GoldPill"
+
+[node name="Row" type="HBoxContainer" parent="Root/GameOver/Panel/VBox/CoinsPill"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="CoinIcon" type="TextureRect" parent="Root/GameOver/Panel/VBox/CoinsPill/Row"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("5_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CoinsEarned" type="Label" parent="Root/GameOver/Panel/VBox/CoinsPill/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CoinLabel"
+text = "+0 coins"
+
+[node name="NewBest" type="Control" parent="Root/GameOver"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -164.0
+offset_top = 96.0
+offset_right = -44.0
+offset_bottom = 216.0
+pivot_offset = Vector2(60, 60)
+rotation = 0.20944
+mouse_filter = 2
+
+[node name="Medal" type="TextureRect" parent="Root/GameOver/NewBest"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
+texture = ExtResource("4_medal")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="Panel" type="PanelContainer" parent="Root/GameOver/Center"]
-custom_minimum_size = Vector2(252, 0)
-layout_mode = 2
+[node name="Text" type="Label" parent="Root/GameOver/NewBest"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_type_variation = &"InkLabel"
+theme_override_constants/line_spacing = -10
+theme_override_font_sizes/font_size = 22
+text = "New
+best!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Buttons" type="VBoxContainer" parent="Root/GameOver"]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -190.0
+offset_right = -28.0
+offset_bottom = -60.0
+grow_vertical = 0
 mouse_filter = 2
-theme_type_variation = &"SheetPanel"
+theme_override_constants/separation = 14
+alignment = 2
 
-[node name="VBox" type="VBoxContainer" parent="Root/GameOver/Center/Panel"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Title" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
-layout_mode = 2
-theme_type_variation = &"TitleLabel"
-text = "Game over"
-horizontal_alignment = 1
-
-[node name="FinalScore" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
+[node name="PlayAgain" type="Button" parent="Root/GameOver/Buttons"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-theme_type_variation = &"ScoreLabel"
-text = "0"
-horizontal_alignment = 1
+focus_mode = 0
+theme_type_variation = &"ActionButton"
+theme_override_font_sizes/font_size = 26
+text = "Play again"
+icon = ExtResource("6_play")
 
-[node name="NewBest" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-theme_type_variation = &"TagLabel"
-text = "NEW BEST"
-horizontal_alignment = 1
-
-[node name="BestScore" type="Label" parent="Root/GameOver/Center/Panel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"MutedLabel"
-text = "Best 0"
-horizontal_alignment = 1
-
-[node name="PlayAgain" type="Button" parent="Root/GameOver/Center/Panel/VBox"]
+[node name="Home" type="Button" parent="Root/GameOver/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 focus_mode = 0
-theme_type_variation = &"ActionButton"
-text = "Play again"
+text = "Home"
+icon = ExtResource("7_home")

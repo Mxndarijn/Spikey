@@ -10,6 +10,10 @@ signal bounced
 signal scored(score: int)
 signal room_changed(room_index: int)
 signal died(replay: Replay)
+signal coin_spawned
+signal coin_collected(total: int)
+## An exit portal opened (every 10 points; two at a fork).
+signal exit_opened
 
 var sim: GameSim
 ## State before the last tick, for smooth interpolation in the views.
@@ -20,8 +24,11 @@ var _taps := PackedInt32Array()
 var _tap_pending := false
 
 
-func new_run(seed_value: int) -> void:
-	sim = GameSim.new(seed_value)
+## `season` (Seasons.*) decides which seasonal rooms can appear; it is stored
+## in the replay. `practice_room` (a RoomCatalog index) makes a practice run
+## that repeats that one room; -1 is a real run.
+func new_run(seed_value: int, season: int = Seasons.NONE, practice_room: int = -1) -> void:
+	sim = GameSim.new(seed_value, season, practice_room)
 	prev_state = sim.state.copy()
 	_taps.clear()
 	_tap_pending = false
@@ -67,5 +74,11 @@ func _dispatch_events() -> void:
 				scored.emit(sim.state.score)
 			GameSim.Event.ROOM_CHANGE:
 				room_changed.emit(sim.state.room_index)
+			GameSim.Event.EXIT_OPEN:
+				exit_opened.emit()
+			GameSim.Event.COIN_SPAWN:
+				coin_spawned.emit()
+			GameSim.Event.COIN:
+				coin_collected.emit(sim.state.coins)
 			GameSim.Event.DEATH:
 				died.emit(Replay.from_sim(sim, _taps.duplicate()))

@@ -2,7 +2,6 @@
 .godot/
 /android/
 *.translation
-export_presets.cfg
 /build/
 
 # Local tool config
@@ -13,3 +12,11 @@ tools/godot_path.txt
 Thumbs.db
 .vscode/
 *.tmp
+
+# Signing files (never commit)
+*.keystore
+*.jks
+*.p12
+*.p8
+*.mobileprovision
+*.b64

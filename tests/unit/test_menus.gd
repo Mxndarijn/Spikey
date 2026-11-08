@@ -1,0 +1,260 @@
+extends TestCase
+## Drives the real app scene headless: first start, home, shop and a run.
+
+const TEST_PATH := "user://test_menus_profile.json"
+
+
+func _make_main() -> Node:
+	DirAccess.remove_absolute(TEST_PATH)
+	var main: Node = load("res://game/main.tscn").instantiate()
+	main.profile_path = TEST_PATH
+	(Engine.get_main_loop() as SceneTree).root.add_child(main)
+	return main
+
+
+func test_first_start_goes_straight_home() -> void:
+	var main := _make_main()
+	assert_true(main._menus.current() is HomeScreen, "no pickers: Home right away")
+	var saved := Profile.load_or_new(TEST_PATH)
+	assert_true(saved.onboarded, "first start is saved")
+	var flyer := Shop.starters(Catalog.FLYER)[0]
+	assert_eq(saved.equipped_id(Catalog.FLYER), flyer, "the first free flyer")
+	assert_true(saved.owns(Catalog.FLYER, flyer))
+	assert_eq(saved.equipped_id(Catalog.WORLD), ThemeCatalog.DEFAULT_ID, "the default world")
+	assert_true(saved.owns(Catalog.WORLD, ThemeCatalog.DEFAULT_ID))
+	assert_false(main._room.show_score, "no ghost score behind the menus")
+	main.start_run()
+	assert_eq(main.mode, main.Mode.RUN)
+	assert_true(main._room.show_score, "ghost score while playing")
+	assert_true(main._menus.current() == null, "menus close when playing")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
+## Regression: a Button doesn't grow with its children, and the status line
+## ("In use") used to hang below the card.
+func test_cards_are_tall_enough_for_their_content() -> void:
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	var p := Profile.new()
+	p.grant(Catalog.FLYER, "dash")
+	p.equip(Catalog.FLYER, "dash")
+	var world := ThemeCatalog.default_theme()
+	for thumb_height in [ItemCard.THUMB_HEIGHT, 80.0]:
+		for kind in Catalog.KINDS:
+			var card := ItemCard.new(kind, Catalog.ids(kind)[0], world, thumb_height)
+			holder.add_child(card)
+			card.refresh(p, true)
+			var content: Vector2 = card._box.get_combined_minimum_size()
+			var have := card.get_combined_minimum_size()
+			assert_true(
+				have.y >= content.y + ItemCard.PAD * 2,
+				"%s card (%d px picture) fits its content" % [kind, thumb_height]
+			)
+			assert_true(have.x >= UiTokens.SIZE_TAP_MIN, "%s card is big enough to tap" % kind)
+	holder.free()
+
+
+func test_strip_items_say_in_use_owned_free_or_price() -> void:
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	var p := Profile.new()
+	p.grant(Catalog.FLYER, "buzz")
+	p.grant(Catalog.FLYER, "dash")
+	p.equip(Catalog.FLYER, "buzz")
+	var world := ThemeCatalog.default_theme()
+	var want := {
+		"buzz": "In use",
+		"dash": "Owned",
+		"nimbus": "Free",
+		"ember": str(Shop.price(Catalog.FLYER, "ember")),
+	}
+	for id: String in want:
+		var card := ItemCard.new(Catalog.FLYER, id, world)
+		holder.add_child(card)
+		card.refresh(p, false)
+		assert_eq(card.status_text(), want[id], "%s status" % id)
+	holder.free()
+
+
+func test_home_shows_one_loadout_card() -> void:
+	var p := Profile.new()
+	p.grant(Catalog.FLYER, "buzz")
+	p.equip(Catalog.FLYER, "buzz")
+	p.grant(Catalog.WORLD, "ice")
+	p.equip(Catalog.WORLD, "ice")
+	var home := HomeScreen.new(p)
+	home.theme = UiTheme.get_theme()
+	(Engine.get_main_loop() as SceneTree).root.add_child(home)
+	var card := home.loadout()
+	assert_true(card != null, "one loadout card")
+	if card != null:
+		assert_eq(card.name_text(Catalog.FLYER), "Buzz", "flyers go by first name")
+		assert_eq(card.name_text(Catalog.WORLD), Catalog.display_name(Catalog.WORLD, "ice"))
+		assert_eq(
+			card.name_text(Catalog.TRAIL), Catalog.display_name(Catalog.TRAIL, "world_ribbon")
+		)
+		assert_true(card.get_combined_minimum_size().y >= UiTokens.SIZE_TAP_MIN, "tappable")
+	home.free()
+
+
+func test_customize_previews_filters_and_merges_the_shop() -> void:
+	var main := _make_main()
+	_use_flyer(main, "buzz")
+	var home := main._menus.current() as HomeScreen
+	home.customize_pressed.emit()
+	var c := main._menus.current() as CollectionScreen
+	assert_true(c != null and c.mode == CollectionScreen.Mode.SHOP, "the card opens Customize")
+	if c == null:
+		main.free()
+		return
+	var ids := c.item_ids()
+	var first_shop := -1
+	for i in ids.size():
+		if not main._profile.owns(Catalog.FLYER, ids[i]):
+			first_shop = i
+			break
+	for i in ids.size():
+		var own: bool = main._profile.owns(Catalog.FLYER, ids[i])
+		assert_eq(own, i < first_shop or first_shop < 0, "yours first, then the shop (%s)" % ids[i])
+	assert_false(c.is_popup_open(), "no popup until you tap")
+	c._tap("hoot")
+	assert_eq(c.preview_ids(), ["hoot", "sunset", "world_ribbon"], "preview swaps in the tap")
+	assert_true(c.is_popup_open(), "tapping opens the item popup")
+	c.close_popup()
+	assert_false(c.is_popup_open(), "Close dismisses it")
+	c._show_kind(Catalog.TRAIL)
+	c._tap("comet_tail")
+	assert_eq(c.preview_ids(), ["buzz", "sunset", "comet_tail"], "trails too, flyer in use")
+	c._tap("world_ribbon")
+	assert_eq(c.action_label(), ["In use", false], "the trail in use")
+	assert_false(c._action.disabled, "In use still taps")
+	c._on_action()
+	assert_false(c.is_popup_open(), "In use just closes the popup")
+	main._profile.coins = Shop.price(Catalog.TRAIL, "comet_tail")
+	c._tap("comet_tail")
+	c._on_action()
+	assert_true(main._profile.owns(Catalog.TRAIL, "comet_tail"), "the popup buys")
+	assert_eq(main._profile.equipped_id(Catalog.TRAIL), "comet_tail", "and puts it on")
+	assert_false(c.is_popup_open(), "and closes")
+	assert_eq(c.item_ids().find("comet_tail"), 1, "it moves up to Yours")
+	c._show_kind(CollectionScreen.HATS)
+	assert_eq(c.item_ids(), [], "no hats yet")
+	assert_eq(c.action_label(), ["Hats are coming", false])
+	main.show_home()
+	(main._menus.current() as HomeScreen).shop_pressed.emit(Catalog.FLYER)
+	assert_true(main._menus.current() is CollectionScreen, "Shop opens Customize")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
+func test_shop_previews_worlds_and_hides_the_live_flyer() -> void:
+	var main := _make_main()
+	_use_flyer(main, "buzz")
+	assert_true(main._bird.visible, "flyer bobs on the home screen")
+	main.show_shop(Catalog.WORLD)
+	var shop := main._menus.current() as CollectionScreen
+	assert_false(main._bird.visible, "the shop shows the flyer itself")
+	if shop != null:
+		shop._select("ice")
+		assert_eq(main._room._theme.id, "ice", "the room previews the tapped world")
+		assert_eq(main._profile.equipped_id(Catalog.WORLD), "sunset", "a preview is not saved")
+		shop.closed.emit()
+	assert_eq(main._room._theme.id, "sunset", "home shows the world in use again")
+	assert_true(main._bird.visible, "flyer is back on the home screen")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
+func test_shop_buttons_follow_coins_and_ownership() -> void:
+	var p := Profile.new()
+	p.grant(Catalog.FLYER, "buzz")
+	p.equip(Catalog.FLYER, "buzz")
+	var shop := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.FLYER)
+	(Engine.get_main_loop() as SceneTree).root.add_child(shop)
+	assert_eq(shop.item_ids(), Catalog.ids(Catalog.FLYER), "shop lists every flyer")
+	shop._select("buzz")
+	assert_eq(shop.action_label(), ["In use", false])
+	shop._select("dash")
+	assert_eq(shop.action_label(), ["Get for free", true])
+	shop._select("ember")
+	var cost := Shop.price(Catalog.FLYER, "ember")
+	assert_eq(shop.action_label(), ["Need %d more coins" % cost, false])
+	p.coins = cost
+	shop.refresh()
+	assert_eq(shop.action_label(), ["Unlock for %d" % cost, true])
+	shop._on_action()
+	assert_true(p.owns(Catalog.FLYER, "ember"), "bought")
+	assert_eq(p.equipped_id(Catalog.FLYER), "ember", "and put to use")
+	assert_eq(p.coins, 0)
+	shop._show_kind(Catalog.WORLD)
+	assert_eq(shop.item_ids(), Catalog.ids(Catalog.WORLD), "worlds tab")
+	shop.free()
+
+
+func test_shop_selected_card_is_cream_and_tilted() -> void:
+	var p := Profile.new()
+	p.grant(Catalog.FLYER, "buzz")
+	p.equip(Catalog.FLYER, "buzz")
+	var shop := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.FLYER)
+	shop.theme = UiTheme.get_theme()
+	(Engine.get_main_loop() as SceneTree).root.add_child(shop)
+	shop._select("hoot")
+	for card in shop._cards:
+		var on := card.item_id == "hoot"
+		assert_eq(card.is_selected_look(), on, "%s look follows the selection" % card.item_id)
+		var tilt := (card.get_parent() as Tilt).degrees
+		assert_eq(tilt != 0.0, on, "only the selected card tilts (%s)" % card.item_id)
+	shop.free()
+
+
+func test_only_unaffordable_items_are_faded() -> void:
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	var p := Profile.new()
+	p.coins = Shop.price(Catalog.FLYER, "hoot")
+	var world := ThemeCatalog.default_theme()
+	var hoot := ItemCard.new(Catalog.FLYER, "hoot", world)
+	var ember := ItemCard.new(Catalog.FLYER, "ember", world)
+	holder.add_child(hoot)
+	holder.add_child(ember)
+	hoot.refresh(p, false)
+	ember.refresh(p, false)
+	assert_false(hoot._thumb.dimmed, "affordable item shows in full colour")
+	assert_true(ember._thumb.dimmed, "item you can't afford yet is faded")
+	holder.free()
+
+
+func test_game_over_shows_the_old_best_next_to_a_new_best() -> void:
+	var hud: Hud = load("res://game/ui/hud.tscn").instantiate()
+	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
+	hud.show_game_over(92, 92, true, 92, 87)
+	assert_true(hud._new_best.visible, "new best pill")
+	assert_eq(hud._best_score.text, "Best 92, was 87")
+	assert_eq(hud._coins_earned.text, "+92 coins")
+	hud.show_game_over(40, 92, false, 40, 92)
+	assert_false(hud._new_best.visible, "no pill without a new best")
+	assert_eq(hud._best_score.text, "Best 92", "no old best without a new best")
+	hud.free()
+
+
+func test_shop_badges_mark_premium_seasonal_and_fitting_worlds() -> void:
+	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "neon"), "Premium")
+	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "haunted"), "Seasonal: October")
+	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "sunset"), "", "free worlds have none")
+	var names: Array[String] = []
+	for w in Catalog.flyer("tock").fits_worlds:
+		names.append(Catalog.display_name(Catalog.WORLD, w))
+	var want := "Fits " + " and ".join(names)
+	assert_eq(CollectionScreen.badge_text(Catalog.FLYER, "tock"), want)
+	assert_eq(CollectionScreen.badge_text(Catalog.FLYER, "fold"), "", "fits nothing special")
+
+
+## Puts a flyer in use, as Customize would (first start already gave Sunset Glow).
+static func _use_flyer(main: Node, id: String) -> void:
+	main._profile.grant(Catalog.FLYER, id)
+	main._profile.equip(Catalog.FLYER, id)
+	main._load_equipped()

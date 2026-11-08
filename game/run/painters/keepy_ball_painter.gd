@@ -1,0 +1,25 @@
+extends RefCounted
+## Keepy-Uppy ball: a soft ball in the world accent with a white shine
+## ("beachball": white with coloured panels). Safe, never the spike colour.
+
+
+static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+	var center := HazardLayer.at(h.x, h.y)
+	var r := HazardLayer.px(h.RADIUS)
+	var spin := time * 1.5 + HazardLayer.px(h.x) * 0.03
+	if h.skin == "beachball":
+		c.draw_circle(center, r, Color.WHITE)
+		var colors: Array[Color] = [theme.world_accent, theme.glow, theme.world_accent]
+		for i in 3:
+			var a0 := spin + TAU * i / 3.0
+			var pts := PackedVector2Array([center])
+			for s in 9:
+				var a := a0 + (TAU / 6.0) * s / 8.0
+				pts.append(center + Vector2(cos(a), sin(a)) * r)
+			c.draw_colored_polygon(pts, colors[i])
+		c.draw_circle(center, r * 0.18, Color.WHITE)
+	else:
+		c.draw_circle(center, r, theme.world_accent)
+		c.draw_arc(center, r * 0.62, spin, spin + PI * 0.9, 16, Color(1, 1, 1, 0.35), 3.0, true)
+	c.draw_arc(center, r, 0.0, TAU, 48, Color(1, 1, 1, 0.9), 2.0, true)
+	c.draw_circle(center + Vector2(-r * 0.35, -r * 0.4), r * 0.16, Color(1, 1, 1, 0.8))

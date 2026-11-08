@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_m1qy5"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_1hxh5"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_m1qy5")
+name = "Witching Hour"
+sky_top = Color(0.18039216, 0.12156863, 0.36078432, 1)
+sky_mid = Color(0.101960786, 0.07058824, 0.2509804, 1)
+sky_bottom = Color(0.039215688, 0.023529412, 0.09411765, 1)
+
+[sub_resource type="Resource" id="palette_1"]
+script = ExtResource("1_m1qy5")
+name = "Blood Moon"
+sky_top = Color(0.2901961, 0.11764706, 0.24313726, 1)
+sky_mid = Color(0.18039216, 0.0627451, 0.15686275, 1)
+sky_bottom = Color(0.078431375, 0.02745098, 0.07058824, 1)
+
+[resource]
+script = ExtResource("2_1hxh5")
+id = "haunted"
+display_name = "Haunted Moon"
+order = 11
+sky_top = Color(0.27450982, 0.1882353, 0.47843137, 1)
+sky_mid = Color(0.15294118, 0.101960786, 0.32156864, 1)
+sky_bottom = Color(0.07058824, 0.043137256, 0.14901961, 1)
+glow = Color(0.93333334, 0.95686275, 0.8117647, 1)
+spike = Color(1, 0.5411765, 0.16470589, 1)
+spike_edge = Color(1, 0.8235294, 0.47843137, 1)
+world_accent = Color(0.60784316, 0.8980392, 0.39215687, 1)
+trail = Color(0.93333334, 0.95686275, 0.8117647, 1)
+particle = Color(0.72156864, 0.9490196, 0.54901963, 1)
+room_palettes = Array[ExtResource("1_m1qy5")]([SubResource("palette_0"), SubResource("palette_1")])
+premium = true
+price = 800
+season = "October"

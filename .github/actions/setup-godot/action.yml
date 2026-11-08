@@ -1,0 +1,73 @@
+name: Set up Godot
+description: >
+  Downloads the official Linux Godot editor (and optionally the export templates) for an exact
+  version from godotengine/godot-builds, caches them, and puts `godot` on PATH. The export
+  templates must match the editor version exactly, so both come from the same release tag.
+
+inputs:
+  version:
+    description: Release tag on godotengine/godot-builds, e.g. 4.6-beta2 or 4.6.2-stable
+    required: true
+  templates:
+    description: Also install the export templates (about 1 GB, only needed for exports)
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Godot editor
+      id: cache-editor
+      uses: actions/cache@v4
+      with:
+        path: ~/godot-bin
+        key: godot-editor-${{ inputs.version }}-linux-x86_64
+
+    - name: Download Godot editor
+      if: steps.cache-editor.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p ~/godot-bin
+        base="https://github.com/godotengine/godot-builds/releases/download/${{ inputs.version }}"
+        curl -fsSL --retry 5 -o /tmp/godot.zip "$base/Godot_v${{ inputs.version }}_linux.x86_64.zip"
+        unzip -q /tmp/godot.zip -d ~/godot-bin
+        mv ~/godot-bin/Godot_v${{ inputs.version }}_linux.x86_64 ~/godot-bin/godot
+        chmod +x ~/godot-bin/godot
+        rm /tmp/godot.zip
+
+    - name: Put Godot on PATH
+      shell: bash
+      run: |
+        echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+        echo "GODOT=$HOME/godot-bin/godot" >> "$GITHUB_ENV"
+
+    # Godot looks for templates in a folder named after the version with '-' turned into '.'
+    # (4.6-beta2 -> 4.6.beta2).
+    - name: Work out the templates folder
+      if: inputs.templates == 'true'
+      id: tpl
+      shell: bash
+      run: |
+        dir="$HOME/.local/share/godot/export_templates/$(echo '${{ inputs.version }}' | tr '-' '.')"
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+    - name: Cache export templates
+      if: inputs.templates == 'true'
+      id: cache-templates
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.tpl.outputs.dir }}
+        key: godot-templates-${{ inputs.version }}
+
+    - name: Download export templates
+      if: inputs.templates == 'true' && steps.cache-templates.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        base="https://github.com/godotengine/godot-builds/releases/download/${{ inputs.version }}"
+        curl -fsSL --retry 5 -o /tmp/templates.tpz "$base/Godot_v${{ inputs.version }}_export_templates.tpz"
+        mkdir -p "$(dirname '${{ steps.tpl.outputs.dir }}')"
+        unzip -q /tmp/templates.tpz -d /tmp/tpl
+        mv /tmp/tpl/templates '${{ steps.tpl.outputs.dir }}'
+        rm -rf /tmp/templates.tpz /tmp/tpl

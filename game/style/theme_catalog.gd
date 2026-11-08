@@ -8,6 +8,10 @@ const DEFAULT_ID := "sunset"
 static var _themes: Array[ThemeDef] = []
 
 
+static func release() -> void:
+	_themes.clear()
+
+
 static func all() -> Array[ThemeDef]:
 	if _themes.is_empty():
 		_load()

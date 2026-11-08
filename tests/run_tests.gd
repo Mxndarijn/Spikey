@@ -30,7 +30,19 @@ class ErrorCounter:
 		)
 
 
-func _initialize() -> void:
+var _started := false
+
+
+## Tests run on the first frame, once the scene tree is live, so nodes added to
+## the root get their _ready() like in the game.
+func _process(_delta: float) -> bool:
+	if not _started:
+		_started = true
+		_run_all()
+	return false
+
+
+func _run_all() -> void:
 	var counter := ErrorCounter.new()
 	OS.add_logger(counter)
 	var args := OS.get_cmdline_user_args()
@@ -54,7 +66,8 @@ func _initialize() -> void:
 				continue
 			var instance: TestCase = script.new()
 			var errors_before := counter.count
-			instance.call(test_name)
+			# Awaiting lets a test wait for frames (e.g. to run _draw); plain tests return at once.
+			await instance.call(test_name)
 			var label := "%s:%s" % [path.get_file().get_basename(), test_name]
 			if counter.count > errors_before:
 				instance.failures.append("error logged: " + counter.last)

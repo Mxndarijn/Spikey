@@ -1,4 +1,109 @@
 {
   "_about": "Worlds beyond the design kit's launch set (paid, seasonal), since the kit page shows at most 8. Same world tokens as the kit. Example entry: {\"id\": \"neon_night\", \"name\": \"Neon Night\", \"premium\": true, \"price\": 1200, \"tokens\": {\"sky-top\": \"#...\", \"sky-mid\": \"#...\", \"sky-bottom\": \"#...\", \"glow\": \"#...\", \"spike\": \"#...\", \"spike-edge\": \"#...\", \"world-accent\": \"#...\", \"trail\": \"#...\", \"particle\": \"#...\"}}. Run tools/import_design_kit.gd after editing.",
-  "worlds": []
+  "worlds": [
+    {
+      "id": "autumn",
+      "name": "Autumn Grove",
+      "premium": false,
+      "price": 450,
+      "tokens": {
+        "sky-top": "#FFE2A1",
+        "sky-mid": "#FFAE5C",
+        "sky-bottom": "#E0703F",
+        "glow": "#FFF4CF",
+        "spike": "#3A1E12",
+        "spike-edge": "#6B3A22",
+        "world-accent": "#FF7A3D",
+        "trail": "#FFF4CF",
+        "particle": "#FFB15C"
+      }
+    },
+    {
+      "id": "desert",
+      "name": "Desert Dusk",
+      "premium": false,
+      "price": 450,
+      "tokens": {
+        "sky-top": "#FFD3AE",
+        "sky-mid": "#F0957A",
+        "sky-bottom": "#9A5A86",
+        "glow": "#FFE9BF",
+        "spike": "#2A1426",
+        "spike-edge": "#5C2E52",
+        "world-accent": "#FFB86B",
+        "trail": "#FFE9BF",
+        "particle": "#FFE3C6"
+      }
+    },
+    {
+      "id": "blossom",
+      "name": "Cherry Blossom",
+      "premium": false,
+      "price": 600,
+      "tokens": {
+        "sky-top": "#FFF1F6",
+        "sky-mid": "#FFC7DC",
+        "sky-bottom": "#E792BB",
+        "glow": "#FFFFFF",
+        "spike": "#4A1635",
+        "spike-edge": "#7A2E5C",
+        "world-accent": "#FF6FA8",
+        "trail": "#FFFFFF",
+        "particle": "#FFD9E8"
+      }
+    },
+    {
+      "id": "neon",
+      "name": "Neon City",
+      "premium": true,
+      "price": 1200,
+      "tokens": {
+        "sky-top": "#33136A",
+        "sky-mid": "#1C0C40",
+        "sky-bottom": "#0B0620",
+        "glow": "#00E5FF",
+        "spike": "#FF4FD8",
+        "spike-edge": "#FFFFFF",
+        "world-accent": "#00E5FF",
+        "trail": "#00E5FF",
+        "particle": "#7DF9FF"
+      }
+    },
+    {
+      "id": "haunted",
+      "name": "Haunted Moon",
+      "premium": true,
+      "price": 800,
+      "tokens": {
+        "sky-top": "#46307A",
+        "sky-mid": "#271A52",
+        "sky-bottom": "#120B26",
+        "glow": "#EEF4CF",
+        "spike": "#FF8A2A",
+        "spike-edge": "#FFD27A",
+        "world-accent": "#9BE564",
+        "trail": "#EEF4CF",
+        "particle": "#B8F28C"
+      },
+      "season": "October"
+    },
+    {
+      "id": "winterfest",
+      "name": "Winter Fest",
+      "premium": true,
+      "price": 800,
+      "tokens": {
+        "sky-top": "#F3FBFF",
+        "sky-mid": "#CFE9FB",
+        "sky-bottom": "#8EC2EE",
+        "glow": "#FFFFFF",
+        "spike": "#A3122C",
+        "spike-edge": "#E0384F",
+        "world-accent": "#2FA84F",
+        "trail": "#FFFFFF",
+        "particle": "#FFFFFF"
+      },
+      "season": "December"
+    }
+  ]
 }

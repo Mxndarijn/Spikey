@@ -1,4 +1,4 @@
-# Spike Cage — Domain Model
+# Spikey — Domain Model
 
 Class diagrams for the whole game, split by the same layers as
 [ARCHITECTURE.md](ARCHITECTURE.md). Arrows only point inward: content and meta
@@ -392,7 +392,7 @@ Notes:
 - `Profile` is the save file (`user://profile.json`, with a `version` field for
   migrations). It is the only thing that changes when you buy or unlock
   something; `Catalog` is read-only content.
-- Coins earned in a run come from the sim (`SimState.coins_collected`), so
+- Coins earned in a run come from the sim (`SimState.coins`, checked by `Replay.verify()`), so
   rewards and leaderboards use the same verified numbers.
 - `SeedService` gives one-time seeds for ranked runs and the shared daily seed
   for the daily challenge room. Offline play uses a local seed and simply isn't

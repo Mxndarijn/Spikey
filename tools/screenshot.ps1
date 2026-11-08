@@ -24,6 +24,6 @@ if (-not $godot) {
 if (-not $godot) { Write-Host "Godot not found" -ForegroundColor Red; exit 2 }
 
 $dieArg = if ($Die) { "1" } else { "0" }
-& $godot --path $root --windowed --position "-20000,-20000" --resolution 405x720 `
+& $godot --audio-driver Dummy --path $root --windowed --position "-20000,-20000" --resolution 405x720 `
     -s res://tools/capture_screen.gd -- $Out $Frame "$World" $dieArg
 exit $LASTEXITCODE

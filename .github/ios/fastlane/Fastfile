@@ -1,0 +1,67 @@
+default_platform(:ios)
+
+# Signs the Xcode project that Godot exported (build/ios/Spikey.xcodeproj) and uploads it to
+# TestFlight. Runs on a GitHub-hosted macOS runner; every credential comes from environment
+# variables that .github/workflows/ios-testflight.yml fills from repository secrets.
+# The version and build number are already stamped in by Godot's export (see the workflow).
+platform :ios do
+  desc "Build the Godot iOS export and upload it to TestFlight"
+  lane :beta do
+    project = ENV.fetch("XCODE_PROJECT")
+    signing = ENV.fetch("SIGNING_DIR")
+    bundle_id = ENV.fetch("IOS_BUNDLE_ID")
+    profile_name = ENV.fetch("IOS_PROVISIONING_PROFILE_NAME")
+
+    # Isolated temporary keychain for CI, made the default for signing.
+    setup_ci
+
+    # App Store Connect API key (no Apple ID / 2FA needed). The .p8 contents are passed
+    # base64-encoded so they survive a single-line GitHub secret.
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_CONTENT_BASE64"),
+      is_key_content_base64: true,
+    )
+
+    import_certificate(
+      certificate_path: File.join(signing, "dist_cert.p12"),
+      certificate_password: ENV.fetch("IOS_P12_PASSWORD"),
+      keychain_name: "fastlane_tmp_keychain",
+      keychain_password: "",
+    )
+
+    install_provisioning_profile(path: File.join(signing, "AppStore.mobileprovision"))
+
+    # Godot's project uses automatic signing; switch to the imported certificate + profile.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: project,
+      targets: ["Spikey"],
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name,
+      bundle_identifier: bundle_id,
+    )
+
+    build_app(
+      project: project,
+      scheme: "Spikey",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "output",
+      clean: true,
+      export_options: {
+        provisioningProfiles: {
+          bundle_id => profile_name,
+        },
+      },
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      # Don't block the runner waiting for Apple's server-side processing.
+      skip_waiting_for_build_processing: true,
+    )
+  end
+end

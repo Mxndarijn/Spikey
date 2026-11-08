@@ -43,7 +43,7 @@ if (-not $godot) {
     exit 2
 }
 Write-Host "Godot: $godot"
-$gdDirs = @("sim", "game", "tests", "tools", "server") | ForEach-Object { Join-Path $root $_ }
+$gdDirs = @("sim", "game", "meta", "services", "tests", "tools", "server") | ForEach-Object { Join-Path $root $_ }
 
 # 1. Lint + format
 Write-Step "Lint and format"
@@ -67,7 +67,7 @@ if ($gdlint -and $gdformat) {
     & $gdlint @gdDirs
     if ($LASTEXITCODE -ne 0) { $failed += "lint" }
     & $gdformat --check --line-length 100 @gdDirs
-    if ($LASTEXITCODE -ne 0) { $failed += "format (run: gdformat --line-length 100 sim game tests tools server)" }
+    if ($LASTEXITCODE -ne 0) { $failed += "format (run: gdformat --line-length 100 sim game meta services tests tools server)" }
 } else {
     Write-Host "SKIPPED: gdtoolkit not installed (pip install --user `"gdtoolkit==4.*`")" -ForegroundColor Yellow
 }

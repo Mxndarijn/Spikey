@@ -35,6 +35,8 @@ const WORLD_TOKENS: Array[String] = [
 ## Shop data for paid and seasonal worlds (Phase 2).
 @export var premium := false
 @export var price := 0
+## Month a seasonal world belongs to ("October"), empty for all-year worlds.
+@export var season := ""
 
 
 func palette_count() -> int:

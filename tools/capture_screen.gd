@@ -11,6 +11,8 @@ var _main: Node
 
 
 func _initialize() -> void:
+	# Never play sound on the developer's PC (this tool opens a real window).
+	AudioServer.set_bus_mute(0, true)
 	# Never steal focus from the user's desktop.
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
 	_main = load("res://game/main.tscn").instantiate()
@@ -24,8 +26,10 @@ func _process(_delta: float) -> bool:
 	var world := args[2] if args.size() > 2 else ""
 	var die := args.size() > 3 and args[3] == "1"
 	_frame += 1
-	if _frame == 2 and not world.is_empty():
-		_main.set_world(world)
+	if _frame == 2:
+		_main.start_run()
+		if not world.is_empty():
+			_main.set_world(world)
 	var run: RunController = _main.get_node("RunController")
 	var s := run.sim.state
 	var hover := s.y > SimConfig.BIRD_START_Y and s.vy >= 0

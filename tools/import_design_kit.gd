@@ -58,6 +58,7 @@ static func collect_worlds(tokens: Dictionary, extra_worlds: Array) -> Array[Dic
 					"name": w.name,
 					"premium": w.get("premium", false),
 					"price": int(w.get("price", 0)),
+					"season": w.get("season", ""),
 					"tokens": values,
 				}
 			)
@@ -72,6 +73,7 @@ static func build_theme(world: Dictionary, order: int, palettes: Dictionary) -> 
 	t.order = order
 	t.premium = world.premium
 	t.price = world.price
+	t.season = world.get("season", "")
 	for token_name in ThemeDef.WORLD_TOKENS:
 		if world.tokens.has(token_name):
 			t.set(token_name.replace("-", "_"), world.tokens[token_name])

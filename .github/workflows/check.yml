@@ -1,0 +1,57 @@
+name: Check
+
+# The Linux version of tools/check.ps1: lint + format, headless import, load every script
+# and scene, then the full test suite (unit, sim purity, golden replays, bot runs).
+# Runs on its own for pushes and pull requests, and as the first job of the Android and iOS
+# workflows so a broken build never ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  # Must match the editor used locally (tools/godot_path.txt). Change it in all three
+  # workflow files together.
+  GODOT_VERSION: 4.6-beta2
+
+jobs:
+  check:
+    name: Lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Lint and format check
+        run: |
+          pip install --quiet "gdtoolkit==4.*"
+          dirs=""
+          for d in sim game meta services tests tools server; do
+            [ -d "$d" ] && dirs="$dirs $d"
+          done
+          gdlint $dirs
+          gdformat --check --line-length 100 $dirs
+
+      - name: Import
+        # A clean checkout has no .godot/ cache yet. The first pass can trip over class names
+        # it has not registered yet, so retry once; a second failure is a real error.
+        run: godot --headless --path . --import || godot --headless --path . --import
+
+      - name: Load all scripts and scenes
+        run: godot --headless --path . -s res://tools/ci/load_all.gd
+
+      - name: Tests
+        run: godot --headless --path . -s res://tests/run_tests.gd

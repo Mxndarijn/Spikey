@@ -4,5 +4,53 @@
     { "name": "Dawn", "sky": ["#FFC94D", "#FF8A5B", "#FF5E9C"] },
     { "name": "Noon", "sky": ["#2EC4F1", "#7FD8F5", "#FFE3A3"] },
     { "name": "Golden Hour", "sky": ["#3FD9A3", "#2EC4F1", "#7B5CFF"] }
+  ],
+  "jungle": [
+    { "name": "Morning Mist", "sky": ["#E8F8CF", "#A6DD8E", "#5BAE74"] },
+    { "name": "Golden Canopy", "sky": ["#FFE27A", "#9CCB55", "#3E9A5E"] }
+  ],
+  "ice": [
+    { "name": "Pale Dawn", "sky": ["#FFF1F6", "#D2E8FA", "#8DBAEA"] },
+    { "name": "Glacier Noon", "sky": ["#F2FFFC", "#B8F0E6", "#6CC6D8"] }
+  ],
+  "lava": [
+    { "name": "Smoke", "sky": ["#FFD9A0", "#F5915A", "#D25A34"] },
+    { "name": "Ash Glow", "sky": ["#FFE6B0", "#FFAA5C", "#E0643A"] }
+  ],
+  "deepsea": [
+    { "name": "Shallows", "sky": ["#B8FFF0", "#5FD8D0", "#2C9FC0"] },
+    { "name": "Reef", "sky": ["#A8F0FF", "#6CCBE8", "#3A90D0"] }
+  ],
+  "sugar": [
+    { "name": "Lemon Fizz", "sky": ["#FFF8D6", "#FFD8A8", "#F5A3C8"] },
+    { "name": "Mint Swirl", "sky": ["#E6FFF4", "#B8F0DA", "#D6A8F0"] }
+  ],
+  "star": [
+    { "name": "Nebula", "sky": ["#5A2A8C", "#2E1666", "#100833"] },
+    { "name": "Deep Space", "sky": ["#22306E", "#141C4C", "#070B24"] }
+  ],
+  "autumn": [
+    { "name": "Crisp Morning", "sky": ["#FFF0C8", "#FFC98A", "#F08C55"] },
+    { "name": "Harvest Dusk", "sky": ["#FFC98A", "#FF8E5C", "#C8603C"] }
+  ],
+  "desert": [
+    { "name": "High Noon", "sky": ["#FFF3D6", "#FFD39A", "#F0A060"] },
+    { "name": "Purple Hour", "sky": ["#FFC6C0", "#D891A8", "#A06A9A"] }
+  ],
+  "blossom": [
+    { "name": "Spring Rain", "sky": ["#F3F0FF", "#D9D0F5", "#B8A8E6"] },
+    { "name": "Petal Sunset", "sky": ["#FFE6D6", "#FFB8C8", "#E894B8"] }
+  ],
+  "neon": [
+    { "name": "Midnight", "sky": ["#1E0B45", "#120830", "#06031A"] },
+    { "name": "Synth Dawn", "sky": ["#5A1E8A", "#3A1466", "#1A0A3A"] }
+  ],
+  "haunted": [
+    { "name": "Witching Hour", "sky": ["#2E1F5C", "#1A1240", "#0A0618"] },
+    { "name": "Blood Moon", "sky": ["#4A1E3E", "#2E1028", "#140712"] }
+  ],
+  "winterfest": [
+    { "name": "Snow Day", "sky": ["#FFFFFF", "#E2F0FA", "#AACFEE"] },
+    { "name": "Candlelight", "sky": ["#FFF4E0", "#FFDDB8", "#F0B48C"] }
   ]
 }
