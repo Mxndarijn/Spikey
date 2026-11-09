@@ -60,6 +60,9 @@ platform :ios do
       },
     )
 
+    # A trial run (SKIP_UPLOAD=true) only proves the app builds and signs.
+    next if ENV["SKIP_UPLOAD"] == "true"
+
     upload_to_testflight(
       api_key: api_key,
       # Don't block the runner waiting for Apple's server-side processing.
