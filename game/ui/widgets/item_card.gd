@@ -15,6 +15,7 @@ signal preview_pressed(id: String)
 enum Layout { TILE, TRACK }
 
 const COIN_ICON := preload("res://assets/ui/coin.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const CHECK_ICON := preload("res://assets/ui/icons/check.svg")
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
@@ -302,8 +303,10 @@ func refresh(profile: Profile, selected: bool) -> void:
 	button_pressed = selected
 	var owned := profile.owns(kind, item_id)
 	var in_use := profile.equipped_id(kind) == item_id
-	var cost := Shop.price(kind, item_id)
-	var short := not owned and cost > profile.coins
+	# Premium items show their diamond price, the rest their gold price.
+	var gems := Shop.diamond_price(kind, item_id)
+	var cost := Shop.cost(kind, item_id)
+	var short := not owned and not Shop.can_afford(profile, kind, item_id)
 	# Faded only while the player can't afford it; the price still shows.
 	_thumb.dimmed = layout == Layout.TILE and short
 	_use.visible = false
@@ -323,7 +326,7 @@ func refresh(profile: Profile, selected: bool) -> void:
 	else:
 		_meta.text = str(cost)
 		_icon.visible = true
-		_icon.texture = LOCK_ICON if short else COIN_ICON
+		_icon.texture = LOCK_ICON if short else (DIAMOND_ICON if gems > 0 else COIN_ICON)
 		_icon.modulate = UiTokens.INK_LINE if short else Color.WHITE
 	_set_look(selected, in_use)
 

@@ -12,6 +12,8 @@ signal shop_pressed(tab: String)
 ## Kept for main: opens Customize on Flyers.
 signal customize_pressed
 signal rooms_pressed
+## The wallet (gold and diamonds, top right): opens the Shop.
+signal store_pressed
 ## The #rank item: opens the leaderboards.
 signal leaderboard_pressed
 ## A setting changed in the settings sheet (already in the profile): main
@@ -40,6 +42,7 @@ var _flyer: FlyerArt
 var _dock: Dock
 var _daily_rank := 0
 var _settings: SettingsSheet
+var _wallet: Wallet
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -50,16 +53,19 @@ func _init(profile: Profile, daily_rank: int = 0) -> void:
 
 
 func _ready() -> void:
-	var coins := CoinPill.new()
-	coins.set_amount(_profile.coins)
-	coins.name = "Coins"
-	add_child(coins)
-	coins.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
-	coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	coins.offset_left -= 20
-	coins.offset_right -= 20
-	coins.offset_top = 50
-	coins.offset_bottom = 50 + CoinPill.ICON_SIZE
+	# Gold and diamonds, top right; tapping them opens the Shop.
+	_wallet = Wallet.new()
+	_wallet.show_balance(_profile)
+	_wallet.name = "Coins"
+	_wallet.pressed.connect(store_pressed.emit)
+	add_child(_wallet)
+	_wallet.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	_wallet.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_wallet.offset_left -= 20
+	_wallet.offset_right -= 20
+	var lift := (UiTokens.SIZE_TAP_MIN - CoinPill.ICON_SIZE) / 2.0
+	_wallet.offset_top = 50 - lift
+	_wallet.offset_bottom = 50 + CoinPill.ICON_SIZE + lift
 
 	_logo = _row_label(WORDMARK, &"LogoLabel", LOGO_TOP)
 	_logo.add_theme_font_size_override("font_size", LOGO_SIZE)
@@ -140,6 +146,10 @@ func open_settings() -> SettingsSheet:
 
 func settings() -> SettingsSheet:
 	return _settings
+
+
+func wallet() -> Wallet:
+	return _wallet
 
 
 ## The wordmark, for tests.

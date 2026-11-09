@@ -17,12 +17,19 @@ signal closed
 signal equipped(kind: String, id: String)
 ## A world was tapped: the room behind the menu shows it until the screen closes.
 signal previewed(kind: String, id: String)
+## The wallet in the header was tapped: main opens the Shop.
+signal store_pressed
+## Diamonds were turned into gold here (already in the profile): main saves.
+signal wallet_changed
 
 ## Only the shop is left (the first-start pickers were removed).
 enum Mode { SHOP }
 
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
+## The action when gold is short but diamonds can cover it: opens the sheet.
+const CONVERT_LABEL := "Turn diamonds into coins"
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 ## No tab and no items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
@@ -54,7 +61,9 @@ var kind: String
 var _profile: Profile
 var _selected := ""
 var _cards: Array[ItemCard] = []
-var _coins := CoinPill.new()
+var _wallet := Wallet.new()
+## The convert sheet, while it is open.
+var _sheet: ConvertSheet
 var _detail_name := Label.new()
 var _detail_text := Label.new()
 var _badge_text := Label.new()
@@ -115,7 +124,7 @@ func _notification(what: int) -> void:
 	if what != NOTIFICATION_PREDELETE:
 		return
 	for n: Node in [
-		_coins,
+		_wallet,
 		_detail_name,
 		_detail_text,
 		_badge_text,
@@ -134,7 +143,8 @@ func _notification(what: int) -> void:
 
 
 func _build_shop(col: VBoxContainer) -> void:
-	col.add_child(UiKit.header("Customize", closed.emit, _coins))
+	_wallet.pressed.connect(store_pressed.emit)
+	col.add_child(UiKit.header("Customize", closed.emit, _wallet))
 
 	# The preview: the flyer standing on the room, no card.
 	_stage.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
@@ -368,7 +378,7 @@ func _select(id: String) -> void:
 
 ## Redraws the cards, the preview, the popup and its action button.
 func refresh() -> void:
-	_coins.set_amount(_profile.coins)
+	_wallet.show_balance(_profile)
 	for c in _cards:
 		c.refresh(_profile, c.item_id == _selected)
 	_detail_name.text = Catalog.display_name(kind, _selected)
@@ -384,7 +394,11 @@ func refresh() -> void:
 		_action.disabled = false
 	var buy: bool = label[1] and str(label[0]).begins_with("Unlock")
 	var short: bool = not label[1] and label[0] != "In use"
-	_action.icon = COIN_ICON if buy else (LOCK_ICON if short else null)
+	var pay_icon := DIAMOND_ICON if Shop.diamond_price(kind, _selected) > 0 else COIN_ICON
+	if label[0] == CONVERT_LABEL:
+		pay_icon = DIAMOND_ICON
+		buy = true
+	_action.icon = pay_icon if buy else (LOCK_ICON if short else null)
 	# The coin keeps its own colours on the ink button (white tints nothing).
 	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
 		_action.add_theme_color_override(state, Color.WHITE)
@@ -485,6 +499,9 @@ func action_label() -> Array:
 		return ["In use", false]
 	if _profile.owns(kind, _selected):
 		return ["Use %s" % ItemChip.short_name(kind, _selected), true]
+	var gems := Shop.diamond_price(kind, _selected)
+	if gems > 0:
+		return _diamond_label(gems)
 	return _price_label(Shop.price(kind, _selected))
 
 
@@ -493,7 +510,57 @@ func _price_label(cost: int) -> Array:
 		return ["Get for free", true]
 	if _profile.coins >= cost:
 		return ["Unlock for %d" % cost, true]
+	# Short on gold, but diamonds can make up for it.
+	if _profile.diamonds > 0:
+		return [CONVERT_LABEL, true]
 	return ["Need %d more coins" % (cost - _profile.coins), false]
+
+
+## A premium item: paid with diamonds (the wallet opens the Shop for more).
+func _diamond_label(gems: int) -> Array:
+	if _profile.diamonds >= gems:
+		return ["Unlock for %d" % gems, true]
+	return ["Need %d more diamonds" % (gems - _profile.diamonds), false]
+
+
+## Gold missing for the selected item (0 when it isn't a gold item or is
+## affordable).
+func gold_short() -> int:
+	if _selected.is_empty() or _profile.owns(kind, _selected):
+		return 0
+	if Shop.diamond_price(kind, _selected) > 0:
+		return 0
+	return maxi(Shop.price(kind, _selected) - _profile.coins, 0)
+
+
+## The convert sheet, on the fewest diamonds that cover the selected item.
+func open_convert() -> ConvertSheet:
+	if _sheet != null:
+		return _sheet
+	var short := gold_short()
+	var why := ""
+	if short > 0:
+		why = "You need %d more coins for %s." % [short, ItemChip.short_name(kind, _selected)]
+	_sheet = ConvertSheet.new(_profile, maxi(Economy.diamonds_to_cover(short), 1), why)
+	_sheet.converted.connect(_on_converted)
+	_sheet.closed.connect(_close_sheet)
+	add_child(_sheet)
+	return _sheet
+
+
+func sheet() -> ConvertSheet:
+	return _sheet
+
+
+func _on_converted(_diamonds: int) -> void:
+	wallet_changed.emit()
+	refresh()
+
+
+func _close_sheet() -> void:
+	if _sheet != null:
+		_sheet.queue_free()
+		_sheet = null
 
 
 func _on_action() -> void:
@@ -503,6 +570,9 @@ func _on_action() -> void:
 		close_popup()
 		return
 	if not _profile.owns(kind, _selected):
+		if gold_short() > 0 and _profile.diamonds > 0:
+			open_convert()
+			return
 		if Shop.buy(_profile, kind, _selected) != Shop.Result.OK:
 			AudioDirector.ui("locked")
 			refresh()

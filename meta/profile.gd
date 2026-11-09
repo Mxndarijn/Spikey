@@ -6,9 +6,15 @@ extends RefCounted
 
 const PATH := "user://profile.json"
 ## 2: met rooms and per-room clear counts (version 1 saves load with none).
-const VERSION := 2
+## 3: diamonds and bought packs (older saves load with none).
+const VERSION := 3
 
+## Gold: collected in runs (Economy).
 var coins := 0
+## Diamonds: rare, won on the daily board or bought (Economy, DiamondPacks).
+var diamonds := 0
+## Ids of the diamond packs bought (a once-only pack can't be bought again).
+var packs_bought: Array[String] = []
 var best_score := 0
 var runs := 0
 var onboarded := false
@@ -127,6 +133,8 @@ func to_dict() -> Dictionary:
 	return {
 		"version": VERSION,
 		"coins": coins,
+		"diamonds": diamonds,
+		"packs_bought": packs_bought,
 		"best_score": best_score,
 		"runs": runs,
 		"onboarded": onboarded,
@@ -150,6 +158,12 @@ func to_dict() -> Dictionary:
 static func from_dict(d: Dictionary) -> Profile:
 	var p := Profile.new()
 	p.coins = maxi(int(d.get("coins", 0)), 0)
+	p.diamonds = maxi(int(d.get("diamonds", 0)), 0)
+	var packs: Variant = d.get("packs_bought", [])
+	if packs is Array:
+		for pack_id: Variant in packs:
+			if pack_id is String and pack_id not in p.packs_bought:
+				p.packs_bought.append(pack_id)
 	p.best_score = maxi(int(d.get("best_score", 0)), 0)
 	p.runs = maxi(int(d.get("runs", 0)), 0)
 	p.onboarded = bool(d.get("onboarded", false))

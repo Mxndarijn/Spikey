@@ -27,6 +27,8 @@ var mode := Mode.MENU
 var season := SeasonCalendar.today()
 ## The leaderboards; tests can swap in their own before _ready.
 var leaderboard: LeaderboardService
+## Real-money purchases; tests can swap in their own before _ready.
+var store: StoreService
 
 var _profile: Profile
 var _game_over_at_ms := -1
@@ -64,6 +66,9 @@ func _ready() -> void:
 	if leaderboard == null:
 		leaderboard = _make_leaderboard()
 	leaderboard.board_loaded.connect(_on_board_loaded)
+	if store == null:
+		store = _make_store()
+	store.purchased.connect(_on_purchased)
 	_load_equipped()
 	_audio.bind(_run)
 	_run.run_started.connect(_hud.show_running)
@@ -138,6 +143,7 @@ func show_home() -> void:
 	home.customize_pressed.connect(show_shop.bind(Catalog.FLYER))
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
+	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
@@ -315,7 +321,41 @@ func show_shop(tab: String = Catalog.FLYER) -> void:
 	shop.closed.connect(show_home)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
+	shop.store_pressed.connect(func() -> void: show_store(shop.kind))
+	shop.wallet_changed.connect(_save_profile)
 	_menus.show_screen(shop)
+
+
+## The Shop: diamond packs and turning diamonds into gold. `back_tab`: the
+## Customize tab to go back to, or "" for Home.
+func show_store(back_tab: String = "") -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_show_flyer(false)
+	var screen := StoreScreen.new(_profile, store)
+	if back_tab.is_empty():
+		screen.closed.connect(show_home)
+	else:
+		screen.closed.connect(show_shop.bind(back_tab))
+	screen.changed.connect(_save_profile)
+	_menus.show_screen(screen)
+
+
+## A pretend store in debug builds, a closed one in release builds until the
+## app-store billing is in (services/store_service.gd).
+func _make_store() -> StoreService:
+	return SampleStore.new() if OS.is_debug_build() else StoreService.new()
+
+
+## The store confirmed a payment: hand out the pack and save at once.
+func _on_purchased(pack_id: String) -> void:
+	if DiamondPacks.grant(_profile, pack_id):
+		_save_profile()
+		AudioDirector.sound("purchase")
+
+
+func _save_profile() -> void:
+	_profile.save(profile_path)
 
 
 ## Switches world right away; cosmetic only, so it is safe mid-run.
