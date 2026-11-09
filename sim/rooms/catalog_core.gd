@@ -19,14 +19,23 @@ static func defs() -> Array[RoomDef]:
 	crowded.extra_spikes = 1
 	out.append(crowded)
 
+	# Narrow: both walls slide 50 px in, so every crossing is short. The free
+	# run and the exit stay near the bird: there is no time to cross the whole
+	# height in one trip.
 	var narrow := RoomDef.new("narrow", "starter", 10)
-	narrow.extra_spikes = 1
-	narrow.gap = 3
+	narrow.inset = 50 * SUB
+	narrow.reach = 100 * SUB
 	out.append(narrow)
 
-	# Tide Spikes: some wall spikes slide in and out on a slow beat.
+	# Tide Spikes: some wall spikes slide in and out on a slow beat. Variants:
+	# normal; fewer but big spikes (1.5 times); more but small ones (2/3).
 	var tide := RoomDef.new("tide", "starter", 10)
 	tide.wall_mode = RoomDef.WallMode.TIDE
+	tide.variants = [
+		RoomVariant.new("normal"),
+		RoomVariant.new("big").sized(3, 2, -1),
+		RoomVariant.new("small").sized(2, 3, 3),
+	]
 	out.append(tide)
 
 	# Floating Isles: four still islands, one per band of the room.

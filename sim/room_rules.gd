@@ -8,30 +8,44 @@ extends RefCounted
 const GAP_REACH := 200 * SimConfig.SUB
 
 
-static func spike_count(score: int, def: RoomDef) -> int:
+## Spikes per wall. `bonus` is the room variant's extra (or fewer) spikes; a
+## spiked room always keeps at least one.
+static func spike_count(score: int, def: RoomDef, bonus: int = 0) -> int:
 	if not def.spikes:
 		return 0
 	var n := SimConfig.BASE_SPIKES + score / SimConfig.POINTS_PER_EXTRA_SPIKE + def.extra_spikes
 	var room_for_spikes := SimConfig.SLOT_COUNT - def.gap
-	return mini(mini(n, def.max_spikes), room_for_spikes)
+	return maxi(mini(mini(n, def.max_spikes) + bonus, room_for_spikes), 1)
+
+
+## How far the free run may be from the bird in this room (0 = anywhere).
+static func gap_reach(def: RoomDef) -> int:
+	if def.reach > 0:
+		return def.reach
+	if not def.hazards.is_empty() or not def.combos.is_empty():
+		return GAP_REACH
+	return 0
 
 
 ## Returns a bitmask of spiked slots for one wall.
-## A run of `def.gap` consecutive slots is always left free. In rooms with
-## hazards and a known bird height `bird_y`, that run is within GAP_REACH of it.
-static func generate_wall(rng: SimRng, score: int, def: RoomDef, bird_y: int = -1) -> int:
-	var n := spike_count(score, def)
+## A run of `def.gap` consecutive slots is always left free. With a known bird
+## height `bird_y`, that run is within gap_reach(def) of it.
+static func generate_wall(
+	rng: SimRng, score: int, def: RoomDef, bird_y: int = -1, bonus: int = 0
+) -> int:
+	var n := spike_count(score, def, bonus)
 	if n == 0:
 		return 0
 	var gap := def.gap
 	var lo := 0
 	var hi := SimConfig.SLOT_COUNT - gap
-	if bird_y >= 0 and (not def.hazards.is_empty() or not def.combos.is_empty()):
+	var reach := gap_reach(def)
+	if bird_y >= 0 and reach > 0:
 		var first := hi
 		var last := lo
 		for start in range(lo, hi + 1):
 			var center := SimConfig.slot_center_y(start) + (gap - 1) * SimConfig.SLOT_SIZE / 2
-			if absi(center - bird_y) <= GAP_REACH:
+			if absi(center - bird_y) <= reach:
 				first = mini(first, start)
 				last = maxi(last, start)
 		if first <= last:
