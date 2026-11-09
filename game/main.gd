@@ -29,6 +29,9 @@ const REVIVE_MIN_SCORE := 5
 ## The AdMob provider and the native plugin it needs (addons/admob).
 const ADMOB_ADS := "res://services/admob_ads.gd"
 const ADMOB_SINGLETON := "PoingGodotAdMob"
+## The Firebase push service and the native plugin it needs (addons/godotx_firebase).
+const FIREBASE_PUSH := "res://services/firebase_push.gd"
+const FIREBASE_SINGLETON := "GodotxFirebaseMessaging"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
@@ -101,7 +104,7 @@ func _ready() -> void:
 	if store == null:
 		store = _make_store()
 	if push == null:
-		push = PushService.new(leaderboard as SupabaseLeaderboard)
+		push = _make_push()
 	# Permission given on an earlier start: fetch this start's token.
 	if _profile.board_alerts and _profile.push_asked:
 		push.start()
@@ -467,6 +470,16 @@ func _make_store() -> StoreService:
 	if OS.is_debug_build() and not wallet.is_online():
 		return SampleStore.new()
 	return StoreService.new()
+
+
+## Firebase push in a phone build that carries the plugin, else no push.
+func _make_push() -> PushService:
+	var api := leaderboard as SupabaseLeaderboard
+	if Engine.has_singleton(FIREBASE_SINGLETON):
+		# Loaded by path, like the ads: naming the class here crashes Godot 4.6
+		# beta 2 on exit when every script is loaded (tools/ci/load_all.gd).
+		return (load(FIREBASE_PUSH) as GDScript).new(api)
+	return PushService.new(api)
 
 
 ## Diamonds on the server when the leaderboards are (Supabase), else in the save.

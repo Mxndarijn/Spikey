@@ -16,6 +16,14 @@ on:
         description: 'Also build an AAB for the Play Console (needs the keystore secrets)'
         type: boolean
         default: false
+      release:
+        description: 'Publish the APK as a GitHub pre-release (a direct download link)'
+        type: boolean
+        default: true
+      announce:
+        description: 'Post the build on Discord'
+        type: boolean
+        default: true
   push:
     tags: ['v*']
 
@@ -42,6 +50,9 @@ jobs:
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       WANT_AAB: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.aab == true }}
+      # Tags always publish and announce; a manual run can switch either off.
+      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != false }}
+      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.release != false && inputs.announce != false) }}
 
     steps:
       - name: Checkout repository
@@ -132,17 +143,48 @@ jobs:
             echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
           fi
 
+      - name: Write the Firebase config (Board alerts)
+        # Optional: with the GOOGLE_SERVICES_JSON secret set (the whole google-services.json
+        # from Firebase, docs/PUSH_SETUP.md) the build can receive push notifications;
+        # without it the build works, without push.
+        id: firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+            jq -e '.client[0].client_info.android_client_info.package_name' google-services.json > /dev/null \
+              || { echo "::error::GOOGLE_SERVICES_JSON is not a google-services.json file."; exit 1; }
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "Board alerts: Firebase"
+          else
+            echo "::notice::No GOOGLE_SERVICES_JSON secret, so this build gets no push notifications."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Import project
         run: godot --headless --path . --import || godot --headless --path . --import
 
+      - name: Install the Android build template
+        # Godot's Gradle project goes into android/build (ignored by git). Exporting only the
+        # data pack installs it without running Gradle, so it can be changed before the build.
+        run: |
+          godot --headless --path . --install-android-build-template \
+            --export-pack "Android" "$RUNNER_TEMP/template-install.pck"
+          test -f android/build/build.gradle \
+            || { echo "::error::The Android build template was not installed."; exit 1; }
+
+      - name: Add Firebase to the Gradle build
+        if: steps.firebase.outputs.push == 'true'
+        run: bash tools/ci/patch_android_gradle.sh android/build/build.gradle
+
       - name: Export release APK
-        # Every Android export goes through Godot's Gradle build (the AdMob plugin needs
-        # it). The first one installs the build template into android/ (ignored by git).
+        # Every Android export goes through Godot's Gradle build (the AdMob and Firebase
+        # plugins need it), using the template installed above.
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p build/android
-          godot --headless --path . --install-android-build-template \
-            --export-release "Android" build/android/Flapjaw.apk
+          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export debug APK (no keystore secrets set)
@@ -150,16 +192,14 @@ jobs:
         run: |
           echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, building a debug-signed APK."
           mkdir -p build/android
-          godot --headless --path . --install-android-build-template \
-            --export-debug "Android" build/android/Flapjaw.apk
+          godot --headless --path . --export-debug "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export AAB
         # Same Gradle build as the APK, packed as a bundle for the Play Console.
         if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
-          godot --headless --path . --install-android-build-template \
-            --export-release "Android AAB" build/android/Flapjaw.aab
+          godot --headless --path . --export-release "Android AAB" build/android/Flapjaw.aab
           test -f build/android/Flapjaw.aab
 
       - name: Warn about a skipped AAB
@@ -193,6 +233,7 @@ jobs:
         # account needed (artifacts always need one). `v*` tags become a normal release named
         # after the version; every other run becomes a pre-release tagged `build-<n>`.
         # Re-running a build replaces its APK.
+        if: env.WANT_RELEASE == 'true'
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -226,7 +267,7 @@ jobs:
         # -> Webhooks). The embed links to the APK and to its GitHub Release page. The APK is also
         # attached when it fits the server's upload limit (repository variable
         # DISCORD_MAX_UPLOAD_MB, default 10; today's APK is about 52 MB).
-        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && env.WANT_ANNOUNCE == 'true'
         uses: ./.github/actions/discord-embed
         with:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}

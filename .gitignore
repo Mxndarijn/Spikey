@@ -1,6 +1,12 @@
 # Godot
 .godot/
-/android/
+# Godot's Android build template (installed at export). The Firebase plugin's
+# libraries in android/firebase_* are tracked.
+/android/build/
+/android/.build_version
+# Firebase config, written by CI from secrets (docs/PUSH_SETUP.md)
+/google-services.json
+/GoogleService-Info.plist
 *.translation
 /build/
 
