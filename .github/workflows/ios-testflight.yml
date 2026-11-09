@@ -230,6 +230,31 @@ jobs:
       # A .p12 made with OpenSSL 3 (e.g. on Windows) uses AES/PBKDF2, which the macOS
       # keychain can't import ("MAC verification failed"). Re-pack it in the older
       # 3DES/SHA1 format the keychain reads, with the same password.
+      - name: Check the provisioning profile
+        # Says what is in IOS_PROVISIONING_PROFILE_BASE64 (nothing secret), so a stale or
+        # wrongly pasted profile is obvious: its id, its end date and whether it allows push.
+        run: |
+          plist="$RUNNER_TEMP/profile.plist"
+          if ! security cms -D -i "$SIGNING_DIR/AppStore.mobileprovision" > "$plist" 2>/dev/null; then
+            size="$(wc -c < "$SIGNING_DIR/AppStore.mobileprovision" | tr -d ' ')"
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 doesn't decode to a provisioning profile ($size bytes). Set it again from the base64 of the .mobileprovision file."
+            exit 1
+          fi
+          uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist")"
+          expires="$(/usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$plist")"
+          push="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$plist" 2>/dev/null || echo none)"
+          name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$plist")"
+          echo "Profile id starts with ${uuid:0:8}, expires $expires, push: $push"
+          if [ "$name" != "$IOS_PROVISIONING_PROFILE_NAME" ]; then
+            echo "::error::The profile's name is not the one in IOS_PROVISIONING_PROFILE_NAME (${#name} against ${#IOS_PROVISIONING_PROFILE_NAME} characters). Set that secret to the profile's exact name."
+            exit 1
+          fi
+          if [ "$push" = "none" ]; then
+            echo "::error::This provisioning profile has no push permission. Regenerate it after turning on Push Notifications for the app id, and set IOS_PROVISIONING_PROFILE_BASE64 again (docs/PUSH_SETUP.md)."
+            exit 1
+          fi
+          rm -f "$plist"
+
       - name: Re-pack the certificate for the keychain
         run: |
           OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
