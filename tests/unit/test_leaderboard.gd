@@ -187,6 +187,18 @@ func test_screen_loads_then_shows_podium_list_and_your_row() -> void:
 	_free(screen)
 
 
+func test_podium_flyer_is_centered_over_its_block() -> void:
+	var still := FlyerArt.new(null, 36.0)
+	still.bob = false
+	still.trail_dots = 0
+	assert_eq(still.art_center(), still.size / 2.0, "no trail: dead centre")
+	var trailing := FlyerArt.new(null, 36.0)
+	trailing.bob = false
+	assert_true(trailing.art_center().x > trailing.size.x / 2.0, "a trail pushes the flyer right")
+	still.free()
+	trailing.free()
+
+
 func test_tabs_switch_boards() -> void:
 	var p := _profile()
 	var service := SampleLeaderboard.new(p)
