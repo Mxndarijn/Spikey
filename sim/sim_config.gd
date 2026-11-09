@@ -29,7 +29,11 @@ extends RefCounted
 ##     turning back off the Bumper Cloud).
 ## 14: each exit is planned one point early (on the 9th of every 10) and
 ##     shown as a ghost on the wall it will open on; no spikes in its slots.
-const GAMEPLAY_VERSION := 14
+## 15: out of a portal the room runs in slow motion for a second instead of
+##     the frozen wait (the player can tap from the first tick); Floating
+##     Isles keeps a lane clear in front of the portal; Shutter Gates times
+##     its gap to be at the bird's height when it reaches the nearer gate.
+const GAMEPLAY_VERSION := 15
 const TICKS_PER_SECOND := 60
 const SUB := 64
 
@@ -91,9 +95,15 @@ const FORK_SPLIT_Y := 320 * SUB
 const FORK_EVERY := 50
 ## Coins for taking the Wild exit.
 const WILD_COINS := 3
-## Ticks (1 s) the bird waits in the portal it comes out of, with the new
-## room frozen and taps ignored, before it flies on as before.
+## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
+## wait, taps ignored). Portals no longer use it (version 15: slow motion).
 const ARRIVAL_HOLD := 60
+## Out of a portal the whole room runs in slow motion: ARRIVAL_SLOW_PCT of
+## normal speed for ARRIVAL_SLOW_FLAT ticks, then back up to full speed over
+## the rest of ARRIVAL_SLOW_TICKS. The player can tap all the while.
+const ARRIVAL_SLOW_TICKS := 60
+const ARRIVAL_SLOW_FLAT := 30
+const ARRIVAL_SLOW_PCT := 50
 
 # Safety cap for replays (30 minutes of play).
 const MAX_TICKS := 60 * 60 * 30

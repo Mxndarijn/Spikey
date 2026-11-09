@@ -5,7 +5,7 @@ extends SceneTree
 ## yet), then PlannerBot plays on. Reports how often each delay dies soon after.
 ##   godot --headless --path . -s res://tools/arrival_test.gd -- <out.json> [seeds] [first]
 
-const DELAYS := [0, 30, 60]
+const DELAYS := [0, 30, 45, 60]
 ## Ticks after the delay (and the portal wait) that count as "died on arrival".
 const AFTER := 120
 const RUN_TICKS := 7000
@@ -35,12 +35,14 @@ func _initialize() -> void:
 func _trial_all(sim: GameSim, seed_value: int) -> Dictionary:
 	var row := {"seed": seed_value, "room": RoomCatalog.all()[sim.state.room_kind].id}
 	for d: int in DELAYS:
-		row[str(d)] = _trial(sim, d, seed_value + sim.state.tick)
+		row[str(d)] = _trial(sim, d, seed_value + sim.state.tick, false)
+		row["r" + str(d)] = _trial(sim, d, seed_value + sim.state.tick, true)
 	return row
 
 
 ## Ticks survived after arrival, minus the cap: 0 means it lived to the end.
-func _trial(sim: GameSim, delay: int, bot_seed: int) -> int:
+## `rhythm`: while not reacting, tap every 24 ticks instead of holding height.
+func _trial(sim: GameSim, delay: int, bot_seed: int, rhythm: bool) -> int:
 	var cap := delay + AFTER + sim.state.arrival_hold
 	var c := SimClone.copy(sim)
 	var bot := PlannerBot.new(bot_seed)
@@ -51,6 +53,8 @@ func _trial(sim: GameSim, delay: int, bot_seed: int) -> int:
 		if n < delay:
 			var g := c.room.def.gravity_sign
 			tap = (c.state.y - y0) * g > 0 and c.state.vy * g >= 0
+			if rhythm:
+				tap = n % 24 == 12
 		else:
 			tap = bot.decide(c)
 		c.step(tap)

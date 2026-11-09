@@ -17,6 +17,9 @@ const BOTTOM := SimConfig.KILL_BOTTOM
 const LAG := 40
 ## No spike on the wall ahead within this of where the gap next to it will be.
 const WALL_CLEAR := 70 * SimConfig.SUB
+## A player holding height hops about 60 px over the line they hold: aim the
+## gap at the middle of that.
+const ARRIVAL_HOVER := 30 * SimConfig.SUB
 
 ## Column centre x.
 var x := 0
@@ -51,15 +54,36 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			h.partner = self
 	if follows and partner != null:
 		period = partner.period
+		# Out of a portal the leader timed its own gap for the bird; when this
+		# gate is the nearer one, shift the pair so this gap is the one there.
+		if sim.state.started and absi(x - sim.state.x) < absi(partner.x - sim.state.x):
+			var shift: int = _lead(sim, partner.x) - (_lead(sim, x) - LAG)
+			partner.phase = posmod(partner.phase + shift, period)
+			partner._place()
 		phase = posmod(partner.phase - LAG, period)
 		_place()
 		return
 	var span := GAP_MAX_Y - GAP_MIN_Y
-	var at := clampi(sim.entry_y() - GAP_MIN_Y, 0, span)
+	var aim := sim.entry_y()
+	# Out of a portal: the gap reaches the bird's height (the middle of the
+	# hops a player holding height makes) when the bird gets to this gate
+	# (the follower shifts it if it is the nearer one), so a player still
+	# reading the room flies straight through.
+	var lead := 0
+	if sim.state.started:
+		aim -= ARRIVAL_HOVER
+		lead = _lead(sim, x)
+	var at := clampi(aim - GAP_MIN_Y, 0, span)
 	var half := period / 2
 	var rising_phase := at * half / span
 	phase = rising_phase if rng.next_below(2) == 0 else period - rising_phase
+	phase = posmod(phase - lead, period)
 	_place()
+
+
+## Steps until the bird reaches a gate at `gate_x`.
+static func _lead(sim: GameSim, gate_x: int) -> int:
+	return absi(gate_x - sim.state.x) / SimConfig.SPEED_X
 
 
 func step(_sim: GameSim) -> void:

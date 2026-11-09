@@ -56,16 +56,17 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			spots.append(sx)
 			spots.append(sy)
 	# Best: a way between it and the island above, off the first hop and clear
-	# of the start lane; then drop the lane. If no spot keeps a way past the
+	# of the start lane (out of a portal: the long lane, then the short one);
+	# then drop the lane. If no spot keeps a way past the
 	# island above, this band has no island this time.
 	var found := false
-	for rule in 2:
+	for rule in 3:
 		for i in range(0, spots.size(), 2):
 			var cx := spots[i]
 			var cy := spots[i + 1]
 			if sim.start_path_hits_rect(cx, cy, cx + w, cy + h, START_MARGIN):
 				continue
-			if rule == 0 and sim.blocks_start_lane(cx, cy, cx + w, cy + h):
+			if rule < 2 and sim.blocks_start_lane(cx, cy, cx + w, cy + h, rule == 1):
 				continue
 			if _crowds_neighbour(sim, cx, cy, cx + w):
 				continue

@@ -67,7 +67,7 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	assert_false(missed.state.alive, "missing the exit hits a spike")
 
 
-func test_flying_through_moves_to_the_next_room_after_a_short_wait() -> void:
+func test_flying_through_moves_to_the_next_room_in_slow_motion() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
 	var room_before := sim.state.room_index
@@ -86,14 +86,70 @@ func test_flying_through_moves_to_the_next_room_after_a_short_wait() -> void:
 	assert_true(sim.state.left_spikes != 0, "the wall ahead has spikes again")
 	var x := sim.state.x
 	var t := sim.room.t
-	for i in SimConfig.ARRIVAL_HOLD:
-		sim.step(i % 2 == 0)
-	assert_eq(sim.state.x, x, "it waits in the portal, taps or not")
-	assert_eq(sim.state.y, y, "at the same height")
-	assert_eq(sim.room.t, t, "the new room waits too")
+	sim.step(true)
+	assert_true(GameSim.Event.FLAP in sim.events, "taps work from the first tick")
+	for i in SimConfig.ARRIVAL_SLOW_TICKS - 1:
+		sim.step(false)
+	var slow_steps := sim.room.t - t
+	assert_true(slow_steps < SimConfig.ARRIVAL_SLOW_TICKS * 3 / 4, "the room ran slower")
+	assert_true(slow_steps > SimConfig.ARRIVAL_SLOW_TICKS / 2, "but never stopped")
+	assert_true(sim.state.x < x, "it keeps flying the same way")
+	t = sim.room.t
 	sim.step(false)
-	assert_true(sim.state.x < x, "then it keeps flying")
-	assert_true(sim.room.t > t, "and the new room runs")
+	assert_eq(sim.room.t, t + 1, "then full speed again")
+
+
+## Over the slow-motion entrance the steps add up as planned: ARRIVAL_SLOW_PCT
+## for ARRIVAL_SLOW_FLAT ticks, then easing to full speed.
+func test_slow_motion_steps_add_up() -> void:
+	var sim := GameSim.new(5)
+	sim.state.arrival_slow = SimConfig.ARRIVAL_SLOW_TICKS
+	var flat := 0
+	var total := 0
+	for i in SimConfig.ARRIVAL_SLOW_TICKS:
+		var n := sim._arrival_steps(1)
+		assert_between(n, 0, 1)
+		total += n
+		if i < SimConfig.ARRIVAL_SLOW_FLAT:
+			flat += n
+	assert_eq(flat, SimConfig.ARRIVAL_SLOW_FLAT * SimConfig.ARRIVAL_SLOW_PCT / 100)
+	assert_between(total, 35, 40)
+	assert_eq(sim.state.arrival_slow, 0)
+	assert_eq(sim._arrival_steps(1), 1, "full speed after")
+
+
+## Out of a portal, Floating Isles keeps its islands out of the lane in front
+## of the portal where it can, and Shutter Gates has the gap at the bird when
+## it reaches the nearer gate.
+func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
+	var isles := RoomCatalog.index_of("isles")
+	var gates := RoomCatalog.index_of("gates")
+	var lane_ok := 0
+	for i in 40:
+		var y := (150 + (i * 53) % 340) * SimConfig.SUB
+		var sim := _sim_at(20, 100 + i)
+		sim.state.y = y
+		sim._arrive_in(i % 2, isles)
+		var clear := true
+		for h in sim.room.hazards:
+			if h.alive and h.kind == "block":
+				sim._arriving = true
+				if sim.blocks_start_lane(h.x0, h.y0, h.x1, h.y1, true):
+					clear = false
+				sim._arriving = false
+		if clear:
+			lane_ok += 1
+		var g := _sim_at(20, 100 + i)
+		g.state.y = y
+		g._arrive_in(i % 2, gates)
+		var near: Hazard = g.room.hazards[0]
+		for h in g.room.hazards:
+			if absi(h.x - g.state.x) < absi(near.x - g.state.x):
+				near = h
+		var steps := absi(near.x - g.state.x) / SimConfig.SPEED_X
+		var want := clampi(y - 30 * SimConfig.SUB, 150 * SimConfig.SUB, 490 * SimConfig.SUB)
+		assert_true(absi(near.gap_at(steps) - want) <= 2 * SimConfig.SUB, "gate gap at the bird")
+	assert_true(lane_ok >= 36, "isles lane clear in most arrivals (%d/40)" % lane_ok)
 
 
 func test_the_bird_comes_out_flying_level() -> void:

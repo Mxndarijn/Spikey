@@ -16,6 +16,7 @@ const BUMP_VY := -SimConfig.FLAP_VY * 6 / 5
 const START_LANE_H := 100 * SimConfig.SUB
 const START_LANE_BELOW := 12 * SimConfig.SUB
 const START_LANE_W := 150 * SimConfig.SUB
+const ARRIVAL_LANE_W := 200 * SimConfig.SUB
 ## Steps of the start path (one flap up to its peak and a little after).
 const START_PATH := 32
 ## How high one flap lifts the bird (about 60 px).
@@ -37,6 +38,8 @@ var room := RoomRuntime.new()
 var events: Array[int] = []
 
 var _rng: SimRng
+## True while a room is set up for a bird coming out of a portal.
+var _arriving := false
 
 
 func _init(p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1) -> void:
@@ -99,15 +102,20 @@ func start_path_hits_rect(x0: int, y0: int, x1: int, y1: int, margin: int) -> bo
 ## strip START_LANE_H tall from the bird's height up, from its wall to
 ## START_LANE_W into the room. The bird can hover in that strip while it finds
 ## its way, so rooms keep it clear. False once the bird is flying.
-func blocks_start_lane(x0: int, y0: int, x1: int, y1: int) -> bool:
-	if state.started:
+##
+## Out of a portal (while the room is set up) the same lane, ARRIVAL_LANE_W
+## long (START_LANE_W with `short`), lies in front of the portal: the player
+## is still reading the room.
+func blocks_start_lane(x0: int, y0: int, x1: int, y1: int, short := false) -> bool:
+	if state.started and not _arriving:
 		return false
+	var w := ARRIVAL_LANE_W if _arriving and not short else START_LANE_W
 	var top := state.y - (START_LANE_H - START_LANE_BELOW) * room.def.gravity_sign
 	var bottom := state.y + START_LANE_BELOW * room.def.gravity_sign
 	var ly0 := mini(top, bottom)
 	var ly1 := maxi(top, bottom)
-	var lx0 := state.x if state.vx > 0 else state.x - START_LANE_W
-	var lx1 := state.x + START_LANE_W if state.vx > 0 else state.x
+	var lx0 := state.x if state.vx > 0 else state.x - w
+	var lx1 := state.x + w if state.vx > 0 else state.x
 	return x1 > lx0 and x0 < lx1 and y1 > ly0 and y0 < ly1
 
 
@@ -141,7 +149,7 @@ func step(tap: bool) -> void:
 		events.append(Event.FLAP)
 
 	if state.started:
-		for i in room.steps_this_tick():
+		for i in _arrival_steps(room.steps_this_tick()):
 			_substep()
 			if not state.alive:
 				break
@@ -399,8 +407,8 @@ func _random_exit_y(lo: int, hi: int) -> int:
 
 ## Flies through an exit on wall `side` into the next room: the bird comes out
 ## of a portal in the opposite wall at the same height, still flying the same
-## way, so it never turns. It waits there ARRIVAL_HOLD ticks first. The wall
-## it now faces (`side` again) gets spikes as after a bounce. No point is
+## way, so it never stops or turns; the new room starts in slow motion. The
+## wall it now faces (`side` again) gets spikes as after a bounce. No point is
 ## scored for this.
 func _go_through(side: int, kind: int) -> void:
 	state.exit_open = false
@@ -410,26 +418,57 @@ func _go_through(side: int, kind: int) -> void:
 		for i in SimConfig.WILD_COINS:
 			collect_coin(state.x, state.y)
 	state.room_index += 1
-	if is_practice():
-		_enter_room(practice_room)
-	else:
-		_enter_room(RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route))
+	var next := practice_room
+	if not is_practice():
+		next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route)
+	_arrive_in(side, next)
+	events.append(Event.ROOM_CHANGE)
+
+
+## Starts room `next` with the bird out of a portal in the wall opposite
+## `side`, flying toward `side`, and spikes that wall.
+func _arrive_in(side: int, next: int) -> void:
+	# The bird is put at the portal first, so hazards see where it comes in.
+	# A new room starts with its walls at the cage edges.
 	var r := SimConfig.BIRD_RADIUS
 	if side == 1:
-		state.x = room.wall_left() + r
+		state.x = r
 		state.vx = SimConfig.SPEED_X
 	else:
-		state.x = room.wall_right() - r
+		state.x = SimConfig.WORLD_W - r
 		state.vx = -SimConfig.SPEED_X
+	_arriving = true
+	_enter_room(next)
+	_arriving = false
 	# Come out flying level: no speed up or down, so a bird that fell into the
 	# exit doesn't drop straight into the new room's floor (or, rising, into
 	# its ceiling).
 	state.vy = 0
-	state.arrival_hold = SimConfig.ARRIVAL_HOLD
+	state.arrival_slow = SimConfig.ARRIVAL_SLOW_TICKS
+	state.arrival_slow_acc = 0
 	state.left_spikes = 0
 	state.right_spikes = 0
-	events.append(Event.ROOM_CHANGE)
 	_new_wall(side)
+
+
+## Sim steps for this tick during the slow-motion entrance out of a portal
+## (`steps` at full speed): ARRIVAL_SLOW_PCT for ARRIVAL_SLOW_FLAT ticks, then
+## easing back to full speed. Part-steps carry over, so it stays integer.
+func _arrival_steps(steps: int) -> int:
+	if state.arrival_slow <= 0:
+		return steps
+	var elapsed := SimConfig.ARRIVAL_SLOW_TICKS - state.arrival_slow
+	var pct := SimConfig.ARRIVAL_SLOW_PCT
+	if elapsed >= SimConfig.ARRIVAL_SLOW_FLAT:
+		var ramp := SimConfig.ARRIVAL_SLOW_TICKS - SimConfig.ARRIVAL_SLOW_FLAT
+		pct += (100 - pct) * (elapsed - SimConfig.ARRIVAL_SLOW_FLAT) / ramp
+	state.arrival_slow_acc += steps * pct
+	var out := state.arrival_slow_acc / 100
+	state.arrival_slow_acc -= out * 100
+	state.arrival_slow -= 1
+	if state.arrival_slow == 0:
+		state.arrival_slow_acc = 0
+	return out
 
 
 ## Spikes for the wall the bird is now heading to, then the room's per-bounce
