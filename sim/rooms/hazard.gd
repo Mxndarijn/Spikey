@@ -50,6 +50,14 @@ func on_flap(_sim: GameSim) -> void:
 	pass
 
 
+## True if an exit at height `y` on wall `side` (0 = left, 1 = right) could not
+## be reached past this hazard. Asked when an exit is planned (the bird has just
+## bounced; GameSim.steps_to_wall(side) tells when it gets there), so the exit
+## goes somewhere else. No RNG draws here.
+func blocks_exit(_sim: GameSim, _side: int, _y: int) -> bool:
+	return false
+
+
 ## True if this hazard makes the ceiling (top) or floor safe where the bird is;
 ## it may bounce the bird too.
 func guards_edge(_sim: GameSim, _top: bool) -> bool:

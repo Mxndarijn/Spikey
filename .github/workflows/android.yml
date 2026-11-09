@@ -136,10 +136,13 @@ jobs:
         run: godot --headless --path . --import || godot --headless --path . --import
 
       - name: Export release APK
+        # Every Android export goes through Godot's Gradle build (the AdMob plugin needs
+        # it). The first one installs the build template into android/ (ignored by git).
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p build/android
-          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
+          godot --headless --path . --install-android-build-template \
+            --export-release "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export debug APK (no keystore secrets set)
@@ -147,12 +150,12 @@ jobs:
         run: |
           echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, building a debug-signed APK."
           mkdir -p build/android
-          godot --headless --path . --export-debug "Android" build/android/Flapjaw.apk
+          godot --headless --path . --install-android-build-template \
+            --export-debug "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export AAB
-        # The AAB needs Godot's Gradle build, which installs the Android build template into
-        # android/ (ignored by git) and takes a few minutes.
+        # Same Gradle build as the APK, packed as a bundle for the Play Console.
         if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           godot --headless --path . --install-android-build-template \

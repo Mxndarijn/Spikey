@@ -17,8 +17,13 @@ static func defs() -> Array[RoomDef]:
 	var out: Array[RoomDef] = []
 
 	# Bumper Cloud: a cloud on a slow loop; safe, but it shoves the bird away.
+	# Variants: one cloud, or two on opposite sides of the loop.
 	var cloud := RoomDef.new("cloud", "starter", 10)
 	cloud.hazards.append(func() -> Hazard: return Bumper.new())
+	cloud.variants = [
+		RoomVariant.new("one"),
+		RoomVariant.new("two").with([func() -> Hazard: return Bumper.new(true)]),
+	]
 	out.append(cloud)
 
 	# Shutter Gates: two columns whose gaps slide up and down together, the

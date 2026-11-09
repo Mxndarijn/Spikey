@@ -93,6 +93,7 @@ func test_squeeze_moves_walls_in_per_point() -> void:
 
 func test_tide_spikes_move_blink_walls_switch() -> void:
 	var sim := sim_in_room("tide", 3)
+	sim.room.variant = 0
 	sim.room.tide_left = 0b1
 	var depths := {}
 	for i in RoomRuntime.TIDE_PERIOD:
@@ -100,8 +101,8 @@ func test_tide_spikes_move_blink_walls_switch() -> void:
 		depths[sim.room.slot_depth(0, 0)] = true
 	assert_true(depths.size() > 10, "a tide spike slides in and out")
 	assert_true(depths.has(0), "a tide spike goes flat")
-	assert_true(depths.has(RoomRuntime.TIDE_MAX_DEPTH), "a tide spike reaches full length")
-	assert_true(RoomRuntime.TIDE_MAX_DEPTH > SimConfig.SPIKE_DEPTH, "longer than a normal spike")
+	assert_true(depths.has(sim.room.tide_max_depth()), "a tide spike reaches full length")
+	assert_true(sim.room.tide_max_depth() > SimConfig.SPIKE_DEPTH, "longer than a normal spike")
 	sim.room.t = 0
 	assert_eq(sim.room.slot_depth(0, 1), SimConfig.SPIKE_DEPTH, "other spikes stay out")
 	var blink := sim_in_room("blink", 3)
