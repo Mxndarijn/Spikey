@@ -198,6 +198,7 @@ func _replay_again() -> void:
 
 ## Back (or the exit icon): the leaderboards, on the board the run came from.
 func _leave_replay() -> void:
+	_audio.menu()
 	show_leaderboard(_replay_board)
 
 
@@ -227,12 +228,15 @@ func _apply_loadout(look: Dictionary) -> void:
 	_audio.choose_track(music, _theme.id, owned)
 
 
-## Leaving a replay: the player's own look comes back.
+## Leaving a replay: the player's own look comes back, and a replay still
+## playing stops. Without the fresh run it would play on behind the menus.
 func _drop_replay() -> void:
 	_replay_driver = null
 	if _replay_look:
 		_replay_look = false
 		_load_equipped()
+	if _run.driver != null:
+		_new_run()
 
 
 func _on_leaderboard_name(player_name: String) -> void:
@@ -552,6 +556,9 @@ func _on_died(replay: Replay) -> void:
 	if mode == Mode.REPLAY:
 		# Someone else's run: no coins, best score or leaderboard.
 		_hud.replay_hud().show_over()
+		return
+	# Only a real run counts: nothing that ends behind a menu is the player's.
+	if mode != Mode.RUN:
 		return
 	var previous_best := _profile.best_score
 	var is_new_best := replay.score > previous_best
