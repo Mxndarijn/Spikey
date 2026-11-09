@@ -7,7 +7,9 @@ extends Control
 ## line on the room saying it is all looks only. Items themselves are bought in
 ## Customize (CollectionScreen).
 ## Buying goes through the StoreService; main grants the pack when the store
-## confirms, and this screen only shows the result.
+## confirms, and this screen only shows the result. While the store is closed
+## (no app-store billing yet) the packs still show with their prices, but
+## their buttons are off and the line under them says why.
 
 signal closed
 ## The wallet changed here (a conversion): main saves.
@@ -71,7 +73,8 @@ func _ready() -> void:
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message.custom_minimum_size = Vector2(200, 0)
 	_message.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_message.text = LOOKS_ONLY
+	# A closed store shows its packs, but they can't be bought yet.
+	_message.text = LOOKS_ONLY if _store.is_open() else StoreService.CLOSED
 	col.add_child(_message)
 
 	_store.purchased.connect(_on_purchased)
@@ -205,12 +208,18 @@ static func _amount_label(value: int, font_size: int) -> Label:
 func refresh() -> void:
 	_wallet.show_balance(_profile)
 	_starter.visible = DiamondPacks.can_buy(_profile, DiamondPacks.STARTER)
+	for id: String in _buttons:
+		(_buttons[id] as Button).disabled = not _store.is_open()
 
 
 ## Asks the store for a pack; the result comes back as a signal.
 func buy(id: String) -> void:
 	if not DiamondPacks.can_buy(_profile, id):
 		AudioDirector.ui("locked")
+		return
+	if not _store.is_open():
+		AudioDirector.ui("locked")
+		_message.text = StoreService.CLOSED
 		return
 	_store.buy(id)
 

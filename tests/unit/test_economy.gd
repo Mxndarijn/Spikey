@@ -159,6 +159,7 @@ func test_home_wallet_opens_the_shop_and_packs_are_granted() -> void:
 	assert_true(shop.starter_visible(), "the starter pack is offered")
 	assert_eq(shop.price_button("vault").text, "€19.99")
 	assert_eq(shop.message_text(), StoreScreen.LOOKS_ONLY)
+	assert_false(shop.price_button("vault").disabled, "an open store sells")
 	shop.price_button("handful").pressed.emit()
 	assert_eq(main._profile.diamonds, 10, "the pack arrived")
 	assert_eq(shop.wallet().diamonds_text(), "10")
@@ -187,9 +188,17 @@ func test_a_closed_store_says_why_and_grants_nothing() -> void:
 	var p := Profile.new()
 	var shop := StoreScreen.new(p, StoreService.new())
 	_in_tree(shop)
-	shop.price_button("chest").pressed.emit()
+	assert_eq(shop.message_text(), StoreService.CLOSED, "it says why from the start")
+	assert_eq(shop.price_button("chest").text, "€9.99", "the packs still show their price")
+	for id in DiamondPacks.ids():
+		assert_true(shop.price_button(id).disabled, "%s can't be bought" % id)
+	shop.buy("chest")
 	assert_eq(p.diamonds, 0)
 	assert_eq(shop.message_text(), StoreService.CLOSED)
+	p.diamonds = 2
+	shop.refresh()
+	shop.open_convert().confirm()
+	assert_eq([p.diamonds, p.coins], [1, 100], "turning diamonds into gold still works")
 	shop.free()
 
 
