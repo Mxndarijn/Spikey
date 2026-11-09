@@ -10,10 +10,14 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
--- pg_net: the wake-up call to GitHub. Here it does nothing.
+-- pg_net: the calls to GitHub and to the alert sender. Here they are only
+-- written down, so tests can see who would have been called.
 create schema net;
+create table net.calls (id bigint generated always as identity, url text, headers jsonb);
 create function net.http_post(
   url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
   headers jsonb default '{}'::jsonb, timeout_milliseconds integer default 5000
-) returns bigint language sql as $$ select 1::bigint $$;
+) returns bigint language sql as $$
+  insert into net.calls (url, headers) values (url, headers) returning id
+$$;
 grant usage on schema public to anon, authenticated;
