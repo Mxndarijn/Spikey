@@ -1,10 +1,13 @@
 name: Verify leaderboard runs
 
-# The leaderboard's anti-cheat: every 10 minutes it fetches the runs that wait to be checked,
-# replays them with the same sim/ code the phones use (server/verify_batch.gd) and writes back
-# "ok", "rejected" or "outdated". Boards only show "ok" runs (supabase/migrations/).
-# Free on a public repository. GitHub may start scheduled runs late, and turns them off after
-# 60 days without commits (turn it back on in the Actions tab).
+# The leaderboard's anti-cheat: it fetches the runs that wait to be checked, replays them with
+# the same sim/ code the phones use (server/verify_batch.gd) and writes back "ok", "rejected"
+# or "outdated". Boards only show "ok" runs (supabase/migrations/).
+#
+# Started two ways: by the database the moment a run arrives (workflow_dispatch, needs the
+# VERIFY_DISPATCH_TOKEN secret) and every 10 minutes as a safety net. Free on a public
+# repository. GitHub may start scheduled runs late, and turns them off after 60 days without
+# commits (turn it back on in the Actions tab).
 #
 # Needs the SUPABASE_DB_URL secret (the same one supabase-db.yml uses, docs/LEADERBOARD_SETUP.md);
 # without it the workflow does nothing.
@@ -28,6 +31,7 @@ jobs:
     timeout-minutes: 15
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      VERIFY_DISPATCH_TOKEN: ${{ secrets.VERIFY_DISPATCH_TOKEN }}
     steps:
       - name: Fetch pending runs
         id: fetch
@@ -39,6 +43,13 @@ jobs:
             exit 0
           fi
           command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          # Keep the database's wake-up token current (an empty one turns the wake-up off).
+          # A database without that migration yet just skips this.
+          psql "$SUPABASE_DB_URL" -At -v token="$VERIFY_DISPATCH_TOKEN" -v repo="$GITHUB_REPOSITORY" \
+            > /dev/null <<'SQL' || echo "::warning::Could not store the wake-up token."
+          select public.worker_set_wake(:'token', :'repo')
+          where to_regprocedure('public.worker_set_wake(text, text)') is not null;
+          SQL
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
             -c "select public.worker_pending_runs(500)" > "$RUNNER_TEMP/pending.json"
           count=$(jq length "$RUNNER_TEMP/pending.json")

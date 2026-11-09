@@ -3,8 +3,9 @@ extends LeaderboardService
 ## The real leaderboards for friends, on Supabase's free plan (supabase/migrations/,
 ## setup in docs/LEADERBOARD_SETUP.md). Each phone signs in anonymously once and
 ## keeps its session in user://. Runs are sent with their seed and taps; a
-## checker replays each one (.github/workflows/verify-runs.yml) and the boards
-## only show runs that passed, plus the player's own runs still waiting.
+## checker replays each one (.github/workflows/verify-runs.yml, started by the
+## database when a run arrives) and the boards only show runs that passed, plus
+## the player's own runs still waiting.
 ## Runs that can't be sent (offline) wait in user:// and go out with the next
 ## board request or run.
 

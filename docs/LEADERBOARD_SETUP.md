@@ -75,7 +75,8 @@ Restore; scores are kept.
 
 ## Verification
 
-`.github/workflows/verify-runs.yml` runs every 10 minutes. It fetches runs that
+`.github/workflows/verify-runs.yml` starts when a run arrives (see "Checking
+right away" below) and every 10 minutes as a safety net. It fetches runs that
 wait to be checked, replays them headless with `server/verify_batch.gd`, and
 marks each one:
 
@@ -92,6 +93,26 @@ start it by hand there.
 
 After a gameplay change (a new `GAMEPLAY_VERSION` on `main`), runs from phones
 on the older app become `outdated` until those phones update.
+
+### Checking right away
+
+On the schedule alone a new score can take 10 to 30 minutes to show for other
+players. With one more secret the database starts the checker the moment a run
+arrives (`supabase/migrations/20261109210000_wake_checker.sql`), and a score
+shows after about two minutes:
+
+1. GitHub -> your profile picture -> Settings -> Developer settings -> Personal
+   access tokens -> **Fine-grained tokens** -> Generate new token.
+   Repository access: only this repository. Permissions: **Actions: Read and
+   write**, nothing else. Pick the longest expiry you are comfortable with.
+2. Add it to the repository as the secret `VERIFY_DISPATCH_TOKEN` (Settings ->
+   Secrets and variables -> Actions).
+3. Start the checker once by hand (Actions -> Verify leaderboard runs -> Run
+   workflow). Each time it runs it stores the token in the database (table
+   `worker_settings`, which the game can't read).
+
+When the token expires the boards keep working on the schedule; make a new
+token and replace the secret. To turn the wake-up off, delete the secret.
 
 ## Looking at the data
 
