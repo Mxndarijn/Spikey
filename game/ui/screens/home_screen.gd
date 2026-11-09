@@ -7,9 +7,10 @@ extends Control
 ## Settings opens the settings sheet over Home.
 
 signal play_pressed
-## Style (the dock): opens Customize on a tab.
+## Opens one kind's list in Customize directly (nothing on Home emits it now;
+## main still listens, for shortcuts to a kind).
 signal shop_pressed(tab: String)
-## Kept for main: opens Customize on Flyers.
+## Style (the dock): opens Customize on "Your look".
 signal customize_pressed
 signal rooms_pressed
 ## The #rank item: opens the leaderboards.
@@ -109,7 +110,7 @@ func _on_dock(id: String) -> void:
 		"rooms":
 			rooms_pressed.emit()
 		"style":
-			shop_pressed.emit(Catalog.FLYER)
+			customize_pressed.emit()
 		"rank":
 			leaderboard_pressed.emit()
 		"settings":

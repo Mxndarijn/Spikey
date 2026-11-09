@@ -212,32 +212,45 @@ func test_item_names_fit_their_tiles() -> void:
 			l.free()
 
 
-## The Customize tabs are wider than the screen together: each shows its whole
-## name and is tall enough to tap, and the bar scrolls sideways instead of
-## pushing the screen wider.
-func test_customize_tabs_scroll_in_their_bar() -> void:
-	var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, Catalog.FLYER)
-	_fits(shop, "customize tabs", _check_tabs.bind(shop))
+## "Your look" fits with a card for every kind, each big enough to tap, whatever
+## is in use (long names wrap inside their card).
+func test_your_look_fits_with_every_card() -> void:
+	var p := _profile()
+	p.grant(Catalog.WORLD, "jungle")
+	p.equip(Catalog.WORLD, "jungle")
+	p.equip(Catalog.MUSIC, MusicTrack.MATCH_WORLD)
+	p.grant(Catalog.CRASH, "pixel_dissolve")
+	p.equip(Catalog.CRASH, "pixel_dissolve")
+	var look := LookScreen.new(p)
+	_fits(look, "your look", _check_look.bind(look))
 
 
-func _check_tabs(shop: CollectionScreen) -> void:
-	var scroll := shop.tab_scroll()
-	assert_true(
-		scroll.is_ancestor_of(shop._tabs[Catalog.FLYER] as Button), "tabs sit in the scroller"
-	)
-	assert_eq(
-		scroll.horizontal_scroll_mode, ScrollContainer.SCROLL_MODE_SHOW_NEVER, "no scroll bar"
-	)
-	assert_eq(scroll.get_combined_minimum_size().x, 0.0, "the bar asks for no width of its own")
+func _check_look(look: LookScreen) -> void:
+	assert_eq(look.kinds().size(), Catalog.KINDS.size(), "a card for every kind")
 	for k: String in Catalog.KINDS:
-		var tab := shop._tabs[k] as Button
-		assert_false(tab.clip_text, "%s tab shows its whole name" % k)
-		var w := GameFonts.ui(800).get_string_size(tab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-		var need := tab.get_combined_minimum_size()
-		assert_true(
-			need.x >= w + CollectionScreen.TAB_PAD * 2, "'%s' has room for its name" % tab.text
+		var c := look.card(k)
+		assert_true(c != null, "%s has a card" % k)
+		if c == null:
+			continue
+		var need := c.get_combined_minimum_size()
+		assert_true(minf(need.x, need.y) >= UiTokens.SIZE_TAP_MIN, "%s card is tap-sized" % k)
+	var pair := LookCard.new(Catalog.MUSIC, _profile(), ThemeCatalog.default_theme())
+	var room := (UiTokens.SIZE_VIEWPORT_W - LookScreen.SIDE * 2 - LookScreen.GRID_GAP) / 2.0
+	look.add_child(pair)
+	assert_true(pair.get_combined_minimum_size().x <= room, "two cards fit side by side")
+	pair.free()
+
+
+## A kind's list has no tabs: its title names the kind.
+func test_lists_are_titled_by_kind() -> void:
+	for kind: String in Catalog.KINDS:
+		var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, kind)
+		_fits(
+			shop,
+			"list title (%s)" % kind,
+			func() -> void: assert_eq(shop.title_text(), CollectionScreen.title_for(kind))
 		)
-		assert_true(need.y >= UiTokens.SIZE_TAP_MIN, "'%s' is tall enough to tap" % tab.text)
+		assert_ne(CollectionScreen.title_for(kind), "Customize", "%s has its own title" % kind)
 
 
 ## Game over's stats stay clear of a crashed flyer lying on either wall.

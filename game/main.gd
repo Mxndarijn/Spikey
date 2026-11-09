@@ -84,7 +84,7 @@ func _ready() -> void:
 	_hud.restart_pressed.connect(_restart_practice)
 	_hud.rooms_pressed.connect(show_rooms)
 	_hud.leaderboard_pressed.connect(show_leaderboard)
-	_hud.style_pressed.connect(show_shop.bind(Catalog.FLYER))
+	_hud.style_pressed.connect(show_look)
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
@@ -136,8 +136,8 @@ func show_home() -> void:
 	var home := HomeScreen.new(_profile, leaderboard.cached_rank(LeaderboardService.DAILY))
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
-	# The dock's Style opens Customize.
-	home.customize_pressed.connect(show_shop.bind(Catalog.FLYER))
+	# The dock's Style opens Customize on "Your look".
+	home.customize_pressed.connect(show_look)
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.settings_changed.connect(_on_settings_changed)
@@ -311,13 +311,29 @@ func _restart_practice() -> void:
 		_hud.show_ready()
 
 
-## Customize (the shop and the loadout in one screen) on a tab and filter.
+## Customize starts on "Your look": one card per cosmetic kind with what is in
+## use. A card opens that kind's list (show_shop); Back goes Home.
+func show_look() -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_show_flyer(false)
+	# A world previewed in a list gives way to the one in use.
+	_room.set_theme(_theme)
+	_hazards.set_theme(_theme)
+	var look := LookScreen.new(_profile)
+	look.closed.connect(show_home)
+	look.kind_pressed.connect(show_shop)
+	_menus.show_screen(look)
+
+
+## One kind's list in Customize (its shop and the player's own items in one
+## screen). Back returns to "Your look".
 func show_shop(tab: String = Catalog.FLYER) -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
 	_show_flyer(false)
 	var shop := CollectionScreen.new(_profile, CollectionScreen.Mode.SHOP, tab)
-	shop.closed.connect(show_home)
+	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
 	_menus.show_screen(shop)

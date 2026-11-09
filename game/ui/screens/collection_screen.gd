@@ -1,13 +1,13 @@
 class_name CollectionScreen
 extends Control
-## Customize (minimal kit): the shop and the loadout in one screen, over the
-## live room. A back arrow, the title and the coins; the flyer in use (or the
+## One kind's list in Customize (minimal kit): the shop and the player's own
+## items of that kind in one screen, over the live room. It opens from a card on
+## LookScreen ("Your look"), and Back returns there. A back arrow, the kind's
+## name as the title and the coins; the flyer in use (or the
 ## tapped one) standing on the room with its puff trail and a line under it
-## ("Buzz, in use"); the trail or exit portal of those tabs drawn with it (the
+## ("Buzz, in use"); the trail or exit portal of those kinds drawn with it (the
 ## room behind already shows a tapped world; Crashes show the effect round the
-## flyer, Plates a sample leaderboard row); seven tabs in a paper pill bar that
-## scrolls sideways (Flyers, Worlds, Trails, Portals, Music, Crashes, Plates);
-## and the items as flat paper tiles,
+## flyer, Plates a sample leaderboard row); and the items as flat paper tiles,
 ## yours first, then the shop's. Tapping an item opens a small popup with its
 ## one action: Use, Get for free, Unlock for N or Need N more coins.
 ## Music items are playlist rows whose play button previews the track; the
@@ -26,9 +26,10 @@ enum Mode { SHOP }
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
-## No tab and no items yet: hats come later and will share the hitbox too.
+## No items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
-const TAB_NAMES := {
+## The screen's title per kind.
+const TITLES := {
 	Catalog.FLYER: "Flyers",
 	Catalog.WORLD: "Worlds",
 	Catalog.TRAIL: "Trails",
@@ -49,9 +50,6 @@ const SHOP_ACTION_HEIGHT := float(UiTokens.SIZE_BUTTON_H)
 const SHOP_COLUMNS := 3
 const GRID_GAP := 10
 const SIDE := 14
-const TAB_FONT := 13
-## Side padding of a tab; the tabs keep their own width and the bar scrolls.
-const TAB_PAD := 12
 
 var mode: Mode
 var kind: String
@@ -64,8 +62,8 @@ var _detail_name := Label.new()
 var _detail_text := Label.new()
 var _badge_text := Label.new()
 var _action := Button.new()
-var _tabs := {}
-var _tab_scroll := ScrollContainer.new()
+## The header row; its "Title" label names the kind shown.
+var _header: Control
 ## Every item of the tab, yours first.
 var _owned_grid := GridContainer.new()
 ## The popup for a tapped item.
@@ -134,14 +132,14 @@ func _notification(what: int) -> void:
 		_popup,
 		_popup_thumb,
 		_owned_grid,
-		_tab_scroll,
 	]:
 		if is_instance_valid(n) and n.get_parent() == null:
 			n.free()
 
 
 func _build_shop(col: VBoxContainer) -> void:
-	col.add_child(UiKit.header("Customize", closed.emit, _coins))
+	_header = UiKit.header(title_for(kind), closed.emit, _coins)
+	col.add_child(_header)
 
 	# The preview: the flyer standing on the room, no card.
 	_stage.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
@@ -159,33 +157,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	_caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_caption)
-
-	var bar := PanelContainer.new()
-	bar.theme_type_variation = &"TabStrip"
-	# Seven tabs are wider than the screen: the bar scrolls sideways.
-	_tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	_tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 0)
-	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tab_scroll.add_child(tabs)
-	bar.add_child(_tab_scroll)
-	var group := ButtonGroup.new()
-	for k: String in Catalog.KINDS:
-		var tab := Button.new()
-		tab.theme_type_variation = &"TabButton"
-		tab.text = TAB_NAMES[k]
-		tab.toggle_mode = true
-		tab.button_group = group
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# Inside the bar's 3 px padding the strip is the 44 px tap height.
-		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-		tab.focus_mode = Control.FOCUS_NONE
-		tab.pressed.connect(_show_kind.bind(k))
-		_tight(tab)
-		_tabs[k] = tab
-		tabs.add_child(tab)
-	col.add_child(bar)
 
 	var scroll := SmoothScroll.new()
 	scroll.blocked = is_popup_open
@@ -211,19 +182,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	pad.add_child(stack)
 	scroll.add_child(pad)
 	col.add_child(FadeMask.new(scroll))
-
-
-## Each tab is as wide as its name plus TAB_PAD each side, so every name shows
-## in full; together they are wider than the bar, which scrolls (the style is
-## copied from UiTheme: the tab isn't in the tree yet, so its own
-## get_theme_stylebox() would be Godot's).
-func _tight(tab: Button) -> void:
-	tab.add_theme_font_size_override("font_size", TAB_FONT)
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
-		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
-		box.content_margin_left = TAB_PAD
-		box.content_margin_right = TAB_PAD
-		tab.add_theme_stylebox_override(state, box)
 
 
 ## The item popup: dims the room; a paper card with the item's name and a
@@ -335,9 +293,8 @@ func _show_kind(k: String) -> void:
 	stop_preview()
 	kind = k
 	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
-	if _tabs.has(k):
-		(_tabs[k] as Button).button_pressed = true
-		_reveal_tab.call_deferred(k)
+	if _header != null:
+		(_header.get_node("Title") as Label).text = title_for(k)
 	for c in _cards:
 		_owned_grid.remove_child(c)
 		c.queue_free()
@@ -360,16 +317,14 @@ func _show_kind(k: String) -> void:
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
 
 
-## Scrolls the tab bar so the picked tab shows in full.
-func _reveal_tab(k: String) -> void:
-	var tab := _tabs.get(k) as Button
-	if tab != null and tab.is_inside_tree() and _tab_scroll.is_inside_tree():
-		_tab_scroll.ensure_control_visible(tab)
+## "Crashes" for Catalog.CRASH: the title of a kind's list.
+static func title_for(k: String) -> String:
+	return str(TITLES.get(k, "Customize"))
 
 
-## The tab bar's scroller, for tests.
-func tab_scroll() -> ScrollContainer:
-	return _tab_scroll
+## The title in the header, for tests.
+func title_text() -> String:
+	return (_header.get_node("Title") as Label).text if _header != null else ""
 
 
 func _empty_message() -> String:

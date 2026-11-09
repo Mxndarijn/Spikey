@@ -138,7 +138,7 @@ func test_home_shows_stats_flyer_and_the_dock() -> void:
 	var got: Array[String] = []
 	home.play_pressed.connect(func() -> void: got.append("play"))
 	home.rooms_pressed.connect(func() -> void: got.append("rooms"))
-	home.shop_pressed.connect(func(_t: String) -> void: got.append("style"))
+	home.customize_pressed.connect(func() -> void: got.append("style"))
 	home.leaderboard_pressed.connect(func() -> void: got.append("rank"))
 	for id in ["play", "rooms", "style", "rank"]:
 		dock.button(id).pressed.emit()
@@ -153,8 +153,12 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	_use_flyer(main, "buzz")
 	var home := main._menus.current() as HomeScreen
 	home.customize_pressed.emit()
+	var look := main._menus.current() as LookScreen
+	assert_true(look != null, "Style opens Your look")
+	if look != null:
+		look.card(Catalog.FLYER).pressed.emit()
 	var c := main._menus.current() as CollectionScreen
-	assert_true(c != null and c.mode == CollectionScreen.Mode.SHOP, "the card opens Customize")
+	assert_true(c != null and c.mode == CollectionScreen.Mode.SHOP, "a card opens its list")
 	if c == null:
 		main.free()
 		return
@@ -210,8 +214,12 @@ func test_shop_previews_worlds_and_hides_the_live_flyer() -> void:
 		assert_eq(main._room._theme.id, "ice", "the room previews the tapped world")
 		assert_eq(main._profile.equipped_id(Catalog.WORLD), "sunset", "a preview is not saved")
 		shop.closed.emit()
-	assert_eq(main._room._theme.id, "sunset", "home shows the world in use again")
-	assert_true(main._menus.current() is HomeScreen, "back to Home")
+	assert_eq(main._room._theme.id, "sunset", "the world in use shows again")
+	var look := main._menus.current() as LookScreen
+	assert_true(look != null, "back to Your look")
+	if look != null:
+		look.closed.emit()
+	assert_true(main._menus.current() is HomeScreen, "and back again to Home")
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
 
