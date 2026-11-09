@@ -81,13 +81,13 @@ jobs:
             printf 'FIREBASE_SERVICE_ACCOUNT=%s\n' "$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | base64 -w0)"
             printf 'ALERTS_SECRET=%s\n' "$PUSH_SEND_SECRET"
           } > "$RUNNER_TEMP/function.env"
-          supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" --env-file "$RUNNER_TEMP/function.env"
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" --env-file "$RUNNER_TEMP/function.env" --yes
           rm -f "$RUNNER_TEMP/function.env"
 
       - name: Deploy send-alerts
         if: steps.ready.outputs.ok == 'true'
         # --no-verify-jwt: the function checks the shared secret itself.
-        run: supabase functions deploy send-alerts --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+        run: supabase functions deploy send-alerts --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --yes
 
       - name: Tell the database where the sender is
         if: steps.ready.outputs.ok == 'true'
