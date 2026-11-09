@@ -104,7 +104,7 @@ func test_music_tab_lists_previews_and_buys() -> void:
 	c._tap("lava_rush")
 	assert_eq(c._popup_thumb.music, "lava_rush", "the popup shows the record")
 	assert_true(c._badge_text.text.begins_with("Matches "), "and the worlds it matches")
-	assert_eq(c.action_label(), ["Need 50 more coins", false])
+	assert_eq(c.action_label(), ["Need 50 more gold", false])
 	c.toggle_preview("bubble_drift")
 	c._tap("bubble_drift")
 	c._on_action()

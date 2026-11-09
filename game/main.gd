@@ -19,6 +19,8 @@ const RESTART_DELAY_MS := 450
 ## Settings > Haptics: a short buzz on flap, a longer one on a crash.
 const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
+## show_store(): go back to "Your look" instead of a Customize list.
+const BACK_TO_LOOK := "look"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
@@ -29,6 +31,8 @@ var season := SeasonCalendar.today()
 var leaderboard: LeaderboardService
 ## Real-money purchases; tests can swap in their own before _ready.
 var store: StoreService
+## Where the diamonds live; tests can swap in their own before _ready.
+var wallet: WalletService
 
 var _profile: Profile
 var _game_over_at_ms := -1
@@ -50,6 +54,8 @@ var _replay_run := {}
 var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
 var _replay_look := false
+## A lost prize spot to tell the player about on Home (SpotAlert), or "".
+var _spot_notice := ""
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -68,6 +74,9 @@ func _ready() -> void:
 	if leaderboard == null:
 		leaderboard = _make_leaderboard()
 	leaderboard.board_loaded.connect(_on_board_loaded)
+	if wallet == null:
+		wallet = _make_wallet()
+	wallet.synced.connect(_on_wallet_synced)
 	if store == null:
 		store = _make_store()
 	store.purchased.connect(_on_purchased)
@@ -149,6 +158,9 @@ func show_home() -> void:
 	home.settings_changed.connect(_on_settings_changed)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
+	# The balance and any daily prize waiting to be claimed.
+	wallet.sync()
+	_show_spot_notice()
 
 
 ## The leaderboards: Daily and All-time.
@@ -271,10 +283,40 @@ func _on_board_loaded(board: LeaderboardBoard) -> void:
 	if board.id != LeaderboardService.DAILY:
 		return
 	var rank := board.me.rank if board.me != null else 0
+	_track_spot(board, rank)
 	if home != null:
 		home.set_daily_rank(rank)
+		_show_spot_notice()
 	# Game over shows today's rank too, once the board with this run arrives.
 	_hud.set_daily_rank(rank)
+
+
+## Remembers the player's place on today's board and notices when someone
+## pushed them past a prize line since the last look (never during a run: the
+## line shows on Home).
+func _track_spot(board: LeaderboardBoard, rank: int) -> void:
+	var now := int(Time.get_unix_time_from_system())
+	if now >= _profile.daily_spot_until:
+		# Yesterday's place says nothing about today's board.
+		_profile.daily_spot_rank = 0
+	if board.status != LeaderboardBoard.Status.OK or rank <= 0:
+		return
+	var notice := SpotAlert.message(_profile.daily_spot_rank, rank, board.entries)
+	if not notice.is_empty():
+		_spot_notice = notice
+	if rank != _profile.daily_spot_rank:
+		_profile.daily_spot_rank = rank
+		_profile.daily_spot_until = now + maxi(board.resets_in_s, 0)
+		_save_profile()
+
+
+## Shows a waiting lost-spot line on Home, once.
+func _show_spot_notice() -> void:
+	var home := _menus.current() as HomeScreen
+	if home == null or _spot_notice.is_empty():
+		return
+	home.show_notice(_spot_notice)
+	_spot_notice = ""
 
 
 ## Every room kind, for practice.
@@ -333,6 +375,7 @@ func show_look() -> void:
 	var look := LookScreen.new(_profile)
 	look.closed.connect(show_home)
 	look.kind_pressed.connect(show_shop)
+	look.store_pressed.connect(show_store.bind(BACK_TO_LOOK))
 	_menus.show_screen(look)
 
 
@@ -343,6 +386,7 @@ func show_shop(tab: String = Catalog.FLYER) -> void:
 	_hud.show_menu()
 	_show_flyer(false)
 	var shop := CollectionScreen.new(_profile, CollectionScreen.Mode.SHOP, tab)
+	shop.wallet_service = wallet
 	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
@@ -352,24 +396,67 @@ func show_shop(tab: String = Catalog.FLYER) -> void:
 
 
 ## The Shop: diamond packs and turning diamonds into gold. `back_tab`: the
-## Customize tab to go back to, or "" for Home.
+## Customize list to go back to, BACK_TO_LOOK for "Your look", or "" for Home.
 func show_store(back_tab: String = "") -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
 	_show_flyer(false)
 	var screen := StoreScreen.new(_profile, store)
+	screen.wallet_service = wallet
 	if back_tab.is_empty():
 		screen.closed.connect(show_home)
+	elif back_tab == BACK_TO_LOOK:
+		screen.closed.connect(show_look)
 	else:
 		screen.closed.connect(show_shop.bind(back_tab))
 	screen.changed.connect(_save_profile)
 	_menus.show_screen(screen)
 
 
-## A pretend store in debug builds, a closed one in release builds until the
-## app-store billing is in (services/store_service.gd).
+## A pretend store in debug builds with a local wallet, else a closed one
+## until the app-store billing is in (services/store_service.gd). With the
+## diamonds on the server a pretend purchase would be undone by the next sync.
 func _make_store() -> StoreService:
-	return SampleStore.new() if OS.is_debug_build() else StoreService.new()
+	if OS.is_debug_build() and not wallet.is_online():
+		return SampleStore.new()
+	return StoreService.new()
+
+
+## Diamonds on the server when the leaderboards are (Supabase), else in the save.
+func _make_wallet() -> WalletService:
+	var online := leaderboard as SupabaseLeaderboard
+	return SupabaseWallet.new(_profile, online) if online != null else WalletService.new(_profile)
+
+
+## The wallet answered: keep the copy in the save, show it on Home, and offer
+## any daily prize that waits to be claimed.
+func _on_wallet_synced(_diamonds: int, prizes: Array) -> void:
+	_save_profile()
+	var home := _menus.current() as HomeScreen
+	if home == null:
+		return
+	home.wallet().show_balance(_profile)
+	if prizes.is_empty() or home.prize_popup() != null:
+		return
+	var popup := home.show_prizes(prizes)
+	popup.claim_pressed.connect(_claim_prizes.bind(popup))
+
+
+func _claim_prizes(popup: DailyPrizePopup) -> void:
+	@warning_ignore("redundant_await")
+	var won: int = await wallet.claim()
+	if not is_instance_valid(popup):
+		_save_profile()
+		return
+	if won <= 0:
+		popup.show_failed()
+		return
+	_save_profile()
+	AudioDirector.sound("purchase")
+	var home := _menus.current() as HomeScreen
+	if home != null:
+		home.wallet().show_balance(_profile)
+		home.close_prizes()
 
 
 ## The store confirmed a payment: hand out the pack and save at once.

@@ -237,7 +237,7 @@ func test_shop_buttons_follow_coins_and_ownership() -> void:
 	assert_eq(shop.action_label(), ["Get for free", true])
 	shop._select("ember")
 	var cost := Shop.price(Catalog.FLYER, "ember")
-	assert_eq(shop.action_label(), ["Need %d more coins" % cost, false])
+	assert_eq(shop.action_label(), ["Need %d more gold" % cost, false])
 	p.coins = cost
 	shop.refresh()
 	assert_eq(shop.action_label(), ["Unlock for %d" % cost, true])

@@ -172,7 +172,7 @@ func test_home_wallet_opens_the_shop_and_packs_are_granted() -> void:
 	assert_eq(sheet.amount(), 1)
 	sheet.step(2)
 	assert_eq(sheet.convert_text(), "Convert 3 diamonds")
-	assert_eq(sheet.becomes_text(), "Becomes 300 coins")
+	assert_eq(sheet.becomes_text(), "Becomes 300 gold")
 	sheet.confirm()
 	assert_eq([main._profile.diamonds, main._profile.coins], [27, 800])
 	assert_eq(shop.wallet().gold_text(), "800")
@@ -225,7 +225,7 @@ func test_customize_offers_to_convert_when_gold_is_short() -> void:
 	var cost := Shop.price(Catalog.FLYER, "ember")
 	main._profile.coins = cost - 160
 	c._tap("ember")
-	assert_eq(c.action_label(), ["Need 160 more coins", false], "no diamonds: as before")
+	assert_eq(c.action_label(), ["Need 160 more gold", false], "no diamonds: as before")
 	main._profile.diamonds = 5
 	c.refresh()
 	assert_eq(c.action_label(), [CollectionScreen.CONVERT_LABEL, true])

@@ -124,7 +124,7 @@ func _card() -> Control:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	foot.add_child(line)
 	var note := UiKit.label(
-		"Practice never counts for coins, best score or cleared rooms.", &"MutedLabel", false
+		"Practice never counts for gold, best score or cleared rooms.", &"MutedLabel", false
 	)
 	note.add_theme_font_override("font", GameFonts.ui(600))
 	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)

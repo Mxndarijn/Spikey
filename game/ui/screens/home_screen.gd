@@ -32,6 +32,9 @@ const LOGO_TOP := 118.0
 ## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
 const LOGO_SIZE := 64
 const STATS_TOP := 236.0
+## The lost-spot line, between the stats and the flyer.
+const NOTICE_TOP := 262.0
+const NOTICE_WIDTH := 300.0
 ## The flyer's centre and body size on Home (bigger than in a run).
 const FLYER_CENTER := Vector2(196, 346)
 const FLYER_BODY := 52.0
@@ -44,6 +47,8 @@ var _dock: Dock
 var _daily_rank := 0
 var _settings: SettingsSheet
 var _wallet: Wallet
+var _prizes: DailyPrizePopup
+var _notice: Label
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -151,6 +156,43 @@ func settings() -> SettingsSheet:
 
 func wallet() -> Wallet:
 	return _wallet
+
+
+## The daily prize popup over Home (main claims when its button is pressed).
+func show_prizes(prizes: Array) -> DailyPrizePopup:
+	close_prizes()
+	_prizes = DailyPrizePopup.new(prizes)
+	_prizes.closed.connect(close_prizes)
+	add_child(_prizes)
+	return _prizes
+
+
+func close_prizes() -> void:
+	if _prizes != null:
+		_prizes.queue_free()
+		_prizes = null
+
+
+func prize_popup() -> DailyPrizePopup:
+	return _prizes
+
+
+## A line under the stats: someone took the player's prize spot (SpotAlert).
+func show_notice(text: String) -> void:
+	if _notice == null:
+		_notice = UiKit.wrapped("", &"SkyCaption", NOTICE_WIDTH)
+		_notice.add_theme_font_size_override("font_size", 13)
+		add_child(_notice)
+		_notice.anchor_right = 1.0
+		_notice.offset_left = (ScreenLayout.ROOM.x - NOTICE_WIDTH) / 2.0
+		_notice.offset_right = -_notice.offset_left
+		_notice.offset_top = NOTICE_TOP
+	_notice.text = text
+	_notice.visible = not text.is_empty()
+
+
+func notice_text() -> String:
+	return _notice.text if _notice != null and _notice.visible else ""
 
 
 ## The wordmark, for tests.

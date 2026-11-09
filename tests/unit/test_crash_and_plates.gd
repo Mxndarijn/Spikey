@@ -346,6 +346,6 @@ func test_customize_tabs_for_the_new_kinds() -> void:
 	shop._show_kind(Catalog.PLATE)
 	assert_eq(shop.caption_text(), "Paper, in use")
 	shop._tap("royal")
-	assert_eq(shop.action_label(), ["Need 800 more coins", false])
+	assert_eq(shop.action_label(), ["Need 800 more gold", false])
 	await _frames(2)
 	shop.free()

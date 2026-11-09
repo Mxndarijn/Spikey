@@ -12,10 +12,12 @@ signal closed
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const SIDE := 28
 const STEP_SIZE := 48.0
-const NOTE := "One way. Coins can't be turned back into diamonds."
+const NOTE := "One way. Gold can't be turned back into diamonds."
 
 var _profile: Profile
+var _wallet: WalletService
 var _amount := 0
+var _busy := false
 var _count := Label.new()
 var _becomes := Label.new()
 var _minus: Button
@@ -23,9 +25,13 @@ var _plus: Button
 var _convert := Button.new()
 
 
-## `why`: a line under the title ("You need 160 more coins for Ember."), or "".
-func _init(profile: Profile, suggested: int = 1, why: String = "") -> void:
+## `why`: a line under the title ("You need 160 more gold for Ember."), or "".
+## `wallet`: where the diamonds are spent (the local wallet when left out).
+func _init(
+	profile: Profile, suggested: int = 1, why: String = "", wallet: WalletService = null
+) -> void:
 	_profile = profile
+	_wallet = wallet if wallet != null else WalletService.new(profile)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
@@ -46,7 +52,7 @@ func _init(profile: Profile, suggested: int = 1, why: String = "") -> void:
 	col.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	card.add_child(col)
 
-	var title := UiKit.wrapped("Turn diamonds into coins", &"NameLabel", 200)
+	var title := UiKit.wrapped("Turn diamonds into gold", &"NameLabel", 200)
 	title.add_theme_font_size_override("font_size", 22)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(title)
@@ -134,7 +140,7 @@ func set_amount(value: int) -> void:
 	var most := _profile.diamonds
 	_amount = clampi(value, mini(1, most), most)
 	_count.text = str(_amount)
-	_becomes.text = "Becomes %s coins" % UiKit.thousands(Economy.gold_for(_amount))
+	_becomes.text = "Becomes %s gold" % UiKit.thousands(Economy.gold_for(_amount))
 	_minus.disabled = _amount <= 1
 	_plus.disabled = _amount >= most
 	_convert.disabled = _amount <= 0
@@ -162,13 +168,24 @@ func becomes_text() -> String:
 	return _becomes.text
 
 
-## Converts the chosen amount and closes.
+## Converts the chosen amount and closes. The wallet may ask the server, so
+## the button waits; a refused spend changes nothing.
 func confirm() -> void:
 	var spent := _amount
-	if Economy.convert(_profile, spent) != Economy.Result.OK:
+	if _busy or spent <= 0:
+		return
+	_busy = true
+	_convert.disabled = true
+	@warning_ignore("redundant_await")
+	var ok: bool = await _wallet.spend(spent, WalletService.CONVERT)
+	_busy = false
+	if not ok:
 		AudioDirector.ui("locked")
 		set_amount(_amount)
+		if _amount > 0:
+			_convert.text = "Couldn't convert. Try again"
 		return
+	_profile.coins += Economy.gold_for(spent)
 	AudioDirector.sound("purchase")
 	converted.emit(spent)
 	closed.emit()

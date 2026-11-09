@@ -6,6 +6,7 @@ extends PanelContainer
 ## text on a dark one; the player's own then keeps a gold ring round it.
 
 const VERIFIED_ICON := preload("res://assets/ui/icons/verified.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const HEIGHT := 48.0
 const RANK_WIDTH := 34.0
 const FLYER := 32.0
@@ -14,10 +15,13 @@ const RING := 3.0
 var entry: LeaderboardBoard.Entry
 ## The plate drawn behind the row, or null for the plain row.
 var plate: PlateStyle
+## Diamonds this place wins on the daily board (0: none, nothing is shown).
+var prize := 0
 
 
-func _init(e: LeaderboardBoard.Entry) -> void:
+func _init(e: LeaderboardBoard.Entry, p_prize: int = 0) -> void:
 	entry = e
+	prize = p_prize
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(0, HEIGHT)
 	var style := Catalog.plate(e.plate_id)
@@ -36,6 +40,18 @@ func _init(e: LeaderboardBoard.Entry) -> void:
 	row.add_child(labels[0])
 	row.add_child(icon(flyer_texture(e.flyer_id), FLYER))
 	row.add_child(labels[1])
+	if prize > 0:
+		var won := HBoxContainer.new()
+		won.name = "Prize"
+		won.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		won.tooltip_text = "Wins %d a day" % prize
+		won.add_theme_constant_override("separation", 3)
+		won.add_child(icon(DIAMOND_ICON, 16))
+		var amount := rank_label(str(prize))
+		amount.custom_minimum_size = Vector2.ZERO
+		labels.append(amount)
+		won.add_child(amount)
+		row.add_child(won)
 	row.add_child(labels[2])
 	if plate != null:
 		for l in labels:

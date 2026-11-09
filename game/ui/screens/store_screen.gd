@@ -20,6 +20,10 @@ const GRID_GAP := 10
 const PRICE_HEIGHT := float(UiTokens.SIZE_TAP_MIN)
 const LOOKS_ONLY := "Looks only. Nothing here changes how you play."
 
+## Where diamonds are spent; main sets it before the screen is shown (the
+## local wallet when left alone).
+var wallet_service: WalletService
+
 var _profile: Profile
 var _store: StoreService
 var _wallet := Wallet.new(false)
@@ -153,14 +157,14 @@ func _price_button(id: String) -> Button:
 	return b
 
 
-## "Turn diamonds into coins", with the rate at the right. Opens the sheet.
+## "Turn diamonds into gold", with the rate at the right. Opens the sheet.
 func _convert_row() -> Control:
 	var b := Button.new()
 	b.theme_type_variation = &"CardButton"
 	b.name = "Convert"
-	b.text = "Turn diamonds into coins"
+	b.text = "Turn diamonds into gold"
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.tooltip_text = "1 diamond becomes %d coins" % Economy.GOLD_PER_DIAMOND
+	b.tooltip_text = "1 diamond becomes %d gold" % Economy.GOLD_PER_DIAMOND
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_BUTTON_H)
 	b.focus_mode = Control.FOCUS_NONE
 	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
@@ -226,7 +230,7 @@ func _on_failed(_id: String, reason: String) -> void:
 ## The convert sheet over the Shop, on one diamond.
 func open_convert() -> ConvertSheet:
 	if _sheet == null:
-		_sheet = ConvertSheet.new(_profile, 1)
+		_sheet = ConvertSheet.new(_profile, 1, "", wallet_service)
 		_sheet.converted.connect(_on_converted)
 		_sheet.closed.connect(_close_sheet)
 		add_child(_sheet)

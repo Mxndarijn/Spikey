@@ -292,6 +292,14 @@ func _renew_session(now: int) -> bool:
 	return not _access.is_empty()
 
 
+## Calls one of the database's functions as this phone's player (the wallet
+## uses it too, so both share one session). Same answer as _post().
+func call_db(function: String, body: Dictionary) -> Dictionary:
+	if not await _ensure_session():
+		return {"ok": false, "code": 0, "data": null}
+	return await _post("/rest/v1/rpc/" + function, body, true)
+
+
 ## One POST. Returns {"ok": bool, "code": HTTP status (0: no answer), "data": parsed JSON}.
 func _post(path: String, body: Dictionary, signed_in: bool) -> Dictionary:
 	if _host == null or not _host.is_inside_tree():

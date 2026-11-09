@@ -10,6 +10,8 @@ extends Control
 signal closed
 ## A card was tapped: open that kind's list.
 signal kind_pressed(kind: String)
+## The wallet in the header was tapped: main opens the Shop.
+signal store_pressed
 
 ## The cards in the two-column grid, in order; the name plate is the wide card.
 const GRID_KINDS: Array[String] = [
@@ -22,7 +24,7 @@ const GRID_GAP := 10
 const STAGE_HEIGHT := 84.0
 
 var _profile: Profile
-var _coins := CoinPill.new()
+var _coins := Wallet.new()
 ## kind -> LookCard
 var _cards := {}
 
@@ -45,7 +47,8 @@ func _ready() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
-	_coins.set_amount(_profile.coins)
+	_coins.show_balance(_profile)
+	_coins.pressed.connect(store_pressed.emit)
 	col.add_child(UiKit.header(TITLE, closed.emit, _coins))
 
 	var world := Catalog.world(_profile.equipped_id(Catalog.WORLD))

@@ -31,7 +31,7 @@ const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 ## The action when gold is short but diamonds can cover it: opens the sheet.
-const CONVERT_LABEL := "Turn diamonds into coins"
+const CONVERT_LABEL := "Turn diamonds into gold"
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 ## No items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
@@ -60,6 +60,9 @@ const SIDE := 14
 
 var mode: Mode
 var kind: String
+## Where diamonds are spent; main sets it before the screen is shown (the
+## local wallet when left alone).
+var wallet_service: WalletService
 
 var _profile: Profile
 var _selected := ""
@@ -67,6 +70,8 @@ var _cards: Array[ItemCard] = []
 var _wallet := Wallet.new()
 ## The convert sheet, while it is open.
 var _sheet: ConvertSheet
+## A premium purchase is waiting for the wallet's answer.
+var _paying := false
 var _detail_name := Label.new()
 var _detail_text := Label.new()
 var _badge_text := Label.new()
@@ -507,7 +512,7 @@ func _price_label(cost: int) -> Array:
 	# Short on gold, but diamonds can make up for it.
 	if _profile.diamonds > 0:
 		return [CONVERT_LABEL, true]
-	return ["Need %d more coins" % (cost - _profile.coins), false]
+	return ["Need %d more gold" % (cost - _profile.coins), false]
 
 
 ## A premium item: paid with diamonds (the wallet opens the Shop for more).
@@ -534,8 +539,10 @@ func open_convert() -> ConvertSheet:
 	var short := gold_short()
 	var why := ""
 	if short > 0:
-		why = "You need %d more coins for %s." % [short, ItemChip.short_name(kind, _selected)]
-	_sheet = ConvertSheet.new(_profile, maxi(Economy.diamonds_to_cover(short), 1), why)
+		why = "You need %d more gold for %s." % [short, ItemChip.short_name(kind, _selected)]
+	_sheet = ConvertSheet.new(
+		_profile, maxi(Economy.diamonds_to_cover(short), 1), why, _wallet_service()
+	)
 	_sheet.converted.connect(_on_converted)
 	_sheet.closed.connect(_close_sheet)
 	add_child(_sheet)
@@ -544,6 +551,30 @@ func open_convert() -> ConvertSheet:
 
 func sheet() -> ConvertSheet:
 	return _sheet
+
+
+func _wallet_service() -> WalletService:
+	if wallet_service == null:
+		wallet_service = WalletService.new(_profile)
+	return wallet_service
+
+
+## Pays for the selected premium item through the wallet (which may ask the
+## server) and hands it over. False when the diamonds could not be spent.
+func _buy_with_diamonds(gems: int) -> bool:
+	var item_kind := kind
+	var item_id := _selected
+	if _profile.diamonds < gems:
+		return false
+	_paying = true
+	@warning_ignore("redundant_await")
+	var ok: bool = await _wallet_service().spend(
+		gems, WalletService.ITEM, "%s:%s" % [item_kind, item_id]
+	)
+	_paying = false
+	if ok:
+		_profile.grant(item_kind, item_id)
+	return ok
 
 
 func _on_converted(_diamonds: int) -> void:
@@ -558,7 +589,7 @@ func _close_sheet() -> void:
 
 
 func _on_action() -> void:
-	if _selected.is_empty():
+	if _selected.is_empty() or _paying:
 		return
 	if _profile.equipped_id(kind) == _selected:
 		close_popup()
@@ -567,7 +598,19 @@ func _on_action() -> void:
 		if gold_short() > 0 and _profile.diamonds > 0:
 			open_convert()
 			return
-		if Shop.buy(_profile, kind, _selected) != Shop.Result.OK:
+		var gems := Shop.diamond_price(kind, _selected)
+		var bought := false
+		if gems > 0:
+			var wanted := _selected
+			bought = await _buy_with_diamonds(gems)
+			# The player may have tapped something else while the server answered.
+			if bought and wanted != _selected:
+				wallet_changed.emit()
+				refresh()
+				return
+		else:
+			bought = Shop.buy(_profile, kind, _selected) == Shop.Result.OK
+		if not bought:
 			AudioDirector.ui("locked")
 			refresh()
 			return

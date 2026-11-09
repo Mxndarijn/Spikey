@@ -15,6 +15,10 @@ var coins := 0
 var diamonds := 0
 ## Ids of the diamond packs bought (a once-only pack can't be bought again).
 var packs_bought: Array[String] = []
+## The player's place on today's board when it was last loaded (0: none) and
+## the time (unix seconds) that board ends, to notice a lost prize spot.
+var daily_spot_rank := 0
+var daily_spot_until := 0
 var best_score := 0
 var runs := 0
 var onboarded := false
@@ -140,6 +144,8 @@ func to_dict() -> Dictionary:
 		"coins": coins,
 		"diamonds": diamonds,
 		"packs_bought": packs_bought,
+		"daily_spot_rank": daily_spot_rank,
+		"daily_spot_until": daily_spot_until,
 		"best_score": best_score,
 		"runs": runs,
 		"onboarded": onboarded,
@@ -164,6 +170,8 @@ static func from_dict(d: Dictionary) -> Profile:
 	var p := Profile.new()
 	p.coins = maxi(int(d.get("coins", 0)), 0)
 	p.diamonds = maxi(int(d.get("diamonds", 0)), 0)
+	p.daily_spot_rank = maxi(int(d.get("daily_spot_rank", 0)), 0)
+	p.daily_spot_until = maxi(int(d.get("daily_spot_until", 0)), 0)
 	var packs: Variant = d.get("packs_bought", [])
 	if packs is Array:
 		for pack_id: Variant in packs:
