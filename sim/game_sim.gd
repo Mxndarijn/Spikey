@@ -309,7 +309,7 @@ func _check_spikes() -> void:
 	var r := SimConfig.BIRD_RADIUS
 	var left := room.wall_left()
 	var right := room.wall_right()
-	var reach := RoomRuntime.TIDE_MAX_DEPTH
+	var reach := room.max_spike_depth()
 	if state.x - r <= left + reach and _hits_wall(0, left, 1):
 		kill(SimState.DeathCause.SPIKE_LEFT)
 	elif state.x + r >= right - reach and _hits_wall(1, right, -1):
@@ -320,7 +320,7 @@ func _hits_wall(side: int, base_x: int, dir: int) -> bool:
 	var mask := wall_mask(side)
 	if mask == 0:
 		return false
-	var hb := SimConfig.SPIKE_HALF_BASE
+	var hb := room.spike_half_base()
 	for slot in SimConfig.SLOT_COUNT:
 		if not RoomRules.has_slot(mask, slot):
 			continue
@@ -441,7 +441,48 @@ func _random_exit_y(lo: int, hi: int) -> int:
 	var c0 := SimConfig.slot_center_y(0)
 	var first := (lo - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
 	var last := (hi - c0) / SimConfig.SLOT_SIZE
-	return SimConfig.slot_center_y(first + _rng.next_below(last - first + 1))
+	# Slots no hazard blocks (Hazard.blocks_exit). One draw either way; if all
+	# are blocked, any slot will have to do.
+	var open: Array[int] = []
+	for slot in range(first, last + 1):
+		if not _exit_blocked(SimConfig.slot_center_y(slot)):
+			open.append(slot)
+	if open.is_empty():
+		var any := first + _rng.next_below(last - first + 1)
+		# A room with a short reach (Narrow) takes the slot nearest the bird (a
+		# fork's far half has none within reach); the draw is still made.
+		if room.def.reach > 0:
+			any = clampi(
+				(state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, first, last
+			)
+		return SimConfig.slot_center_y(any)
+	return SimConfig.slot_center_y(open[_rng.next_below(open.size())])
+
+
+func _exit_blocked(y: int) -> bool:
+	# A room with a short reach (Narrow) keeps the exit near the bird's height.
+	if room.def.reach > 0 and absi(y - state.y) > room.def.reach:
+		return true
+	for h in room.hazards:
+		if h.alive and h.blocks_exit(self, state.exit_side, y):
+			return true
+	return false
+
+
+## Sim steps until the bird, flying straight on, reaches wall `side` (0 = left,
+## 1 = right): one crossing if it is heading there, else the rest of this
+## crossing and a whole one back. Hazards use it to know where they will be
+## when the bird gets to that wall.
+func steps_to_wall(side: int) -> int:
+	var r := SimConfig.BIRD_RADIUS
+	var left := room.wall_left() + r
+	var right := room.wall_right() - r
+	var heading := 1 if state.vx > 0 else 0
+	var ahead := right - state.x if heading == 1 else state.x - left
+	var steps := maxi(ahead, 0) / SimConfig.SPEED_X
+	if heading != side:
+		steps += (right - left) / SimConfig.SPEED_X
+	return steps
 
 
 ## Flies through an exit on wall `side` into the next room: the bird comes out
@@ -488,7 +529,7 @@ func _arrive(side: int, event: Event) -> void:
 ## Spikes for the wall the bird is now heading to, then the room's per-bounce
 ## extras, then the coin. This order is part of the rules.
 func _new_wall(side: int) -> void:
-	var mask := RoomRules.generate_wall(_rng, state.score, room.def, state.y)
+	var mask := RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus())
 	if side == 0:
 		state.left_spikes = mask
 	else:

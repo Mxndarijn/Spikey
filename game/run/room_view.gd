@@ -67,6 +67,7 @@ const MOTE_KIND := {
 	"autumn": "leaves",
 	"blossom": "petals",
 	"deepsea": "bubbles",
+	"aurora": "snow",
 }
 ## Per world: how many, and the band they move in (top, bottom), px.
 const MOTE_COUNT := {
@@ -77,6 +78,7 @@ const MOTE_COUNT := {
 	"autumn": 12,
 	"blossom": 12,
 	"deepsea": 6,
+	"aurora": 14,
 }
 const MOTE_BAND := {
 	"ice": Vector2(200, 470),
@@ -86,6 +88,7 @@ const MOTE_BAND := {
 	"autumn": Vector2(196, 470),
 	"blossom": Vector2(260, 520),
 	"deepsea": Vector2(300, 540),
+	"aurora": Vector2(330, 540),
 }
 ## Per kind: drift speed in px/s (x, y) and sideways wobble in px.
 const MOTE_MOTION := {
@@ -471,13 +474,16 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		var cy := SimConfig.slot_center_y(slot) / float(SimConfig.SUB)
 		# Tide spikes slide in and out: the drawn depth follows the sim's. Up to
 		# normal size the spike slides out of the wall; past it, it grows longer.
+		# `full` and `half` are this room's still spike (a variant can scale it).
 		var out := float(room.slot_depth(side, slot)) / SimConfig.SPIKE_DEPTH
 		var depth := SPIKE_DEPTH * ease(t, 0.5) * out
-		if depth > SPIKE_DEPTH:
-			_draw_spike(Vector2(wall_x, cy), Vector2(dir, 0), SPIKE_HALF, depth)
+		var full := SPIKE_DEPTH * room.spike_depth() / SimConfig.SPIKE_DEPTH
+		var half := SPIKE_HALF * room.spike_half_base() / SimConfig.SPIKE_HALF_BASE
+		if depth > full:
+			_draw_spike(Vector2(wall_x, cy), Vector2(dir, 0), half, depth)
 		else:
-			var base_x := wall_x - dir * (SPIKE_DEPTH - depth)
-			_draw_spike(Vector2(base_x, cy), Vector2(dir, 0), SPIKE_HALF, SPIKE_DEPTH)
+			var base_x := wall_x - dir * (full - depth)
+			_draw_spike(Vector2(base_x, cy), Vector2(dir, 0), half, full)
 
 
 ## The open exit(s). Safe, so never in the spike colour: the style's colour

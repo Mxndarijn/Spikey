@@ -54,6 +54,7 @@ static func defs() -> Array[RoomDef]:
 	# Valentine's
 	var hearts := _room("hearts", Seasons.VALENTINE, 10, "heart")
 	hearts.hazards.append(func() -> Hazard: return Bumper.new())
+	hearts.hazards.append(func() -> Hazard: return Bumper.new(true))
 	out.append(hearts)
 
 	var cupid := _room("cupid", Seasons.VALENTINE, 40, "cupid")

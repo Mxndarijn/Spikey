@@ -31,7 +31,14 @@ extends RefCounted
 ##     shown as a ghost on the wall it will open on; no spikes in its slots.
 ## 15: revive (GameSim.revive): once per run a dead bird arrives in the same
 ##     room again as if through a portal. Runs without one play as in 14.
-const GAMEPLAY_VERSION := 15
+## 16: room rework from playtests. Narrow is a narrow cage (walls slide 50 px
+##     in; free run and exit stay near the bird) instead of smaller gaps. Room
+##     variants drawn at room start: Tide Spikes normal / big / small, Bumper
+##     Cloud one or two clouds (Heart Bumpers always two). Hazards can keep an
+##     exit off heights they block (Hazard.blocks_exit): Floating Isles,
+##     Shutter Gates (wider gap too) and Caterpillar Crawl always leave a way
+##     to the wall and the portal.
+const GAMEPLAY_VERSION := 16
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
