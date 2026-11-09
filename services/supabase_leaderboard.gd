@@ -186,6 +186,8 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 			e.verified = bool(row.get("verified", false))
 			e.is_me = bool(row.get("is_me", false))
 			e.run_id = int(row.get("run", 0))
+			# Databases before the name plates migration send none: the plain row.
+			e.plate_id = str(row.get("plate", ""))
 			b.entries.append(e)
 	var me: Variant = d.get("me")
 	if me is Dictionary:
@@ -214,7 +216,13 @@ func _load_board(board_id: String) -> void:
 	if not res.ok:
 		_deliver(LeaderboardBoard.make(board_id, LeaderboardBoard.Status.OFFLINE))
 		return
-	_deliver(parse_board(board_id, res.data))
+	var board := parse_board(board_id, res.data)
+	# The player's own row shows the plate in use now, not the one their best
+	# run was sent with.
+	for e in board.entries:
+		if e.is_me:
+			e.plate_id = _profile.equipped_id(Catalog.PLATE)
+	_deliver(board)
 
 
 func _set_player(player_name: String, flyer_id: String) -> void:

@@ -38,7 +38,7 @@ flowchart TD
 |---|---|---|---|
 | `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data |
 | `game/` | Scenes, drawing, input, audio, haptics, UI | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
-| `meta/` | `Profile` (save file: coins, owned, equipped, first start), `Shop` (prices, buying), `Catalog` (flyers, worlds, trails, exit portal looks). Later: achievements, ranks | `sim/` (read events) | Change gameplay |
+| `meta/` | `Profile` (save file: coins, owned, equipped, first start), `Shop` (prices, buying), `Catalog` (flyers, worlds, trails, exit portal looks, music, crash effects, name plates). Later: achievements, ranks | `sim/` (read events) | Change gameplay |
 | `services/` | `LeaderboardService` (screens only talk to this; `SampleLeaderboard` serves made-up boards until the server exists). Later: HTTP to seed/leaderboard server, ads, Game Center / Play Games mirror | — | Hold game rules |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | — | — |
@@ -195,6 +195,9 @@ Attest / Play Integrity to confirm a real device.
 | 6 launch characters, hats and accessories | `data/characters/`, `data/cosmetics/`, drawn by `BirdView`; never in `sim/` |
 | Bird trails (buyable cosmetic) | `TrailStyle` resource + `TrailView`; shop trails as `data/trails/*.tres` ([BACKLOG](BACKLOG.md)) |
 | Exit portal looks (buyable cosmetic) | `PortalStyle` (id, `kind`, `draw_portal`, `draw_thumb`) + `PortalPainter` (one draw function per kind); never changes the exit size |
+| Flap trails (buyable cosmetic) | Ten `TrailStyle`s with `stamp_on_flap`: one stamp where each flap happened (`TrailStyle.flap_trails()`, shapes in `TrailPainter`) |
+| Crash effects (buyable cosmetic) | `CrashStyle` (one row in `STYLES`) + `CrashPainter` (one draw function per kind) + `CrashView`; starts after the sim has ended the run and only knows where the flyer was drawn |
+| Name plates (buyable cosmetic) | `PlateStyle` + `PlatePainter`, drawn behind a `LeaderboardRow`. The plate goes along in a run's loadout; `get_board` returns it per row (migration `20261109200000_board_plates.sql`) |
 | Designed UI (game over, menus, buttons) | SVGs in `assets/ui/` + one shared UI `Theme` resource ([BACKLOG](BACKLOG.md)) |
 | 6 launch themes | `data/themes/` (palette, background props, spike skin) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |

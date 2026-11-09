@@ -33,6 +33,7 @@ var _game_over_at_ms := -1
 var _theme: ThemeDef
 var _character: CharacterDef
 var _trail_style: TrailStyle
+var _crash_style: CrashStyle
 var _menus := MenuLayer.new()
 var _audio := AudioDirector.new()
 ## Practice: the room id being repeated. Real runs: the room being played, so
@@ -51,6 +52,7 @@ var _replay_look := false
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
 @onready var _trail: TrailView = $TrailView
+@onready var _crash: CrashView = $CrashView
 @onready var _bird: BirdView = $BirdView
 @onready var _coin: CoinView = $CoinView
 @onready var _hazards: HazardLayer = $HazardLayer
@@ -211,6 +213,9 @@ func _apply_loadout(look: Dictionary) -> void:
 	var trail := Catalog.trail(str(look.get(Catalog.TRAIL, "")))
 	if trail != null:
 		_trail_style = trail
+	var crash := Catalog.crash(str(look.get(Catalog.CRASH, "")))
+	if crash != null:
+		_crash_style = crash
 	var world := Catalog.world(str(look.get(Catalog.WORLD, "")))
 	if world != null:
 		_apply_world(world)
@@ -354,6 +359,7 @@ func _preview(kind: String, id: String) -> void:
 func _show_flyer(value: bool) -> void:
 	_bird.visible = value
 	_trail.visible = value
+	_crash.visible = value
 
 
 func _on_equipped(_kind: String, _id: String) -> void:
@@ -369,6 +375,7 @@ func _load_equipped() -> void:
 	_trail_style = Catalog.trail(_profile.equipped_id(Catalog.TRAIL))
 	if _trail_style == null:
 		_trail_style = TrailStyle.world_ribbon()
+	_crash_style = CrashStyle.equipped(_profile)
 	var world := Catalog.world(_profile.equipped_id(Catalog.WORLD))
 	_apply_world(world if world != null else ThemeCatalog.default_theme())
 	if is_node_ready():
@@ -451,6 +458,7 @@ func _new_run() -> void:
 	_room.bind(_run, _theme)
 	_hazards.bind(_run, _theme)
 	_bird.bind(_run, _character)
+	_crash.clear()
 	_coin.bind(_run)
 	_hud.set_run_coins(0)
 	_trail.bind(_bird, _trail_style, _theme)
@@ -544,6 +552,7 @@ func _on_room_changed(_room_index: int) -> void:
 func _on_died(replay: Replay) -> void:
 	_buzz(HAPTIC_CRASH_MS)
 	_bird.on_death()
+	_play_crash()
 	_room.show_score = false
 	_trail.stop()
 	if mode == Mode.PRACTICE:
@@ -571,6 +580,20 @@ func _on_died(replay: Replay) -> void:
 		leaderboard.cached_rank(LeaderboardService.DAILY),
 		replay.seed_value
 	)
+
+
+## The crash effect in use, where the flyer is drawn; its pieces fly away from
+## the wall the flyer was heading for. Looks only: the run is already over.
+func _play_crash() -> void:
+	if _crash_style == null or _run.sim == null:
+		return
+	var away := -1.0 if _run.sim.state.vx > 0 else 1.0
+	var palette := PackedColorArray()
+	if _crash_style.piece == CrashStyle.SHARD and _character != null:
+		palette = CrashPainter.flyer_palette(_character.idle)
+	_crash.play(_crash_style, _bird.position, away, palette)
+	if _crash_style.hides_flyer:
+		_bird.fade_out()
 
 
 static func _is_tap(event: InputEvent) -> bool:

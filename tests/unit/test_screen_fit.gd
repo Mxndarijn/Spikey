@@ -192,7 +192,9 @@ func test_leaderboard_screens_fit() -> void:
 
 ## Every item name fits its tile at the narrowest step ("Jungle Canopy").
 func test_item_names_fit_their_tiles() -> void:
-	for kind: String in [Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL, Catalog.PORTAL]:
+	for kind: String in [
+		Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL, Catalog.PORTAL, Catalog.CRASH, Catalog.PLATE
+	]:
 		for id: String in Catalog.ids(kind):
 			var l := Label.new()
 			l.text = ItemChip.short_name(kind, id)
@@ -210,19 +212,32 @@ func test_item_names_fit_their_tiles() -> void:
 			l.free()
 
 
-## The five Customize tabs share the bar equally, so none reaches its edge.
-func test_customize_tabs_share_the_bar() -> void:
+## The Customize tabs are wider than the screen together: each shows its whole
+## name and is tall enough to tap, and the bar scrolls sideways instead of
+## pushing the screen wider.
+func test_customize_tabs_scroll_in_their_bar() -> void:
 	var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, Catalog.FLYER)
 	_fits(shop, "customize tabs", _check_tabs.bind(shop))
 
 
 func _check_tabs(shop: CollectionScreen) -> void:
-	var share := (UiTokens.SIZE_VIEWPORT_W - 28.0 - 6.0) / Catalog.KINDS.size()
+	var scroll := shop.tab_scroll()
+	assert_true(
+		scroll.is_ancestor_of(shop._tabs[Catalog.FLYER] as Button), "tabs sit in the scroller"
+	)
+	assert_eq(
+		scroll.horizontal_scroll_mode, ScrollContainer.SCROLL_MODE_SHOW_NEVER, "no scroll bar"
+	)
+	assert_eq(scroll.get_combined_minimum_size().x, 0.0, "the bar asks for no width of its own")
 	for k: String in Catalog.KINDS:
 		var tab := shop._tabs[k] as Button
-		assert_true(tab.clip_text, "%s tab has no text minimum" % k)
+		assert_false(tab.clip_text, "%s tab shows its whole name" % k)
 		var w := GameFonts.ui(800).get_string_size(tab.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-		assert_true(w + CollectionScreen.TAB_PAD * 2 + 8 <= share, "'%s' fits its tab" % tab.text)
+		var need := tab.get_combined_minimum_size()
+		assert_true(
+			need.x >= w + CollectionScreen.TAB_PAD * 2, "'%s' has room for its name" % tab.text
+		)
+		assert_true(need.y >= UiTokens.SIZE_TAP_MIN, "'%s' is tall enough to tap" % tab.text)
 
 
 ## Game over's stats stay clear of a crashed flyer lying on either wall.

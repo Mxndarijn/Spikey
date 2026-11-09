@@ -30,6 +30,10 @@ const NAMES: Array[String] = [
 const FLYERS: Array[String] = [
 	"pip", "hoot", "ember", "lulu", "mochi", "fold", "puff", "nimbus", "bubbles", "tock", "dash"
 ]
+## Name plates of the sample players: most keep the plain row ("").
+const PLATES: Array[String] = [
+	"", "", "sunset_glow", "", "", "deep_sea", "", "star_station", "", "", "sugar_rush", "", ""
+]
 const DAILY_PLAYERS := 8930
 const ALL_TIME_PLAYERS := 52140
 const TIER_PLAYERS := 50
@@ -119,11 +123,11 @@ func _fill(b: LeaderboardBoard, scores: Array[int], mine: int) -> void:
 			b.entries.append(b.me)
 			placed = true
 		var n := b.entries.size()
-		b.entries.append(
-			LeaderboardBoard.Entry.new(
-				n + 1, NAMES[i % NAMES.size()], FLYERS[i % FLYERS.size()], scores[i]
-			)
+		var other := LeaderboardBoard.Entry.new(
+			n + 1, NAMES[i % NAMES.size()], FLYERS[i % FLYERS.size()], scores[i]
 		)
+		other.plate_id = PLATES[i % PLATES.size()]
+		b.entries.append(other)
 	if mine > 0 and not placed:
 		var below := scores[scores.size() - 1] - mine
 		var rank := b.entries.size() + 1 + below * RANKS_PER_POINT
@@ -153,6 +157,7 @@ func _me(rank: int, score: int) -> LeaderboardBoard.Entry:
 		rank, display_name(), _profile.equipped_id(Catalog.FLYER), score
 	)
 	e.is_me = true
+	e.plate_id = _profile.equipped_id(Catalog.PLATE)
 	return e
 
 

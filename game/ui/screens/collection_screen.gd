@@ -4,8 +4,10 @@ extends Control
 ## live room. A back arrow, the title and the coins; the flyer in use (or the
 ## tapped one) standing on the room with its puff trail and a line under it
 ## ("Buzz, in use"); the trail or exit portal of those tabs drawn with it (the
-## room behind already shows a tapped world); five tabs in a paper pill bar
-## (Flyers, Worlds, Trails, Portals, Music); and the items as flat paper tiles,
+## room behind already shows a tapped world; Crashes show the effect round the
+## flyer, Plates a sample leaderboard row); seven tabs in a paper pill bar that
+## scrolls sideways (Flyers, Worlds, Trails, Portals, Music, Crashes, Plates);
+## and the items as flat paper tiles,
 ## yours first, then the shop's. Tapping an item opens a small popup with its
 ## one action: Use, Get for free, Unlock for N or Need N more coins.
 ## Music items are playlist rows whose play button previews the track; the
@@ -32,6 +34,8 @@ const TAB_NAMES := {
 	Catalog.TRAIL: "Trails",
 	Catalog.PORTAL: "Portals",
 	Catalog.MUSIC: "Music",
+	Catalog.CRASH: "Crashes",
+	Catalog.PLATE: "Plates",
 	HATS: "Hats",
 }
 ## The popup's clean picture, as wide as its card's inside.
@@ -46,7 +50,8 @@ const SHOP_COLUMNS := 3
 const GRID_GAP := 10
 const SIDE := 14
 const TAB_FONT := 13
-const TAB_PAD := 2
+## Side padding of a tab; the tabs keep their own width and the bar scrolls.
+const TAB_PAD := 12
 
 var mode: Mode
 var kind: String
@@ -60,6 +65,7 @@ var _detail_text := Label.new()
 var _badge_text := Label.new()
 var _action := Button.new()
 var _tabs := {}
+var _tab_scroll := ScrollContainer.new()
 ## Every item of the tab, yours first.
 var _owned_grid := GridContainer.new()
 ## The popup for a tapped item.
@@ -128,6 +134,7 @@ func _notification(what: int) -> void:
 		_popup,
 		_popup_thumb,
 		_owned_grid,
+		_tab_scroll,
 	]:
 		if is_instance_valid(n) and n.get_parent() == null:
 			n.free()
@@ -155,9 +162,14 @@ func _build_shop(col: VBoxContainer) -> void:
 
 	var bar := PanelContainer.new()
 	bar.theme_type_variation = &"TabStrip"
+	# Seven tabs are wider than the screen: the bar scrolls sideways.
+	_tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 0)
-	bar.add_child(tabs)
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_scroll.add_child(tabs)
+	bar.add_child(_tab_scroll)
 	var group := ButtonGroup.new()
 	for k: String in Catalog.KINDS:
 		var tab := Button.new()
@@ -201,14 +213,12 @@ func _build_shop(col: VBoxContainer) -> void:
 	col.add_child(FadeMask.new(scroll))
 
 
-## Five tabs share 332 px equally (clip_text drops the text's own minimum
-## width, so a long name can't push the last tab into the bar's edge), with a
-## little less padding than the theme's (copied from
-## UiTheme: the tab isn't in the tree yet, so its own get_theme_stylebox()
-## would be Godot's).
+## Each tab is as wide as its name plus TAB_PAD each side, so every name shows
+## in full; together they are wider than the bar, which scrolls (the style is
+## copied from UiTheme: the tab isn't in the tree yet, so its own
+## get_theme_stylebox() would be Godot's).
 func _tight(tab: Button) -> void:
 	tab.add_theme_font_size_override("font_size", TAB_FONT)
-	tab.clip_text = true
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
 		box.content_margin_left = TAB_PAD
@@ -327,6 +337,7 @@ func _show_kind(k: String) -> void:
 	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
 	if _tabs.has(k):
 		(_tabs[k] as Button).button_pressed = true
+		_reveal_tab.call_deferred(k)
 	for c in _cards:
 		_owned_grid.remove_child(c)
 		c.queue_free()
@@ -347,6 +358,18 @@ func _show_kind(k: String) -> void:
 	_caption.visible = k != Catalog.MUSIC
 	var current := _profile.equipped_id(kind)
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
+
+
+## Scrolls the tab bar so the picked tab shows in full.
+func _reveal_tab(k: String) -> void:
+	var tab := _tabs.get(k) as Button
+	if tab != null and tab.is_inside_tree() and _tab_scroll.is_inside_tree():
+		_tab_scroll.ensure_control_visible(tab)
+
+
+## The tab bar's scroller, for tests.
+func tab_scroll() -> ScrollContainer:
+	return _tab_scroll
 
 
 func _empty_message() -> String:
@@ -427,12 +450,21 @@ func _show_preview() -> void:
 	_preview.flyer = f.idle if f != null and kind == Catalog.TRAIL else null
 	_preview.trail = null
 	_preview.portal = null
+	_preview.crash = null
+	_preview.plate = null
 	match kind:
 		Catalog.TRAIL:
 			_preview.trail = t if t != null else TrailStyle.world_ribbon()
 		Catalog.PORTAL:
 			_preview.portal = _preview_portal
-	_flyer_art.visible = kind != Catalog.TRAIL
+		Catalog.CRASH:
+			# The picture draws the flyer itself, under or over the effect.
+			_preview.crash = Catalog.crash(_preview_id(Catalog.CRASH))
+			_preview.flyer = f.idle if f != null else null
+		Catalog.PLATE:
+			_preview.plate = Catalog.plate(_preview_id(Catalog.PLATE))
+			_preview.flyer = f.idle if f != null else null
+	_flyer_art.visible = kind not in [Catalog.TRAIL, Catalog.CRASH, Catalog.PLATE]
 
 
 ## The popup picture: flyers and worlds on a clean sky with a far hill (the
@@ -442,6 +474,8 @@ func _show_popup_picture() -> void:
 	_popup_thumb.flyer = null
 	_popup_thumb.trail = null
 	_popup_thumb.portal = null
+	_popup_thumb.crash = null
+	_popup_thumb.plate = null
 	_popup_thumb.music = ""
 	_popup_thumb.scenic = kind == Catalog.FLYER or kind == Catalog.WORLD
 	match kind:
@@ -460,6 +494,11 @@ func _show_popup_picture() -> void:
 			_popup_thumb.portal = Catalog.portal(_selected)
 		Catalog.MUSIC:
 			_popup_thumb.music = _selected
+		Catalog.CRASH, Catalog.PLATE:
+			var own := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+			_popup_thumb.flyer = own.idle if own != null else null
+			_popup_thumb.crash = Catalog.crash(_selected) if kind == Catalog.CRASH else null
+			_popup_thumb.plate = Catalog.plate(_selected) if kind == Catalog.PLATE else null
 
 
 ## What the preview shows, for tests: [flyer, world, trail] ids.
@@ -643,4 +682,12 @@ static func _detail(k: String, id: String) -> String:
 			if t == null:
 				return ""
 			return "%s. Music only: every run plays the same." % ItemCard.track_line(id, null)
+		Catalog.CRASH:
+			var c := Catalog.crash(id)
+			var line := c.blurb + " " if c != null and not c.blurb.is_empty() else ""
+			return line + "Looks only: it plays after the run has ended."
+		Catalog.PLATE:
+			var plate := Catalog.plate(id)
+			var line := plate.blurb + " " if plate != null and not plate.blurb.is_empty() else ""
+			return line + "Shows behind your row on the leaderboards."
 	return ""

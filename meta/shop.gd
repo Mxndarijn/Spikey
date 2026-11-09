@@ -46,6 +46,43 @@ const PRICES := {
 		"comet_tail": 400,
 		"star_dust": 400,
 		"music_notes": 500,
+		# Flap trails: one stamp per tap.
+		"cloud_puff": 200,
+		"ripple": 200,
+		"hearts": 250,
+		"feather_drop": 250,
+		"splash": 300,
+		"snowflake": 300,
+		"blossom": 300,
+		"paw_prints": 350,
+		"flame": 350,
+		"zap": 400,
+	},
+	Catalog.CRASH:
+	{
+		CrashStyle.DEFAULT_ID: 0,
+		"confetti_pop": 200,
+		"bubble_trap": 300,
+		"dizzy_stars": 300,
+		"shatter": 350,
+		"pixel_dissolve": 350,
+		"paint_splat": 400,
+		"comic_pow": 450,
+		"firework": 500,
+		"little_ghost": 600,
+	},
+	Catalog.PLATE:
+	{
+		PlateStyle.DEFAULT_ID: 0,
+		"sunset_glow": 300,
+		"jungle_canopy": 300,
+		"ice_cavern": 300,
+		"finish_line": 350,
+		"lava_forge": 400,
+		"deep_sea": 400,
+		"sugar_rush": 400,
+		"star_station": 500,
+		"royal": 800,
 	},
 	Catalog.PORTAL:
 	{
