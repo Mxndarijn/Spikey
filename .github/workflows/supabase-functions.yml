@@ -48,6 +48,12 @@ jobs:
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
+          # The secret may hold the whole project URL: keep only the id.
+          ref="${SUPABASE_PROJECT_REF#https://}"
+          ref="${ref#http://}"
+          ref="${ref%%.*}"
+          ref="${ref%%/*}"
+          echo "SUPABASE_PROJECT_REF=$ref" >> "$GITHUB_ENV"
 
       - name: Checkout repository
         if: steps.ready.outputs.ok == 'true'
