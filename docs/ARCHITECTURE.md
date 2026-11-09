@@ -82,7 +82,9 @@ random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
-same way, without stopping (gameplay version 6). Every 50 points a
+same way (gameplay version 6). It first waits there one second
+(`SimConfig.ARRIVAL_HOLD`) with the new room frozen, so the player sees the room
+before flying on (gameplay version 12). Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
 mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
 picked by the seed

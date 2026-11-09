@@ -568,7 +568,8 @@ func _on_died(replay: Replay) -> void:
 		earned,
 		previous_best,
 		_rooms_cleared,
-		leaderboard.cached_rank(LeaderboardService.DAILY)
+		leaderboard.cached_rank(LeaderboardService.DAILY),
+		replay.seed_value
 	)
 
 

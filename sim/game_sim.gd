@@ -4,7 +4,9 @@ extends RefCounted
 ## Same seed + same season + same tap ticks = same run, on every device and on
 ## the server.
 
-enum Event { START, FLAP, BOUNCE, SCORE, ROOM_CHANGE, DEATH, COIN_SPAWN, COIN, EXIT_OPEN }
+enum Event {
+	START, FLAP, BOUNCE, SCORE, ROOM_CHANGE, DEATH, COIN_SPAWN, COIN, EXIT_OPEN, EXIT_PREVIEW
+}
 
 ## How hard a bumper shoves the bird (vertical speed, sub-units per step): a bit
 ## more than a flap, tied to it so the shove stays survivable if the flap changes.
@@ -121,6 +123,11 @@ func step(tap: bool) -> void:
 	events.clear()
 	if not state.alive:
 		return
+	# Just out of a portal: the bird and the room wait, whatever the player taps.
+	if state.arrival_hold > 0:
+		state.arrival_hold -= 1
+		state.tick += 1
+		return
 
 	if tap:
 		if not state.started:
@@ -144,14 +151,19 @@ func step(tap: bool) -> void:
 
 
 ## The spikes a wall shows right now. A wall with an open exit is spiked
-## everywhere except the opening(s): the exit is the only way through.
+## everywhere except the opening(s): the exit is the only way through. A
+## wall showing a ghost (the next exit) keeps its spikes, but none in the
+## ghost's slots, so the ghost never sits on a spike.
 func wall_mask(side: int) -> int:
 	if state.exit_open and state.exit_side == side:
 		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~exit_slots()
-	return room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
+	var mask := room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
+	if state.exit_preview and state.exit_side == side:
+		mask &= ~exit_slots()
+	return mask
 
 
-## Wall slots that overlap the open exit(s), so no spike sits in an opening.
+## Wall slots that overlap the open (or ghost) exit(s), so no spike sits in one.
 func exit_slots() -> int:
 	var out := 0
 	var reach := SimConfig.EXIT_HALF + SimConfig.SPIKE_HALF_BASE
@@ -289,7 +301,7 @@ func _check_walls() -> void:
 		state.x = 2 * (right - r) - state.x
 		state.vx = -SimConfig.SPEED_X
 		state.right_spikes = 0
-		_score()
+		_bounce_score()
 		_new_wall(0)
 		_maybe_open_exit(0)
 	elif state.vx < 0 and state.x - r <= left:
@@ -298,7 +310,7 @@ func _check_walls() -> void:
 		state.x = 2 * (left + r) - state.x
 		state.vx = SimConfig.SPEED_X
 		state.left_spikes = 0
-		_score()
+		_bounce_score()
 		_new_wall(1)
 		_maybe_open_exit(1)
 
@@ -323,15 +335,39 @@ func _take_exit(side: int) -> bool:
 	return true
 
 
-## Every POINTS_PER_ROOM points an exit opens on the wall the bird just turned
-## toward (`side`), unless one is already open. Every FORK_EVERY points it is a
-## fork: a Calm and a Wild exit, one in each half, in a random order.
+## Every POINTS_PER_ROOM points an exit opens; one point before, it is planned
+## and shown as a ghost on the wall the bird just bounced off (`1 - side`,
+## where `side` is the wall it now flies toward). That is the wall the exit
+## opens on: the bird bounces once more, on the far wall, and turns back to
+## it. The exit then opens there at the ghost's exact height(s), even if the
+## bird got turned back (Bumper Cloud) and bounced on the ghost's wall itself.
+## With no ghost (a practice room starting one point short) it opens on
+## `side`, as before. Every FORK_EVERY points it is a fork: a Calm and a Wild
+## exit, one in each half, in a random order.
 func _maybe_open_exit(side: int) -> void:
-	if state.exit_open or state.score % SimConfig.POINTS_PER_ROOM != 0:
+	if state.exit_open:
 		return
-	state.exit_open = true
+	var every := SimConfig.POINTS_PER_ROOM
+	if state.exit_preview:
+		if state.score % every == 0:
+			state.exit_preview = false
+			state.exit_open = true
+			events.append(Event.EXIT_OPEN)
+		return
+	if (state.score + 1) % every == 0:
+		_plan_exit(1 - side, state.score + 1)
+		state.exit_preview = true
+		events.append(Event.EXIT_PREVIEW)
+	elif state.score % every == 0:
+		_plan_exit(side, state.score)
+		state.exit_open = true
+		events.append(Event.EXIT_OPEN)
+
+
+## Picks where the exit(s) for score `at` go, on wall `side`.
+func _plan_exit(side: int, at: int) -> void:
 	state.exit_side = side
-	var fork := state.score % SimConfig.FORK_EVERY == 0 and not is_practice()
+	var fork := at % SimConfig.FORK_EVERY == 0 and not is_practice()
 	if fork:
 		var top := _random_exit_y(
 			SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF
@@ -349,7 +385,6 @@ func _maybe_open_exit(side: int) -> void:
 		state.exit_a_kind = SimState.ExitKind.NORMAL
 		state.exit_b_y = 0
 		state.exit_b_kind = SimState.ExitKind.NORMAL
-	events.append(Event.EXIT_OPEN)
 
 
 ## A random exit height between lo and hi, on a spike slot's center. The
@@ -364,8 +399,9 @@ func _random_exit_y(lo: int, hi: int) -> int:
 
 ## Flies through an exit on wall `side` into the next room: the bird comes out
 ## of a portal in the opposite wall at the same height, still flying the same
-## way, so it never stops or turns. The wall it now faces (`side` again) gets
-## spikes as after a bounce. No point is scored for this.
+## way, so it never turns. It waits there ARRIVAL_HOLD ticks first. The wall
+## it now faces (`side` again) gets spikes as after a bounce. No point is
+## scored for this.
 func _go_through(side: int, kind: int) -> void:
 	state.exit_open = false
 	if kind != SimState.ExitKind.NORMAL:
@@ -389,6 +425,7 @@ func _go_through(side: int, kind: int) -> void:
 	# exit doesn't drop straight into the new room's floor (or, rising, into
 	# its ceiling).
 	state.vy = 0
+	state.arrival_hold = SimConfig.ARRIVAL_HOLD
 	state.left_spikes = 0
 	state.right_spikes = 0
 	events.append(Event.ROOM_CHANGE)
@@ -410,6 +447,16 @@ func _new_wall(side: int) -> void:
 	# Practice runs pay nothing, so no coin appears on a bounce there.
 	if room.def.bounce_coin and not is_practice():
 		_spawn_coin()
+
+
+## A wall bounce scores a point, except while an exit is open: then the only
+## way on is through it, so turning back (say off the Bumper Cloud) and
+## bouncing again can't farm points.
+func _bounce_score() -> void:
+	if state.exit_open:
+		events.append(Event.BOUNCE)
+		return
+	_score()
 
 
 func _score() -> void:

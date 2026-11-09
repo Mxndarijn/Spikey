@@ -1,7 +1,8 @@
 extends TestCase
 ## Exit portals: every 10 points an exit opens on the wall ahead; flying into it
 ## moves to the next room, and the bird flies straight on into it. Every 50
-## points a fork offers a Calm and a Wild exit.
+## points a fork offers a Calm and a Wild exit. One point before an exit
+## opens, it shows as a ghost on the wall and at the height it will open at.
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
 
@@ -66,7 +67,7 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	assert_false(missed.state.alive, "missing the exit hits a spike")
 
 
-func test_flying_through_moves_to_the_next_room_without_stopping() -> void:
+func test_flying_through_moves_to_the_next_room_after_a_short_wait() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
 	var room_before := sim.state.room_index
@@ -85,9 +86,14 @@ func test_flying_through_moves_to_the_next_room_without_stopping() -> void:
 	assert_true(sim.state.left_spikes != 0, "the wall ahead has spikes again")
 	var x := sim.state.x
 	var t := sim.room.t
+	for i in SimConfig.ARRIVAL_HOLD:
+		sim.step(i % 2 == 0)
+	assert_eq(sim.state.x, x, "it waits in the portal, taps or not")
+	assert_eq(sim.state.y, y, "at the same height")
+	assert_eq(sim.room.t, t, "the new room waits too")
 	sim.step(false)
-	assert_true(sim.state.x < x, "it keeps flying")
-	assert_true(sim.room.t > t, "the new room runs right away")
+	assert_true(sim.state.x < x, "then it keeps flying")
+	assert_true(sim.room.t > t, "and the new room runs")
 
 
 func test_the_bird_comes_out_flying_level() -> void:
@@ -105,7 +111,7 @@ func test_the_bird_comes_out_flying_level() -> void:
 		assert_eq(sim.state.vy, 0, "level, not falling or rising (was %d)" % vy)
 
 
-func test_missing_the_exit_is_a_normal_bounce_and_it_stays_open() -> void:
+func test_missing_the_exit_bounces_without_a_point_and_it_stays_open() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
 	var y := sim.state.exit_a_y
@@ -114,7 +120,8 @@ func test_missing_the_exit_is_a_normal_bounce_and_it_stays_open() -> void:
 	)
 	var room_before := sim.state.room_index
 	_hit_wall(sim, 0, away)
-	assert_eq(sim.state.score, 11, "the bounce scores")
+	assert_eq(sim.state.score, 10, "no point while the exit is open")
+	assert_true(GameSim.Event.BOUNCE in sim.events, "still a bounce")
 	assert_eq(sim.state.room_index, room_before, "same room")
 	assert_true(sim.state.exit_open, "the exit is still there")
 
@@ -176,12 +183,12 @@ func test_portals_draw() -> void:
 	var view := RoomView.new()
 	tree.root.add_child(run)
 	tree.root.add_child(view)
-	for score in [9, 49]:
+	for score in [9, 49, 8, 48]:
 		run.new_run(3)
 		run.sim.step(true)
 		run.sim.state.score = score
 		_hit_wall(run.sim, 1, 300 * SimConfig.SUB)
-		assert_true(run.sim.state.exit_open)
+		assert_true(run.sim.state.exit_open or run.sim.state.exit_preview)
 		view.bind(run, ThemeCatalog.default_theme())
 		for i in 4:
 			await tree.process_frame
@@ -256,3 +263,102 @@ func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
 			assert_eq(near.gap_y, want, "and already there")
 			var step := absi(far.target_y - near.target_y)
 			assert_true(step <= 60 * SimConfig.SUB, "next gap reachable")
+
+
+## Turning back from an open exit (here off the Bumper Cloud) and bouncing off
+## the far wall scores nothing, so the points can't be farmed.
+func test_no_points_while_an_exit_is_open() -> void:
+	var sim := _sim_at(9)
+	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	assert_true(sim.state.exit_open)
+	var score := sim.state.score
+	sim.state.right_spikes = 0
+	for i in 5:
+		sim.bump_bird_from(sim.state.x - SimConfig.SUB, sim.state.y)
+		assert_true(sim.state.vx > 0, "the bump turns it away from the exit")
+		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		assert_false(GameSim.Event.SCORE in sim.events, "no point for the far wall")
+		assert_true(GameSim.Event.BOUNCE in sim.events)
+		sim.state.right_spikes = 0
+	assert_eq(sim.state.score, score, "the score stays put")
+	assert_true(sim.state.exit_open, "the exit is still there")
+	var after := _sim_at(9)
+	_hit_wall(after, 1, 300 * SimConfig.SUB)
+	_hit_wall(after, 0, after.state.exit_a_y)
+	assert_false(after.state.exit_open)
+	_hit_wall(after, 0, 300 * SimConfig.SUB)
+	assert_eq(after.state.score, score + 1, "points come back in the next room")
+
+
+func test_ghost_shows_one_point_early_where_the_exit_opens() -> void:
+	var sim := _sim_at(8)
+	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	var s := sim.state
+	assert_eq(s.score, 9)
+	assert_true(s.exit_preview, "a ghost at 9")
+	assert_false(s.exit_open, "not open yet")
+	assert_true(GameSim.Event.EXIT_PREVIEW in sim.events)
+	assert_false(GameSim.Event.EXIT_OPEN in sim.events)
+	assert_eq(s.exit_side, 1, "on the wall the bird just bounced off")
+	assert_true(s.copy().exit_preview, "the ghost is part of the state")
+	var y := s.exit_a_y
+	assert_between(y, SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
+	assert_eq(s.score, 10)
+	assert_true(s.exit_open, "it opens at 10")
+	assert_false(s.exit_preview)
+	assert_true(GameSim.Event.EXIT_OPEN in sim.events)
+	assert_eq(s.exit_side, 1, "on the ghost's wall")
+	assert_eq(s.exit_a_y, y, "at the ghost's exact height")
+	_hit_wall(sim, 1, y)
+	assert_true(GameSim.Event.ROOM_CHANGE in sim.events, "and it leads through")
+
+
+func test_the_ghost_spot_is_spike_free_and_a_normal_bounce() -> void:
+	for seed_value in 10:
+		var sim := _sim_at(8, seed_value)
+		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		assert_true(sim.state.exit_preview)
+		sim.state.right_spikes = (1 << SimConfig.SLOT_COUNT) - 1
+		assert_eq(sim.wall_mask(1) & sim.exit_slots(), 0, "no spike in the ghost")
+		assert_ne(sim.wall_mask(1), 0, "the rest of the wall keeps its spikes")
+	# Turned back (Bumper Cloud) onto the ghost before point 10.
+	var back := _sim_at(8)
+	_hit_wall(back, 1, 300 * SimConfig.SUB)
+	var y := back.state.exit_a_y
+	var room_before := back.state.room_index
+	_hit_wall(back, 1, y)
+	assert_eq(back.state.room_index, room_before, "no way through a ghost")
+	assert_true(GameSim.Event.BOUNCE in back.events, "a normal bounce")
+	assert_true(GameSim.Event.SCORE in back.events, "worth its point")
+	assert_eq(back.state.score, 10)
+	assert_true(back.state.exit_open, "the exit opens")
+	assert_eq(back.state.exit_side, 1, "on the ghost's wall, behind the bird")
+	assert_eq(back.state.exit_a_y, y, "at the ghost's height")
+	assert_true(back.state.vx < 0, "the bird is flying away from it")
+	_hit_wall(back, 1, y)
+	assert_eq(back.state.room_index, room_before + 1, "coming back, it leads through")
+
+
+func test_a_fork_shows_both_ghosts() -> void:
+	var sim := _sim_at(48, 8)
+	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	var s := sim.state
+	assert_true(s.exit_preview)
+	var kinds := [s.exit_a_kind, s.exit_b_kind]
+	assert_true(SimState.ExitKind.CALM in kinds and SimState.ExitKind.WILD in kinds)
+	var ys := [s.exit_a_y, s.exit_b_y]
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
+	assert_true(s.exit_open)
+	assert_eq([s.exit_a_y, s.exit_b_y], ys, "both open where their ghosts were")
+	assert_eq([s.exit_a_kind, s.exit_b_kind], kinds, "with the same kinds")
+
+
+func test_practice_shows_a_ghost_without_forks() -> void:
+	var index := RoomCatalog.index_of("pinwheel")
+	var sim := GameSim.new(5, Seasons.NONE, index)
+	sim.step(true)
+	sim.state.score = 48
+	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	assert_true(sim.state.exit_preview)
+	assert_eq(sim.state.exit_b_kind, SimState.ExitKind.NORMAL, "no forks in practice")

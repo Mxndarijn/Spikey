@@ -36,6 +36,17 @@ const FLASH_ALPHA := 0.35
 const EXIT_RX := 22.0
 const EXIT_DEPTH := 6.0
 const EXIT_FADE_TIME := 0.5
+## The ghost of the next exit (shown one point early): fade-in time, how open
+## and how faint it is, its slow pulse, and its dashed "not open yet" rim.
+const GHOST_FADE_TIME := 0.3
+const GHOST_OPEN := 0.8
+const GHOST_ALPHA := 0.3
+const GHOST_PULSE_ALPHA := 0.15
+const GHOST_PULSE_TIME := 1.2
+const GHOST_SPIN := 0.3
+const GHOST_RIM_ALPHA := 0.85
+const GHOST_RIM_W := 2.0
+const GHOST_RIM_DASHES := 14
 const EXIT_TAG_ICON := 16.0
 const EXIT_TAG_DOT := 10.0
 ## How long the portal the bird came out of takes to close, seconds.
@@ -143,6 +154,8 @@ var _prev_sky: Array[Color] = []
 var _fade := 1.0
 var _flash := 0.0
 var _exit_fade := 0.0
+## The ghost: fades in while previewed, out while the real exit opens.
+var _ghost_fade := 0.0
 ## The portal the bird just came out of (opposite wall): 1 when it arrives,
 ## closing to 0 over ARRIVAL_CLOSE_TIME.
 var _arrival := 0.0
@@ -215,6 +228,12 @@ func _process(delta: float) -> void:
 		_exit_fade = minf(_exit_fade + delta / EXIT_FADE_TIME, 1.0)
 	else:
 		_exit_fade = 0.0
+	if s.exit_preview:
+		_ghost_fade = minf(_ghost_fade + delta / GHOST_FADE_TIME, 1.0)
+	elif s.exit_open:
+		_ghost_fade = maxf(_ghost_fade - delta / EXIT_FADE_TIME, 0.0)
+	else:
+		_ghost_fade = 0.0
 	_arrival = maxf(_arrival - delta / ARRIVAL_CLOSE_TIME, 0.0)
 	queue_redraw()
 
@@ -282,6 +301,8 @@ func _draw() -> void:
 			var wall_x := inset if _arrival_side == 0 else W - inset
 			var into := 1.0 if _arrival_side == 0 else -1.0
 			_draw_exit(wall_x, into, _arrival_y, _arrival_kind, _arrival_curve(), false)
+		if _ghost_fade > 0.0 and (_run.sim.state.exit_preview or _run.sim.state.exit_open):
+			_draw_ghosts(inset)
 		if _run.sim.state.exit_open:
 			_draw_exits(inset)
 	if _flash > 0.0:
@@ -458,6 +479,49 @@ func _draw_exits(inset: float) -> void:
 		_draw_exit(wall_x, into, s.exit_b_y, s.exit_b_kind, open, true)
 
 
+## The next exit(s), one point early: faint, slowly pulsing, with a dashed
+## rim, on the wall and at the height(s) they will open at. They fade out
+## while the real exit grows in their place.
+func _draw_ghosts(inset: float) -> void:
+	var s := _run.sim.state
+	var wall_x := inset if s.exit_side == 0 else W - inset
+	var into := 1.0 if s.exit_side == 0 else -1.0
+	_draw_ghost(wall_x, into, s.exit_a_y, s.exit_a_kind)
+	if s.exit_b_kind != SimState.ExitKind.NORMAL:
+		_draw_ghost(wall_x, into, s.exit_b_y, s.exit_b_kind)
+
+
+func _draw_ghost(wall_x: float, into: float, y_sub: int, kind: int) -> void:
+	var center := Vector2(wall_x + into * EXIT_DEPTH, y_sub / float(SimConfig.SUB))
+	var half := SimConfig.EXIT_HALF / float(SimConfig.SUB)
+	var side := 0 if into > 0.0 else 1
+	var pulse := 0.5 + 0.5 * sin(_time * TAU / GHOST_PULSE_TIME)
+	var alpha := _ghost_fade * (GHOST_ALPHA + GHOST_PULSE_ALPHA * pulse)
+	var override := _exit_override(kind)
+	portal_style.draw_portal(
+		self, center, half, side, GHOST_OPEN, _time * GHOST_SPIN, _theme, override, alpha
+	)
+	var k := half / PortalPainter.REF_HALF
+	var shift := (PortalPainter.DISC_DEPTH - PortalPainter.EXIT_CENTER_DEPTH) * k
+	var disc := center + Vector2(into * shift, 0.0)
+	var rim: Color = override if override.a > 0.0 else _theme.world_accent
+	rim.a = _ghost_fade * GHOST_RIM_ALPHA
+	var radius := Vector2(16.0 * k, half * 0.95)
+	var steps := GHOST_RIM_DASHES * 2
+	for i in range(0, steps, 2):
+		var a0 := TAU * i / steps
+		var a1 := TAU * (i + 1) / steps
+		draw_line(
+			disc + Vector2(cos(a0), sin(a0)) * radius,
+			disc + Vector2(cos(a1), sin(a1)) * radius,
+			rim,
+			GHOST_RIM_W,
+			true
+		)
+	if kind != SimState.ExitKind.NORMAL:
+		_draw_exit_tag(center, into, kind, _ghost_fade * GHOST_RIM_ALPHA)
+
+
 ## One portal in the player's equipped style (Customize > Portals).
 ## `into` points from the wall into the room (+1 on the left wall). `open`
 ## scales it (0 = shut); `tagged` adds the Calm/Wild sticker.
@@ -503,7 +567,8 @@ func _exit_override(kind: int) -> Color:
 
 ## Fork exits: a flat cream pill on the room side (no outline, no drop): a
 ## mint dot and "Calm", or the coin and "Wild +3".
-func _draw_exit_tag(center: Vector2, into: float, kind: int) -> void:
+func _draw_exit_tag(center: Vector2, into: float, kind: int, alpha: float = 1.0) -> void:
+	var tint := Color(1, 1, 1, alpha)
 	var wild := kind == SimState.ExitKind.WILD
 	var text := "Wild +%d" % SimConfig.WILD_COINS if wild else "Calm"
 	var font := GameFonts.ui(900)
@@ -514,14 +579,14 @@ func _draw_exit_tag(center: Vector2, into: float, kind: int) -> void:
 	var h := 28.0
 	var x := center.x + into * (EXIT_RX + 10.0) - (w if into < 0.0 else 0.0)
 	var rect := Rect2(x, center.y - h / 2.0, w, h)
-	UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0).draw(get_canvas_item(), rect)
+	UiTheme.flat(UiTokens.PANEL * tint, UiTokens.RADIUS_PILL, 0).draw(get_canvas_item(), rect)
 	var tx := rect.position.x + 10.0
 	if wild:
 		var icon := Rect2(tx, center.y - EXIT_TAG_ICON / 2.0, EXIT_TAG_ICON, EXIT_TAG_ICON)
-		draw_texture_rect(COIN_ICON, icon, false)
+		draw_texture_rect(COIN_ICON, icon, false, tint)
 	else:
 		draw_circle(
-			Vector2(tx + EXIT_TAG_DOT / 2.0, center.y), EXIT_TAG_DOT / 2.0, UiTokens.SUCCESS
+			Vector2(tx + EXIT_TAG_DOT / 2.0, center.y), EXIT_TAG_DOT / 2.0, UiTokens.SUCCESS * tint
 		)
 	tx += mark + 4.0
 	draw_string(
@@ -531,7 +596,7 @@ func _draw_exit_tag(center: Vector2, into: float, kind: int) -> void:
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		size,
-		UiTokens.ON_PANEL
+		UiTokens.ON_PANEL * tint
 	)
 
 

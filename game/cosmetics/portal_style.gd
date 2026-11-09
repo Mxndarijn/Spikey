@@ -249,7 +249,8 @@ func colors(theme: ThemeDef, override: Color = Color(0, 0, 0, 0)) -> Dictionary:
 ## `side`: the wall it is on, 0 left or 1 right (like SimState.exit_side).
 ## `open_amount`: 0 closed to 1 open (may overshoot a little while opening).
 ## `time`: seconds, for the spin. `color_override`: Calm and Wild exits pass
-## their colour (it recolours the arms); clear for a normal exit.
+## their colour (it recolours the arms); clear for a normal exit. `alpha`
+## fades the whole portal (the ghost of the next exit is drawn faint).
 func draw_portal(
 	canvas: CanvasItem,
 	center: Vector2,
@@ -258,7 +259,8 @@ func draw_portal(
 	open_amount: float,
 	time: float,
 	theme: ThemeDef,
-	color_override: Color = Color(0, 0, 0, 0)
+	color_override: Color = Color(0, 0, 0, 0),
+	alpha: float = 1.0
 ) -> void:
 	var into := 1.0 if side == 0 else -1.0
 	var k := half_height / PortalPainter.REF_HALF
@@ -273,7 +275,8 @@ func draw_portal(
 		open_amount,
 		time,
 		colors(theme, color_override),
-		theme
+		theme,
+		alpha
 	)
 
 

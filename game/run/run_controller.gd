@@ -14,6 +14,8 @@ signal coin_spawned
 signal coin_collected(total: int)
 ## An exit portal opened (every 10 points; two at a fork).
 signal exit_opened
+## The next exit was planned one point early and shows as a ghost.
+signal exit_previewed
 
 var sim: GameSim
 ## State before the last tick, for smooth interpolation in the views.
@@ -93,6 +95,8 @@ func _dispatch_events() -> void:
 				room_changed.emit(sim.state.room_index)
 			GameSim.Event.EXIT_OPEN:
 				exit_opened.emit()
+			GameSim.Event.EXIT_PREVIEW:
+				exit_previewed.emit()
 			GameSim.Event.COIN_SPAWN:
 				coin_spawned.emit()
 			GameSim.Event.COIN:

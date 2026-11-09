@@ -23,7 +23,13 @@ extends RefCounted
 ##     Stalactite Run: out of a portal, the gap ahead stays at the bird's
 ##     height (it no longer moves up to 40 px before the player sees the room).
 ## 11: Coin Garden: every bounce adds a coin, even when one is already out.
-const GAMEPLAY_VERSION := 11
+## 12: out of a portal the bird waits ARRIVAL_HOLD ticks with the new room
+##     frozen (taps ignored), so the player sees the room before flying on.
+## 13: no points for bouncing while an exit is open (no farming points by
+##     turning back off the Bumper Cloud).
+## 14: each exit is planned one point early (on the 9th of every 10) and
+##     shown as a ghost on the wall it will open on; no spikes in its slots.
+const GAMEPLAY_VERSION := 14
 const TICKS_PER_SECOND := 60
 const SUB := 64
 
@@ -85,6 +91,9 @@ const FORK_SPLIT_Y := 320 * SUB
 const FORK_EVERY := 50
 ## Coins for taking the Wild exit.
 const WILD_COINS := 3
+## Ticks (1 s) the bird waits in the portal it comes out of, with the new
+## room frozen and taps ignored, before it flies on as before.
+const ARRIVAL_HOLD := 60
 
 # Safety cap for replays (30 minutes of play).
 const MAX_TICKS := 60 * 60 * 30

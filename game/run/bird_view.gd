@@ -85,6 +85,9 @@ func _process(delta: float) -> void:
 	var py := lerpf(prev.y, s.y, t) / SimConfig.SUB
 	if not s.started:
 		py += sin(_bob_time * 5.0) * 4.0
+	elif s.arrival_hold > 0:
+		# Waiting in a portal: the same idle bob, easing out as the wait ends.
+		py += sin(_bob_time * 5.0) * 4.0 * minf(1.0, s.arrival_hold / 12.0)
 	if _shake > 0.0:
 		px += randf_range(-3, 3)
 		py += randf_range(-3, 3)

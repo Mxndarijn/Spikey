@@ -34,7 +34,11 @@ var coins := 0
 var flaps := 0
 ## Exit portal(s): open on `exit_side` (0 left, 1 right). `exit_a_y` is always
 ## used; `exit_b_y` only at a fork. Kinds are ExitKind values.
+## `exit_preview`: the next exit is already planned (one point early) and
+## shown as a ghost on `exit_side`; it opens there, at the same height(s),
+## on the next point. Until then it is not a way through.
 var exit_open := false
+var exit_preview := false
 var exit_side := 0
 var exit_a_y := 0
 var exit_a_kind := 0
@@ -45,6 +49,9 @@ var route := 0
 ## Where the last coin was collected (the view flies it from there).
 var pickup_x := 0
 var pickup_y := 0
+## Ticks the bird still waits in the portal it just came out of (the new
+## room is frozen meanwhile, so the player can read it before flying on).
+var arrival_hold := 0
 
 
 func copy() -> SimState:
@@ -68,6 +75,7 @@ func copy() -> SimState:
 	s.coins = coins
 	s.flaps = flaps
 	s.exit_open = exit_open
+	s.exit_preview = exit_preview
 	s.exit_side = exit_side
 	s.exit_a_y = exit_a_y
 	s.exit_a_kind = exit_a_kind
@@ -76,6 +84,7 @@ func copy() -> SimState:
 	s.route = route
 	s.pickup_x = pickup_x
 	s.pickup_y = pickup_y
+	s.arrival_hold = arrival_hold
 	return s
 
 
@@ -107,6 +116,8 @@ func checksum() -> int:
 		exit_b_y,
 		exit_b_kind,
 		route,
+		arrival_hold,
+		int(exit_preview),
 	]:
 		h = SimHash.mix(h, v)
 	return h

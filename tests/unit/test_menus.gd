@@ -282,8 +282,12 @@ func test_only_unaffordable_items_are_faded() -> void:
 func test_game_over_shows_best_stats_and_its_dock() -> void:
 	var hud: Hud = load(HUD_SCENE).instantiate()
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
-	hud.show_game_over(64, 92, false, 64, 92, 6, 14)
+	hud.show_game_over(64, 92, false, 64, 92, 6, 14, 4000000000)
 	assert_false(hud.is_new_best_showing(), "no ribbon without a new best")
+	assert_true(hud._seed.visible, "the seed shows, for reporting a run")
+	assert_eq(hud._seed.text, "Seed 4000000000 · v%d" % SimConfig.GAMEPLAY_VERSION)
+	assert_true(hud._seed.offset_top >= hud._stats.offset_bottom, "the seed sits under the stats")
+	assert_true(hud._seed.offset_bottom <= 640.0 - Dock.HEIGHT, "and above the dock")
 	assert_eq(hud._final_score.text, "64")
 	assert_eq(hud._best_score.text, "Best 92")
 	assert_eq(

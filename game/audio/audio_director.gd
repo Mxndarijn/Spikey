@@ -43,6 +43,8 @@ const MAX_SAME := 2
 ## room, then holds; a new room starts it again.
 const BOUNCE_STEPS: Array[int] = [0, 2, 4, 7, 9, 12, 14, 16]
 const FLAP_PITCH_JITTER := 0.04
+## The exit ghost replays the portal sound this much higher, as a hint.
+const GHOST_PITCH := 1.6
 
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
@@ -149,6 +151,7 @@ func bind(run: RunController) -> void:
 	run.scored.connect(_on_scored)
 	run.room_changed.connect(_on_room_changed)
 	run.exit_opened.connect(_on_exit_opened)
+	run.exit_previewed.connect(_on_exit_previewed)
 	run.coin_collected.connect(func(_total: int) -> void: play("coin"))
 	run.died.connect(_on_died)
 
@@ -292,6 +295,11 @@ func _on_scored(score: int) -> void:
 func _on_exit_opened() -> void:
 	var s := _run.sim.state
 	play("fork_appear" if s.exit_b_kind != SimState.ExitKind.NORMAL else "portal_open")
+
+
+## The ghost of the next exit: a soft, high hint of the portal sound.
+func _on_exit_previewed() -> void:
+	play("portal_open", GHOST_PITCH)
 
 
 func _on_room_changed(room_index: int) -> void:

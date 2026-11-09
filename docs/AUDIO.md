@@ -45,6 +45,7 @@ All files are `assets/audio/sfx/<name>.ogg`, 44.1 kHz mono, rendered by
 | Spike death | sim `DEATH`, bird not at top/bottom | `death_spike` | −3 | pop-thud: click, falling sub, crunch, squeak |
 | Ceiling/floor death | sim `DEATH`, bird at top/bottom bound | `death_wall` | −4 | woody bonk + sad slide whistle |
 | Exit portal opens | sim `EXIT_OPEN` (normal exit) | `portal_open` | −6 | rising hiss + C-E-G-C sparkle |
+| Next exit's ghost appears | sim `EXIT_PREVIEW` (one point early) | `portal_open` at pitch 1.6 | −6 | the open sound, higher, as a hint |
 | Calm/Wild fork appears | sim `EXIT_OPEN` with fork exits | `fork_appear` | −6 | low bell + high bell |
 | Through a portal | sim `ROOM_CHANGE` | `portal_pass` | −5 | warp whoosh, crossing sweeps, A5 ring |
 | Took Calm exit | `ROOM_CHANGE` into a calm room | `fork_calm` | −7 | sinking slow-motion F chord (plays instead of `portal_pass`) |

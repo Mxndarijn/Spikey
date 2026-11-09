@@ -96,6 +96,8 @@ var _go_caption := Label.new()
 var _final_score := Label.new()
 var _best_score := Label.new()
 var _stats := HBoxContainer.new()
+## The run's seed in small text, so a player can report a run that looked wrong.
+var _seed := Label.new()
 var _stat_coins: Label
 var _stat_rooms: Label
 var _stat_rank: Label
@@ -348,6 +350,10 @@ func _build_game_over() -> void:
 	_stat_rooms = _stat(_stats, "rooms")
 	_stat_rank = _stat(_stats, "today")
 	_at(_game_over, _stats, 330)
+	_seed.theme_type_variation = &"RoomMuted"
+	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_at(_game_over, _seed, 400)
 	_dock = (
 		Dock
 		. new(
@@ -627,7 +633,8 @@ func show_game_over(
 	coins_earned: int,
 	previous_best: int = 0,
 	rooms: int = 0,
-	rank: int = 0
+	rank: int = 0,
+	seed_value: int = -1
 ) -> void:
 	_pause_button.visible = false
 	_back_button.visible = false
@@ -647,6 +654,10 @@ func show_game_over(
 	_best_score.offset_top = 276.0 if is_new_best else 274.0
 	_stats.offset_top = 356.0 if is_new_best else 330.0
 	_stats.offset_bottom = _stats.offset_top + _stats.get_combined_minimum_size().y
+	_seed.text = seed_text(seed_value)
+	_seed.visible = seed_value >= 0
+	_seed.offset_top = _stats.offset_bottom + 14.0
+	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
 	_game_over.visible = true
 	_new_best.still = reduced_motion
 	_go_time = 0.0 if is_new_best and not reduced_motion else FX_TIME
@@ -690,6 +701,11 @@ func show_toast(text: String) -> void:
 	_toast_tween.tween_interval(TOAST_SECONDS)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.3)
 	_toast_tween.tween_callback(_toast.hide)
+
+
+## "Seed 123456 · v11": the seed and gameplay version replay the run exactly.
+static func seed_text(seed_value: int) -> String:
+	return "Seed %d · v%d" % [seed_value, SimConfig.GAMEPLAY_VERSION]
 
 
 ## "Best 92"; on a new best just "was 87" (the ribbon says New best).
