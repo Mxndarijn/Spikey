@@ -37,9 +37,15 @@ func art_size() -> float:
 	return body * BirdView.ART_CANVAS / 64.0
 
 
-func _draw() -> void:
+## Where the flyer's middle sits: nudged right to make room for the trail, dead
+## centre when there is no trail (the podium).
+func art_center() -> Vector2:
 	var y := size.y / 2.0 + (sin(_time * 2.4) * bob_height if bob else 0.0)
-	var c := Vector2(size.x / 2.0 + body * 0.3, y)
+	return Vector2(size.x / 2.0 + (body * 0.3 if trail_dots > 0 else 0.0), y)
+
+
+func _draw() -> void:
+	var c := art_center()
 	for i in trail_dots:
 		var f := float(i + 1) / trail_dots
 		var p := c + Vector2(-body * (1.55 - 0.32 * i), body * (0.45 - 0.1 * i))
