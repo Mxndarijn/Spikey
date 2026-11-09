@@ -98,7 +98,7 @@ func set_player(player_name: String, flyer_id: String) -> void:
 
 ## The arguments of submit_run in supabase/migrations/.
 static func run_body(profile: Profile, score: int, replay: Dictionary, now_s: int) -> Dictionary:
-	return {
+	var body := {
 		"p_name": profile.leaderboard_name,
 		"p_flyer": profile.equipped_id(Catalog.FLYER),
 		"p_score": score,
@@ -111,6 +111,11 @@ static func run_body(profile: Profile, score: int, replay: Dictionary, now_s: in
 		"p_coins": int(replay.get("coins", 0)),
 		"p_end_tick": int(replay.get("end_tick", 0)),
 	}
+	# Only a revived run says so: every other run fits the older databases too.
+	var revives: Variant = replay.get("revives", [])
+	if revives is Array and not (revives as Array).is_empty():
+		body["p_revives"] = revives
+	return body
 
 
 ## The body without its newest arguments, or {} when nothing is left to drop.
@@ -145,6 +150,12 @@ static func parse_run(data: Variant) -> Dictionary:
 		"taps": taps,
 		"loadout": look if look is Dictionary else {},
 	}
+	var revives: Array[int] = []
+	var raw_revives: Variant = d.get("revives", [])
+	if raw_revives is Array:
+		for t: Variant in raw_revives:
+			revives.append(int(t))
+	run.revives = revives
 	# Runs stored before the season was: the replay falls back to today's.
 	var season: Variant = d.get("season")
 	if season is int or season is float:
@@ -187,6 +198,7 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 			e.verified = bool(row.get("verified", false))
 			e.is_me = bool(row.get("is_me", false))
 			e.run_id = int(row.get("run", 0))
+			e.revived = bool(row.get("revived", false))
 			b.entries.append(e)
 	var me: Variant = d.get("me")
 	if me is Dictionary:
@@ -231,6 +243,10 @@ func _send_queue() -> void:
 	if await _ensure_session():
 		while not _queue.is_empty():
 			var res := await _post("/rest/v1/rpc/submit_run", _queue[0], true)
+			if not res.ok and res.code == 404 and _queue[0].has("p_revives"):
+				# The database can't store revives yet. Without them the run would
+				# be rejected, so it waits here for the migration.
+				break
 			if not res.ok and res.code == 404 and not older_body(_queue[0]).is_empty():
 				# The database doesn't have the newest migration yet: send without it.
 				_queue[0] = older_body(_queue[0])

@@ -154,6 +154,7 @@ func bind(run: RunController) -> void:
 	run.exit_previewed.connect(_on_exit_previewed)
 	run.coin_collected.connect(func(_total: int) -> void: play("coin"))
 	run.died.connect(_on_died)
+	run.revived.connect(_on_revived)
 
 
 ## Settings: volumes 0..100 (perceptual: gain = (v / 100)^2) and on/off.
@@ -324,6 +325,14 @@ func _on_died(_replay: Replay) -> void:
 	var edge := cause in [SimState.DeathCause.CEILING, SimState.DeathCause.FLOOR]
 	play("death_wall" if edge else "death_spike")
 	_dead = true
+	_set_mood(mood)
+
+
+## Back from a crash: the revive sound, and the music opens up again.
+func _on_revived() -> void:
+	play("revive")
+	_dead = false
+	_bounce_step = 0
 	_set_mood(mood)
 
 

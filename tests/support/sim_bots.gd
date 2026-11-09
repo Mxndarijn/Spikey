@@ -61,3 +61,28 @@ static func play(
 			taps.append(sim.state.tick)
 		sim.step(tap)
 	return Replay.from_sim(sim, taps)
+
+
+## Like play(), but the bot stops tapping after `first_ticks`, the run is
+## revived when it dies, and the bot plays `more_ticks` more before it stops
+## for good.
+static func play_revived(
+	seed_value: int, bot: Callable, bot_seed: int, first_ticks: int, more_ticks: int
+) -> Replay:
+	var sim := GameSim.new(seed_value)
+	var rng := SimRng.new(bot_seed)
+	var taps := PackedInt32Array()
+	var revives := PackedInt32Array()
+	var stop := first_ticks
+	while sim.state.tick < SimConfig.MAX_TICKS:
+		if sim.is_over():
+			if not sim.can_revive():
+				break
+			revives.append(sim.state.tick)
+			sim.revive()
+			stop = sim.state.tick + more_ticks
+		var tap: bool = sim.state.tick < stop and bot.call(sim, rng)
+		if tap:
+			taps.append(sim.state.tick)
+		sim.step(tap)
+	return Replay.from_sim(sim, taps, revives)

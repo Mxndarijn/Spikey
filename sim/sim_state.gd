@@ -52,6 +52,8 @@ var pickup_y := 0
 ## Ticks the bird still waits in the portal it just came out of (the new
 ## room is frozen meanwhile, so the player can read it before flying on).
 var arrival_hold := 0
+## Revives used this run (GameSim.revive), at most SimConfig.MAX_REVIVES.
+var revives := 0
 
 
 func copy() -> SimState:
@@ -85,6 +87,7 @@ func copy() -> SimState:
 	s.pickup_x = pickup_x
 	s.pickup_y = pickup_y
 	s.arrival_hold = arrival_hold
+	s.revives = revives
 	return s
 
 
@@ -118,6 +121,7 @@ func checksum() -> int:
 		route,
 		arrival_hold,
 		int(exit_preview),
+		revives,
 	]:
 		h = SimHash.mix(h, v)
 	return h

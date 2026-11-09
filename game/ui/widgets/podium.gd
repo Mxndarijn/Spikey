@@ -46,7 +46,8 @@ func _column(place: int, e: LeaderboardBoard.Entry) -> Control:
 		col.add_child(_name(e.player_name))
 	else:
 		col.add_child(_waiting())
-	col.add_child(_block(look, str(e.score) if e != null else "", place))
+	var revived := e != null and e.revived
+	col.add_child(_block(look, str(e.score) if e != null else "", place, revived))
 	return col
 
 
@@ -91,8 +92,9 @@ func _waiting() -> Control:
 	return ring
 
 
-## The paper block: round top corners, the medal with the place, the score.
-func _block(look: Array, score: String, place: int) -> Control:
+## The paper block: round top corners, the medal with the place, the score
+## (with the small heart of a revived run).
+func _block(look: Array, score: String, place: int, revived: bool = false) -> Control:
 	var block := PanelContainer.new()
 	var box := UiTheme.flat(UiTokens.PANEL, 0, 0)
 	box.corner_radius_top_left = 16
@@ -115,7 +117,14 @@ func _block(look: Array, score: String, place: int) -> Control:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.text = score
-		col.add_child(l)
+		var line := HBoxContainer.new()
+		line.alignment = BoxContainer.ALIGNMENT_CENTER
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_theme_constant_override("separation", 3)
+		if revived:
+			line.add_child(LeaderboardRow.revive_mark(12.0))
+		line.add_child(l)
+		col.add_child(line)
 	return block
 
 

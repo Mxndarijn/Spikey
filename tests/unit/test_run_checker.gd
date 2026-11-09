@@ -83,6 +83,23 @@ func test_seasons_allow_a_day_either_side() -> void:
 	assert_eq(RunChecker.check(row).status, RunChecker.REJECTED)
 
 
+func test_revived_runs() -> void:
+	var replay := SimBots.play_revived(4247, SimBots.gap_seeker, 7, 1200, 900)
+	var row := _row(replay)
+	assert_eq(RunChecker.check(row).status, RunChecker.REJECTED, "sent without its revive")
+	row.revives = [float(replay.revive_ticks[0])]
+	assert_eq(RunChecker.check(row), {"id": 7, "status": RunChecker.OK, "reason": ""})
+	row.revives = [float(replay.revive_ticks[0] + 1)]
+	assert_eq(RunChecker.check(row).status, RunChecker.REJECTED, "revive at the wrong tick")
+	row.revives = "soon"
+	var broken := RunChecker.check(row)
+	assert_eq(broken.status, RunChecker.REJECTED)
+	assert_eq(broken.reason, "invalid revives")
+	var honest := _row(_honest())
+	honest.revives = []
+	assert_eq(RunChecker.check(honest).status, RunChecker.OK, "no revive used")
+
+
 func test_other_gameplay_versions() -> void:
 	var row := _row(_honest())
 	row.gameplay_version = float(SimConfig.GAMEPLAY_VERSION - 1)

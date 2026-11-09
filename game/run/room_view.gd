@@ -211,6 +211,20 @@ func on_room_changed(room_index: int) -> void:
 		_flash = 1.0
 
 
+## A revived bird comes out of a portal in the wall behind it, in the same
+## room: the arrival portal and the flash, but the sky stays.
+func on_revived() -> void:
+	if _run == null or _run.sim == null:
+		return
+	var s := _run.sim.state
+	_arrival_side = 0 if s.vx > 0 else 1
+	_arrival_y = s.y
+	_arrival_kind = SimState.ExitKind.NORMAL
+	_arrival = 1.0
+	if flash_enabled:
+		_flash = 1.0
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	if _theme != null and _shown_sky() != _drawn_sky:

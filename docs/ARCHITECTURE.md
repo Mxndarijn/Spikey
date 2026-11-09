@@ -209,7 +209,7 @@ Attest / Play Integrity to confirm a real device.
 | Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
-input) and replayed by the server. Design that before adding revive.
+input) and replayed by the server. The design draft is in [REVIVE.md](REVIVE.md).
 
 ## Quality gate
 

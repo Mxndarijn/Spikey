@@ -5,6 +5,8 @@ extends Control
 ##   Sound: Music and Sounds, each a round on/off button with its icon, the
 ##          name, a volume slider (0 to 100) and the value.
 ##   Play:  Haptics, Reduced flashing, Color-blind spikes, Large buttons.
+##   Ad choices, only where the player has an ad privacy choice to change
+##   (Europe): opens Google's form.
 ##   Credits and licenses at the bottom (opens the credits in the same card).
 ## Every change goes straight into the profile and emits `changed`; main saves
 ## and applies it (audio, RoomView.flash_enabled, button size, spikes).
@@ -100,25 +102,36 @@ func _build_main() -> void:
 		_main_page.add_child(s)
 		_switches[key] = s
 	_main_page.add_child(UiKit.spacer(0, true))
-	var credits := Button.new()
-	credits.name = "Credits"
-	credits.theme_type_variation = &"PlainButton"
-	credits.text = "Credits and licenses"
-	credits.icon = CHEVRON_ICON
-	credits.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	credits.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	credits.add_theme_constant_override("icon_max_width", 14)
+	var credits := _link("Credits", "Credits and licenses")
+	credits.pressed.connect(show_credits.bind(true))
+	_main_page.add_child(_divider())
+	var ads := AdsService.current
+	if ads != null and ads.privacy_options_required():
+		var choices := _link("AdChoices", "Ad choices")
+		choices.pressed.connect(ads.show_privacy_options)
+		_main_page.add_child(choices)
+	_main_page.add_child(credits)
+
+
+## A plain ink row with a chevron that opens something.
+func _link(node_name: String, text: String) -> Button:
+	var b := Button.new()
+	b.name = node_name
+	b.theme_type_variation = &"PlainButton"
+	b.text = text
+	b.icon = CHEVRON_ICON
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_constant_override("icon_max_width", 14)
 	for state in [
 		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
 	]:
-		credits.add_theme_color_override(state, UiTokens.ON_PANEL)
+		b.add_theme_color_override(state, UiTokens.ON_PANEL)
 	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		credits.add_theme_color_override(state, UiTokens.ON_PANEL)
-	credits.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	credits.focus_mode = Control.FOCUS_NONE
-	credits.pressed.connect(show_credits.bind(true))
-	_main_page.add_child(_divider())
-	_main_page.add_child(credits)
+		b.add_theme_color_override(state, UiTokens.ON_PANEL)
+	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	b.focus_mode = Control.FOCUS_NONE
+	return b
 
 
 func _build_credits() -> void:
