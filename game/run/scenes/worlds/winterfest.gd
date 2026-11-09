@@ -1,8 +1,9 @@
 extends RefCounted
 ## Winter Fest (Worlds v4): snowy hills with pines and a cabin far off, pines
-## with fairy lights on a white drift, and a snowman up front.
+## with fairy lights on a pale drift, and a snowman up front.
 
-const SNOW := Color("#FFFFFF")
+# A shade off white, so the snowman, the cabin's roof and the snow caps stand out.
+const SNOW := Color("#EAF3FA")
 const TRUNK := Color("#6E3A2E")
 
 
@@ -22,7 +23,7 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sx := 196.0
 	var sb := near.y(sx) + 2
 	SceneProps.shadow(pen, sx, sb, 16, near)
-	SceneProps.p_snowman(pen, sx, sb, 1.0)
+	SceneProps.p_snowman(pen, sx, sb, 0.95)
 	# The art has this pine at x 320; its branches then reach behind the right
 	# wall spikes, so it stands 9 px inward.
 	_lit_pine(pen, near, 311, 1.3, t.prop)

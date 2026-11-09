@@ -233,5 +233,65 @@
         "#C8E6F9"
       ]
     }
+  ],
+  "meadow": [
+    {
+      "name": "Golden hour",
+      "sky": [
+        "#FFE7B8",
+        "#FFC08F",
+        "#FFC08F"
+      ]
+    }
+  ],
+  "cove": [
+    {
+      "name": "Sundown",
+      "sky": [
+        "#FFD9A0",
+        "#FF9F8A",
+        "#FF9F8A"
+      ]
+    }
+  ],
+  "clouds": [
+    {
+      "name": "Rose dawn",
+      "sky": [
+        "#B9A8F0",
+        "#FFC9DC",
+        "#FFE3CF"
+      ]
+    }
+  ],
+  "glade": [
+    {
+      "name": "Deep night",
+      "sky": [
+        "#1A2F55",
+        "#10203C",
+        "#10203C"
+      ]
+    }
+  ],
+  "aurora": [
+    {
+      "name": "Violet hour",
+      "sky": [
+        "#2A1F5C",
+        "#2B3570",
+        "#2B3570"
+      ]
+    }
+  ],
+  "lantern": [
+    {
+      "name": "Midnight",
+      "sky": [
+        "#1A1B4A",
+        "#2D1A4E",
+        "#2D1A4E"
+      ]
+    }
   ]
 }

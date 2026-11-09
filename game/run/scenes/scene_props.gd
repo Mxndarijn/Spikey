@@ -8,12 +8,18 @@ extends RefCounted
 const SHADOW := Color(0, 0, 0, 0.13)
 const WHITE := Color("#FFFFFF")
 const FLOWER_EYE := Color("#FFF3B0")
-const LOLLY_SWIRL := Color(1, 1, 1, 0.7)
+const LOLLY_SWIRL := Color(1, 1, 1, 0.9)
 const GUM_SHINE := Color(1, 1, 1, 0.8)
-const SHELL_LINE := Color(1, 1, 1, 0.5)
+const SHELL_LINE := Color(1, 1, 1, 0.6)
+const SHELL_HINGE := Color("#F2A9BC")
 const CUPCAKE_CUP := Color("#B69CFF")
 const CUPCAKE_LINE := Color("#9C82EE")
 const CHERRY := Color("#FF5A7A")
+const CHERRY_STEM := Color("#8E2F4A")
+const CHERRY_SHINE := Color(1, 1, 1, 0.8)
+const FROSTING_SHADE := Color("#F6C6DB")
+const SPRINKLES := [Color("#7FD3FF"), Color("#FFD23F"), Color("#7FE3B5"), Color("#FF6FA8")]
+const LOLLY_STICK_SHADOW := Color(0, 0, 0, 0.13)
 const PUMPKIN := Color("#F28C28")
 const PUMPKIN_RIB := Color("#D9701E")
 const PUMPKIN_STEM := Color("#3A5A2A")
@@ -26,12 +32,19 @@ const WINDOW_LIGHT := Color("#FFD27A")
 const SNOWMAN_COAL := Color("#1E2A44")
 const CARROT := Color("#FF9A3C")
 const SCARF := Color("#2FA84F")
+const SCARF_TAIL := Color("#258B41")
+const SNOW_SHADE := Color("#CFE2F1")
+const HAT_BAND := Color("#A3B4CC")
 const TWIG := Color("#6E3A2E")
 const LIGHTS := [
 	Color("#FF5A5A"), Color("#FFD23F"), Color("#7FD3FF"), Color("#FF5A5A"), Color("#7FE3B5")
 ]
 const TREE_STAR := Color("#FFD23F")
 const PENGUIN := Color("#1E2A44")
+const PENGUIN_FLIPPER := Color("#31426B")
+const CHICK := Color("#8FA3BF")
+const CHICK_CAP := Color("#5E7190")
+const CHICK_FLIPPER := Color("#7388A6")
 const BEAK := Color("#FF9F43")
 
 
@@ -81,6 +94,13 @@ static func sun(pen: ScenePen, x: float, y: float, r: float, t: ThemeDef) -> voi
 	pen.circle(Vector2(x, y), r, t.glow)
 
 
+## A sun whose ring takes the colour of the sky behind it, so it sits right
+## in every time of day.
+static func sky_sun(pen: ScenePen, x: float, y: float, r: float, t: ThemeDef) -> void:
+	pen.circle(Vector2(x, y), r + 18.0, pen.sky_at(y).lerp(t.glow, 0.45))
+	pen.circle(Vector2(x, y), r, t.glow)
+
+
 static func cloud(pen: ScenePen, x: float, y: float, w: float, col: Color) -> void:
 	var h := w * 0.26
 	pen.rect(x, y - h, w, h, col, h / 2.0)
@@ -115,6 +135,24 @@ static func stars(
 		var r: float = [1.0, 1.3, 1.7][rng.randi() % 3]
 		var a := rng.randf_range(0.35, 0.85)
 		if p.distance_to(Vector2(avoid.x, avoid.y)) < avoid.z:
+			continue
+		pen.circle(p, r, Color(1, 1, 1, a))
+
+
+## Like stars(), for worlds with light spikes: none behind the wall spikes,
+## where a white star would sit too close to the spike colour.
+static func night_stars(
+	pen: ScenePen, seed_value: int, n: int, y1: float, avoid: Vector3 = Vector3(-999, -999, 0)
+) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	for i in n:
+		var p := Vector2(rng.randf_range(10, 350), rng.randf_range(40, y1))
+		var r: float = [1.0, 1.3, 1.7][rng.randi() % 3]
+		var a := rng.randf_range(0.35, 0.85)
+		if p.distance_to(Vector2(avoid.x, avoid.y)) < avoid.z:
+			continue
+		if p.x - r < 31 or p.x + r > 329 or WorldScenes.SCORE_ZONE.grow(r).has_point(p):
 			continue
 		pen.circle(p, r, Color(1, 1, 1, a))
 
@@ -173,17 +211,35 @@ static func p_snowcap(pen: ScenePen, x: float, b: float, s: float) -> void:
 	)
 
 
-static func p_bush(pen: ScenePen, x: float, b: float, s: float, c: Color) -> void:
-	var p := ScenePath.at(x - 12 * s, b).a(7 * s, false, true, x - 3 * s, b - 9 * s)
-	p.a(8 * s, false, true, x + 9 * s, b - 6 * s).a(5 * s, false, true, x + 13 * s, b)
-	pen.fill(p.done(), c)
+## A three-lobed bush with a few lighter leaves (`hi`).
+static func p_bush(
+	pen: ScenePen, x: float, b: float, s: float, c: Color, hi: Variant = null
+) -> void:
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	var p := ScenePath.at(-17, 1).a(8.5, false, true, -7, -9.5)
+	pen.fill(p.a(9.5, false, true, 9, -11).a(8.5, false, true, 17, 1).done(), c)
+	if hi != null:
+		pen.ellipse(Vector2(-7, -5.5), 3.4, 1.7, hi, -30)
+		pen.ellipse(Vector2(3, -10), 3.8, 1.8, hi, -18)
+		pen.ellipse(Vector2(10, -4.5), 3.2, 1.6, hi, 20)
+	pen.pop()
 
 
+## A grass tuft: five tapered blades fanning out from one root.
 static func p_tuft(pen: ScenePen, x: float, b: float, s: float, c: Color) -> void:
-	var p := ScenePath.at(x - 6 * s, b).q(x - 6 * s, b - 8 * s, x - 10 * s, b - 13 * s)
-	p.q(x - 2 * s, b - 8 * s, x, b - 17 * s).q(x + 2 * s, b - 8 * s, x + 10 * s, b - 13 * s)
-	p.q(x + 6 * s, b - 8 * s, x + 6 * s, b)
-	pen.fill(p.done(), c)
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	# Each blade: (where it roots, its tip x, its tip y).
+	for d: Vector3 in [
+		Vector3(-3.6, -9, -6.4),
+		Vector3(-1.8, -4.5, -11),
+		Vector3(0, 1, -13.7),
+		Vector3(2.3, 6.4, -9.6),
+		Vector3(4.1, 10, -5),
+	]:
+		var mid := (d.x + d.y) / 2.0
+		var p := ScenePath.at(d.x - 2, 0).q(mid - 2.3, d.z * 0.55, d.y, d.z)
+		pen.fill(p.q(mid + 2.3, d.z * 0.45, d.x + 2, 0).done(), c)
+	pen.pop()
 
 
 static func p_flower(pen: ScenePen, x: float, b: float, s: float, c: Color, stem: Color) -> void:
@@ -313,22 +369,29 @@ static func p_starfish(pen: ScenePen, x: float, b: float, s: float, c: Color) ->
 	pen.stroke(pts, c, 1.5, false)
 
 
+## A scallop shell: a fan with five ribs and a small hinge.
 static func p_shell(pen: ScenePen, x: float, b: float, s: float, c: Color) -> void:
-	pen.fill(ScenePath.at(x - 7 * s, b).a(7 * s, false, true, x + 7 * s, b).done(), c)
-	pen.line(x, b, x, b - 6 * s, SHELL_LINE, 1.2)
-	pen.line(x, b, x - 4 * s, b - 5 * s, SHELL_LINE, 1.2)
-	pen.line(x, b, x + 4 * s, b - 5 * s, SHELL_LINE, 1.2)
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	pen.fill(ScenePath.at(-4, 0).l(-13, -7).a(13.5, false, true, 13, -7).l(4, 0).done(), c)
+	for deg: float in [-60.0, -30.0, 0.0, 30.0, 60.0]:
+		var a := deg_to_rad(deg)
+		pen.line(0, 0, sin(a) * 12, -cos(a) * 12, SHELL_LINE, 1.3)
+	pen.rect(-5, -1.5, 10, 3, SHELL_HINGE, 1.5)
+	pen.pop()
 
 
+## A lollipop: a white stick and a disc with a spiral swirl.
 static func p_lolly(pen: ScenePen, x: float, b: float, s: float, c: Color) -> void:
-	pen.rect(x - 1.4 * s, b - 22 * s, 2.8 * s, 22 * s, WHITE, 1)
-	pen.circle(Vector2(x, b - 28 * s), 9 * s, c)
-	pen.stroke(
-		ScenePath.at(x - 5 * s, b - 28 * s).a(5 * s, true, true, x, b - 23 * s).done(),
-		LOLLY_SWIRL,
-		2.4 * s,
-		false
-	)
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	pen.rect(-1.6, -26, 3.2, 27, WHITE, 1.6)
+	pen.circle(Vector2(0, -34), 11, c)
+	var swirl := PackedVector2Array()
+	for i in 41:
+		var a := i / 40.0 * 4.2 * PI
+		var r := 0.6 + i / 40.0 * 8.2
+		swirl.append(Vector2(cos(a) * r, -34 + sin(a) * r))
+	pen.stroke(swirl, LOLLY_SWIRL, 2.3)
+	pen.pop()
 
 
 static func p_gumdrop(pen: ScenePen, x: float, b: float, s: float, c: Color) -> void:
@@ -338,25 +401,39 @@ static func p_gumdrop(pen: ScenePen, x: float, b: float, s: float, c: Color) -> 
 	pen.circle(Vector2(x - 3 * s, b - 8 * s), 1.4 * s, GUM_SHINE)
 
 
+## A cupcake: a pleated cup, three piped tiers of frosting, sprinkles, a cherry.
 static func p_cupcake(pen: ScenePen, x: float, b: float, s: float) -> void:
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
 	pen.fill(
 		PackedVector2Array(
-			[
-				Vector2(x - 13 * s, b),
-				Vector2(x - 10 * s, b - 15 * s),
-				Vector2(x + 10 * s, b - 15 * s),
-				Vector2(x + 13 * s, b)
-			]
+			[Vector2(-13, 0), Vector2(-10.5, -16), Vector2(10.5, -16), Vector2(13, 0)]
 		),
 		CUPCAKE_CUP
 	)
-	pen.line(x - 6 * s, b, x - 5 * s, b - 15 * s, CUPCAKE_LINE, 1.6 * s)
-	pen.line(x, b, x, b - 15 * s, CUPCAKE_LINE, 1.6 * s)
-	pen.line(x + 6 * s, b, x + 5 * s, b - 15 * s, CUPCAKE_LINE, 1.6 * s)
-	var p := ScenePath.at(x - 12 * s, b - 15 * s).q(x - 14 * s, b - 26 * s, x - 5 * s, b - 27 * s)
-	p.q(x, b - 36 * s, x + 6 * s, b - 27 * s).q(x + 15 * s, b - 26 * s, x + 12 * s, b - 15 * s)
-	pen.fill(p.done(), WHITE)
-	pen.circle(Vector2(x, b - 35 * s), 3.6 * s, CHERRY)
+	# Pleats: (bottom left, top left, top right, bottom right) x.
+	for d: Vector4 in [
+		Vector4(-9.4, -7.6, -4.6, -5.6), Vector4(-1.9, -1.5, 1.5, 1.9), Vector4(5.6, 4.6, 7.6, 9.4)
+	]:
+		pen.fill(
+			PackedVector2Array(
+				[Vector2(d.x, 0), Vector2(d.y, -16), Vector2(d.z, -16), Vector2(d.w, 0)]
+			),
+			CUPCAKE_LINE
+		)
+	# Frosting tiers: (half width, top, height), each over its own shade.
+	for d: Vector3 in [Vector3(14.5, -24, 10), Vector3(10.5, -31, 9), Vector3(6.5, -37, 8)]:
+		pen.rect(-d.x, d.y + 2, d.x * 2, d.z, FROSTING_SHADE, d.z / 2.0)
+		pen.rect(-d.x, d.y, d.x * 2, d.z, WHITE, d.z / 2.0)
+	# Sprinkles: (x, y, turn).
+	var dots := [Vector3(-7, -20, -20), Vector3(5, -19, 25), Vector3(-2, -27, 15)]
+	dots.append(Vector3(6, -26.6, -30))
+	for i in dots.size():
+		var d: Vector3 = dots[i]
+		pen.ellipse(Vector2(d.x, d.y), 2.0, 0.9, SPRINKLES[i], d.z)
+	pen.stroke(ScenePath.at(0, -41).q(1, -46, 5, -47).done(), CHERRY_STEM, 1.4)
+	pen.circle(Vector2(0, -40), 4, CHERRY)
+	pen.circle(Vector2(-1.2, -41.3), 1, CHERRY_SHINE)
+	pen.pop()
 
 
 static func p_pumpkin(pen: ScenePen, x: float, b: float, s: float, lit: bool = false) -> void:
@@ -468,22 +545,33 @@ static func p_cabin(pen: ScenePen, x: float, b: float, s: float) -> void:
 	pen.rect(x + 3 * s, b - 15 * s, 8 * s, 15 * s, CABIN_DOOR, 1)
 
 
+## A snowman of three balls, each over a shade so it reads on white snow, with
+## coal buttons, a scarf with a tail, a top hat and forked twig arms.
 static func p_snowman(pen: ScenePen, x: float, b: float, s: float) -> void:
-	pen.circle(Vector2(x, b - 14 * s), 15 * s, WHITE)
-	pen.circle(Vector2(x, b - 37 * s), 10 * s, WHITE)
-	pen.circle(Vector2(x - 3.5 * s, b - 39 * s), 1.5 * s, SNOWMAN_COAL)
-	pen.circle(Vector2(x + 3.5 * s, b - 39 * s), 1.5 * s, SNOWMAN_COAL)
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	pen.circle(Vector2(-1, -12), 13.5, SNOW_SHADE)
+	pen.circle(Vector2(1, -13), 12.5, WHITE)
+	for side: float in [-1.0, 1.0]:
+		pen.line(side * 12, -27, side * 24, -37.5, TWIG, 2)
+		pen.line(side * 19, -33, side * 20, -39.5, TWIG, 2)
+		pen.line(side * 19, -33, side * 25, -32.5, TWIG, 2)
+	pen.circle(Vector2(-0.8, -29.5), 10, SNOW_SHADE)
+	pen.circle(Vector2(1, -30.5), 9.2, WHITE)
+	pen.circle(Vector2(-0.6, -43.5), 7.6, SNOW_SHADE)
+	pen.circle(Vector2(1, -44.2), 7, WHITE)
+	for y: float in [-31.0, -25.5, -14.0]:
+		pen.circle(Vector2(1.5, y), 1.4, SNOWMAN_COAL)
+	pen.rect(-8, -39.5, 17, 4.6, SCARF, 2.3)
+	pen.rect(4, -38, 4.6, 11, SCARF_TAIL, 2.2)
+	pen.circle(Vector2(-1.6, -45.5), 1.3, SNOWMAN_COAL)
+	pen.circle(Vector2(4, -45.5), 1.3, SNOWMAN_COAL)
 	pen.fill(
-		PackedVector2Array(
-			[Vector2(x, b - 36 * s), Vector2(x + 8 * s, b - 34 * s), Vector2(x, b - 32.6 * s)]
-		),
-		CARROT
+		PackedVector2Array([Vector2(1.5, -43.6), Vector2(10.5, -42), Vector2(1.5, -40.6)]), CARROT
 	)
-	pen.rect(x - 11 * s, b - 29 * s, 22 * s, 4.5 * s, SCARF, 2)
-	pen.rect(x - 8 * s, b - 56 * s, 16 * s, 10 * s, SNOWMAN_COAL, 2)
-	pen.rect(x - 12 * s, b - 47 * s, 24 * s, 3 * s, SNOWMAN_COAL, 1.5)
-	pen.line(x - 13 * s, b - 18 * s, x - 24 * s, b - 28 * s, TWIG, 2 * s)
-	pen.line(x + 13 * s, b - 18 * s, x + 23 * s, b - 30 * s, TWIG, 2 * s)
+	pen.rect(-9, -52, 20, 3, SNOWMAN_COAL, 1.5)
+	pen.rect(-5.5, -61, 13, 10, SNOWMAN_COAL, 2)
+	pen.rect(-5.5, -55, 13, 2.4, HAT_BAND)
+	pen.pop()
 
 
 ## Fairy lights and a star for a pine at (x, b).
@@ -515,24 +603,21 @@ static func p_lamp(pen: ScenePen, x: float, b: float, s: float, c: Color, bulb: 
 	pen.rect(x + 6 * s, b - 47 * s, 8 * s, 3.4 * s, bulb, 1.7)
 
 
-static func p_penguin(pen: ScenePen, x: float, b: float, s: float) -> void:
-	pen.ellipse(Vector2(x, b - 15 * s), 10 * s, 15 * s, PENGUIN)
-	pen.ellipse(Vector2(x + 2 * s, b - 12 * s), 6.5 * s, 11 * s, WHITE)
-	pen.circle(Vector2(x + 3 * s, b - 25 * s), 1.6 * s, PENGUIN)
+## A penguin with a head, a white face and belly, a flipper and two feet.
+## `chick` is a grey young one; `flip` faces it left.
+static func p_penguin(
+	pen: ScenePen, x: float, b: float, s: float, chick: bool = false, flip: bool = false
+) -> void:
+	pen.push(ScenePen.place(x, b, 0.0, -s if flip else s, s))
+	pen.ellipse(Vector2(-3.5, -1.2), 4.6, 2.1, BEAK)
+	pen.ellipse(Vector2(5, -1.2), 4.6, 2.1, BEAK)
+	pen.ellipse(Vector2(0, -15), 11, 15, CHICK if chick else PENGUIN)
+	pen.circle(Vector2(1.5, -31), 9, CHICK_CAP if chick else PENGUIN)
+	pen.ellipse(Vector2(3, -13), 7.4, 11.5, WHITE)
+	pen.circle(Vector2(4.6, -30), 5.6, WHITE)
+	pen.circle(Vector2(6.2, -31.4), 1.5, PENGUIN)
 	pen.fill(
-		PackedVector2Array(
-			[
-				Vector2(x + 7 * s, b - 23 * s),
-				Vector2(x + 13 * s, b - 21.5 * s),
-				Vector2(x + 7 * s, b - 20 * s)
-			]
-		),
-		BEAK
+		PackedVector2Array([Vector2(9.6, -30.5), Vector2(16.5, -28.5), Vector2(9.6, -26.2)]), BEAK
 	)
-	pen.stroke(
-		ScenePath.at(x - 9 * s, b - 18 * s).q(x - 15 * s, b - 12 * s, x - 12 * s, b - 6 * s).done(),
-		PENGUIN,
-		3.5 * s
-	)
-	pen.line(x - 4 * s, b, x + 1 * s, b, BEAK, 2.5 * s)
-	pen.line(x + 3 * s, b, x + 8 * s, b, BEAK, 2.5 * s)
+	pen.ellipse(Vector2(-10.4, -15.2), 3.3, 9.5, CHICK_FLIPPER if chick else PENGUIN_FLIPPER, 14)
+	pen.pop()

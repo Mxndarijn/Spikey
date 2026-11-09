@@ -67,6 +67,7 @@ const MOTE_KIND := {
 	"autumn": "leaves",
 	"blossom": "petals",
 	"deepsea": "bubbles",
+	"aurora": "snow",
 }
 ## Per world: how many, and the band they move in (top, bottom), px.
 const MOTE_COUNT := {
@@ -77,6 +78,7 @@ const MOTE_COUNT := {
 	"autumn": 12,
 	"blossom": 12,
 	"deepsea": 6,
+	"aurora": 14,
 }
 const MOTE_BAND := {
 	"ice": Vector2(200, 470),
@@ -86,6 +88,7 @@ const MOTE_BAND := {
 	"autumn": Vector2(196, 470),
 	"blossom": Vector2(260, 520),
 	"deepsea": Vector2(300, 540),
+	"aurora": Vector2(330, 540),
 }
 ## Per kind: drift speed in px/s (x, y) and sideways wobble in px.
 const MOTE_MOTION := {

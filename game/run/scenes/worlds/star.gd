@@ -1,6 +1,6 @@
 extends RefCounted
 ## Star Station (Worlds v4): stars, a ringed planet, a satellite and two
-## asteroids over a big curved moon with craters and a little flag.
+## asteroids over a big curved moon with craters, a little flag and a lander.
 
 const RING := Color("#6B5BC8")
 const PLANET := Color("#7A6BD6")
@@ -15,6 +15,9 @@ const CRATER_LINE := Color("#3D3190")
 const POLE := Color("#C8D2E5")
 const FLAG := Color("#FF5A7A")
 const FLAG_SHADOW := Color(0, 0, 0, 0.2)
+const LANDER_LEG := Color("#8E84D8")
+const LANDER_FOIL := Color("#FFC93C")
+const LANDER_FOIL_SHADE := Color("#E8A21A")
 const STAR := Color("#FFFFFF")
 const SCORE := Rect2(110, 90, 140, 95)
 
@@ -65,6 +68,31 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 		)
 	)
 	pen.ellipse(Vector2(fx, fb + 1), 7, 1.6, FLAG_SHADOW)
+	_lander(pen, 112, _surf(112) + 2, 0.95)
+
+
+## A small moon lander: gold foil body on three legs, a cabin and a dish.
+static func _lander(pen: ScenePen, x: float, b: float, s: float) -> void:
+	pen.push(ScenePen.place(x, b, 0.0, s, s))
+	pen.ellipse(Vector2(0, 1), 17, 2.4, FLAG_SHADOW)
+	for d: Vector2 in [Vector2(-8, -15), Vector2(8, 15), Vector2(0, 0)]:
+		pen.line(d.x, -9, d.y, 0, LANDER_LEG, 2)
+		pen.line(d.y - 3, 0, d.y + 3, 0, LANDER_LEG, 2.4)
+	pen.fill(
+		PackedVector2Array([Vector2(-11, -9), Vector2(-8, -21), Vector2(8, -21), Vector2(11, -9)]),
+		LANDER_FOIL
+	)
+	pen.fill(
+		PackedVector2Array(
+			[Vector2(-11, -9), Vector2(-9.6, -14), Vector2(9.6, -14), Vector2(11, -9)]
+		),
+		LANDER_FOIL_SHADE
+	)
+	pen.rect(-6, -29, 12, 9, SAT_BODY, 3)
+	pen.circle(Vector2(1, -24.5), 2.4, SAT_EYE)
+	pen.line(6, -27, 13, -33, LANDER_LEG, 1.6)
+	pen.fill(ScenePath.at(9.5, -37).a(5, false, false, 16.5, -30).done(), SAT_BODY)
+	pen.pop()
 
 
 ## Like SceneProps.stars (40 above y 520, none near the planet's old spot),

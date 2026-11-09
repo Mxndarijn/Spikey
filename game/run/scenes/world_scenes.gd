@@ -37,6 +37,12 @@ const PAINTERS := {
 	"neon": preload("res://game/run/scenes/worlds/neon.gd"),
 	"haunted": preload("res://game/run/scenes/worlds/haunted.gd"),
 	"winterfest": preload("res://game/run/scenes/worlds/winterfest.gd"),
+	"meadow": preload("res://game/run/scenes/worlds/meadow.gd"),
+	"cove": preload("res://game/run/scenes/worlds/cove.gd"),
+	"clouds": preload("res://game/run/scenes/worlds/clouds.gd"),
+	"glade": preload("res://game/run/scenes/worlds/glade.gd"),
+	"aurora": preload("res://game/run/scenes/worlds/aurora.gd"),
+	"lantern": preload("res://game/run/scenes/worlds/lantern.gd"),
 }
 
 static var _midnight := {}

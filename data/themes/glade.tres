@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_j2a5a"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_y5sc6"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_j2a5a")
+name = "Deep night"
+sky_top = Color(0.101960786, 0.18431373, 0.33333334, 1)
+sky_mid = Color(0.0627451, 0.1254902, 0.23529412, 1)
+sky_bottom = Color(0.0627451, 0.1254902, 0.23529412, 1)
+
+[resource]
+script = ExtResource("2_y5sc6")
+id = "glade"
+display_name = "Mushroom Glade"
+order = 16
+sky_top = Color(0.12156863, 0.32941177, 0.3764706, 1)
+sky_mid = Color(0.07450981, 0.23137255, 0.2784314, 1)
+sky_bottom = Color(0.07450981, 0.23137255, 0.2784314, 1)
+glow = Color(0.84705883, 0.96862745, 0.7882353, 1)
+spike = Color(0.7764706, 0.9607843, 0.5411765, 1)
+spike_edge = Color(0.89411765, 0.9843137, 0.76862746, 1)
+world_accent = Color(1, 0.49411765, 0.7137255, 1)
+trail = Color(0.84705883, 1, 0.65882355, 1)
+particle = Color(1, 0.9490196, 0.65882355, 1)
+sun_ring = Color(0.10980392, 0.28627452, 0.32941177, 1)
+cloud = Color(0.10980392, 0.28627452, 0.32941177, 1)
+hill_far = Color(0.101960786, 0.27450982, 0.3137255, 1)
+hill_mid = Color(0.08235294, 0.23529412, 0.27450982, 1)
+hill_near = Color(0.05882353, 0.19607843, 0.23529412, 1)
+prop = Color(0.043137256, 0.15686275, 0.1882353, 1)
+ink = Color(0.9490196, 1, 0.95686275, 1)
+paper = Color(0.12156863, 0.32941177, 0.3764706, 1)
+sky_split = 0.6
+night = true
+room_palettes = Array[ExtResource("1_j2a5a")]([SubResource("palette_0")])
+premium = true
+price = 800

@@ -147,14 +147,18 @@ static func touch_colors(theme: ThemeDef) -> Array[Color]:
 	match theme.id:
 		"sunset":
 			return [theme.glow]
-		"jungle":
+		"jungle", "meadow":
 			return [theme.world_accent, theme.trail]
 		"autumn":
 			return AUTUMN_LEAVES
-		"ice", "deepsea", "star", "blossom", "winterfest":
+		"ice", "deepsea", "star", "blossom", "winterfest", "cove", "clouds", "aurora":
 			return [Color.WHITE]
 		"lava":
 			return [EMBER]
+		"glade":
+			return [theme.particle]
+		"lantern":
+			return [theme.world_accent]
 		"sugar":
 			return SPRINKLES
 		"desert":
@@ -187,7 +191,7 @@ static func _draw_touch(p: PortalPen, theme: ThemeDef) -> void:
 				var v: Vector2 = e[0]
 				var a: float = e[1]
 				p.line(v, v + Vector2(cos(a), sin(a)) * 7.0 * s, cols[0], 4.0)
-		"jungle", "autumn":
+		"jungle", "autumn", "meadow":
 			var i := 0
 			for e: Array in _rim(p, 5):
 				var a: float = e[1]
@@ -205,10 +209,10 @@ static func _draw_touch(p: PortalPen, theme: ThemeDef) -> void:
 					]
 				)
 				p.shape(tri, cols[0])
-		"lava":
+		"lava", "glade", "lantern":
 			for e: Array in _rim(p, 6):
 				p.blob(e[0], 3.5, 3.5, PI / 4.0, cols[0], 4)
-		"deepsea":
+		"deepsea", "cove":
 			var i := 0
 			for e: Array in _rim(p, 6):
 				var r := 3.0 + (i % 3) * 1.5
@@ -221,7 +225,7 @@ static func _draw_touch(p: PortalPen, theme: ThemeDef) -> void:
 				var d := Vector2.from_angle(deg_to_rad(i * 67.0)) * 2.5 * s
 				p.line(v - d, v + d, cols[i % cols.size()], 3.0)
 				i += 1
-		"star":
+		"star", "aurora":
 			for e: Array in _rim(p, 5):
 				p.shape(_star(e[0], 5.0 * s, 2.0 * s), cols[0])
 		"desert":
@@ -229,7 +233,7 @@ static func _draw_touch(p: PortalPen, theme: ThemeDef) -> void:
 			for e: Array in _rim(p, 6):
 				p.blob(e[0], 3.0 + i % 2, 2.4 + i % 2, 0.0, cols[0], 12)
 				i += 1
-		"blossom":
+		"blossom", "clouds":
 			for e: Array in _rim(p, 6):
 				var a: float = e[1]
 				p.blob(e[0], 5.0, 3.0, a, cols[0])

@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_xxh3o"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_fymgo"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_xxh3o")
+name = "Golden hour"
+sky_top = Color(1, 0.90588236, 0.72156864, 1)
+sky_mid = Color(1, 0.7529412, 0.56078434, 1)
+sky_bottom = Color(1, 0.7529412, 0.56078434, 1)
+
+[resource]
+script = ExtResource("2_fymgo")
+id = "meadow"
+display_name = "Windmill Meadow"
+order = 13
+sky_top = Color(0.8666667, 0.9529412, 1, 1)
+sky_mid = Color(0.6509804, 0.85882354, 0.96862745, 1)
+sky_bottom = Color(0.6509804, 0.85882354, 0.96862745, 1)
+glow = Color(1, 0.96862745, 0.8509804, 1)
+spike = Color(0.09019608, 0.1882353, 0.3019608, 1)
+spike_edge = Color(0.36078432, 0.43137255, 0.53333336, 1)
+world_accent = Color(1, 0.8235294, 0.24705882, 1)
+sun_ring = Color(0.9019608, 0.9607843, 1, 1)
+hill_far = Color(0.6039216, 0.8392157, 0.56078434, 1)
+hill_mid = Color(0.46666667, 0.76862746, 0.47843137, 1)
+hill_near = Color(0.35686275, 0.6901961, 0.41568628, 1)
+prop = Color(0.24705882, 0.56078434, 0.34117648, 1)
+ink = Color(0.09019608, 0.1882353, 0.3019608, 1)
+paper = Color(0.9647059, 0.9882353, 1, 1)
+room_palettes = Array[ExtResource("1_xxh3o")]([SubResource("palette_0")])
+price = 300

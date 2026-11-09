@@ -46,19 +46,29 @@ static func _make(
 
 static func all() -> Array[MusicTrack]:
 	return [
-		_make("candy_hop", "Candy Hop", 120, ["sugar", "blossom", "sunset"], "Bright and bouncy."),
 		_make(
-			"bubble_drift", "Bubble Drift", 92, ["deepsea", "ice", "winterfest"], "Calm and floaty."
+			"candy_hop",
+			"Candy Hop",
+			120,
+			["sugar", "blossom", "sunset", "clouds", "lantern"],
+			"Bright and bouncy."
+		),
+		_make(
+			"bubble_drift",
+			"Bubble Drift",
+			92,
+			["deepsea", "ice", "winterfest", "cove", "glade"],
+			"Calm and floaty."
 		),
 		_make(
 			"jungle_bounce",
 			"Jungle Bounce",
 			104,
-			["jungle", "autumn", "desert"],
+			["jungle", "autumn", "desert", "meadow"],
 			"Playful, with a swing."
 		),
 		_make("lava_rush", "Lava Rush", 140, ["lava", "haunted"], "Fast and tense."),
-		_make("star_arcade", "Star Arcade", 128, ["star", "neon"], "Retro arcade beeps."),
+		_make("star_arcade", "Star Arcade", 128, ["star", "neon", "aurora"], "Retro arcade beeps."),
 	]
 
 

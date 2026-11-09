@@ -43,8 +43,9 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 		SceneProps.shadow(pen, x, b, 8 * mid.scale(), mid)
 		SceneProps.p_grave(pen, x, b, mid.scale(), GRAVE, mid.slope(x) * 0.6)
 	SceneProps.put(pen, mid, [312], SceneProps.p_bare, sky, t.prop)
-	for f: Vector3 in [Vector3(520, 220, 20), Vector3(548, 160, 170), Vector3(580, 260, 60)]:
-		pen.rect(f.z, f.x, f.y, 13, FOG, 6.5)
+	# Banks of mist: (y, width, x).
+	for f: Vector3 in [Vector3(520, 220, 20), Vector3(548, 162, 170), Vector3(580, 260, 60)]:
+		_mist(pen, f.z, f.z + f.y, f.x, 13)
 	near.paint(pen)
 	var px := 204.0
 	# Sunk 2 px it would dip into the floor spikes; it sits on the surface.
@@ -66,6 +67,22 @@ static func _stars(pen: ScenePen, seed_value: int, n: int, y1: float, avoid: Vec
 		if p.y + r > 62 and (p.x - r < 30 or p.x + r > 330):
 			continue
 		pen.circle(p, r, Color(1, 1, 1, a))
+
+
+## A bank of mist from x0 to x1: flat underneath at y + h, rolling on top.
+static func _mist(pen: ScenePen, x0: float, x1: float, y: float, h: float) -> void:
+	var widths := [44.0, 30.0, 52.0, 36.0]
+	var rises := [9.0, 5.0, 11.0, 6.0]
+	var p := ScenePath.at(x0, y + h).q(x0 - 9, y + h / 2.0, x0 + 4, y + 3)
+	var x := x0 + 4
+	var i := 0
+	while x < x1 - 30:
+		var w: float = widths[i % 4]
+		p.q(x + w / 2.0, y - rises[i % 4], x + w, y + 2)
+		x += w
+		i += 1
+	p.q((x + x1) / 2.0, y - 5, x1 - 4, y + 3).q(x1 + 9, y + h / 2.0, x1, y + h)
+	pen.fill(p.done(), FOG)
 
 
 ## A bat at (x, y), two wings meeting at the body, scaled by s.

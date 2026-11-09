@@ -104,6 +104,109 @@
         "particle": "#FFFFFF"
       },
       "season": "December"
+    },
+    {
+      "id": "meadow",
+      "name": "Windmill Meadow",
+      "premium": false,
+      "price": 300,
+      "tokens": {
+        "sky-top": "#DDF3FF",
+        "sky-mid": "#A6DBF7",
+        "sky-bottom": "#A6DBF7",
+        "glow": "#FFF7D9",
+        "spike": "#17304D",
+        "spike-edge": "#5C6E88",
+        "world-accent": "#FFD23F",
+        "trail": "#FFFFFF",
+        "particle": "#FFFFFF"
+      }
+    },
+    {
+      "id": "cove",
+      "name": "Palm Cove",
+      "premium": false,
+      "price": 450,
+      "tokens": {
+        "sky-top": "#CFF2FF",
+        "sky-mid": "#8FDDEB",
+        "sky-bottom": "#8FDDEB",
+        "glow": "#FFF8D6",
+        "spike": "#0E2A47",
+        "spike-edge": "#4E6580",
+        "world-accent": "#FF7A5C",
+        "trail": "#FFFFFF",
+        "particle": "#FFFFFF"
+      }
+    },
+    {
+      "id": "clouds",
+      "name": "Cloud Kingdom",
+      "premium": false,
+      "price": 600,
+      "tokens": {
+        "sky-top": "#86C6F5",
+        "sky-mid": "#CBE8FF",
+        "sky-bottom": "#FFEAD9",
+        "glow": "#FFF6CC",
+        "spike": "#2B2A6B",
+        "spike-edge": "#6B6A9C",
+        "world-accent": "#FF8FB8",
+        "trail": "#FFFFFF",
+        "particle": "#FFFFFF"
+      }
+    },
+    {
+      "id": "glade",
+      "name": "Mushroom Glade",
+      "premium": true,
+      "price": 800,
+      "tokens": {
+        "sky-top": "#1F5460",
+        "sky-mid": "#133B47",
+        "sky-bottom": "#133B47",
+        "glow": "#D8F7C9",
+        "spike": "#C6F58A",
+        "spike-edge": "#E4FBC4",
+        "world-accent": "#FF7EB6",
+        "trail": "#D8FFA8",
+        "particle": "#FFF2A8"
+      }
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora Bay",
+      "premium": true,
+      "price": 1000,
+      "tokens": {
+        "sky-top": "#0E2747",
+        "sky-mid": "#1A4164",
+        "sky-bottom": "#1A4164",
+        "glow": "#CFF7E4",
+        "spike": "#D6E6F7",
+        "spike-edge": "#F4FAFF",
+        "world-accent": "#5CF2B0",
+        "trail": "#9CFFD6",
+        "particle": "#FFFFFF"
+      }
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern Night",
+      "premium": true,
+      "price": 800,
+      "tokens": {
+        "sky-top": "#2B1B52",
+        "sky-mid": "#4C1F50",
+        "sky-bottom": "#4C1F50",
+        "glow": "#FFE7C2",
+        "spike": "#FFD15C",
+        "spike-edge": "#FFE7A3",
+        "world-accent": "#FF6B4A",
+        "trail": "#FFE7A3",
+        "particle": "#FFD9A8"
+      },
+      "season": "February"
     }
   ]
 }

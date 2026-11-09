@@ -20,6 +20,8 @@ func test_catalog_has_the_launch_worlds() -> void:
 		assert_true(id in ids, "world %s exists" % id)
 	for id in ["autumn", "desert", "blossom", "neon", "haunted", "winterfest"]:
 		assert_true(id in ids, "world %s exists" % id)
+	for id in ["meadow", "cove", "clouds", "glade", "aurora", "lantern"]:
+		assert_true(id in ids, "world %s exists" % id)
 	assert_eq(ThemeCatalog.default_theme().id, ThemeCatalog.DEFAULT_ID)
 
 

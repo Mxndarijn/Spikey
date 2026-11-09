@@ -1,6 +1,6 @@
 class_name ScenePath
 extends RefCounted
-## Builds an outline the way an SVG path does (M, L, H, V, Q, A), in room px
+## Builds an outline the way an SVG path does (M, L, H, V, Q, C, A), in room px
 ## (360 x 640, y down). Curves become short straight pieces.
 ##   ScenePath.at(10, 20).l(30, 20).q(40, 10, 50, 20).done()
 
@@ -43,6 +43,19 @@ func q(cx: float, cy: float, x: float, y: float) -> ScenePath:
 	for i in range(1, n + 1):
 		var t := float(i) / n
 		pts.append(p0.lerp(c, t).lerp(c.lerp(p1, t), t))
+	return self
+
+
+## Cubic curve through controls (ax, ay) and (bx, by) to (x, y).
+func c(ax: float, ay: float, bx: float, by: float, x: float, y: float) -> ScenePath:
+	var p0 := last()
+	var c0 := Vector2(ax, ay)
+	var c1 := Vector2(bx, by)
+	var p1 := Vector2(x, y)
+	var length := p0.distance_to(c0) + c0.distance_to(c1) + c1.distance_to(p1)
+	var n := clampi(ceili(length / STEP), 3, 32)
+	for i in range(1, n + 1):
+		pts.append(p0.bezier_interpolate(c0, c1, p1, float(i) / n))
 	return self
 
 

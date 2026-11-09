@@ -23,6 +23,15 @@ const PRICES := {
 		"mochi": 400,
 		"tock": 450,
 		"bubbles": 500,
+		"waddle": 300,
+		"flutter": 300,
+		"boo": 350,
+		"hamlet": 400,
+		"scoop": 400,
+		"glim": 450,
+		"lumi": 450,
+		"bolt": 500,
+		"nova": 550,
 	},
 	Catalog.WORLD:
 	{
