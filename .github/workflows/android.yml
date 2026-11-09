@@ -166,11 +166,18 @@ jobs:
         run: godot --headless --path . --import || godot --headless --path . --import
 
       - name: Install the Android build template
-        # Godot's Gradle project goes into android/build (ignored by git). Exporting only the
-        # data pack installs it without running Gradle, so it can be changed before the build.
+        # Godot's Gradle project goes into android/build (ignored by git). Done by hand, the
+        # way Godot's own "Install Android Build Template" does it (unzip android_source.zip
+        # from the export templates and note the version), so the Gradle files can be changed
+        # before the build; --install-android-build-template only works together with a build.
         run: |
-          godot --headless --path . --install-android-build-template \
-            --export-pack "Android" "$RUNNER_TEMP/template-install.pck"
+          version="$(echo "$GODOT_VERSION" | tr '-' '.')"
+          source_zip="$HOME/.local/share/godot/export_templates/$version/android_source.zip"
+          test -f "$source_zip" || { echo "::error::$source_zip is missing."; exit 1; }
+          mkdir -p android/build
+          printf '%s\n' "$version" > android/.build_version
+          printf '\n' > android/build/.gdignore
+          unzip -q -o "$source_zip" -d android/build
           test -f android/build/build.gradle \
             || { echo "::error::The Android build template was not installed."; exit 1; }
 
