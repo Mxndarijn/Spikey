@@ -7,6 +7,8 @@
 # Firebase config, written by CI from secrets (docs/PUSH_SETUP.md)
 /google-services.json
 /GoogleService-Info.plist
+# Firebase iOS libraries, fetched by the iOS workflow
+/ios/plugins/
 *.translation
 /build/
 

@@ -12,6 +12,11 @@ name: iOS TestFlight
 #     fastlane (see .github/ios/fastlane/Fastfile).
 on:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Upload to TestFlight and post on Discord (off: only build and sign)'
+        type: boolean
+        default: true
   push:
     tags: ['v*']
 
@@ -87,6 +92,43 @@ jobs:
           else
             echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
           fi
+
+      - name: Write the Firebase config (Board alerts)
+        # Optional: with the GOOGLE_SERVICE_INFO_PLIST secret set (the whole
+        # GoogleService-Info.plist from Firebase, docs/PUSH_SETUP.md) the build can receive
+        # push notifications; without it the build works, without push.
+        id: firebase
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > GoogleService-Info.plist
+            grep -q "GOOGLE_APP_ID" GoogleService-Info.plist \
+              || { echo "::error::GOOGLE_SERVICE_INFO_PLIST is not a GoogleService-Info.plist file."; exit 1; }
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "Board alerts: Firebase"
+          else
+            echo "::notice::No GOOGLE_SERVICE_INFO_PLIST secret, so this build gets no push notifications."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch the Firebase iOS libraries
+        # About 120 MB of prebuilt frameworks: too big for the repository, so they come from
+        # the plugin's release (the same version as addons/godotx_firebase), checked by hash.
+        if: steps.firebase.outputs.push == 'true'
+        env:
+          PLUGIN_URL: https://github.com/godot-x/firebase/releases/download/2.4.1/godotx_firebase.zip
+          PLUGIN_SHA256: eacfc7a3e777f5731865046f33204b00f4101612c0be651ebd4cecf17a428565
+        run: |
+          curl -fsSL --retry 5 -o "$RUNNER_TEMP/godotx_firebase.zip" "$PLUGIN_URL"
+          echo "$PLUGIN_SHA256  $RUNNER_TEMP/godotx_firebase.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/godotx_firebase.zip" \
+            "godotx_firebase/ios/plugins/firebase_core/*" \
+            "godotx_firebase/ios/plugins/firebase_messaging/*" -d "$RUNNER_TEMP/godotx"
+          mkdir -p ios/plugins
+          cp -R "$RUNNER_TEMP/godotx/godotx_firebase/ios/plugins/firebase_core" ios/plugins/
+          cp -R "$RUNNER_TEMP/godotx/godotx_firebase/ios/plugins/firebase_messaging" ios/plugins/
+          ls ios/plugins/firebase_core ios/plugins/firebase_messaging
 
       - name: Import project
         run: godot --headless --path . --import || godot --headless --path . --import
@@ -225,6 +267,9 @@ jobs:
       - name: Build & upload to TestFlight
         run: bundle exec fastlane beta
         working-directory: .github/ios
+        env:
+          # A manual run with "upload" off stops after building and signing.
+          SKIP_UPLOAD: ${{ inputs.upload == false && 'true' || 'false' }}
 
       - name: Keep the IPA
         if: success()
@@ -243,7 +288,7 @@ jobs:
       - name: Announce on Discord
         # Optional, same DISCORD_WEBHOOK_URL secret as the Android workflow. No file: an IPA
         # only installs through TestFlight.
-        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && inputs.upload != false
         uses: ./.github/actions/discord-embed
         with:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}
