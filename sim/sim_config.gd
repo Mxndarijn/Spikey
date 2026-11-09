@@ -22,7 +22,8 @@ extends RefCounted
 ##     one leads through (no more bouncing between the portal and a spike).
 ##     Stalactite Run: out of a portal, the gap ahead stays at the bird's
 ##     height (it no longer moves up to 40 px before the player sees the room).
-const GAMEPLAY_VERSION := 10
+## 11: Coin Garden: every bounce adds a coin, even when one is already out.
+const GAMEPLAY_VERSION := 11
 const TICKS_PER_SECOND := 60
 const SUB := 64
 

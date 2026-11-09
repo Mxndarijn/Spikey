@@ -3,6 +3,7 @@ extends TestCase
 ## into it collects it. Part of the gameplay rules (GAMEPLAY_VERSION 2).
 
 const HUD_SCENE := preload("res://game/ui/hud.tscn")
+const Rooms := preload("res://tests/unit/test_rooms.gd")
 
 
 ## Flies with the gap-seeking test bot until the next wall bounce.
@@ -117,3 +118,35 @@ func test_practice_runs_place_no_bounce_coins() -> void:
 	real.step(true)
 	assert_true(_step_until_bounce(real))
 	assert_true(real.state.coin_active, "real runs still place one")
+
+
+func test_coin_garden_bounces_add_a_coin_even_with_one_out() -> void:
+	var sim := Rooms.sim_in_room("garden", 6)
+	sim.step(true)
+	assert_true(_step_until_bounce(sim), "first bounce")
+	assert_true(sim.state.coin_active, "the usual bounce coin")
+	# Keep the coin out of the bird's way so it stays out.
+	sim.state.coin_y = SimConfig.COIN_MAX_Y
+	var before := _room_coins(sim)
+	assert_true(_step_until_bounce(sim), "second bounce")
+	assert_true(sim.state.coin_active, "the bounce coin is still out")
+	assert_eq(_room_coins(sim), before + 1, "and another coin joined it")
+
+
+func test_other_rooms_keep_one_bounce_coin() -> void:
+	var sim := Rooms.sim_in_room("open", 6)
+	sim.step(true)
+	assert_true(_step_until_bounce(sim))
+	sim.state.coin_y = SimConfig.COIN_MAX_Y
+	var before := _room_coins(sim)
+	assert_true(_step_until_bounce(sim))
+	assert_eq(_room_coins(sim), before, "no extra coin outside Coin Garden")
+
+
+## Coins the room has placed so far (collected ones included).
+static func _room_coins(sim: GameSim) -> int:
+	var n := 0
+	for h in sim.room.hazards:
+		if h.kind == "coin":
+			n += 1
+	return n

@@ -424,15 +424,22 @@ func _enter_room(index: int) -> void:
 	room.start(RoomCatalog.all()[index], index, self, _rng)
 
 
-## Places a coin at a random spot, unless one is already out.
+## Places a coin at a random spot, unless one is already out. In a room with
+## `bounce_coin_stacks` (Coin Garden) the extra coin becomes a room coin instead.
 func _spawn_coin() -> void:
-	if state.coin_active:
+	var extra := state.coin_active
+	if extra and not room.def.bounce_coin_stacks:
 		return
-	state.coin_active = true
 	var span_x := SimConfig.COIN_MAX_X - SimConfig.COIN_MIN_X + 1
 	var span_y := SimConfig.COIN_MAX_Y - SimConfig.COIN_MIN_Y + 1
-	state.coin_x = SimConfig.COIN_MIN_X + _rng.next_below(span_x)
-	state.coin_y = SimConfig.COIN_MIN_Y + _rng.next_below(span_y)
+	var x := SimConfig.COIN_MIN_X + _rng.next_below(span_x)
+	var y := SimConfig.COIN_MIN_Y + _rng.next_below(span_y)
+	if extra:
+		room.add_coin(x, y)
+		return
+	state.coin_active = true
+	state.coin_x = x
+	state.coin_y = y
 	events.append(Event.COIN_SPAWN)
 
 

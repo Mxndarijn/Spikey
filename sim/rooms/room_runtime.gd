@@ -10,6 +10,7 @@ const BLINK_PERIOD := 60
 ## Squeeze Box: each point in the room moves both walls in by this much.
 const SQUEEZE_STEP := 6 * SimConfig.SUB
 const SQUEEZE_MAX_POINTS := 10
+const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 
 var def: RoomDef
 ## Index of `def` in RoomCatalog.all() (part of the checksum).
@@ -108,6 +109,14 @@ func slot_depth(side: int, slot: int) -> int:
 		return SimConfig.SPIKE_DEPTH
 	var phase := (slot * 29 + tide_salt) % TIDE_PERIOD
 	return SimTrig.ping_pong(t + phase, TIDE_PERIOD, TIDE_MAX_DEPTH)
+
+
+## Adds a room coin at (x, y) now (Coin Garden's extra bounce coins).
+func add_coin(x: int, y: int) -> void:
+	var h: Hazard = CoinPickup.new(x, y, 0)
+	h.skin = def.skin
+	h.t = t
+	hazards.append(h)
 
 
 ## A wall just got new spikes: redraw the extra wall rules for it.

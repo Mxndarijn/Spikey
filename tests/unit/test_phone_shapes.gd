@@ -1,7 +1,7 @@
 extends TestCase
 ## Phones of every shape: no black bars, the room keeps its 360 x 640 size,
-## sits centred (in the safe area when it fits) and the space around it is
-## filled. HUD and menus follow the room.
+## sits at the top of the safe area (centred sideways) and the space around it
+## is filled. HUD and menus follow the room.
 
 const TEST_PATH := "user://test_phone_shapes_profile.json"
 const ROOM := Vector2(360, 640)
@@ -13,18 +13,18 @@ func test_project_expands_instead_of_letterboxing() -> void:
 	assert_eq(str(ProjectSettings.get_setting("display/window/stretch/mode")), "canvas_items")
 
 
-func test_room_keeps_its_size_and_is_centred_on_every_shape() -> void:
+func test_room_keeps_its_size_and_sits_at_the_top_on_every_shape() -> void:
 	# visible canvas size -> expected room position, with the whole screen safe.
 	var cases := {
 		Vector2(360, 640): Vector2(0, 0),  # 9:16
-		Vector2(360, 780): Vector2(0, 70),  # 9:19.5
-		Vector2(360, 840): Vector2(0, 100),  # 9:21
+		Vector2(360, 780): Vector2(0, 0),  # 9:19.5
+		Vector2(360, 840): Vector2(0, 0),  # 9:21
 		Vector2(480, 640): Vector2(60, 0),  # 3:4 tablet
 	}
 	for visible: Vector2 in cases:
 		var r := ScreenLayout.room_rect(visible, Rect2(Vector2.ZERO, visible))
 		assert_eq(r.size, ROOM, "same room size at %s" % visible)
-		assert_eq(r.position, cases[visible], "centred at %s" % visible)
+		assert_eq(r.position, cases[visible], "placed right at %s" % visible)
 
 
 ## iPhone 13 shape: 1170 x 2532 px, notch 141 px, home bar 102 px.
@@ -36,13 +36,14 @@ func test_room_sits_inside_the_safe_area_of_a_notched_phone() -> void:
 	var r := ScreenLayout.room_rect(visible, safe)
 	assert_eq(r.size, ROOM)
 	assert_true(safe.encloses(r), "room %s inside the safe area %s" % [r, safe])
+	assert_eq(r.position.y, ceilf(safe.position.y), "right under the notch")
 	assert_true(Rect2(Vector2.ZERO, visible).encloses(r), "and on screen")
 
 
 func test_a_safe_area_too_small_for_the_room_falls_back_to_the_screen() -> void:
 	var visible := Vector2(360, 660)
 	var r := ScreenLayout.room_rect(visible, Rect2(0, 40, 360, 600))
-	assert_eq(r.position, Vector2(0, 10), "centred on the screen instead")
+	assert_eq(r.position, Vector2(0, 0), "at the top of the screen instead")
 
 
 func test_missing_safe_area_means_the_whole_screen() -> void:

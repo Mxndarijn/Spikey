@@ -33,6 +33,8 @@ var gravity_sign := 1
 var speed := Speed.NORMAL
 ## Whether the usual coin appears on a wall bounce.
 var bounce_coin := true
+## Coin Garden: a bounce adds a coin even when one is already out.
+var bounce_coin_stacks := false
 
 ## Factories (Callables returning a Hazard), built at room start in order.
 var hazards: Array[Callable] = []

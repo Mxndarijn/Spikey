@@ -3,8 +3,9 @@ extends RefCounted
 ## Where the 360 x 640 room sits on a phone of any shape.
 ## The project stretches with aspect "expand": the screen is at least 360 x 640
 ## and grows taller (or wider) to fill the phone, so there are no black bars.
-## The room keeps its size on every phone (fair leaderboards) and sits centred
-## in the safe area (clear of notches and the home bar) when it fits there.
+## The room keeps its size on every phone (fair leaderboards). It sits as
+## high as it can, right under the notch (the top of the safe area), so the
+## spare height goes below it; sideways it is centred.
 ## The world, the HUD and the menus all use the same room rect; RoomView fills
 ## the space around it with the spike band colour.
 
@@ -12,8 +13,9 @@ const ROOM := Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
 
 
 ## The room's rect on a screen of `visible` size (canvas px), with `safe` the
-## area clear of notches. Per axis: centred in the safe area when the room fits
-## there, else centred on the screen. Whole pixels, so lines stay crisp.
+## area clear of notches. Up and down: at the top of the safe area when the
+## room fits there, else at the top of the screen. Sideways: centred in the
+## safe area when it fits, else on the screen. Whole pixels, so lines stay crisp.
 static func room_rect(visible: Vector2, safe: Rect2) -> Rect2:
 	var pos := Vector2.ZERO
 	for axis in 2:
@@ -23,8 +25,11 @@ static func room_rect(visible: Vector2, safe: Rect2) -> Rect2:
 		if safe.size[axis] >= room:
 			from = safe.position[axis]
 			span = safe.size[axis]
-		var at := from + (span - room) / 2.0
-		pos[axis] = clampf(roundf(at), 0.0, maxf(0.0, visible[axis] - room))
+		# Vertical (axis 1): as high as possible; horizontal: centred.
+		var at := from if axis == 1 else from + (span - room) / 2.0
+		# Rounded up vertically, so a fractional notch edge never overlaps the room.
+		var px := ceilf(at) if axis == 1 else roundf(at)
+		pos[axis] = clampf(px, 0.0, maxf(0.0, visible[axis] - room))
 	return Rect2(pos, ROOM)
 
 
