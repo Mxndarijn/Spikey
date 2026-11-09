@@ -7,6 +7,8 @@ extends PanelContainer
 
 const VERIFIED_ICON := preload("res://assets/ui/icons/verified.svg")
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
+const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
+const REVIVE_MARK := 16.0
 const HEIGHT := 48.0
 const RANK_WIDTH := 34.0
 const FLYER := 32.0
@@ -40,6 +42,8 @@ func _init(e: LeaderboardBoard.Entry, p_prize: int = 0) -> void:
 	row.add_child(labels[0])
 	row.add_child(icon(flyer_texture(e.flyer_id), FLYER))
 	row.add_child(labels[1])
+	if e.revived:
+		row.add_child(revive_mark())
 	if prize > 0:
 		var won := HBoxContainer.new()
 		won.name = "Prize"
@@ -110,6 +114,15 @@ static func score_label(score: int) -> Label:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.text = str(score)
 	return l
+
+
+## The small ink heart next to the score of a run that used its revive.
+static func revive_mark(side: float = REVIVE_MARK) -> TextureRect:
+	var mark := icon(HEART_ICON, side)
+	mark.name = "Revived"
+	mark.modulate = UiTokens.ON_PANEL
+	mark.tooltip_text = "Used a revive"
+	return mark
 
 
 ## A flyer's idle art, or the first flyer's when the id is unknown.

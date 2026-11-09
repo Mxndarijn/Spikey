@@ -8,15 +8,20 @@
 
 config_version=5
 
+[admob]
+
+general/android/app_id="ca-app-pub-6064406000465979~6679947541"
+general/ios/app_id="ca-app-pub-6064406000465979~2942727569"
+
 [application]
 
 config/name="Flapjaw"
 config/version="0.1.0"
 run/main_scene="res://game/main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
-config/icon="res://icon.svg"
-boot_splash/show_image=false
 boot_splash/bg_color=Color(0.105882, 0.070588, 0.25098, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
 
 [debug]
 
@@ -31,6 +36,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/admob/plugin.cfg")
 
 [rendering]
 

@@ -8,6 +8,8 @@ const PATH := "user://profile.json"
 ## 2: met rooms and per-room clear counts (version 1 saves load with none).
 ## 3: diamonds and bought packs (older saves load with none).
 const VERSION := 3
+## Revives without an ad, per local day.
+const FREE_REVIVES_PER_DAY := 3
 
 ## Gold: collected in runs (Economy).
 var coins := 0
@@ -53,6 +55,9 @@ var board_alerts := true
 ## The OS permission prompt for notifications was shown (it is shown once,
 ## after the first top-10 finish).
 var push_asked := false
+## Free revives used on `free_revives_day` ("YYYY-MM-DD", the phone's date).
+var free_revives_used := 0
+var free_revives_day := ""
 
 
 func _init() -> void:
@@ -115,6 +120,28 @@ func record_run(score: int, coins_collected: int) -> int:
 	return earned
 
 
+## The phone's date, the day free revives count for.
+static func today() -> String:
+	return Time.get_date_string_from_system()
+
+
+## Free revives still left on `day`; a new day starts with all of them.
+func free_revives_left(day: String) -> int:
+	var used := free_revives_used if day == free_revives_day else 0
+	return maxi(FREE_REVIVES_PER_DAY - used, 0)
+
+
+## Spends one of `day`'s free revives. Returns false when none is left.
+func use_free_revive(day: String) -> bool:
+	if free_revives_left(day) <= 0:
+		return false
+	if day != free_revives_day:
+		free_revives_day = day
+		free_revives_used = 0
+	free_revives_used += 1
+	return true
+
+
 ## A real run entered this room; practice runs never call this.
 func record_room_met(id: String) -> void:
 	if not id.is_empty() and id not in met_rooms:
@@ -170,6 +197,8 @@ func to_dict() -> Dictionary:
 		"large_buttons": large_buttons,
 		"board_alerts": board_alerts,
 		"push_asked": push_asked,
+		"free_revives_used": free_revives_used,
+		"free_revives_day": free_revives_day,
 	}
 
 
@@ -201,6 +230,10 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.large_buttons = bool(d.get("large_buttons", false))
 	p.board_alerts = bool(d.get("board_alerts", true))
 	p.push_asked = bool(d.get("push_asked", false))
+	var revive_day: Variant = d.get("free_revives_day", "")
+	if revive_day is String:
+		p.free_revives_day = revive_day
+		p.free_revives_used = clampi(int(d.get("free_revives_used", 0)), 0, FREE_REVIVES_PER_DAY)
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in Catalog.KINDS:

@@ -8,6 +8,8 @@ extends CanvasLayer
 ##              coins top right.
 ##   Paused:    the dimmed room with "Paused", the score, Music and Sounds
 ##              toggle circles, the round Resume, and Home ("Ends this run").
+##   Crashed:   the revive offer (ReviveOffer) on the dimmed room, when the
+##              run has its revive left: Revive (free, or for an ad) or Skip.
 ##   Game over: "Game over", the score, "Best 92", a stats row (+coins, rooms
 ##              cleared this run, today's rank) and the Game over dock (Home,
 ##              Rooms | Again | #rank, Style). A new best gets the gold ribbon,
@@ -48,6 +50,7 @@ const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
+const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 ## A collected coin flies from the room into the coin counter (top right).
 const FLY_TIME := 0.5
 const FLY_SIZE := 28.0
@@ -68,6 +71,9 @@ const WALL_CLEAR := 54.0
 var reduced_motion := false
 ## The room on screen (ScreenLayout); the HUD is laid out over it. Main sets
 ## it when the screen changes shape.
+## The revive offer after a crash. Main shows it (show_offer) and listens to
+## its Revive and Skip; the HUD clears the running HUD from under it.
+var revive_offer := ReviveOffer.new()
 var room_rect := Rect2(Vector2.ZERO, ScreenLayout.ROOM):
 	set(value):
 		room_rect = value
@@ -98,6 +104,10 @@ var _best_score := Label.new()
 var _stats := HBoxContainer.new()
 ## The run's seed in small text, so a player can report a run that looked wrong.
 var _seed := Label.new()
+## "Revived at 63" under the best score, when the run used its revive.
+var _revived_line := HBoxContainer.new()
+var _revived_icon := TextureRect.new()
+var _revived_text := Label.new()
 var _stat_coins: Label
 var _stat_rooms: Label
 var _stat_rank: Label
@@ -125,6 +135,8 @@ func _ready() -> void:
 	_replay.again_pressed.connect(replay_again_pressed.emit)
 	_replay.back_pressed.connect(replay_back_pressed.emit)
 	_replay.changed.connect(_on_replay_changed)
+	_root.add_child(revive_offer)
+	revive_offer.shown.connect(_on_revive_offer_shown)
 	_toast.theme_type_variation = &"SkyLabel"
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.anchor_right = 1.0
@@ -141,7 +153,19 @@ func _notification(what: int) -> void:
 	if what != NOTIFICATION_PREDELETE:
 		return
 	for n: Node in [
-		_run_coins, _practice, _replay, _score, _hint, _toast, _paused, _game_over, _new_best
+		_run_coins,
+		_practice,
+		_replay,
+		revive_offer,
+		_score,
+		_hint,
+		_toast,
+		_paused,
+		_game_over,
+		_new_best,
+		_revived_line,
+		_revived_icon,
+		_revived_text,
 	]:
 		if is_instance_valid(n) and n.get_parent() == null:
 			n.free()
@@ -343,6 +367,20 @@ func _build_game_over() -> void:
 	_best_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_best_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_at(_game_over, _best_score, 274)
+	_revived_line.alignment = BoxContainer.ALIGNMENT_CENTER
+	_revived_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_revived_line.add_theme_constant_override("separation", 5)
+	_revived_icon.texture = HEART_ICON
+	_revived_icon.custom_minimum_size = Vector2(14, 14)
+	_revived_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_revived_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_revived_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_revived_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_revived_line.add_child(_revived_icon)
+	_revived_text.theme_type_variation = &"RoomMuted"
+	_revived_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_revived_line.add_child(_revived_text)
+	_at(_game_over, _revived_line, 300)
 	_stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stats.add_theme_constant_override("separation", STAT_GAP)
@@ -574,7 +612,17 @@ func show_practice_over(points: int) -> void:
 	_practice.show_over(points)
 
 
+## The revive offer came up: it covers the room, so the running HUD goes.
+func _on_revive_offer_shown() -> void:
+	_pause_button.visible = false
+	_back_button.visible = false
+	_run_coins.visible = false
+	_score.visible = false
+	_hint.visible = false
+
+
 func show_ready() -> void:
+	revive_offer.visible = false
 	_hint.visible = true
 	_pause_button.visible = false
 	_back_button.visible = true
@@ -593,8 +641,11 @@ func show_ready() -> void:
 		_replay.show_playing()
 
 
-func show_running() -> void:
-	_hint.visible = false
+## `waiting`: a revived bird waits for a tap (the player may have looked away
+## for an ad), so "Tap to flap" shows until it comes.
+func show_running(waiting: bool = false) -> void:
+	revive_offer.visible = false
+	_hint.visible = waiting
 	_back_button.visible = false
 	# A replay has no pause; its exit sits where pause would be.
 	_pause_button.visible = not _replaying
@@ -625,7 +676,8 @@ func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> voi
 
 
 ## `previous_best` shows as "was 87" on a new best; `rooms` is how many rooms
-## this run cleared; `rank` today's place (0 while unknown).
+## this run cleared; `rank` today's place (0 while unknown); `revived_at` the
+## score the run was revived at (-1: it wasn't).
 func show_game_over(
 	score: int,
 	best: int,
@@ -634,8 +686,10 @@ func show_game_over(
 	previous_best: int = 0,
 	rooms: int = 0,
 	rank: int = 0,
-	seed_value: int = -1
+	seed_value: int = -1,
+	revived_at: int = -1
 ) -> void:
+	revive_offer.visible = false
 	_pause_button.visible = false
 	_back_button.visible = false
 	_run_coins.visible = false
@@ -652,6 +706,14 @@ func show_game_over(
 	_final_score.offset_top = top
 	_final_score.offset_bottom = top + _final_score.get_combined_minimum_size().y
 	_best_score.offset_top = 276.0 if is_new_best else 274.0
+	_revived_line.visible = revived_at >= 0
+	_revived_text.text = "Revived at %d" % revived_at
+	# The heart takes the room text's colour (white on night rooms).
+	_revived_icon.modulate = _revived_text.get_theme_color("font_color")
+	_revived_line.offset_top = _best_score.offset_top + 26.0
+	_revived_line.offset_bottom = (
+		_revived_line.offset_top + _revived_line.get_combined_minimum_size().y
+	)
 	_stats.offset_top = 356.0 if is_new_best else 330.0
 	_stats.offset_bottom = _stats.offset_top + _stats.get_combined_minimum_size().y
 	_seed.text = seed_text(seed_value)

@@ -29,7 +29,11 @@ extends RefCounted
 ##     turning back off the Bumper Cloud).
 ## 14: each exit is planned one point early (on the 9th of every 10) and
 ##     shown as a ghost on the wall it will open on; no spikes in its slots.
-const GAMEPLAY_VERSION := 14
+## 15: revive (GameSim.revive): once per run a dead bird arrives in the same
+##     room again as if through a portal. Runs without one play as in 14.
+const GAMEPLAY_VERSION := 15
+## How often a run can be revived.
+const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
 const SUB := 64
 

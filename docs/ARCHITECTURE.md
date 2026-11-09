@@ -201,7 +201,7 @@ Attest / Play Integrity to confirm a real device.
 | Exit portal looks (buyable cosmetic) | `PortalStyle` (id, `kind`, `draw_portal`, `draw_thumb`) + `PortalPainter` (one draw function per kind); never changes the exit size |
 | Flap trails (buyable cosmetic) | Ten `TrailStyle`s with `stamp_on_flap`: one stamp where each flap happened (`TrailStyle.flap_trails()`, shapes in `TrailPainter`) |
 | Crash effects (buyable cosmetic) | `CrashStyle` (one row in `STYLES`) + `CrashPainter` (one draw function per kind) + `CrashView`; starts after the sim has ended the run and only knows where the flyer was drawn |
-| Name plates (buyable cosmetic) | `PlateStyle` + `PlatePainter`, drawn behind a `LeaderboardRow`. The plate goes along in a run's loadout; `get_board` returns it per row (migration `20261109200000_board_plates.sql`) |
+| Name plates (buyable cosmetic) | `PlateStyle` + `PlatePainter`, drawn behind a `LeaderboardRow`. The plate goes along in a run's loadout; `get_board` returns it per row (migration `20261110095000_board_plates.sql`) |
 | Customize | `LookScreen` ("Your look": one `LookCard` per kind with what is in use) opens a kind's list, `CollectionScreen` (titled by the kind, no tabs); its Back returns to the overview |
 | Designed UI (game over, menus, buttons) | SVGs in `assets/ui/` + one shared UI `Theme` resource ([BACKLOG](BACKLOG.md)) |
 | 6 launch themes | `data/themes/` (palette, background props, spike skin) |
@@ -215,7 +215,7 @@ Attest / Play Integrity to confirm a real device.
 | Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
-input) and replayed by the server. Design that before adding revive.
+input) and replayed by the server. The design draft is in [REVIVE.md](REVIVE.md).
 
 ## Quality gate
 

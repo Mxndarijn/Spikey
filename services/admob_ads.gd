@@ -1,0 +1,168 @@
+class_name AdmobAds
+extends AdsService
+## Rewarded ads from AdMob, through the Poing Studios plugin (addons/admob).
+## Phones only: Main loads this script when the plugin's native side is in the
+## build, so desktop runs and tests never touch the plugin.
+##
+## start() asks Google's consent service what this player has to be asked
+## (the consent form in Europe), shows that form when needed, and only then
+## starts the ads SDK. No consent, no ads: the game then offers only its free
+## revives. One rewarded ad is kept loaded for the revive offer.
+
+var _unit := ""
+var _started := false
+## The player may be shown ads and the SDK is being started.
+var _initialized := false
+var _sdk_ready := false
+var _wants_ad := false
+var _loading := false
+var _loader: RewardedAdLoader
+var _ad: RewardedAd
+var _earned := false
+
+
+## `unit`: the rewarded ad unit (AdsService.revive_unit).
+func _init(unit: String) -> void:
+	_unit = unit
+
+
+func start() -> void:
+	if _started:
+		return
+	_started = true
+	UserMessagingPlatform.consent_information.update(
+		ConsentRequestParameters.new(), _on_consent_known, _on_consent_failed
+	)
+
+
+func is_ready() -> bool:
+	return _ad != null
+
+
+func preload_rewarded() -> void:
+	_wants_ad = true
+	if _sdk_ready:
+		_load()
+
+
+func show_rewarded() -> void:
+	if _ad == null:
+		rewarded_closed.emit(Result.FAILED)
+		return
+	_earned = false
+	var listener := OnUserEarnedRewardListener.new()
+	listener.on_user_earned_reward = _on_earned
+	_ad.show(listener)
+
+
+func privacy_options_required() -> bool:
+	var info := UserMessagingPlatform.consent_information
+	return (
+		info.get_privacy_options_requirement_status()
+		== ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED
+	)
+
+
+func show_privacy_options() -> void:
+	UserMessagingPlatform.show_privacy_options_form(_on_privacy_closed)
+
+
+## Google knows what this player must be asked: show the form if there is one
+## to answer, else go on.
+func _on_consent_known() -> void:
+	var info := UserMessagingPlatform.consent_information
+	var required := info.get_consent_status() == ConsentInformation.ConsentStatus.REQUIRED
+	if required and info.get_is_consent_form_available():
+		UserMessagingPlatform.load_consent_form(_on_form_loaded, _on_consent_failed)
+	else:
+		_initialize()
+
+
+func _on_form_loaded(form: ConsentForm) -> void:
+	form.show(_on_consent_failed)
+
+
+## The consent check or form ended (`_error` is null when it went well). What
+## the player answered before still counts, so the ads may start anyway.
+func _on_consent_failed(_error: FormError = null) -> void:
+	_initialize()
+
+
+func _on_privacy_closed(_error: FormError = null) -> void:
+	_initialize()
+
+
+## Starts the ads SDK once, and only when ads may be requested for this player.
+func _initialize() -> void:
+	if _initialized:
+		return
+	var status := UserMessagingPlatform.consent_information.get_consent_status()
+	var allowed := (
+		status == ConsentInformation.ConsentStatus.OBTAINED
+		or status == ConsentInformation.ConsentStatus.NOT_REQUIRED
+	)
+	if not allowed:
+		return
+	_initialized = true
+	var config := RequestConfiguration.new()
+	# Nothing rougher than "parental guidance" in a cartoon arcade game.
+	config.max_ad_content_rating = RequestConfiguration.MAX_AD_CONTENT_RATING_PG
+	MobileAds.set_request_configuration(config)
+	var listener := OnInitializationCompleteListener.new()
+	listener.on_initialization_complete = _on_sdk_ready
+	MobileAds.initialize(listener)
+
+
+func _on_sdk_ready(_status: InitializationStatus) -> void:
+	_sdk_ready = true
+	if _wants_ad:
+		_load()
+
+
+func _load() -> void:
+	if _ad != null or _loading:
+		return
+	_loading = true
+	var callback := RewardedAdLoadCallback.new()
+	callback.on_ad_loaded = _on_loaded
+	callback.on_ad_failed_to_load = _on_load_failed
+	_loader = RewardedAdLoader.new()
+	_loader.load(_unit, AdRequest.new(), callback)
+
+
+func _on_loaded(ad: RewardedAd) -> void:
+	_loading = false
+	_ad = ad
+	var callback := FullScreenContentCallback.new()
+	callback.on_ad_dismissed_full_screen_content = _on_dismissed
+	callback.on_ad_failed_to_show_full_screen_content = _on_show_failed
+	ad.full_screen_content_callback = callback
+
+
+## No ad right now (offline, nothing to show). The next run asks again.
+func _on_load_failed(_error: LoadAdError) -> void:
+	_loading = false
+
+
+func _on_earned(_item: RewardedItem) -> void:
+	_earned = true
+
+
+## The ad closed. The answer waits one more step, so a reward that arrives in
+## the same moment is counted.
+func _on_dismissed() -> void:
+	_finish.call_deferred(false)
+
+
+func _on_show_failed(_error: AdError) -> void:
+	_finish.call_deferred(true)
+
+
+func _finish(failed: bool) -> void:
+	if _ad != null:
+		_ad.destroy()
+		_ad = null
+	if failed:
+		rewarded_closed.emit(Result.FAILED)
+	else:
+		rewarded_closed.emit(Result.EARNED if _earned else Result.DISMISSED)

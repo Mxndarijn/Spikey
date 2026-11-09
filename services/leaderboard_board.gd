@@ -33,6 +33,8 @@ class Entry:
 	var is_me := false
 	## The server's id of this best run, for watching its replay (0: none).
 	var run_id := 0
+	## This best run used its revive; the boards mark it with a small heart.
+	var revived := false
 
 	func _init(p_rank: int, p_name: String, p_flyer: String, p_score: int) -> void:
 		rank = p_rank

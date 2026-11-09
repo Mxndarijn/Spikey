@@ -5,7 +5,17 @@ extends RefCounted
 ## the server.
 
 enum Event {
-	START, FLAP, BOUNCE, SCORE, ROOM_CHANGE, DEATH, COIN_SPAWN, COIN, EXIT_OPEN, EXIT_PREVIEW
+	START,
+	FLAP,
+	BOUNCE,
+	SCORE,
+	ROOM_CHANGE,
+	DEATH,
+	COIN_SPAWN,
+	COIN,
+	EXIT_OPEN,
+	EXIT_PREVIEW,
+	REVIVE
 }
 
 ## How hard a bumper shoves the bird (vertical speed, sub-units per step): a bit
@@ -148,6 +158,43 @@ func step(tap: bool) -> void:
 		room.ticks += 1
 
 	state.tick += 1
+
+
+## A dead bird in a real run can be revived SimConfig.MAX_REVIVES times.
+func can_revive() -> bool:
+	return not state.alive and not is_practice() and state.revives < SimConfig.MAX_REVIVES
+
+
+## Brings a dead bird back: it arrives in the same room again as if it had
+## just come through a portal (the room starts fresh, the bird waits
+## ARRIVAL_HOLD ticks at a side wall, at mid height). Score, coins and the RNG
+## carry on, and an open or planned exit stays where it was: the bird starts
+## facing an open exit, and with its back to a ghost (it still needs the point
+## that opens it). Called between steps, like a tap: the tick does not move.
+## Returns false, changing nothing, when can_revive() is false.
+func revive() -> bool:
+	if not can_revive():
+		return false
+	events.clear()
+	state.alive = true
+	state.death_cause = SimState.DeathCause.NONE
+	state.revives += 1
+	# The wall the bird will fly toward.
+	var side := 1 if state.vx > 0 else 0
+	if state.exit_open:
+		side = state.exit_side
+	elif state.exit_preview:
+		side = 1 - state.exit_side
+	# The bird is in place before the room starts, so hazards that keep clear
+	# of it (or aim at it) see where it really is. A fresh room has no inset.
+	var r := SimConfig.BIRD_RADIUS
+	state.vx = SimConfig.SPEED_X if side == 1 else -SimConfig.SPEED_X
+	state.x = r if side == 1 else SimConfig.WORLD_W - r
+	state.y = SimConfig.BIRD_START_Y
+	state.vy = 0
+	_enter_room(room.index)
+	_arrive(side, Event.REVIVE)
+	return true
 
 
 ## The spikes a wall shows right now. A wall with an open exit is spiked
@@ -414,6 +461,12 @@ func _go_through(side: int, kind: int) -> void:
 		_enter_room(practice_room)
 	else:
 		_enter_room(RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route))
+	_arrive(side, Event.ROOM_CHANGE)
+
+
+## Puts the bird in the room just started, out of a portal in the wall
+## opposite `side`, flying toward `side`. `event` tells the view why.
+func _arrive(side: int, event: Event) -> void:
 	var r := SimConfig.BIRD_RADIUS
 	if side == 1:
 		state.x = room.wall_left() + r
@@ -428,7 +481,7 @@ func _go_through(side: int, kind: int) -> void:
 	state.arrival_hold = SimConfig.ARRIVAL_HOLD
 	state.left_spikes = 0
 	state.right_spikes = 0
-	events.append(Event.ROOM_CHANGE)
+	events.append(event)
 	_new_wall(side)
 
 

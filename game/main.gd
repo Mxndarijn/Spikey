@@ -9,6 +9,9 @@ extends Node2D
 ## boards when services/supabase_config.json exists, else made-up sample boards.
 ## Home -> Settings (the dock) -> the settings sheet; main applies each change.
 ## Game over has its own dock: Home, Rooms | Again | #rank, Style.
+## A real run that crashes with a fair score first gets the revive offer (once
+## per run): one of the day's free revives, or a rewarded ad when those are
+## used. Skip, or a second crash, ends the run (docs/REVIVE.md).
 ## Leaderboards -> a run -> Replay plays that run back in the live room with
 ## the recorded player's look; it never touches the save or the leaderboards,
 ## and Back returns to the leaderboards.
@@ -21,6 +24,11 @@ const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
 ## show_store(): go back to "Your look" instead of a Customize list.
 const BACK_TO_LOOK := "look"
+## No revive offer below this score: a quick crash restarts with one tap.
+const REVIVE_MIN_SCORE := 5
+## The AdMob provider and the native plugin it needs (addons/admob).
+const ADMOB_ADS := "res://services/admob_ads.gd"
+const ADMOB_SINGLETON := "PoingGodotAdMob"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
@@ -35,6 +43,8 @@ var store: StoreService
 var wallet: WalletService
 ## Push notifications (Board alerts); tests can swap in their own before _ready.
 var push: PushService
+## Rewarded ads for the revive; tests can swap in their own before _ready.
+var ads: AdsService
 
 var _profile: Profile
 var _game_over_at_ms := -1
@@ -60,6 +70,12 @@ var _replay_look := false
 var _spot_notice := ""
 ## Settings > Board alerts as last sent to the server.
 var _alerts_on := true
+## The crashed run while the revive offer shows (null: no offer).
+var _offer_replay: Replay
+## The score this run was revived at (-1: not revived).
+var _revived_at := -1
+## Just revived: the run waits, paused, for the player's tap.
+var _revive_wait := false
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -90,6 +106,11 @@ func _ready() -> void:
 	if _profile.board_alerts and _profile.push_asked:
 		push.start()
 	store.purchased.connect(_on_purchased)
+	if ads == null:
+		ads = _make_ads()
+	AdsService.current = ads
+	ads.rewarded_closed.connect(_on_ad_closed)
+	ads.start()
 	_load_equipped()
 	_audio.bind(_run)
 	_run.run_started.connect(_hud.show_running)
@@ -99,6 +120,7 @@ func _ready() -> void:
 	_run.bounced.connect(_bird.on_bounce)
 	_run.room_changed.connect(_room.on_room_changed)
 	_run.died.connect(_on_died)
+	_run.revived.connect(_on_revived)
 	_run.coin_spawned.connect(_coin.on_spawned)
 	_run.coin_collected.connect(_coin.on_collected)
 	_run.coin_collected.connect(_on_coin_collected)
@@ -112,6 +134,8 @@ func _ready() -> void:
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
+	_hud.revive_offer.revive_pressed.connect(_on_revive_pressed)
+	_hud.revive_offer.skip_pressed.connect(_on_revive_skipped)
 	_run.flapped.connect(_buzz.bind(HAPTIC_FLAP_MS))
 	_hud.bind_run(_run)
 	_run.run_started.connect(_on_run_started)
@@ -147,6 +171,7 @@ func start_run() -> void:
 	_new_run()
 	_audio.best_score = _profile.best_score
 	_hud.show_ready()
+	ads.preload_rewarded()
 
 
 func show_home() -> void:
@@ -285,6 +310,17 @@ func _make_leaderboard() -> LeaderboardService:
 	var online := SupabaseLeaderboard.new(_profile, self, config.url, config.anon_key)
 	online.restore()
 	return online
+
+
+## AdMob on a phone whose build has the plugin's native side (debug builds
+## ask for Google's test ads). Elsewhere: a stand-in ad in debug builds, so
+## the ad path can be played on a PC, and no ads at all in release builds.
+func _make_ads() -> AdsService:
+	var unit := AdsService.revive_unit(OS.get_name(), OS.is_debug_build())
+	if not unit.is_empty() and Engine.has_singleton(ADMOB_SINGLETON):
+		# Loaded by path: naming the class would load the plugin on every PC too.
+		return (load(ADMOB_ADS) as GDScript).new(unit)
+	return FakeAds.new() if OS.is_debug_build() else AdsService.new()
 
 
 ## Today's rank reached home: show it on the Leaderboard button.
@@ -648,6 +684,9 @@ func _new_run() -> void:
 	_room.show_score = false
 	_rooms_cleared = 0
 	_game_over_at_ms = -1
+	_offer_replay = null
+	_revived_at = -1
+	_revive_wait = false
 
 
 func _in_play() -> bool:
@@ -658,9 +697,13 @@ func _try_restart() -> void:
 	if mode == Mode.PRACTICE:
 		_restart_practice()
 		return
+	# The revive offer has its own buttons: a tap beside them does nothing.
+	if _offer_replay != null:
+		return
 	if mode == Mode.RUN and Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
 		_new_run()
 		_hud.show_ready()
+		ads.preload_rewarded()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -684,6 +727,9 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Lets go of the shared caches so Godot can free them when the game closes
 ## (otherwise it reports leaked resources on exit).
 func _exit_tree() -> void:
+	if AdsService.current == ads:
+		AdsService.current = null
+	AudioServer.set_bus_mute(0, false)
 	UiTheme.release()
 	GameFonts.release()
 	Catalog.release()
@@ -707,6 +753,10 @@ func _toggle_pause() -> void:
 func _set_paused(value: bool) -> void:
 	_run.set_paused(value)
 	_hud.show_paused(value, _profile.music_on, _profile.sfx_on)
+	if not value and _revive_wait:
+		# The tap after a revive: "Tap to flap" goes, the run plays on.
+		_revive_wait = false
+		_hud.show_running()
 
 
 ## The coin flies from where it was in the room into the counter.
@@ -747,6 +797,74 @@ func _on_died(replay: Replay) -> void:
 	# Only a real run counts: nothing that ends behind a menu is the player's.
 	if mode != Mode.RUN:
 		return
+	if _can_offer_revive(replay):
+		_offer_replay = replay
+		_hud.revive_offer.show_offer(replay.score, _profile.free_revives_left(Profile.today()))
+		return
+	_finish_run(replay)
+
+
+## Whether this crash gets the revive offer: the run has its revive left, the
+## score is worth it, and there is a free revive or a loaded ad to pay with.
+func _can_offer_revive(replay: Replay) -> bool:
+	if not _run.can_revive() or replay.score < REVIVE_MIN_SCORE:
+		return false
+	return _profile.free_revives_left(Profile.today()) > 0 or ads.is_ready()
+
+
+## Revive on the offer: a free one if the day has any left, else the ad.
+func _on_revive_pressed() -> void:
+	if _offer_replay == null:
+		return
+	if _profile.use_free_revive(Profile.today()):
+		_profile.save(profile_path)
+		_revive()
+	elif ads.is_ready():
+		# No game sound under the ad; _on_ad_closed turns it back on.
+		AudioServer.set_bus_mute(0, true)
+		ads.show_rewarded()
+	else:
+		# Nothing to pay with any more (the ad went away): the run just ends.
+		_on_revive_skipped()
+
+
+## The rewarded ad closed. Watched: revive. Closed early: that is a Skip, the
+## run ends. An ad that broke after the player asked for it revives anyway.
+func _on_ad_closed(result: int) -> void:
+	AudioServer.set_bus_mute(0, false)
+	if _offer_replay == null:
+		return
+	if result == AdsService.Result.DISMISSED:
+		_on_revive_skipped()
+	else:
+		_revive()
+
+
+func _on_revive_skipped() -> void:
+	if _offer_replay != null:
+		_finish_run(_offer_replay)
+
+
+## Brings the bird back and waits, paused, for a tap.
+func _revive() -> void:
+	_offer_replay = null
+	_revived_at = _run.sim.state.score
+	if not _run.revive():
+		return
+	_revive_wait = true
+	_run.set_paused(true)
+	_hud.show_running(true)
+
+
+## The sim revived the bird (also in a replay of a revived run).
+func _on_revived() -> void:
+	_room.on_revived()
+	_trail.start()
+
+
+## A real run is over for good: coins, best score, the boards and Game over.
+func _finish_run(replay: Replay) -> void:
+	_offer_replay = null
 	var previous_best := _profile.best_score
 	var is_new_best := replay.score > previous_best
 	var earned := _profile.record_run(replay.score, replay.coins)
@@ -763,7 +881,8 @@ func _on_died(replay: Replay) -> void:
 		previous_best,
 		_rooms_cleared,
 		leaderboard.cached_rank(LeaderboardService.DAILY),
-		replay.seed_value
+		replay.seed_value,
+		_revived_at
 	)
 
 
