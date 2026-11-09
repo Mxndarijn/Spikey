@@ -8,7 +8,25 @@ extends Resource
 ## `colors`. COMET: a glowing ribbon with sparks. STAMPS: little `shape`s left
 ## behind that drift, spin and grow as they fade.
 enum Kind { RIBBON, DOTS, STRIPES, COMET, STAMPS }
-enum Shape { BUBBLE, CONFETTI, SPARKLE, LEAF, NOTE, PIXEL }
+## The last ten are the flap trails: one stamp per tap (stamp_on_flap).
+enum Shape {
+	BUBBLE,
+	CONFETTI,
+	SPARKLE,
+	LEAF,
+	NOTE,
+	PIXEL,
+	CLOUD,
+	RING,
+	HEART,
+	FEATHER,
+	DROPS,
+	SNOWFLAKE,
+	BLOSSOM,
+	PAW,
+	FLAME,
+	BOLT,
+}
 
 @export var id := "world_ribbon"
 @export var display_name := "World Ribbon"
@@ -166,6 +184,47 @@ static func pixel_trail() -> TrailStyle:
 	t.lifetime = 0.55
 	t.spacing = 14.0
 	t.grow = 0.75
+	return t
+
+
+## The flap trails, in shop order: each leaves one stamp where a flap happened.
+static func flap_trails() -> Array[TrailStyle]:
+	var cloud := _flap("cloud_puff", "Cloud Puff", Shape.CLOUD, [Color("#FFFFFF")], 14.0, 0.7)
+	cloud.grow = 1.4
+	var ripple := _flap("ripple", "Ripple", Shape.RING, [Color("#FFFFFF")], 12.0, 0.7)
+	ripple.grow = 2.4
+	var hearts := _flap("hearts", "Hearts", Shape.HEART, [Color("#FF5E7A")], 14.0, 0.9)
+	hearts.rise = 18.0
+	var feather := _flap(
+		"feather_drop", "Feather Drop", Shape.FEATHER, [Color("#FFFFFF")], 18.0, 1.0
+	)
+	feather.rise = -22.0
+	feather.spin = 2.0
+	var splash := _flap(
+		"splash", "Splash", Shape.DROPS, [Color("#3B82F6"), Color("#5CC8FF")], 14.0, 0.6
+	)
+	splash.grow = 1.3
+	var snow := _flap("snowflake", "Snowflake", Shape.SNOWFLAKE, [Color("#FFFFFF")], 16.0, 1.0)
+	snow.rise = -14.0
+	snow.spin = 1.2
+	var blossom := _flap("blossom", "Blossom", Shape.BLOSSOM, [Color("#FF8FC0")], 14.0, 1.0)
+	blossom.grow = 1.2
+	var paws := _flap("paw_prints", "Paw Prints", Shape.PAW, [Color("#FFF4E2")], 14.0, 1.1)
+	var flame := _flap("flame", "Flame", Shape.FLAME, [Color("#FFB020")], 16.0, 0.7)
+	flame.grow = 0.4
+	flame.rise = 10.0
+	var zap := _flap("zap", "Zap", Shape.BOLT, [Color("#FFE45C")], 18.0, 0.5)
+	zap.grow = 0.8
+	return [cloud, ripple, hearts, feather, splash, snow, blossom, paws, flame, zap]
+
+
+static func _flap(
+	p_id: String, p_name: String, p_shape: Shape, palette: Array, p_width: float, p_life: float
+) -> TrailStyle:
+	var t := _stamps(p_id, p_name, p_shape, palette)
+	t.stamp_on_flap = true
+	t.width = p_width
+	t.lifetime = p_life
 	return t
 
 

@@ -18,7 +18,7 @@ var packs_bought: Array[String] = []
 var best_score := 0
 var runs := 0
 var onboarded := false
-## kind -> owned ids (Catalog.FLYER, WORLD, TRAIL, PORTAL, MUSIC)
+## kind -> owned ids (Catalog.FLYER, WORLD, TRAIL, PORTAL, MUSIC, CRASH, PLATE)
 var owned := {}
 ## kind -> equipped id
 var equipped := {}
@@ -59,6 +59,11 @@ func _init() -> void:
 	for id in Catalog.MUSIC_PICKS + [MusicTrack.DEFAULT_ID]:
 		grant(Catalog.MUSIC, id)
 	equipped[Catalog.MUSIC] = MusicTrack.MATCH_WORLD
+	# The default crash effect and the plain name plate.
+	grant(Catalog.CRASH, CrashStyle.DEFAULT_ID)
+	equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
+	grant(Catalog.PLATE, PlateStyle.DEFAULT_ID)
+	equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
 
 
 func owns(kind: String, id: String) -> bool:
@@ -194,6 +199,11 @@ static func from_dict(d: Dictionary) -> Profile:
 				p.equip(kind, id)
 	# A portal style that is gone falls back to Match my world.
 	p.equipped[Catalog.PORTAL] = p.equipped_portal()
+	# So does a crash effect or name plate that is gone (older saves have none).
+	if Catalog.crash(p.equipped_id(Catalog.CRASH)) == null:
+		p.equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
+	if Catalog.plate(p.equipped_id(Catalog.PLATE)) == null:
+		p.equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
 	var met: Variant = d.get("met_rooms", [])
 	if met is Array:
 		for id: Variant in met:

@@ -25,6 +25,8 @@ class Entry:
 	var rank := 0
 	var player_name := ""
 	var flyer_id := ""
+	## The name plate behind the row (PlateStyle id); "" is the plain row.
+	var plate_id := ""
 	var score := 0
 	## The server replayed the run and got the same score.
 	var verified := true

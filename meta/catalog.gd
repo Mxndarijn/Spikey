@@ -8,7 +8,11 @@ const WORLD := "world"
 const TRAIL := "trail"
 const PORTAL := "portal"
 const MUSIC := "music"
-const KINDS: Array[String] = [FLYER, WORLD, TRAIL, PORTAL, MUSIC]
+## What the flyer bursts into on a crash (CrashStyle).
+const CRASH := "crash"
+## The plate behind the player's leaderboard row (PlateStyle).
+const PLATE := "plate"
+const KINDS: Array[String] = [FLYER, WORLD, TRAIL, PORTAL, MUSIC, CRASH, PLATE]
 ## Music picks that are not tracks: always owned, free, listed first.
 const MUSIC_PICKS: Array[String] = [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE]
 const MUSIC_PICK_NAMES := {
@@ -20,6 +24,8 @@ static var _flyers: Array[CharacterDef] = []
 static var _trails: Array[TrailStyle] = []
 static var _portals: Array[PortalStyle] = []
 static var _tracks: Array[MusicTrack] = []
+static var _crashes: Array[CrashStyle] = []
+static var _plates: Array[PlateStyle] = []
 
 
 static func release() -> void:
@@ -27,6 +33,8 @@ static func release() -> void:
 	_trails.clear()
 	_portals.clear()
 	_tracks.clear()
+	_crashes.clear()
+	_plates.clear()
 	ThemeCatalog.release()
 
 
@@ -59,6 +67,7 @@ static func trails() -> Array[TrailStyle]:
 			TrailStyle.star_dust(),
 			TrailStyle.music_notes(),
 		]
+		_trails.append_array(TrailStyle.flap_trails())
 	return _trails
 
 
@@ -75,6 +84,22 @@ static func tracks() -> Array[MusicTrack]:
 	if _tracks.is_empty():
 		_tracks = MusicTrack.all()
 	return _tracks
+
+
+## Crash effects, in display order, the free default first. A new style is one
+## row in CrashStyle.STYLES.
+static func crashes() -> Array[CrashStyle]:
+	if _crashes.is_empty():
+		_crashes = CrashStyle.all()
+	return _crashes
+
+
+## Name plates, in display order, Paper first. A new plate is one row in
+## PlateStyle.STYLES.
+static func plates() -> Array[PlateStyle]:
+	if _plates.is_empty():
+		_plates = PlateStyle.all()
+	return _plates
 
 
 ## Ids of every item of a kind, in display order.
@@ -97,6 +122,12 @@ static func ids(kind: String) -> Array[String]:
 			out.append_array(MUSIC_PICKS)
 			for t in tracks():
 				out.append(t.id)
+		CRASH:
+			for c in crashes():
+				out.append(c.id)
+		PLATE:
+			for p in plates():
+				out.append(p.id)
 	return out
 
 
@@ -133,8 +164,28 @@ static func track(id: String) -> MusicTrack:
 	return null
 
 
+static func crash(id: String) -> CrashStyle:
+	for c in crashes():
+		if c.id == id:
+			return c
+	return null
+
+
+static func plate(id: String) -> PlateStyle:
+	for p in plates():
+		if p.id == id:
+			return p
+	return null
+
+
 static func display_name(kind: String, id: String) -> String:
 	match kind:
+		CRASH:
+			var c := crash(id)
+			return c.display_name if c != null else id
+		PLATE:
+			var pl := plate(id)
+			return pl.display_name if pl != null else id
 		FLYER:
 			var f := flyer(id)
 			return f.display_name if f != null else id

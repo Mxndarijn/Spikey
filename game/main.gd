@@ -35,6 +35,7 @@ var _game_over_at_ms := -1
 var _theme: ThemeDef
 var _character: CharacterDef
 var _trail_style: TrailStyle
+var _crash_style: CrashStyle
 var _menus := MenuLayer.new()
 var _audio := AudioDirector.new()
 ## Practice: the room id being repeated. Real runs: the room being played, so
@@ -53,6 +54,7 @@ var _replay_look := false
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
 @onready var _trail: TrailView = $TrailView
+@onready var _crash: CrashView = $CrashView
 @onready var _bird: BirdView = $BirdView
 @onready var _coin: CoinView = $CoinView
 @onready var _hazards: HazardLayer = $HazardLayer
@@ -87,7 +89,7 @@ func _ready() -> void:
 	_hud.restart_pressed.connect(_restart_practice)
 	_hud.rooms_pressed.connect(show_rooms)
 	_hud.leaderboard_pressed.connect(show_leaderboard)
-	_hud.style_pressed.connect(show_shop.bind(Catalog.FLYER))
+	_hud.style_pressed.connect(show_look)
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
@@ -139,8 +141,8 @@ func show_home() -> void:
 	var home := HomeScreen.new(_profile, leaderboard.cached_rank(LeaderboardService.DAILY))
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
-	# The dock's Style opens Customize.
-	home.customize_pressed.connect(show_shop.bind(Catalog.FLYER))
+	# The dock's Style opens Customize on "Your look".
+	home.customize_pressed.connect(show_look)
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
@@ -204,6 +206,7 @@ func _replay_again() -> void:
 
 ## Back (or the exit icon): the leaderboards, on the board the run came from.
 func _leave_replay() -> void:
+	_audio.menu()
 	show_leaderboard(_replay_board)
 
 
@@ -217,6 +220,9 @@ func _apply_loadout(look: Dictionary) -> void:
 	var trail := Catalog.trail(str(look.get(Catalog.TRAIL, "")))
 	if trail != null:
 		_trail_style = trail
+	var crash := Catalog.crash(str(look.get(Catalog.CRASH, "")))
+	if crash != null:
+		_crash_style = crash
 	var world := Catalog.world(str(look.get(Catalog.WORLD, "")))
 	if world != null:
 		_apply_world(world)
@@ -233,12 +239,15 @@ func _apply_loadout(look: Dictionary) -> void:
 	_audio.choose_track(music, _theme.id, owned)
 
 
-## Leaving a replay: the player's own look comes back.
+## Leaving a replay: the player's own look comes back, and a replay still
+## playing stops. Without the fresh run it would play on behind the menus.
 func _drop_replay() -> void:
 	_replay_driver = null
 	if _replay_look:
 		_replay_look = false
 		_load_equipped()
+	if _run.driver != null:
+		_new_run()
 
 
 func _on_leaderboard_name(player_name: String) -> void:
@@ -312,13 +321,29 @@ func _restart_practice() -> void:
 		_hud.show_ready()
 
 
-## Customize (the shop and the loadout in one screen) on a tab and filter.
+## Customize starts on "Your look": one card per cosmetic kind with what is in
+## use. A card opens that kind's list (show_shop); Back goes Home.
+func show_look() -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_show_flyer(false)
+	# A world previewed in a list gives way to the one in use.
+	_room.set_theme(_theme)
+	_hazards.set_theme(_theme)
+	var look := LookScreen.new(_profile)
+	look.closed.connect(show_home)
+	look.kind_pressed.connect(show_shop)
+	_menus.show_screen(look)
+
+
+## One kind's list in Customize (its shop and the player's own items in one
+## screen). Back returns to "Your look".
 func show_shop(tab: String = Catalog.FLYER) -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
 	_show_flyer(false)
 	var shop := CollectionScreen.new(_profile, CollectionScreen.Mode.SHOP, tab)
-	shop.closed.connect(show_home)
+	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
 	shop.store_pressed.connect(func() -> void: show_store(shop.kind))
@@ -394,6 +419,7 @@ func _preview(kind: String, id: String) -> void:
 func _show_flyer(value: bool) -> void:
 	_bird.visible = value
 	_trail.visible = value
+	_crash.visible = value
 
 
 func _on_equipped(_kind: String, _id: String) -> void:
@@ -409,6 +435,7 @@ func _load_equipped() -> void:
 	_trail_style = Catalog.trail(_profile.equipped_id(Catalog.TRAIL))
 	if _trail_style == null:
 		_trail_style = TrailStyle.world_ribbon()
+	_crash_style = CrashStyle.equipped(_profile)
 	var world := Catalog.world(_profile.equipped_id(Catalog.WORLD))
 	_apply_world(world if world != null else ThemeCatalog.default_theme())
 	if is_node_ready():
@@ -491,6 +518,7 @@ func _new_run() -> void:
 	_room.bind(_run, _theme)
 	_hazards.bind(_run, _theme)
 	_bird.bind(_run, _character)
+	_crash.clear()
 	_coin.bind(_run)
 	_hud.set_run_coins(0)
 	_trail.bind(_bird, _trail_style, _theme)
@@ -584,6 +612,7 @@ func _on_room_changed(_room_index: int) -> void:
 func _on_died(replay: Replay) -> void:
 	_buzz(HAPTIC_CRASH_MS)
 	_bird.on_death()
+	_play_crash()
 	_room.show_score = false
 	_trail.stop()
 	if mode == Mode.PRACTICE:
@@ -592,6 +621,9 @@ func _on_died(replay: Replay) -> void:
 	if mode == Mode.REPLAY:
 		# Someone else's run: no coins, best score or leaderboard.
 		_hud.replay_hud().show_over()
+		return
+	# Only a real run counts: nothing that ends behind a menu is the player's.
+	if mode != Mode.RUN:
 		return
 	var previous_best := _profile.best_score
 	var is_new_best := replay.score > previous_best
@@ -611,6 +643,20 @@ func _on_died(replay: Replay) -> void:
 		leaderboard.cached_rank(LeaderboardService.DAILY),
 		replay.seed_value
 	)
+
+
+## The crash effect in use, where the flyer is drawn; its pieces fly away from
+## the wall the flyer was heading for. Looks only: the run is already over.
+func _play_crash() -> void:
+	if _crash_style == null or _run.sim == null:
+		return
+	var away := -1.0 if _run.sim.state.vx > 0 else 1.0
+	var palette := PackedColorArray()
+	if _crash_style.piece == CrashStyle.SHARD and _character != null:
+		palette = CrashPainter.flyer_palette(_character.idle)
+	_crash.play(_crash_style, _bird.position, away, palette)
+	if _crash_style.hides_flyer:
+		_bird.fade_out()
 
 
 static func _is_tap(event: InputEvent) -> bool:

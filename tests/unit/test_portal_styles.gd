@@ -147,9 +147,8 @@ func test_customize_has_a_portals_section() -> void:
 	p.coins = 400
 	var c := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.PORTAL)
 	holder.add_child(c)
-	var tab := c._tabs.get(Catalog.PORTAL) as Button
-	assert_true(tab != null and tab.text == "Portals", "a Portals tab")
-	assert_true(tab != null and tab.button_pressed, "opened on it")
+	assert_eq(c.title_text(), "Portals", "the Portals list")
+	assert_eq(c.kind, Catalog.PORTAL, "opened on it")
 	assert_eq(c.item_ids(), Catalog.ids(Catalog.PORTAL), "Match my world first, then the shop")
 	assert_eq(c.selected_id(), PortalStyle.DEFAULT_ID, "the portal in use is picked")
 	assert_eq(c.action_label(), ["In use", false])

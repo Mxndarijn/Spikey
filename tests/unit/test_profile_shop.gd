@@ -107,4 +107,4 @@ func test_trail_styles_are_complete() -> void:
 		if t.kind in [TrailStyle.Kind.STRIPES, TrailStyle.Kind.STAMPS, TrailStyle.Kind.COMET]:
 			assert_true(t.colors.size() > 0, "%s has colours" % t.id)
 		assert_true(Shop.price(Catalog.TRAIL, t.id) >= 0, "%s has a price" % t.id)
-	assert_eq(Catalog.trails().size(), 10, "two launch trails plus eight new ones")
+	assert_eq(Catalog.trails().size(), 20, "two launch trails, eight more and ten flap trails")

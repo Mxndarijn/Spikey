@@ -18,6 +18,8 @@ const TILT_FOLLOW := 12.0
 const ART_SCALE := 0.6
 const ART_CANVAS := 120.0
 const DEAD_TINT := Color(0.8, 0.8, 0.85)
+## Seconds a flyer takes to fade when its crash effect replaces it.
+const FADE_OUT_TIME := 0.15
 
 var _run: RunController
 var _character: CharacterDef
@@ -27,6 +29,7 @@ var _bob_time := 0.0
 ## Positive = taller and thinner (flap), negative = wider and flatter (bounce).
 var _stretch := 0.0
 var _tilt := 0.0
+var _fading := false
 
 
 func _ready() -> void:
@@ -40,6 +43,8 @@ func bind(run: RunController, character: CharacterDef) -> void:
 	_shake = 0.0
 	_stretch = 0.0
 	_tilt = 0.0
+	_fading = false
+	modulate.a = 1.0
 	queue_redraw()
 
 
@@ -61,6 +66,12 @@ func on_death() -> void:
 	_shake = 0.3
 
 
+## The flyer fades away (crash effects that turn it into pieces); bind() brings
+## it back for the next run.
+func fade_out() -> void:
+	_fading = true
+
+
 ## Target tilt for a vertical speed: nose up while rising, nose down while falling.
 static func tilt_for(vy: int) -> float:
 	if vy < 0:
@@ -71,6 +82,8 @@ static func tilt_for(vy: int) -> float:
 func _process(delta: float) -> void:
 	if _run == null or _run.sim == null:
 		return
+	if _fading:
+		modulate.a = move_toward(modulate.a, 0.0, delta / FADE_OUT_TIME)
 	_flap_timer = maxf(_flap_timer - delta, 0.0)
 	_shake = maxf(_shake - delta, 0.0)
 	_bob_time += delta

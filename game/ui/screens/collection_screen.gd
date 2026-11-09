@@ -1,11 +1,13 @@
 class_name CollectionScreen
 extends Control
-## Customize (minimal kit): the shop and the loadout in one screen, over the
-## live room. A back arrow, the title and the coins; the flyer in use (or the
+## One kind's list in Customize (minimal kit): the shop and the player's own
+## items of that kind in one screen, over the live room. It opens from a card on
+## LookScreen ("Your look"), and Back returns there. A back arrow, the kind's
+## name as the title and the coins; the flyer in use (or the
 ## tapped one) standing on the room with its puff trail and a line under it
-## ("Buzz, in use"); the trail or exit portal of those tabs drawn with it (the
-## room behind already shows a tapped world); five tabs in a paper pill bar
-## (Flyers, Worlds, Trails, Portals, Music); and the items as flat paper tiles,
+## ("Buzz, in use"); the trail or exit portal of those kinds drawn with it (the
+## room behind already shows a tapped world; Crashes show the effect round the
+## flyer, Plates a sample leaderboard row); and the items as flat paper tiles,
 ## yours first, then the shop's. Tapping an item opens a small popup with its
 ## one action: Use, Get for free, Unlock for N or Need N more coins.
 ## Music items are playlist rows whose play button previews the track; the
@@ -31,14 +33,17 @@ const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 ## The action when gold is short but diamonds can cover it: opens the sheet.
 const CONVERT_LABEL := "Turn diamonds into coins"
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
-## No tab and no items yet: hats come later and will share the hitbox too.
+## No items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
-const TAB_NAMES := {
+## The screen's title per kind.
+const TITLES := {
 	Catalog.FLYER: "Flyers",
 	Catalog.WORLD: "Worlds",
 	Catalog.TRAIL: "Trails",
 	Catalog.PORTAL: "Portals",
 	Catalog.MUSIC: "Music",
+	Catalog.CRASH: "Crashes",
+	Catalog.PLATE: "Plates",
 	HATS: "Hats",
 }
 ## The popup's clean picture, as wide as its card's inside.
@@ -52,8 +57,6 @@ const SHOP_ACTION_HEIGHT := float(UiTokens.SIZE_BUTTON_H)
 const SHOP_COLUMNS := 3
 const GRID_GAP := 10
 const SIDE := 14
-const TAB_FONT := 13
-const TAB_PAD := 2
 
 var mode: Mode
 var kind: String
@@ -68,7 +71,8 @@ var _detail_name := Label.new()
 var _detail_text := Label.new()
 var _badge_text := Label.new()
 var _action := Button.new()
-var _tabs := {}
+## The header row; its "Title" label names the kind shown.
+var _header: Control
 ## Every item of the tab, yours first.
 var _owned_grid := GridContainer.new()
 ## The popup for a tapped item.
@@ -144,7 +148,8 @@ func _notification(what: int) -> void:
 
 func _build_shop(col: VBoxContainer) -> void:
 	_wallet.pressed.connect(store_pressed.emit)
-	col.add_child(UiKit.header("Customize", closed.emit, _wallet))
+	_header = UiKit.header(title_for(kind), closed.emit, _wallet)
+	col.add_child(_header)
 
 	# The preview: the flyer standing on the room, no card.
 	_stage.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
@@ -162,28 +167,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	_caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_caption)
-
-	var bar := PanelContainer.new()
-	bar.theme_type_variation = &"TabStrip"
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 0)
-	bar.add_child(tabs)
-	var group := ButtonGroup.new()
-	for k: String in Catalog.KINDS:
-		var tab := Button.new()
-		tab.theme_type_variation = &"TabButton"
-		tab.text = TAB_NAMES[k]
-		tab.toggle_mode = true
-		tab.button_group = group
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# Inside the bar's 3 px padding the strip is the 44 px tap height.
-		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-		tab.focus_mode = Control.FOCUS_NONE
-		tab.pressed.connect(_show_kind.bind(k))
-		_tight(tab)
-		_tabs[k] = tab
-		tabs.add_child(tab)
-	col.add_child(bar)
 
 	var scroll := SmoothScroll.new()
 	scroll.blocked = is_popup_open
@@ -209,21 +192,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	pad.add_child(stack)
 	scroll.add_child(pad)
 	col.add_child(FadeMask.new(scroll))
-
-
-## Five tabs share 332 px equally (clip_text drops the text's own minimum
-## width, so a long name can't push the last tab into the bar's edge), with a
-## little less padding than the theme's (copied from
-## UiTheme: the tab isn't in the tree yet, so its own get_theme_stylebox()
-## would be Godot's).
-func _tight(tab: Button) -> void:
-	tab.add_theme_font_size_override("font_size", TAB_FONT)
-	tab.clip_text = true
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
-		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
-		box.content_margin_left = TAB_PAD
-		box.content_margin_right = TAB_PAD
-		tab.add_theme_stylebox_override(state, box)
 
 
 ## The item popup: dims the room; a paper card with the item's name and a
@@ -335,8 +303,8 @@ func _show_kind(k: String) -> void:
 	stop_preview()
 	kind = k
 	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
-	if _tabs.has(k):
-		(_tabs[k] as Button).button_pressed = true
+	if _header != null:
+		(_header.get_node("Title") as Label).text = title_for(k)
 	for c in _cards:
 		_owned_grid.remove_child(c)
 		c.queue_free()
@@ -357,6 +325,16 @@ func _show_kind(k: String) -> void:
 	_caption.visible = k != Catalog.MUSIC
 	var current := _profile.equipped_id(kind)
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
+
+
+## "Crashes" for Catalog.CRASH: the title of a kind's list.
+static func title_for(k: String) -> String:
+	return str(TITLES.get(k, "Customize"))
+
+
+## The title in the header, for tests.
+func title_text() -> String:
+	return (_header.get_node("Title") as Label).text if _header != null else ""
 
 
 func _empty_message() -> String:
@@ -441,12 +419,21 @@ func _show_preview() -> void:
 	_preview.flyer = f.idle if f != null and kind == Catalog.TRAIL else null
 	_preview.trail = null
 	_preview.portal = null
+	_preview.crash = null
+	_preview.plate = null
 	match kind:
 		Catalog.TRAIL:
 			_preview.trail = t if t != null else TrailStyle.world_ribbon()
 		Catalog.PORTAL:
 			_preview.portal = _preview_portal
-	_flyer_art.visible = kind != Catalog.TRAIL
+		Catalog.CRASH:
+			# The picture draws the flyer itself, under or over the effect.
+			_preview.crash = Catalog.crash(_preview_id(Catalog.CRASH))
+			_preview.flyer = f.idle if f != null else null
+		Catalog.PLATE:
+			_preview.plate = Catalog.plate(_preview_id(Catalog.PLATE))
+			_preview.flyer = f.idle if f != null else null
+	_flyer_art.visible = kind not in [Catalog.TRAIL, Catalog.CRASH, Catalog.PLATE]
 
 
 ## The popup picture: flyers and worlds on a clean sky with a far hill (the
@@ -456,6 +443,8 @@ func _show_popup_picture() -> void:
 	_popup_thumb.flyer = null
 	_popup_thumb.trail = null
 	_popup_thumb.portal = null
+	_popup_thumb.crash = null
+	_popup_thumb.plate = null
 	_popup_thumb.music = ""
 	_popup_thumb.scenic = kind == Catalog.FLYER or kind == Catalog.WORLD
 	match kind:
@@ -474,6 +463,11 @@ func _show_popup_picture() -> void:
 			_popup_thumb.portal = Catalog.portal(_selected)
 		Catalog.MUSIC:
 			_popup_thumb.music = _selected
+		Catalog.CRASH, Catalog.PLATE:
+			var own := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+			_popup_thumb.flyer = own.idle if own != null else null
+			_popup_thumb.crash = Catalog.crash(_selected) if kind == Catalog.CRASH else null
+			_popup_thumb.plate = Catalog.plate(_selected) if kind == Catalog.PLATE else null
 
 
 ## What the preview shows, for tests: [flyer, world, trail] ids.
@@ -713,4 +707,12 @@ static func _detail(k: String, id: String) -> String:
 			if t == null:
 				return ""
 			return "%s. Music only: every run plays the same." % ItemCard.track_line(id, null)
+		Catalog.CRASH:
+			var c := Catalog.crash(id)
+			var line := c.blurb + " " if c != null and not c.blurb.is_empty() else ""
+			return line + "Looks only: it plays after the run has ended."
+		Catalog.PLATE:
+			var plate := Catalog.plate(id)
+			var line := plate.blurb + " " if plate != null and not plate.blurb.is_empty() else ""
+			return line + "Shows behind your row on the leaderboards."
 	return ""

@@ -106,6 +106,12 @@ func _init(
 			_thumb.trail = Catalog.trail(p_id)
 		Catalog.PORTAL:
 			_thumb.portal = Catalog.portal(p_id)
+		Catalog.CRASH:
+			_thumb.crash = Catalog.crash(p_id)
+			# Pieces fly wide: keep them inside the picture.
+			_thumb.clip_contents = true
+		Catalog.PLATE:
+			_thumb.plate = Catalog.plate(p_id)
 	match layout:
 		Layout.TRACK:
 			_build_track()
