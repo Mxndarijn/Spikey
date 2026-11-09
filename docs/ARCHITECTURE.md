@@ -170,7 +170,9 @@ Live now (supabase/migrations/20261109120000_verified_runs.sql):
 1. The client plays and records tap ticks (`Replay`).
 2. On game over it sends `submit_run` the score, coins, end tick, season, seed and
    taps. The run is stored as `pending`.
-3. Every 10 minutes `.github/workflows/verify-runs.yml` fetches pending runs
+3. When a run arrives (the database starts it,
+   supabase/migrations/20261109210000_wake_checker.sql) and every 10 minutes as
+   a safety net, `.github/workflows/verify-runs.yml` fetches pending runs
    (`worker_pending_runs`), replays them with `server/verify_batch.gd`
    (`RunChecker` -> `Replay.verify()`, the same `sim/` code) and writes back
    `worker_record_results`.

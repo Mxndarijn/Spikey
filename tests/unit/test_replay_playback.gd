@@ -164,6 +164,49 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	DirAccess.remove_absolute(TEST_PATH)
 
 
+func test_leaving_midway_stops_the_replay() -> void:
+	var board := SpyBoard.new()
+	var main := _make_main(board)
+	var p: Profile = main._profile
+	var before := JSON.stringify(p.to_dict())
+	var recorded := SimBots.play(5156, SimBots.gap_seeker, 9, 600)
+	assert_true(recorded.end_tick > 60, "long enough to leave midway")
+	main.play_replay(_run_of(recorded))
+	for i in 30:
+		main._run.advance()
+	assert_true(main._run.is_running(), "the replay is playing")
+	main._leave_replay()
+	assert_eq(main.mode, main.Mode.MENU)
+	assert_true(main._run.driver == null, "the replay is off the run")
+	assert_false(main._run.is_running(), "an idle room behind the leaderboards")
+	# However long the leaderboards stay open, nothing plays or ends.
+	for i in recorded.end_tick + 60:
+		main._run._physics_process(0.0)
+	assert_false(main._run.sim.is_over(), "no run ends behind the menu")
+	assert_eq(board.submitted, 0, "nothing sent to the leaderboards")
+	assert_eq(JSON.stringify(p.to_dict()), before, "the profile is unchanged")
+	assert_false(main._hud.replay_hud().visible, "the replay HUD is gone")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
+## A run that somehow ends behind a menu is never counted as the player's.
+func test_death_in_menu_counts_for_nothing() -> void:
+	var board := SpyBoard.new()
+	var main := _make_main(board)
+	var p: Profile = main._profile
+	var before := JSON.stringify(p.to_dict())
+	var recorded := SimBots.play(5157, SimBots.gap_seeker, 10, 300)
+	main.show_leaderboard()
+	main._run.new_replay(ReplayDriver.from_run(_run_of(recorded)))
+	_play_out(main._run)
+	assert_true(main._run.sim.is_over(), "it ended")
+	assert_eq(board.submitted, 0, "nothing sent to the leaderboards")
+	assert_eq(JSON.stringify(p.to_dict()), before, "the profile is unchanged")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
 func test_unknown_look_falls_back_to_own() -> void:
 	var main := _make_main(SpyBoard.new())
 	var p: Profile = main._profile
