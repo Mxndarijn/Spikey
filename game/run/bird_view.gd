@@ -79,6 +79,15 @@ static func tilt_for(vy: int) -> float:
 	return TILT_DOWN * clampf(float(vy) / SimConfig.MAX_FALL_VY, 0.0, 1.0)
 
 
+## How far between the last two sim ticks to draw the flyer. While the sim
+## stands still (run over or paused) the physics fraction keeps cycling, so the
+## flyer stays on the latest tick instead of sliding back and forth.
+static func blend_fraction(run: RunController, physics_fraction: float) -> float:
+	if run.paused or run.sim.is_over():
+		return 1.0
+	return physics_fraction
+
+
 func _process(delta: float) -> void:
 	if _run == null or _run.sim == null:
 		return
@@ -88,7 +97,7 @@ func _process(delta: float) -> void:
 	_shake = maxf(_shake - delta, 0.0)
 	_bob_time += delta
 	var s := _run.sim.state
-	var t := Engine.get_physics_interpolation_fraction()
+	var t := blend_fraction(_run, Engine.get_physics_interpolation_fraction())
 	var prev := _run.prev_state
 	# Going through a portal moves the bird to the other wall in one step: show it
 	# there at once instead of sliding it across the room.
