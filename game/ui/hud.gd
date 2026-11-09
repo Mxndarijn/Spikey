@@ -1,7 +1,9 @@
 class_name Hud
 extends CanvasLayer
 ## The overlay UI of a run, in the minimal kit (no boxes):
-##   Ready:     "Tap to flap" with the tap icon, on the room.
+##   Ready:     "Tap to flap" with the tap icon, on the room, and a bare back
+##              arrow top left (where pause goes): Home, or Rooms in practice.
+##              The first flap swaps it for the pause button.
 ##   Running:   a bare pause icon top left, the score big at the top, the run's
 ##              coins top right.
 ##   Paused:    the dimmed room with "Paused", the score, Music and Sounds
@@ -36,6 +38,7 @@ signal replay_back_pressed
 const TOAST_SECONDS := 1.2
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const PAUSE_ICON := preload("res://assets/ui/icons/pause.svg")
+const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const TAP_ICON := preload("res://assets/ui/icons/tap.svg")
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const HOME_ICON := preload("res://assets/ui/icons/home.svg")
@@ -80,6 +83,7 @@ var _practicing := false
 var _replay := ReplayHud.new()
 var _replaying := false
 var _pause_button: Button
+var _back_button: Button
 var _score := Label.new()
 var _hint := VBoxContainer.new()
 var _toast := Label.new()
@@ -161,6 +165,13 @@ func _build_running() -> void:
 	_pause_button.add_theme_constant_override("icon_max_width", 24)
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_root.add_child(_pause_button)
+	# Same spot and size as pause, so the corner stays put after the first flap.
+	_back_button = UiKit.icon_button(BACK_ICON, "Home")
+	_back_button.name = "Back"
+	_back_button.position = _pause_button.position
+	_back_button.add_theme_constant_override("icon_max_width", 24)
+	_back_button.pressed.connect(_on_back)
+	_root.add_child(_back_button)
 	_score.theme_type_variation = &"RoomScore"
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_score.anchor_right = 1.0
@@ -178,6 +189,14 @@ func _build_running() -> void:
 	_run_coins.offset_top = 54
 	_run_coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_run_coins.set_amount(0)
+
+
+## Ready's back arrow: Home, or back to Rooms in practice.
+func _on_back() -> void:
+	if _practicing:
+		rooms_pressed.emit()
+	else:
+		home_pressed.emit()
 
 
 func _build_hint() -> void:
@@ -480,12 +499,13 @@ func set_room_theme(t: Theme) -> void:
 		_root.theme = t
 
 
-## Settings > Large buttons: the pause button grows to 56px.
+## Settings > Large buttons: the pause and back buttons grow to 56px.
 func set_large_buttons(on: bool) -> void:
 	var s := UiKit.LARGE_BUTTON if on else UiKit.ICON_BUTTON
-	if _pause_button != null:
-		_pause_button.custom_minimum_size = Vector2(s, s)
-		_pause_button.size = Vector2(s, s)
+	for b: Button in [_pause_button, _back_button]:
+		if b != null:
+			b.custom_minimum_size = Vector2(s, s)
+			b.size = Vector2(s, s)
 	_practice.set_large_buttons(on)
 	_replay.set_large_buttons(on)
 
@@ -496,6 +516,7 @@ func show_menu() -> void:
 	_replay.set_run("", 0)
 	show_ready()
 	_hint.visible = false
+	_back_button.visible = false
 
 
 ## Practice mode for this room name; an empty name goes back to real runs.
@@ -525,6 +546,7 @@ func _on_replay_changed() -> void:
 	if _replay.is_over_showing():
 		_hint.visible = false
 		_pause_button.visible = false
+		_back_button.visible = false
 		_run_coins.visible = false
 		_score.visible = false
 
@@ -540,6 +562,7 @@ func practice_hud() -> PracticeHud:
 ## A practice run crashed: this try's points, Try again and Back to rooms.
 func show_practice_over(points: int) -> void:
 	_pause_button.visible = false
+	_back_button.visible = false
 	_run_coins.visible = false
 	_score.visible = false
 	_practice.show_over(points)
@@ -548,6 +571,8 @@ func show_practice_over(points: int) -> void:
 func show_ready() -> void:
 	_hint.visible = true
 	_pause_button.visible = false
+	_back_button.visible = true
+	_back_button.tooltip_text = "Rooms" if _practicing else "Home"
 	_run_coins.visible = false
 	_score.visible = false
 	_paused.visible = false
@@ -556,13 +581,15 @@ func show_ready() -> void:
 	if _practicing:
 		_practice.show_playing(false)
 	if _replaying:
-		# The replay taps by itself.
+		# The replay taps by itself, and its exit sits in that corner.
 		_hint.visible = false
+		_back_button.visible = false
 		_replay.show_playing()
 
 
 func show_running() -> void:
 	_hint.visible = false
+	_back_button.visible = false
 	# A replay has no pause; its exit sits where pause would be.
 	_pause_button.visible = not _replaying
 	_score.visible = true
@@ -577,6 +604,7 @@ func show_running() -> void:
 func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> void:
 	_paused.visible = value
 	_pause_button.visible = not value
+	_back_button.visible = false
 	_score.visible = not value
 	_run_coins.visible = not value and not _practicing
 	_paused_home.visible = not _practicing
@@ -602,6 +630,7 @@ func show_game_over(
 	rank: int = 0
 ) -> void:
 	_pause_button.visible = false
+	_back_button.visible = false
 	_run_coins.visible = false
 	_score.visible = false
 	_final_value = score

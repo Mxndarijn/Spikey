@@ -37,6 +37,30 @@ func test_first_start_goes_straight_home() -> void:
 	DirAccess.remove_absolute(TEST_PATH)
 
 
+## "Tap to flap" has a back arrow to Home; the first flap swaps it for pause.
+func test_ready_has_a_back_arrow_home() -> void:
+	var main := _make_main()
+	main.start_run()
+	var hud: Hud = main._hud
+	assert_true(hud._back_button.visible, "the back arrow shows before the first flap")
+	assert_false(hud._pause_button.visible, "no pause yet")
+	assert_eq(hud._back_button.position, hud._pause_button.position, "same corner as pause")
+	assert_eq(hud._back_button.tooltip_text, "Home")
+	hud._back_button.pressed.emit()
+	assert_eq(main.mode, main.Mode.MENU, "back ends the run before it starts")
+	assert_true(main._menus.current() is HomeScreen, "back goes Home")
+	assert_false(hud._back_button.visible, "no back arrow over the menus")
+	main.start_run()
+	main._run.request_tap()
+	main._run._physics_process(1.0 / 60.0)
+	assert_false(hud._back_button.visible, "the first flap hides the back arrow")
+	assert_true(hud._pause_button.visible, "and shows pause in its place")
+	main._toggle_pause()
+	assert_false(hud._back_button.visible, "not on the pause screen")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+
+
 ## Regression: a Button doesn't grow with its children, and the status line
 ## ("In use") used to hang below the card.
 func test_cards_are_tall_enough_for_their_content() -> void:

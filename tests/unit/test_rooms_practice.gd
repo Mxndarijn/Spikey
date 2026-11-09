@@ -210,6 +210,23 @@ func test_seasonal_practice_plays_in_its_season() -> void:
 	DevMode.override = -1
 
 
+## Practice's "Tap to flap" back arrow goes back to Rooms, not Home.
+func test_practice_ready_back_arrow_goes_to_rooms() -> void:
+	DevMode.override = 1
+	var main := _make_main()
+	main.start_practice("piston")
+	var hud: Hud = main._hud
+	assert_true(hud._back_button.visible, "the back arrow shows before the first flap")
+	assert_eq(hud._back_button.tooltip_text, "Rooms")
+	hud._back_button.pressed.emit()
+	assert_eq(main.mode, main.Mode.MENU)
+	assert_true(main._menus.current() is RoomsScreen, "back goes to Rooms")
+	assert_false(hud._back_button.visible, "no back arrow over the menus")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)
+	DevMode.override = -1
+
+
 ## Practice must never change the save: same profile and the same file after a
 ## whole practice run, its room changes and its crash.
 func test_practice_never_changes_the_save() -> void:

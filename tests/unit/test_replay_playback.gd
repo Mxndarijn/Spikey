@@ -120,6 +120,7 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	main.play_replay(_run_of(recorded, look))
 	assert_eq(main.mode, main.Mode.REPLAY)
 	assert_true(main._menus.current() == null, "the room shows, no menu")
+	assert_false(main._hud._back_button.visible, "a replay has its own exit, no back arrow")
 	assert_eq(main._hud.replay_hud().chip_text(), "Replay: Noor, %d" % recorded.score)
 	assert_eq(main._bird._character.id, look[Catalog.FLYER], "their flyer")
 	assert_eq(main._theme.id, look[Catalog.WORLD], "their world")
