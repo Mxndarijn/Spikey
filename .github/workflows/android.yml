@@ -216,10 +216,11 @@ jobs:
           echo "apk_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${tag}/${name}" >> "$GITHUB_OUTPUT"
           echo "page_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${tag}" >> "$GITHUB_OUTPUT"
           echo "file=${apk}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Announce on Discord
         # Optional: set the DISCORD_WEBHOOK_URL secret (Discord channel -> Edit -> Integrations
-        # -> Webhooks). The button links to the APK on the GitHub Release. The APK is also
+        # -> Webhooks). The embed links to the APK and to its GitHub Release page. The APK is also
         # attached when it fits the server's upload limit (repository variable
         # DISCORD_MAX_UPLOAD_MB, default 10; today's APK is about 52 MB).
         if: success() && env.DISCORD_WEBHOOK_URL != ''
@@ -234,8 +235,10 @@ jobs:
           url: ${{ steps.release.outputs.page_url }}
           description: |
             **[⬇️ Download APK](${{ steps.release.outputs.apk_url }})**, tap on your phone to install
+            **[📦 Release page](${{ steps.release.outputs.page_url }})**, if the download link does not open
             > ${{ steps.commit.outputs.subject }}
           fields: |
+            Release|[${{ steps.release.outputs.tag }}](${{ steps.release.outputs.page_url }})
             Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
             Signing|${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'Release key' || 'Debug key, uninstall the old build first' }}
             Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
