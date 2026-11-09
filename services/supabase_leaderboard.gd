@@ -2,9 +2,11 @@ class_name SupabaseLeaderboard
 extends LeaderboardService
 ## The real leaderboards for friends, on Supabase's free plan (supabase/migrations/,
 ## setup in docs/LEADERBOARD_SETUP.md). Each phone signs in anonymously once and
-## keeps its session in user://. Runs are sent with their seed and taps but are
-## not verified by a server yet. Runs that can't be sent (offline) wait in
-## user:// and go out with the next board request or run.
+## keeps its session in user://. Runs are sent with their seed and taps; a
+## checker replays each one (.github/workflows/verify-runs.yml) and the boards
+## only show runs that passed, plus the player's own runs still waiting.
+## Runs that can't be sent (offline) wait in user:// and go out with the next
+## board request or run.
 
 ## A sign-in or token refresh finished (ok: there is a valid session now).
 signal session_checked(ok: bool)
@@ -15,6 +17,9 @@ const QUEUE_PATH := "user://pending_runs.json"
 const TIMEOUT_S := 10.0
 ## Refresh the access token this long before it runs out.
 const REFRESH_MARGIN_S := 60
+## submit_run's later arguments, newest migration last. A database that doesn't
+## know the newest ones yet answers 404; the run is then sent without them.
+const NEWER_ARGS := [["p_loadout"], ["p_season", "p_coins", "p_end_tick"]]
 
 ## Tests point these somewhere else.
 var session_path := SESSION_PATH
@@ -101,14 +106,22 @@ static func run_body(profile: Profile, score: int, replay: Dictionary, now_s: in
 		"p_taps": replay.get("taps", []),
 		"p_played_at": Time.get_datetime_string_from_unix_time(now_s) + "Z",
 		"p_loadout": loadout_of(profile),
+		"p_season": int(replay.get("season", Seasons.NONE)),
+		"p_coins": int(replay.get("coins", 0)),
+		"p_end_tick": int(replay.get("end_tick", 0)),
 	}
 
 
-## A run body for a database without the loadout migration (submit_run's old arguments).
-static func without_loadout(body: Dictionary) -> Dictionary:
-	var out := body.duplicate()
-	out.erase("p_loadout")
-	return out
+## The body without its newest arguments, or {} when nothing is left to drop.
+static func older_body(body: Dictionary) -> Dictionary:
+	for i in range(NEWER_ARGS.size() - 1, -1, -1):
+		var args: Array = NEWER_ARGS[i]
+		if body.has(args[0]):
+			var out := body.duplicate()
+			for a in args:
+				out.erase(a)
+			return out
+	return {}
 
 
 ## get_run's answer with numbers as ints, or {} when it is not a run.
@@ -122,7 +135,7 @@ static func parse_run(data: Variant) -> Dictionary:
 		for t: Variant in raw:
 			taps.append(int(t))
 	var look: Variant = d.get("loadout", {})
-	return {
+	var run := {
 		"run": int(d.get("run", 0)),
 		"name": str(d.get("name", "")),
 		"score": int(d.get("score", 0)),
@@ -131,6 +144,11 @@ static func parse_run(data: Variant) -> Dictionary:
 		"taps": taps,
 		"loadout": look if look is Dictionary else {},
 	}
+	# Runs stored before the season was: the replay falls back to today's.
+	var season: Variant = d.get("season")
+	if season is int or season is float:
+		run.season = int(season)
+	return run
 
 
 func request_run(run_id: int) -> void:
@@ -164,8 +182,8 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 				str(row.get("flyer", "")),
 				int(row.get("score", 0))
 			)
-			# Stored with seed and taps, but no server has replayed them yet.
-			e.verified = false
+			# Replayed by the checker; the player's own new run may still wait.
+			e.verified = bool(row.get("verified", false))
 			e.is_me = bool(row.get("is_me", false))
 			e.run_id = int(row.get("run", 0))
 			b.entries.append(e)
@@ -176,7 +194,7 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 		)
 		mine.is_me = true
 		mine.run_id = int((me as Dictionary).get("run", 0))
-		mine.verified = false
+		mine.verified = bool((me as Dictionary).get("verified", false))
 		b.me = mine
 	b.players = int(d.get("players", b.entries.size()))
 	b.resets_in_s = int(d.get("resets_in_s", -1))
@@ -212,9 +230,9 @@ func _send_queue() -> void:
 	if await _ensure_session():
 		while not _queue.is_empty():
 			var res := await _post("/rest/v1/rpc/submit_run", _queue[0], true)
-			if not res.ok and res.code == 404 and _queue[0].has("p_loadout"):
-				# The database doesn't have the loadout migration yet: send without it.
-				_queue[0] = without_loadout(_queue[0])
+			if not res.ok and res.code == 404 and not older_body(_queue[0]).is_empty():
+				# The database doesn't have the newest migration yet: send without it.
+				_queue[0] = older_body(_queue[0])
 				_save_queue()
 				continue
 			if not res.ok:

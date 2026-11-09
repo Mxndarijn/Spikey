@@ -58,9 +58,11 @@ func test_reads_a_board_from_the_server_answer() -> void:
 		JSON
 		. parse_string(
 			(
-				'{"entries": [{"rank": 1, "name": "Noor", "flyer": "pip", "score": 131, "is_me": false},'
-				+ ' {"rank": 2, "name": "buzzybee", "flyer": "dash", "score": 87, "is_me": true, "run": 5}],'
-				+ ' "me": {"rank": 2, "score": 87}, "players": 2, "resets_in_s": 3600}'
+				'{"entries": [{"rank": 1, "name": "Noor", "flyer": "pip", "score": 131, "is_me": false,'
+				+ ' "verified": true},'
+				+ ' {"rank": 2, "name": "buzzybee", "flyer": "dash", "score": 87, "is_me": true, "run": 5,'
+				+ ' "verified": false}],'
+				+ ' "me": {"rank": 2, "score": 87, "verified": false}, "players": 2, "resets_in_s": 3600}'
 			)
 		)
 	)
@@ -70,7 +72,9 @@ func test_reads_a_board_from_the_server_answer() -> void:
 	assert_eq(b.entries[0].player_name, "Noor")
 	assert_eq(b.entries[0].score, 131)
 	assert_true(b.entries[1].is_me, "the player's own row is marked")
-	assert_false(b.entries[0].verified, "no server has checked these runs yet")
+	assert_true(b.entries[0].verified, "the checker replayed this run")
+	assert_false(b.entries[1].verified, "the player's own new run waits for the checker")
+	assert_false(b.me.verified)
 	assert_eq(b.me.rank, 2)
 	assert_eq(b.entries[1].run_id, 5, "each row knows its run for the replay")
 	assert_eq(b.me.score, 87)
@@ -87,8 +91,21 @@ func test_reads_a_board_from_the_server_answer() -> void:
 
 
 func test_a_run_is_sent_with_its_seed_taps_name_and_flyer() -> void:
-	var body := SupabaseLeaderboard.run_body(
-		_profile(), 42, {"gameplay_version": 5, "seed": 123456, "taps": [3, 40, 77]}, 0
+	var body := (
+		SupabaseLeaderboard
+		. run_body(
+			_profile(),
+			42,
+			{
+				"gameplay_version": 5,
+				"seed": 123456,
+				"season": Seasons.WINTER,
+				"taps": [3, 40, 77],
+				"coins": 4,
+				"end_tick": 300,
+			},
+			0
+		)
 	)
 	assert_eq(body.p_name, "buzzybee")
 	assert_eq(body.p_flyer, "dash")
@@ -98,8 +115,21 @@ func test_a_run_is_sent_with_its_seed_taps_name_and_flyer() -> void:
 	assert_eq(body.p_taps, [3, 40, 77])
 	assert_eq(body.p_played_at, "1970-01-01T00:00:00Z")
 	assert_eq(body.p_loadout.get("flyer"), "dash", "the look goes along for replays")
-	assert_false(SupabaseLeaderboard.without_loadout(body).has("p_loadout"), "old database")
-	assert_true(body.has("p_loadout"), "the original body is left alone")
+	assert_eq(body.p_season, Seasons.WINTER, "the checker replays the same seasonal rooms")
+	assert_eq(body.p_coins, 4, "coins are checked too")
+	assert_eq(body.p_end_tick, 300)
+
+
+func test_older_databases_get_the_arguments_they_know() -> void:
+	var body := SupabaseLeaderboard.run_body(_profile(), 42, {"seed": 1, "taps": []}, 0)
+	var no_check := SupabaseLeaderboard.older_body(body)
+	assert_false(no_check.has("p_season") or no_check.has("p_coins"), "before verified runs")
+	assert_true(no_check.has("p_loadout"), "drops only the newest arguments first")
+	var oldest := SupabaseLeaderboard.older_body(no_check)
+	assert_false(oldest.has("p_loadout"), "before loadouts")
+	assert_true(oldest.has("p_taps"))
+	assert_eq(SupabaseLeaderboard.older_body(oldest), {}, "nothing left to drop")
+	assert_true(body.has("p_season"), "the original body is left alone")
 
 
 func test_loadout_has_every_equipped_cosmetic() -> void:
@@ -128,6 +158,10 @@ func test_reads_a_run_for_its_replay() -> void:
 	assert_eq(run.gameplay_version, 9)
 	assert_eq(run.taps, [4, 18, 40])
 	assert_eq(run.loadout.get("world"), "ice")
+	assert_false(run.has("season"), "an old run without a season replays in today's")
+	answer.season = float(Seasons.HALLOWEEN)
+	answer.erase("loadout")
+	assert_eq(SupabaseLeaderboard.parse_run(answer).season, Seasons.HALLOWEEN, "its own season")
 	assert_eq(SupabaseLeaderboard.parse_run(null), {}, "no run")
 
 

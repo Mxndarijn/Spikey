@@ -161,20 +161,29 @@ _process           views draw, interpolating between previous and current tick
 - Display: 360 × 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` puts the fixed 360 × 640 room at the top of the safe area, centred sideways, and RoomView fills around it), portrait, Compatibility
   renderer (best for 2D on older phones).
 
-## Verified leaderboards (Phase 3)
+## Verified leaderboards
 
-1. Client asks the server for a one-time seed (`seed_id`, expires).
-2. Client plays and records tap ticks (`Replay`).
-3. On game over it submits `{app_version, gameplay_version, seed_id, taps, score, end_tick, checksum}`.
-4. Server runs `godot --headless -s res://server/verify_run.gd -- run.json`, which
-   calls `Replay.verify()` with the same `sim/` code. That takes milliseconds.
-5. Same score and end tick: accepted. Else, or reused/unknown seed, or unknown
-   version: rejected. Plausibility checks (tap speed, timing variance, jumps
-   above the player's history) send runs to a review queue. App Attest / Play
-   Integrity confirm a real device.
+Live now (supabase/migrations/20261109120000_verified_runs.sql):
 
-Hosting candidates: Supabase or Firebase for seeds, accounts and boards, plus a
-small container that runs headless Godot for verification.
+1. The client plays and records tap ticks (`Replay`).
+2. On game over it sends `submit_run` the score, coins, end tick, season, seed and
+   taps. The run is stored as `pending`.
+3. Every 10 minutes `.github/workflows/verify-runs.yml` fetches pending runs
+   (`worker_pending_runs`), replays them with `server/verify_batch.gd`
+   (`RunChecker` -> `Replay.verify()`, the same `sim/` code) and writes back
+   `worker_record_results`.
+4. Same score, coins and end tick, and a season that was in play that day: `ok`.
+   Anything else: `rejected`. An older gameplay version: `outdated`. A newer one
+   than the checker's stays pending until main has that sim.
+5. Boards show `ok` runs to everyone, plus the caller's own `pending` runs (so a
+   new best shows at once on that phone). Rejected runs never show and can't be
+   watched.
+
+Still to come: server-issued one-time seeds (so a run can't be searched for
+offline), frozen older sims so older app versions keep verifying (the
+`sim/versions/g<N>/` plan above), plausibility checks (tap speed, timing
+variance, jumps above the player's history) with a review queue, and App
+Attest / Play Integrity to confirm a real device.
 
 ## Feature map (your picks)
 

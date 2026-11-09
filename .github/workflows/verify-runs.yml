@@ -1,0 +1,75 @@
+name: Verify leaderboard runs
+
+# The leaderboard's anti-cheat: every 10 minutes it fetches the runs that wait to be checked,
+# replays them with the same sim/ code the phones use (server/verify_batch.gd) and writes back
+# "ok", "rejected" or "outdated". Boards only show "ok" runs (supabase/migrations/).
+# Free on a public repository. GitHub may start scheduled runs late, and turns them off after
+# 60 days without commits (turn it back on in the Actions tab).
+#
+# Needs the SUPABASE_DB_URL secret (the same one supabase-db.yml uses, docs/LEADERBOARD_SETUP.md);
+# without it the workflow does nothing.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: verify-runs
+  cancel-in-progress: false
+
+env:
+  # Must match check.yml.
+  GODOT_VERSION: 4.6-beta2
+
+jobs:
+  verify:
+    name: Replay pending runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Fetch pending runs
+        id: fetch
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::notice::No SUPABASE_DB_URL secret, nothing to verify. See docs/LEADERBOARD_SETUP.md."
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
+            -c "select public.worker_pending_runs(500)" > "$RUNNER_TEMP/pending.json"
+          count=$(jq length "$RUNNER_TEMP/pending.json")
+          echo "Pending runs: $count"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.fetch.outputs.count != '0'
+        uses: actions/checkout@v4
+
+      - name: Set up Godot
+        if: steps.fetch.outputs.count != '0'
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Replay them
+        if: steps.fetch.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          # A clean checkout has no class cache yet; retry once like check.yml.
+          godot --headless --path . --import || godot --headless --path . --import
+          godot --headless --path . -s res://server/verify_batch.gd -- \
+            "$RUNNER_TEMP/pending.json" "$RUNNER_TEMP/results.json"
+
+      - name: Write the results
+        if: steps.fetch.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          # psql fills in :'results' (quoted safely) only for commands read from stdin.
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
+            -v results="$(cat "$RUNNER_TEMP/results.json")" <<'SQL'
+          select 'runs updated: ' || public.worker_record_results(:'results'::jsonb);
+          SQL

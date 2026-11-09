@@ -6,9 +6,9 @@ in a free Supabase project. Nothing here costs money and no card is needed.
 
 Without the config file below, the game shows made-up sample boards instead.
 
-Runs are stored with their seed and taps but are **not verified**: anyone with
-the app's public key could post a fake score. That is fine among friends; a
-verification server (`server/verify_run.gd`) can check stored runs later.
+Runs are **verified**: a GitHub job replays every new run with the game's own
+code and only runs that match their score show on the boards (see
+"Verification" below).
 
 ## One-time setup (about 10 minutes)
 
@@ -66,15 +66,36 @@ Restore; scores are kept.
 
 - `services/supabase_leaderboard.gd` signs the phone in anonymously once and
   keeps the session in `user://supabase_session.json`.
-- After every real run (never practice) it sends the score, seed and taps to
+- After every real run (never practice) it sends the score, coins, season, seed and taps to
   `submit_run`. If the phone is offline, runs wait in `user://pending_runs.json`
   and go out with the next run or board load. A run played offline still counts
   for the day it was played if it is sent within two days.
 - The leaderboard name (asked the first time you open Leaderboards) is sent with
   every run and when you change it.
 
+## Verification
+
+`.github/workflows/verify-runs.yml` runs every 10 minutes. It fetches runs that
+wait to be checked, replays them headless with `server/verify_batch.gd`, and
+marks each one:
+
+- `ok`: the replay gives the same score, coins and end tick. Shown to everyone.
+- `rejected`: it doesn't (a fake or broken run). Never shown; `reason` says why.
+- `outdated`: played on an older gameplay version than `main`. Never shown.
+- `pending`: not checked yet. Shown only to the player who sent it.
+
+It uses the same `SUPABASE_DB_URL` secret as the database workflow; nothing else
+to set up. The repository is public, so its runs are free. GitHub sometimes
+starts scheduled runs late, and turns the schedule off after 60 days without a
+commit: turn it back on under Actions -> Verify leaderboard runs. You can also
+start it by hand there.
+
+After a gameplay change (a new `GAMEPLAY_VERSION` on `main`), runs from phones
+on the older app become `outdated` until those phones update.
+
 ## Looking at the data
 
-Table Editor -> `players` and `runs`. To remove a player and their runs, delete
+Table Editor -> `players` and `runs` (`status` and `reason` show what the
+checker decided). To remove a player and their runs, delete
 their row in `players`. To start the boards over, run `truncate public.runs;`
 in the SQL Editor.
