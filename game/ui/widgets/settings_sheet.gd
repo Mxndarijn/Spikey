@@ -27,6 +27,7 @@ const SWITCHES := {
 	"reduced_flashing": ["Reduced flashing", "No room flash or shake, slow sky fades"],
 	"color_blind_spikes": ["Color-blind spikes", "Spikes turn dark with a white edge"],
 	"large_buttons": ["Large buttons", "Pause and HUD buttons grow to 56px"],
+	"board_alerts": ["Board alerts", "A notification when you lose a prize spot"],
 }
 const CREDITS := [
 	["Font", "Archivo by the Archivo Project Authors, SIL Open Font License 1.1."],

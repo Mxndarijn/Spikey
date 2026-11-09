@@ -33,6 +33,8 @@ var leaderboard: LeaderboardService
 var store: StoreService
 ## Where the diamonds live; tests can swap in their own before _ready.
 var wallet: WalletService
+## Push notifications (Board alerts); tests can swap in their own before _ready.
+var push: PushService
 
 var _profile: Profile
 var _game_over_at_ms := -1
@@ -56,6 +58,8 @@ var _replay_board := LeaderboardService.DAILY
 var _replay_look := false
 ## A lost prize spot to tell the player about on Home (SpotAlert), or "".
 var _spot_notice := ""
+## Settings > Board alerts as last sent to the server.
+var _alerts_on := true
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -71,6 +75,7 @@ func _ready() -> void:
 	add_child(_menus)
 	add_child(_audio)
 	_profile = Profile.load_or_new(profile_path)
+	_alerts_on = _profile.board_alerts
 	if leaderboard == null:
 		leaderboard = _make_leaderboard()
 	leaderboard.board_loaded.connect(_on_board_loaded)
@@ -79,6 +84,11 @@ func _ready() -> void:
 	wallet.synced.connect(_on_wallet_synced)
 	if store == null:
 		store = _make_store()
+	if push == null:
+		push = PushService.new(leaderboard as SupabaseLeaderboard)
+	# Permission given on an earlier start: fetch this start's token.
+	if _profile.board_alerts and _profile.push_asked:
+		push.start()
 	store.purchased.connect(_on_purchased)
 	_load_equipped()
 	_audio.bind(_run)
@@ -308,6 +318,7 @@ func _track_spot(board: LeaderboardBoard, rank: int) -> void:
 		_profile.daily_spot_rank = rank
 		_profile.daily_spot_until = now + maxi(board.resets_in_s, 0)
 		_save_profile()
+	_ask_for_push(rank)
 
 
 ## Shows a waiting lost-spot line on Home, once.
@@ -555,6 +566,30 @@ func _on_sound_toggled(which: String, on: bool) -> void:
 func _on_settings_changed() -> void:
 	_profile.save(profile_path)
 	apply_settings()
+	_apply_board_alerts()
+
+
+## Settings > Board alerts changed: tell the server, and when it was switched
+## on by a player who already reached the top 10, ask for permission now.
+func _apply_board_alerts() -> void:
+	if _profile.board_alerts == _alerts_on:
+		return
+	_alerts_on = _profile.board_alerts
+	push.set_enabled(_alerts_on)
+	if _alerts_on:
+		_ask_for_push(_profile.daily_spot_rank)
+
+
+## Asks for notification permission once, at the moment it means something:
+## the player holds a place that wins diamonds.
+func _ask_for_push(rank: int) -> void:
+	if rank < 1 or Economy.daily_prize(rank) == 0:
+		return
+	if _profile.push_asked or not _profile.board_alerts or not push.is_available():
+		return
+	_profile.push_asked = true
+	_save_profile()
+	push.request_permission()
 
 
 ## Every setting from the save: sound, then Settings > Play.

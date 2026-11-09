@@ -54,7 +54,12 @@ if (-not $failed) {
     foreach ($t in (Get-ChildItem (Join-Path $tests "*_test_*.sql") | Sort-Object Name)) {
         $out = Invoke-Sql $t.FullName
         $ok = ($out | Select-String "NOTICE:  ok  ").Count
-        $bad = $out | Select-String -Pattern "FAIL|ERROR"
+        $bad = $out | Select-String -CaseSensitive -Pattern "FAIL |ERROR:"
+        $done = $out | Select-String -CaseSensitive -Pattern "ALL DATABASE TESTS PASSED"
+        if (-not $bad -and -not $done) {
+            Write-Host "$($t.Name) stopped before its end" -ForegroundColor Red
+            $failed = $true
+        }
         if ($bad) {
             $bad | ForEach-Object { Write-Host $_.Line -ForegroundColor Red }
             $failed = $true

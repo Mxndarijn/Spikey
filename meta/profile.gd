@@ -47,6 +47,12 @@ var reduced_flashing := false
 var color_blind_spikes := false
 ## Pause and other HUD icon buttons grow to 56px (UiKit.large_buttons).
 var large_buttons := false
+## Settings > Board alerts: a notification when someone takes the player's
+## prize spot on the daily board (PushService).
+var board_alerts := true
+## The OS permission prompt for notifications was shown (it is shown once,
+## after the first top-10 finish).
+var push_asked := false
 
 
 func _init() -> void:
@@ -162,6 +168,8 @@ func to_dict() -> Dictionary:
 		"reduced_flashing": reduced_flashing,
 		"color_blind_spikes": color_blind_spikes,
 		"large_buttons": large_buttons,
+		"board_alerts": board_alerts,
+		"push_asked": push_asked,
 	}
 
 
@@ -191,6 +199,8 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.reduced_flashing = bool(d.get("reduced_flashing", false))
 	p.color_blind_spikes = bool(d.get("color_blind_spikes", false))
 	p.large_buttons = bool(d.get("large_buttons", false))
+	p.board_alerts = bool(d.get("board_alerts", true))
+	p.push_asked = bool(d.get("push_asked", false))
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in Catalog.KINDS:

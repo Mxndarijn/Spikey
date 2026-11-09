@@ -2,11 +2,11 @@ class_name SettingSwitch
 extends Button
 ## One on/off setting in the settings sheet: the name (15/800) and a muted hint
 ## on the left, a 52x30 switch on the right (ink when on, soft edge when off,
-## a white knob). The whole row is the tap target (52px tall).
+## a white knob). The whole row is the tap target (46px tall, so five fit the sheet).
 
 const SWITCH := Vector2(52, 30)
 const KNOB := 24.0
-const ROW_H := 52.0
+const ROW_H := 46.0
 
 var _name := Label.new()
 var _hint := Label.new()

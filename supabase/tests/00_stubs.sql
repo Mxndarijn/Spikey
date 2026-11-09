@@ -1,6 +1,7 @@
 -- What a Supabase project has that plain Postgres lacks, as small stand-ins.
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 create schema auth;
 create table auth.users (id uuid primary key);
 -- Supabase reads the signed-in player from the request's JWT.
