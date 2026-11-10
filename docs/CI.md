@@ -28,7 +28,8 @@ workflows call it first, so a failing test stops the build.
 3. With the keystore secrets: exports a release-signed APK and, for `v*` tags or the "Build AAB"
    option, a release-signed AAB. Both go through Godot's Gradle build, which the AdMob plugin
    (`addons/admob`, the rewarded ad for the revive) needs; the first export installs the build
-   template into `android/` (ignored by git) and takes a few minutes longer than before.
+   template into `android/` (ignored by git); CI installs it by hand and patches it, so the
+   export must not pass `--install-android-build-template` (that reinstalls the stock one).
    Without them: still a release APK, signed with a key made fresh on each run.
    Before the export, CI turns on R8 code shrinking (`tools/ci/patch_android_shrink.sh`) and
    puts the small engine in the template (`tools/ci/swap_android_engine.sh`, see below).
