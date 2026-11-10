@@ -84,3 +84,14 @@ func privacy_options_required() -> bool:
 ## Opens the ad privacy choices (Google's form).
 func show_privacy_options() -> void:
 	pass
+
+
+## Switches to another ad unit (the debug screen: Google's test ads or the
+## real unit). A loaded ad from the old unit is dropped.
+func use_unit(_unit: String) -> void:
+	pass
+
+
+## The debug screen: what this service knows right now, as [name, value] rows.
+func debug_rows() -> Array:
+	return [["Ads", "none in this build"]]

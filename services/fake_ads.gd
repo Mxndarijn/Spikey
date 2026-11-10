@@ -11,6 +11,8 @@ var preloads := 0
 ## Pretend this player has ad privacy choices to change.
 var privacy_required := false
 var privacy_shown := 0
+## Units asked for with use_unit().
+var units: Array[String] = []
 
 
 func is_ready() -> bool:
@@ -32,3 +34,15 @@ func privacy_options_required() -> bool:
 
 func show_privacy_options() -> void:
 	privacy_shown += 1
+
+
+func use_unit(unit: String) -> void:
+	units.append(unit)
+
+
+func debug_rows() -> Array:
+	return [
+		["Ads", "stand-in (debug build, no real ads)"],
+		["Ad", "loaded" if ready else "none"],
+		["Shown", str(shown)],
+	]

@@ -88,4 +88,5 @@ func _on_token(token: String) -> void:
 
 func _on_error(message: String) -> void:
 	# Not push_error: a phone without Google Play services is no bug.
+	last_error = message
 	print("Board alerts: ", message)

@@ -110,6 +110,7 @@ func _ready() -> void:
 		store = _make_store()
 	if push == null:
 		push = _make_push()
+	PushService.current = push
 	# Permission given on an earlier start: fetch this start's token.
 	if _profile.board_alerts and _profile.push_asked:
 		push.start()
@@ -324,7 +325,8 @@ func _make_leaderboard() -> LeaderboardService:
 ## ask for Google's test ads). Elsewhere: a stand-in ad in debug builds, so
 ## the ad path can be played on a PC, and no ads at all in release builds.
 func _make_ads() -> AdsService:
-	var unit := AdsService.revive_unit(OS.get_name(), OS.is_debug_build())
+	var test_ads := OS.is_debug_build() or _profile.test_ads
+	var unit := AdsService.revive_unit(OS.get_name(), test_ads)
 	if not unit.is_empty() and Engine.has_singleton(ADMOB_SINGLETON):
 		# Loaded by path: naming the class would load the plugin on every PC too.
 		return (load(ADMOB_ADS) as GDScript).new(unit)
@@ -757,6 +759,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _exit_tree() -> void:
 	if AdsService.current == ads:
 		AdsService.current = null
+	if PushService.current == push:
+		PushService.current = null
 	AudioServer.set_bus_mute(0, false)
 	UiTheme.release()
 	GameFonts.release()

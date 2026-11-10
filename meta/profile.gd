@@ -57,6 +57,8 @@ var board_alerts := true
 var push_asked := false
 ## Free revives used on `free_revives_day` ("YYYY-MM-DD", the phone's date).
 var free_revives_used := 0
+## The debug screen's switch: ask for Google's test ads instead of real ones.
+var test_ads := false
 var free_revives_day := ""
 
 
@@ -199,6 +201,7 @@ func to_dict() -> Dictionary:
 		"push_asked": push_asked,
 		"free_revives_used": free_revives_used,
 		"free_revives_day": free_revives_day,
+		"test_ads": test_ads,
 	}
 
 
@@ -230,6 +233,7 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.large_buttons = bool(d.get("large_buttons", false))
 	p.board_alerts = bool(d.get("board_alerts", true))
 	p.push_asked = bool(d.get("push_asked", false))
+	p.test_ads = bool(d.get("test_ads", false))
 	var revive_day: Variant = d.get("free_revives_day", "")
 	if revive_day is String:
 		p.free_revives_day = revive_day
