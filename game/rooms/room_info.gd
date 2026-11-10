@@ -59,7 +59,14 @@ const ROOMS := {
 	["Caterpillar Crawl", "Spiky caterpillars walk the edges of the cage.", 3, "jungle", "crawl"],
 	"garden":
 	["Coin Garden", "Four coins and only a few spikes. Grab them all.", 1, "jungle", "coins"],
-	"bramble": ["Bramble Ball", "A big thorny ball ricochets around the room.", 3, "ice", "ball"],
+	"bramble":
+	[
+		"Bramble Ball",
+		"Thorny balls ricochet around. Some split, speed up, fall or follow you.",
+		3,
+		"ice",
+		"ball",
+	],
 	"squeeze":
 	["Squeeze Box", "The walls creep inward while you play this room.", 4, "desert", "extra"],
 	"slowmo":
@@ -103,7 +110,7 @@ const ROOMS := {
 	"stalker":
 	["Stalker Rail", "A pair of spikes rides the wall rail to meet you.", 3, "star", "extra"],
 	"pinwheel":
-	["Pinwheel", "A four-blade star spins in the middle of the cage.", 3, "sunset", "ball"],
+	["Pinwheel", "Spinning blades in the cage, six different ways.", 3, "sunset", "ball"],
 	"sawring": ["Saw Ring", "Three saws orbit the middle of the cage.", 4, "ice", "ball"],
 	"updraft":
 	["Updraft", "Columns of moving air: ride them, time them or fight them.", 3, "desert", "cloud"],

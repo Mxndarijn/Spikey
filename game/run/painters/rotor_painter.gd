@@ -1,17 +1,21 @@
 extends HazardPainter
-## Rotor (Pinwheel): four tapered blades round a hub, all in the spike colour.
+## Rotor (Pinwheel): tapered blades round each hub, all in the spike colour.
 
 const RotorHazard := preload("res://sim/hazards/rotor.gd")
 
 
 func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var h := hazard as RotorHazard
-	var theme := look.theme
-	var center := HazardLayer.at(h.CENTER_X, h.center_y)
-	var length := HazardLayer.px(h.BLADE_LENGTH) + HazardLayer.px(h.BLADE_HALF_W)
-	var half := HazardLayer.px(h.BLADE_HALF_W)
-	for i in h.BLADES:
-		var a: float = h.blade_angle(i) * TAU / SimTrig.TURN
+	for hub in h.hubs:
+		_paint_hub(c, h, hub, look.theme)
+
+
+func _paint_hub(c: CanvasItem, h: RotorHazard, hub: int, theme: ThemeDef) -> void:
+	var center := HazardLayer.at(h.hub_x(hub), h.hub_y(hub))
+	var length := HazardLayer.px(h.blade_length) + HazardLayer.px(h.half_w)
+	var half := HazardLayer.px(h.half_w)
+	for i in h.blades:
+		var a: float = h.blade_angle(hub, i) * TAU / SimTrig.TURN
 		var along := Vector2.RIGHT.rotated(a)
 		var side := along.orthogonal()
 		# Wide at the hub, a curved sail, a rounded tip.
@@ -36,7 +40,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			1.5,
 			true
 		)
-	var hub := HazardLayer.px(h.HUB_RADIUS)
-	c.draw_circle(center, hub, theme.spike, true, -1.0, true)
-	c.draw_circle(center, hub, theme.spike_edge, false, 2.0, true)
-	c.draw_circle(center, hub * 0.35, theme.spike_edge, true, -1.0, true)
+	var radius := HazardLayer.px(h.hub_radius)
+	c.draw_circle(center, radius, theme.spike, true, -1.0, true)
+	c.draw_circle(center, radius, theme.spike_edge, false, 2.0, true)
+	c.draw_circle(center, radius * 0.35, theme.spike_edge, true, -1.0, true)

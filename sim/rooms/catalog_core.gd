@@ -5,6 +5,10 @@ extends RefCounted
 const Block := preload("res://sim/hazards/block.gd")
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 const Bouncer := preload("res://sim/hazards/bouncer.gd")
+const SplittingBouncer := preload("res://sim/hazards/splitting_bouncer.gd")
+const RevvingBouncer := preload("res://sim/hazards/revving_bouncer.gd")
+const CuriousBouncer := preload("res://sim/hazards/curious_bouncer.gd")
+const HeavyBouncer := preload("res://sim/hazards/heavy_bouncer.gd")
 
 const SUB := SimConfig.SUB
 
@@ -56,9 +60,21 @@ static func defs() -> Array[RoomDef]:
 		garden.hazards.append(_coin.bind(int(p[0]) * SUB, int(p[1]) * SUB, 0))
 	out.append(garden)
 
-	# Bramble Ball: a spiked ball bouncing around the room.
+	# Bramble Ball: a spiked ball bouncing around the room. Variants: the
+	# classic ball; two smaller ones in the upper and lower lanes; one that
+	# splits in two; one that speeds up per bounce; one that steers toward the
+	# bird's height; a heavy one that bounces off the floor in arcs.
 	var bramble := RoomDef.new("bramble", "mid", 40)
-	bramble.hazards.append(func() -> Hazard: return Bouncer.new())
+	bramble.variants = [
+		RoomVariant.new("classic").with([func() -> Hazard: return Bouncer.new()]),
+		RoomVariant.new("twin").with(
+			[_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)]
+		),
+		RoomVariant.new("split").with([func() -> Hazard: return SplittingBouncer.new()]),
+		RoomVariant.new("revup").with([func() -> Hazard: return RevvingBouncer.new()]),
+		RoomVariant.new("curious").with([func() -> Hazard: return CuriousBouncer.new()]),
+		RoomVariant.new("heavy").with([func() -> Hazard: return HeavyBouncer.new()]),
+	]
 	out.append(bramble)
 
 	# Squeeze Box: every point here moves both walls in a step.
@@ -104,6 +120,10 @@ static func _island(band: int) -> Hazard:
 	var b := Block.new()
 	b.band = band
 	return b
+
+
+static func _twin(lane: int) -> Hazard:
+	return Bouncer.new(Bouncer.TWIN_RADIUS, lane)
 
 
 static func _coin(x: int, y: int, appear_at: int) -> Hazard:
