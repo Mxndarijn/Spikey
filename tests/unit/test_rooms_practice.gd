@@ -258,7 +258,7 @@ func test_old_version_1_saves_still_load() -> void:
 	var p := Profile.from_dict(old)
 	assert_eq(p.coins, 50)
 	assert_eq(p.total_clears(), 0, "no clears in an old save")
-	assert_eq(int(p.to_dict()["version"]), 2, "saved again as version 2")
+	assert_eq(int(p.to_dict()["version"]), Profile.VERSION, "saved again as the current version")
 
 
 ## Puts a flyer (and optionally a world) in use, as Customize would; a first

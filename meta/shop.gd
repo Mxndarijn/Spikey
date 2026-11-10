@@ -3,10 +3,16 @@ extends RefCounted
 ## Prices and buying. Cosmetic only: nothing here changes gameplay.
 ## Free items (price 0) are starters: a first start gets the first free flyer.
 
-enum Result { OK, ALREADY_OWNED, NOT_ENOUGH_COINS, UNKNOWN_ITEM }
+enum Result { OK, ALREADY_OWNED, NOT_ENOUGH_COINS, UNKNOWN_ITEM, NOT_ENOUGH_DIAMONDS }
 
 ## Coins are collected in runs (sim/: one coin spawns on a wall bounce when none
 ## is out) and checked with the same replay as the leaderboards.
+
+## Diamond prices of the premium line (see diamond_price()).
+const DIAMOND_WORLD := 30
+const DIAMOND_SEASONAL := 25
+const DIAMOND_FLYER := 20
+const DIAMOND_PRICES := {"flyer": {"bolt": DIAMOND_FLYER, "nova": DIAMOND_FLYER}}
 
 const PRICES := {
 	Catalog.FLYER:
@@ -55,6 +61,43 @@ const PRICES := {
 		"comet_tail": 400,
 		"star_dust": 400,
 		"music_notes": 500,
+		# Flap trails: one stamp per tap.
+		"cloud_puff": 200,
+		"ripple": 200,
+		"hearts": 250,
+		"feather_drop": 250,
+		"splash": 300,
+		"snowflake": 300,
+		"blossom": 300,
+		"paw_prints": 350,
+		"flame": 350,
+		"zap": 400,
+	},
+	Catalog.CRASH:
+	{
+		CrashStyle.DEFAULT_ID: 0,
+		"confetti_pop": 200,
+		"bubble_trap": 300,
+		"dizzy_stars": 300,
+		"shatter": 350,
+		"pixel_dissolve": 350,
+		"paint_splat": 400,
+		"comic_pow": 450,
+		"firework": 500,
+		"little_ghost": 600,
+	},
+	Catalog.PLATE:
+	{
+		PlateStyle.DEFAULT_ID: 0,
+		"sunset_glow": 300,
+		"jungle_canopy": 300,
+		"ice_cavern": 300,
+		"finish_line": 350,
+		"lava_forge": 400,
+		"deep_sea": 400,
+		"sugar_rush": 400,
+		"star_station": 500,
+		"royal": 800,
 	},
 	Catalog.PORTAL:
 	{
@@ -111,13 +154,49 @@ static func starters(kind: String) -> Array[String]:
 
 
 static func buy(profile: Profile, kind: String, id: String) -> Result:
-	var cost := price(kind, id)
-	if cost < 0:
+	var gems := diamond_price(kind, id)
+	var gold := price(kind, id)
+	if gold < 0 and gems == 0:
 		return Result.UNKNOWN_ITEM
 	if profile.owns(kind, id):
 		return Result.ALREADY_OWNED
-	if profile.coins < cost:
-		return Result.NOT_ENOUGH_COINS
-	profile.coins -= cost
+	if gems > 0:
+		if profile.diamonds < gems:
+			return Result.NOT_ENOUGH_DIAMONDS
+		profile.diamonds -= gems
+	else:
+		if profile.coins < gold:
+			return Result.NOT_ENOUGH_COINS
+		profile.coins -= gold
 	profile.grant(kind, id)
 	return Result.OK
+
+
+## The premium line sells for diamonds (Economy), not gold. Every world marked
+## `premium` is on it: DIAMOND_SEASONAL when it has a season, else
+## DIAMOND_WORLD. Other premium items are listed by id in DIAMOND_PRICES; a new
+## one is one line there. An item with a diamond price ignores its gold price.
+## Returns 0 for everything sold for gold.
+static func diamond_price(kind: String, id: String) -> int:
+	var table: Dictionary = DIAMOND_PRICES.get(kind, {})
+	if table.has(id):
+		return table[id]
+	if kind == Catalog.WORLD:
+		var w := Catalog.world(id)
+		if w != null and w.premium:
+			return DIAMOND_SEASONAL if not w.season.is_empty() else DIAMOND_WORLD
+	return 0
+
+
+## What the item costs in its own currency (-1: not for sale).
+static func cost(kind: String, id: String) -> int:
+	var gems := diamond_price(kind, id)
+	return gems if gems > 0 else price(kind, id)
+
+
+static func can_afford(profile: Profile, kind: String, id: String) -> bool:
+	var gems := diamond_price(kind, id)
+	if gems > 0:
+		return profile.diamonds >= gems
+	var gold := price(kind, id)
+	return gold >= 0 and profile.coins >= gold

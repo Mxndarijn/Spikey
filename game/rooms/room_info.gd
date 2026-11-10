@@ -141,7 +141,7 @@ const ROOMS := {
 	"eggs":
 	[
 		"Egg Hunt",
-		"Painted eggs hide behind floating isles. Each is worth coins.",
+		"Painted eggs hide behind floating isles. Each is worth gold.",
 		1,
 		"blossom",
 		"coins"

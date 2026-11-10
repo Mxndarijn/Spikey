@@ -1,33 +1,74 @@
 class_name LeaderboardRow
 extends PanelContainer
 ## One leaderboard row (minimal kit): a flat paper pill with the rank, a small
-## flyer, the name and the score. The player's own row is gold.
+## flyer, the name and the score. The player's own row is gold. A row with a
+## name plate (PlateStyle) shows that plate instead of the paper, with white
+## text on a dark one; the player's own then keeps a gold ring round it.
 
 const VERIFIED_ICON := preload("res://assets/ui/icons/verified.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 const REVIVE_MARK := 16.0
 const HEIGHT := 48.0
 const RANK_WIDTH := 34.0
 const FLYER := 32.0
+const RING := 3.0
 
 var entry: LeaderboardBoard.Entry
+## The plate drawn behind the row, or null for the plain row.
+var plate: PlateStyle
+## Diamonds this place wins on the daily board (0: none, nothing is shown).
+var prize := 0
 
 
-func _init(e: LeaderboardBoard.Entry) -> void:
+func _init(e: LeaderboardBoard.Entry, p_prize: int = 0) -> void:
 	entry = e
+	prize = p_prize
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(0, HEIGHT)
-	add_theme_stylebox_override("panel", pill(UiTokens.ACTION if e.is_me else UiTokens.PANEL))
+	var style := Catalog.plate(e.plate_id)
+	if style != null and not style.is_plain():
+		plate = style
+	var fill := UiTokens.ACTION if e.is_me else UiTokens.PANEL
+	# A plate is drawn in _draw; its box only keeps the row's margins.
+	add_theme_stylebox_override("panel", pill(Color.TRANSPARENT if plate != null else fill))
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 10)
 	add_child(row)
-	row.add_child(rank_label(str(e.rank)))
+	var labels: Array[Label] = [
+		rank_label(str(e.rank)), name_label(e.player_name), score_label(e.score)
+	]
+	row.add_child(labels[0])
 	row.add_child(icon(flyer_texture(e.flyer_id), FLYER))
-	row.add_child(name_label(e.player_name))
+	row.add_child(labels[1])
 	if e.revived:
 		row.add_child(revive_mark())
-	row.add_child(score_label(e.score))
+	if prize > 0:
+		var won := HBoxContainer.new()
+		won.name = "Prize"
+		won.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		won.tooltip_text = "Wins %d a day" % prize
+		won.add_theme_constant_override("separation", 3)
+		won.add_child(icon(DIAMOND_ICON, 16))
+		var amount := rank_label(str(prize))
+		amount.custom_minimum_size = Vector2.ZERO
+		labels.append(amount)
+		won.add_child(amount)
+		row.add_child(won)
+	row.add_child(labels[2])
+	if plate != null:
+		for l in labels:
+			l.add_theme_color_override("font_color", plate.text_color())
+
+
+func _draw() -> void:
+	if plate == null:
+		return
+	var rect := Rect2(Vector2.ZERO, size)
+	PlatePainter.paint(self, rect, plate)
+	if entry != null and entry.is_me:
+		PlatePainter.ring(self, rect, RING)
 
 
 ## The row's box: a flat pill, a little more room on the score side.

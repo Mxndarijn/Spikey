@@ -7,11 +7,14 @@ extends Control
 ## Settings opens the settings sheet over Home.
 
 signal play_pressed
-## Style (the dock): opens Customize on a tab.
+## Opens one kind's list in Customize directly (nothing on Home emits it now;
+## main still listens, for shortcuts to a kind).
 signal shop_pressed(tab: String)
-## Kept for main: opens Customize on Flyers.
+## Style (the dock): opens Customize on "Your look".
 signal customize_pressed
 signal rooms_pressed
+## The wallet (gold and diamonds, top right): opens the Shop.
+signal store_pressed
 ## The #rank item: opens the leaderboards.
 signal leaderboard_pressed
 ## A setting changed in the settings sheet (already in the profile): main
@@ -29,6 +32,9 @@ const LOGO_TOP := 118.0
 ## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
 const LOGO_SIZE := 64
 const STATS_TOP := 236.0
+## The lost-spot line, between the stats and the flyer.
+const NOTICE_TOP := 262.0
+const NOTICE_WIDTH := 300.0
 ## The flyer's centre and body size on Home (bigger than in a run).
 const FLYER_CENTER := Vector2(196, 346)
 const FLYER_BODY := 52.0
@@ -40,6 +46,9 @@ var _flyer: FlyerArt
 var _dock: Dock
 var _daily_rank := 0
 var _settings: SettingsSheet
+var _wallet: Wallet
+var _prizes: DailyPrizePopup
+var _notice: Label
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -50,16 +59,19 @@ func _init(profile: Profile, daily_rank: int = 0) -> void:
 
 
 func _ready() -> void:
-	var coins := CoinPill.new()
-	coins.set_amount(_profile.coins)
-	coins.name = "Coins"
-	add_child(coins)
-	coins.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
-	coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	coins.offset_left -= 20
-	coins.offset_right -= 20
-	coins.offset_top = 50
-	coins.offset_bottom = 50 + CoinPill.ICON_SIZE
+	# Gold and diamonds, top right; tapping them opens the Shop.
+	_wallet = Wallet.new()
+	_wallet.show_balance(_profile)
+	_wallet.name = "Coins"
+	_wallet.pressed.connect(store_pressed.emit)
+	add_child(_wallet)
+	_wallet.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	_wallet.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_wallet.offset_left -= 20
+	_wallet.offset_right -= 20
+	var lift := (UiTokens.SIZE_TAP_MIN - CoinPill.ICON_SIZE) / 2.0
+	_wallet.offset_top = 50 - lift
+	_wallet.offset_bottom = 50 + CoinPill.ICON_SIZE + lift
 
 	_logo = _row_label(WORDMARK, &"LogoLabel", LOGO_TOP)
 	_logo.add_theme_font_size_override("font_size", LOGO_SIZE)
@@ -109,7 +121,7 @@ func _on_dock(id: String) -> void:
 		"rooms":
 			rooms_pressed.emit()
 		"style":
-			shop_pressed.emit(Catalog.FLYER)
+			customize_pressed.emit()
 		"rank":
 			leaderboard_pressed.emit()
 		"settings":
@@ -140,6 +152,47 @@ func open_settings() -> SettingsSheet:
 
 func settings() -> SettingsSheet:
 	return _settings
+
+
+func wallet() -> Wallet:
+	return _wallet
+
+
+## The daily prize popup over Home (main claims when its button is pressed).
+func show_prizes(prizes: Array) -> DailyPrizePopup:
+	close_prizes()
+	_prizes = DailyPrizePopup.new(prizes)
+	_prizes.closed.connect(close_prizes)
+	add_child(_prizes)
+	return _prizes
+
+
+func close_prizes() -> void:
+	if _prizes != null:
+		_prizes.queue_free()
+		_prizes = null
+
+
+func prize_popup() -> DailyPrizePopup:
+	return _prizes
+
+
+## A line under the stats: someone took the player's prize spot (SpotAlert).
+func show_notice(text: String) -> void:
+	if _notice == null:
+		_notice = UiKit.wrapped("", &"SkyCaption", NOTICE_WIDTH)
+		_notice.add_theme_font_size_override("font_size", 13)
+		add_child(_notice)
+		_notice.anchor_right = 1.0
+		_notice.offset_left = (ScreenLayout.ROOM.x - NOTICE_WIDTH) / 2.0
+		_notice.offset_right = -_notice.offset_left
+		_notice.offset_top = NOTICE_TOP
+	_notice.text = text
+	_notice.visible = not text.is_empty()
+
+
+func notice_text() -> String:
+	return _notice.text if _notice != null and _notice.visible else ""
 
 
 ## The wordmark, for tests.

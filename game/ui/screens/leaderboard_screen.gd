@@ -221,7 +221,9 @@ func _list(board: LeaderboardBoard) -> Control:
 	rows.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	scroll.add_child(rows)
 	for i in range(3, board.entries.size()):
-		var row := LeaderboardRow.new(board.entries[i])
+		# The daily top 10 win diamonds (Economy); the podium holds places 1 to 3.
+		var prize := Economy.daily_prize(i + 1) if board.id == LeaderboardService.DAILY else 0
+		var row := LeaderboardRow.new(board.entries[i], prize)
 		_tappable(row, board.entries[i])
 		_rows.append(row)
 		rows.add_child(row)

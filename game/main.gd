@@ -22,11 +22,16 @@ const RESTART_DELAY_MS := 450
 ## Settings > Haptics: a short buzz on flap, a longer one on a crash.
 const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
+## show_store(): go back to "Your look" instead of a Customize list.
+const BACK_TO_LOOK := "look"
 ## No revive offer below this score: a quick crash restarts with one tap.
 const REVIVE_MIN_SCORE := 5
 ## The AdMob provider and the native plugin it needs (addons/admob).
 const ADMOB_ADS := "res://services/admob_ads.gd"
 const ADMOB_SINGLETON := "PoingGodotAdMob"
+## The Firebase push service and the native plugin it needs (addons/godotx_firebase).
+const FIREBASE_PUSH := "res://services/firebase_push.gd"
+const FIREBASE_SINGLETON := "GodotxFirebaseMessaging"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
@@ -35,6 +40,12 @@ var mode := Mode.MENU
 var season := SeasonCalendar.today()
 ## The leaderboards; tests can swap in their own before _ready.
 var leaderboard: LeaderboardService
+## Real-money purchases; tests can swap in their own before _ready.
+var store: StoreService
+## Where the diamonds live; tests can swap in their own before _ready.
+var wallet: WalletService
+## Push notifications (Board alerts); tests can swap in their own before _ready.
+var push: PushService
 ## Rewarded ads for the revive; tests can swap in their own before _ready.
 var ads: AdsService
 
@@ -43,6 +54,7 @@ var _game_over_at_ms := -1
 var _theme: ThemeDef
 var _character: CharacterDef
 var _trail_style: TrailStyle
+var _crash_style: CrashStyle
 var _menus := MenuLayer.new()
 var _audio := AudioDirector.new()
 ## Practice: the room id being repeated. Real runs: the room being played, so
@@ -57,6 +69,10 @@ var _replay_run := {}
 var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
 var _replay_look := false
+## A lost prize spot to tell the player about on Home (SpotAlert), or "".
+var _spot_notice := ""
+## Settings > Board alerts as last sent to the server.
+var _alerts_on := true
 ## The crashed run while the revive offer shows (null: no offer).
 var _offer_replay: Replay
 ## The score this run was revived at (-1: not revived).
@@ -67,6 +83,7 @@ var _revive_wait := false
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
 @onready var _trail: TrailView = $TrailView
+@onready var _crash: CrashView = $CrashView
 @onready var _bird: BirdView = $BirdView
 @onready var _coin: CoinView = $CoinView
 @onready var _hazards: HazardLayer = $HazardLayer
@@ -77,9 +94,21 @@ func _ready() -> void:
 	add_child(_menus)
 	add_child(_audio)
 	_profile = Profile.load_or_new(profile_path)
+	_alerts_on = _profile.board_alerts
 	if leaderboard == null:
 		leaderboard = _make_leaderboard()
 	leaderboard.board_loaded.connect(_on_board_loaded)
+	if wallet == null:
+		wallet = _make_wallet()
+	wallet.synced.connect(_on_wallet_synced)
+	if store == null:
+		store = _make_store()
+	if push == null:
+		push = _make_push()
+	# Permission given on an earlier start: fetch this start's token.
+	if _profile.board_alerts and _profile.push_asked:
+		push.start()
+	store.purchased.connect(_on_purchased)
 	if ads == null:
 		ads = _make_ads()
 	AdsService.current = ads
@@ -104,7 +133,7 @@ func _ready() -> void:
 	_hud.restart_pressed.connect(_restart_practice)
 	_hud.rooms_pressed.connect(show_rooms)
 	_hud.leaderboard_pressed.connect(show_leaderboard)
-	_hud.style_pressed.connect(show_shop.bind(Catalog.FLYER))
+	_hud.style_pressed.connect(show_look)
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
@@ -159,13 +188,17 @@ func show_home() -> void:
 	var home := HomeScreen.new(_profile, leaderboard.cached_rank(LeaderboardService.DAILY))
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
-	# The dock's Style opens Customize.
-	home.customize_pressed.connect(show_shop.bind(Catalog.FLYER))
+	# The dock's Style opens Customize on "Your look".
+	home.customize_pressed.connect(show_look)
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
+	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
+	# The balance and any daily prize waiting to be claimed.
+	wallet.sync()
+	_show_spot_notice()
 
 
 ## The leaderboards: Daily and All-time.
@@ -237,6 +270,9 @@ func _apply_loadout(look: Dictionary) -> void:
 	var trail := Catalog.trail(str(look.get(Catalog.TRAIL, "")))
 	if trail != null:
 		_trail_style = trail
+	var crash := Catalog.crash(str(look.get(Catalog.CRASH, "")))
+	if crash != null:
+		_crash_style = crash
 	var world := Catalog.world(str(look.get(Catalog.WORLD, "")))
 	if world != null:
 		_apply_world(world)
@@ -296,10 +332,41 @@ func _on_board_loaded(board: LeaderboardBoard) -> void:
 	if board.id != LeaderboardService.DAILY:
 		return
 	var rank := board.me.rank if board.me != null else 0
+	_track_spot(board, rank)
 	if home != null:
 		home.set_daily_rank(rank)
+		_show_spot_notice()
 	# Game over shows today's rank too, once the board with this run arrives.
 	_hud.set_daily_rank(rank)
+
+
+## Remembers the player's place on today's board and notices when someone
+## pushed them past a prize line since the last look (never during a run: the
+## line shows on Home).
+func _track_spot(board: LeaderboardBoard, rank: int) -> void:
+	var now := int(Time.get_unix_time_from_system())
+	if now >= _profile.daily_spot_until:
+		# Yesterday's place says nothing about today's board.
+		_profile.daily_spot_rank = 0
+	if board.status != LeaderboardBoard.Status.OK or rank <= 0:
+		return
+	var notice := SpotAlert.message(_profile.daily_spot_rank, rank, board.entries)
+	if not notice.is_empty():
+		_spot_notice = notice
+	if rank != _profile.daily_spot_rank:
+		_profile.daily_spot_rank = rank
+		_profile.daily_spot_until = now + maxi(board.resets_in_s, 0)
+		_save_profile()
+	_ask_for_push(rank)
+
+
+## Shows a waiting lost-spot line on Home, once.
+func _show_spot_notice() -> void:
+	var home := _menus.current() as HomeScreen
+	if home == null or _spot_notice.is_empty():
+		return
+	home.show_notice(_spot_notice)
+	_spot_notice = ""
 
 
 ## Every room kind, for practice.
@@ -346,16 +413,121 @@ func _restart_practice() -> void:
 		_hud.show_ready()
 
 
-## Customize (the shop and the loadout in one screen) on a tab and filter.
+## Customize starts on "Your look": one card per cosmetic kind with what is in
+## use. A card opens that kind's list (show_shop); Back goes Home.
+func show_look() -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_show_flyer(false)
+	# A world previewed in a list gives way to the one in use.
+	_room.set_theme(_theme)
+	_hazards.set_theme(_theme)
+	var look := LookScreen.new(_profile)
+	look.closed.connect(show_home)
+	look.kind_pressed.connect(show_shop)
+	look.store_pressed.connect(show_store.bind(BACK_TO_LOOK))
+	_menus.show_screen(look)
+
+
+## One kind's list in Customize (its shop and the player's own items in one
+## screen). Back returns to "Your look".
 func show_shop(tab: String = Catalog.FLYER) -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
 	_show_flyer(false)
 	var shop := CollectionScreen.new(_profile, CollectionScreen.Mode.SHOP, tab)
-	shop.closed.connect(show_home)
+	shop.wallet_service = wallet
+	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
+	shop.store_pressed.connect(func() -> void: show_store(shop.kind))
+	shop.wallet_changed.connect(_save_profile)
 	_menus.show_screen(shop)
+
+
+## The Shop: diamond packs and turning diamonds into gold. `back_tab`: the
+## Customize list to go back to, BACK_TO_LOOK for "Your look", or "" for Home.
+func show_store(back_tab: String = "") -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_show_flyer(false)
+	var screen := StoreScreen.new(_profile, store)
+	screen.wallet_service = wallet
+	if back_tab.is_empty():
+		screen.closed.connect(show_home)
+	elif back_tab == BACK_TO_LOOK:
+		screen.closed.connect(show_look)
+	else:
+		screen.closed.connect(show_shop.bind(back_tab))
+	screen.changed.connect(_save_profile)
+	_menus.show_screen(screen)
+
+
+## A pretend store in debug builds with a local wallet, else a closed one
+## until the app-store billing is in (services/store_service.gd). With the
+## diamonds on the server a pretend purchase would be undone by the next sync.
+func _make_store() -> StoreService:
+	if OS.is_debug_build() and not wallet.is_online():
+		return SampleStore.new()
+	return StoreService.new()
+
+
+## Firebase push in a phone build that carries the plugin, else no push.
+func _make_push() -> PushService:
+	var api := leaderboard as SupabaseLeaderboard
+	if Engine.has_singleton(FIREBASE_SINGLETON):
+		# Loaded by path, like the ads: naming the class here crashes Godot 4.6
+		# beta 2 on exit when every script is loaded (tools/ci/load_all.gd).
+		return (load(FIREBASE_PUSH) as GDScript).new(api)
+	return PushService.new(api)
+
+
+## Diamonds on the server when the leaderboards are (Supabase), else in the save.
+func _make_wallet() -> WalletService:
+	var online := leaderboard as SupabaseLeaderboard
+	return SupabaseWallet.new(_profile, online) if online != null else WalletService.new(_profile)
+
+
+## The wallet answered: keep the copy in the save, show it on Home, and offer
+## any daily prize that waits to be claimed.
+func _on_wallet_synced(_diamonds: int, prizes: Array) -> void:
+	_save_profile()
+	var home := _menus.current() as HomeScreen
+	if home == null:
+		return
+	home.wallet().show_balance(_profile)
+	if prizes.is_empty() or home.prize_popup() != null:
+		return
+	var popup := home.show_prizes(prizes)
+	popup.claim_pressed.connect(_claim_prizes.bind(popup))
+
+
+func _claim_prizes(popup: DailyPrizePopup) -> void:
+	@warning_ignore("redundant_await")
+	var won: int = await wallet.claim()
+	if not is_instance_valid(popup):
+		_save_profile()
+		return
+	if won <= 0:
+		popup.show_failed()
+		return
+	_save_profile()
+	AudioDirector.sound("purchase")
+	var home := _menus.current() as HomeScreen
+	if home != null:
+		home.wallet().show_balance(_profile)
+		home.close_prizes()
+
+
+## The store confirmed a payment: hand out the pack and save at once.
+func _on_purchased(pack_id: String) -> void:
+	if DiamondPacks.grant(_profile, pack_id):
+		_save_profile()
+		AudioDirector.sound("purchase")
+
+
+func _save_profile() -> void:
+	_profile.save(profile_path)
 
 
 ## Switches world right away; cosmetic only, so it is safe mid-run.
@@ -394,6 +566,7 @@ func _preview(kind: String, id: String) -> void:
 func _show_flyer(value: bool) -> void:
 	_bird.visible = value
 	_trail.visible = value
+	_crash.visible = value
 
 
 func _on_equipped(_kind: String, _id: String) -> void:
@@ -409,6 +582,7 @@ func _load_equipped() -> void:
 	_trail_style = Catalog.trail(_profile.equipped_id(Catalog.TRAIL))
 	if _trail_style == null:
 		_trail_style = TrailStyle.world_ribbon()
+	_crash_style = CrashStyle.equipped(_profile)
 	var world := Catalog.world(_profile.equipped_id(Catalog.WORLD))
 	_apply_world(world if world != null else ThemeCatalog.default_theme())
 	if is_node_ready():
@@ -441,6 +615,30 @@ func _on_sound_toggled(which: String, on: bool) -> void:
 func _on_settings_changed() -> void:
 	_profile.save(profile_path)
 	apply_settings()
+	_apply_board_alerts()
+
+
+## Settings > Board alerts changed: tell the server, and when it was switched
+## on by a player who already reached the top 10, ask for permission now.
+func _apply_board_alerts() -> void:
+	if _profile.board_alerts == _alerts_on:
+		return
+	_alerts_on = _profile.board_alerts
+	push.set_enabled(_alerts_on)
+	if _alerts_on:
+		_ask_for_push(_profile.daily_spot_rank)
+
+
+## Asks for notification permission once, at the moment it means something:
+## the player holds a place that wins diamonds.
+func _ask_for_push(rank: int) -> void:
+	if rank < 1 or Economy.daily_prize(rank) == 0:
+		return
+	if _profile.push_asked or not _profile.board_alerts or not push.is_available():
+		return
+	_profile.push_asked = true
+	_save_profile()
+	push.request_permission()
 
 
 ## Every setting from the save: sound, then Settings > Play.
@@ -491,6 +689,7 @@ func _new_run() -> void:
 	_room.bind(_run, _theme)
 	_hazards.bind(_run, _theme)
 	_bird.bind(_run, _character)
+	_crash.clear()
 	_coin.bind(_run)
 	_hud.set_run_coins(0)
 	_trail.bind(_bird, _trail_style, _theme)
@@ -598,6 +797,7 @@ func _on_room_changed(_room_index: int) -> void:
 func _on_died(replay: Replay) -> void:
 	_buzz(HAPTIC_CRASH_MS)
 	_bird.on_death()
+	_play_crash()
 	_room.show_score = false
 	_trail.stop()
 	if mode == Mode.PRACTICE:
@@ -697,6 +897,20 @@ func _finish_run(replay: Replay) -> void:
 		replay.seed_value,
 		_revived_at
 	)
+
+
+## The crash effect in use, where the flyer is drawn; its pieces fly away from
+## the wall the flyer was heading for. Looks only: the run is already over.
+func _play_crash() -> void:
+	if _crash_style == null or _run.sim == null:
+		return
+	var away := -1.0 if _run.sim.state.vx > 0 else 1.0
+	var palette := PackedColorArray()
+	if _crash_style.piece == CrashStyle.SHARD and _character != null:
+		palette = CrashPainter.flyer_palette(_character.idle)
+	_crash.play(_crash_style, _bird.position, away, palette)
+	if _crash_style.hides_flyer:
+		_bird.fade_out()
 
 
 static func _is_tap(event: InputEvent) -> bool:

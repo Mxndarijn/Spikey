@@ -198,6 +198,8 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 			e.verified = bool(row.get("verified", false))
 			e.is_me = bool(row.get("is_me", false))
 			e.run_id = int(row.get("run", 0))
+			# Databases before the name plates migration send none: the plain row.
+			e.plate_id = str(row.get("plate", ""))
 			e.revived = bool(row.get("revived", false))
 			b.entries.append(e)
 	var me: Variant = d.get("me")
@@ -227,7 +229,13 @@ func _load_board(board_id: String) -> void:
 	if not res.ok:
 		_deliver(LeaderboardBoard.make(board_id, LeaderboardBoard.Status.OFFLINE))
 		return
-	_deliver(parse_board(board_id, res.data))
+	var board := parse_board(board_id, res.data)
+	# The player's own row shows the plate in use now, not the one their best
+	# run was sent with.
+	for e in board.entries:
+		if e.is_me:
+			e.plate_id = _profile.equipped_id(Catalog.PLATE)
+	_deliver(board)
 
 
 func _set_player(player_name: String, flyer_id: String) -> void:
@@ -298,6 +306,14 @@ func _renew_session(now: int) -> bool:
 		{"access_token": _access, "refresh_token": _refresh, "expires_at": _expires_at}
 	)
 	return not _access.is_empty()
+
+
+## Calls one of the database's functions as this phone's player (the wallet
+## uses it too, so both share one session). Same answer as _post().
+func call_db(function: String, body: Dictionary) -> Dictionary:
+	if not await _ensure_session():
+		return {"ok": false, "code": 0, "data": null}
+	return await _post("/rest/v1/rpc/" + function, body, true)
 
 
 ## One POST. Returns {"ok": bool, "code": HTTP status (0: no answer), "data": parsed JSON}.
