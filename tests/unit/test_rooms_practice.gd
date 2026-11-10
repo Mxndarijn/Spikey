@@ -100,11 +100,27 @@ func test_rooms_screen_lists_every_room_and_locks_unmet_ones() -> void:
 	var screen := RoomsScreen.new(p)
 	screen.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(screen)
-	assert_eq(screen.cards().size(), RoomCatalog.all().size(), "a card per room kind")
-	for card in screen.cards():
-		assert_eq(card.disabled, card.room_id != "open", "%s locked unless met" % card.room_id)
 	assert_eq(screen.cleared_text(), "2", "the header shows the total clears")
+	assert_eq(screen.group_cards()[0].count_text(), "1 of %d" % RoomInfo.rooms_in("starter").size())
 	screen.free()
+	var cards := _all_room_cards(p)
+	assert_eq(cards.size(), RoomCatalog.all().size(), "a card per room kind")
+	for card in cards:
+		assert_eq(card.disabled, card.room_id != "open", "%s locked unless met" % card.room_id)
+		card.free()
+
+
+## Every room card, from each group's screen (taken out of it).
+func _all_room_cards(p: Profile) -> Array[RoomCard]:
+	var out: Array[RoomCard] = []
+	for g in RoomInfo.GROUPS:
+		var screen := RoomsScreen.new(p, g)
+		(Engine.get_main_loop() as SceneTree).root.add_child(screen)
+		for card in screen.cards():
+			card.get_parent().remove_child(card)
+			out.append(card)
+		screen.free()
+	return out
 
 
 func test_room_detail_shows_clears_and_only_practices_open_rooms() -> void:
@@ -151,7 +167,11 @@ func test_real_runs_count_clears_and_practice_never_does() -> void:
 	assert_eq(main._profile.best_score, best_before, "no best score from practice")
 	assert_true(main._hud.practice_hud().is_over_showing(), "the practice crash screen shows")
 	main.show_rooms()
-	assert_true(main._menus.current() is RoomsScreen, "Back to rooms")
+	var back := main._menus.current() as RoomsScreen
+	assert_true(back != null, "Back to rooms")
+	if back != null:
+		var def := RoomCatalog.find(next)
+		assert_eq(back.group(), RoomInfo.group(def), "on the practised room's group")
 	assert_false(main._hud.is_practicing(), "the practice HUD hides in menus")
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
@@ -172,7 +192,20 @@ func test_home_has_a_rooms_button() -> void:
 	assert_true(home != null, "home is showing")
 	if home != null:
 		home.rooms_pressed.emit()
-		assert_true(main._menus.current() is RoomsScreen, "Rooms opens the Rooms screen")
+		var rooms := main._menus.current() as RoomsScreen
+		assert_true(rooms != null, "Rooms opens the Rooms screen")
+		if rooms != null:
+			assert_eq(rooms.group(), "", "on the room groups")
+			rooms.group_opened.emit("bonus")
+			var bonus := main._menus.current() as RoomsScreen
+			assert_eq(bonus.group(), "bonus", "a group opens its rooms")
+			bonus.room_opened.emit(RoomInfo.rooms_in("bonus")[0].id)
+			(main._menus.current() as RoomDetailScreen).closed.emit()
+			assert_eq((main._menus.current() as RoomsScreen).group(), "bonus", "back to the group")
+			(main._menus.current() as RoomsScreen).closed.emit()
+			assert_eq((main._menus.current() as RoomsScreen).group(), "", "back to the groups")
+			(main._menus.current() as RoomsScreen).closed.emit()
+			assert_true(main._menus.current() is HomeScreen, "and Home")
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
 
@@ -186,9 +219,10 @@ func test_developer_mode_opens_every_room_and_shows_dev() -> void:
 	screen.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(screen)
 	assert_true(screen.has_dev_tag(), "the Rooms screen says DEV")
-	for card in screen.cards():
-		assert_false(card.disabled, "%s can be opened" % card.room_id)
 	screen.free()
+	for card in _all_room_cards(p):
+		assert_false(card.disabled, "%s can be opened" % card.room_id)
+		card.free()
 	DevMode.override = 0
 	var off := RoomsScreen.new(p)
 	(Engine.get_main_loop() as SceneTree).root.add_child(off)

@@ -17,6 +17,8 @@ const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const CHIP_TOP := 48.0
 const CHIP_H := 34.0
+## The chip stays clear of the corner buttons (Large buttons on, too).
+const CHIP_MAX := 224.0
 
 var _banner := PanelContainer.new()
 var _line := Label.new()
@@ -47,6 +49,7 @@ func _build_banner() -> void:
 	_line.add_theme_font_size_override("font_size", 14)
 	_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_line.custom_minimum_size = Vector2(0, CHIP_H)
+	_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_banner.add_child(_line)
 	_banner.anchor_left = 0.5
@@ -131,6 +134,7 @@ func set_run(player: String, score: int) -> void:
 	_player = player
 	_score = score
 	_line.text = "Replay: %s, %d" % [player, score]
+	UiKit.cap_width(_line, CHIP_MAX - 28.0)
 	visible = not player.is_empty()
 	show_playing()
 	changed.emit()

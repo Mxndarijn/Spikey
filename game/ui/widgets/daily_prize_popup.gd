@@ -13,6 +13,12 @@ signal closed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const SIDE := 28
+## BigPanel's inner padding on each side (UiTheme).
+const CARD_PAD := 20
+const HEADLINE_SIZE := 64
+const HEADLINE_MIN := 32
+## Room for the headline on the narrowest (360 wide) screen.
+const HEADLINE_W := UiTokens.SIZE_VIEWPORT_W - 2 * (SIDE + CARD_PAD)
 const MONTHS: Array[String] = [
 	"January",
 	"February",
@@ -61,9 +67,11 @@ func _init(prizes: Array) -> void:
 
 	col.add_child(UiKit.label(day_line(latest()), &"MutedLabel"))
 	_rank.theme_type_variation = &"NameLabel"
-	_rank.add_theme_font_size_override("font_size", 64)
-	_rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_rank.text = headline(latest())
+	_rank.add_theme_font_size_override("font_size", headline_size(_rank.text))
+	_rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Never let the headline widen the card past the screen edge.
+	_rank.clip_text = true
 	col.add_child(_rank)
 	_line.theme_type_variation = &"InkLabel"
 	_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -124,6 +132,12 @@ static func headline(prize: Dictionary) -> String:
 		WalletService.STREAK:
 			return "7 days"
 	return "#%d" % int(prize.get("rank", 0))
+
+
+## The largest font size (64 down to 32) at which `text` fits the card:
+## "#2" stays big, "Best 50" and "Best 1000" shrink to fit.
+static func headline_size(text: String) -> int:
+	return UiKit.fit_font_size(text, GameFonts.display(), HEADLINE_SIZE, HEADLINE_W, HEADLINE_MIN)
 
 
 ## All diamonds waiting to be claimed.

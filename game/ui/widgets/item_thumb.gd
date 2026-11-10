@@ -77,6 +77,12 @@ var open := false:
 	set(value):
 		open = value
 		queue_redraw()
+## Just the sky in the mini room (no glow or spike rows), so a small item
+## (a trail, a portal, a crash) stands out: the Your look cards.
+var plain := false:
+	set(value):
+		plain = value
+		queue_redraw()
 ## The popup picture: the world's sky with a far hill and the flyer big.
 var scenic := false:
 	set(value):
@@ -226,6 +232,8 @@ func _room(r: Rect2, a: float) -> void:
 	for p in pts:
 		cols.append(Color(_sky_at((p.y - r.position.y) / r.size.y), a))
 	draw_polygon(pts, cols)
+	if plain:
+		return
 	# The glow sits in the middle of the room, clear of the edges.
 	var g := minf(r.size.x, r.size.y) * 0.26
 	draw_circle(

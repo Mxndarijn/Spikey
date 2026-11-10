@@ -1,13 +1,17 @@
 class_name RoomsScreen
 extends Control
-## Every room kind, for practice (minimal kit): a back arrow, the title and how
-## many rooms the player has cleared in real runs (a check and the number), a
-## paper tab bar with the room groups, the group's "5 of 8 open" line on the
-## room, and a scrolling two-column grid of flat paper room cards. A room opens
-## for practice once a real run has met it.
+## Every room kind, for practice (minimal kit), in two steps. First the room
+## groups: a back arrow, the title and how many rooms the player has cleared in
+## real runs (a check and the number), how many rooms are open, and a card per
+## group (RoomGroupCard; Seasonal across the width). A group then opens on its
+## own: the group's name as the title, its "5 of 8 open" line and a scrolling
+## two-column grid of flat paper room cards. A room opens for practice once a
+## real run has met it.
 
 signal closed
 signal room_opened(id: String)
+## A group card was tapped: show that group's rooms.
+signal group_opened(group: String)
 
 const CHECK_ICON := preload("res://assets/ui/icons/check.svg")
 ## Two cards per row, so each card has room for its picture, name and status.
@@ -30,17 +34,18 @@ const NOTES := {
 }
 
 var _profile: Profile
+var _group := ""
 var _scroll := SmoothScroll.new()
-var _sections := {}
-var _selected := ""
-var _tabs := {}
+var _group_cards: Array[RoomGroupCard] = []
 var _cards: Array[RoomCard] = []
 var _cleared := Label.new()
 var _dev: Control
 
 
-func _init(profile: Profile) -> void:
+## `group`: a RoomInfo group to show its rooms, or "" for the group cards.
+func _init(profile: Profile, group: String = "") -> void:
 	_profile = profile
+	_group = group
 
 
 func _ready() -> void:
@@ -56,18 +61,50 @@ func _ready() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
-	col.add_child(UiKit.header("Rooms", closed.emit, _clears()))
-	col.add_child(_tab_bar())
+	var title := "Rooms" if _group.is_empty() else str(RoomInfo.GROUP_NAMES.get(_group, _group))
+	var header := UiKit.header(title, closed.emit, _clears())
+	if not _group.is_empty():
+		UiKit.back_of(header).tooltip_text = "Back to the room groups"
+	col.add_child(header)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", GAP)
 	_scroll.add_child(list)
 	col.add_child(FadeMask.new(_scroll))
-	for g in RoomInfo.GROUPS:
-		var section := _section(g)
-		_sections[g] = section
-		list.add_child(section)
+	if _group.is_empty():
+		_build_groups(list)
+	else:
+		list.add_child(_section(_group))
 	list.add_child(UiKit.spacer(FadeMask.FADE))
-	_select_tab("starter")
+
+
+## The group cards, two to a row; the last one alone takes the whole row.
+func _build_groups(list: VBoxContainer) -> void:
+	var open := 0
+	for def in RoomCatalog.all():
+		if RoomInfo.is_open(_profile, def):
+			open += 1
+	var intro := UiKit.label(
+		(
+			"%d of %d rooms open. Meet a room in a run to practice it."
+			% [open, RoomCatalog.all().size()]
+		),
+		&"SkyCaption",
+		false
+	)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size = Vector2(200, 0)
+	list.add_child(_inset(intro))
+	var row: HBoxContainer = null
+	for i in RoomInfo.GROUPS.size():
+		if i % COLUMNS == 0:
+			row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", GAP)
+			list.add_child(row)
+		var card := RoomGroupCard.new(_profile, RoomInfo.GROUPS[i])
+		card.pressed.connect(group_opened.emit.bind(RoomInfo.GROUPS[i]))
+		row.add_child(card)
+		_group_cards.append(card)
 
 
 ## The header's right side: (DEV,) a check and the total clears in real runs.
@@ -112,40 +149,6 @@ func has_dev_tag() -> bool:
 	return _dev != null
 
 
-func _tab_bar() -> Control:
-	var bar := PanelContainer.new()
-	bar.theme_type_variation = &"TabStrip"
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 0)
-	bar.add_child(tabs)
-	var group := ButtonGroup.new()
-	for g in RoomInfo.GROUPS:
-		var tab := Button.new()
-		tab.theme_type_variation = &"TabButton"
-		_tight(tab)
-		tab.text = (RoomInfo.GROUP_NAMES[g] as String).replace("-game", "")
-		tab.toggle_mode = true
-		tab.button_group = group
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-		tab.focus_mode = Control.FOCUS_NONE
-		tab.pressed.connect(_select_tab.bind(g))
-		_tabs[g] = tab
-		tabs.add_child(tab)
-	return bar
-
-
-## Five tabs share the bar, so they keep only a little padding.
-## Copies the style from UiTheme directly: the tab isn't in the tree yet, so
-## its own get_theme_stylebox() would return Godot's grey default buttons.
-func _tight(tab: Button) -> void:
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
-		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
-		box.content_margin_left = 2
-		box.content_margin_right = 2
-		tab.add_theme_stylebox_override(state, box)
-
-
 func _section(g: String) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", GAP)
@@ -156,9 +159,7 @@ func _section(g: String) -> Control:
 			open += 1
 	var head := VBoxContainer.new()
 	head.add_theme_constant_override("separation", 2)
-	var count := UiKit.label(
-		"%s, %d of %d open" % [RoomInfo.GROUP_NAMES[g], open, rooms.size()], &"SkyCaption", false
-	)
+	var count := UiKit.label("%d of %d open" % [open, rooms.size()], &"SkyCaption", false)
 	head.add_child(_inset(count))
 	if NOTES.has(g):
 		var note := UiKit.label(NOTES[g], &"RoomMuted", false)
@@ -187,27 +188,13 @@ func _inset(c: Control) -> Control:
 	return m
 
 
-## Highlights a group's tab and shows only that group's rooms, from the top.
-func _select_tab(g: String) -> void:
-	_selected = g
-	if _tabs.has(g):
-		(_tabs[g] as Button).button_pressed = true
-	for key: String in _sections:
-		(_sections[key] as Control).visible = key == g
-	_scroll.scroll_vertical = 0
+## The group this screen shows, or "" on the group cards.
+func group() -> String:
+	return _group
 
 
-func selected_group() -> String:
-	return _selected
-
-
-## The cards of the selected tab (the ones on screen).
-func visible_cards() -> Array[RoomCard]:
-	var out: Array[RoomCard] = []
-	for card in _cards:
-		if card.is_visible_in_tree():
-			out.append(card)
-	return out
+func group_cards() -> Array[RoomGroupCard]:
+	return _group_cards
 
 
 func cards() -> Array[RoomCard]:

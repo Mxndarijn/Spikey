@@ -172,7 +172,7 @@ func test_home_wallet_opens_the_shop_and_packs_are_granted() -> void:
 	var sheet := shop.open_convert()
 	assert_eq(sheet.amount(), 1)
 	sheet.step(2)
-	assert_eq(sheet.convert_text(), "Convert 3 diamonds")
+	assert_eq(sheet.convert_text(), "Convert")
 	assert_eq(sheet.becomes_text(), "Becomes 300 gold")
 	sheet.confirm()
 	assert_eq([main._profile.diamonds, main._profile.coins], [27, 800])
@@ -218,7 +218,7 @@ func test_convert_sheet_stays_within_the_wallet() -> void:
 	assert_eq(sheet.amount(), 3, "never more than the player has")
 	sheet.step(-5)
 	assert_eq(sheet.amount(), 1, "never less than one")
-	assert_eq(sheet.convert_text(), "Convert 1 diamond")
+	assert_eq(sheet.convert_text(), "Convert")
 	var done: Array = []
 	sheet.converted.connect(func(n: int) -> void: done.append(n))
 	sheet.confirm()

@@ -122,6 +122,9 @@ func _ready() -> void:
 	_action.custom_minimum_size = Vector2(0, SHOP_ACTION_HEIGHT)
 	_action.focus_mode = Control.FOCUS_NONE
 	_action.add_theme_constant_override("icon_max_width", 22)
+	# A long label trims instead of widening the popup past the screen edge.
+	_action.clip_text = true
+	_action.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_action.pressed.connect(_on_action)
 	add_child(_build_popup())
 	_show_kind(kind)
@@ -247,6 +250,8 @@ func _build_popup() -> Control:
 	_detail_text.custom_minimum_size = Vector2(200, 0)
 	box.add_child(_detail_text)
 	_badge_text.theme_type_variation = &"MutedLabel"
+	_badge_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_badge_text.custom_minimum_size = Vector2(200, 0)
 	box.add_child(_badge_text)
 	box.add_child(_action)
 	panel.add_child(box)
@@ -497,7 +502,8 @@ func action_label() -> Array:
 	if _profile.equipped_id(kind) == _selected:
 		return ["In use", false]
 	if _profile.owns(kind, _selected):
-		return ["Use %s" % ItemChip.short_name(kind, _selected), true]
+		# The popup's title already names the item.
+		return ["Use", true]
 	var gems := Shop.diamond_price(kind, _selected)
 	if gems > 0:
 		return _diamond_label(gems)
