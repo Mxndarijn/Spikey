@@ -4,6 +4,9 @@ namespace FastSim;
 public static class CatalogCore
 {
     public const long SUB = SimConfig.SUB;
+    public const long GARDEN_CX = 180 * SUB;
+    public const long GARDEN_CY = 320 * SUB;
+    public const long ORBIT_RADIUS = 95 * SUB;
 
     public static List<RoomDef> defs()
     {
@@ -43,12 +46,31 @@ public static class CatalogCore
         garden.weight = 4;
         garden.max_spikes = 3;
         garden.bounce_coin_stacks = true;
-        foreach (long[] p in new[] { new long[] { 180, 220 }, new long[] { 120, 320 }, new long[] { 240, 320 }, new long[] { 180, 420 } })
+        var diamond = new[] { new long[] { 180, 220 }, new long[] { 120, 320 }, new long[] { 240, 320 }, new long[] { 180, 420 } };
+        var still = new List<Func<Hazard>>();
+        var spots = new List<long>();
+        foreach (long[] p in diamond)
         {
             long cx = p[0] * SUB;
             long cy = p[1] * SUB;
-            garden.hazards.Add(() => _coin(cx, cy, 0));
+            still.Add(() => _coin(cx, cy, 0));
+            spots.Add(p[0] * SUB);
+            spots.Add(p[1] * SUB);
         }
+        var orbit = new List<Func<Hazard>>();
+        for (long i = 0; i < 4; i++)
+        {
+            long ph = i * SimTrig.TURN / 4;
+            orbit.Add(() => _orbit_coin(ph));
+        }
+        var decoy = new List<Func<Hazard>>(still);
+        decoy.Add(() => _decoy(spots));
+        garden.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(still),
+            new RoomVariant("orbit").with(orbit),
+            new RoomVariant("decoy").with(decoy),
+        };
         out_.Add(garden);
 
         var bramble = new RoomDef("bramble", "mid", 40);
@@ -76,12 +98,21 @@ public static class CatalogCore
         slowmo.speed = RoomDef.Speed.SLOW;
         slowmo.max_spikes = 2;
         long[] arc = { 0, 60, 80, 60, 0 };
+        var arc_coins = new List<Func<Hazard>>();
+        var zigzag = new List<Func<Hazard>>();
         for (long i = 0; i < 5; i++)
         {
             long x = (90 + i * 45) * SUB;
             long y = (330 - arc[i]) * SUB;
-            slowmo.hazards.Add(() => _coin(x, y, 0));
+            long zy = (i % 2 == 1 ? 380 : 280) * SUB;
+            arc_coins.Add(() => _coin(x, y, 0));
+            zigzag.Add(() => _coin(x, zy, 0));
         }
+        slowmo.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(arc_coins),
+            new RoomVariant("zigzag").with(zigzag),
+        };
         out_.Add(slowmo);
 
         var blink = new RoomDef("blink", "late", 80);
@@ -113,4 +144,8 @@ public static class CatalogCore
     static Hazard _twin(long lane) => new Bouncer(Bouncer.TWIN_RADIUS, lane);
 
     static Hazard _coin(long x, long y, long appear_at) => new CoinPickup(x, y, appear_at);
+
+    static Hazard _orbit_coin(long phase) => new OrbitCoin(GARDEN_CX, GARDEN_CY, ORBIT_RADIUS, phase);
+
+    static Hazard _decoy(List<long> spots) => new SpikeBall(spots);
 }

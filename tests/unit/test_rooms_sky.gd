@@ -23,6 +23,10 @@ func test_sky_rooms_spawn_their_hazards() -> void:
 		var kinds: Array[String] = []
 		for h in sim.room.hazards:
 			kinds.append(h.kind)
+		if id == "bubbles":
+			# Spiky Bubbles has four (test_coin_variants.gd).
+			assert_true(kinds.size() == 3 or kinds.size() == 4, "bubbles has 3 or 4")
+			kinds.resize(3)
 		if id == "rain":
 			# Spike Rain's variants have two or four drops (test_rain_variants.gd).
 			assert_true(kinds.size() == 2 or kinds.size() == 4, "rain has 2 or 4 drops")
@@ -60,7 +64,7 @@ func test_bubble_carries_the_bird_and_a_tap_releases_it() -> void:
 	for i in 20:
 		sim.step(false)
 		assert_eq(sim.state.y, b.y, "rides with the bubble")
-	assert_eq(y0 - sim.state.y, 20 * b.RISE, "rises at the bubble's speed, no gravity")
+	assert_eq(y0 - sim.state.y, -20 * b.vy, "rises at the bubble's speed, no gravity")
 	sim.step(true)
 	assert_false(b.carrying, "a tap pops it")
 	assert_true(b.y > SimConfig.KILL_BOTTOM, "popped bubble goes back below the floor")

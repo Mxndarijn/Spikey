@@ -18,6 +18,11 @@ public static class CatalogMachines
         var court = new RoomDef("court", "mid", 40);
         court.hazards.Add(() => _pad(true, 300));
         court.hazards.Add(() => _pad(false, 240));
+        court.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic"),
+            new RoomVariant("goal-pad").with(new List<Func<Hazard>> { () => new PadCoin(false) }),
+        };
         out_.Add(court);
 
         var crates = new RoomDef("crates", "mid", 60);

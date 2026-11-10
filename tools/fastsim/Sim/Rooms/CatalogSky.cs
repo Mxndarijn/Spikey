@@ -4,6 +4,7 @@ namespace FastSim;
 public static class CatalogSky
 {
     public const long SUB = SimConfig.SUB;
+    public const long SPIKY_SPREAD = 230;
 
     public static List<RoomDef> defs()
     {
@@ -35,11 +36,29 @@ public static class CatalogSky
 
         var bubbles = new RoomDef("bubbles", "mid", 50);
         bubbles.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
+        var classic = new List<Func<Hazard>>();
+        var giants = new List<Func<Hazard>>();
+        var coin_bubbles = new List<Func<Hazard>>();
         for (long lane = 0; lane < 3; lane++)
         {
             long l = lane;
-            bubbles.hazards.Add(() => _bubble(l));
+            classic.Add(() => _bubble(l));
+            giants.Add(() => _giant(l));
+            coin_bubbles.Add(l % 2 == 0 ? (Func<Hazard>)(() => _coin_bubble(l)) : () => _bubble(l));
         }
+        bubbles.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(classic),
+            new RoomVariant("giants").with(giants),
+            new RoomVariant("spiky").with(new List<Func<Hazard>>
+            {
+                () => _bubble(0),
+                () => _spiky_bubble(1, 0),
+                () => _bubble(2),
+                () => _spiky_bubble(3, SPIKY_SPREAD),
+            }),
+            new RoomVariant("coin-bubbles").with(coin_bubbles),
+        };
         out_.Add(bubbles);
 
         var rain = new RoomDef("rain", "late", 70);
@@ -114,6 +133,12 @@ public static class CatalogSky
     static Hazard _coin(long x_px, long y_px) => new CoinPickup(x_px * SUB, y_px * SUB);
 
     static Hazard _bubble(long lane) => new Bubble(lane);
+
+    static Hazard _giant(long lane) => new Bubble(lane, Bubble.GIANT_RADIUS, Bubble.GIANT_RISE);
+
+    static Hazard _spiky_bubble(long lane, long delay) => new Bubble(lane).spiky(delay);
+
+    static Hazard _coin_bubble(long lane) => new Bubble(lane).with_coin();
 
     static Hazard _drop(long delay, long speed, long gap) => new Drop(delay, speed, gap);
 

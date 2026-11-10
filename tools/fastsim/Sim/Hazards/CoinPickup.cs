@@ -35,7 +35,7 @@ public class CoinPickup : Hazard
         }
     }
 
-    public bool visible() => t >= appear_at;
+    public virtual bool visible() => t >= appear_at;
 
     public override void step(GameSim _sim)
     {

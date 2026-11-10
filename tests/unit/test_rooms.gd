@@ -126,7 +126,8 @@ func test_tide_spikes_move_blink_walls_switch() -> void:
 
 
 func test_coin_garden_pays_four_coins() -> void:
-	var sim := sim_in_room("garden", 4)
+	var index := RoomCatalog.index_of("garden")
+	var sim := GameSim.new(4, Seasons.NONE, index, "classic")
 	var coins := 0
 	for h in sim.room.hazards:
 		if h.kind == "coin":

@@ -1,13 +1,15 @@
 extends TestCase
 ## Narrow, Tide Spikes, Bumper Cloud, Bramble Ball, Spike Rain, Lantern Swing,
-## Updraft and the twist rooms (Crosswind, Spike Belt, Locked Exit, Lava Rise,
-## Echo), every variant of each, can be played: SurvivalSearch finds a way
-## through each practice seed, long enough to take the first portal.
+## Updraft, the twist rooms (Crosswind, Spike Belt, Locked Exit, Lava Rise,
+## Echo), Bubble Lift, Coin Garden, Slow-Mo Breather and Bumper Court, every
+## variant of each, can be played: SurvivalSearch finds a way through each
+## practice seed, long enough to take the first portal.
 
 ## Practice seeds per room variant.
 const SEEDS_EACH := 2
 ## [room id, ticks]: ten points and a portal (a Narrow crossing is shorter).
 ## Locked Exit: a bot that skips the key waits for the exit to open by itself.
+## Slow-Mo Breather runs at half speed, so it needs twice the ticks.
 const CASES := [
 	["narrow", 900],
 	["tide", 1150],
@@ -21,6 +23,10 @@ const CASES := [
 	["lockexit", 1700],
 	["lava", 1150],
 	["echo", 1150],
+	["bubbles", 1150],
+	["garden", 1150],
+	["slowmo", 2300],
+	["court", 1150],
 ]
 
 const PARALLEL := true

@@ -12,6 +12,9 @@ const KeepyBall := preload("res://sim/hazards/keepy_ball.gd")
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 
 const SUB := SimConfig.SUB
+## Spiky Bubbles: steps between the two spiked bubbles' first rises (about
+## half a rise apart).
+const SPIKY_SPREAD := 230
 
 
 static func defs() -> Array[RoomDef]:
@@ -44,11 +47,36 @@ static func defs() -> Array[RoomDef]:
 	out.append(updraft)
 
 	# Bubble Lift: rising bubbles carry the bird until a tap pops them.
+	# Variants: classic (three bubbles); giants (three big, slow ones); spiky
+	# (two safe bubbles and two spiked ones, each marked on the floor for a
+	# second before it rises); coin-bubbles (a coin in every other bubble).
 	var bubbles := RoomDef.new("bubbles", "mid", 50)
 	# A bubble can carry the bird up into the ceiling.
 	bubbles.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
+	var classic: Array[Callable] = []
+	var giants: Array[Callable] = []
+	var coin_bubbles: Array[Callable] = []
 	for lane in 3:
-		bubbles.hazards.append(_bubble.bind(lane))
+		classic.append(_bubble.bind(lane))
+		giants.append(_giant.bind(lane))
+		coin_bubbles.append(_coin_bubble.bind(lane) if lane % 2 == 0 else _bubble.bind(lane))
+	bubbles.variants = [
+		RoomVariant.new("classic").with(classic),
+		RoomVariant.new("giants").with(giants),
+		(
+			RoomVariant
+			. new("spiky")
+			. with(
+				[
+					_bubble.bind(0),
+					_spiky_bubble.bind(1, 0),
+					_bubble.bind(2),
+					_spiky_bubble.bind(3, SPIKY_SPREAD),
+				]
+			)
+		),
+		RoomVariant.new("coin-bubbles").with(coin_bubbles),
+	]
 	out.append(bubbles)
 
 	# Spike Rain: a mark on the ceiling, then a spiked drop falls down that column.
@@ -155,6 +183,18 @@ static func _coin(x_px: int, y_px: int) -> Hazard:
 
 static func _bubble(lane: int) -> Hazard:
 	return Bubble.new(lane)
+
+
+static func _giant(lane: int) -> Hazard:
+	return Bubble.new(lane, Bubble.GIANT_RADIUS, Bubble.GIANT_RISE)
+
+
+static func _spiky_bubble(lane: int, delay: int) -> Hazard:
+	return Bubble.new(lane).spiky(delay)
+
+
+static func _coin_bubble(lane: int) -> Hazard:
+	return Bubble.new(lane).with_coin()
 
 
 static func _drop(delay: int, speed: int, gap: int) -> Hazard:
