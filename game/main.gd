@@ -158,6 +158,7 @@ func _make_services() -> void:
 	leaderboard.board_loaded.connect(_on_board_loaded)
 	wallet.synced.connect(_on_wallet_synced)
 	store.purchased.connect(_on_purchased)
+	store.restored.connect(_on_restored)
 	profile_sync.synced.connect(_on_profile_synced)
 	ads.start()
 
@@ -445,6 +446,14 @@ func _claim_prizes(popup: DailyPrizePopup) -> void:
 ## The store confirmed a payment: hand out the pack and save at once.
 func _on_purchased(pack_id: String) -> void:
 	if DiamondPacks.grant(_profile, pack_id):
+		_save_profile()
+		AudioDirector.sound("purchase")
+
+
+## The store gave back earlier purchases: hand out the kept ones (the Revive
+## Pass) the save is missing and save at once.
+func _on_restored(pack_ids: Array[String]) -> void:
+	if not DiamondPacks.restore(_profile, pack_ids).is_empty():
 		_save_profile()
 		AudioDirector.sound("purchase")
 

@@ -2,10 +2,13 @@ class_name StoreScreen
 extends Control
 ## The Shop (minimal kit): where diamonds are bought and turned into gold.
 ## A back arrow, the title and the wallet; the once-only Starter pack as a wide
-## paper card; the four diamond packs as a 2 x 2 grid of paper cards, each with
-## its real price on an ink button; a row that opens the convert sheet; and one
-## line on the room saying it is all looks only. Items themselves are bought in
-## Customize (CollectionScreen).
+## paper card; the Revive Pass as a wide paper card (an ink "Owned" pill once
+## bought); the four diamond packs as a 2 x 2 grid of paper cards, each with
+## its real price on an ink button; a row that opens the convert sheet; one
+## line on the room saying it is all looks only; and "Restore purchases" while
+## the pass isn't owned. Everything under the header scrolls (it is taller than
+## the smallest phone). Items themselves are bought in Customize
+## (CollectionScreen).
 ## Buying goes through the StoreService; main grants the pack when the store
 ## confirms, and this screen only shows the result. While the store is closed
 ## (no app-store billing yet) the packs still show with their prices, but
@@ -15,6 +18,13 @@ signal closed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
+const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
+const CHECK_ICON := preload("res://assets/ui/icons/check.svg")
+const PASS_TAG := "One per run"
+const PASS_LINE := "Free revives, no ads"
+const PASS_BOUGHT := "Revive Pass unlocked. Every revive is free."
+const RESTORED := "Your Revive Pass is back."
+const NOTHING_RESTORED := "No earlier purchases to restore."
 const SIDE := 14
 const GRID_GAP := 10
 const PRICE_HEIGHT := float(UiTokens.SIZE_TAP_MIN)
@@ -28,6 +38,9 @@ var _store: StoreService
 var _wallet: Wallet
 var _checkout: Checkout
 var _starter: Control
+var _pass_owned: Control
+var _restore: Button
+var _scroll: SmoothScroll
 var _message: Label
 var _sheet: ConvertSheet
 ## pack id -> its price button.
@@ -56,9 +69,19 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", GRID_GAP)
 	margin.add_child(col)
 	col.add_child(UiKit.header("Shop", closed.emit, _wallet))
+	_scroll = SmoothScroll.new()
+	_scroll.blocked = func() -> bool: return _sheet != null
+	col.add_child(_scroll)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_theme_constant_override("separation", GRID_GAP)
+	_scroll.add_child(body)
+	col = body
 
 	_starter = _starter_card()
 	col.add_child(_starter)
+	col.add_child(_pass_card())
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", GRID_GAP)
@@ -77,9 +100,11 @@ func _ready() -> void:
 	# A closed store shows its packs, but they can't be bought yet.
 	_message.text = LOOKS_ONLY if _store.is_open() else StoreService.CLOSED
 	col.add_child(_message)
+	col.add_child(_restore_link())
 
 	_store.purchased.connect(_on_purchased)
 	_store.failed.connect(_on_failed)
+	_store.restored.connect(_on_restored)
 	refresh()
 
 
@@ -88,6 +113,8 @@ func _exit_tree() -> void:
 		_store.purchased.disconnect(_on_purchased)
 	if _store.failed.is_connected(_on_failed):
 		_store.failed.disconnect(_on_failed)
+	if _store.restored.is_connected(_on_restored):
+		_store.restored.disconnect(_on_restored)
 
 
 ## The Starter pack: its tag, name and contents at the left, the price right.
@@ -116,6 +143,77 @@ func _starter_card() -> Control:
 	buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(buy)
 	return card
+
+
+## The Revive Pass, laid out like the Starter pack: "Revive Pass · One per
+## run" over a heart and what it does, the price (or the ink "Owned" pill) at
+## the right.
+func _pass_card() -> Control:
+	var pack := DiamondPacks.find(DiamondPacks.REVIVE_PASS)
+	var card := PanelContainer.new()
+	card.name = "RevivePass"
+	card.theme_type_variation = &"Card"
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
+	card.add_child(row)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 2)
+	text.add_child(UiKit.label("%s · %s" % [pack.name, PASS_TAG], &"MutedLabel", false))
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", UiTokens.SPACE_1 + 2)
+	var heart := _icon(HEART_ICON, 20)
+	heart.modulate = UiTokens.ON_PANEL
+	line.add_child(heart)
+	var what := UiKit.label(PASS_LINE, &"SmallNameLabel", false)
+	what.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_BODY)
+	line.add_child(what)
+	text.add_child(line)
+	row.add_child(text)
+	var buy := _price_button(DiamondPacks.REVIVE_PASS)
+	buy.custom_minimum_size.x = 96
+	buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(buy)
+	_pass_owned = _owned_pill()
+	row.add_child(_pass_owned)
+	return card
+
+
+## The ink "Owned" pill with a check, as on an owned item card.
+func _owned_pill() -> Control:
+	var pill := PanelContainer.new()
+	pill.name = "Owned"
+	pill.theme_type_variation = &"UsePill"
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var check := _icon(CHECK_ICON, 12)
+	check.modulate = UiTokens.ON_PRIMARY
+	row.add_child(check)
+	var l := Label.new()
+	l.theme_type_variation = &"OnInkLabel"
+	l.text = "Owned"
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	pill.add_child(row)
+	return pill
+
+
+## "Restore purchases" in bare ink on the room: asks the store for a Revive
+## Pass bought before (another phone, a reinstall).
+func _restore_link() -> Button:
+	_restore = Button.new()
+	_restore.name = "Restore"
+	_restore.theme_type_variation = &"PlainButton"
+	_restore.text = "Restore purchases"
+	_restore.tooltip_text = "Get back a Revive Pass bought before"
+	_restore.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_restore.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	_restore.focus_mode = Control.FOCUS_NONE
+	_restore.pressed.connect(restore)
+	return _restore
 
 
 ## One diamond pack: its name (and extra), the diamonds, the price button.
@@ -196,12 +294,17 @@ static func _amount_label(value: int, font_size: int) -> Label:
 	return l
 
 
-## Shows the balance and hides the Starter pack once it is bought.
+## Shows the balance, hides the Starter pack once it is bought and shows the
+## Revive Pass as owned once it is (also after a restore or a sync).
 func refresh() -> void:
 	_wallet.show_balance(_profile)
 	_starter.visible = DiamondPacks.can_buy(_profile, DiamondPacks.STARTER)
 	for id: String in _buttons:
 		(_buttons[id] as Button).disabled = not _store.is_open()
+	var owned := DiamondPacks.has_revive_pass(_profile)
+	(_buttons[DiamondPacks.REVIVE_PASS] as Button).visible = not owned
+	_pass_owned.visible = owned
+	_restore.visible = _store.is_open() and not owned
 
 
 ## Asks the store for a pack; the result comes back as a signal.
@@ -216,10 +319,24 @@ func buy(id: String) -> void:
 	_store.buy(id)
 
 
+## Asks the store for purchases made before; the answer comes back as a
+## signal (main hands out what came back, then this says how it went).
+func restore() -> void:
+	_store.restore()
+
+
 func _on_purchased(id: String) -> void:
 	var pack := DiamondPacks.find(id)
-	if not pack.is_empty():
+	if id == DiamondPacks.REVIVE_PASS:
+		_message.text = PASS_BOUGHT
+	elif not pack.is_empty():
 		_message.text = "Added %d diamonds." % int(pack.diamonds)
+	refresh()
+
+
+## Main connected first, so what came back is already handed out.
+func _on_restored(pack_ids: Array[String]) -> void:
+	_message.text = RESTORED if DiamondPacks.REVIVE_PASS in pack_ids else NOTHING_RESTORED
 	refresh()
 
 
@@ -262,6 +379,15 @@ func message_text() -> String:
 
 func starter_visible() -> bool:
 	return _starter.visible
+
+
+## The pass card shows the "Owned" pill instead of its price.
+func pass_owned_visible() -> bool:
+	return _pass_owned.visible
+
+
+func restore_button() -> Button:
+	return _restore
 
 
 ## The price button of a pack, for tests.

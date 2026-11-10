@@ -6,7 +6,8 @@ extends VBoxContainer
 ## (any build), or from the Debug row in developer mode.
 ##
 ## Everything here is safe in a release build: nothing gives coins, points or
-## revives. Only developer mode shows "Give free revives back".
+## revives. Only developer mode shows "Give free revives back" and "Revive
+## Pass on or off".
 ## The rows refresh twice a second while the page shows. "Copy everything"
 ## puts the whole report on the clipboard, to paste into a message.
 
@@ -146,6 +147,8 @@ func _ads_rows() -> Array:
 	var out: Array = ads.debug_rows()
 	var left := _profile.revives.left(DailyRevives.today())
 	out.append(["Free revives", "%d of %d left today" % [left, DailyRevives.PER_DAY]])
+	var has_pass := DiamondPacks.has_revive_pass(_profile)
+	out.append(["Revive Pass", "owned" if has_pass else "not owned"])
 	return out
 
 
@@ -172,6 +175,7 @@ func _buttons(section: String) -> Control:
 			flow.add_child(_action("UseRevives", "Use up free revives", _use_revives))
 			if DevMode.enabled():
 				flow.add_child(_action("GiveRevives", "Give free revives back", _give_revives))
+				flow.add_child(_action("TogglePass", "Revive Pass on or off", _toggle_pass))
 		PUSH:
 			flow.add_child(_action("TestPush", "Send a test notification", _test_push))
 			flow.add_child(_action("AskPush", "Ask for permission", _ask_push))
@@ -239,6 +243,19 @@ func _use_revives() -> void:
 func _give_revives() -> void:
 	_profile.revives.used = 0
 	_say(ADS, "Free revives are back")
+	changed.emit()
+	refresh()
+
+
+## Developer mode only: owns the Revive Pass or not, to try both offers
+## without a store. A sync with the server can bring a bought pass back.
+func _toggle_pass() -> void:
+	if DiamondPacks.has_revive_pass(_profile):
+		_profile.packs_bought.erase(DiamondPacks.REVIVE_PASS)
+		_say(ADS, "No Revive Pass: revives count and ads show again")
+	else:
+		_profile.packs_bought.append(DiamondPacks.REVIVE_PASS)
+		_say(ADS, "Revive Pass on: every revive offer is free")
 	changed.emit()
 	refresh()
 

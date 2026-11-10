@@ -10,6 +10,8 @@ https://claude.ai/artifact/BbTtTcBhVminhmBNc2fceH
 ## Decisions so far
 
 - One revive per run. Three free revives a day, then a rewarded ad.
+- The Revive Pass (one-time purchase, €4.99, see "Revive Pass" below) makes
+  every revive offer free: no ad, no daily limit. Still one revive per run.
 - Revived runs count on the verified boards and carry a small heart mark.
 - No countdown on the offer. No ad available and no free revive left: no offer,
   straight to game over.
@@ -20,6 +22,45 @@ https://claude.ai/artifact/BbTtTcBhVminhmBNc2fceH
 - Closing the ad early counts as Skip: the run ends. An ad that fails to show
   after the player asked for it revives anyway.
 - After a revive the run waits, paused, for a tap.
+
+## Revive Pass
+
+The only ads in the game are the optional rewarded revive ads; the pass
+removes them.
+
+- Product `revive_pass` (`DiamondPacks.REVIVE_PASS`), non-consumable, store
+  price tier €4.99. Bought once (`"once"`) and kept for good (`"kept"`).
+- Owned: the id is in `Profile.packs_bought`, like the once-only Starter pack.
+  That key is part of the save the server keeps (`ProfileSync`,
+  `Profile.cloud_dict`), and `Profile.merge_cloud` joins bought packs, so a
+  reinstall or a second phone gets the pass back with the save.
+- Restore: `StoreService.restore()` asks the store for kept products;
+  `restored(ids)` makes main hand out the missing ones
+  (`DiamondPacks.restore`). Only kept products are restored, never a pack of
+  diamonds. The link is "Restore purchases" at the foot of the Shop, shown
+  while the store is open and the pass isn't owned.
+- With the pass, `ReviveFlow` offers a revive after every crash that qualifies
+  (the run's revive is left and the score is at least `MIN_SCORE`), whether or
+  not an ad is loaded. Revive revives at once: no ad, and the day's free
+  revives (`DailyRevives`) are not touched, so they are all still there if
+  the pass ever goes.
+- Nothing else changes: still `MAX_REVIVES := 1`, no sim, replay, checker or
+  gameplay-version change, and revived runs keep the heart on the boards.
+  The sim never knows why a revive happened, so a pass revive and an ad
+  revive replay the same.
+- The offer: no day pips, the line "Revive free with your Revive Pass" and a
+  small ink "PASS" pill on the Revive button where the "AD" pill would be.
+- The Shop: a wide paper card under the Starter pack ("Revive Pass · One per
+  run", a heart and "Free revives, no ads", the price on an ink button); an
+  ink "Owned" pill instead of the price once bought. The Shop is now taller
+  than the smallest phone, so everything under its header scrolls.
+- Developer mode: the debug page has "Revive Pass on or off" (docs/DEBUG.md).
+
+Not checked on the server yet, like the diamond packs: there is no app-store
+billing (the store is closed in release builds; `SampleStore` in debug
+builds pays at once). When Google Play Billing and StoreKit come, the
+purchase receipt must be checked on the server before the pass is granted,
+and restore must come from the store's purchase history.
 
 ## The rule: a revive restarts the current room
 
@@ -157,12 +198,14 @@ per-player daily counter.
   revives at once instead of emitting `died`.
 
 `main.gd` on `died` in a real run:
-- the run has its revive left, the score is at least `REVIVE_MIN_SCORE`, and a
-  free revive is left or an ad is ready: `Hud.revive_offer.show_offer(...)`.
+- the run has its revive left, the score is at least `REVIVE_MIN_SCORE`, and
+  the player has the Revive Pass, a free revive is left or an ad is ready:
+  `Hud.revive_offer.show_offer(...)`.
   The crashed replay waits in `_offer_replay`; taps beside the buttons do
   nothing;
-- Revive: a free revive if the day has one (saved at once), else
-  `ads.show_rewarded()`; `EARNED` and `FAILED` revive, `DISMISSED` ends the run;
+- Revive: free with the Revive Pass, else a free revive if the day has one
+  (saved at once), else `ads.show_rewarded()`; `EARNED` and `FAILED` revive,
+  `DISMISSED` ends the run;
 - Skip, a second crash, or no offer: `_finish_run(replay)` (coins, best score,
   `submit_run`, Game over with "Revived at N").
 - After a revive the run is paused with "Tap to flap"; the tap resumes it. That
@@ -217,6 +260,10 @@ Open points:
   tick.
 - `RunChecker` tests: `revives` missing, valid, and not a list.
 - `tests/unit/test_sim_purity.gd` already covers the new sim code.
+- `tests/unit/test_revive_pass.gd`: the pass. The offer with and without it,
+  the day's count untouched, no offer still below the score and in a second
+  crash, buying it in the Shop ("Owned"), the save round trip, the server
+  merge after a reinstall, and restore (kept products only).
 - `tests/unit/test_revive_flow.gd`: the app side. Free revives per day, the
   offer's two states, revive then tap then a second crash, Skip, no offer for
   low scores and practice, the ad watched, closed early and broken, a revived

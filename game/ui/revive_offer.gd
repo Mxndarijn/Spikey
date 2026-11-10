@@ -3,7 +3,9 @@ extends ColorRect
 ## The revive offer after a crash, on the dimmed room (laid out like Paused):
 ## "Crashed", the score, one pip per free revive of the day, what Revive costs
 ## (a free one, or a short ad), the round Revive and a bare Skip ("Ends this
-## run"). It waits: no countdown. Hud owns it.
+## run"). With the Revive Pass there are no pips: the line says the pass makes
+## it free and a small "PASS" pill sits where the "AD" one would. It waits: no
+## countdown. Hud owns it.
 
 signal revive_pressed
 signal skip_pressed
@@ -18,6 +20,7 @@ const PIP_OFF := Color(1, 1, 1, 0.3)
 const REVIVE_TOP := 370.0
 const FREE_NOTE := "Keep your score and fly on"
 const AD_LINE := "Watch a short ad to keep going"
+const PASS_LINE := "Revive free with your Revive Pass"
 
 var _score := Label.new()
 var _pips := HBoxContainer.new()
@@ -25,6 +28,7 @@ var _line := Label.new()
 var _note := Label.new()
 var _revive: Button
 var _ad_tag := PanelContainer.new()
+var _pass_tag := PanelContainer.new()
 var _skip: Button
 
 
@@ -73,22 +77,29 @@ func _build_revive() -> void:
 	_revive.offset_bottom = REVIVE_TOP + UiKit.PRIMARY
 	_revive.pressed.connect(revive_pressed.emit)
 	add_child(_revive)
-	# A small ink "AD" pill on the button's shoulder, so nobody is surprised.
+	# A small ink "AD" pill on the button's shoulder, so nobody is surprised;
+	# "PASS" there when the Revive Pass pays.
+	_shoulder_pill(_ad_tag, "AD", 24)
+	_shoulder_pill(_pass_tag, "PASS", 34)
+	_pass_tag.visible = false
+
+
+func _shoulder_pill(tag_box: PanelContainer, text: String, inset: float) -> void:
 	var pill := UiTheme.flat(UiTokens.INK_LINE, UiTokens.RADIUS_PILL, 0)
 	pill.content_margin_left = 8
 	pill.content_margin_right = 8
-	_ad_tag.add_theme_stylebox_override("panel", pill)
-	_ad_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tag := UiKit.label("AD", &"OnInkLabel")
+	tag_box.add_theme_stylebox_override("panel", pill)
+	tag_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tag := UiKit.label(text, &"OnInkLabel")
 	tag.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_TAG)
 	tag.custom_minimum_size = Vector2(0, 20)
 	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_ad_tag.add_child(tag)
-	_ad_tag.anchor_left = 0.5
-	_ad_tag.anchor_right = 0.5
-	_ad_tag.offset_left = UiKit.PRIMARY / 2.0 - 24
-	_ad_tag.offset_top = REVIVE_TOP + 2
-	add_child(_ad_tag)
+	tag_box.add_child(tag)
+	tag_box.anchor_left = 0.5
+	tag_box.anchor_right = 0.5
+	tag_box.offset_left = UiKit.PRIMARY / 2.0 - inset
+	tag_box.offset_top = REVIVE_TOP + 2
+	add_child(tag_box)
 
 
 func _build_skip() -> void:
@@ -120,9 +131,20 @@ func _at(c: Control, top: float) -> void:
 
 
 ## Shows the offer for a run that crashed on `score`. With `free_left` > 0 the
-## revive is free; otherwise it costs an ad.
-func show_offer(score: int, free_left: int) -> void:
+## revive is free; otherwise it costs an ad. With `has_pass` it is always free
+## and the day's count doesn't show.
+func show_offer(score: int, free_left: int, has_pass: bool = false) -> void:
 	_score.text = str(score)
+	_pips.visible = not has_pass
+	_pass_tag.visible = has_pass
+	if has_pass:
+		_line.text = PASS_LINE
+		_note.text = FREE_NOTE
+		_revive.icon = HEART_ICON
+		_ad_tag.visible = false
+		visible = true
+		shown.emit()
+		return
 	var total := DailyRevives.PER_DAY
 	for i in _pips.get_child_count():
 		var on := i < free_left
@@ -144,6 +166,15 @@ static func free_line(free_left: int) -> String:
 
 func is_free() -> bool:
 	return not _ad_tag.visible
+
+
+## The "PASS" pill shows: the Revive Pass pays for this revive.
+func shows_pass() -> bool:
+	return _pass_tag.visible
+
+
+func pips_visible() -> bool:
+	return _pips.visible
 
 
 func line_text() -> String:

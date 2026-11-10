@@ -1,7 +1,8 @@
 class_name ReviveFlow
 extends RefCounted
 ## The revive offer after a crash (docs/REVIVE.md): once per real run with a
-## fair score, paid with one of the day's free revives or a rewarded ad. Skip,
+## fair score, paid with one of the day's free revives or a rewarded ad. With
+## the Revive Pass it is always free and the day's count is left alone. Skip,
 ## or an ad closed early, ends the run.
 
 ## The run is over for good: Main shows Game over.
@@ -54,15 +55,21 @@ func on_crash(replay: Replay) -> void:
 		ended.emit(replay)
 		return
 	_replay = replay
-	_offer.show_offer(replay.score, _profile.revives.left(DailyRevives.today()))
+	_offer.show_offer(replay.score, _profile.revives.left(DailyRevives.today()), _has_pass())
 
 
 ## Whether this crash gets the offer: the run has its revive left, the score
-## is worth it, and there is a free revive or a loaded ad to pay with.
+## is worth it, and the pass, a free revive or a loaded ad pays for it.
 func _can_offer(replay: Replay) -> bool:
 	if not _run.can_revive() or replay.score < MIN_SCORE:
 		return false
+	if _has_pass():
+		return true
 	return _profile.revives.left(DailyRevives.today()) > 0 or _ads.is_ready()
+
+
+func _has_pass() -> bool:
+	return DiamondPacks.has_revive_pass(_profile)
 
 
 ## Skip on the offer: the run ends.
@@ -74,11 +81,14 @@ func skip() -> void:
 	ended.emit(replay)
 
 
-## Revive on the offer: a free one if the day has any left, else the ad.
+## Revive on the offer: free with the pass, else a free one if the day has
+## any left, else the ad.
 func _on_revive_pressed() -> void:
 	if _replay == null:
 		return
-	if _profile.revives.use(DailyRevives.today()):
+	if _has_pass():
+		_revive()
+	elif _profile.revives.use(DailyRevives.today()):
 		_save.call()
 		_revive()
 	elif _ads.is_ready():

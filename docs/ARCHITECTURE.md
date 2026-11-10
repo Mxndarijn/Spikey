@@ -267,7 +267,7 @@ Attest / Play Integrity to confirm a real device.
 | Seasonal rooms | `sim/rooms/catalog_seasonal.gd`, `meta/season_calendar.gd` (season is a run input) |
 | Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |
 | Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
-| Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only) |
+| Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only), the Revive Pass in `meta/diamond_packs.gd` (ad-free revives, still one per run: [REVIVE.md](REVIVE.md)) |
 | Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/supabase_*.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
