@@ -1,9 +1,12 @@
 extends SceneTree
 ## Headless playtest with PlannerBot (a strong lookahead player).
 ##   godot --headless --path . -s res://tools/playtest.gd -- <mode> <out.json> [seeds] [filter]
-##     [first]
+##     [first] [ticks] [variant]
 ## `first` skips that many seeds, so parallel copies can each take a slice
 ## (tools/sweep.ps1 does this).
+## `variant` (rooms and search): play that room variant id instead of the
+## drawn one, or "all" for each variant in turn (one report entry
+## "room/variant" each). "" or "-" plays the drawn variant.
 ## mode "rooms": practice every room kind from its first score, several seeds;
 ##               reports points per room, deaths and what killed the bird.
 ## mode "runs":  full real runs through the portals; reports scores, rooms
@@ -25,6 +28,8 @@ const SEARCH_RUN_TICKS := 6000
 
 ## Seeds to skip (see the usage line).
 var _first := 0
+## Forced variant id, "all", or "" (see the usage line).
+var _variant := ""
 
 
 func _initialize() -> void:
@@ -36,6 +41,7 @@ func _initialize() -> void:
 	var filter := args[3] if args.size() > 3 and args[3] != "*" else ""
 	_first = int(args[4]) if args.size() > 4 else 0
 	var ticks := int(args[5]) if args.size() > 5 and int(args[5]) > 0 else SEARCH_TICKS
+	_variant = args[6] if args.size() > 6 and args[6] != "-" else ""
 	var start := Time.get_ticks_msec()
 	var report: Dictionary
 	match mode:
@@ -55,26 +61,51 @@ func _initialize() -> void:
 	quit(0)
 
 
-func _rooms(seeds: int, filter: String) -> Dictionary:
-	var rooms := []
+## The rooms a per-room mode plays: [index, def, forced variant id ("" = the
+## drawn one), report label] each. With a variant set, only rooms that have it.
+func _targets(filter: String) -> Array:
+	var out := []
 	for def in RoomCatalog.all():
 		if not filter.is_empty() and not def.id.contains(filter):
 			continue
 		var index := RoomCatalog.index_of(def.id)
+		if _variant.is_empty():
+			out.append([index, def, "", def.id])
+			continue
+		for v in def.variants:
+			if _variant == "all" or v.id == _variant:
+				out.append([index, def, v.id, "%s/%s" % [def.id, v.id]])
+	if out.is_empty():
+		push_warning("playtest: no room matching '%s' has variant '%s'" % [filter, _variant])
+	return out
+
+
+## A report entry for one room (and variant).
+static func _room_entry(t: Array, runs: Array) -> Dictionary:
+	var def: RoomDef = t[1]
+	var entry := {"id": t[3], "group": def.group, "from": def.from_score, "runs": runs}
+	if not String(t[2]).is_empty():
+		entry.variant = t[2]
+	return entry
+
+
+func _rooms(seeds: int, filter: String) -> Dictionary:
+	var rooms := []
+	for t: Array in _targets(filter):
 		var runs := []
 		for s in seeds:
-			runs.append(_play_room(index, def, 1000 + (_first + s) * 77))
-		rooms.append({"id": def.id, "group": def.group, "from": def.from_score, "runs": runs})
+			runs.append(_play_room(t[0], t[1], 1000 + (_first + s) * 77, t[2]))
+		rooms.append(_room_entry(t, runs))
 		var pts := 0
 		for r: Dictionary in runs:
 			pts += int(r.points)
-		print("  %-11s avg points %5.1f" % [def.id, float(pts) / seeds])
+		print("  %-20s avg points %5.1f" % [t[3], float(pts) / seeds])
 	return {"mode": "rooms", "seeds": seeds, "rooms": rooms}
 
 
-func _play_room(index: int, def: RoomDef, seed_value: int) -> Dictionary:
+func _play_room(index: int, def: RoomDef, seed_value: int, variant: String = "") -> Dictionary:
 	var season := def.season if def.season != Seasons.NONE else Seasons.NONE
-	var sim := GameSim.new(seed_value, season, index)
+	var sim := GameSim.new(seed_value, season, index, variant)
 	var bot := PlannerBot.new(seed_value)
 	var start_score := sim.state.score
 	var since_room := 0
@@ -143,15 +174,13 @@ func _runs(seeds: int) -> Dictionary:
 
 func _search_rooms(seeds: int, filter: String, ticks: int) -> Dictionary:
 	var rooms := []
-	for def in RoomCatalog.all():
-		if not filter.is_empty() and not def.id.contains(filter):
-			continue
-		var index := RoomCatalog.index_of(def.id)
+	for t: Array in _targets(filter):
+		var def: RoomDef = t[1]
 		var runs := []
 		var fails := 0
 		for s in seeds:
 			var seed_value := 1000 + (_first + s) * 77
-			var sim := GameSim.new(seed_value, def.season, index)
+			var sim := GameSim.new(seed_value, def.season, t[0], t[2])
 			var search := SurvivalSearch.new()
 			var ok := search.run(sim, ticks)
 			if not ok:
@@ -169,8 +198,8 @@ func _search_rooms(seeds: int, filter: String, ticks: int) -> Dictionary:
 					}
 				)
 			)
-		rooms.append({"id": def.id, "group": def.group, "from": def.from_score, "runs": runs})
-		print("  %-11s impossible %d / %d" % [def.id, fails, seeds])
+		rooms.append(_room_entry(t, runs))
+		print("  %-20s impossible %d / %d" % [t[3], fails, seeds])
 	return {"mode": "search", "seeds": seeds, "ticks": ticks, "rooms": rooms}
 
 

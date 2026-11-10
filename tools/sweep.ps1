@@ -5,6 +5,11 @@
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Seeds 256 -Room sawring
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Ticks 6000            # longer room runs
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Mode searchruns -Seeds 64 -Ticks 16000
+#   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Room bramble -Variant twin   # one variant
+#   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Room bramble -Variant all    # each variant
+#
+# -Variant (search, rooms): play that room variant instead of the drawn one;
+#   "all" plays each variant of each matching room, one line per variant.
 #
 # -Ticks: run length for search (default 1500 per room) and searchruns (default 16000).
 # -Jobs: Godot copies at once (default: a quarter of the cores).
@@ -19,6 +24,7 @@ param(
     [string]$Mode = "search",
     [int]$Seeds = 64,
     [string]$Room = "*",
+    [string]$Variant = "",
     [int]$Ticks = 0,
     [int]$Jobs = 0,
     [ValidateSet("Idle", "BelowNormal", "Normal")]
@@ -62,7 +68,7 @@ for ($j = 0; $j -lt $Jobs; $j++) {
     $json = Join-Path $Out "job_$j.json"
     $log = Join-Path $Out "job_$j.log"
     $argList = @("--headless", "--path", "`"$root`"", "-s", "res://tools/playtest.gd", "--",
-        $Mode, "`"$json`"", "$count", $filter, "$first", "$Ticks")
+        $Mode, "`"$json`"", "$count", $filter, "$first", "$Ticks", $(if ($Variant) { $Variant } else { "-" }))
     $p = Start-Process -FilePath $godot -ArgumentList $argList -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $log -RedirectStandardError "$log.err"
     try { $p.PriorityClass = $Priority } catch { }
@@ -92,7 +98,7 @@ if ($Mode -eq "search" -or $Mode -eq "rooms") {
     $label = if ($Mode -eq "search") { "impossible" } else { "died" }
     foreach ($id in $rooms.Keys) {
         $r = $rooms[$id]
-        $line = "{0,-11} {1} {2,4} / {3,-4} avg points {4,5:N1}" -f $id, $label, $r.bad, $r.runs, ($r.points / [Math]::Max(1, $r.runs))
+        $line = "{0,-$(if ($Variant) { 20 } else { 11 })} {1} {2,4} / {3,-4} avg points {4,5:N1}" -f $id, $label, $r.bad, $r.runs, ($r.points / [Math]::Max(1, $r.runs))
         # Seeds the coarse search missed and a finer pass needed (narrow ways through).
         if ($r.fine -gt 0) { $line += "  (narrow: $($r.fine))" }
         if ($r.bad -gt 0) {

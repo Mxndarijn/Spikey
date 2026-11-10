@@ -13,7 +13,10 @@ using FastSim;
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
-//   (skip seeds), --priority idle|belownormal|normal (default belownormal).
+//   (skip seeds), --priority idle|belownormal|normal (default belownormal),
+//   --variant <id>|all (search, rooms, reaction: play that room variant
+//   instead of the drawn one; "all" plays each variant in turn, one report
+//   line per variant).
 // Seeds and JSON match tools/playtest.gd, so results line up with Godot sweeps.
 //
 // The sweeps run as worker processes (one seed slice each), not threads: the
@@ -47,6 +50,24 @@ long first = long.Parse(opts.GetValueOrDefault("first", "0"));
 bool worker = opts.ContainsKey("worker");
 RoomCatalog.all();
 RoomCatalog.first_index();
+Targets.variant = opts.GetValueOrDefault("variant", "");
+if (Targets.variant != "")
+{
+    if (mode != "search" && mode != "rooms" && mode != "reaction")
+    {
+        Console.Error.WriteLine("--variant works with the search, rooms and reaction modes only");
+        return 2;
+    }
+    string filter = P(2, "*");
+    if (Targets.pick(filter, mode == "reaction").Count == 0)
+    {
+        Console.Error.WriteLine($"no room matching '{filter}' has a variant '{Targets.variant}'");
+        foreach (var d in RoomCatalog.all())
+            if (d.variants.Count > 0 && Targets.matches(d, filter, mode == "reaction"))
+                Console.Error.WriteLine($"  {d.id}: {string.Join(", ", d.variants.Select(v => v.id))}");
+        return 2;
+    }
+}
 
 var clock = Stopwatch.StartNew();
 if (mode == "parity")
@@ -112,8 +133,10 @@ static class Workers
             psi.ArgumentList.Add(mode);
             psi.ArgumentList.Add(count.ToString());
             for (int i = 2; i < pos.Count; i++) psi.ArgumentList.Add(pos[i]);
-            foreach (var (k2, v) in new[] { ("first", (first + (long)k * per).ToString()), ("priority", priority),
-                         ("jobs", "1"), ("worker", "1"), ("out", json) })
+            var pass = new List<(string, string)> { ("first", (first + (long)k * per).ToString()), ("priority", priority),
+                ("jobs", "1"), ("worker", "1"), ("out", json) };
+            if (Targets.variant != "") pass.Add(("variant", Targets.variant));
+            foreach (var (k2, v) in pass)
             {
                 psi.ArgumentList.Add("--" + k2);
                 psi.ArgumentList.Add(v);
@@ -161,6 +184,43 @@ static class Workers
     }
 }
 
+/// The rooms a per-room mode plays, and with --variant, which variant of each.
+public static class Targets
+{
+    /// "" (the drawn variant), a variant id, or "all".
+    public static string variant = "";
+    /// Room label width in the report lines (wider for "room/variant").
+    public static int width => variant == "" ? 11 : 20;
+
+    public static bool matches(RoomDef def, string filter, bool exact) =>
+        filter == "*" || filter == "" || (exact ? def.id == filter : def.id.Contains(filter));
+
+    /// [index, def, forced variant id ("" = drawn), report label].
+    public static List<(int index, RoomDef def, string variant, string label)> pick(string filter, bool exact)
+    {
+        var out_ = new List<(int, RoomDef, string, string)>();
+        var all = RoomCatalog.all();
+        for (int index = 0; index < all.Count; index++)
+        {
+            var def = all[index];
+            if (!matches(def, filter, exact)) continue;
+            if (variant == "") out_.Add((index, def, "", def.id));
+            else
+                foreach (var v in def.variants)
+                    if (variant == "all" || v.id == variant) out_.Add((index, def, v.id, def.id + "/" + v.id));
+        }
+        return out_;
+    }
+
+    public static JsonObject room(string label, RoomDef def, string v, JsonArray runs)
+    {
+        var o = new JsonObject { ["id"] = label, ["group"] = def.group, ["from"] = def.from_score };
+        if (v != "") o["variant"] = v;
+        o["runs"] = runs;
+        return o;
+    }
+}
+
 /// The same report lines as tools/sweep.ps1. Returns 1 when something failed.
 static class Summary
 {
@@ -184,7 +244,7 @@ static class Summary
                     if (mode == "search" && (long)r["level"] > 0) fine++;
                 }
                 string label = mode == "search" ? "impossible" : "died";
-                string line = $"{(string)room["id"],-11} {label} {bad.Count,4} / {runs.Count,-4} avg points {points / Math.Max(1, runs.Count),5:F1}";
+                string line = $"{((string)room["id"]).PadRight(Targets.width)} {label} {bad.Count,4} / {runs.Count,-4} avg points {points / Math.Max(1, runs.Count),5:F1}";
                 if (fine > 0) line += $"  (narrow: {fine})";
                 if (bad.Count > 0) line += "  seeds " + string.Join(",", bad);
                 Console.WriteLine(line);
@@ -220,21 +280,16 @@ static class Modes
     const long RUN_TICKS = 9000;
     const long ARRIVAL_TICKS = 90;
 
-    static bool Match(RoomDef def, string filter) => filter == "*" || filter == "" || def.id.Contains(filter);
-
     public static JsonObject search_rooms(int seeds, string filter, long ticks, long first)
     {
-        var all = RoomCatalog.all();
         var rooms = new JsonArray();
-        for (int index = 0; index < all.Count; index++)
+        foreach (var (index, def, v, label) in Targets.pick(filter, false))
         {
-            var def = all[index];
-            if (!Match(def, filter)) continue;
             var runs = new JsonArray();
             for (int s = 0; s < seeds; s++)
             {
                 long seed_value = 1000 + (first + s) * 77;
-                var sim = new GameSim(seed_value, def.season, index);
+                var sim = new GameSim(seed_value, def.season, index, v);
                 var search = new SurvivalSearch();
                 bool ok = search.run(sim, ticks);
                 runs.Add(new JsonObject
@@ -244,7 +299,7 @@ static class Modes
                     ["points"] = ok ? search.best.state.score - sim.state.score : 0,
                 });
             }
-            rooms.Add(new JsonObject { ["id"] = def.id, ["group"] = def.group, ["from"] = def.from_score, ["runs"] = runs });
+            rooms.Add(Targets.room(label, def, v, runs));
         }
         return new JsonObject { ["mode"] = "search", ["seeds"] = seeds, ["ticks"] = ticks, ["rooms"] = rooms };
     }
@@ -287,17 +342,14 @@ static class Modes
 
     public static JsonObject planner_rooms(int seeds, string filter, long first)
     {
-        var all = RoomCatalog.all();
         var rooms = new JsonArray();
-        for (int index = 0; index < all.Count; index++)
+        foreach (var (index, def, v, label) in Targets.pick(filter, false))
         {
-            var def = all[index];
-            if (!Match(def, filter)) continue;
             var runs = new JsonArray();
             for (int s = 0; s < seeds; s++)
             {
                 long seed_value = 1000 + (first + s) * 77;
-                var sim = new GameSim(seed_value, def.season, index);
+                var sim = new GameSim(seed_value, def.season, index, v);
                 var bot = new PlannerBot(seed_value);
                 long start_score = sim.state.score;
                 long since_room = 0;
@@ -317,7 +369,7 @@ static class Modes
                     ["y"] = sim.state.y / SimConfig.SUB, ["x"] = sim.state.x / SimConfig.SUB,
                 });
             }
-            rooms.Add(new JsonObject { ["id"] = def.id, ["group"] = def.group, ["from"] = def.from_score, ["runs"] = runs });
+            rooms.Add(Targets.room(label, def, v, runs));
         }
         return new JsonObject { ["mode"] = "rooms", ["seeds"] = seeds, ["rooms"] = rooms };
     }

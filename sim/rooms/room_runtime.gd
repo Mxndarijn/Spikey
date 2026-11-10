@@ -50,6 +50,8 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	# The variant is drawn first, then the combo: this order is part of the rules.
 	if def.variants.size() > 1:
 		variant = rng.next_below(def.variants.size())
+	if sim.forced_variant != "":
+		variant = _variant_index(sim.forced_variant, variant)
 	if not def.variants.is_empty():
 		for f: Callable in def.variants[variant].hazards:
 			list.append(f)
@@ -95,6 +97,14 @@ func inset() -> int:
 	if def.squeeze:
 		out += mini(points, SQUEEZE_MAX_POINTS) * SQUEEZE_STEP
 	return out
+
+
+## Index of the variant with id `id`, or `fallback` when this room has none.
+func _variant_index(id: String, fallback: int) -> int:
+	for i in def.variants.size():
+		if def.variants[i].id == id:
+			return i
+	return fallback
 
 
 ## Id of the variant being played ("" when the room has none).

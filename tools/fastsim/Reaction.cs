@@ -24,10 +24,11 @@ static class Reaction
     }
 
     /// Arrival `i` into room `index`, just out of the portal (ArrivalBench.arrival).
-    static GameSim arrival(int index, long i)
+    static GameSim arrival(int index, long i, string variant = "")
     {
         var def = RoomCatalog.all()[index];
         var sim = new GameSim(9000 + i * 37);
+        sim.forced_variant = variant;
         sim.step(true);
         sim.state.score = G.maxi(def.from_score, 10) + (i % 3) * 10;
         long y = 130 + (i * 53) % 380;
@@ -116,12 +117,9 @@ static class Reaction
     public static JsonObject rooms(int count, string filter, string delay_arg, long first)
     {
         var ds = delays(delay_arg);
-        var all = RoomCatalog.all();
         var rooms = new JsonArray();
-        for (int index = 0; index < all.Count; index++)
+        foreach (var (index, def, v, label) in Targets.pick(filter, true))
         {
-            var def = all[index];
-            if (!(filter == "*" || filter == "" || def.id == filter)) continue;
             var runs = new JsonArray();
             for (long s = 0; s < count; s++)
             {
@@ -129,7 +127,7 @@ static class Reaction
                 var ticks = new JsonArray();
                 var causes = new JsonArray();
                 var no_way = new JsonArray();
-                var at = arrival(index, i);
+                var at = arrival(index, i, v);
                 foreach (long d in ds)
                 {
                     var (tick, cause) = play(at.clone_deep(), d, new PlannerBot(i + 1), d + AFTER);
@@ -139,7 +137,10 @@ static class Reaction
                 }
                 runs.Add(new JsonObject { ["seed"] = i, ["died"] = ticks, ["cause"] = causes, ["forced"] = no_way });
             }
-            rooms.Add(new JsonObject { ["id"] = def.id, ["runs"] = runs });
+            var ro = new JsonObject { ["id"] = label };
+            if (v != "") ro["variant"] = v;
+            ro["runs"] = runs;
+            rooms.Add(ro);
         }
         var dj = new JsonArray();
         foreach (long d in ds) dj.Add(d);
@@ -249,7 +250,7 @@ static class Reaction
             sum_n += runs.Count;
             string per = string.Join(" ", ds.Select((d, k) => $"{d}:{dead[k]}" + (no_way[k] > 0 ? $"({no_way[k]} no way)" : "")));
             string why = string.Join(", ", causes.Select(kv => $"{kv.Key} {kv.Value}"));
-            Console.WriteLine($"{(string)room["id"],-11} extra {extra,3} of {runs.Count}  ({per})  {(ok ? "ok" : "FAIL")}  {why}");
+            Console.WriteLine($"{((string)room["id"]).PadRight(Targets.width)} extra {extra,3} of {runs.Count}  ({per})  {(ok ? "ok" : "FAIL")}  {why}");
         }
         Console.WriteLine($"all rooms: extra deaths at {ds[^1]} ticks {sum_extra} of {sum_n} ({100.0 * sum_extra / Math.Max(1, sum_n):F2}%, limit {MAX_EXTRA_PCT}%); no way to live at {EARLY_DELAY} ticks: {sum_forced_early} (limit 0); {over} rooms fail");
         bool total_ok = sum_extra * 100 <= MAX_EXTRA_PCT * sum_n;

@@ -162,3 +162,65 @@ func test_narrow_keeps_gap_and_exit_near_the_bird() -> void:
 			if free and absi(center - bird_y) <= def.reach:
 				near = true
 		assert_true(near, "a free run within reach of y %d" % (bird_y / SUB))
+
+
+## Every room with more than one variant (RoomCatalog indexes).
+static func _rooms_with_variants() -> Array[int]:
+	var out: Array[int] = []
+	for i in RoomCatalog.all().size():
+		if RoomCatalog.all()[i].variants.size() > 1:
+			out.append(i)
+	return out
+
+
+## Plays `sim` for `ticks` with a fixed tap pattern; the checksum of each tick.
+static func _checksums(sim: GameSim, ticks: int) -> Array[int]:
+	var out: Array[int] = []
+	for t in ticks:
+		sim.step(t % 23 == 0 or t % 23 == 9)
+		out.append(sim.checksum())
+	return out
+
+
+## Bots can force a variant (GameSim's forced_variant). Unset, or forced to the
+## variant the RNG drew anyway, the run is the same tick for tick: forcing
+## never changes what the RNG draws.
+func test_forced_variant_unset_or_same_plays_the_normal_run() -> void:
+	assert_eq(GameSim.new(5).forced_variant, "", "unset by default")
+	for index in _rooms_with_variants():
+		var def: RoomDef = RoomCatalog.all()[index]
+		for s in 3:
+			var seed_value := 300 + s * 41
+			var normal := GameSim.new(seed_value, def.season, index)
+			var unset := GameSim.new(seed_value, def.season, index, "")
+			var same := GameSim.new(seed_value, def.season, index, normal.room.variant_id())
+			var want := _checksums(normal, 240)
+			assert_eq(_checksums(unset, 240), want, "%s seed %d unset" % [def.id, seed_value])
+			assert_eq(
+				_checksums(same, 240), want, "%s seed %d forced as drawn" % [def.id, seed_value]
+			)
+
+
+func test_forced_variant_plays_that_variant() -> void:
+	for index in _rooms_with_variants():
+		var def: RoomDef = RoomCatalog.all()[index]
+		for v in def.variants:
+			for s in 4:
+				var sim := GameSim.new(700 + s * 13, def.season, index, v.id)
+				assert_eq(sim.room.variant_id(), v.id, "%s forced %s" % [def.id, v.id])
+			# Copies (searches) and revives keep the forced variant.
+			var played := GameSim.new(711, def.season, index, v.id)
+			var copy := SimCopy.copy(played)
+			assert_eq(copy.forced_variant, v.id, "%s copy keeps it" % def.id)
+			copy.room.start(def, index, copy, SimRng.new(3))
+			assert_eq(copy.room.variant_id(), v.id, "%s restart keeps it" % def.id)
+
+
+## A variant id this room doesn't have plays the drawn one.
+func test_unknown_forced_variant_plays_the_drawn_one() -> void:
+	for index in _rooms_with_variants():
+		var def: RoomDef = RoomCatalog.all()[index]
+		var normal := GameSim.new(900, def.season, index)
+		var odd := GameSim.new(900, def.season, index, "no-such-variant")
+		assert_eq(odd.room.variant_id(), normal.room.variant_id(), def.id)
+		assert_eq(odd.checksum(), normal.checksum(), def.id)

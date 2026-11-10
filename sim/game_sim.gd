@@ -35,6 +35,11 @@ var season: int
 ## busy as in a real run, and it never picks another room. Real runs are
 ## unchanged by this (no extra RNG draws), so replays and goldens stay valid.
 var practice_room := -1
+## Bots and tests only: the room variant id to play in place of the drawn one,
+## in any room that has a variant with this id. The variant is still drawn, so
+## the RNG goes on exactly as in a normal run. "" (always in real play) plays
+## the drawn variant.
+var forced_variant := ""
 var state := SimState.new()
 ## The room being played: its hazards and wall rules.
 var room := RoomRuntime.new()
@@ -46,9 +51,12 @@ var _rng: SimRng
 var _checking := false
 
 
-func _init(p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1) -> void:
+func _init(
+	p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1, p_variant: String = ""
+) -> void:
 	seed_value = p_seed
 	season = p_season
+	forced_variant = p_variant
 	_rng = SimRng.new(p_seed)
 	if p_practice_room == FOR_COPY:
 		return

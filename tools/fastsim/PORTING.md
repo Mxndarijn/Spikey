@@ -77,3 +77,31 @@ line. Keep names, order and structure the same.
   (`() => new Bouncer()`, `() => _island(i)` with `i` copied into a local
   first so each lambda keeps its own value). `def.combos` is a
   `List<List<Func<Hazard>>>`, `def.variants` a `List<RoomVariant>`.
+
+## Playing one room variant
+
+A RoomDef with `variants` normally draws one from the run's RNG each time the
+room starts (`RoomRuntime.start`). To test a variant on its own, force it:
+
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin -Seeds 256
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode rooms -Room pinwheel -Variant all
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode reaction -Room tide -Variant big
+
+- `-Variant <id>` plays that variant in every room matching `-Room` that has
+  it (a room without it is skipped; with none at all the run stops and lists
+  the variant ids of the matching rooms).
+- `-Variant all` plays each variant of each matching room in turn, with one
+  report line (and one JSON entry, `"id": "bramble/twin"`, `"variant": "twin"`)
+  per variant.
+- Works with the per-room modes: `search` (default), `rooms` and `reaction`.
+- Godot side, same option: `tools/sweep.ps1 -Room bramble -Variant all`
+  (`tools/playtest.gd` takes the variant as its seventh argument). In tests:
+  `GameSim.new(seed, season, practice_room, "twin")`.
+
+How it works: `GameSim.forced_variant` (a variant id, `""` in real play). The
+room still draws its variant as always, then plays the forced one if it has a
+variant with that id, so the RNG goes on exactly as in a normal run. Unset, the
+sim is unchanged, tick for tick (`tests/unit/test_room_variants.gd`); goldens
+and `GAMEPLAY_VERSION` are untouched. It is part of the port like any sim
+field (`GameSim.cs`, `RoomRuntime.cs`).

@@ -11,6 +11,13 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode reaction          # reaction benchmark, 60 arrivals per room
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
+#
+# -Variant (search, rooms, reaction): play that room variant id instead of the
+#   one the RNG draws ("all": each variant of each matching room in turn, one
+#   report line "room/variant" each). The draw still happens, so the rest of
+#   the run's RNG is as in a normal run. Without -Variant nothing changes.
 #
 # -Jobs: worker processes (default: a quarter of the cores, so the PC stays usable).
 #
@@ -23,6 +30,7 @@ param(
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
+    [string]$Variant = "",
     [int]$Ticks = 0,
     # reaction / odds: reaction times to play, in ticks ("0,60").
     [string]$Delays = "",
@@ -84,5 +92,6 @@ switch ($Mode) {
 $a += @("--priority", $Priority.ToLower())
 if ($Jobs -gt 0) { $a += @("--jobs", $Jobs) }
 if ($Out) { $a += @("--out", $Out) }
+if ($Variant) { $a += @("--variant", $Variant) }
 & $exe @a
 exit $LASTEXITCODE

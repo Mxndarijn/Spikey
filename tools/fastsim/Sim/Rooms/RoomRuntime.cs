@@ -56,6 +56,7 @@ public sealed class RoomRuntime
         hazards.Clear();
         var list = new List<Func<Hazard>>(def.hazards);
         if (def.variants.Count > 1) variant = rng.next_below(def.variants.Count);
+        if (sim.forced_variant != "") variant = _variant_index(sim.forced_variant, variant);
         if (def.variants.Count > 0)
             foreach (var f in def.variants[(int)variant].hazards) list.Add(f);
         if (def.combos.Count > 0)
@@ -100,6 +101,13 @@ public sealed class RoomRuntime
         long out_ = G.mini(t * INSET_SPEED, def.inset);
         if (def.squeeze) out_ += G.mini(points, SQUEEZE_MAX_POINTS) * SQUEEZE_STEP;
         return out_;
+    }
+
+    public long _variant_index(string id, long fallback)
+    {
+        for (int i = 0; i < def.variants.Count; i++)
+            if (def.variants[i].id == id) return i;
+        return fallback;
     }
 
     public string variant_id() => def.variants.Count == 0 ? "" : def.variants[(int)variant].id;

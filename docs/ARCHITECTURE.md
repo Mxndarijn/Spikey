@@ -112,7 +112,9 @@ one), and a 1 s reaction may cost at most 2% of portal arrivals over an
 instant one (`ArrivalBench`, checked by
 `tests/sim/test_arrival_reaction.gd`; run the full version on FastSim after
 changing a room: `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
-survival by reaction time in real runs). Every 50 points a
+survival by reaction time in real runs; `-Variant <id>|all` plays one room
+variant, or each in turn, instead of the drawn one: see
+`tools/fastsim/PORTING.md`). Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
 mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
 picked by the seed

@@ -18,6 +18,8 @@ public sealed class GameSim
     public long seed_value;
     public long season;
     public long practice_room = -1;
+    /// Bots only: the variant id to play in place of the drawn one ("" = the drawn one).
+    public string forced_variant = "";
     public SimState state = new SimState();
     public RoomRuntime room = new RoomRuntime();
     public List<int> events = new List<int>(8);
@@ -26,10 +28,11 @@ public sealed class GameSim
 
     GameSim() { }
 
-    public GameSim(long p_seed, long p_season = Seasons.NONE, long p_practice_room = -1)
+    public GameSim(long p_seed, long p_season = Seasons.NONE, long p_practice_room = -1, string p_variant = "")
     {
         seed_value = p_seed;
         season = p_season;
+        forced_variant = p_variant;
         _rng = new SimRng(p_seed);
         if (p_practice_room >= 0 && p_practice_room < RoomCatalog.all().Count)
         {
@@ -51,6 +54,7 @@ public sealed class GameSim
         c.seed_value = seed_value;
         c.season = season;
         c.practice_room = practice_room;
+        c.forced_variant = forced_variant;
         c.state = state.copy();
         c.room = room.clone_deep();
         c.events = new List<int>(events);
