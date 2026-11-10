@@ -73,7 +73,10 @@ func test_rooms_spawn_their_hazards() -> void:
 	assert_true(clouds.size() in [1, 2], "one cloud or two")
 	assert_eq(clouds[0], "bumper")
 	assert_eq(kinds(sim_in_room("gates", 1)), ["gate", "gate"] as Array[String])
-	assert_eq(kinds(sim_in_room("crawl", 1)), ["crawler", "crawler"] as Array[String])
+	var crawlers := kinds(sim_in_room("crawl", 1))
+	assert_true(crawlers.size() in [2, 4], "two crawlers, or a swarm of four")
+	for k in crawlers:
+		assert_eq(k, "crawler")
 	var lanterns := kinds(sim_in_room("swing", 1))
 	assert_true(lanterns.size() in [1, 3], "one lantern hazard, or three chimes")
 	assert_eq(lanterns[0], "pendulum")
@@ -198,18 +201,20 @@ func test_gate_gaps_slide() -> void:
 
 
 func test_crawler_segments_kill_and_the_middle_is_safe() -> void:
-	var sim := sim_in_room("crawl", 6)
-	for h: Hazard in sim.room.hazards:
-		assert_eq(h.xs.size(), 6, "six segments")
-		for i in h.xs.size():
-			put_bird(sim, h.xs[i], h.ys[i])
-			assert_true(h.kills(sim), "segment %d kills" % i)
-		put_bird(sim, 180 * SUB, 320 * SUB)
-		assert_false(h.kills(sim), "the middle of the cage is safe")
+	var index := RoomCatalog.index_of("crawl")
+	for v in RoomCatalog.all()[index].variants:
+		var sim := GameSim.new(6, Seasons.NONE, index, v.id)
+		for h: Hazard in sim.room.hazards:
+			assert_eq(h.xs.size(), h.segments, "%s: every segment placed" % v.id)
+			for i in h.xs.size():
+				put_bird(sim, h.xs[i], h.ys[i])
+				assert_true(h.kills(sim), "%s: segment %d kills" % [v.id, i])
+			put_bird(sim, 180 * SUB, 320 * SUB)
+			assert_false(h.kills(sim), "%s: the middle of the cage is safe" % v.id)
 
 
 func test_crawlers_walk_the_whole_loop() -> void:
-	var sim := sim_in_room("crawl", 6)
+	var sim := GameSim.new(6, Seasons.NONE, RoomCatalog.index_of("crawl"), "classic")
 	var h: Hazard = sim.room.hazards[0]
 	var walls := {}
 	for i in h.PERIMETER / h.SPEED:

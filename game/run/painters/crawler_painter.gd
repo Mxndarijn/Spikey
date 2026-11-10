@@ -9,13 +9,15 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var h := hazard as CrawlerHazard
 	var theme := look.theme
 	var time := look.time
-	var r := HazardLayer.px(h.SEG_RADIUS)
+	var r := HazardLayer.px(h.seg_radius)
 	var n: int = h.xs.size()
+	# Quicker crawlers bob quicker (Sprinters).
+	var pace := float(h.speed) / h.SPEED
 	# Tail first, so the head is drawn on top.
 	for k in n:
 		var i := n - 1 - k
 		var p := HazardLayer.at(h.xs[i], h.ys[i])
-		var bob := sin(time * 8.0 + i * 1.3) * 1.2
+		var bob := sin(time * 8.0 * pace + i * 1.3) * 1.2
 		if look.skin == "crab":
 			_crab_segment(c, p, r, theme, i == 0, bob)
 		else:

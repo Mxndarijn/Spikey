@@ -57,7 +57,13 @@ const ROOMS := {
 		"cols"
 	],
 	"crawl":
-	["Caterpillar Crawl", "Spiky caterpillars walk the edges of the cage.", 3, "jungle", "crawl"],
+	[
+		"Caterpillar Crawl",
+		"Spiky caterpillars walk the edges, in a swarm or at a sprint.",
+		3,
+		"jungle",
+		"crawl"
+	],
 	"garden":
 	[
 		"Coin Garden",
@@ -142,11 +148,18 @@ const ROOMS := {
 	["Spike Rain", "Sharp drops fall from the ceiling in marked columns.", 4, "desert", "rain"],
 	"orchard":
 	["Orchard Drop", "Coins tumble from the sky. You are the basket.", 2, "autumn", "rain"],
-	"keepy": ["Keepy-Uppy", "Keep a bouncy ball in the air with your head.", 2, "sugar", "ball"],
+	"keepy":
+	["Keepy-Uppy", "Keep a bouncy ball, or two, in the air with your head.", 2, "sugar", "ball"],
 	"double":
 	["Double Trouble", "Two hazards you already know, sharing one room.", 5, "sunset", "ball"],
 	"pumpkin":
-	["Pumpkin Bounce", "A thorny jack-o'-lantern ricochets around the room.", 3, "haunted", "ball"],
+	[
+		"Pumpkin Bounce",
+		"Thorny pumpkins ricochet around. Some pair up or split.",
+		3,
+		"haunted",
+		"ball"
+	],
 	"ghostdoors":
 	[
 		"Ghost Doors",
@@ -159,7 +172,7 @@ const ROOMS := {
 	"icicle": ["Icicle Drop", "Icicles shake on the ceiling, then fall.", 4, "winterfest", "rain"],
 	"gifts": ["Gift Stack", "Presents pile up instead of crates.", 4, "winterfest", "blocks"],
 	"hearts":
-	["Heart Bumpers", "Two soft hearts drift around and bump you.", 2, "blossom", "cloud"],
+	["Heart Bumpers", "Soft hearts drift or circle around and bump you.", 2, "blossom", "cloud"],
 	"cupid":
 	[
 		"Cupid Lanes",
@@ -177,8 +190,16 @@ const ROOMS := {
 		"coins"
 	],
 	"bees": ["Bee Line", "Bees zigzag across the room on wavy paths.", 3, "jungle", "crawl"],
-	"beachball": ["Beach Ball", "Keepy-Uppy with a striped beach ball.", 2, "deepsea", "ball"],
-	"crabs": ["Crab Walk", "Crabs scuttle along the walls and floor.", 3, "deepsea", "crawl"],
+	"beachball":
+	["Beach Ball", "Keepy-Uppy with beach balls: one, two or a heavy one.", 2, "deepsea", "ball"],
+	"crabs":
+	[
+		"Crab Walk",
+		"Crabs scuttle along the edges, in a swarm or at a sprint.",
+		3,
+		"deepsea",
+		"crawl"
+	],
 	"fireworks":
 	[
 		"Firework Burst",

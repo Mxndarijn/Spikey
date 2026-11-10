@@ -12,7 +12,16 @@ public static class CatalogSeasonal
 
         // Halloween
         var pumpkin = _room("pumpkin", Seasons.HALLOWEEN, 40);
-        pumpkin.hazards.Add(() => new Bouncer());
+        pumpkin.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new Bouncer() }),
+            new RoomVariant("twin").with(new List<Func<Hazard>>
+            {
+                () => _twin(Bouncer.Lane.UPPER),
+                () => _twin(Bouncer.Lane.LOWER),
+            }),
+            new RoomVariant("splitting").with(new List<Func<Hazard>> { () => new SplittingBouncer() }),
+        };
         out_.Add(pumpkin);
 
         var ghosts = _room("ghostdoors", Seasons.HALLOWEEN, 30);
@@ -42,8 +51,16 @@ public static class CatalogSeasonal
 
         // Valentine's
         var hearts = _room("hearts", Seasons.VALENTINE, 10);
-        hearts.hazards.Add(() => new Bumper());
-        hearts.hazards.Add(() => new Bumper(true));
+        hearts.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new Bumper(), () => new Bumper(true) }),
+            new RoomVariant("one-big").with(new List<Func<Hazard>> { () => new Bumper().big() }),
+            new RoomVariant("orbit").with(new List<Func<Hazard>>
+            {
+                () => new Bumper().orbit(),
+                () => new Bumper(true).orbit(),
+            }),
+        };
         out_.Add(hearts);
 
         var cupid = _room("cupid", Seasons.VALENTINE, 40);
@@ -71,13 +88,21 @@ public static class CatalogSeasonal
         var beach = _room("beachball", Seasons.SUMMER, 40);
         beach.group = "bonus";
         beach.max_spikes = 3;
-        beach.hazards.Add(() => new KeepyBall());
+        beach.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new KeepyBall() }),
+            new RoomVariant("two").with(new List<Func<Hazard>>
+            {
+                () => new KeepyBall().dropping(0),
+                () => new KeepyBall().dropping(KeepyBall.SECOND_DROP),
+            }),
+            new RoomVariant("heavy").with(new List<Func<Hazard>> { () => new KeepyBall().heavy() }),
+        };
         out_.Add(beach);
 
         var crabs = _room("crabs", Seasons.SUMMER, 30);
         crabs.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
-        crabs.hazards.Add(() => new Crawler(0));
-        crabs.hazards.Add(() => new Crawler(1));
+        crabs.variants = CatalogMotion.crawl_variants();
         out_.Add(crabs);
 
         // New Year
@@ -124,6 +149,8 @@ public static class CatalogSeasonal
         def.weight = WEIGHT;
         return def;
     }
+
+    static Hazard _twin(long lane) => new Bouncer(Bouncer.TWIN_RADIUS, lane);
 
     static Hazard _ghost_door(long i)
     {

@@ -7,6 +7,10 @@ extends Hazard
 ## keeps a way past it: no exit is planned where a crawler will be when the
 ## bird gets there (blocks_exit), and every new wall keeps a spike-free bounce
 ## spot clear of the crawlers (adjust_wall).
+##
+## Variants: a swarm of four small crawlers, two on the ceiling and two on the
+## floor, each pair walking one behind the other (swarm, trailing); two
+## shorter crawlers at double speed (sprinters).
 
 const SEGMENTS := 6
 const SEG_RADIUS := 10 * SimConfig.SUB
@@ -25,20 +29,19 @@ const PERIMETER := 2 * (W + H)
 ## A crawler starts with its whole body on the ceiling or floor edge, its head
 ## at least 50 px from the next corner, so it never comes down a wall onto the
 ## bird right at the start of the room.
-const START_SPAN := W - (SEGMENTS - 1) * SPACING - 50 * SimConfig.SUB
+## (start_span: quicker crawlers start further back.)
+const CORNER_CLEAR := 50 * SimConfig.SUB
 
-## A segment is in the bird's way when it comes this close to it sideways:
-## touching, plus a little.
-const NEAR_X := SEG_RADIUS + SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB
-## Steps before (and after) the bird is at a wall in which it can be that
-## close to a segment on that wall's side of the path.
-const WALL_WINDOW := (LEFT - SimConfig.BIRD_RADIUS + NEAR_X) / SimConfig.SPEED_X + 1
-## A wall slot is covered when a segment in the bird's way is within this of
-## its centre: the bird anywhere in the slot would touch it (or nearly).
-const SLOT_CLEAR := SimConfig.SLOT_SIZE / 2 + SEG_RADIUS + SimConfig.BIRD_RADIUS + 2 * SimConfig.SUB
-## An exit is blocked when a segment in the bird's way is within this of its
-## centre: the whole opening stays free.
-const EXIT_CLEAR := SimConfig.EXIT_FIT + SEG_RADIUS + SimConfig.BIRD_RADIUS + SimConfig.SUB
+## Swarm: small crawlers, and the gap from a leader's tail to the head of the
+## crawler trailing it.
+const SWARM_SEGMENTS := 4
+const SWARM_RADIUS := 7 * SimConfig.SUB
+const SWARM_SPACING := 15 * SimConfig.SUB
+const SWARM_GAP := 50 * SimConfig.SUB
+## Sprinters: twice the speed, one segment shorter.
+const SPRINT_SEGMENTS := 5
+const SPRINT_SPEED := 2 * SimConfig.SUB
+
 ## Every new wall keeps this many slots in a row free of spikes and crawlers
 ## (fewer only if the crawlers leave no such run).
 const FREE_RUN := 3
@@ -54,6 +57,16 @@ const FAR := 1 << 30
 var lane := 0
 ## Path position of the tail at t = 0.
 var start := 0
+## Its shape and speed (the consts are the classic crawler).
+var segments := SEGMENTS
+var seg_radius := SEG_RADIUS
+var spacing := SPACING
+var speed := SPEED
+## Path length kept free behind its tail on its starting edge, for a crawler
+## trailing it.
+var reserve := 0
+## Walks behind the crawler before it in the room on the same lane.
+var trails := false
 ## Segment centres, head first (filled every step for the painter).
 var xs: Array[int] = []
 var ys: Array[int] = []
@@ -64,20 +77,101 @@ func _init(p_lane: int = 0) -> void:
 	lane = p_lane
 
 
+## Makes this a small swarm crawler that leaves room behind it for another.
+func swarm() -> Hazard:
+	segments = SWARM_SEGMENTS
+	seg_radius = SWARM_RADIUS
+	spacing = SWARM_SPACING
+	reserve = trail_offset()
+	return self
+
+
+## Makes this a small swarm crawler walking behind the one before it.
+func trailing() -> Hazard:
+	swarm()
+	reserve = 0
+	trails = true
+	return self
+
+
+## Makes this a quick, shorter crawler.
+func sprinter() -> Hazard:
+	segments = SPRINT_SEGMENTS
+	speed = SPRINT_SPEED
+	return self
+
+
+## Body length, tail centre to head centre.
+func body() -> int:
+	return (segments - 1) * spacing
+
+
+## How far behind a leader's tail a trailing crawler's tail starts.
+func trail_offset() -> int:
+	return body() + SWARM_GAP
+
+
+## Room on its starting edge for the tail: the head stays CORNER_CLEAR (more
+## when quick) from the next corner, and `reserve` stays free behind it.
+func start_span() -> int:
+	return W - body() - CORNER_CLEAR * speed / SPEED - reserve
+
+
+## A segment is in the bird's way when it comes this close to it sideways:
+## touching, plus a little.
+func near_x() -> int:
+	return seg_radius + SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB
+
+
+## Steps before (and after) the bird is at a wall in which it can be that
+## close to a segment on that wall's side of the path.
+func wall_window() -> int:
+	return (LEFT - SimConfig.BIRD_RADIUS + near_x()) / SimConfig.SPEED_X + 1
+
+
+## A wall slot is covered when a segment in the bird's way is within this of
+## its centre: the bird anywhere in the slot would touch it (or nearly).
+func slot_clear() -> int:
+	return SimConfig.SLOT_SIZE / 2 + seg_radius + SimConfig.BIRD_RADIUS + 2 * SimConfig.SUB
+
+
+## An exit is blocked when a segment in the bird's way is within this of its
+## centre: the whole opening stays free.
+func exit_clear() -> int:
+	return SimConfig.EXIT_FIT + seg_radius + SimConfig.BIRD_RADIUS + SimConfig.SUB
+
+
 func setup(sim: GameSim, rng: SimRng) -> void:
-	start = rng.next_below(START_SPAN) + lane * (W + H)
+	var leader := _leader(sim) if trails else null
+	if leader != null:
+		start = leader.start - trail_offset()
+	else:
+		start = reserve + rng.next_below(start_span()) + lane * (W + H)
 	# Only a revive starts the room with an exit already planned or open.
 	if sim.state.exit_open or sim.state.exit_preview:
 		# Back if the exit is on the wall this crawler walks to first; if it is
 		# on the wall behind it (its tail still near that corner), on.
-		var move := -REVIVE_SHIFT if sim.state.exit_side == 1 - lane else REVIVE_SHIFT
+		# Quicker crawlers cover more path per step, so they move further.
+		var shift := REVIVE_SHIFT * speed / SPEED
+		var move := -shift if sim.state.exit_side == 1 - lane else shift
 		for i in REVIVE_TRIES:
 			if not _blocks_planned_exit(sim):
 				break
 			start += move
-	xs.resize(SEGMENTS)
-	ys.resize(SEGMENTS)
+	xs.resize(segments)
+	ys.resize(segments)
 	_place()
+
+
+## The crawler before this one in the room on the same lane that it trails.
+func _leader(sim: GameSim) -> Hazard:
+	var out: Hazard = null
+	for h in sim.room.hazards:
+		if h == self:
+			break
+		if h.kind == kind and h.lane == lane and not h.trails:
+			out = h
+	return out
 
 
 func step(_sim: GameSim) -> void:
@@ -85,9 +179,9 @@ func step(_sim: GameSim) -> void:
 
 
 func _place() -> void:
-	var tail := start + t * SPEED
-	for i in SEGMENTS:
-		var s := posmod(tail + (SEGMENTS - 1 - i) * SPACING, PERIMETER)
+	var tail := start + t * speed
+	for i in segments:
+		var s := posmod(tail + (segments - 1 - i) * spacing, PERIMETER)
 		xs[i] = path_x(s)
 		ys[i] = path_y(s)
 
@@ -115,8 +209,8 @@ func path_y(s: int) -> int:
 
 
 func kills(sim: GameSim) -> bool:
-	for i in SEGMENTS:
-		if sim.bird_touches_circle(xs[i], ys[i], SEG_RADIUS):
+	for i in segments:
+		if sim.bird_touches_circle(xs[i], ys[i], seg_radius):
 			return true
 	return false
 
@@ -124,7 +218,7 @@ func kills(sim: GameSim) -> bool:
 ## No exit where this crawler will be in the bird's way as it flies in.
 func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
 	var span := _in_the_way(sim, start, side, t + sim.steps_to_wall(side), 0)
-	return y > span[0] - EXIT_CLEAR and y < span[1] + EXIT_CLEAR
+	return y > span[0] - exit_clear() and y < span[1] + exit_clear()
 
 
 ## The wall ahead just got its spikes. If the crawlers will cover its free
@@ -146,10 +240,11 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 			return mask
 		first = false
 		var from: int = h.start
-		var span := _in_the_way(sim, from, side, arrive, WALL_WINDOW)
+		var span: PackedInt32Array = h._in_the_way(sim, from, side, arrive, h.wall_window())
+		var clear: int = h.slot_clear()
 		for slot in SimConfig.SLOT_COUNT:
 			var cy := SimConfig.slot_center_y(slot)
-			if cy > span[0] - SLOT_CLEAR and cy < span[1] + SLOT_CLEAR:
+			if cy > span[0] - clear and cy < span[1] + clear:
 				covered |= 1 << slot
 	if covered == 0:
 		return mask
@@ -195,8 +290,8 @@ func _blocks_planned_exit(sim: GameSim) -> bool:
 
 ## The heights [lowest y, highest y] of the segments of a crawler (tail at path
 ## position `from` at t = 0) that are in the way of a bird reaching wall `side`
-## at room step `arrive`: those it comes within NEAR_X of sideways in the
-## WALL_WINDOW steps before, and the `after` steps after as it flies back.
+## at room step `arrive`: those it comes within near_x() of sideways in the
+## wall_window() steps before, and the `after` steps after as it flies back.
 ## [FAR, -FAR] when none is.
 func _in_the_way(sim: GameSim, from: int, side: int, arrive: int, after: int) -> PackedInt32Array:
 	var r := SimConfig.BIRD_RADIUS
@@ -204,12 +299,13 @@ func _in_the_way(sim: GameSim, from: int, side: int, arrive: int, after: int) ->
 	var inward := -SimConfig.SPEED_X if side == 1 else SimConfig.SPEED_X
 	var lo := FAR
 	var hi := -FAR
-	for d in range(-WALL_WINDOW, after + 1):
+	var near := near_x()
+	for d in range(-wall_window(), after + 1):
 		var bird_x := wall + inward * absi(d)
-		var tail := from + (arrive + d) * SPEED
-		for i in SEGMENTS:
-			var s := posmod(tail + i * SPACING, PERIMETER)
-			if absi(path_x(s) - bird_x) < NEAR_X:
+		var tail := from + (arrive + d) * speed
+		for i in segments:
+			var s := posmod(tail + i * spacing, PERIMETER)
+			if absi(path_x(s) - bird_x) < near:
 				var y := path_y(s)
 				lo = mini(lo, y)
 				hi = maxi(hi, y)
@@ -218,6 +314,8 @@ func _in_the_way(sim: GameSim, from: int, side: int, arrive: int, after: int) ->
 
 func checksum(h: int) -> int:
 	var out := mix_all(h, [lane, start])
-	for i in SEGMENTS:
+	for i in segments:
 		out = mix_all(out, [xs[i], ys[i]])
+	if segments != SEGMENTS or speed != SPEED or reserve != 0 or trails:
+		out = mix_all(out, [segments, seg_radius, spacing, speed, reserve, int(trails)])
 	return out

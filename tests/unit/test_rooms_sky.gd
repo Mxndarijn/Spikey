@@ -168,7 +168,7 @@ func test_orchard_drops_coins_and_pinecones() -> void:
 
 
 func test_keepy_ball_pays_a_coin_per_bump_and_dies_on_the_floor() -> void:
-	var sim := _started("keepy", 8)
+	var sim := _classic_keepy(8)
 	var ball: Hazard = sim.room.hazards[0]
 	ball.x = 180 * SUB
 	ball.y = 300 * SUB
@@ -196,7 +196,7 @@ func test_keepy_ball_pays_a_coin_per_bump_and_dies_on_the_floor() -> void:
 
 
 func test_keepy_ball_drops_in_from_above() -> void:
-	var sim := _started("keepy", 9)
+	var sim := _classic_keepy(9)
 	var ball: Hazard = sim.room.hazards[0]
 	assert_true(ball.y < SimConfig.KILL_TOP, "starts above the ceiling")
 	for i in 60:
@@ -329,6 +329,13 @@ class SkinCanvas:
 
 static func _started(id: String, seed_value: int) -> GameSim:
 	var sim := Rooms.sim_in_room(id, seed_value)
+	sim.state.started = true
+	return sim
+
+
+## Keepy-Uppy with its one classic ball.
+static func _classic_keepy(seed_value: int) -> GameSim:
+	var sim := GameSim.new(seed_value, Seasons.NONE, RoomCatalog.index_of("keepy"), "classic")
 	sim.state.started = true
 	return sim
 

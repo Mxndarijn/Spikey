@@ -10,7 +10,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var theme := look.theme
 	var time := look.time
 	var center := HazardLayer.at(h.x, h.y)
-	var r := HazardLayer.px(h.RADIUS)
+	var r := HazardLayer.px(h.radius)
 	var pulse := 1.0 + sin(time * 3.0) * 0.04
 	c.draw_circle(center, r * 1.25 * pulse, Color(theme.glow, 0.25), true, -1.0, true)
 	if look.skin == "heart":

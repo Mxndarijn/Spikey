@@ -14,13 +14,14 @@ public class Crawler : Hazard
     public const long W = RIGHT - LEFT;
     public const long H = BOTTOM - TOP;
     public const long PERIMETER = 2 * (W + H);
-    public const long START_SPAN = W - (SEGMENTS - 1) * SPACING - 50 * SimConfig.SUB;
+    public const long CORNER_CLEAR = 50 * SimConfig.SUB;
 
-    public const long NEAR_X = SEG_RADIUS + SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB;
-    public const long WALL_WINDOW = (LEFT - SimConfig.BIRD_RADIUS + NEAR_X) / SimConfig.SPEED_X + 1;
-    public const long SLOT_CLEAR =
-        SimConfig.SLOT_SIZE / 2 + SEG_RADIUS + SimConfig.BIRD_RADIUS + 2 * SimConfig.SUB;
-    public const long EXIT_CLEAR = SimConfig.EXIT_FIT + SEG_RADIUS + SimConfig.BIRD_RADIUS + SimConfig.SUB;
+    public const long SWARM_SEGMENTS = 4;
+    public const long SWARM_RADIUS = 7 * SimConfig.SUB;
+    public const long SWARM_SPACING = 15 * SimConfig.SUB;
+    public const long SWARM_GAP = 50 * SimConfig.SUB;
+    public const long SPRINT_SEGMENTS = 5;
+    public const long SPRINT_SPEED = 2 * SimConfig.SUB;
     public const long FREE_RUN = 3;
     public const long REVIVE_SHIFT = 16 * SimConfig.SUB;
     public const long REVIVE_TRIES = 12;
@@ -28,6 +29,12 @@ public class Crawler : Hazard
 
     public long lane = 0;
     public long start = 0;
+    public long segments = SEGMENTS;
+    public long seg_radius = SEG_RADIUS;
+    public long spacing = SPACING;
+    public long speed = SPEED;
+    public long reserve = 0;
+    public bool trails = false;
     public List<long> xs = new List<long>();
     public List<long> ys = new List<long>();
 
@@ -51,31 +58,86 @@ public class Crawler : Hazard
         if (l.Count > n) l.RemoveRange((int)n, l.Count - (int)n);
     }
 
+    public Hazard swarm()
+    {
+        segments = SWARM_SEGMENTS;
+        seg_radius = SWARM_RADIUS;
+        spacing = SWARM_SPACING;
+        reserve = trail_offset();
+        return this;
+    }
+
+    public Hazard trailing()
+    {
+        swarm();
+        reserve = 0;
+        trails = true;
+        return this;
+    }
+
+    public Hazard sprinter()
+    {
+        segments = SPRINT_SEGMENTS;
+        speed = SPRINT_SPEED;
+        return this;
+    }
+
+    public long body() => (segments - 1) * spacing;
+
+    public long trail_offset() => body() + SWARM_GAP;
+
+    public long start_span() => W - body() - CORNER_CLEAR * speed / SPEED - reserve;
+
+    public long near_x() => seg_radius + SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB;
+
+    public long wall_window() => (LEFT - SimConfig.BIRD_RADIUS + near_x()) / SimConfig.SPEED_X + 1;
+
+    public long slot_clear() =>
+        SimConfig.SLOT_SIZE / 2 + seg_radius + SimConfig.BIRD_RADIUS + 2 * SimConfig.SUB;
+
+    public long exit_clear() => SimConfig.EXIT_FIT + seg_radius + SimConfig.BIRD_RADIUS + SimConfig.SUB;
+
     public override void setup(GameSim sim, SimRng rng)
     {
-        start = rng.next_below(START_SPAN) + lane * (W + H);
+        var leader = trails ? _leader(sim) : null;
+        if (leader != null) start = leader.start - trail_offset();
+        else start = reserve + rng.next_below(start_span()) + lane * (W + H);
         if (sim.state.exit_open || sim.state.exit_preview)
         {
-            long move = sim.state.exit_side == 1 - lane ? -REVIVE_SHIFT : REVIVE_SHIFT;
+            long shift = REVIVE_SHIFT * speed / SPEED;
+            long move = sim.state.exit_side == 1 - lane ? -shift : shift;
             for (long i = 0; i < REVIVE_TRIES; i++)
             {
                 if (!_blocks_planned_exit(sim)) break;
                 start += move;
             }
         }
-        _resize(xs, SEGMENTS);
-        _resize(ys, SEGMENTS);
+        _resize(xs, segments);
+        _resize(ys, segments);
         _place();
+    }
+
+    public Crawler _leader(GameSim sim)
+    {
+        Crawler out_ = null;
+        var hs = sim.room.hazards;
+        for (int i = 0; i < hs.Count; i++)
+        {
+            var h = hs[i];
+            if (h == this) break;
+            if (h.kind == kind && h is Crawler c && c.lane == lane && !c.trails) out_ = c;
+        }
+        return out_;
     }
 
     public override void step(GameSim _sim) { _place(); }
 
     public void _place()
     {
-        long tail = start + t * SPEED;
-        for (long i = 0; i < SEGMENTS; i++)
+        long tail = start + t * speed;
+        for (long i = 0; i < segments; i++)
         {
-            long s = G.posmod(tail + (SEGMENTS - 1 - i) * SPACING, PERIMETER);
+            long s = G.posmod(tail + (segments - 1 - i) * spacing, PERIMETER);
             xs[(int)i] = path_x(s);
             ys[(int)i] = path_y(s);
         }
@@ -99,9 +161,9 @@ public class Crawler : Hazard
 
     public override bool kills(GameSim sim)
     {
-        for (long i = 0; i < SEGMENTS; i++)
+        for (long i = 0; i < segments; i++)
         {
-            if (sim.bird_touches_circle(xs[(int)i], ys[(int)i], SEG_RADIUS)) return true;
+            if (sim.bird_touches_circle(xs[(int)i], ys[(int)i], seg_radius)) return true;
         }
         return false;
     }
@@ -109,7 +171,7 @@ public class Crawler : Hazard
     public override bool blocks_exit(GameSim sim, long side, long y)
     {
         var span = _in_the_way(sim, start, side, t + sim.steps_to_wall(side), 0);
-        return y > span[0] - EXIT_CLEAR && y < span[1] + EXIT_CLEAR;
+        return y > span[0] - exit_clear() && y < span[1] + exit_clear();
     }
 
     public override long adjust_wall(GameSim sim, long side, long mask)
@@ -126,12 +188,14 @@ public class Crawler : Hazard
             if (h.kind != kind) continue;
             if (first && h != this) return mask;
             first = false;
-            long from = ((Crawler)h).start;
-            var span = _in_the_way(sim, from, side, arrive, WALL_WINDOW);
+            var c = (Crawler)h;
+            long from = c.start;
+            var span = c._in_the_way(sim, from, side, arrive, c.wall_window());
+            long clear = c.slot_clear();
             for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
             {
                 long cy = SimConfig.slot_center_y(slot);
-                if (cy > span[0] - SLOT_CLEAR && cy < span[1] + SLOT_CLEAR) covered |= 1L << (int)slot;
+                if (cy > span[0] - clear && cy < span[1] + clear) covered |= 1L << (int)slot;
             }
         }
         if (covered == 0) return mask;
@@ -183,14 +247,15 @@ public class Crawler : Hazard
         long inward = side == 1 ? -SimConfig.SPEED_X : SimConfig.SPEED_X;
         long lo = FAR;
         long hi = -FAR;
-        for (long d = -WALL_WINDOW; d < after + 1; d++)
+        long near = near_x();
+        for (long d = -wall_window(); d < after + 1; d++)
         {
             long bird_x = wall + inward * G.absi(d);
-            long tail = from + (arrive + d) * SPEED;
-            for (long i = 0; i < SEGMENTS; i++)
+            long tail = from + (arrive + d) * speed;
+            for (long i = 0; i < segments; i++)
             {
-                long s = G.posmod(tail + i * SPACING, PERIMETER);
-                if (G.absi(path_x(s) - bird_x) < NEAR_X)
+                long s = G.posmod(tail + i * spacing, PERIMETER);
+                if (G.absi(path_x(s) - bird_x) < near)
                 {
                     long y = path_y(s);
                     lo = G.mini(lo, y);
@@ -204,7 +269,9 @@ public class Crawler : Hazard
     public override long checksum(long h)
     {
         long out_ = mix_all(h, lane, start);
-        for (long i = 0; i < SEGMENTS; i++) out_ = mix_all(out_, xs[(int)i], ys[(int)i]);
+        for (long i = 0; i < segments; i++) out_ = mix_all(out_, xs[(int)i], ys[(int)i]);
+        if (segments != SEGMENTS || speed != SPEED || reserve != 0 || trails)
+            out_ = mix_all(out_, segments, seg_radius, spacing, speed, reserve, G.B(trails));
         return out_;
     }
 }

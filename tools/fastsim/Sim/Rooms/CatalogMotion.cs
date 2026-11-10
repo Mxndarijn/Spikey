@@ -29,8 +29,7 @@ public static class CatalogMotion
 
         var crawl = new RoomDef("crawl", "starter", 30);
         crawl.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
-        crawl.hazards.Add(() => _crawler(0));
-        crawl.hazards.Add(() => _crawler(1));
+        crawl.variants = crawl_variants();
         out_.Add(crawl);
 
         var swing = new RoomDef("swing", "mid", 30);
@@ -127,7 +126,22 @@ public static class CatalogMotion
 
     static Hazard _gate(long x, long period, bool follows) => new Gate(x, period, follows);
 
+    public static List<RoomVariant> crawl_variants() => new List<RoomVariant>
+    {
+        new RoomVariant("classic").with(new List<Func<Hazard>> { () => _crawler(0), () => _crawler(1) }),
+        new RoomVariant("swarm").with(new List<Func<Hazard>>
+        {
+            () => _swarm(0, false), () => _swarm(0, true), () => _swarm(1, false), () => _swarm(1, true),
+        }),
+        new RoomVariant("sprinters").with(new List<Func<Hazard>> { () => _sprinter(0), () => _sprinter(1) }),
+    };
+
     static Hazard _crawler(long lane) => new Crawler(lane);
+
+    static Hazard _swarm(long lane, bool trails) =>
+        trails ? new Crawler(lane).trailing() : new Crawler(lane).swarm();
+
+    static Hazard _sprinter(long lane) => new Crawler(lane).sprinter();
 
     static Hazard _big_lantern() => new Pendulum(180 * SUB, 330 * SUB, 28 * SUB, 56, 210);
 

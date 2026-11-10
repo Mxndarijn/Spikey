@@ -41,12 +41,11 @@ static func defs() -> Array[RoomDef]:
 	gates.hazards.append(_gate.bind(230 * SUB, 760, true))
 	out.append(gates)
 
-	# Caterpillar Crawl: two crawlers walk round the inside of the cage.
+	# Caterpillar Crawl: crawlers walk round the inside of the cage.
 	var crawl := RoomDef.new("crawl", "starter", 30)
 	# A crawler walks the ceiling.
 	crawl.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
-	crawl.hazards.append(_crawler.bind(0))
-	crawl.hazards.append(_crawler.bind(1))
+	crawl.variants = crawl_variants()
 	out.append(crawl)
 
 	# Lantern Swing: lanterns on chains swing from the ceiling. Variants: one
@@ -159,8 +158,34 @@ static func _gate(x: int, period: int, follows: bool) -> Hazard:
 	return Gate.new(x, period, follows)
 
 
+## Caterpillar Crawl's variants (Summer Crab Walk has the same): two crawlers,
+## one starting on the ceiling and one on the floor; a swarm of four small ones,
+## two on each; two short ones at double speed.
+static func crawl_variants() -> Array[RoomVariant]:
+	return [
+		RoomVariant.new("classic").with([_crawler.bind(0), _crawler.bind(1)]),
+		RoomVariant.new("swarm").with(
+			[
+				_swarm.bind(0, false),
+				_swarm.bind(0, true),
+				_swarm.bind(1, false),
+				_swarm.bind(1, true)
+			]
+		),
+		RoomVariant.new("sprinters").with([_sprinter.bind(0), _sprinter.bind(1)]),
+	]
+
+
 static func _crawler(lane: int) -> Hazard:
 	return Crawler.new(lane)
+
+
+static func _swarm(lane: int, trails: bool) -> Hazard:
+	return Crawler.new(lane).trailing() if trails else Crawler.new(lane).swarm()
+
+
+static func _sprinter(lane: int) -> Hazard:
+	return Crawler.new(lane).sprinter()
 
 
 ## Lantern Swing, big: a 330 px chain, a 28 px lantern, about 20 degrees each

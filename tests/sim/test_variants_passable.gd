@@ -3,9 +3,10 @@ extends TestCase
 ## Updraft, the twist rooms (Crosswind, Spike Belt, Locked Exit, Lava Rise,
 ## Echo), Bubble Lift, Coin Garden, Slow-Mo Breather, Bumper Court, Crowded,
 ## Squeeze Box, Blink Walls, Hunter Spike, Gravity Flip, Midnight Cage, Saw Ring,
-## Bat Loop, Cupid Lanes and Firework Burst, every variant of each, can be played:
-## SurvivalSearch finds a way through each practice seed, long enough to take
-## the first portal.
+## Bat Loop, Cupid Lanes, Firework Burst, Caterpillar Crawl, Crab Walk, Pumpkin
+## Bounce, Keepy-Uppy, Beach Ball and Heart Bumpers, every variant of each, can
+## be played: SurvivalSearch finds a way through each practice seed, long
+## enough to take the first portal.
 
 ## Practice seeds per room variant.
 const SEEDS_EACH := 2
@@ -39,6 +40,12 @@ const CASES := [
 	["bats", 1150],
 	["cupid", 1150],
 	["fireworks", 1150],
+	["crawl", 1150],
+	["crabs", 1150],
+	["pumpkin", 1150],
+	["keepy", 1150],
+	["beachball", 1150],
+	["hearts", 1150],
 ]
 
 const PARALLEL := true

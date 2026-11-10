@@ -154,7 +154,16 @@ static func defs() -> Array[RoomDef]:
 	var keepy := RoomDef.new("keepy", "bonus", 40)
 	keepy.weight = 4
 	keepy.max_spikes = 3
-	keepy.hazards.append(func() -> Hazard: return KeepyBall.new())
+	# Variants: one ball; two balls to keep up at once.
+	keepy.variants = [
+		RoomVariant.new("classic").with([func() -> Hazard: return KeepyBall.new()]),
+		RoomVariant.new("two-balls").with(
+			[
+				func() -> Hazard: return KeepyBall.new().dropping(0),
+				func() -> Hazard: return KeepyBall.new().dropping(KeepyBall.SECOND_DROP),
+			]
+		),
+	]
 	out.append(keepy)
 
 	return out

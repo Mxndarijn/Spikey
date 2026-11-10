@@ -24,7 +24,8 @@ const SWEEP_TICKS := 2400
 ## The bird can touch a segment on a wall's side of the path only this close
 ## to that wall (the path is 60 px in, the two radii are 24 px).
 const NEAR_WALL := 80 * SUB
-## Bird and segment centres this close: dead.
+## Bird and segment centres this close: dead (for the classic crawler; each
+## crawler's own radius is used in the sweep).
 const TOUCH := Crawler.SEG_RADIUS + SimConfig.BIRD_RADIUS
 ## Free slots in a row every wall must keep clear of the crawlers.
 const MIN_RUN := 3
@@ -91,7 +92,10 @@ func test_revive_leaves_the_planned_exit_clear() -> void:
 			for side in 2:
 				for y: int in [top, bottom]:
 					var sim := _revived(index, s, exit, side, y)
-					var label := "seed %d, %s exit on wall %d at %d px" % [s, exit, side, y / SUB]
+					var label := (
+						"seed %d (%s), %s exit on wall %d at %d px"
+						% [s, sim.room.variant_id(), exit, side, y / SUB]
+					)
 					for h: Hazard in sim.room.hazards:
 						assert_false(h.blocks_exit(sim, side, y), "%s: clear of the exit" % label)
 						assert_false(h.kills(sim), "%s: clear of the bird" % label)
@@ -190,15 +194,17 @@ func _sweep(sim: GameSim, label: String) -> Array[int]:
 			if absi(s.x - wall) > NEAR_WALL:
 				continue
 			for h: Hazard in sim.room.hazards:
+				var touch: int = h.seg_radius + SimConfig.BIRD_RADIUS
 				for i: int in h.xs.size():
-					if absi(h.xs[i] - s.x) > TOUCH:
+					if absi(h.xs[i] - s.x) > touch:
 						continue
 					var y: int = h.ys[i]
 					if s.exit_open and s.exit_side == side:
-						exit_gap = mini(exit_gap, absi(y - s.exit_a_y))
+						# Measured as if it were a classic crawler: minus its own reach.
+						exit_gap = mini(exit_gap, absi(y - s.exit_a_y) - touch + TOUCH)
 					for slot in SimConfig.SLOT_COUNT:
 						var cy := SimConfig.slot_center_y(slot)
-						if absi(cy - y) <= SimConfig.SLOT_SIZE / 2 + TOUCH:
+						if absi(cy - y) <= SimConfig.SLOT_SIZE / 2 + touch:
 							covered[side] |= 1 << slot
 		if pending.is_empty():
 			continue
@@ -234,6 +240,12 @@ static func _make_harmless(sim: GameSim) -> void:
 		var h := Harmless.new(from.lane)
 		h.t = from.t
 		h.start = from.start
+		h.segments = from.segments
+		h.seg_radius = from.seg_radius
+		h.spacing = from.spacing
+		h.speed = from.speed
+		h.reserve = from.reserve
+		h.trails = from.trails
 		h.xs = from.xs.duplicate()
 		h.ys = from.ys.duplicate()
 		sim.room.hazards[i] = h

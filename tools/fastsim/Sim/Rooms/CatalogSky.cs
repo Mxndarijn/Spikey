@@ -117,7 +117,15 @@ public static class CatalogSky
         var keepy = new RoomDef("keepy", "bonus", 40);
         keepy.weight = 4;
         keepy.max_spikes = 3;
-        keepy.hazards.Add(() => new KeepyBall());
+        keepy.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new KeepyBall() }),
+            new RoomVariant("two-balls").with(new List<Func<Hazard>>
+            {
+                () => new KeepyBall().dropping(0),
+                () => new KeepyBall().dropping(KeepyBall.SECOND_DROP),
+            }),
+        };
         out_.Add(keepy);
 
         return out_;

@@ -4,6 +4,7 @@ extends RefCounted
 ## Order is part of the rules (see RoomCatalog).
 
 const Bouncer := preload("res://sim/hazards/bouncer.gd")
+const SplittingBouncer := preload("res://sim/hazards/splitting_bouncer.gd")
 const Block := preload("res://sim/hazards/block.gd")
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 const Mover := preload("res://sim/hazards/mover.gd")
@@ -12,8 +13,8 @@ const CrateDrop := preload("res://sim/hazards/crate_drop.gd")
 const Bumper := preload("res://sim/hazards/bumper.gd")
 const Dart := preload("res://sim/hazards/dart.gd")
 const KeepyBall := preload("res://sim/hazards/keepy_ball.gd")
-const Crawler := preload("res://sim/hazards/crawler.gd")
 const Firework := preload("res://sim/hazards/firework.gd")
+const CatalogMotion := preload("res://sim/rooms/catalog_motion.gd")
 
 const SUB := SimConfig.SUB
 ## Seasonal rooms are picked more often while their season is on.
@@ -24,8 +25,16 @@ static func defs() -> Array[RoomDef]:
 	var out: Array[RoomDef] = []
 
 	# Halloween
+	# Pumpkin Bounce is Bramble Ball with a skin. Variants: the classic ball;
+	# two smaller ones in the upper and lower lanes; one that splits in two.
 	var pumpkin := _room("pumpkin", Seasons.HALLOWEEN, 40)
-	pumpkin.hazards.append(func() -> Hazard: return Bouncer.new())
+	pumpkin.variants = [
+		RoomVariant.new("classic").with([func() -> Hazard: return Bouncer.new()]),
+		RoomVariant.new("twin").with(
+			[_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)]
+		),
+		RoomVariant.new("splitting").with([func() -> Hazard: return SplittingBouncer.new()]),
+	]
 	out.append(pumpkin)
 
 	var ghosts := _room("ghostdoors", Seasons.HALLOWEEN, 30)
@@ -55,9 +64,21 @@ static func defs() -> Array[RoomDef]:
 	out.append(gifts)
 
 	# Valentine's
+	# Heart Bumpers is Bumper Cloud with a skin. Variants: two hearts on
+	# opposite sides of the loop; one big heart; two hearts circling the middle.
 	var hearts := _room("hearts", Seasons.VALENTINE, 10)
-	hearts.hazards.append(func() -> Hazard: return Bumper.new())
-	hearts.hazards.append(func() -> Hazard: return Bumper.new(true))
+	hearts.variants = [
+		RoomVariant.new("classic").with(
+			[func() -> Hazard: return Bumper.new(), func() -> Hazard: return Bumper.new(true)]
+		),
+		RoomVariant.new("one-big").with([func() -> Hazard: return Bumper.new().big()]),
+		RoomVariant.new("orbit").with(
+			[
+				func() -> Hazard: return Bumper.new().orbit(),
+				func() -> Hazard: return Bumper.new(true).orbit(),
+			]
+		),
+	]
 	out.append(hearts)
 
 	# Cupid Lanes variants: eight lanes; five lanes with arrows in pairs; slow
@@ -87,14 +108,25 @@ static func defs() -> Array[RoomDef]:
 	var beach := _room("beachball", Seasons.SUMMER, 40)
 	beach.group = "bonus"
 	beach.max_spikes = 3
-	beach.hazards.append(func() -> Hazard: return KeepyBall.new())
+	# Keepy-Uppy with a beach ball. Variants: one ball; two to keep up at
+	# once; a heavy ball with low, short bounces.
+	beach.variants = [
+		RoomVariant.new("classic").with([func() -> Hazard: return KeepyBall.new()]),
+		RoomVariant.new("two").with(
+			[
+				func() -> Hazard: return KeepyBall.new().dropping(0),
+				func() -> Hazard: return KeepyBall.new().dropping(KeepyBall.SECOND_DROP),
+			]
+		),
+		RoomVariant.new("heavy").with([func() -> Hazard: return KeepyBall.new().heavy()]),
+	]
 	out.append(beach)
 
+	# Caterpillar Crawl with crabs, and the same variants.
 	var crabs := _room("crabs", Seasons.SUMMER, 30)
 	# A crab walks the ceiling.
 	crabs.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
-	crabs.hazards.append(func() -> Hazard: return Crawler.new(0))
-	crabs.hazards.append(func() -> Hazard: return Crawler.new(1))
+	crabs.variants = CatalogMotion.crawl_variants()
 	out.append(crabs)
 
 	# New Year
@@ -134,6 +166,10 @@ static func _room(id: String, season: int, from: int) -> RoomDef:
 	def.season = season
 	def.weight = WEIGHT
 	return def
+
+
+static func _twin(lane: int) -> Hazard:
+	return Bouncer.new(Bouncer.TWIN_RADIUS, lane)
 
 
 static func _ghost_door(i: int) -> Hazard:
