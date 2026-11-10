@@ -58,7 +58,19 @@ extends RefCounted
 ##     Shutter Gates, Stalactite Run, Caterpillar Crawl, Crab Walk, Gift Drop
 ##     and Bubble Lift near the ceiling, Shutter Gates near the floor, Bee
 ##     Line and Lantern Swing in the middle).
-const GAMEPLAY_VERSION := 19
+## 20: room variants almost everywhere, drawn at room start (and forceable for
+##     tools: GameSim.forced_variant). New variants for Bramble Ball, Pinwheel
+##     (smaller wheel), Spike Rain, Lantern Swing, Updraft (Twin and Up & Down
+##     skip high portal arrivals), Stalker Rail kept as is, and 54 more across
+##     28 rooms (walls, isles and doors, crawlers and balls, machines and drops,
+##     orbits and projectiles, coins and bubbles). Saw Ring grows and shrinks in
+##     1.5 s. Double Trouble pairs follow combo rules (the piston slams inside
+##     the pinwheel's band, beams skip a turn while the ball is in their row,
+##     1 s warnings, Saw Ring + Spike Rain replaces Saw Ring + Stalker, only
+##     pairs that fit the bird's height out of a portal). Five new rooms:
+##     Crosswind, Spike Belt, Locked Exit, Lava Rise, Echo. The free run stays
+##     near the bird in rooms whose hazards are only in variants.
+const GAMEPLAY_VERSION := 20
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
