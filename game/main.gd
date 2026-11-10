@@ -43,8 +43,11 @@ var store: StoreService
 var wallet: WalletService
 var push: PushService
 var ads: AdsService
+var profile_sync: ProfileSync
 
 var _profile: Profile
+## The save changed from the server's copy during a run: Home puts it on.
+var _look_stale := false
 var _services: AppServices
 var _look: RunLook
 var _revive: ReviveFlow
@@ -123,6 +126,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(fit_screen)
 	fit_screen()
 	show_home()
+	# The server's copy of the save: on a reinstall this brings the old one back.
+	profile_sync.push()
 
 
 ## The services: any a test set before _ready, the rest from AppServices.
@@ -138,18 +143,22 @@ func _make_services() -> void:
 		push = AppServices.make_push(api)
 	if ads == null:
 		ads = AppServices.make_ads(_profile)
+	if profile_sync == null:
+		profile_sync = ProfileSync.new(_profile, api)
 	_services = AppServices.new()
 	_services.leaderboard = leaderboard
 	_services.wallet = wallet
 	_services.store = store
 	_services.push = push
 	_services.ads = ads
+	_services.profile_sync = profile_sync
 	_services.audio = _audio
 	_services.checkout = Checkout.new(_profile, wallet)
 	_services.checkout.changed.connect(_save_profile)
 	leaderboard.board_loaded.connect(_on_board_loaded)
 	wallet.synced.connect(_on_wallet_synced)
 	store.purchased.connect(_on_purchased)
+	profile_sync.synced.connect(_on_profile_synced)
 	ads.start()
 
 
@@ -180,6 +189,9 @@ func start_run() -> void:
 
 func show_home() -> void:
 	_drop_replay()
+	if _look_stale:
+		_look_stale = false
+		_look.use_equipped()
 	mode = Mode.MENU
 	_audio.menu()
 	_new_run()
@@ -439,6 +451,24 @@ func _on_purchased(pack_id: String) -> void:
 
 func _save_profile() -> void:
 	_profile.save(profile_path)
+	profile_sync.push()
+
+
+## The server's copy of the save answered. Merged: worn items, gold or
+## settings came from it, so the look is put on again (at once in the menus;
+## a run keeps its look and gets it at the next Home).
+func _on_profile_synced(merged: bool) -> void:
+	_profile.save(profile_path)
+	if not merged:
+		return
+	Catalog.repair(_profile)
+	apply_settings()
+	if mode != Mode.MENU:
+		_look_stale = true
+		return
+	_look.use_equipped()
+	if _menus.current() is HomeScreen:
+		show_home()
 
 
 ## Switches world right away; cosmetic only, so it is safe mid-run.

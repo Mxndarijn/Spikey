@@ -8,12 +8,20 @@ extends RefCounted
 ## last good one). A new anonymous player is made only when there is no
 ## session at all or the server says this one is gone for good, never because
 ## of a network hiccup: a new player starts with no diamonds.
+## The device key: each player also gets a long random key that never changes
+## (supabase/functions/device-key). The refresh token changes every hour, so a
+## phone backup (Android Auto Backup restores user:// after a reinstall or on
+## a new phone) holds a dead one; with the key from the same backup the phone
+## signs in as the same player again.
 
 ## A sign-in or token refresh finished (ok: there is a valid session now).
 signal session_checked(ok: bool)
 
 const CONFIG_PATH := "res://services/supabase_config.json"
 const SESSION_PATH := "user://supabase_session.json"
+const DEVICE_PATH := "user://device_key.json"
+## The Edge Function that turns the device key into a sign-in.
+const DEVICE_FUNCTION := "/functions/v1/device-key"
 const TIMEOUT_S := 10.0
 ## Refresh the access token this long before it runs out.
 const REFRESH_MARGIN_S := 60
@@ -26,6 +34,7 @@ const SESSION_GONE: Array[String] = [
 
 ## Tests point this somewhere else.
 var session_path := SESSION_PATH
+var device_path := DEVICE_PATH
 
 var _url := ""
 var _key := ""
@@ -34,6 +43,11 @@ var _access := ""
 var _refresh := ""
 var _expires_at := 0
 var _signing_in := false
+## The device key and the address it signs in with ("" until the server took
+## the key).
+var _device_key := ""
+var _device_email := ""
+var _enrolling := false
 
 
 ## url: "https://<project>.supabase.co"; key: the project's public anon key.
@@ -71,6 +85,12 @@ func restore() -> void:
 	_access = str(d.get("access_token", ""))
 	_refresh = str(d.get("refresh_token", ""))
 	_expires_at = int(d.get("expires_at", 0))
+	var k: Variant = SafeFile.read_json(device_path)
+	var dk: Dictionary = k if k is Dictionary else {}
+	_device_key = str(dk.get("key", ""))
+	_device_email = str(dk.get("email", "")) if is_device_key(_device_key) else ""
+	if not is_device_key(_device_key):
+		_device_key = ""
 
 
 ## A valid access token: the saved one, a refreshed one, or a new anonymous
@@ -89,17 +109,35 @@ func ensure_session() -> bool:
 	return ok
 
 
+## Refresh token first; when the server refuses it, the device key; only when
+## neither can work, a new player. No answer at all (offline, server busy)
+## keeps everything to try again later.
 func _renew_session(now: int) -> bool:
-	var res: Dictionary
+	var res := {"ok": false, "code": 0, "data": null}
+	var can_sign_up := _refresh.is_empty()
 	if not _refresh.is_empty():
 		res = await post(
 			"/auth/v1/token?grant_type=refresh_token", {"refresh_token": _refresh}, false
 		)
-		if not res.ok and not session_gone(res):
-			# Try again later with the same session; the player stays offline now.
+		can_sign_up = not res.ok and session_gone(res)
+		if not res.ok and not refused(res):
 			return false
-	if _refresh.is_empty() or not res.ok:
+	if not res.ok and has_device_login():
+		res = await post(
+			"/auth/v1/token?grant_type=password",
+			{"email": _device_email, "password": _device_key},
+			false
+		)
+		if not res.ok and not refused(res):
+			return false
+		# The key is wrong or its player gone: this phone can only start over.
+		can_sign_up = not res.ok and not _rate_limited(res)
+	var new_player := false
+	if not res.ok:
+		if not can_sign_up:
+			return false
 		res = await post("/auth/v1/signup", {}, false)
+		new_player = true
 	if not res.ok or not res.data is Dictionary:
 		return false
 	var d := res.data as Dictionary
@@ -110,7 +148,65 @@ func _renew_session(now: int) -> bool:
 		session_path,
 		{"access_token": _access, "refresh_token": _refresh, "expires_at": _expires_at}
 	)
+	if new_player:
+		# A new player gets a new key; the old one belonged to the old player.
+		_device_key = ""
+		_device_email = ""
+	if not _access.is_empty() and _device_email.is_empty():
+		_enroll_device()
 	return not _access.is_empty()
+
+
+## Whether a saved device key can sign in (the server took it).
+func has_device_login() -> bool:
+	return not _device_key.is_empty() and not _device_email.is_empty()
+
+
+## Hands this player's device key to the server (once; again after a failure,
+## at the next sign-in). The key is saved before it is sent, so a lost answer
+## sends the same key again.
+func _enroll_device() -> void:
+	if _enrolling:
+		return
+	_enrolling = true
+	if _device_key.is_empty():
+		_device_key = new_device_key()
+		_save_device()
+	var res := await post(DEVICE_FUNCTION, {"key": _device_key}, true)
+	if res.ok and res.data is Dictionary:
+		var email := str((res.data as Dictionary).get("email", ""))
+		if not email.is_empty():
+			_device_email = email
+			_save_device()
+	_enrolling = false
+
+
+func _save_device() -> void:
+	SafeFile.write_json(device_path, {"key": _device_key, "email": _device_email})
+
+
+## "Fj-" and 64 hex characters from 32 random bytes (the function's KEY).
+static func new_device_key() -> String:
+	return "Fj-" + Crypto.new().generate_random_bytes(32).hex_encode()
+
+
+static func is_device_key(key: String) -> bool:
+	if key.length() != 67 or not key.begins_with("Fj-"):
+		return false
+	for c in key.substr(3):
+		if c not in "0123456789abcdef":
+			return false
+	return true
+
+
+## Whether the auth server answered and said no (as opposed to no answer, or
+## the server failing): then the next way in is worth a try.
+static func refused(res: Dictionary) -> bool:
+	return int(res.get("code", 0)) >= 400 and int(res.get("code", 0)) < 500
+
+
+static func _rate_limited(res: Dictionary) -> bool:
+	return int(res.get("code", 0)) == 429
 
 
 ## Whether an auth answer says the session can never be refreshed again.

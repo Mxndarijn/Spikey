@@ -18,6 +18,9 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   (check script, tests, tools). On Windows, rendering always shows a window,
   even off-screen, so `tools/screenshot.ps1` runs only when the user asks for
   screenshots in that conversation.
+- Working in a git worktree and merging it into `main`: once the merge is
+  pushed, remove that worktree (`git worktree remove <path>`). Its branch stays
+  unless the user says otherwise.
 
 ## Hard rules
 

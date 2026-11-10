@@ -66,6 +66,46 @@ Restore; scores are kept.
 
 - `services/supabase_leaderboard.gd` signs the phone in anonymously once and
   keeps the session in `user://supabase_session.json`.
+- **Same player after a reinstall.** Each player also gets a device key: 32
+  random bytes in `user://device_key.json`. The Edge Function
+  `supabase/functions/device-key` turns it into the password of an address only
+  that player has (`<player id>@device.flapjaw.invalid`, which never gets
+  mail). The refresh token changes every hour, so the one in a phone backup is
+  usually dead; the key never changes. On Android, Auto Backup is on
+  (`user_data_backup/allow` in `export_presets.cfg`) and restores user:// on a
+  reinstall or a new phone with the same Google account, so the game signs in
+  with the key and is the same player. Order: refresh token, then the key, and
+  only if the server says both are no good a new player. No answer at all
+  (offline) never makes a new player. iOS has no backup of app files across a
+  reinstall: it needs the key in the Keychain (not done yet).
+  The function is deployed by `.github/workflows/supabase-functions.yml`, which
+  needs the GitHub secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF`.
+  Until it is deployed, phones play on as anonymous players and try again at
+  the next sign-in.
+- **The save on the server.** `services/profile_sync.gd` sends the save
+  (owned and worn items, gold, best score, rooms, settings; not diamonds or
+  this phone's own switches, see `Profile.LOCAL_KEYS`) to `sync_profile` after
+  it changed, and once at start. The server keeps it only when it was based on
+  the newest copy. Otherwise it sends the newest copy back and the game merges
+  the two (`Profile.merge_cloud`): items, rooms and best scores join, gold is
+  the server's plus what this phone earned or spent since, and a phone that
+  never synced (a reinstall) takes the old look and settings back.
+- **Premium items count only when the server sold them**
+  (`supabase/migrations/20261110160000_paid_items.sql`). Gold and owned items
+  live in the save, which a player could edit. What other players see comes
+  from the server, though: a run's loadout and the flyer on the boards keep a
+  premium item (one with a diamond price) only when `diamond_ledger` shows it
+  was bought with diamonds; otherwise the default look shows. Every
+  `sync_profile` answer lists the bought items and the game grants them, so
+  they come back on a reinstall. The list of premium items is the table
+  `premium_items`; a new premium item needs a migration that adds it
+  (`tests/unit/test_paid_items.gd` fails until it does).
+- **Gold is checked, not enforced.** On every save the server compares the
+  gold with the most the player could have earned (gold of runs that weren't
+  rejected, plus diamonds turned into gold) and keeps how far it goes over in
+  `profiles.gold_excess`. Nothing is capped: runs sent before runs carried
+  gold, or still waiting on a phone, can make an honest save go over. To look:
+  `select player_id, gold_excess from profiles where gold_excess > 0;`.
 - After every real run (never practice) it sends the score, coins, season, seed and taps to
   `submit_run`. If the phone is offline, runs wait in `user://pending_runs.json`
   and go out with the next run or board load. A run played offline still counts

@@ -391,6 +391,9 @@ WalletService <|-- SupabaseWallet
 SupabaseLeaderboard ..> SupabaseClient
 SupabaseWallet ..> SupabaseClient
 PushService ..> SupabaseClient
+ProfileSync ..> SupabaseClient
+ProfileSync ..> Profile : merge_cloud()
+AppServices o-- ProfileSync
 AppServices o-- LeaderboardService
 AppServices o-- WalletService
 AppServices o-- StoreService
@@ -408,6 +411,11 @@ Notes:
   `Profile._migrate()`, and keys a newer build wrote are written back as they
   were. Equipped ids are stored as saved; `Catalog.repair()` swaps looks that
   no longer exist.
+- The server keeps a copy of the save (`ProfileSync`, the `profiles` table):
+  `Profile.cloud_dict()` is what is sent (all but `LOCAL_KEYS`), and
+  `Profile.merge_cloud()` joins the two copies when they went apart.
+  `cloud_revision` and `cloud_coins` say which server copy the save last
+  matched; gold earned since is `coins - cloud_coins`.
 - `meta/` knows nothing about how things look: ids only (`ItemKind`). What an
   id looks like is `Catalog`, its price `Shop`, buying it `Checkout`.
 - Coins earned in a run come from the sim (`SimState.coins`, checked by

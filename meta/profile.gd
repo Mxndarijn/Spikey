@@ -12,7 +12,25 @@ const PATH := "user://profile.json"
 ## would go.
 ## 2: met rooms and per-room clear counts.
 ## 3: diamonds and bought packs.
-const VERSION := 3
+## 4: the copy on the server (cloud_revision, cloud_coins).
+const VERSION := 4
+## Keys that belong to this phone, not to the player: never sent to the server
+## and never taken from it (cloud_dict, merge_cloud). Diamonds live in the
+## server's wallet; the prize spot and the free revives are checked against the
+## server on their own; the alert and test-ad switches go with this phone's
+## notification permission and build.
+const LOCAL_KEYS: Array[String] = [
+	"diamonds",
+	"daily_spot_rank",
+	"daily_spot_until",
+	"push_asked",
+	"free_revives_used",
+	"free_revives_day",
+	"board_alerts",
+	"test_ads",
+	"cloud_revision",
+	"cloud_coins",
+]
 
 ## Gold: collected in runs (Economy).
 var coins := 0
@@ -44,6 +62,11 @@ var revives := DailyRevives.new()
 ## The OS permission prompt for notifications was shown (it is shown once,
 ## after the first top-10 finish).
 var push_asked := false
+## The revision of the server's copy this save last matched (0: never synced,
+## for example a fresh install), and the gold it held then. Gold earned or
+## spent since is `coins - cloud_coins`, which a merge adds to the server's gold.
+var cloud_revision := 0
+var cloud_coins := 0
 ## Keys a newer version of the game saved that this one doesn't know: written
 ## back as they were, so opening an older build never deletes them.
 var _unknown := {}
@@ -145,6 +168,8 @@ func to_dict() -> Dictionary:
 				"room_clears": room_clears,
 				"leaderboard_name": leaderboard_name,
 				"push_asked": push_asked,
+				"cloud_revision": cloud_revision,
+				"cloud_coins": cloud_coins,
 			},
 			true
 		)
@@ -180,6 +205,8 @@ static func from_dict(saved: Dictionary) -> Profile:
 	p.settings.read_from(d)
 	p.revives.read_from(d)
 	p.push_asked = bool(d.get("push_asked", false))
+	p.cloud_revision = maxi(int(d.get("cloud_revision", 0)), 0)
+	p.cloud_coins = maxi(int(d.get("cloud_coins", 0)), 0)
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in ItemKind.ALL:
@@ -213,6 +240,66 @@ static func from_dict(saved: Dictionary) -> Profile:
 		if not known.has(key):
 			p._unknown[key] = d[key]
 	return p
+
+
+## The part of the save the server keeps (everything but LOCAL_KEYS).
+func cloud_dict() -> Dictionary:
+	var d := to_dict()
+	for key in LOCAL_KEYS:
+		d.erase(key)
+	return d
+
+
+## The server kept this save as `revision`; `coins_sent` is the gold it held.
+func mark_cloud_saved(revision: int, coins_sent: int) -> void:
+	cloud_revision = maxi(revision, 0)
+	cloud_coins = maxi(coins_sent, 0)
+
+
+## Takes in the server's copy (`cloud`, at `revision`) when this save was not
+## based on it: on a fresh install, or after another save reached the server
+## first. Changes this profile in place (screens hold on to it).
+## - Collections join: owned items, bought packs, met rooms; per-room clears,
+##   best score and run count take the higher; onboarded stays once done.
+## - Gold: the server's, plus what this phone earned or spent since its last
+##   sync.
+## - Choices (what is worn, settings, the board name): the server's when this
+##   phone never synced (a reinstall keeps the old look), else this phone's,
+##   the newest edit.
+## Keys only a newer build knows are taken from the server when missing here.
+func merge_cloud(cloud: Profile, revision: int) -> void:
+	var never_synced := cloud_revision == 0
+	coins = maxi(cloud.coins + coins - cloud_coins, 0)
+	best_score = maxi(best_score, cloud.best_score)
+	runs = maxi(runs, cloud.runs)
+	onboarded = onboarded or cloud.onboarded
+	for kind: String in cloud.owned:
+		for id: String in cloud.owned[kind]:
+			if owned.has(kind):
+				grant(kind, id)
+	for pack_id in cloud.packs_bought:
+		if pack_id not in packs_bought:
+			packs_bought.append(pack_id)
+	for id in cloud.met_rooms:
+		record_room_met(id)
+	for id: String in cloud.room_clears:
+		room_clears[id] = maxi(clears(id), cloud.clears(id))
+	if never_synced:
+		for kind: String in cloud.equipped:
+			equip(kind, cloud.equipped_id(kind))
+		var choices := {}
+		cloud.settings.write_to(choices)
+		for key in LOCAL_KEYS:
+			choices.erase(key)
+		settings.read_from(choices)
+		if not cloud.leaderboard_name.is_empty():
+			leaderboard_name = cloud.leaderboard_name
+	for key: Variant in cloud._unknown:
+		if not _unknown.has(key):
+			_unknown[key] = cloud._unknown[key]
+	_newer_version = maxi(_newer_version, cloud._newer_version)
+	cloud_revision = maxi(revision, 0)
+	cloud_coins = cloud.coins
 
 
 ## Brings an older save up to VERSION. Every step so far only added keys, which

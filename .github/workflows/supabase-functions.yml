@@ -1,12 +1,15 @@
 name: Supabase functions
 
-# Deploys the Edge Functions in supabase/functions (send-alerts: Board alerts
-# through Firebase) whenever that folder changes on main, or by hand from the
-# Actions tab. It also hands the function its secrets and tells the database
-# where the function lives, so nothing has to be typed into the Supabase
-# dashboard.
+# Deploys the Edge Functions in supabase/functions whenever that folder
+# changes on main, or by hand from the Actions tab:
+#   device-key   the sign-in that outlives a reinstall (docs/LEADERBOARD_SETUP.md)
+#   send-alerts  Board alerts through Firebase (docs/PUSH_SETUP.md)
+# For send-alerts it also hands the function its secrets and tells the
+# database where the function lives, so nothing has to be typed into the
+# Supabase dashboard.
 #
-# Secrets (docs/PUSH_SETUP.md). Without all of them the workflow does nothing:
+# Secrets. Without the first two nothing is deployed; without the other three
+# only device-key is:
 #   SUPABASE_ACCESS_TOKEN     Supabase -> Account -> Access Tokens
 #   SUPABASE_PROJECT_REF      the id in the project's URL
 #   SUPABASE_DB_URL           the same connection string supabase-db.yml uses
@@ -27,7 +30,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy send-alerts
+    name: Deploy the functions
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -40,13 +43,18 @@ jobs:
       - name: Check the secrets
         id: ready
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ] \
-             || [ -z "$SUPABASE_DB_URL" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ] \
-             || [ -z "$PUSH_SEND_SECRET" ]; then
-            echo "::notice::Push secrets are not all set, nothing deployed. See docs/PUSH_SETUP.md."
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::notice::SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF is not set, nothing deployed."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ] \
+             || [ -z "$PUSH_SEND_SECRET" ]; then
+            echo "::notice::Push secrets are not all set, send-alerts not deployed. See docs/PUSH_SETUP.md."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=true" >> "$GITHUB_OUTPUT"
           fi
           # The secret may hold the whole project URL: keep only the id.
           ref="${SUPABASE_PROJECT_REF#https://}"
@@ -73,8 +81,14 @@ jobs:
         with:
           version: latest
 
-      - name: Hand the function its secrets
+      - name: Deploy device-key
         if: steps.ready.outputs.ok == 'true'
+        # --no-verify-jwt: the function asks Supabase Auth who the caller is itself
+        # (works with both the old and the new JWT signing keys).
+        run: supabase functions deploy device-key --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --yes
+
+      - name: Hand the function its secrets
+        if: steps.ready.outputs.ok == 'true' && steps.ready.outputs.push == 'true'
         run: |
           # base64 keeps the key file's quotes and line breaks intact in an env file.
           {
@@ -85,12 +99,12 @@ jobs:
           rm -f "$RUNNER_TEMP/function.env"
 
       - name: Deploy send-alerts
-        if: steps.ready.outputs.ok == 'true'
+        if: steps.ready.outputs.ok == 'true' && steps.ready.outputs.push == 'true'
         # --no-verify-jwt: the function checks the shared secret itself.
         run: supabase functions deploy send-alerts --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --yes
 
       - name: Tell the database where the sender is
-        if: steps.ready.outputs.ok == 'true'
+        if: steps.ready.outputs.ok == 'true' && steps.ready.outputs.push == 'true'
         run: |
           command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
           url="https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-alerts"
