@@ -16,6 +16,8 @@ so="$engine_dir/libgodot_android.so"
 aar="$build_dir/libs/release/godot-lib.template_release.aar"
 test -f "$so" || { echo "::error::$so is missing." >&2; exit 1; }
 test -f "$aar" || { echo "::error::$aar is missing: install the Android build template first." >&2; exit 1; }
+# Absolute: the zip below runs from another directory.
+aar="$(cd "$(dirname "$aar")" && pwd)/$(basename "$aar")"
 
 got_version="$(cat "$engine_dir/godot_version.txt")"
 if [ "$got_version" != "$want_version" ]; then
