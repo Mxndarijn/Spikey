@@ -52,10 +52,65 @@ static func defs() -> Array[RoomDef]:
 	out.append(bubbles)
 
 	# Spike Rain: a mark on the ceiling, then a spiked drop falls down that column.
+	# Variants, one drawn each time the room starts: Classic (as it was), Drizzle
+	# (slow, long warning), Hail (four small drops), Sweep (four fixed columns in
+	# turn, then back), Shatter (shards skip along the floor), Wobble (drops sway)
+	# and Stake (a floor spike grows where a heavy drop lands).
 	var rain := RoomDef.new("rain", "late", 70)
 	rain.weight = 8
-	rain.hazards.append(_drop.bind(30, 10 * SUB, 25))
-	rain.hazards.append(_drop.bind(70, 10 * SUB, 25))
+	var hail: Array[Callable] = []
+	for d in [30, 55, 80, 105]:
+		hail.append(_rain.bind(d, 10 * SUB, 45, Drop.WARN, 6 * SUB, Drop.Style.PLAIN))
+	var sweep: Array[Callable] = []
+	for i in 4:
+		sweep.append(_sweep.bind(30 + 12 * i, (45 + 90 * i) * SUB))
+	rain.variants = [
+		RoomVariant.new("classic").with(
+			[_drop.bind(30, 10 * SUB, 25), _drop.bind(70, 10 * SUB, 25)]
+		),
+		(
+			RoomVariant
+			. new("drizzle")
+			. with(
+				[
+					_rain.bind(30, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+					_rain.bind(135, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+				]
+			)
+		),
+		RoomVariant.new("hail").with(hail),
+		RoomVariant.new("sweep").with(sweep),
+		(
+			RoomVariant
+			. new("shatter")
+			. with(
+				[
+					_rain.bind(30, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+					_rain.bind(85, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+				]
+			)
+		),
+		(
+			RoomVariant
+			. new("wobble")
+			. with(
+				[
+					_rain.bind(30, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+					_rain.bind(90, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+				]
+			)
+		),
+		(
+			RoomVariant
+			. new("stake")
+			. with(
+				[
+					_rain.bind(30, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+					_rain.bind(140, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+				]
+			)
+		),
+	]
 	out.append(rain)
 
 	# Orchard Drop: coins fall in columns, now and then a thorny pinecone too.
@@ -104,3 +159,14 @@ static func _bubble(lane: int) -> Hazard:
 
 static func _drop(delay: int, speed: int, gap: int) -> Hazard:
 	return Drop.new(delay, speed, gap)
+
+
+static func _rain(
+	delay: int, speed: int, gap: int, warn: int, radius: int, style: Drop.Style
+) -> Hazard:
+	return Drop.new(delay, speed, gap, warn, radius, style)
+
+
+## Sweep: a fixed column, at today's speed and warning.
+static func _sweep(delay: int, column: int) -> Hazard:
+	return Drop.new(delay, 10 * SUB, 60, Drop.WARN, Drop.RADIUS, Drop.Style.PLAIN, column)

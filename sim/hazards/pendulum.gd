@@ -1,13 +1,16 @@
 extends Hazard
-## A lantern on a chain swinging from the ceiling through the middle of the
-## room (Lantern Swing). The lantern kills; the chain is safe.
+## A lantern on a chain swinging from the ceiling (Lantern Swing). The lantern
+## kills; the chain is safe. Settings per lantern, so a room can hang several:
+## its pivot, chain, size, widest swing and swing time. Options: a gust makes
+## the swing grow and shrink, a winch winds the chain up and down, and a twin
+## is a second lantern on its own chain swinging exactly the other way.
 
+## The classic lantern (Double Trouble): stays inside x 40..320 px.
 const PIVOT_X := 180 * SimConfig.SUB
 const PIVOT_Y := SimConfig.KILL_TOP
 const LENGTH := 280 * SimConfig.SUB
 const RADIUS := 22 * SimConfig.SUB
-## Widest swing as a SimTrig angle (70/1024 of a turn, about 25 degrees): the
-## lantern stays inside x 40..320 px, clear of a bird at either wall.
+## Widest swing as a SimTrig angle (52/1024 of a turn, about 18 degrees).
 const AMPLITUDE := 52
 ## Steps per full swing (there and back).
 const PERIOD := 180
@@ -15,26 +18,87 @@ const PERIOD := 180
 ## arrival path (FairLanes.arrival_path).
 const ARRIVAL_TRIES := 32
 
+var pivot_x := PIVOT_X
+var pivot_y := PIVOT_Y
+var length := LENGTH
+var radius := RADIUS
+var amplitude := AMPLITUDE
+var period := PERIOD
+## Gust: the widest swing grows and shrinks by this much (SimTrig units) over
+## gust_period steps, starting at `amplitude` and growing. 0 = steady.
+var gust := 0
+var gust_period := 1
+## Winch: the chain winds this much shorter and longer than `length` over
+## winch_period steps, starting at its shortest. 0 = fixed chain.
+var winch := 0
+var winch_period := 1
+## Twin: a second lantern (twin_length 0 = none) at twin_x on the ceiling,
+## swinging the opposite way to the first.
+var twin_x := 0
+var twin_length := 0
+
 var phase := 0
 ## Current swing angle (SimTrig units, 0 = straight down, + = to the right).
 var angle := 0
+## Current chain length (changes with a winch).
+var chain := 0
 ## Lantern centre.
 var x := 0
 var y := 0
+## Twin lantern centre (when there is one).
+var x2 := 0
+var y2 := 0
 
 
-func _init() -> void:
+func _init(
+	p_pivot_x := PIVOT_X,
+	p_length := LENGTH,
+	p_radius := RADIUS,
+	p_amplitude := AMPLITUDE,
+	p_period := PERIOD
+) -> void:
 	kind = "pendulum"
+	pivot_x = p_pivot_x
+	length = p_length
+	radius = p_radius
+	amplitude = p_amplitude
+	period = p_period
+
+
+## The widest swing changes by `p_gust` over `p_period` steps.
+func gusting(p_gust: int, p_period: int) -> Hazard:
+	gust = p_gust
+	gust_period = p_period
+	return self
+
+
+## The chain winds `p_winch` shorter and longer over `p_period` steps.
+func winding(p_winch: int, p_period: int) -> Hazard:
+	winch = p_winch
+	winch_period = p_period
+	return self
+
+
+## Adds a twin lantern on a `p_length` chain at `p_x`, swinging the other way.
+func with_twin(p_x: int, p_length: int) -> Hazard:
+	twin_x = p_x
+	twin_length = p_length
+	return self
+
+
+func has_twin() -> bool:
+	return twin_length > 0
 
 
 func setup(sim: GameSim, rng: SimRng) -> void:
 	phase = rng.next_below(SimTrig.TURN)
-	# Out of a portal: the first swing that keeps the lantern off the arrival
-	# lane (else see FairLanes.ARRIVAL_PATH_MIN; else the swing drawn).
+	var first := phase
+	var pick := phase
 	if sim.state.started:
+		# Out of a portal: the first swing that keeps the lanterns off the
+		# arrival lane (else see FairLanes.ARRIVAL_PATH_MIN; else the swing
+		# drawn).
 		var arrival := FairLanes.arrival_path(sim)
-		var first := phase
-		var pick := phase
 		var settled := false
 		for k in ARRIVAL_TRIES:
 			phase = (first + k * SimTrig.TURN / ARRIVAL_TRIES) % SimTrig.TURN
@@ -45,19 +109,42 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			if clear >= FairLanes.ARRIVAL_PATH_MIN and not settled:
 				pick = phase
 				settled = true
-		phase = pick
+	else:
+		# Before the first tap (the room waits for it): the first swing that
+		# keeps the lanterns off the bird's forced first hop
+		# (FairLanes.start_path), else the one that keeps off it longest.
+		var start := FairLanes.start_path(sim)
+		var best := -1
+		for k in ARRIVAL_TRIES:
+			phase = (first + k * SimTrig.TURN / ARRIVAL_TRIES) % SimTrig.TURN
+			var clear := _path_clear(start)
+			if clear > best:
+				best = clear
+				pick = phase
+			if clear >= FairLanes.START_PATH:
+				break
+	phase = pick
 	_place()
 
 
-## Steps until the lantern first comes near the arrival path
-## (FairLanes.arrival_path), or ARRIVAL_PATH_TICKS if it doesn't.
+## Steps until a lantern first comes near the arrival path
+## (FairLanes.arrival_path), or ARRIVAL_PATH_TICKS if none does.
 func _arrival_clear(arrival: PackedInt32Array) -> int:
+	return _path_clear(arrival)
+
+
+## Steps until a lantern first comes near the bird on `path` (x, y pairs per
+## step, FairLanes.arrival_path_hits), or the path's length if none does.
+func _path_clear(path: PackedInt32Array) -> int:
 	var keep := t
-	var out := FairLanes.ARRIVAL_PATH_TICKS
-	for k in FairLanes.ARRIVAL_PATH_TICKS:
+	var out := path.size() / 2
+	for k in path.size() / 2:
 		t = k
 		_place()
-		if FairLanes.arrival_path_hits(arrival, k, x, y, RADIUS):
+		if FairLanes.arrival_path_hits(path, k, x, y, radius):
+			out = k
+			break
+		if has_twin() and FairLanes.arrival_path_hits(path, k, x2, y2, radius):
 			out = k
 			break
 	t = keep
@@ -70,14 +157,26 @@ func step(_sim: GameSim) -> void:
 
 
 func _place() -> void:
-	angle = AMPLITUDE * SimTrig.sin_t(phase + t * SimTrig.TURN / PERIOD) / SimTrig.ONE
-	x = PIVOT_X + LENGTH * SimTrig.sin_t(angle) / SimTrig.ONE
-	y = PIVOT_Y + LENGTH * SimTrig.cos_t(angle) / SimTrig.ONE
+	var widest := amplitude
+	if gust != 0:
+		widest += gust * SimTrig.sin_t(t * SimTrig.TURN / gust_period) / SimTrig.ONE
+	chain = length
+	if winch != 0:
+		var wind := t * SimTrig.TURN / winch_period - SimTrig.TURN / 4
+		chain += winch * SimTrig.sin_t(wind) / SimTrig.ONE
+	angle = widest * SimTrig.sin_t(phase + t * SimTrig.TURN / period) / SimTrig.ONE
+	x = pivot_x + chain * SimTrig.sin_t(angle) / SimTrig.ONE
+	y = pivot_y + chain * SimTrig.cos_t(angle) / SimTrig.ONE
+	if has_twin():
+		x2 = twin_x - twin_length * SimTrig.sin_t(angle) / SimTrig.ONE
+		y2 = pivot_y + twin_length * SimTrig.cos_t(angle) / SimTrig.ONE
 
 
 func kills(sim: GameSim) -> bool:
-	return sim.bird_touches_circle(x, y, RADIUS)
+	if has_twin() and sim.bird_touches_circle(x2, y2, radius):
+		return true
+	return sim.bird_touches_circle(x, y, radius)
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [phase, angle, x, y])
+	return mix_all(h, [phase, angle, chain, x, y, x2, y2])

@@ -70,9 +70,30 @@ func with(p_hazards: Array[Callable]) -> RoomDef:
 	return self
 
 
-## Whether the room can be picked for a bird coming out of a portal at `y`.
+## Whether the room can be picked for a bird coming out of a portal at `y`:
+## not a height it skips, and (with variants) at least one variant fits.
 func fits_arrival(y: int) -> bool:
 	for i in range(0, arrival_skip.size(), 2):
 		if y >= arrival_skip[i] and y < arrival_skip[i + 1]:
 			return false
-	return true
+	return variants.is_empty() or not arrival_variants(y).is_empty()
+
+
+## Indexes of the variants that can be drawn out of a portal at `y`
+## (RoomVariant.arrival_skip).
+func arrival_variants(y: int) -> Array[int]:
+	var out: Array[int] = []
+	for i in variants.size():
+		if variants[i].fits_arrival(y):
+			out.append(i)
+	return out
+
+
+## Whether the room or any of its variants skips some heights out of a portal.
+func skips_heights() -> bool:
+	if not arrival_skip.is_empty():
+		return true
+	for v in variants:
+		if not v.arrival_skip.is_empty():
+			return true
+	return false
