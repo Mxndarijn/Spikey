@@ -12,6 +12,8 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode combos            # Double Trouble fairness gate, every pair
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check             # the check's bot tests (Checks.cs)
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Check arrival,revive -Filter revive
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
 #
@@ -20,6 +22,13 @@
 #   report line "room/variant" each). The draw still happens, so the rest of
 #   the run's RNG is as in a normal run. Without -Variant nothing changes.
 #
+# -Mode check: the bot-heavy tests of tools/check.ps1, ported from their
+#   GDScript tests (which keep a small sample) with the same rules and more
+#   seeds: passable, arrival, points, revive, pairs (tools/fastsim/Checks.cs).
+#   -Check picks some (comma list, default all); -Filter keeps those whose name
+#   or GD test "path:method" contains it, as tools/check.ps1 -TestFilter.
+#   Exits 1 with the failures listed.
+#
 # -Jobs: worker processes (default: a quarter of the cores, so the PC stays usable).
 #
 # The C# sim must match sim/ exactly. After any change in sim/, run -Mode
@@ -27,11 +36,14 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
     [string]$Variant = "",
+    # check: which checks (comma list) and a -TestFilter style filter.
+    [string]$Check = "all",
+    [string]$Filter = "",
     [int]$Ticks = 0,
     # reaction / odds: reaction times to play, in ticks ("0,60").
     [string]$Delays = "",
@@ -78,6 +90,14 @@ if ($Mode -eq "parity") {
     $pa = @("parity", $cases, "--priority", $Priority.ToLower())
     if ($Jobs -gt 0) { $pa += @("--jobs", $Jobs) }
     & $exe @pa
+    exit $LASTEXITCODE
+}
+
+if ($Mode -eq "check") {
+    $ca = @("check", $Check, "--priority", $Priority.ToLower())
+    if ($Jobs -gt 0) { $ca += @("--jobs", $Jobs) }
+    if ($Filter) { $ca += @("--filter", $Filter) }
+    & $exe @ca
     exit $LASTEXITCODE
 }
 
