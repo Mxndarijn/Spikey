@@ -84,6 +84,8 @@ var reduced_motion := false
 ## The revive offer after a crash. Main shows it (show_offer) and listens to
 ## its Revive and Skip; the HUD clears the running HUD from under it.
 var revive_offer := ReviveOffer.new()
+## The 3, 2, 1 over the frozen room after Resume.
+var countdown := ResumeCountdown.new()
 var room_rect := Rect2(Vector2.ZERO, ScreenLayout.ROOM):
 	set(value):
 		room_rect = value
@@ -137,6 +139,7 @@ func _ready() -> void:
 	_build_running()
 	_build_hint()
 	_build_paused()
+	_build_countdown()
 	_build_game_over()
 	_root.add_child(_practice)
 	_practice.restart_pressed.connect(restart_pressed.emit)
@@ -171,6 +174,7 @@ func _notification(what: int) -> void:
 		_hint,
 		_toast,
 		_paused,
+		countdown,
 		_game_over,
 		_new_best,
 		_revived_line,
@@ -286,6 +290,11 @@ func _build_paused() -> void:
 	_paused_home = _scrim_link(HOME_ICON, "Home", "Ends this run")
 	(_paused_home.get_child(0) as Button).pressed.connect(home_pressed.emit)
 	_at(_paused, _paused_home, 500)
+
+
+func _build_countdown() -> void:
+	_at(_root, countdown, 300)
+	countdown.visible = false
 
 
 ## A Music or Sounds circle: paper with an ink icon when on, faint when off.
@@ -643,6 +652,7 @@ func show_ready() -> void:
 	_run_coins.visible = false
 	_score.visible = false
 	_paused.visible = false
+	countdown.visible = false
 	_game_over.visible = false
 	_go_time = -1.0
 	if _practicing:
