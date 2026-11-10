@@ -2,7 +2,8 @@ extends SceneTree
 ## Records runs for the FastSim parity check (tools/fastsim, the C# copy of
 ## sim/ for fast bots). The C# side replays every run and must get the same
 ## checksum on every tick.
-##   godot --headless --path . -s res://tools/fastsim_parity.gd -- <out.txt> [quick|full] [part parts]
+##   godot --headless --path . -s res://tools/fastsim_parity.gd -- <out.txt> [quick|full]
+##     [part parts]
 ## With `part parts` it records only its share of the cases (every parts-th,
 ## from part), so tools/fastsim.ps1 can record in several processes at once.
 ##
