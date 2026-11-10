@@ -24,8 +24,47 @@ public static class CatalogSky
 
         var rain = new RoomDef("rain", "late", 70);
         rain.weight = 8;
-        rain.hazards.Add(() => _drop(30, 10 * SUB, 25));
-        rain.hazards.Add(() => _drop(70, 10 * SUB, 25));
+        var hail = new List<Func<Hazard>>();
+        foreach (long d in new long[] { 30, 55, 80, 105 })
+        {
+            long dd = d;
+            hail.Add(() => _rain(dd, 10 * SUB, 45, Drop.WARN, 6 * SUB, Drop.Style.PLAIN));
+        }
+        var sweep = new List<Func<Hazard>>();
+        for (long i = 0; i < 4; i++)
+        {
+            long ii = i;
+            sweep.Add(() => _sweep(30 + 12 * ii, (45 + 90 * ii) * SUB));
+        }
+        rain.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>>
+            {
+                () => _drop(30, 10 * SUB, 25), () => _drop(70, 10 * SUB, 25),
+            }),
+            new RoomVariant("drizzle").with(new List<Func<Hazard>>
+            {
+                () => _rain(30, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+                () => _rain(135, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+            }),
+            new RoomVariant("hail").with(hail),
+            new RoomVariant("sweep").with(sweep),
+            new RoomVariant("shatter").with(new List<Func<Hazard>>
+            {
+                () => _rain(30, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+                () => _rain(85, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+            }),
+            new RoomVariant("wobble").with(new List<Func<Hazard>>
+            {
+                () => _rain(30, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+                () => _rain(90, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+            }),
+            new RoomVariant("stake").with(new List<Func<Hazard>>
+            {
+                () => _rain(30, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+                () => _rain(140, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+            }),
+        };
         out_.Add(rain);
 
         var orchard = new RoomDef("orchard", "bonus", 30);
@@ -48,4 +87,10 @@ public static class CatalogSky
     static Hazard _bubble(long lane) => new Bubble(lane);
 
     static Hazard _drop(long delay, long speed, long gap) => new Drop(delay, speed, gap);
+
+    static Hazard _rain(long delay, long speed, long gap, long warn, long radius, long style)
+        => new Drop(delay, speed, gap, warn, radius, style);
+
+    static Hazard _sweep(long delay, long column)
+        => new Drop(delay, 10 * SUB, 60, Drop.WARN, Drop.RADIUS, Drop.Style.PLAIN, column);
 }
