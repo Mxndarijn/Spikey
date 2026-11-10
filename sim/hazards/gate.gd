@@ -3,8 +3,9 @@ extends Hazard
 ## up and down. Both parts of the bar kill; the gap is the way through.
 
 const HALF_W := 8 * SimConfig.SUB
-## The gap is always this tall (the bird is 28 px).
+## The gap is this tall (the bird is 28 px), or SMALL_GAP (single small gate).
 const GAP := 176 * SimConfig.SUB
+const SMALL_GAP := 90 * SimConfig.SUB
 ## The gap's centre ping-pongs between these heights (the gap's edges stay
 ## 40 px clear of the ceiling and floor lines).
 const GAP_MIN_Y := 162 * SimConfig.SUB
@@ -28,6 +29,9 @@ const EXIT_REACH := 80 * SimConfig.SUB
 ## A revived bird (the exit stayed where it was): the gap of the first gate it
 ## meets is at most this far from the bird's height, toward the exit.
 const REVIVE_REACH := 80 * SimConfig.SUB
+## A small gate plans no exit below this: a revived bird (at BIRD_START_Y)
+## can't drop through its window to an open exit lower down in one crossing.
+const SMALL_EXIT_MAX_Y := 490 * SimConfig.SUB
 
 ## Column centre x.
 var x := 0
@@ -41,13 +45,16 @@ var period := 400
 var phase := 0
 ## Gap centre right now.
 var gap_y := 0
+## How tall the gap is.
+var gap_size := GAP
 
 
-func _init(p_x: int = 0, p_period: int = 400, p_follows: bool = false) -> void:
+func _init(p_x: int = 0, p_period: int = 400, p_follows: bool = false, p_gap: int = GAP) -> void:
 	kind = "gate"
 	x = p_x
 	period = p_period
 	follows = p_follows
+	gap_size = p_gap
 
 
 ## The gap starts at the bird's height (it just came in at a wall and can't
@@ -85,10 +92,47 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 		aim -= ARRIVAL_HOVER * sim.room.gravity
 		lead = _lead(sim, x)
 	var down := rng.next_below(2) == 0
+	# A small gate the bird starts in front of or inside (the single small gate
+	# stands where a practice run starts): the window is centred on the first
+	# hop while the bird passes through the column.
+	if not sim.state.started and gap_size < GAP:
+		var through := _start_crossing(sim)
+		if not through.is_empty():
+			aim = through[0]
+			lead = through[1]
 	phase = _phase_for(aim, lead, down)
 	if sim.state.exit_open or sim.state.exit_preview:
 		aim_at_exit(sim)
 	_place()
+
+
+## Before the first tap: the middle of the bird's heights while its first hop
+## (FairLanes.start_path) overlaps this column, and the room step at the middle
+## of that stretch, as [y, step]; empty if the hop does not reach the column.
+func _start_crossing(sim: GameSim) -> PackedInt32Array:
+	var path := FairLanes.start_path(sim)
+	var reach := HALF_W + SimConfig.BIRD_RADIUS
+	var first := -1
+	var last := -1
+	var low := 0
+	var high := 0
+	for k in path.size() / 2:
+		if absi(path[2 * k] - x) >= reach:
+			if first >= 0:
+				break
+			continue
+		var y := path[2 * k + 1]
+		if first < 0:
+			first = k
+			low = y
+			high = y
+		last = k
+		low = mini(low, y)
+		high = maxi(high, y)
+	if first < 0:
+		return PackedInt32Array()
+	# Path step k is room step k + 1.
+	return PackedInt32Array([(low + high) / 2, (first + last) / 2 + 1])
 
 
 ## Steps until the bird reaches a gate at `gate_x`.
@@ -175,8 +219,11 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 
 ## An exit goes only where the bird can get to from the gap of the last gate
 ## before its wall: within EXIT_REACH of where that gap will be when the bird
-## comes through it on its way to the exit.
+## comes through it on its way to the exit. A small gate also keeps exits
+## above SMALL_EXIT_MAX_Y.
 func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
+	if gap_size < GAP and y > SMALL_EXIT_MAX_Y:
+		return true
 	# The leader answers for the pair.
 	if follows and partner != null:
 		return false
@@ -186,11 +233,11 @@ func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
 
 
 func gap_top() -> int:
-	return gap_y - GAP / 2
+	return gap_y - gap_size / 2
 
 
 func gap_bottom() -> int:
-	return gap_y + GAP / 2
+	return gap_y + gap_size / 2
 
 
 func kills(sim: GameSim) -> bool:
@@ -200,4 +247,4 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [x, period, phase, gap_y, int(follows)])
+	return mix_all(h, [x, period, phase, gap_y, int(follows), gap_size])

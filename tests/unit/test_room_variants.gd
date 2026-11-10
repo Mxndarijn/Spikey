@@ -29,6 +29,7 @@ func test_every_variant_shows_up() -> void:
 	ids.append_array(["crowded", "squeeze", "blink", "hunter", "flip", "midnight"])
 	ids.append_array(["sawring", "bats", "cupid", "fireworks"])
 	ids.append_array(["crawl", "crabs", "pumpkin", "keepy", "beachball", "hearts"])
+	ids.append_array(["isles", "eggs", "gates", "ghostdoors"])
 	for id: String in ids:
 		var seen := {}
 		for s in 200:

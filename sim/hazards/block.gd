@@ -31,6 +31,16 @@ const ARRIVAL_DOWN := 45 * SimConfig.SUB
 const EXIT_CLEAR_X := 130 * SimConfig.SUB
 const EXIT_MARGIN := 8 * SimConfig.SUB
 const EXIT_ROOM := SimConfig.SLOT_SIZE
+## Floating Isles, drifting: every island sways this far each way, all
+## together, on a loop of DRIFT_PERIOD steps (5 s). Together, so the gaps
+## between them never change; the placement rules keep the whole sway clear.
+const DRIFT := 40 * SimConfig.SUB
+const DRIFT_PERIOD := 300
+## Floating Isles, one big rock: its top edge stays in this range.
+const BIG_TOP := 190 * SimConfig.SUB
+const BIG_BOTTOM := 450 * SimConfig.SUB
+## The big rock tries heights this far apart when the drawn one is in the way.
+const BIG_STEP := 16 * SimConfig.SUB
 
 ## Box corners, sub-units.
 var x0 := 0
@@ -48,6 +58,13 @@ var base_phase := 0
 ## Each band is BAND tall and an island fills at most 36 px of it, so the bird
 ## can always fly around every island.
 var band := -1
+## Sideways sway each way (DRIFT, or 0 = still), and x0 in the middle of it.
+var drift := 0
+var home_x := 0
+## Floating Isles, one big rock: a single wide island across the middle.
+var big := false
+## Ghost Doors row: no exit opens level with this door when it is near the wall.
+var guards_exit := false
 
 
 func _init(p_x0: int = 0, p_y0: int = 0, p_x1: int = 0, p_y1: int = 0) -> void:
@@ -61,13 +78,22 @@ func _init(p_x0: int = 0, p_y0: int = 0, p_x1: int = 0, p_y1: int = 0) -> void:
 func setup(sim: GameSim, rng: SimRng) -> void:
 	if band < 0:
 		base_phase = phase
+		home_x = x0
 		if fade_period > 0 and sim.state.started:
 			_time_faders_for_arrival(sim)
 		return
+	if big:
+		_setup_big(sim, rng)
+		return
 	var sub := SimConfig.SUB
+	# A drifting island is smaller, and its middle stays DRIFT further in, so
+	# the whole sway keeps SIDE clear of the walls.
+	var side := SIDE + drift
 	var w := (50 + rng.next_below(41)) * sub
+	if drift > 0:
+		w = (40 + rng.next_below(25)) * sub
 	var h := (24 + rng.next_below(13)) * sub
-	x0 = SIDE + rng.next_below(200 * sub - w)
+	x0 = side + rng.next_below(SimConfig.WORLD_W - 2 * side - w)
 	y0 = BAND_TOP + band * BAND + 10 * sub + rng.next_below(BAND - h - 20 * sub)
 	# The drawn spot first; if it is in the way, the same band a little lower
 	# (just clear of the island above), at its top or bottom; then beside the
@@ -75,21 +101,21 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	# draws, so the seed still decides everything.
 	var band_top := BAND_TOP + band * BAND + 10 * sub
 	var band_bottom := BAND_TOP + (band + 1) * BAND - 10 * sub - h
-	var far_x := SimConfig.WORLD_W - SIDE - w
+	var far_x := SimConfig.WORLD_W - side - w
 	var mid_x := (SimConfig.WORLD_W - w) / 2
 	var clear_y := band_top
 	var right_x := far_x
-	var left_x := SIDE
+	var left_x := side
 	var above := _neighbour(sim)
 	if not above.is_empty():
 		clear_y = above[2] + MIN_GAP
 		right_x = above[1] + PINCH_X
 		left_x = above[0] - PINCH_X - w
 	clear_y = clampi(maxi(clear_y, y0), band_top, band_bottom)
-	right_x = clampi(right_x, SIDE, far_x)
-	left_x = clampi(left_x, SIDE, far_x)
+	right_x = clampi(right_x, side, far_x)
+	left_x = clampi(left_x, side, far_x)
 	var found := false
-	for cx: int in [x0, right_x, left_x, far_x, SIDE, mid_x]:
+	for cx: int in [x0, right_x, left_x, far_x, side, mid_x]:
 		for cy: int in [y0, clear_y, band_top, band_bottom]:
 			if _in_the_way(sim, cx, cy, cx + w, cy + h):
 				continue
@@ -101,9 +127,48 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			break
 	x1 = x0 + w
 	y1 = y0 + h
+	home_x = x0
 	# No spot leaves a way through: this band has no island this time.
 	if not found:
 		alive = false
+
+
+## One big rock: a wide island centred side to side, at a drawn height, or,
+## if that is in the way, the first height from the top of its range that is
+## not. None fits: no rock this time.
+func _setup_big(sim: GameSim, rng: SimRng) -> void:
+	var sub := SimConfig.SUB
+	var w := (150 + rng.next_below(41)) * sub
+	var h := (28 + rng.next_below(9)) * sub
+	var lo := BIG_TOP
+	var hi := BIG_BOTTOM - h
+	x0 = (SimConfig.WORLD_W - w) / 2
+	x1 = x0 + w
+	y0 = lo + rng.next_below(hi - lo + 1)
+	home_x = x0
+	var tries: Array[int] = [y0]
+	for cy in range(lo, hi + 1, BIG_STEP):
+		tries.append(cy)
+	for cy in tries:
+		if not _in_the_way(sim, x0, cy, x1, cy + h):
+			y0 = cy
+			y1 = y0 + h
+			return
+	y1 = y0 + h
+	alive = false
+
+
+## How far a drifting island is off its middle at room step `tick`.
+static func sway(p_drift: int, tick: int) -> int:
+	return p_drift * SimTrig.sin_t(tick * SimTrig.TURN / DRIFT_PERIOD) / SimTrig.ONE
+
+
+func step(_sim: GameSim) -> void:
+	if drift <= 0:
+		return
+	var w := x1 - x0
+	x0 = home_x + sway(drift, t)
+	x1 = x0 + w
 
 
 ## Out of a portal (Ghost Doors): shifts every fading box's cycle by the same
@@ -157,13 +222,17 @@ func _time_faders_for_arrival(sim: GameSim) -> void:
 ## first hop or in its start lane (before the first tap), in front of the wall
 ## it comes out of (portal or revive), too close under the island above, or in
 ## front of an exit that is already there (revive).
+## A drifting island is checked over its whole sway, except against the island
+## above (they sway together).
 func _in_the_way(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
+	var sx0 := bx0 - drift
+	var sx1 := bx1 + drift
 	return (
-		FairLanes.start_path_hits_rect(sim, bx0, by0, bx1, by1, START_MARGIN)
-		or FairLanes.blocks_start_lane(sim, bx0, by0, bx1, by1)
-		or _blocks_arrival(sim, bx0, by0, bx1, by1)
+		FairLanes.start_path_hits_rect(sim, sx0, by0, sx1, by1, START_MARGIN)
+		or FairLanes.blocks_start_lane(sim, sx0, by0, sx1, by1)
+		or _blocks_arrival(sim, sx0, by0, sx1, by1)
 		or _crowds_neighbour(sim, bx0, by0, bx1)
-		or _covers_exit(sim, bx0, by0, bx1, by1)
+		or _covers_exit(sim, sx0, by0, sx1, by1)
 	)
 
 
@@ -239,11 +308,13 @@ func _fronts_exit(
 	return by1 + reach > y and by0 - reach < y
 
 
-## No exit opens level with an island that sits near its wall.
+## No exit opens level with an island that sits (or sways) near its wall, or
+## with a Ghost Doors row door near its wall.
 func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
-	if band < 0:
+	if band < 0 and not guards_exit:
 		return false
-	return _fronts_exit(sim, side, y, EXIT_MARGIN, x0, y0, x1, y1)
+	var w := x1 - x0
+	return _fronts_exit(sim, side, y, EXIT_MARGIN, home_x - drift, y0, home_x + w + drift, y1)
 
 
 func solid() -> bool:

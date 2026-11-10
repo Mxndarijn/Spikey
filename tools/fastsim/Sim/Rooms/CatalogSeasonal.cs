@@ -5,6 +5,16 @@ public static class CatalogSeasonal
 {
     public const long SUB = SimConfig.SUB;
     public const long WEIGHT = 12;
+    public const long ROW_Y = 400;
+    public const long ROW_W = 60;
+    public const long ROW_H = 34;
+    public const long ROW_PERIOD = 240;
+    public const long ROW_SOLID = 160;
+    public static readonly List<long> ROW_SKIP = new() { 380 * SimConfig.SUB, 516 * SimConfig.SUB };
+    public const long FLICKER_PERIOD = 150;
+    public const long FLICKER_SOLID = 60;
+    public const long FLICKER_ROW_STEP = 50;
+    public const long FLICKER_COL_STEP = 20;
 
     public static List<RoomDef> defs()
     {
@@ -26,11 +36,26 @@ public static class CatalogSeasonal
 
         var ghosts = _room("ghostdoors", Seasons.HALLOWEEN, 30);
         ghosts.max_spikes = 6;
+        var grid = new List<Func<Hazard>>();
+        var flicker = new List<Func<Hazard>>();
         for (long i = 0; i < 6; i++)
         {
             long gi = i;
-            ghosts.hazards.Add(() => _ghost_door(gi));
+            grid.Add(() => _ghost_door(gi));
+            flicker.Add(() => _flicker_door(gi));
         }
+        var row = new List<Func<Hazard>>();
+        for (long i = 0; i < 3; i++)
+        {
+            long ri = i;
+            row.Add(() => _row_door(ri));
+        }
+        ghosts.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(grid),
+            new RoomVariant("row").with(row).skipping(new List<long>(ROW_SKIP)),
+            new RoomVariant("flicker").with(flicker),
+        };
         out_.Add(ghosts);
 
         var bats = _room("bats", Seasons.HALLOWEEN, 40);
@@ -71,12 +96,12 @@ public static class CatalogSeasonal
         // Spring
         var eggs = _room("eggs", Seasons.SPRING, 20);
         eggs.max_spikes = 6;
-        for (long band = 0; band < 4; band++)
+        eggs.variants = new List<RoomVariant>
         {
-            long b = band;
-            eggs.hazards.Add(() => _island(b));
-            eggs.hazards.Add(() => _egg(b));
-        }
+            new RoomVariant("classic").with(_egg_isles(0, false)),
+            new RoomVariant("drifting").with(_egg_isles(Block.DRIFT, false)),
+            new RoomVariant("golden").with(_egg_isles(0, true)),
+        };
         out_.Add(eggs);
 
         var bees = _room("bees", Seasons.SPRING, 30);
@@ -165,19 +190,59 @@ public static class CatalogSeasonal
         return b;
     }
 
-    static Hazard _island(long band)
+    static Hazard _row_door(long i)
+    {
+        long x0 = (60 + i * 90) * SUB;
+        long y0 = ROW_Y * SUB;
+        var b = new Block(x0, y0, x0 + ROW_W * SUB, y0 + ROW_H * SUB);
+        b.fade_period = ROW_PERIOD;
+        b.solid_ticks = ROW_SOLID;
+        b.phase = G.posmod(ROW_SOLID - i * (ROW_PERIOD - ROW_SOLID), ROW_PERIOD);
+        b.guards_exit = true;
+        return b;
+    }
+
+    static Hazard _flicker_door(long i)
+    {
+        var b = (Block)_ghost_door(i);
+        b.fade_period = FLICKER_PERIOD;
+        b.solid_ticks = FLICKER_SOLID;
+        b.phase = ((i / 2) * FLICKER_ROW_STEP + (i % 2) * FLICKER_COL_STEP) % FLICKER_PERIOD;
+        return b;
+    }
+
+    static List<Func<Hazard>> _egg_isles(long drift, bool golden)
+    {
+        var out_ = new List<Func<Hazard>>();
+        for (long band = 0; band < 4; band++)
+        {
+            long b = band;
+            bool g = golden && band == 3;
+            out_.Add(() => _island(b, drift));
+            out_.Add(() => _egg(b, g));
+        }
+        return out_;
+    }
+
+    static Hazard _island(long band, long drift)
     {
         var b = new Block();
         b.band = band;
+        b.drift = drift;
         return b;
     }
 
     /// An egg next to the island of the same band (CoinPickup.beside_band: it
     /// finds the island, built and placed just before it, in setup()).
-    static Hazard _egg(long band)
+    static Hazard _egg(long band, bool golden)
     {
         var egg = new CoinPickup();
         egg.beside_band = band;
+        if (golden)
+        {
+            egg.value = CoinPickup.GOLD_VALUE;
+            egg.behind = true;
+        }
         return egg;
     }
 

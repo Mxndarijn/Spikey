@@ -220,9 +220,10 @@ func bump_bird_from(cx: int, cy: int) -> void:
 		state.vx = -state.vx
 
 
-## Adds a coin collected at (x, y); the view flies it from there to the counter.
-func collect_coin(x: int, y: int) -> void:
-	state.coins += 1
+## Adds `amount` coins collected at (x, y); the view flies them from there to the
+## counter.
+func collect_coin(x: int, y: int, amount: int = 1) -> void:
+	state.coins += amount
 	state.pickup_x = x
 	state.pickup_y = y
 	events.append(Event.COIN)

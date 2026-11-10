@@ -35,7 +35,7 @@ const ROOMS := {
 	"isles":
 	[
 		"Floating Isles",
-		"Rounded rock islands hang in the air. Weave between them.",
+		"Rock islands hang in the air, or drift, or one big rock. Weave past.",
 		2,
 		"jungle",
 		"blocks"
@@ -51,7 +51,7 @@ const ROOMS := {
 	"gates":
 	[
 		"Shutter Gates",
-		"Two sliding columns with a window. Fly through the window.",
+		"Sliding columns with a window, or one with a small one. Fly through.",
 		2,
 		"ice",
 		"cols"
@@ -163,7 +163,7 @@ const ROOMS := {
 	"ghostdoors":
 	[
 		"Ghost Doors",
-		"Ghost blocks fade in and out. Only solid when you can see them.",
+		"Ghost doors fade in and out, in a grid or a row. Solid when you see them.",
 		3,
 		"haunted",
 		"cols"
@@ -184,7 +184,7 @@ const ROOMS := {
 	"eggs":
 	[
 		"Egg Hunt",
-		"Painted eggs hide behind floating isles. Each is worth gold.",
+		"Eggs hide by the isles. Some drift; a golden one is worth five.",
 		1,
 		"blossom",
 		"coins"

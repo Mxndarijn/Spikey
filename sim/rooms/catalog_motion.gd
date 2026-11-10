@@ -37,8 +37,13 @@ static func defs() -> Array[RoomDef]:
 	# Near the top and bottom the gaps are at the end of their range and turn
 	# away before a slow player gets through both gates.
 	gates.arrival_skip = PackedInt32Array([0, 178 * SUB, 502 * SUB, SimConfig.WORLD_H])
-	gates.hazards.append(_gate.bind(130 * SUB, 760, false))
-	gates.hazards.append(_gate.bind(230 * SUB, 760, true))
+	# Variants: the two columns; one gate in the middle with a small window.
+	gates.variants = [
+		RoomVariant.new("classic").with(
+			[_gate.bind(130 * SUB, 760, false), _gate.bind(230 * SUB, 760, true)]
+		),
+		RoomVariant.new("single-small").with([_small_gate]),
+	]
 	out.append(gates)
 
 	# Caterpillar Crawl: crawlers walk round the inside of the cage.
@@ -174,6 +179,11 @@ static func crawl_variants() -> Array[RoomVariant]:
 		),
 		RoomVariant.new("sprinters").with([_sprinter.bind(0), _sprinter.bind(1)]),
 	]
+
+
+## Shutter Gates, single small: one gate in the middle, its window Gate.SMALL_GAP.
+static func _small_gate() -> Hazard:
+	return Gate.new(180 * SUB, 760, false, Gate.SMALL_GAP)
 
 
 static func _crawler(lane: int) -> Hazard:

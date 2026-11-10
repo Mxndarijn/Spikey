@@ -19,9 +19,9 @@ const SEEDS := 14
 const QUICK_TICKS := 290
 
 
-static func practice(seed_value: int) -> GameSim:
+static func practice(seed_value: int, variant: String = "classic") -> GameSim:
 	var index := RoomCatalog.index_of("gates")
-	return GameSim.new(seed_value, RoomCatalog.all()[index].season, index)
+	return GameSim.new(seed_value, RoomCatalog.all()[index].season, index, variant)
 
 
 func test_once_unreachable_portals_are_reachable() -> void:
@@ -31,23 +31,27 @@ func test_once_unreachable_portals_are_reachable() -> void:
 
 ## Many seeds, each started just before its exit is planned: as a ghost one
 ## point early (two crossings later the bird flies into it), and with no ghost
-## (it opens on the wall ahead at once).
+## (it opens on the wall ahead at once). Both variants: two gates, and the
+## single small gate.
 func test_the_portal_is_reachable() -> void:
 	var every := SimConfig.POINTS_PER_ROOM
-	for i in SEEDS:
+	for i in SEEDS * 2:
 		var seed_value := 500 + i * 37
-		var sim := practice(seed_value)
+		var variant := "classic" if i < SEEDS else "single-small"
+		var sim := practice(seed_value, variant)
 		var ghost := i % 4 != 3
 		sim.state.score += every - (2 if ghost else 1)
 		_assert_through(
-			sim, QUICK_TICKS, "seed %d (%s)" % [seed_value, "ghost" if ghost else "open"]
+			sim,
+			QUICK_TICKS,
+			"%s seed %d (%s)" % [variant, seed_value, "ghost" if ghost else "open"]
 		)
 
 
 ## A planned exit is never further from the last gate's gap than Gate.EXIT_REACH.
 func test_exits_are_planned_near_the_gap() -> void:
 	for seed_value in range(1, 60):
-		var sim := practice(seed_value)
+		var sim := practice(seed_value, "classic" if seed_value % 2 == 0 else "single-small")
 		# Some time into the room, the bird has just bounced off wall `side`:
 		# the ghost goes there, and the bird is back in two crossings.
 		for i in 1 + seed_value * 7 % 400:
@@ -58,7 +62,7 @@ func test_exits_are_planned_near_the_gap() -> void:
 		sim.state.x = r if side == 0 else SimConfig.WORLD_W - r
 		ExitPlanner.plan(sim, sim._rng, side, sim.state.score + SimConfig.POINTS_PER_ROOM)
 		# The gate next to that wall, when the bird passes it on its way back.
-		var last: Hazard = sim.room.hazards[side]
+		var last: Hazard = sim.room.hazards[mini(side, sim.room.hazards.size() - 1)]
 		var steps := sim.steps_to_wall(side) - absi(last.x - sim.state.x) / SimConfig.SPEED_X
 		var gap: int = last.gap_at(last.t + steps)
 		assert_true(
@@ -73,25 +77,34 @@ func test_exits_are_planned_near_the_gap() -> void:
 func test_the_portal_is_reachable_after_a_revive() -> void:
 	var crossing := SimConfig.WORLD_W / SimConfig.SPEED_X
 	var n := 0
-	for slot in range(1, SimConfig.SLOT_COUNT - 1, 2):
-		for side in 2:
-			# Alternate, so every height gets both cases across the two walls.
-			var open := n % 2 == 0
-			n += 1
-			var sim := revived(100 + n, open, side, SimConfig.slot_center_y(slot))
-			var ticks := SimConfig.ARRIVAL_HOLD + crossing * (1 if open else 2) + 20
-			var what := "%s exit at slot %d on wall %d" % ["open" if open else "ghost", slot, side]
-			_assert_through(sim, ticks, what)
+	for variant: String in ["classic", "single-small"]:
+		for slot in range(1, SimConfig.SLOT_COUNT - 1, 2):
+			# A small gate plans no exit that low (Gate.SMALL_EXIT_MAX_Y).
+			if variant != "classic" and SimConfig.slot_center_y(slot) > Gate.SMALL_EXIT_MAX_Y:
+				continue
+			for side in 2:
+				# Alternate, so every height gets both cases across the two walls.
+				var open := n % 2 == 0
+				n += 1
+				var sim := revived(100 + n, open, side, SimConfig.slot_center_y(slot), variant)
+				var ticks := SimConfig.ARRIVAL_HOLD + crossing * (1 if open else 2) + 20
+				var what := (
+					"%s: %s exit at slot %d on wall %d"
+					% [variant, "open" if open else "ghost", slot, side]
+				)
+				_assert_through(sim, ticks, what)
 
 
 ## A real run in the gates room with an exit at `exit_y` on wall `side`, open or
 ## planned (a ghost), killed and revived.
-static func revived(seed_value: int, open: bool, side: int, exit_y: int) -> GameSim:
+static func revived(
+	seed_value: int, open: bool, side: int, exit_y: int, variant: String = "classic"
+) -> GameSim:
 	var index := RoomCatalog.index_of("gates")
 	var def: RoomDef = RoomCatalog.all()[index]
 	var every := SimConfig.POINTS_PER_ROOM
 	var base := maxi(every, (def.from_score + every - 1) / every * every)
-	var sim := GameSim.new(seed_value, def.season)
+	var sim := GameSim.new(seed_value, def.season, -1, variant)
 	sim.step(true)
 	sim.state.score = base if open else base + every - 1
 	sim._enter_room(index)

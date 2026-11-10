@@ -8,9 +8,14 @@ public class CoinPickup : Hazard
     public long appear_at = 0;
     public const long BESIDE_GAP = 22 * SimConfig.SUB;
     public const long BESIDE_MAX_X = 290 * SimConfig.SUB;
+    public const long GOLD_VALUE = 5;
 
     public long vy = 0;
     public long beside_band = -1;
+    public long value = 1;
+    public bool behind = false;
+    public long drift = 0;
+    public long home_x = 0;
 
     public CoinPickup(long p_x = 0, long p_y = 0, long p_appear_at = 0)
     {
@@ -28,8 +33,15 @@ public class CoinPickup : Hazard
         {
             if (hs[i] is Block island && island.band == beside_band)
             {
-                x = island.x1 + BESIDE_GAP <= BESIDE_MAX_X ? island.x1 + BESIDE_GAP : island.x0 - BESIDE_GAP;
+                x = island.x1 + BESIDE_GAP + island.drift <= BESIDE_MAX_X ? island.x1 + BESIDE_GAP : island.x0 - BESIDE_GAP;
+                if (behind)
+                {
+                    bool left = island.x0 + island.x1 < SimConfig.WORLD_W;
+                    x = left ? island.x0 - BESIDE_GAP : island.x1 + BESIDE_GAP;
+                }
                 y = (island.y0 + island.y1) / 2;
+                drift = island.drift;
+                home_x = x;
                 return;
             }
         }
@@ -39,6 +51,7 @@ public class CoinPickup : Hazard
 
     public override void step(GameSim _sim)
     {
+        if (drift > 0) x = home_x + Block.sway(drift, t);
         if (vy != 0 && visible())
         {
             y += vy;
@@ -51,7 +64,7 @@ public class CoinPickup : Hazard
         if (visible() && sim.bird_touches_circle(x, y, SimConfig.COIN_RADIUS))
         {
             alive = false;
-            sim.collect_coin(x, y);
+            sim.collect_coin(x, y, value);
         }
     }
 

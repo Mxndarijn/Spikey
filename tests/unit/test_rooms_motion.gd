@@ -6,8 +6,8 @@ const SUB := SimConfig.SUB
 const IDS: Array[String] = ["cloud", "gates", "crawl", "swing", "stalker", "pinwheel", "sawring"]
 
 
-static func sim_in_room(id: String, seed_value: int) -> GameSim:
-	var sim := GameSim.new(seed_value)
+static func sim_in_room(id: String, seed_value: int, variant: String = "") -> GameSim:
+	var sim := GameSim.new(seed_value, Seasons.NONE, -1, variant)
 	var index := RoomCatalog.index_of(id)
 	sim.state.room_kind = index
 	sim.room.start(RoomCatalog.all()[index], index, sim, SimRng.new(seed_value + 1))
@@ -72,7 +72,9 @@ func test_rooms_spawn_their_hazards() -> void:
 	var clouds := kinds(sim_in_room("cloud", 1))
 	assert_true(clouds.size() in [1, 2], "one cloud or two")
 	assert_eq(clouds[0], "bumper")
-	assert_eq(kinds(sim_in_room("gates", 1)), ["gate", "gate"] as Array[String])
+	var gates := kinds(sim_in_room("gates", 1))
+	assert_true(gates.size() in [1, 2], "two gates, or one small one")
+	assert_eq(gates[0], "gate")
 	var crawlers := kinds(sim_in_room("crawl", 1))
 	assert_true(crawlers.size() in [2, 4], "two crawlers, or a swarm of four")
 	for k in crawlers:
@@ -162,10 +164,10 @@ func test_cloud_follows_its_loop_and_heart_skin() -> void:
 
 
 func test_gate_edges_kill_and_gaps_are_safe() -> void:
-	var sim := sim_in_room("gates", 4)
+	var sim := sim_in_room("gates", 4, "classic")
 	var g0: Hazard = sim.room.hazards[0]
 	var g1: Hazard = sim.room.hazards[1]
-	assert_true(g0.GAP >= 110 * SUB, "gap at least 110 px")
+	assert_true(g0.gap_size >= 110 * SUB, "gap at least 110 px")
 	assert_eq(g0.period, g1.period, "the columns move together")
 	assert_true(g1.follows and g1.partner == g0, "the second follows the first")
 	# A moment behind: the two gaps stay close, like one moving tunnel.
@@ -184,7 +186,7 @@ func test_gate_edges_kill_and_gaps_are_safe() -> void:
 
 
 func test_gate_gaps_slide() -> void:
-	var sim := sim_in_room("gates", 4)
+	var sim := sim_in_room("gates", 4, "classic")
 	var g: Hazard = sim.room.hazards[0]
 	var low := 1 << 40
 	var high := -1

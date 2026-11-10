@@ -41,11 +41,12 @@ public static class CatalogCore
 
         var isles = new RoomDef("isles", "starter", 10);
         isles.max_spikes = 6;
-        for (long i = 0; i < 4; i++)
+        isles.variants = new List<RoomVariant>
         {
-            long bi = i;
-            isles.hazards.Add(() => _island(bi));
-        }
+            new RoomVariant("classic").with(islands(0)),
+            new RoomVariant("drifting").with(islands(Block.DRIFT)),
+            new RoomVariant("one-big").with(new List<Func<Hazard>> { _big_rock }),
+        };
         out_.Add(isles);
 
         var garden = new RoomDef("garden", "bonus", 20);
@@ -156,10 +157,30 @@ public static class CatalogCore
         return out_;
     }
 
-    static Hazard _island(long band)
+    public static List<Func<Hazard>> islands(long drift)
+    {
+        var out_ = new List<Func<Hazard>>();
+        for (long i = 0; i < 4; i++)
+        {
+            long bi = i;
+            out_.Add(() => _island(bi, drift));
+        }
+        return out_;
+    }
+
+    static Hazard _island(long band, long drift)
     {
         var b = new Block();
         b.band = band;
+        b.drift = drift;
+        return b;
+    }
+
+    static Hazard _big_rock()
+    {
+        var b = new Block();
+        b.band = 0;
+        b.big = true;
         return b;
     }
 

@@ -183,9 +183,9 @@ public sealed class GameSim
         if ((state.x < cx) == (state.vx > 0)) state.vx = -state.vx;
     }
 
-    public void collect_coin(long x, long y)
+    public void collect_coin(long x, long y, long amount = 1)
     {
-        state.coins += 1;
+        state.coins += amount;
         state.pickup_x = x;
         state.pickup_y = y;
         events.Add(Event.COIN);

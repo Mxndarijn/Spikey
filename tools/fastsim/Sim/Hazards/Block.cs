@@ -15,6 +15,11 @@ public class Block : Hazard
     public const long EXIT_CLEAR_X = 130 * SimConfig.SUB;
     public const long EXIT_MARGIN = 8 * SimConfig.SUB;
     public const long EXIT_ROOM = SimConfig.SLOT_SIZE;
+    public const long DRIFT = 40 * SimConfig.SUB;
+    public const long DRIFT_PERIOD = 300;
+    public const long BIG_TOP = 190 * SimConfig.SUB;
+    public const long BIG_BOTTOM = 450 * SimConfig.SUB;
+    public const long BIG_STEP = 16 * SimConfig.SUB;
 
     public long x0 = 0;
     public long y0 = 0;
@@ -25,6 +30,10 @@ public class Block : Hazard
     public long phase = 0;
     public long base_phase = 0;
     public long band = -1;
+    public long drift = 0;
+    public long home_x = 0;
+    public bool big = false;
+    public bool guards_exit = false;
 
     public Block(long p_x0 = 0, long p_y0 = 0, long p_x1 = 0, long p_y1 = 0)
     {
@@ -40,21 +49,29 @@ public class Block : Hazard
         if (band < 0)
         {
             base_phase = phase;
+            home_x = x0;
             if (fade_period > 0 && sim.state.started) _time_faders_for_arrival(sim);
             return;
         }
+        if (big)
+        {
+            _setup_big(sim, rng);
+            return;
+        }
         long sub = SimConfig.SUB;
+        long side = SIDE + drift;
         long w = (50 + rng.next_below(41)) * sub;
+        if (drift > 0) w = (40 + rng.next_below(25)) * sub;
         long h = (24 + rng.next_below(13)) * sub;
-        x0 = SIDE + rng.next_below(200 * sub - w);
+        x0 = side + rng.next_below(SimConfig.WORLD_W - 2 * side - w);
         y0 = BAND_TOP + band * BAND + 10 * sub + rng.next_below(BAND - h - 20 * sub);
         long band_top = BAND_TOP + band * BAND + 10 * sub;
         long band_bottom = BAND_TOP + (band + 1) * BAND - 10 * sub - h;
-        long far_x = SimConfig.WORLD_W - SIDE - w;
+        long far_x = SimConfig.WORLD_W - side - w;
         long mid_x = (SimConfig.WORLD_W - w) / 2;
         long clear_y = band_top;
         long right_x = far_x;
-        long left_x = SIDE;
+        long left_x = side;
         var above = _neighbour(sim);
         if (above.Count != 0)
         {
@@ -63,11 +80,11 @@ public class Block : Hazard
             left_x = above[0] - PINCH_X - w;
         }
         clear_y = G.clampi(G.maxi(clear_y, y0), band_top, band_bottom);
-        right_x = G.clampi(right_x, SIDE, far_x);
-        left_x = G.clampi(left_x, SIDE, far_x);
+        right_x = G.clampi(right_x, side, far_x);
+        left_x = G.clampi(left_x, side, far_x);
         bool found = false;
         // The candidate arrays are built once, before the loops (as in GDScript).
-        long[] cxs = { x0, right_x, left_x, far_x, SIDE, mid_x };
+        long[] cxs = { x0, right_x, left_x, far_x, side, mid_x };
         long[] cys = { y0, clear_y, band_top, band_bottom };
         foreach (long cx in cxs)
         {
@@ -83,7 +100,45 @@ public class Block : Hazard
         }
         x1 = x0 + w;
         y1 = y0 + h;
+        home_x = x0;
         if (!found) alive = false;
+    }
+
+    void _setup_big(GameSim sim, SimRng rng)
+    {
+        long sub = SimConfig.SUB;
+        long w = (150 + rng.next_below(41)) * sub;
+        long h = (28 + rng.next_below(9)) * sub;
+        long lo = BIG_TOP;
+        long hi = BIG_BOTTOM - h;
+        x0 = (SimConfig.WORLD_W - w) / 2;
+        x1 = x0 + w;
+        y0 = lo + rng.next_below(hi - lo + 1);
+        home_x = x0;
+        var tries = new List<long> { y0 };
+        for (long cy = lo; cy < hi + 1; cy += BIG_STEP) tries.Add(cy);
+        foreach (long cy in tries)
+        {
+            if (!_in_the_way(sim, x0, cy, x1, cy + h))
+            {
+                y0 = cy;
+                y1 = y0 + h;
+                return;
+            }
+        }
+        y1 = y0 + h;
+        alive = false;
+    }
+
+    public static long sway(long p_drift, long tick)
+        => p_drift * SimTrig.sin_t(tick * SimTrig.TURN / DRIFT_PERIOD) / SimTrig.ONE;
+
+    public override void step(GameSim _sim)
+    {
+        if (drift <= 0) return;
+        long w = x1 - x0;
+        x0 = home_x + sway(drift, t);
+        x1 = x0 + w;
     }
 
     void _time_faders_for_arrival(GameSim sim)
@@ -133,11 +188,13 @@ public class Block : Hazard
 
     public bool _in_the_way(GameSim sim, long bx0, long by0, long bx1, long by1)
     {
-        return FairLanes.start_path_hits_rect(sim, bx0, by0, bx1, by1, START_MARGIN)
-            || FairLanes.blocks_start_lane(sim, bx0, by0, bx1, by1)
-            || _blocks_arrival(sim, bx0, by0, bx1, by1)
+        long sx0 = bx0 - drift;
+        long sx1 = bx1 + drift;
+        return FairLanes.start_path_hits_rect(sim, sx0, by0, sx1, by1, START_MARGIN)
+            || FairLanes.blocks_start_lane(sim, sx0, by0, sx1, by1)
+            || _blocks_arrival(sim, sx0, by0, sx1, by1)
             || _crowds_neighbour(sim, bx0, by0, bx1)
-            || _covers_exit(sim, bx0, by0, bx1, by1);
+            || _covers_exit(sim, sx0, by0, sx1, by1);
     }
 
     public bool _covers_exit(GameSim sim, long bx0, long by0, long bx1, long by1)
@@ -208,8 +265,9 @@ public class Block : Hazard
 
     public override bool blocks_exit(GameSim sim, long side, long y)
     {
-        if (band < 0) return false;
-        return _fronts_exit(sim, side, y, EXIT_MARGIN, x0, y0, x1, y1);
+        if (band < 0 && !guards_exit) return false;
+        long w = x1 - x0;
+        return _fronts_exit(sim, side, y, EXIT_MARGIN, home_x - drift, y0, home_x + w + drift, y1);
     }
 
     public bool solid()

@@ -19,6 +19,25 @@ const CatalogMotion := preload("res://sim/rooms/catalog_motion.gd")
 const SUB := SimConfig.SUB
 ## Seasonal rooms are picked more often while their season is on.
 const WEIGHT := 12
+## Ghost Doors, one row: the doors' top edge, size, the steps per cycle and
+## how long each is solid. Each door is open for a third of the cycle, one
+## after the other.
+const ROW_Y := 400
+const ROW_W := 60
+const ROW_H := 34
+const ROW_PERIOD := 240
+const ROW_SOLID := 160
+## Out of a portal the row variant skips these heights (px): a bird holding
+## height there (it hops about 62 px over the line) meets the row.
+const ROW_SKIP := [380 * SimConfig.SUB, 516 * SimConfig.SUB]
+## Ghost Doors, flicker: a short cycle (2.5 s, solid for 1 s), each row of
+## doors further into it than the one above, the right door a little more.
+## Steps per row and per column apart: with both doors of a row far apart in
+## time, out of a portal no timing lets a bird holding height through.
+const FLICKER_PERIOD := 150
+const FLICKER_SOLID := 60
+const FLICKER_ROW_STEP := 50
+const FLICKER_COL_STEP := 20
 
 
 static func defs() -> Array[RoomDef]:
@@ -39,9 +58,24 @@ static func defs() -> Array[RoomDef]:
 
 	var ghosts := _room("ghostdoors", Seasons.HALLOWEEN, 30)
 	ghosts.max_spikes = 6
-	# A 2 x 3 grid of doors that fade on a slow cycle, out of step with each other.
+	# A 2 x 3 grid of doors that fade on a slow cycle, out of step with each
+	# other. Variants: that grid; one row of three doors that open in turn,
+	# left to right; the grid fading fast and out of step (flicker).
+	var grid: Array[Callable] = []
+	var flicker: Array[Callable] = []
 	for i in 6:
-		ghosts.hazards.append(_ghost_door.bind(i))
+		grid.append(_ghost_door.bind(i))
+		flicker.append(_flicker_door.bind(i))
+	var row: Array[Callable] = []
+	for i in 3:
+		row.append(_row_door.bind(i))
+	ghosts.variants = [
+		RoomVariant.new("classic").with(grid),
+		# Out of a portal level with the row, a bird holding height flies
+		# through all three doors, and only one is ever open.
+		RoomVariant.new("row").with(row).skipping(PackedInt32Array(ROW_SKIP)),
+		RoomVariant.new("flicker").with(flicker),
+	]
 	out.append(ghosts)
 
 	# Bat Loop variants: three bats on the eight; a bigger, faster eight; two
@@ -91,11 +125,16 @@ static func defs() -> Array[RoomDef]:
 	out.append(cupid)
 
 	# Spring
+	# Egg Hunt: Floating Isles with an egg beside each island. Variants: still
+	# isles; drifting isles (the eggs ride along); a golden egg worth
+	# CoinPickup.GOLD_VALUE behind the lowest isle.
 	var eggs := _room("eggs", Seasons.SPRING, 20)
 	eggs.max_spikes = 6
-	for band in 4:
-		eggs.hazards.append(_island.bind(band))
-		eggs.hazards.append(_egg.bind(band))
+	eggs.variants = [
+		RoomVariant.new("classic").with(_egg_isles(0, false)),
+		RoomVariant.new("drifting").with(_egg_isles(Block.DRIFT, false)),
+		RoomVariant.new("golden").with(_egg_isles(0, true)),
+	]
 	out.append(eggs)
 
 	var bees := _room("bees", Seasons.SPRING, 30)
@@ -184,17 +223,54 @@ static func _ghost_door(i: int) -> Hazard:
 	return b
 
 
-static func _island(band: int) -> Hazard:
+## Ghost Doors, one row: three doors across the lower middle, 60 px from the
+## walls and 30 px apart, opening in turn from the left.
+static func _row_door(i: int) -> Hazard:
+	var x0 := (60 + i * 90) * SUB
+	var y0 := ROW_Y * SUB
+	var b := Block.new(x0, y0, x0 + ROW_W * SUB, y0 + ROW_H * SUB)
+	b.fade_period = ROW_PERIOD
+	b.solid_ticks = ROW_SOLID
+	# Door i is open (not solid) for room steps i * 80 to i * 80 + 80 of each cycle.
+	b.phase = posmod(ROW_SOLID - i * (ROW_PERIOD - ROW_SOLID), ROW_PERIOD)
+	b.guards_exit = true
+	return b
+
+
+## Ghost Doors, flicker: the grid of doors on a short cycle, out of step.
+static func _flicker_door(i: int) -> Hazard:
+	var b := _ghost_door(i) as Block
+	b.fade_period = FLICKER_PERIOD
+	b.solid_ticks = FLICKER_SOLID
+	b.phase = ((i / 2) * FLICKER_ROW_STEP + (i % 2) * FLICKER_COL_STEP) % FLICKER_PERIOD
+	return b
+
+
+## Egg Hunt: an island per band, each with its egg right after it. Golden:
+## the lowest isle's egg is golden and sits behind it.
+static func _egg_isles(drift: int, golden: bool) -> Array[Callable]:
+	var out: Array[Callable] = []
+	for band in 4:
+		out.append(_island.bind(band, drift))
+		out.append(_egg.bind(band, golden and band == 3))
+	return out
+
+
+static func _island(band: int, drift: int) -> Hazard:
 	var b := Block.new()
 	b.band = band
+	b.drift = drift
 	return b
 
 
 ## An egg next to the island of the same band (CoinPickup.beside_band: it finds
 ## the island, built and placed just before it, in setup()).
-static func _egg(band: int) -> Hazard:
+static func _egg(band: int, golden: bool) -> Hazard:
 	var egg := CoinPickup.new()
 	egg.beside_band = band
+	if golden:
+		egg.value = CoinPickup.GOLD_VALUE
+		egg.behind = true
 	return egg
 
 

@@ -5,6 +5,7 @@ public class Gate : Hazard
 {
     public const long HALF_W = 8 * SimConfig.SUB;
     public const long GAP = 176 * SimConfig.SUB;
+    public const long SMALL_GAP = 90 * SimConfig.SUB;
     public const long GAP_MIN_Y = 162 * SimConfig.SUB;
     public const long GAP_MAX_Y = 478 * SimConfig.SUB;
     public const long TOP = SimConfig.KILL_TOP;
@@ -14,6 +15,7 @@ public class Gate : Hazard
     public const long ARRIVAL_HOVER = 30 * SimConfig.SUB;
     public const long EXIT_REACH = 80 * SimConfig.SUB;
     public const long REVIVE_REACH = 80 * SimConfig.SUB;
+    public const long SMALL_EXIT_MAX_Y = 490 * SimConfig.SUB;
 
     public long x = 0;
     public bool follows = false;
@@ -23,10 +25,12 @@ public class Gate : Hazard
     public long period = 400;
     public long phase = 0;
     public long gap_y = 0;
+    public long gap_size = GAP;
 
-    public Gate(long p_x = 0, long p_period = 400, bool p_follows = false)
+    public Gate(long p_x = 0, long p_period = 400, bool p_follows = false, long p_gap = GAP)
     {
         kind = "gate";
+        gap_size = p_gap;
         x = p_x;
         period = p_period;
         follows = p_follows;
@@ -75,9 +79,48 @@ public class Gate : Hazard
             lead = _lead(sim, x);
         }
         bool down = rng.next_below(2) == 0;
+        if (!sim.state.started && gap_size < GAP)
+        {
+            var through = _start_crossing(sim);
+            if (through.Count != 0)
+            {
+                aim = through[0];
+                lead = through[1];
+            }
+        }
         phase = _phase_for(aim, lead, down);
         if (sim.state.exit_open || sim.state.exit_preview) aim_at_exit(sim);
         _place();
+    }
+
+    public List<long> _start_crossing(GameSim sim)
+    {
+        var path = FairLanes.start_path(sim);
+        long reach = HALF_W + SimConfig.BIRD_RADIUS;
+        long first = -1;
+        long last = -1;
+        long low = 0;
+        long high = 0;
+        for (long k = 0; k < path.Count / 2; k++)
+        {
+            if (G.absi(path[(int)(2 * k)] - x) >= reach)
+            {
+                if (first >= 0) break;
+                continue;
+            }
+            long y = path[(int)(2 * k + 1)];
+            if (first < 0)
+            {
+                first = k;
+                low = y;
+                high = y;
+            }
+            last = k;
+            low = G.mini(low, y);
+            high = G.maxi(high, y);
+        }
+        if (first < 0) return new List<long>();
+        return new List<long> { (low + high) / 2, (first + last) / 2 + 1 };
     }
 
     public static long _lead(GameSim sim, long gate_x)
@@ -145,15 +188,16 @@ public class Gate : Hazard
 
     public override bool blocks_exit(GameSim sim, long side, long y)
     {
+        if (gap_size < GAP && y > SMALL_EXIT_MAX_Y) return true;
         if (follows && partner != null) return false;
         var last = _last_before(side);
         long gap = last.gap_at(t + _steps_to_pass(sim, last, side));
         return G.absi(y - gap) > EXIT_REACH;
     }
 
-    public long gap_top() => gap_y - GAP / 2;
+    public long gap_top() => gap_y - gap_size / 2;
 
-    public long gap_bottom() => gap_y + GAP / 2;
+    public long gap_bottom() => gap_y + gap_size / 2;
 
     public override bool kills(GameSim sim)
     {
@@ -161,5 +205,5 @@ public class Gate : Hazard
         return sim.bird_touches_rect(x - HALF_W, gap_bottom(), x + HALF_W, BOTTOM);
     }
 
-    public override long checksum(long h) => mix_all(h, x, period, phase, gap_y, G.B(follows));
+    public override long checksum(long h) => mix_all(h, x, period, phase, gap_y, G.B(follows), gap_size);
 }

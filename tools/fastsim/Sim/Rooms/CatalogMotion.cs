@@ -23,8 +23,11 @@ public static class CatalogMotion
         var gates = new RoomDef("gates", "starter", 20);
         gates.max_spikes = 6;
         gates.arrival_skip = new List<long> { 0, 178 * SUB, 502 * SUB, SimConfig.WORLD_H };
-        gates.hazards.Add(() => _gate(130 * SUB, 760, false));
-        gates.hazards.Add(() => _gate(230 * SUB, 760, true));
+        gates.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => _gate(130 * SUB, 760, false), () => _gate(230 * SUB, 760, true) }),
+            new RoomVariant("single-small").with(new List<Func<Hazard>> { _small_gate }),
+        };
         out_.Add(gates);
 
         var crawl = new RoomDef("crawl", "starter", 30);
@@ -135,6 +138,8 @@ public static class CatalogMotion
         }),
         new RoomVariant("sprinters").with(new List<Func<Hazard>> { () => _sprinter(0), () => _sprinter(1) }),
     };
+
+    static Hazard _small_gate() => new Gate(180 * SUB, 760, false, Gate.SMALL_GAP);
 
     static Hazard _crawler(long lane) => new Crawler(lane);
 

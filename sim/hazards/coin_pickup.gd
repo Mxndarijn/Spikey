@@ -7,6 +7,8 @@ const Block := preload("res://sim/hazards/block.gd")
 ## goes (else it sits on the island's left).
 const BESIDE_GAP := 22 * SimConfig.SUB
 const BESIDE_MAX_X := 290 * SimConfig.SUB
+## Egg Hunt, golden egg: what it is worth.
+const GOLD_VALUE := 5
 
 var x := 0
 var y := 0
@@ -17,6 +19,15 @@ var vy := 0
 ## Egg Hunt: sits beside the Floating Isles island of this band (-1 = at x, y).
 ## The island must come before it in the room's hazards.
 var beside_band := -1
+## Coins it pays (Egg Hunt's golden egg pays GOLD_VALUE).
+var value := 1
+## Egg Hunt, golden: sits on the wall side of its island (behind it, seen from
+## the middle of the room) instead of the usual side.
+var behind := false
+## Rides along with a drifting island: its sway (Block.drift) and x in the
+## middle of it.
+var drift := 0
+var home_x := 0
 
 
 func _init(p_x: int = 0, p_y: int = 0, p_appear_at: int = 0) -> void:
@@ -34,10 +45,15 @@ func setup(sim: GameSim, _rng: SimRng) -> void:
 		if island != null and island.band == beside_band:
 			x = (
 				island.x1 + BESIDE_GAP
-				if island.x1 + BESIDE_GAP <= BESIDE_MAX_X
+				if island.x1 + BESIDE_GAP + island.drift <= BESIDE_MAX_X
 				else island.x0 - BESIDE_GAP
 			)
+			if behind:
+				var left := island.x0 + island.x1 < SimConfig.WORLD_W
+				x = island.x0 - BESIDE_GAP if left else island.x1 + BESIDE_GAP
 			y = (island.y0 + island.y1) / 2
+			drift = island.drift
+			home_x = x
 			return
 
 
@@ -46,6 +62,8 @@ func visible() -> bool:
 
 
 func step(_sim: GameSim) -> void:
+	if drift > 0:
+		x = home_x + Block.sway(drift, t)
 	if vy != 0 and visible():
 		y += vy
 		if y > SimConfig.KILL_BOTTOM + SimConfig.COIN_RADIUS:
@@ -55,7 +73,7 @@ func step(_sim: GameSim) -> void:
 func touch(sim: GameSim) -> void:
 	if visible() and sim.bird_touches_circle(x, y, SimConfig.COIN_RADIUS):
 		alive = false
-		sim.collect_coin(x, y)
+		sim.collect_coin(x, y, value)
 
 
 func checksum(h: int) -> int:

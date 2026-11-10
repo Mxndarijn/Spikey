@@ -57,11 +57,16 @@ static func defs() -> Array[RoomDef]:
 	]
 	out.append(tide)
 
-	# Floating Isles: four still islands, one per band of the room.
+	# Floating Isles: four still islands, one per band of the room. Variants:
+	# still; drifting (they sway sideways together on a slow loop); one big
+	# rock across the middle.
 	var isles := RoomDef.new("isles", "starter", 10)
 	isles.max_spikes = 6
-	for i in 4:
-		isles.hazards.append(_island.bind(i))
+	isles.variants = [
+		RoomVariant.new("classic").with(islands(0)),
+		RoomVariant.new("drifting").with(islands(Block.DRIFT)),
+		RoomVariant.new("one-big").with([_big_rock]),
+	]
 	out.append(isles)
 
 	# Coin Garden: a breather with up to three spikes per wall and four coins.
@@ -175,9 +180,25 @@ static func defs() -> Array[RoomDef]:
 	return out
 
 
-static func _island(band: int) -> Hazard:
+## One island per band, swaying `drift` each way (0 = still).
+static func islands(drift: int) -> Array[Callable]:
+	var out: Array[Callable] = []
+	for i in 4:
+		out.append(_island.bind(i, drift))
+	return out
+
+
+static func _island(band: int, drift: int) -> Hazard:
 	var b := Block.new()
 	b.band = band
+	b.drift = drift
+	return b
+
+
+static func _big_rock() -> Hazard:
+	var b := Block.new()
+	b.band = 0
+	b.big = true
 	return b
 
 

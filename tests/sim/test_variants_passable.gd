@@ -4,9 +4,10 @@ extends TestCase
 ## Echo), Bubble Lift, Coin Garden, Slow-Mo Breather, Bumper Court, Crowded,
 ## Squeeze Box, Blink Walls, Hunter Spike, Gravity Flip, Midnight Cage, Saw Ring,
 ## Bat Loop, Cupid Lanes, Firework Burst, Caterpillar Crawl, Crab Walk, Pumpkin
-## Bounce, Keepy-Uppy, Beach Ball and Heart Bumpers, every variant of each, can
-## be played: SurvivalSearch finds a way through each practice seed, long
-## enough to take the first portal.
+## Bounce, Keepy-Uppy, Beach Ball, Heart Bumpers, Floating Isles, Egg Hunt,
+## Shutter Gates and Ghost Doors, every variant of each, can be played:
+## SurvivalSearch finds a way through each practice seed, long enough to take
+## the first portal.
 
 ## Practice seeds per room variant.
 const SEEDS_EACH := 2
@@ -46,6 +47,10 @@ const CASES := [
 	["keepy", 1150],
 	["beachball", 1150],
 	["hearts", 1150],
+	["isles", 1150],
+	["eggs", 1150],
+	["gates", 1150],
+	["ghostdoors", 1150],
 ]
 
 const PARALLEL := true
