@@ -34,9 +34,13 @@ var _tap_pending := false
 
 ## `season` (Seasons.*) decides which seasonal rooms can appear; it is stored
 ## in the replay. `practice_room` (a RoomCatalog index) makes a practice run
-## that repeats that one room; -1 is a real run.
-func new_run(seed_value: int, season: int = Seasons.NONE, practice_room: int = -1) -> void:
-	sim = GameSim.new(seed_value, season, practice_room)
+## that repeats that one room; -1 is a real run. `variant` (developer mode's
+## room picker, practice only) plays that variant of the room in place of the
+## drawn one (GameSim.forced_variant); "" plays the drawn one.
+func new_run(
+	seed_value: int, season: int = Seasons.NONE, practice_room: int = -1, variant: String = ""
+) -> void:
+	sim = GameSim.new(seed_value, season, practice_room, variant if practice_room >= 0 else "")
 	prev_state = sim.state.copy()
 	_taps.clear()
 	_revive_ticks.clear()

@@ -20,6 +20,8 @@ signal leaderboard_pressed
 ## A setting changed in the settings sheet (already in the profile): main
 ## saves it and applies it.
 signal settings_changed
+## The debug page's room picker (developer mode): practise `id` with `variant`.
+signal practice_requested(id: String, variant: String)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
@@ -147,6 +149,7 @@ func open_settings() -> SettingsSheet:
 	if _settings == null:
 		_settings = SettingsSheet.new(_profile, _services)
 		_settings.changed.connect(settings_changed.emit)
+		_settings.practice_requested.connect(practice_requested.emit)
 		_settings.closed.connect(func() -> void: _settings = null)
 		add_child(_settings)
 	return _settings

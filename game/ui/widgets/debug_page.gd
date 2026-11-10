@@ -13,10 +13,13 @@ extends VBoxContainer
 
 ## A profile field changed (main saves).
 signal changed
+## Developer mode's room picker: practise room `id` with `variant` ("" = random).
+signal practice_requested(id: String, variant: String)
 
 const APP := "App"
 const ADS := "Ads"
 const PUSH := "Notifications"
+const ROOMS := "Rooms"
 const SECTIONS: Array[String] = [APP, ADS, PUSH]
 ## Taps on the settings title that open this page.
 const TAPS_TO_OPEN := 7
@@ -32,6 +35,8 @@ var _boxes := {}
 ## Section name -> the line under its buttons that says what a button did.
 var _notes := {}
 var _test_ads := SettingSwitch.new("Google test ads", "Asks for test ads, not real ones")
+## Developer mode only (null otherwise).
+var _picker: RoomPicker
 
 
 func _init(profile: Profile, services: AppServices) -> void:
@@ -44,6 +49,13 @@ func _init(profile: Profile, services: AppServices) -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	scroll.add_child(list)
+	# Developer mode puts the room picker first: it's what playtests use most.
+	if DevMode.enabled():
+		list.add_child(_section(ROOMS))
+		_picker = RoomPicker.new()
+		_picker.name = "RoomPicker"
+		_picker.play_pressed.connect(practice_requested.emit)
+		list.add_child(_picker)
 	for section in SECTIONS:
 		list.add_child(_section(section))
 		var box := VBoxContainer.new()
@@ -113,6 +125,11 @@ func report() -> String:
 ## What the last button of `section` said, or "".
 func note(section: String) -> String:
 	return (_notes[section] as Label).text
+
+
+## The room picker (developer mode), or null.
+func room_picker() -> RoomPicker:
+	return _picker
 
 
 ## For tests: taps the button with this node name.

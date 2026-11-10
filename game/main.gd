@@ -58,6 +58,9 @@ var _audio := AudioDirector.new()
 ## Practice: the room id being repeated. Real runs: the room being played, so
 ## the next room change can count it as cleared.
 var _practice_id := ""
+## Practice from developer mode's room picker: the variant id it plays ("" =
+## drawn as usual). Real runs never set it.
+var _practice_variant := ""
 var _room_id := ""
 ## Rooms cleared in the current real run, for the game-over stats.
 var _rooms_cleared := 0
@@ -210,6 +213,7 @@ func show_home() -> void:
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
+	home.practice_requested.connect(start_practice)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
 	# The balance and any daily prize waiting to be claimed.
@@ -322,6 +326,7 @@ func show_rooms(group: String = "") -> void:
 			group = RoomInfo.group(practised)
 	mode = Mode.MENU
 	_practice_id = ""
+	_practice_variant = ""
 	_rooms_group = group
 	_new_run()
 	_hud.show_menu()
@@ -347,15 +352,23 @@ func show_room(id: String) -> void:
 
 
 ## A practice run that repeats one room. Open rooms only (met in a real run).
-func start_practice(id: String) -> void:
+## `variant` (developer mode's room picker only) plays that variant every try;
+## "" draws it as usual.
+func start_practice(id: String, variant: String = "") -> void:
 	var def := RoomCatalog.find(id)
 	if def == null or not RoomInfo.is_open(_profile, def):
 		return
+	if not variant.is_empty() and not DevMode.enabled():
+		return
 	mode = Mode.PRACTICE
 	_practice_id = id
+	_practice_variant = variant
 	_menus.clear()
 	_look.show_flyer(true)
-	_hud.set_practice(RoomInfo.name_of(id))
+	var shown := RoomInfo.name_of(id)
+	if not variant.is_empty():
+		shown = RoomPicker.choice_text(id, variant)
+	_hud.set_practice(shown)
 	_new_run()
 	_hud.show_ready()
 
@@ -558,7 +571,8 @@ func _new_run() -> void:
 	if mode == Mode.REPLAY and _replay_driver != null:
 		_run.new_replay(_replay_driver)
 	else:
-		_run.new_run(randi(), run_season, practice)
+		var variant := _practice_variant if practice >= 0 else ""
+		_run.new_run(randi(), run_season, practice, variant)
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
 	_room.bind(_run, _look.theme)
 	_hazards.bind(_run, _look.theme)
