@@ -14,7 +14,7 @@
 
 production = "yes"
 optimize = "size"
-lto = "full"
+lto = "full"  # Android only; engine.yml turns it off for iOS
 debug_symbols = "no"
 
 # Flapjaw is 2D on the Compatibility renderer, with its own integer physics in sim/.

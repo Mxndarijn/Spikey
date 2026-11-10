@@ -82,8 +82,13 @@ jobs:
         working-directory: ${{ runner.temp }}/godot
         run: |
           jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"
+          # iOS ships the engine as a static library that Xcode links with the plugins. With
+          # LTO the engine drops functions only the plugins call (link fails), so it's off
+          # there, as in Godot's own iOS builds. Android links one finished .so: LTO is fine.
+          extra=""
+          if [ "${{ inputs.platform }}" = ios ]; then extra="lto=none"; fi
           scons platform=${{ inputs.platform }} target=template_release arch=arm64 \
-            profile="$GITHUB_WORKSPACE/tools/engine/flapjaw.py" -j"$jobs"
+            profile="$GITHUB_WORKSPACE/tools/engine/flapjaw.py" $extra -j"$jobs"
 
       - name: Collect the build
         if: steps.cache.outputs.cache-hit != 'true'
