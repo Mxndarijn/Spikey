@@ -6,19 +6,21 @@ const FLOOR_CLEARANCE := 40.0
 
 
 func test_shop_fits_on_every_tab() -> void:
-	for kind: String in Catalog.KINDS + [CollectionScreen.HATS]:
-		var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, kind)
+	for kind: String in ItemKind.ALL + [ItemOffer.HATS]:
+		var shop := CollectionScreen.new(
+			Checkout.offline(_profile()), CollectionScreen.Mode.SHOP, kind
+		)
 		_fits(shop, "shop (%s)" % kind)
 
 
 func test_home_fits() -> void:
-	_fits(HomeScreen.new(_profile()), "home")
+	_fits(HomeScreen.new(_profile(), AppServices.offline(_profile())), "home")
 
 
 ## Home stacks the wordmark, the stats line, the big flyer and the dock with
 ## no overlaps, all above the floor spikes.
 func test_home_logo_clears_the_flyer() -> void:
-	var home := HomeScreen.new(_profile())
+	var home := HomeScreen.new(_profile(), AppServices.offline(_profile()))
 	var holder := Control.new()
 	holder.theme = UiTheme.get_theme()
 	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
@@ -55,7 +57,7 @@ func test_settings_sheet_fits() -> void:
 	holder.theme = UiTheme.get_theme()
 	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
 	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
-	var sheet := SettingsSheet.new(_profile())
+	var sheet := SettingsSheet.new(_profile(), AppServices.offline(_profile()))
 	holder.add_child(sheet)
 	var card := sheet.find_child("Card", true, false) as Control
 	var room := UiTokens.SIZE_VIEWPORT_H - SettingsSheet.MARGIN_TOP - SettingsSheet.MARGIN_BOTTOM
@@ -73,7 +75,9 @@ func test_hud_buttons_are_big_enough() -> void:
 	var hud: Hud = load("res://game/ui/hud.tscn").instantiate()
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
 	assert_true(hud._pause_button.custom_minimum_size.x >= UiTokens.SIZE_TAP_MIN, "pause")
-	hud.set_large_buttons(true)
+	UiKit.large_buttons = true
+	hud.refresh_button_size()
+	UiKit.large_buttons = false
 	assert_eq(hud._pause_button.custom_minimum_size, Vector2(56, 56), "large pause button")
 	for b in hud.find_children("*", "BaseButton", true, false):
 		var size := (b as Control).get_combined_minimum_size()
@@ -146,7 +150,12 @@ func test_leaderboard_screens_fit() -> void:
 ## Every item name fits its tile at the narrowest step ("Jungle Canopy").
 func test_item_names_fit_their_tiles() -> void:
 	for kind: String in [
-		Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL, Catalog.PORTAL, Catalog.CRASH, Catalog.PLATE
+		ItemKind.FLYER,
+		ItemKind.WORLD,
+		ItemKind.TRAIL,
+		ItemKind.PORTAL,
+		ItemKind.CRASH,
+		ItemKind.PLATE
 	]:
 		for id: String in Catalog.ids(kind):
 			var l := Label.new()
@@ -169,25 +178,25 @@ func test_item_names_fit_their_tiles() -> void:
 ## is in use (long names wrap inside their card).
 func test_your_look_fits_with_every_card() -> void:
 	var p := _profile()
-	p.grant(Catalog.WORLD, "jungle")
-	p.equip(Catalog.WORLD, "jungle")
-	p.equip(Catalog.MUSIC, MusicTrack.MATCH_WORLD)
-	p.grant(Catalog.CRASH, "pixel_dissolve")
-	p.equip(Catalog.CRASH, "pixel_dissolve")
+	p.grant(ItemKind.WORLD, "jungle")
+	p.equip(ItemKind.WORLD, "jungle")
+	p.equip(ItemKind.MUSIC, MusicTrack.MATCH_WORLD)
+	p.grant(ItemKind.CRASH, "pixel_dissolve")
+	p.equip(ItemKind.CRASH, "pixel_dissolve")
 	var look := LookScreen.new(p)
 	_fits(look, "your look", _check_look.bind(look))
 
 
 func _check_look(look: LookScreen) -> void:
-	assert_eq(look.kinds().size(), Catalog.KINDS.size(), "a card for every kind")
-	for k: String in Catalog.KINDS:
+	assert_eq(look.kinds().size(), ItemKind.ALL.size(), "a card for every kind")
+	for k: String in ItemKind.ALL:
 		var c := look.card(k)
 		assert_true(c != null, "%s has a card" % k)
 		if c == null:
 			continue
 		var need := c.get_combined_minimum_size()
 		assert_true(minf(need.x, need.y) >= UiTokens.SIZE_TAP_MIN, "%s card is tap-sized" % k)
-	var pair := LookCard.new(Catalog.MUSIC, _profile(), ThemeCatalog.default_theme())
+	var pair := LookCard.new(ItemKind.MUSIC, _profile(), ThemeCatalog.default_theme())
 	var room := (UiTokens.SIZE_VIEWPORT_W - LookScreen.SIDE * 2 - LookScreen.GRID_GAP) / 2.0
 	look.add_child(pair)
 	assert_true(pair.get_combined_minimum_size().x <= room, "two cards fit side by side")
@@ -196,8 +205,10 @@ func _check_look(look: LookScreen) -> void:
 
 ## A kind's list has no tabs: its title names the kind.
 func test_lists_are_titled_by_kind() -> void:
-	for kind: String in Catalog.KINDS:
-		var shop := CollectionScreen.new(_profile(), CollectionScreen.Mode.SHOP, kind)
+	for kind: String in ItemKind.ALL:
+		var shop := CollectionScreen.new(
+			Checkout.offline(_profile()), CollectionScreen.Mode.SHOP, kind
+		)
 		_fits(
 			shop,
 			"list title (%s)" % kind,
@@ -208,11 +219,11 @@ func test_lists_are_titled_by_kind() -> void:
 
 ## Game over's stats stay clear of a crashed flyer lying on either wall.
 func test_game_over_stats_clear_the_walls() -> void:
-	var width := Hud.STAT_W * 3 + Hud.STAT_GAP * 2
+	var width := GameOverScreen.STAT_W * 3 + GameOverScreen.STAT_GAP * 2
 	var left := (UiTokens.SIZE_VIEWPORT_W - width) / 2.0
-	assert_true(left >= Hud.WALL_CLEAR, "the stats start at %d px" % left)
+	assert_true(left >= GameOverScreen.WALL_CLEAR, "the stats start at %d px" % left)
 	var flyer := BirdView.ART_CANVAS * BirdView.ART_SCALE
-	assert_true(Hud.WALL_CLEAR >= flyer / 2.0 + 18.0, "a flyer by the wall stays clear")
+	assert_true(GameOverScreen.WALL_CLEAR >= flyer / 2.0 + 18.0, "a flyer by the wall stays clear")
 
 
 ## The wordmark keeps 24px of room at each side, whatever the game is called.

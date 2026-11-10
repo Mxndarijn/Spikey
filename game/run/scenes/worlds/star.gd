@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Star Station (Worlds v4): stars, a ringed planet, a satellite and two
 ## asteroids over a big curved moon with craters, a little flag and a lander.
 
@@ -26,7 +26,7 @@ const MOON_R := 660.0
 const MOON_C := Vector2(180, 1200)
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	_stars(pen)
 	_planet(pen)
 	_satellite(pen)
@@ -138,3 +138,11 @@ static func _satellite(pen: ScenePen) -> void:
 	pen.stroke(PackedVector2Array([Vector2(26, -5), Vector2(26, 5)]), SAT_LINE, 1.5, false)
 	pen.circle(Vector2.ZERO, 3, SAT_EYE)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_stars(p, cols)

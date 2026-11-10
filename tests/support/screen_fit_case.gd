@@ -50,7 +50,7 @@ func _profile() -> Profile:
 	p.coins = 12345
 	p.best_score = 87
 	p.onboarded = true
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		var id: String = Catalog.ids(kind)[0]
 		p.grant(kind, id)
 		p.equip(kind, id)

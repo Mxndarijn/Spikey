@@ -1,12 +1,15 @@
-extends RefCounted
+extends WorldScene
 ## Desert Dusk (Worlds v4): a big low sun, birds, two flat-topped mesas with
 ## bands of rock, cacti and rocks on two dunes and a tumbleweed.
+
+## Pebbles on a Match my world portal's rim.
+const PEBBLE := Color("C98366")
 
 const WEED := Color("#7C4F7A", 0.8)
 const WEED_BALL := Color("#7C4F7A", 0.27)
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var mid := SceneGround.new(526, 18, 0.9, 0.2, t.hill_mid, 1)
 	var near := SceneGround.new(584, 12, 1.1, 2.6, t.hill_near, 2)
@@ -71,3 +74,11 @@ static func _tumbleweed(pen: ScenePen, near: SceneGround) -> void:
 		var to := Vector2.from_angle(angle + 0.15) * r * 1.28
 		pen.line(from.x, from.y, to.x, to.y, WEED, 1.25)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [PEBBLE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_pebbles(p, cols)

@@ -56,7 +56,7 @@ func test_every_room_draws_with_color_blind_spikes() -> void:
 		var index := RoomCatalog.index_of(def.id)
 		run.sim.room.start(def, index, run.sim, SimRng.new(5))
 		layer.bind(run, ThemeCatalog.default_theme())
-		assert_true(layer.drawn_theme().has_meta(HazardLayer.INK_META), "painters get ink")
+		assert_true(layer.look().ink, "painters get ink")
 		for i in 2:
 			run.sim.room.step(run.sim)
 			await tree.process_frame

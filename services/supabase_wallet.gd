@@ -2,15 +2,19 @@ class_name SupabaseWallet
 extends WalletService
 ## Diamonds kept on Supabase (supabase/migrations/20261110100000_diamonds.sql).
 ## The server holds the balance, pays the daily top-10 prizes and checks every
-## spend; `Profile.diamonds` is only a copy for the screens. Uses the
-## leaderboard's session, so a phone is the same player on both.
+## spend; `Profile.diamonds` is only a copy for the screens. Shares the
+## SupabaseClient with the leaderboards, so a phone is the same player on both.
 ## Offline, or on a database without the migration yet: the copy stays as it
 ## is, nothing can be spent and no prizes show.
 
-var _api: SupabaseLeaderboard
+## Tries when the answer doesn't arrive (no internet, timeout): the same
+## request id every time, so the server charges once at most.
+const SPEND_TRIES := 3
+
+var _api: SupabaseClient
 
 
-func _init(profile: Profile, api: SupabaseLeaderboard) -> void:
+func _init(profile: Profile, api: SupabaseClient) -> void:
 	super(profile)
 	_api = api
 
@@ -30,10 +34,23 @@ func sync() -> void:
 	synced.emit(wallet.diamonds, wallet.prizes)
 
 
+## Each spend carries a request id; the server answers a repeat of it with the
+## first answer instead of charging again (spend_requests migration). So when
+## the answer is lost on the way back, asking again is safe.
 func spend(amount: int, reason: String, ref: String = "") -> bool:
 	if amount <= 0:
 		return false
-	var res := await _api.call_db("spend_diamonds", spend_body(amount, reason, ref))
+	var body := spend_body(amount, reason, ref, new_request_id())
+	var res := {}
+	for attempt in SPEND_TRIES:
+		res = await _api.call_db("spend_diamonds", body)
+		if res.code == 404 and body.has("p_request"):
+			# A database without the spend_requests migration: send it plain, once.
+			body.erase("p_request")
+			res = await _api.call_db("spend_diamonds", body)
+			break
+		if res.code != 0:
+			break
 	if not res.ok or not res.data is Dictionary:
 		return false
 	_profile.diamonds = maxi(int((res.data as Dictionary).get("diamonds", 0)), 0)
@@ -50,8 +67,20 @@ func claim() -> int:
 
 
 ## The arguments of spend_diamonds in supabase/migrations/.
-static func spend_body(amount: int, reason: String, ref: String) -> Dictionary:
-	return {"p_amount": amount, "p_reason": reason, "p_ref": ref}
+static func spend_body(amount: int, reason: String, ref: String, request: String) -> Dictionary:
+	return {"p_amount": amount, "p_reason": reason, "p_ref": ref, "p_request": request}
+
+
+## A random UUID (version 4) for one spend.
+static func new_request_id() -> String:
+	var b := Crypto.new().generate_random_bytes(16)
+	b[6] = (b[6] & 0x0F) | 0x40
+	b[8] = (b[8] & 0x3F) | 0x80
+	var h := b.hex_encode()
+	return (
+		"%s-%s-%s-%s-%s"
+		% [h.substr(0, 8), h.substr(8, 4), h.substr(12, 4), h.substr(16, 4), h.substr(20)]
+	)
 
 
 ## get_wallet's answer as {"diamonds": int, "prizes": Array[Dictionary]} with

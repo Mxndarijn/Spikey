@@ -1,9 +1,14 @@
-extends RefCounted
+extends HazardPainter
 ## Bubble (Bubble Lift): a clear wobbling bubble with a white rim and shine.
 ## Safe, so never in the spike colour. A carrying bubble glows brighter.
 
+const BubbleHazard := preload("res://sim/hazards/bubble.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as BubbleHazard
+	var theme := look.theme
+	var time := look.time
 	var center := HazardLayer.at(h.x, h.y)
 	var r := HazardLayer.px(h.RADIUS)
 	var wobble := sin(time * 5.0 + h.lane * 1.7) * 0.05

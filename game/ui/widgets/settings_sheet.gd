@@ -25,13 +25,16 @@ const MARGIN_TOP := 40
 const MARGIN_BOTTOM := 30
 const SIDE := 14
 const TOGGLE := 44.0
-## Settings > Play: profile field -> [name, hint].
-const SWITCHES := {
-	"haptics": ["Haptics", "A little buzz on flap and crash"],
-	"reduced_flashing": ["Reduced flashing", "No room flash or shake, slow sky fades"],
-	"color_blind_spikes": ["Color-blind spikes", "Spikes turn dark with a white edge"],
-	"large_buttons": ["Large buttons", "Pause and HUD buttons grow to 56px"],
-	"board_alerts": ["Board alerts", "A notification when you lose a prize spot"],
+## Settings > Play: PlayerSettings.Switch -> [name, hint], in screen order.
+const SWITCHES: Dictionary[PlayerSettings.Switch, Array] = {
+	PlayerSettings.Switch.HAPTICS: ["Haptics", "A little buzz on flap and crash"],
+	PlayerSettings.Switch.REDUCED_FLASHING:
+	["Reduced flashing", "No room flash or shake, slow sky fades"],
+	PlayerSettings.Switch.COLOR_BLIND_SPIKES:
+	["Color-blind spikes", "Spikes turn dark with a white edge"],
+	PlayerSettings.Switch.LARGE_BUTTONS: ["Large buttons", "Pause and HUD buttons grow to 56px"],
+	PlayerSettings.Switch.BOARD_ALERTS:
+	["Board alerts", "A notification when you lose a prize spot"],
 }
 const CREDITS := [
 	["Font", "Archivo by the Archivo Project Authors, SIL Open Font License 1.1."],
@@ -39,10 +42,11 @@ const CREDITS := [
 ]
 
 var _profile: Profile
+var _services: AppServices
 var _sliders := {}
 var _toggles := {}
 var _values := {}
-var _switches := {}
+var _switches: Dictionary[PlayerSettings.Switch, SettingSwitch] = {}
 var _main_page := VBoxContainer.new()
 var _credits_page := VBoxContainer.new()
 var _debug_page := VBoxContainer.new()
@@ -50,8 +54,9 @@ var _debug: DebugPage
 var _title_taps := 0
 
 
-func _init(profile: Profile) -> void:
+func _init(profile: Profile, services: AppServices) -> void:
 	_profile = profile
+	_services = services
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
@@ -105,9 +110,9 @@ func _build_main() -> void:
 	play.custom_minimum_size.y += 6
 	play.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_main_page.add_child(play)
-	for key: String in SWITCHES:
+	for key: PlayerSettings.Switch in SWITCHES:
 		var s := SettingSwitch.new(SWITCHES[key][0], SWITCHES[key][1])
-		s.name = key
+		s.name = PlayerSettings.Switch.find_key(key)
 		s.toggled.connect(_on_switch.bind(key))
 		_main_page.add_child(s)
 		_switches[key] = s
@@ -115,7 +120,7 @@ func _build_main() -> void:
 	var credits := _link("Credits", "Credits and licenses")
 	credits.pressed.connect(show_credits.bind(true))
 	_main_page.add_child(_divider())
-	var ads := AdsService.current
+	var ads := _services.ads
 	var links: Array[Button] = []
 	if ads != null and ads.privacy_options_required():
 		var choices := _link("AdChoices", "Ad choices")
@@ -266,15 +271,15 @@ func _volume_row(which: String, label: String, icon: Texture2D) -> Control:
 
 ## Shows the profile's values without emitting `changed`.
 func _sync() -> void:
-	var vols := {"music": _profile.music_volume, "sfx": _profile.sfx_volume}
-	var ons := {"music": _profile.music_on, "sfx": _profile.sfx_on}
+	var vols := {"music": _profile.settings.music_volume, "sfx": _profile.settings.sfx_volume}
+	var ons := {"music": _profile.settings.music_on, "sfx": _profile.settings.sfx_on}
 	for which: String in ["music", "sfx"]:
 		(_sliders[which] as VolumeSlider).set_value_no_signal(vols[which])
 		(_toggles[which] as Button).set_pressed_no_signal(ons[which])
 		_show(which)
-	for key: String in SWITCHES:
-		(_switches[key] as SettingSwitch).set_pressed_no_signal(bool(_profile.get(key)))
-		(_switches[key] as SettingSwitch).queue_redraw()
+	for key: PlayerSettings.Switch in SWITCHES:
+		_switches[key].set_pressed_no_signal(_profile.settings.is_on(key))
+		_switches[key].queue_redraw()
 
 
 func _show(which: String) -> void:
@@ -292,24 +297,24 @@ func _show(which: String) -> void:
 
 func _on_slider(v: float, which: String) -> void:
 	if which == "music":
-		_profile.music_volume = int(v)
+		_profile.settings.music_volume = int(v)
 	else:
-		_profile.sfx_volume = int(v)
+		_profile.settings.sfx_volume = int(v)
 	_show(which)
 	changed.emit()
 
 
 func _on_toggle(on: bool, which: String) -> void:
 	if which == "music":
-		_profile.music_on = on
+		_profile.settings.music_on = on
 	else:
-		_profile.sfx_on = on
+		_profile.settings.sfx_on = on
 	_show(which)
 	changed.emit()
 
 
-func _on_switch(on: bool, key: String) -> void:
-	_profile.set(key, on)
+func _on_switch(on: bool, key: PlayerSettings.Switch) -> void:
+	_profile.settings.set_on(key, on)
 	changed.emit()
 
 
@@ -323,9 +328,9 @@ func set_on(which: String, on: bool) -> void:
 	(_toggles[which] as Button).button_pressed = on
 
 
-## For tests: flip a Play setting (a profile field name) as if tapped.
-func set_switch(key: String, on: bool) -> void:
-	(_switches[key] as SettingSwitch).button_pressed = on
+## For tests: flip a Play setting as if tapped.
+func set_switch(key: PlayerSettings.Switch, on: bool) -> void:
+	_switches[key].button_pressed = on
 
 
 func value_text(which: String) -> String:
@@ -336,8 +341,8 @@ func slider(which: String) -> VolumeSlider:
 	return _sliders[which] as VolumeSlider
 
 
-func switch(key: String) -> SettingSwitch:
-	return _switches.get(key) as SettingSwitch
+func switch(key: PlayerSettings.Switch) -> SettingSwitch:
+	return _switches.get(key)
 
 
 func show_credits(value: bool) -> void:
@@ -349,7 +354,7 @@ func show_debug(value: bool) -> void:
 	if value and _debug == null:
 		var back := UiKit.icon_button(BACK_ICON, "Back")
 		_debug_page.add_child(_head("Debug", back, show_debug.bind(false), true))
-		_debug = DebugPage.new(_profile)
+		_debug = DebugPage.new(_profile, _services)
 		_debug.changed.connect(changed.emit)
 		_debug_page.add_child(_debug)
 	_title_taps = 0

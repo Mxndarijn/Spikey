@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Mushroom Glade: a night forest lit by its own mushrooms. Tall trunks, vines
 ## with glowing blossoms hanging from the ceiling, fireflies down both sides,
 ## big mushrooms and ferns on three dark hills.
@@ -26,7 +26,7 @@ const LCG_MUL := 16807
 const LCG_MOD := 2147483647
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(522, 14, 1.0, 1.2, t.hill_far, 0)
 	var mid := SceneGround.new(564, 11, 1.4, 3.0, t.hill_mid, 1)
@@ -137,3 +137,11 @@ static func _fern(pen: ScenePen, x: float, b: float, s: float, col: Color) -> vo
 		var p := ScenePath.at(0, 0).q(-l * 0.18, -l * 0.6, 0, -l)
 		pen.fill(p.q(l * 0.3, -l * 0.5, 0, 0).done(), col)
 		pen.pop()
+
+
+func portal_touch_colors(t: ThemeDef) -> Array[Color]:
+	return [t.particle]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_sparks(p, cols)

@@ -15,16 +15,16 @@ signal store_pressed
 
 ## The cards in the two-column grid, in order; the name plate is the wide card.
 const GRID_KINDS: Array[String] = [
-	Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL, Catalog.PORTAL, Catalog.MUSIC, Catalog.CRASH
+	ItemKind.FLYER, ItemKind.WORLD, ItemKind.TRAIL, ItemKind.PORTAL, ItemKind.MUSIC, ItemKind.CRASH
 ]
-const WIDE_KIND := Catalog.PLATE
+const WIDE_KIND := ItemKind.PLATE
 const TITLE := "Your look"
 const SIDE := 14
 const GRID_GAP := 10
 const STAGE_HEIGHT := 84.0
 
 var _profile: Profile
-var _coins := Wallet.new()
+var _coins: Wallet
 ## kind -> LookCard
 var _cards := {}
 
@@ -47,20 +47,21 @@ func _ready() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
+	_coins = Wallet.new()
 	_coins.show_balance(_profile)
 	_coins.pressed.connect(store_pressed.emit)
 	col.add_child(UiKit.header(TITLE, closed.emit, _coins))
 
-	var world := Catalog.world(_profile.equipped_id(Catalog.WORLD))
+	var world := Catalog.world(_profile.equipped_id(ItemKind.WORLD))
 	if world == null:
 		world = ThemeCatalog.default_theme()
 	# The flyer leading its trail, straight on the room.
 	var stage := ItemThumb.new()
 	stage.open = true
 	stage.world = world
-	var flyer := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+	var flyer := Catalog.flyer(_profile.equipped_id(ItemKind.FLYER))
 	stage.flyer = flyer.idle if flyer != null else null
-	var trail := Catalog.trail(_profile.equipped_id(Catalog.TRAIL))
+	var trail := Catalog.trail(_profile.equipped_id(ItemKind.TRAIL))
 	stage.trail = trail if trail != null else TrailStyle.world_ribbon()
 	stage.custom_minimum_size = Vector2(0, STAGE_HEIGHT)
 	col.add_child(stage)
@@ -73,12 +74,6 @@ func _ready() -> void:
 		grid.add_child(_card(k, world, false))
 	col.add_child(grid)
 	col.add_child(_card(WIDE_KIND, world, true))
-
-
-## Free the coin pill if the screen never joined the tree, or it leaks.
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE and is_instance_valid(_coins) and _coins.get_parent() == null:
-		_coins.free()
 
 
 func _card(k: String, world: ThemeDef, wide: bool) -> LookCard:

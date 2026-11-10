@@ -6,7 +6,8 @@ extends RefCounted
 ##
 ## Every style is the same vortex disc: a rim ring, the disc, a turning inside
 ## drawn by its `kind` (spiral arms, dots, rings, galaxy, pixel), and a dark eye.
-## Match my world adds the world's own touch on the rim. A new kind is one
+## Match my world adds the world's own touch on the rim (its WorldScene picks
+## one of the touch_* shapes here). A new kind is one
 ## `_draw_<kind>` function here plus its line in paint().
 
 ## The sizes are tuned on the game's exit: half height 48 px (SimConfig.EXIT_HALF).
@@ -23,15 +24,6 @@ const SPIN_SPEED := 1.2
 ## the fixed moment they show.
 const THUMB_HEIGHT := 0.4
 const THUMB_TIME := 0.8
-
-## Rim touches with fixed colours.
-const AUTUMN_LEAVES: Array[Color] = [Color("E2603A"), Color("F2A23A"), Color("C9452F")]
-const SPRINKLES: Array[Color] = [Color("FFFFFF"), Color("7FD3FF"), Color("FFD23F"), Color("7FE3B5")]
-const EMBER := Color("FFD27A")
-const PEBBLE := Color("C98366")
-## Neon's spikes are hot pink, so its rim glows cyan.
-const NEON_RING := Color("4FE3FF")
-const WISP := Color(0.913725, 0.882353, 1.0, 0.8)
 
 
 ## `center`: the disc's centre. `side`: 0 on the left wall, 1 on the right.
@@ -142,36 +134,14 @@ static func _draw_pixel(p: PortalPen, style: PortalStyle, arms: Array[Color]) ->
 			)
 
 
-## The touch colours each world adds on the rim (Match my world only).
+## The touch colours a world adds on the rim (Match my world only): its
+## WorldScene decides.
 static func touch_colors(theme: ThemeDef) -> Array[Color]:
-	match theme.id:
-		"sunset":
-			return [theme.glow]
-		"jungle", "meadow":
-			return [theme.world_accent, theme.trail]
-		"autumn":
-			return AUTUMN_LEAVES
-		"ice", "deepsea", "star", "blossom", "winterfest", "cove", "clouds", "aurora":
-			return [Color.WHITE]
-		"lava":
-			return [EMBER]
-		"glade":
-			return [theme.particle]
-		"lantern":
-			return [theme.world_accent]
-		"sugar":
-			return SPRINKLES
-		"desert":
-			return [PEBBLE]
-		"neon":
-			return [NEON_RING]
-		"haunted":
-			return [WISP]
-	return []
+	return WorldScenes.scene(theme.id).portal_touch_colors(theme)
 
 
 ## Points round the rim, `n` of them, as [canvas point, angle].
-static func _rim(p: PortalPen, n: int, phase: float = 0.4) -> Array:
+static func rim(p: PortalPen, n: int, phase: float = 0.4) -> Array:
 	var out := []
 	for i in n:
 		var a := phase + i * TAU / n
@@ -181,81 +151,121 @@ static func _rim(p: PortalPen, n: int, phase: float = 0.4) -> Array:
 
 ## One small touch from the world on the rim (sun ticks, leaves, ice shards...).
 static func _draw_touch(p: PortalPen, theme: ThemeDef) -> void:
-	var cols := touch_colors(theme)
-	if cols.is_empty():
-		return
+	var scene := WorldScenes.scene(theme.id)
+	var cols := scene.portal_touch_colors(theme)
+	if not cols.is_empty():
+		scene.draw_portal_touch(p, theme, cols)
+
+
+# Rim touches the worlds pick from (WorldScene.draw_portal_touch).
+
+
+## Sun ticks pointing out.
+static func touch_ticks(p: PortalPen, cols: Array[Color]) -> void:
+	for e: Array in rim(p, 8):
+		var v: Vector2 = e[0]
+		var a: float = e[1]
+		p.line(v, v + Vector2(cos(a), sin(a)) * 7.0 * p.scale, cols[0], 4.0)
+
+
+## Leaves, taking turns through `cols`.
+static func touch_leaves(p: PortalPen, cols: Array[Color]) -> void:
+	var i := 0
+	for e: Array in rim(p, 5):
+		var a: float = e[1]
+		p.blob(e[0], 4.5, 9.0, a + deg_to_rad(120.0), cols[i % cols.size()])
+		i += 1
+
+
+## Ice shards pointing out.
+static func touch_shards(p: PortalPen, cols: Array[Color]) -> void:
 	var s := p.scale
-	match theme.id:
-		"sunset":
-			for e: Array in _rim(p, 8):
-				var v: Vector2 = e[0]
-				var a: float = e[1]
-				p.line(v, v + Vector2(cos(a), sin(a)) * 7.0 * s, cols[0], 4.0)
-		"jungle", "autumn", "meadow":
-			var i := 0
-			for e: Array in _rim(p, 5):
-				var a: float = e[1]
-				p.blob(e[0], 4.5, 9.0, a + deg_to_rad(120.0), cols[i % cols.size()])
-				i += 1
-		"ice":
-			for e: Array in _rim(p, 5):
-				var v: Vector2 = e[0]
-				var a: float = e[1]
-				var tri := PackedVector2Array(
-					[
-						v + Vector2(cos(a), sin(a)) * 10.0 * s,
-						v + Vector2(cos(a + 1.7), sin(a + 1.7)) * 4.0 * s,
-						v + Vector2(cos(a - 1.7), sin(a - 1.7)) * 4.0 * s,
-					]
-				)
-				p.shape(tri, cols[0])
-		"lava", "glade", "lantern":
-			for e: Array in _rim(p, 6):
-				p.blob(e[0], 3.5, 3.5, PI / 4.0, cols[0], 4)
-		"deepsea", "cove":
-			var i := 0
-			for e: Array in _rim(p, 6):
-				var r := 3.0 + (i % 3) * 1.5
-				p.ring(e[0], r, r, cols[0], 2.0, 16)
-				i += 1
-		"sugar":
-			var i := 0
-			for e: Array in _rim(p, 8):
-				var v: Vector2 = e[0]
-				var d := Vector2.from_angle(deg_to_rad(i * 67.0)) * 2.5 * s
-				p.line(v - d, v + d, cols[i % cols.size()], 3.0)
-				i += 1
-		"star", "aurora":
-			for e: Array in _rim(p, 5):
-				p.shape(_star(e[0], 5.0 * s, 2.0 * s), cols[0])
-		"desert":
-			var i := 0
-			for e: Array in _rim(p, 6):
-				p.blob(e[0], 3.0 + i % 2, 2.4 + i % 2, 0.0, cols[0], 12)
-				i += 1
-		"blossom", "clouds":
-			for e: Array in _rim(p, 6):
-				var a: float = e[1]
-				p.blob(e[0], 5.0, 3.0, a, cols[0])
-		"neon":
-			p.ring(p.origin, (R + 12.0) * PortalPen.SQUASH, R + 12.0, cols[0], 3.5, 40)
-		"haunted":
-			for e: Array in _rim(p, 4):
-				var v: Vector2 = e[0]
-				var a: float = e[1]
-				var ctrl := v + Vector2(cos(a) * 8.0, sin(a) * 8.0 - 6.0) * s
-				var end := v + Vector2(cos(a) * 14.0, sin(a) * 4.0) * s
-				var pts := PackedVector2Array()
-				for k in 7:
-					var t := k / 6.0
-					pts.append(v.lerp(ctrl, t).lerp(ctrl.lerp(end, t), t))
-				p.polyline(pts, cols[0], 3.0)
-		"winterfest":
-			for e: Array in _rim(p, 5):
-				var v: Vector2 = e[0]
-				for b: float in [0.0, 1.047, 2.094]:
-					var d := Vector2(cos(b), sin(b)) * 5.0 * s
-					p.line(v + d, v - d, cols[0], 2.0)
+	for e: Array in rim(p, 5):
+		var v: Vector2 = e[0]
+		var a: float = e[1]
+		var tri := PackedVector2Array(
+			[
+				v + Vector2(cos(a), sin(a)) * 10.0 * s,
+				v + Vector2(cos(a + 1.7), sin(a + 1.7)) * 4.0 * s,
+				v + Vector2(cos(a - 1.7), sin(a - 1.7)) * 4.0 * s,
+			]
+		)
+		p.shape(tri, cols[0])
+
+
+## Small square sparks (embers, fireflies, lanterns).
+static func touch_sparks(p: PortalPen, cols: Array[Color]) -> void:
+	for e: Array in rim(p, 6):
+		p.blob(e[0], 3.5, 3.5, PI / 4.0, cols[0], 4)
+
+
+## Bubbles of three sizes.
+static func touch_bubbles(p: PortalPen, cols: Array[Color]) -> void:
+	var i := 0
+	for e: Array in rim(p, 6):
+		var r := 3.0 + (i % 3) * 1.5
+		p.ring(e[0], r, r, cols[0], 2.0, 16)
+		i += 1
+
+
+## Sprinkles at turning angles, taking turns through `cols`.
+static func touch_sprinkles(p: PortalPen, cols: Array[Color]) -> void:
+	var i := 0
+	for e: Array in rim(p, 8):
+		var v: Vector2 = e[0]
+		var d := Vector2.from_angle(deg_to_rad(i * 67.0)) * 2.5 * p.scale
+		p.line(v - d, v + d, cols[i % cols.size()], 3.0)
+		i += 1
+
+
+## Five-point stars.
+static func touch_stars(p: PortalPen, cols: Array[Color]) -> void:
+	for e: Array in rim(p, 5):
+		p.shape(_star(e[0], 5.0 * p.scale, 2.0 * p.scale), cols[0])
+
+
+## Round pebbles of two sizes.
+static func touch_pebbles(p: PortalPen, cols: Array[Color]) -> void:
+	var i := 0
+	for e: Array in rim(p, 6):
+		p.blob(e[0], 3.0 + i % 2, 2.4 + i % 2, 0.0, cols[0], 12)
+		i += 1
+
+
+## Soft petals (or cloud puffs) along the rim.
+static func touch_petals(p: PortalPen, cols: Array[Color]) -> void:
+	for e: Array in rim(p, 6):
+		var a: float = e[1]
+		p.blob(e[0], 5.0, 3.0, a, cols[0])
+
+
+## One glowing ring round the whole portal.
+static func touch_glow_ring(p: PortalPen, cols: Array[Color]) -> void:
+	p.ring(p.origin, (R + 12.0) * PortalPen.SQUASH, R + 12.0, cols[0], 3.5, 40)
+
+
+## Curling wisps of mist.
+static func touch_wisps(p: PortalPen, cols: Array[Color]) -> void:
+	var s := p.scale
+	for e: Array in rim(p, 4):
+		var v: Vector2 = e[0]
+		var a: float = e[1]
+		var ctrl := v + Vector2(cos(a) * 8.0, sin(a) * 8.0 - 6.0) * s
+		var end := v + Vector2(cos(a) * 14.0, sin(a) * 4.0) * s
+		var pts := PackedVector2Array()
+		for k in 7:
+			var t := k / 6.0
+			pts.append(v.lerp(ctrl, t).lerp(ctrl.lerp(end, t), t))
+		p.polyline(pts, cols[0], 3.0)
+
+
+## Six-armed snowflakes.
+static func touch_flakes(p: PortalPen, cols: Array[Color]) -> void:
+	for e: Array in rim(p, 5):
+		var v: Vector2 = e[0]
+		for b: float in [0.0, 1.047, 2.094]:
+			var d := Vector2(cos(b), sin(b)) * 5.0 * p.scale
+			p.line(v + d, v - d, cols[0], 2.0)
 
 
 ## A five-point star round `c` (canvas units).

@@ -54,7 +54,7 @@ func test_every_board_trail_is_in_the_shop() -> void:
 	for id in BOARD_TRAILS:
 		var t := Catalog.trail(id)
 		assert_true(t != null, "%s is in the catalog" % id)
-		assert_true(Shop.price(Catalog.TRAIL, id) > 0, "%s has a price" % id)
+		assert_true(Shop.price(ItemKind.TRAIL, id) > 0, "%s has a price" % id)
 
 
 func test_board_prices() -> void:
@@ -69,12 +69,12 @@ func test_board_prices() -> void:
 		"pixel_trail": 300,
 	}
 	for id: String in trails:
-		assert_eq(Shop.price(Catalog.TRAIL, id), trails[id], "%s price" % id)
+		assert_eq(Shop.price(ItemKind.TRAIL, id), trails[id], "%s price" % id)
 	var flyers := {"pip": 350, "mochi": 400, "tock": 450, "lulu": 300, "puff": 350, "bubbles": 500}
 	flyers.merge({"waddle": 300, "flutter": 300, "boo": 350, "hamlet": 400, "scoop": 400})
 	flyers.merge({"glim": 450, "lumi": 450, "bolt": 500, "nova": 550})
 	for id: String in flyers:
-		assert_eq(Shop.price(Catalog.FLYER, id), flyers[id], "%s price" % id)
+		assert_eq(Shop.price(ItemKind.FLYER, id), flyers[id], "%s price" % id)
 
 
 ## Distance-stamped trails leave several stamps over their life at flying speed,
@@ -131,9 +131,12 @@ func test_music_note_appears_on_flap() -> void:
 ## the boards' opacity, and every kind is used.
 func test_particles_read_at_phone_scale() -> void:
 	var kinds := {}
-	for id: String in RoomView.MOTE_KIND:
-		kinds[RoomView.MOTE_KIND[id]] = true
-		assert_true(RoomView.MOTE_COUNT[id] >= 6, "%s has enough particles" % id)
+	for t in ThemeCatalog.all():
+		var look := WorldScenes.scene(t.id)
+		if look.mote_kind.is_empty():
+			continue
+		kinds[look.mote_kind] = true
+		assert_true(look.mote_count >= 6, "%s has enough particles" % t.id)
 	for kind: String in RoomView.MOTE_ALPHA:
 		var a: float = RoomView.MOTE_ALPHA[kind]
 		assert_true(a >= 0.4 and a <= 1.0, "%s opacity %.2f in the boards' range" % [kind, a])

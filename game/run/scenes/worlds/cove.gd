@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Palm Cove: a beach day. Flat sea to the horizon with an island and a
 ## sailboat, two palms on the sand, a beach umbrella, a sandcastle, a starfish
 ## and shells up front.
@@ -30,7 +30,7 @@ const SHELL_WHITE := Color("#FFFFFF")
 const HORIZON := 484.0
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var mid := SceneGround.new(552, 9, 1.2, 1.0, t.hill_mid, 1)
 	var near := SceneGround.new(598, 6, 1.4, 3.0, t.hill_near, 2)
@@ -129,3 +129,11 @@ static func _sandcastle(pen: ScenePen, x: float, b: float, s: float) -> void:
 	pen.line(0, -21, 0, -31, MAST, 1.1)
 	pen.fill(PackedVector2Array([Vector2(0, -31), Vector2(7, -28.5), Vector2(0, -26)]), UMBRELLA)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_bubbles(p, cols)

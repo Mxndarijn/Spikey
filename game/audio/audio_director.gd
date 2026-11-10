@@ -352,15 +352,14 @@ func _hook_buttons(node: Node) -> void:
 
 
 func _hook_button(b: BaseButton) -> void:
-	var n := String(b.name).to_lower()
-	var back := n.contains("back") or n.contains("close") or n.contains("home")
-	var cb := _on_button.bind("ui_back" if back else "ui_tap")
+	var cb := _on_button.bind(b)
 	if not b.pressed.is_connected(cb):
 		b.pressed.connect(cb)
 
 
-func _on_button(sound_name: String) -> void:
-	play(sound_name)
+## Back, close and home buttons (UiKit.mark_back) pop down, the rest up.
+func _on_button(b: BaseButton) -> void:
+	play("ui_back" if b.is_in_group(UiKit.BACK_GROUP) else "ui_tap")
 
 
 func _setup_buses() -> void:

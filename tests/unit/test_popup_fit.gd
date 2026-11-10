@@ -7,7 +7,7 @@ const HUD_SCENE := preload("res://game/ui/hud.tscn")
 
 ## The name dialog fits for a first pick, a rename and the longest name.
 func test_name_dialog_fits() -> void:
-	var longest := "W".repeat(LeaderboardService.NAME_MAX)
+	var longest := "W".repeat(PlayerName.MAX)
 	for current: String in ["", "Wren_07", longest]:
 		_fits(NameDialog.new(current), "name dialog ('%s')" % current)
 
@@ -18,7 +18,9 @@ func test_convert_sheet_fits() -> void:
 		var p := _profile()
 		p.diamonds = diamonds
 		_fits(
-			ConvertSheet.new(p, diamonds, "You need 160 more gold for Windmill Meadow."),
+			ConvertSheet.new(
+				Checkout.offline(p), diamonds, "You need 160 more gold for Windmill Meadow."
+			),
 			"convert sheet (%d)" % diamonds
 		)
 
@@ -27,22 +29,24 @@ func test_convert_sheet_fits() -> void:
 func test_settings_sheet_fits_with_ad_choices() -> void:
 	var ads := FakeAds.new()
 	ads.privacy_required = true
-	AdsService.current = ads
-	_fits(SettingsSheet.new(_profile()), "settings with ad choices")
-	AdsService.current = null
+	var services := AppServices.offline(_profile())
+	services.ads = ads
+	_fits(SettingsSheet.new(_profile(), services), "settings with ad choices")
 
 
 ## Every item's popup fits, owned ("Use <name>") and in the shop (a price).
 func test_item_popups_fit() -> void:
 	var owner := _profile()
 	owner.coins = 0
-	for kind: String in Catalog.KINDS:
+	for kind: String in ItemKind.ALL:
 		for id: String in Catalog.ids(kind):
 			owner.grant(kind, id)
 	for p: Profile in [owner, _profile()]:
-		for kind: String in Catalog.KINDS:
+		for kind: String in ItemKind.ALL:
 			for id: String in Catalog.ids(kind):
-				var shop := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, kind)
+				var shop := CollectionScreen.new(
+					Checkout.offline(p), CollectionScreen.Mode.SHOP, kind
+				)
 				_fits(shop, "item popup (%s %s)" % [kind, id], shop._tap.bind(id))
 
 
@@ -59,25 +63,27 @@ func test_prize_popup_fits() -> void:
 ## Game over: a long final score and big stats stay on the screen.
 func test_game_over_fits_a_long_score() -> void:
 	for score in [7, 87, 1024, 99999]:
-		var size := Hud.final_score_size(score)
+		var size := GameOverScreen.final_score_size(score)
 		var w := (
 			GameFonts.display().get_string_size(str(score), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		)
-		assert_true(w <= Hud.FINAL_SCORE_W, "%d is %d px wide at %d" % [score, w, size])
-	assert_eq(Hud.final_score_size(87), UiTheme.BIG_SCORE_SIZE, "a short score stays big")
+		assert_true(w <= GameOverScreen.FINAL_SCORE_W, "%d is %d px wide at %d" % [score, w, size])
+	assert_eq(
+		GameOverScreen.final_score_size(87), UiTheme.BIG_SCORE_SIZE, "a short score stays big"
+	)
 	var hud: Hud = HUD_SCENE.instantiate()
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
 	hud.show_game_over(1024, 1024, true, 1240, 87, 312, 1234)
-	var row := hud._stats.get_combined_minimum_size().x
+	var row := hud.game_over._stats.get_combined_minimum_size().x
 	assert_true(
-		row <= UiTokens.SIZE_VIEWPORT_W - Hud.WALL_CLEAR * 2,
+		row <= UiTokens.SIZE_VIEWPORT_W - GameOverScreen.WALL_CLEAR * 2,
 		"the stats row is %d px, clear of the walls" % row
 	)
-	for col in hud._stats.get_children():
+	for col in hud.game_over._stats.get_children():
 		var need := (col as Control).get_combined_minimum_size().x
-		assert_true(need <= Hud.STAT_W, "a stat column is %d px" % need)
+		assert_true(need <= GameOverScreen.STAT_W, "a stat column is %d px" % need)
 	for id in ["home", "rooms", "rank", "style"]:
-		var b := hud._dock.button(id)
+		var b := hud.game_over._dock.button(id)
 		assert_true(b.get_combined_minimum_size().x <= Dock.ITEM.x, "dock %s fits" % id)
 	hud.free()
 
@@ -88,10 +94,12 @@ func test_header_titles_keep_clear() -> void:
 	p.coins = 999999
 	p.diamonds = 999
 	var screens: Array[Control] = [
-		LookScreen.new(p), StoreScreen.new(p, StoreService.new()), RoomsScreen.new(p)
+		LookScreen.new(p),
+		StoreScreen.new(Checkout.offline(p), StoreService.new()),
+		RoomsScreen.new(p)
 	]
-	for kind: String in Catalog.KINDS:
-		screens.append(CollectionScreen.new(p, CollectionScreen.Mode.SHOP, kind))
+	for kind: String in ItemKind.ALL:
+		screens.append(CollectionScreen.new(Checkout.offline(p), CollectionScreen.Mode.SHOP, kind))
 	for g: String in RoomInfo.GROUPS:
 		for def: RoomDef in RoomInfo.rooms_in(g):
 			screens.append(RoomDetailScreen.new(p, def.id))

@@ -67,7 +67,7 @@ public class Gate : Hazard
             _place();
             return;
         }
-        long aim = sim.entry_y();
+        long aim = FairLanes.entry_y(sim);
         long lead = 0;
         if (sim.state.started)
         {
@@ -121,27 +121,26 @@ public class Gate : Hazard
         long last_at = _steps_to_pass(sim, last, s.exit_side) - (last == this ? 0 : LAG);
         long slide = (GAP_MAX_Y - GAP_MIN_Y) * (last_at - first_at) / (period / 2);
         long reach = G.maxi(REVIVE_REACH + slide, 0);
-        long from = sim.entry_y();
+        long from = FairLanes.entry_y(sim);
         long target = G.clampi(G.clampi(s.exit_a_y, GAP_MIN_Y, GAP_MAX_Y), from - reach, from + reach);
         phase = _phase_for(target, t + last_at, target > from);
         _place();
     }
 
-    public override void on_bounce(GameSim sim, SimRng _rng)
+    public override long adjust_wall(GameSim sim, long side, long mask)
     {
-        if (follows) return;
+        if (follows) return mask;
         var s = sim.state;
-        var near = _last_before(s.vx > 0 ? 1 : 0);
+        var near = _last_before(side);
         long steps = G.absi(near.x - s.x) / SimConfig.SPEED_X;
         long gap = near.gap_at(t + steps);
-        long mask = s.vx > 0 ? s.right_spikes : s.left_spikes;
+        long out_ = mask;
         for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
         {
             if (G.absi(SimConfig.slot_center_y(slot) - gap) < WALL_CLEAR)
-                mask &= ~(1L << (int)slot);
+                out_ &= ~(1L << (int)slot);
         }
-        if (s.vx > 0) s.right_spikes = mask;
-        else s.left_spikes = mask;
+        return out_;
     }
 
     public override bool blocks_exit(GameSim sim, long side, long y)

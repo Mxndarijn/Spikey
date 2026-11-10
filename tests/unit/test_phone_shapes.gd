@@ -85,7 +85,7 @@ func test_space_around_the_room_is_filled() -> void:
 
 ## On a tall phone the world, HUD and menus all move down to the room.
 func test_main_moves_world_hud_and_menus_together() -> void:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node2D = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -98,7 +98,7 @@ func test_main_moves_world_hud_and_menus_together() -> void:
 	var screen := main._menus.current() as Control
 	assert_eq(screen.get_global_rect(), rect, "the menu screen covers the room")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## Coins fly into the counter from the room, wherever the room sits.
@@ -141,7 +141,7 @@ func test_pause_dims_the_whole_screen() -> void:
 	var hud: Hud = load(HUD_SCENE).instantiate()
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
 	var found := false
-	for n in hud._paused.get_children(true):
+	for n in hud.pause_screen.get_children(true):
 		found = found or n is ScrimBleed
 	assert_true(found, "pause scrim reaches past the room")
 	hud.free()

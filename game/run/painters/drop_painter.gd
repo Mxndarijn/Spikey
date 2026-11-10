@@ -1,18 +1,23 @@
-extends RefCounted
+extends HazardPainter
 ## Drop (Spike Rain; "pinecone" in Orchard Drop, "icicle" in Winter Icicle
 ## Drop). While warning: a dark mark on the ceiling grows over the column (the
 ## icicle shakes instead). While falling: the deadly drop in the spike colour.
 
+const DropHazard := preload("res://sim/hazards/drop.gd")
+
 const LENGTH := 26.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as DropHazard
+	var theme := look.theme
+	var time := look.time
 	var r := HazardLayer.px(h.RADIUS)
 	if h.warning():
 		var k: float = h.warn_progress() / float(SimTrig.ONE)
 		var top := HazardLayer.px(SimConfig.KILL_TOP)
 		var x := HazardLayer.px(h.x)
-		if h.skin == "icicle":
+		if look.skin == "icicle":
 			var shake := sin(time * 60.0) * 2.5 * k
 			_icicle(c, Vector2(x + shake, top + r), r, theme, 1.0)
 			return
@@ -30,7 +35,7 @@ static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> voi
 	if not h.falling():
 		return
 	var p := HazardLayer.at(h.x, h.y)
-	match h.skin:
+	match look.skin:
 		"icicle":
 			_icicle(c, p, r, theme, 1.0)
 		"pinecone":

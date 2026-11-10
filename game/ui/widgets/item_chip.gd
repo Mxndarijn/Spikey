@@ -18,7 +18,7 @@ func _init(p_kind: String, id: String, world: ThemeDef) -> void:
 	theme_type_variation = &"CardButton"
 	focus_mode = Control.FOCUS_NONE
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var what := "Flyer" if kind == Catalog.FLYER else "World"
+	var what := "Flyer" if kind == ItemKind.FLYER else "World"
 	tooltip_text = "Change %s" % what.to_lower()
 	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_M, 4)
 	for state in ["normal", "hover"]:
@@ -34,7 +34,7 @@ func _init(p_kind: String, id: String, world: ThemeDef) -> void:
 	var thumb := ItemThumb.new()
 	thumb.world = world
 	thumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	if kind == Catalog.FLYER:
+	if kind == ItemKind.FLYER:
 		var f := Catalog.flyer(id)
 		if f != null:
 			thumb.flyer = f.idle
@@ -83,6 +83,6 @@ func label_text() -> String:
 ## Flyers go by their first name on cards ("Buzz the Bee" -> "Buzz").
 static func short_name(p_kind: String, id: String) -> String:
 	var full := Catalog.display_name(p_kind, id)
-	if p_kind == Catalog.FLYER:
+	if p_kind == ItemKind.FLYER:
 		return full.get_slice(" ", 0)
 	return full

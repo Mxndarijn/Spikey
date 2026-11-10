@@ -59,7 +59,7 @@ Ideas agreed on but not scheduled yet. Move an item into a phase when we start i
 - Done: coins are collected in runs (gameplay version 2): a wall bounce places
   one coin at a random spot when none is out. Verified with the replay. Old note:
   score. Coin pickups in rooms (Phase 2) need a gameplay version bump.
-- Prices live in `meta/shop.gd`; free items are starters (a first start gets
+- Prices live in `game/cosmetics/shop.gd`; free items are starters (a first start gets
   the first free flyer and the default world, with no pickers).
 - Hats, skins per flyer, rewarded-ad revive, settings screen (haptics, sound,
   accessibility), credits/licenses screen.

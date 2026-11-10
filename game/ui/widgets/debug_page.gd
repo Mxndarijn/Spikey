@@ -24,6 +24,7 @@ const NAME_WIDTH := 104
 const TEXT_SIZE := 13
 
 var _profile: Profile
+var _services: AppServices
 var _since := 0.0
 ## Section name -> the box with its rows.
 var _boxes := {}
@@ -32,8 +33,9 @@ var _notes := {}
 var _test_ads := SettingSwitch.new("Google test ads", "Asks for test ads, not real ones")
 
 
-func _init(profile: Profile) -> void:
+func _init(profile: Profile, services: AppServices) -> void:
 	_profile = profile
+	_services = services
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var scroll := SmoothScroll.new()
 	add_child(scroll)
@@ -50,7 +52,7 @@ func _init(profile: Profile) -> void:
 		_boxes[section] = box
 		if section == ADS:
 			_test_ads.name = "TestAds"
-			_test_ads.set_pressed_no_signal(profile.test_ads)
+			_test_ads.set_pressed_no_signal(profile.settings.test_ads)
 			_test_ads.toggled.connect(_on_test_ads)
 			list.add_child(_test_ads)
 		list.add_child(_buttons(section))
@@ -59,9 +61,7 @@ func _init(profile: Profile) -> void:
 		note.visible = false
 		list.add_child(note)
 		_notes[section] = note
-	var ads := AdsService.current
-	if ads != null:
-		ads.rewarded_closed.connect(_on_ad_closed)
+	_services.ads.rewarded_closed.connect(_on_ad_closed)
 	refresh()
 
 
@@ -136,23 +136,23 @@ func _app_rows() -> Array:
 		],
 		["Language", OS.get_locale()],
 		["Speed", "%d frames per second" % int(Engine.get_frames_per_second())],
-		["Day", Profile.today()],
+		["Day", DailyRevives.today()],
 		["Best score", str(_profile.best_score)],
 	]
 
 
 func _ads_rows() -> Array:
-	var ads := AdsService.current
-	var out: Array = ads.debug_rows() if ads != null else [["Ads", "not started"]]
-	var left := _profile.free_revives_left(Profile.today())
-	out.append(["Free revives", "%d of %d left today" % [left, Profile.FREE_REVIVES_PER_DAY]])
+	var ads := _services.ads
+	var out: Array = ads.debug_rows()
+	var left := _profile.revives.left(DailyRevives.today())
+	out.append(["Free revives", "%d of %d left today" % [left, DailyRevives.PER_DAY]])
 	return out
 
 
 func _push_rows() -> Array:
-	var push := PushService.current
-	var out: Array = push.debug_rows() if push != null else [["Push", "not started"]]
-	out.append(["Board alerts", "on" if _profile.board_alerts else "off"])
+	var push := _services.push
+	var out: Array = push.debug_rows()
+	out.append(["Board alerts", "on" if _profile.settings.board_alerts else "off"])
 	out.append(["Asked permission", "yes" if _profile.push_asked else "not yet"])
 	return out
 
@@ -193,17 +193,15 @@ func _copy_all() -> void:
 
 
 func _load_ad() -> void:
-	var ads := AdsService.current
-	if ads == null:
-		return
+	var ads := _services.ads
 	ads.preload_rewarded()
 	_say(ADS, "An ad is loaded" if ads.is_ready() else "Asked for an ad")
 	refresh()
 
 
 func _show_ad() -> void:
-	var ads := AdsService.current
-	if ads == null or not ads.is_ready():
+	var ads := _services.ads
+	if not ads.is_ready():
 		_say(ADS, "No ad is loaded")
 		return
 	_say(ADS, "Showing the ad")
@@ -225,16 +223,13 @@ func _on_ad_closed(result: int) -> void:
 
 
 func _ad_choices() -> void:
-	var ads := AdsService.current
-	if ads == null:
-		return
-	ads.show_privacy_options()
+	_services.ads.show_privacy_options()
 	_say(ADS, "Asked for Google's ad choices form")
 
 
 func _use_revives() -> void:
-	var day := Profile.today()
-	while _profile.use_free_revive(day):
+	var day := DailyRevives.today()
+	while _profile.revives.use(day):
 		pass
 	_say(ADS, "No free revives left today: the next crash offers the ad")
 	changed.emit()
@@ -242,34 +237,28 @@ func _use_revives() -> void:
 
 
 func _give_revives() -> void:
-	_profile.free_revives_used = 0
+	_profile.revives.used = 0
 	_say(ADS, "Free revives are back")
 	changed.emit()
 	refresh()
 
 
 func _on_test_ads(on: bool) -> void:
-	_profile.test_ads = on
+	_profile.settings.test_ads = on
 	changed.emit()
-	var ads := AdsService.current
-	if ads != null:
-		ads.use_unit(AdsService.revive_unit(OS.get_name(), on or OS.is_debug_build()))
+	_services.ads.use_unit(AdsService.revive_unit(OS.get_name(), on or OS.is_debug_build()))
 	_say(ADS, "Test ads from now on" if on else "Real ads from now on")
 	refresh()
 
 
 func _test_push() -> void:
-	var push := PushService.current
-	if push == null:
-		_say(PUSH, "Push has not started")
-		return
 	_say(PUSH, "Asking the server")
-	_say(PUSH, await push.send_test())
+	_say(PUSH, await _services.push.send_test())
 
 
 func _ask_push() -> void:
-	var push := PushService.current
-	if push == null or not push.is_available():
+	var push := _services.push
+	if not push.is_available():
 		_say(PUSH, "Push is not in this build")
 		return
 	_profile.push_asked = true
@@ -280,8 +269,8 @@ func _ask_push() -> void:
 
 
 func _fetch_token() -> void:
-	var push := PushService.current
-	if push == null or not push.is_available():
+	var push := _services.push
+	if not push.is_available():
 		_say(PUSH, "Push is not in this build")
 		return
 	push.start()

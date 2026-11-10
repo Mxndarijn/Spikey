@@ -112,11 +112,10 @@ public class Crawler : Hazard
         return y > span[0] - EXIT_CLEAR && y < span[1] + EXIT_CLEAR;
     }
 
-    public override void on_bounce(GameSim sim, SimRng _rng)
+    public override long adjust_wall(GameSim sim, long side, long mask)
     {
         var s = sim.state;
-        long side = s.vx > 0 ? 1 : 0;
-        if (s.exit_open && s.exit_side == side) return;
+        if (s.exit_open && s.exit_side == side) return mask;
         long arrive = t + sim.steps_to_wall(side);
         long covered = 0;
         bool first = true;
@@ -125,7 +124,7 @@ public class Crawler : Hazard
         {
             var h = hs[hi];
             if (h.kind != kind) continue;
-            if (first && h != this) return;
+            if (first && h != this) return mask;
             first = false;
             long from = ((Crawler)h).start;
             var span = _in_the_way(sim, from, side, arrive, WALL_WINDOW);
@@ -135,12 +134,8 @@ public class Crawler : Hazard
                 if (cy > span[0] - SLOT_CLEAR && cy < span[1] + SLOT_CLEAR) covered |= 1L << (int)slot;
             }
         }
-        if (covered == 0) return;
-        long mask = side == 1 ? s.right_spikes : s.left_spikes;
-        long run = _best_run(mask, covered, s.y);
-        if ((run & mask) == 0) return;
-        if (side == 1) s.right_spikes = mask & ~run;
-        else s.left_spikes = mask & ~run;
+        if (covered == 0) return mask;
+        return mask & ~_best_run(mask, covered, s.y);
     }
 
     public long _best_run(long mask, long covered, long bird_y)

@@ -7,17 +7,17 @@ func test_new_profile_owns_only_the_default_trail() -> void:
 	var p := Profile.new()
 	assert_eq(p.coins, 0)
 	assert_false(p.onboarded)
-	assert_true(p.owns(Catalog.TRAIL, "world_ribbon"))
-	assert_eq(p.equipped_id(Catalog.TRAIL), "world_ribbon")
-	assert_eq(p.equipped_id(Catalog.FLYER), "")
+	assert_true(p.owns(ItemKind.TRAIL, "world_ribbon"))
+	assert_eq(p.equipped_id(ItemKind.TRAIL), "world_ribbon")
+	assert_eq(p.equipped_id(ItemKind.FLYER), "")
 
 
 func test_cannot_equip_what_you_dont_own() -> void:
 	var p := Profile.new()
-	assert_false(p.equip(Catalog.FLYER, "ember"))
-	p.grant(Catalog.FLYER, "ember")
-	assert_true(p.equip(Catalog.FLYER, "ember"))
-	assert_eq(p.equipped_id(Catalog.FLYER), "ember")
+	assert_false(p.equip(ItemKind.FLYER, "ember"))
+	p.grant(ItemKind.FLYER, "ember")
+	assert_true(p.equip(ItemKind.FLYER, "ember"))
+	assert_eq(p.equipped_id(ItemKind.FLYER), "ember")
 
 
 func test_runs_earn_coins_and_track_best() -> void:
@@ -33,43 +33,45 @@ func test_save_and_load_round_trip() -> void:
 	var p := Profile.new()
 	p.coins = 321
 	p.onboarded = true
-	p.grant(Catalog.WORLD, "ice")
-	p.equip(Catalog.WORLD, "ice")
+	p.grant(ItemKind.WORLD, "ice")
+	p.equip(ItemKind.WORLD, "ice")
 	assert_true(p.save(TEST_PATH))
 	var back := Profile.load_or_new(TEST_PATH)
 	assert_eq(back.coins, 321)
 	assert_true(back.onboarded)
-	assert_eq(back.equipped_id(Catalog.WORLD), "ice")
-	DirAccess.remove_absolute(TEST_PATH)
+	assert_eq(back.equipped_id(ItemKind.WORLD), "ice")
+	SafeFile.remove(TEST_PATH)
 
 
 func test_bad_save_data_is_ignored() -> void:
 	var p := Profile.from_dict({"coins": -50, "owned": {"flyer": [3, "dash"]}, "equipped": "x"})
 	assert_eq(p.coins, 0)
-	assert_true(p.owns(Catalog.FLYER, "dash"))
+	assert_true(p.owns(ItemKind.FLYER, "dash"))
 	assert_eq(Profile.load_or_new("user://does_not_exist.json").coins, 0)
 
 
 func test_buying() -> void:
 	var p := Profile.new()
-	assert_eq(Shop.buy(p, Catalog.FLYER, "ember"), Shop.Result.NOT_ENOUGH_COINS)
-	p.coins = Shop.price(Catalog.FLYER, "ember") + 5
-	assert_eq(Shop.buy(p, Catalog.FLYER, "ember"), Shop.Result.OK)
+	assert_eq(
+		await Checkout.offline(p).buy(ItemKind.FLYER, "ember"), Checkout.Result.NOT_ENOUGH_COINS
+	)
+	p.coins = Shop.price(ItemKind.FLYER, "ember") + 5
+	assert_eq(await Checkout.offline(p).buy(ItemKind.FLYER, "ember"), Checkout.Result.OK)
 	assert_eq(p.coins, 5)
-	assert_true(p.owns(Catalog.FLYER, "ember"))
-	assert_eq(Shop.buy(p, Catalog.FLYER, "ember"), Shop.Result.ALREADY_OWNED)
-	assert_eq(Shop.buy(p, Catalog.FLYER, "nope"), Shop.Result.UNKNOWN_ITEM)
+	assert_true(p.owns(ItemKind.FLYER, "ember"))
+	assert_eq(await Checkout.offline(p).buy(ItemKind.FLYER, "ember"), Checkout.Result.ALREADY_OWNED)
+	assert_eq(await Checkout.offline(p).buy(ItemKind.FLYER, "nope"), Checkout.Result.UNKNOWN_ITEM)
 
 
 func test_every_item_has_a_price_and_each_kind_has_starters() -> void:
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		assert_false(Shop.starters(kind).is_empty(), "%s has free starters" % kind)
 		for id in Catalog.ids(kind):
 			assert_true(Shop.price(kind, id) >= 0, "%s %s has a price" % [kind, id])
 
 
 func test_launch_flyers_have_art() -> void:
-	var ids := Catalog.ids(Catalog.FLYER)
+	var ids := Catalog.ids(ItemKind.FLYER)
 	for id in ["buzz", "dash", "nimbus", "hoot", "fold", "ember"]:
 		assert_true(id in ids, "flyer %s exists" % id)
 	for f in Catalog.flyers():
@@ -101,13 +103,13 @@ func test_bird_holds_still_when_the_sim_stops() -> void:
 
 
 func test_new_flyers_have_art_and_fit_real_worlds() -> void:
-	var ids := Catalog.ids(Catalog.FLYER)
+	var ids := Catalog.ids(ItemKind.FLYER)
 	for id in ["pip", "mochi", "tock", "lulu", "puff", "bubbles"]:
 		assert_true(id in ids, "flyer %s is in the catalog" % id)
 	for id in ["waddle", "flutter", "boo", "hamlet", "scoop", "glim", "lumi", "bolt", "nova"]:
 		assert_true(id in ids, "flyer %s is in the catalog" % id)
-		assert_true(Shop.price(Catalog.FLYER, id) > 0, "flyer %s has a price" % id)
-	var worlds := Catalog.ids(Catalog.WORLD)
+		assert_true(Shop.price(ItemKind.FLYER, id) > 0, "flyer %s has a price" % id)
+	var worlds := Catalog.ids(ItemKind.WORLD)
 	for f in Catalog.flyers():
 		assert_true(f.idle != null and f.flap != null, "%s has idle and flap art" % f.id)
 		for w in f.fits_worlds:
@@ -126,5 +128,5 @@ func test_trail_styles_are_complete() -> void:
 		assert_true(t.lifetime > 0.0 and t.width > 0.0, "%s has a size and lifetime" % t.id)
 		if t.kind in [TrailStyle.Kind.STRIPES, TrailStyle.Kind.STAMPS, TrailStyle.Kind.COMET]:
 			assert_true(t.colors.size() > 0, "%s has colours" % t.id)
-		assert_true(Shop.price(Catalog.TRAIL, t.id) >= 0, "%s has a price" % t.id)
+		assert_true(Shop.price(ItemKind.TRAIL, t.id) >= 0, "%s has a price" % t.id)
 	assert_eq(Catalog.trails().size(), 20, "two launch trails, eight more and ten flap trails")

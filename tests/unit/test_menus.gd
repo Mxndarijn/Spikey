@@ -6,7 +6,7 @@ const HUD_SCENE := "res://game/ui/hud.tscn"
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -18,11 +18,11 @@ func test_first_start_goes_straight_home() -> void:
 	assert_true(main._menus.current() is HomeScreen, "no pickers: Home right away")
 	var saved := Profile.load_or_new(TEST_PATH)
 	assert_true(saved.onboarded, "first start is saved")
-	var flyer := Shop.starters(Catalog.FLYER)[0]
-	assert_eq(saved.equipped_id(Catalog.FLYER), flyer, "the first free flyer")
-	assert_true(saved.owns(Catalog.FLYER, flyer))
-	assert_eq(saved.equipped_id(Catalog.WORLD), ThemeCatalog.DEFAULT_ID, "the default world")
-	assert_true(saved.owns(Catalog.WORLD, ThemeCatalog.DEFAULT_ID))
+	var flyer := Shop.starters(ItemKind.FLYER)[0]
+	assert_eq(saved.equipped_id(ItemKind.FLYER), flyer, "the first free flyer")
+	assert_true(saved.owns(ItemKind.FLYER, flyer))
+	assert_eq(saved.equipped_id(ItemKind.WORLD), ThemeCatalog.DEFAULT_ID, "the default world")
+	assert_true(saved.owns(ItemKind.WORLD, ThemeCatalog.DEFAULT_ID))
 	assert_false(main._room.show_score, "no ghost score behind the menus")
 	assert_false(main._bird.visible, "Home draws its own big flyer")
 	main.start_run()
@@ -34,7 +34,7 @@ func test_first_start_goes_straight_home() -> void:
 	assert_false(main._room.show_score, "no ghost score behind the flyer any more")
 	assert_true(main._menus.current() == null, "menus close when playing")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## "Tap to flap" has a back arrow to Home; the first flap swaps it for pause.
@@ -58,7 +58,7 @@ func test_ready_has_a_back_arrow_home() -> void:
 	main._toggle_pause()
 	assert_false(hud._back_button.visible, "not on the pause screen")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## Regression: a Button doesn't grow with its children, and the status line
@@ -68,11 +68,11 @@ func test_cards_are_tall_enough_for_their_content() -> void:
 	holder.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
 	var p := Profile.new()
-	p.grant(Catalog.FLYER, "dash")
-	p.equip(Catalog.FLYER, "dash")
+	p.grant(ItemKind.FLYER, "dash")
+	p.equip(ItemKind.FLYER, "dash")
 	var world := ThemeCatalog.default_theme()
 	for thumb_height in [ItemCard.THUMB_HEIGHT, 80.0]:
-		for kind in Catalog.KINDS:
+		for kind in ItemKind.ALL:
 			var card := ItemCard.new(kind, Catalog.ids(kind)[0], world, thumb_height)
 			holder.add_child(card)
 			card.refresh(p, true)
@@ -91,18 +91,18 @@ func test_strip_items_say_in_use_owned_free_or_price() -> void:
 	holder.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
 	var p := Profile.new()
-	p.grant(Catalog.FLYER, "buzz")
-	p.grant(Catalog.FLYER, "dash")
-	p.equip(Catalog.FLYER, "buzz")
+	p.grant(ItemKind.FLYER, "buzz")
+	p.grant(ItemKind.FLYER, "dash")
+	p.equip(ItemKind.FLYER, "buzz")
 	var world := ThemeCatalog.default_theme()
 	var want := {
 		"buzz": "In use",
 		"dash": "Owned",
 		"nimbus": "Free",
-		"ember": str(Shop.price(Catalog.FLYER, "ember")),
+		"ember": str(Shop.price(ItemKind.FLYER, "ember")),
 	}
 	for id: String in want:
-		var card := ItemCard.new(Catalog.FLYER, id, world)
+		var card := ItemCard.new(ItemKind.FLYER, id, world)
 		holder.add_child(card)
 		card.refresh(p, false)
 		assert_eq(card.status_text(), want[id], "%s status" % id)
@@ -111,11 +111,11 @@ func test_strip_items_say_in_use_owned_free_or_price() -> void:
 
 func test_home_shows_stats_flyer_and_the_dock() -> void:
 	var p := Profile.new()
-	p.grant(Catalog.FLYER, "dash")
-	p.equip(Catalog.FLYER, "dash")
+	p.grant(ItemKind.FLYER, "dash")
+	p.equip(ItemKind.FLYER, "dash")
 	p.best_score = 87
 	p.coins = 1240
-	var home := HomeScreen.new(p, 14)
+	var home := HomeScreen.new(p, AppServices.offline(p), 14)
 	home.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(home)
 	assert_eq((home.logo() as Label).text, "flapjaw", "the wordmark, one word")
@@ -156,7 +156,7 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	var look := main._menus.current() as LookScreen
 	assert_true(look != null, "Style opens Your look")
 	if look != null:
-		look.card(Catalog.FLYER).pressed.emit()
+		look.card(ItemKind.FLYER).pressed.emit()
 	var c := main._menus.current() as CollectionScreen
 	assert_true(c != null and c.mode == CollectionScreen.Mode.SHOP, "a card opens its list")
 	if c == null:
@@ -165,11 +165,11 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	var ids := c.item_ids()
 	var first_shop := -1
 	for i in ids.size():
-		if not main._profile.owns(Catalog.FLYER, ids[i]):
+		if not main._profile.owns(ItemKind.FLYER, ids[i]):
 			first_shop = i
 			break
 	for i in ids.size():
-		var own: bool = main._profile.owns(Catalog.FLYER, ids[i])
+		var own: bool = main._profile.owns(ItemKind.FLYER, ids[i])
 		assert_eq(own, i < first_shop or first_shop < 0, "yours first, then the shop (%s)" % ids[i])
 	assert_false(c.is_popup_open(), "no popup until you tap")
 	c._tap("hoot")
@@ -177,42 +177,42 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	assert_true(c.is_popup_open(), "tapping opens the item popup")
 	c.close_popup()
 	assert_false(c.is_popup_open(), "Close dismisses it")
-	c._show_kind(Catalog.TRAIL)
+	c._show_kind(ItemKind.TRAIL)
 	c._tap("comet_tail")
 	assert_eq(c.preview_ids(), ["buzz", "sunset", "comet_tail"], "trails too, flyer in use")
 	c._tap("world_ribbon")
 	assert_eq(c.action_label(), ["In use", false], "the trail in use")
-	assert_false(c._action.disabled, "In use still taps")
+	assert_false(c.popup().action_button().disabled, "In use still taps")
 	c._on_action()
 	assert_false(c.is_popup_open(), "In use just closes the popup")
-	main._profile.coins = Shop.price(Catalog.TRAIL, "comet_tail")
+	main._profile.coins = Shop.price(ItemKind.TRAIL, "comet_tail")
 	c._tap("comet_tail")
 	c._on_action()
-	assert_true(main._profile.owns(Catalog.TRAIL, "comet_tail"), "the popup buys")
-	assert_eq(main._profile.equipped_id(Catalog.TRAIL), "comet_tail", "and puts it on")
+	assert_true(main._profile.owns(ItemKind.TRAIL, "comet_tail"), "the popup buys")
+	assert_eq(main._profile.equipped_id(ItemKind.TRAIL), "comet_tail", "and puts it on")
 	assert_false(c.is_popup_open(), "and closes")
 	assert_eq(c.item_ids().find("comet_tail"), 1, "it moves up to Yours")
-	c._show_kind(CollectionScreen.HATS)
+	c._show_kind(ItemOffer.HATS)
 	assert_eq(c.item_ids(), [], "no hats yet")
 	assert_eq(c.action_label(), ["Hats are coming", false])
 	main.show_home()
-	(main._menus.current() as HomeScreen).shop_pressed.emit(Catalog.FLYER)
+	(main._menus.current() as HomeScreen).shop_pressed.emit(ItemKind.FLYER)
 	assert_true(main._menus.current() is CollectionScreen, "Shop opens Customize")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_shop_previews_worlds_and_hides_the_live_flyer() -> void:
 	var main := _make_main()
 	_use_flyer(main, "buzz")
 	assert_false(main._bird.visible, "Home draws the flyer itself")
-	main.show_shop(Catalog.WORLD)
+	main.show_shop(ItemKind.WORLD)
 	var shop := main._menus.current() as CollectionScreen
 	assert_false(main._bird.visible, "the shop shows the flyer itself")
 	if shop != null:
 		shop._select("ice")
 		assert_eq(main._room._theme.id, "ice", "the room previews the tapped world")
-		assert_eq(main._profile.equipped_id(Catalog.WORLD), "sunset", "a preview is not saved")
+		assert_eq(main._profile.equipped_id(ItemKind.WORLD), "sunset", "a preview is not saved")
 		shop.closed.emit()
 	assert_eq(main._room._theme.id, "sunset", "the world in use shows again")
 	var look := main._menus.current() as LookScreen
@@ -221,40 +221,44 @@ func test_shop_previews_worlds_and_hides_the_live_flyer() -> void:
 		look.closed.emit()
 	assert_true(main._menus.current() is HomeScreen, "and back again to Home")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_shop_buttons_follow_coins_and_ownership() -> void:
 	var p := Profile.new()
-	p.grant(Catalog.FLYER, "buzz")
-	p.equip(Catalog.FLYER, "buzz")
-	var shop := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.FLYER)
+	p.grant(ItemKind.FLYER, "buzz")
+	p.equip(ItemKind.FLYER, "buzz")
+	var shop := CollectionScreen.new(
+		Checkout.offline(p), CollectionScreen.Mode.SHOP, ItemKind.FLYER
+	)
 	(Engine.get_main_loop() as SceneTree).root.add_child(shop)
-	assert_eq(shop.item_ids(), Catalog.ids(Catalog.FLYER), "shop lists every flyer")
+	assert_eq(shop.item_ids(), Catalog.ids(ItemKind.FLYER), "shop lists every flyer")
 	shop._select("buzz")
 	assert_eq(shop.action_label(), ["In use", false])
 	shop._select("dash")
 	assert_eq(shop.action_label(), ["Get for free", true])
 	shop._select("ember")
-	var cost := Shop.price(Catalog.FLYER, "ember")
+	var cost := Shop.price(ItemKind.FLYER, "ember")
 	assert_eq(shop.action_label(), ["Need %d more gold" % cost, false])
 	p.coins = cost
 	shop.refresh()
 	assert_eq(shop.action_label(), ["Unlock for %d" % cost, true])
 	shop._on_action()
-	assert_true(p.owns(Catalog.FLYER, "ember"), "bought")
-	assert_eq(p.equipped_id(Catalog.FLYER), "ember", "and put to use")
+	assert_true(p.owns(ItemKind.FLYER, "ember"), "bought")
+	assert_eq(p.equipped_id(ItemKind.FLYER), "ember", "and put to use")
 	assert_eq(p.coins, 0)
-	shop._show_kind(Catalog.WORLD)
-	assert_eq(shop.item_ids(), Catalog.ids(Catalog.WORLD), "worlds tab")
+	shop._show_kind(ItemKind.WORLD)
+	assert_eq(shop.item_ids(), Catalog.ids(ItemKind.WORLD), "worlds tab")
 	shop.free()
 
 
 func test_shop_selected_card_is_raised_and_the_one_in_use_ringed() -> void:
 	var p := Profile.new()
-	p.grant(Catalog.FLYER, "buzz")
-	p.equip(Catalog.FLYER, "buzz")
-	var shop := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.FLYER)
+	p.grant(ItemKind.FLYER, "buzz")
+	p.equip(ItemKind.FLYER, "buzz")
+	var shop := CollectionScreen.new(
+		Checkout.offline(p), CollectionScreen.Mode.SHOP, ItemKind.FLYER
+	)
 	shop.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(shop)
 	assert_eq(shop.caption_text(), "Buzz, in use", "the line under the flyer")
@@ -274,10 +278,10 @@ func test_only_unaffordable_items_are_faded() -> void:
 	holder.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
 	var p := Profile.new()
-	p.coins = Shop.price(Catalog.FLYER, "hoot")
+	p.coins = Shop.price(ItemKind.FLYER, "hoot")
 	var world := ThemeCatalog.default_theme()
-	var hoot := ItemCard.new(Catalog.FLYER, "hoot", world)
-	var ember := ItemCard.new(Catalog.FLYER, "ember", world)
+	var hoot := ItemCard.new(ItemKind.FLYER, "hoot", world)
+	var ember := ItemCard.new(ItemKind.FLYER, "ember", world)
 	holder.add_child(hoot)
 	holder.add_child(ember)
 	hoot.refresh(p, false)
@@ -292,18 +296,25 @@ func test_game_over_shows_best_stats_and_its_dock() -> void:
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
 	hud.show_game_over(64, 92, false, 64, 92, 6, 14, 4000000000)
 	assert_false(hud.is_new_best_showing(), "no ribbon without a new best")
-	assert_true(hud._seed.visible, "the seed shows, for reporting a run")
-	assert_eq(hud._seed.text, "Seed 4000000000 · v%d" % SimConfig.GAMEPLAY_VERSION)
-	assert_true(hud._seed.offset_top >= hud._stats.offset_bottom, "the seed sits under the stats")
-	assert_true(hud._seed.offset_bottom <= 640.0 - Dock.HEIGHT, "and above the dock")
-	assert_eq(hud._final_score.text, "64")
-	assert_eq(hud._best_score.text, "Best 92")
+	assert_true(hud.game_over._seed.visible, "the seed shows, for reporting a run")
+	assert_eq(hud.game_over._seed.text, "Seed 4000000000 · v%d" % SimConfig.GAMEPLAY_VERSION)
+	assert_true(
+		hud.game_over._seed.offset_top >= hud.game_over._stats.offset_bottom,
+		"the seed sits under the stats"
+	)
+	assert_true(hud.game_over._seed.offset_bottom <= 640.0 - Dock.HEIGHT, "and above the dock")
+	assert_eq(hud.game_over._final_score.text, "64")
+	assert_eq(hud.game_over._best_score.text, "Best 92")
 	assert_eq(
-		[hud._stat_coins.text, hud._stat_rooms.text, hud._stat_rank.text],
+		[
+			hud.game_over._stat_coins.text,
+			hud.game_over._stat_rooms.text,
+			hud.game_over._stat_rank.text
+		],
 		["+64", "6", "#14"],
 		"coins, rooms cleared, today's rank"
 	)
-	var dock := hud._dock
+	var dock := hud.game_over._dock
 	var got: Array[String] = []
 	hud.play_again_pressed.connect(func() -> void: got.append("again"))
 	hud.home_pressed.connect(func() -> void: got.append("home"))
@@ -315,7 +326,7 @@ func test_game_over_shows_best_stats_and_its_dock() -> void:
 	assert_eq(got, ["again", "home", "rooms", "rank", "style"], "the Game over dock")
 	assert_eq(dock.button("rank").text, "#14")
 	hud.set_daily_rank(0)
-	assert_eq(hud._stat_rank.text, "-", "no rank yet")
+	assert_eq(hud.game_over._stat_rank.text, "-", "no rank yet")
 	hud.free()
 
 
@@ -324,21 +335,21 @@ func test_new_best_counts_up_once_and_stays_still_with_reduced_motion() -> void:
 	(Engine.get_main_loop() as SceneTree).root.add_child(hud)
 	hud.show_game_over(92, 92, true, 92, 87, 9, 14)
 	assert_true(hud.is_new_best_showing(), "the New best ribbon")
-	assert_eq(hud._new_best.ribbon_text(), "New best!")
-	assert_eq(hud._best_score.text, "was 87")
-	assert_eq(hud._final_score.text, "0", "the score starts counting at 0")
-	hud._process(Hud.COUNT_TIME / 2.0)
-	var mid := int(hud._final_score.text)
+	assert_eq(hud.game_over._new_best.ribbon_text(), "New best!")
+	assert_eq(hud.game_over._best_score.text, "was 87")
+	assert_eq(hud.game_over._final_score.text, "0", "the score starts counting at 0")
+	hud.game_over._process(GameOverScreen.COUNT_TIME / 2.0)
+	var mid := int(hud.game_over._final_score.text)
 	assert_true(mid > 0 and mid < 92, "half way it is counting (%d)" % mid)
-	hud._process(Hud.FX_TIME)
-	assert_eq(hud._final_score.text, "92", "it lands on the score")
+	hud.game_over._process(GameOverScreen.FX_TIME)
+	assert_eq(hud.game_over._final_score.text, "92", "it lands on the score")
 	assert_eq(NewBestFx.confetti_at(0.0).y, 0.0, "confetti starts hidden")
 	assert_eq(NewBestFx.confetti_at(NewBestFx.FALL_TIME).y, 0.0, "and is gone after one fall")
 	assert_true(NewBestFx.confetti_at(1.0).y > 0.9, "it shows while falling")
 	hud.reduced_motion = true
 	hud.show_game_over(95, 95, true, 95, 92, 9, 14)
-	assert_eq(hud._final_score.text, "95", "reduced motion: no count-up")
-	assert_true(hud._new_best.still, "and no confetti")
+	assert_eq(hud.game_over._final_score.text, "95", "reduced motion: no count-up")
+	assert_true(hud.game_over._new_best.still, "and no confetti")
 	hud.free()
 
 
@@ -350,35 +361,35 @@ func test_paused_shows_the_score_sound_circles_and_home() -> void:
 	main._run._physics_process(1.0 / 60.0)
 	main._set_paused(true)
 	var hud: Hud = main._hud
-	assert_true(hud._paused.visible, "paused")
-	assert_true((hud._toggles["music"] as Button).button_pressed, "music is on")
-	(hud._toggles["sfx"] as Button).button_pressed = false
-	assert_false(main._profile.sfx_on, "the Sounds circle turns sounds off")
-	assert_false(Profile.load_or_new(TEST_PATH).sfx_on, "and it is saved")
-	assert_true(hud._paused_home.visible, "Home (ends this run)")
+	assert_true(hud.pause_screen.visible, "paused")
+	assert_true((hud.pause_screen._toggles["music"] as Button).button_pressed, "music is on")
+	(hud.pause_screen._toggles["sfx"] as Button).button_pressed = false
+	assert_false(main._profile.settings.sfx_on, "the Sounds circle turns sounds off")
+	assert_false(Profile.load_or_new(TEST_PATH).settings.sfx_on, "and it is saved")
+	assert_true(hud.pause_screen._home.visible, "Home (ends this run)")
 	main._set_paused(false)
-	assert_false(hud._paused.visible)
+	assert_false(hud.pause_screen.visible)
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_shop_badges_mark_premium_seasonal_and_fitting_worlds() -> void:
-	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "neon"), "Premium")
-	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "haunted"), "Seasonal: October")
-	assert_eq(CollectionScreen.badge_text(Catalog.WORLD, "sunset"), "", "free worlds have none")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "neon"), "Premium")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "haunted"), "Seasonal: October")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "sunset"), "", "free worlds have none")
 	var names: Array[String] = []
 	for w in Catalog.flyer("tock").fits_worlds:
-		names.append(Catalog.display_name(Catalog.WORLD, w))
+		names.append(Catalog.display_name(ItemKind.WORLD, w))
 	var want := "Fits " + " and ".join(names)
-	assert_eq(CollectionScreen.badge_text(Catalog.FLYER, "tock"), want)
-	assert_eq(CollectionScreen.badge_text(Catalog.FLYER, "fold"), "", "fits nothing special")
+	assert_eq(ItemText.badge(ItemKind.FLYER, "tock"), want)
+	assert_eq(ItemText.badge(ItemKind.FLYER, "fold"), "", "fits nothing special")
 
 
 ## Puts a flyer in use, as Customize would (first start already gave Sunset Glow).
 static func _use_flyer(main: Node, id: String) -> void:
-	main._profile.grant(Catalog.FLYER, id)
-	main._profile.equip(Catalog.FLYER, id)
-	main._load_equipped()
+	main._profile.grant(ItemKind.FLYER, id)
+	main._profile.equip(ItemKind.FLYER, id)
+	main._look.use_equipped()
 
 
 ## Resume counts 3, 2, 1 over the frozen room; taps do nothing until it ends,
@@ -392,7 +403,7 @@ func test_resume_counts_down_before_the_run_plays_on() -> void:
 	main._toggle_pause()
 	assert_true(main._run.paused, "paused")
 	main._toggle_pause()
-	assert_false(hud._paused.visible, "Resume takes the scrim away")
+	assert_false(hud.pause_screen.visible, "Resume takes the scrim away")
 	assert_true(main._run.paused, "but the run waits")
 	assert_true(hud.countdown.visible, "for the countdown")
 	assert_eq(hud.countdown.text, "3")
@@ -403,7 +414,7 @@ func test_resume_counts_down_before_the_run_plays_on() -> void:
 	main._run._physics_process(1.0 / 60.0)
 	assert_eq(main._run.sim.state.tick, tick, "nothing moves during the countdown")
 	main._toggle_pause()
-	assert_true(hud._paused.visible, "pause again during the countdown")
+	assert_true(hud.pause_screen.visible, "pause again during the countdown")
 	assert_false(hud.countdown.visible, "stops it")
 	main._toggle_pause()
 	assert_eq(hud.countdown.text, "3", "resume starts it over")
@@ -414,4 +425,4 @@ func test_resume_counts_down_before_the_run_plays_on() -> void:
 	assert_false(hud.countdown.visible, "it ends")
 	assert_false(main._run.paused, "and the run plays on")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)

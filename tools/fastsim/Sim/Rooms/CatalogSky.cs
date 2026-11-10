@@ -32,7 +32,6 @@ public static class CatalogSky
         orchard.weight = 4;
         orchard.max_spikes = 2;
         orchard.bounce_coin = false;
-        orchard.skin = "pinecone";
         orchard.hazards.Add(() => new OrchardSpawner());
         orchard.hazards.Add(() => _drop(90, 6 * SUB, 140));
         out_.Add(orchard);

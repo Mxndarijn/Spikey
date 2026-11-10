@@ -3,7 +3,7 @@ extends Hazard
 ## bird's height at the moment the glow starts, then the spike shoots across
 ## along that lane. Only the flying dart kills.
 ##
-## Lanes mode (Valentine's Cupid Lanes, skin "cupid"): a lane picked from the
+## Lanes mode (Valentine's Cupid Lanes): a lane picked from the
 ## room's RNG flashes, then an arrow crosses it. Rooms use at most two lanes
 ## darts (different `slot`s) so at most two lanes are live at once.
 
@@ -53,8 +53,6 @@ func _init(p_lanes: bool = false, p_slot: int = 0) -> void:
 
 
 func setup(sim: GameSim, rng: SimRng) -> void:
-	if skin == "cupid":
-		lanes = true
 	salt = rng.next_u32()
 	state = State.IDLE
 	since = 0

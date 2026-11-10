@@ -4,6 +4,7 @@ extends TestCase
 
 const TEST_PATH := "user://test_wallet_profile.json"
 const MIGRATION := "res://supabase/migrations/20261110100000_diamonds.sql"
+const SPEND_MIGRATION := "res://supabase/migrations/20261110140000_spend_requests.sql"
 
 
 ## A wallet that answers like the server would, without one.
@@ -39,7 +40,7 @@ class FakeWallet:
 
 
 func _make_main(wallet: WalletService = null, profile: Profile = null) -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	if profile != null:
 		profile.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
@@ -122,9 +123,31 @@ func test_reads_the_server_wallet() -> void:
 	assert_eq(SupabaseWallet.parse_wallet({"message": "not found"}), {}, "not a wallet")
 	assert_eq(SupabaseWallet.parse_wallet({"diamonds": -3}).diamonds, 0)
 	assert_eq(
-		SupabaseWallet.spend_body(30, WalletService.ITEM, "world:neon"),
-		{"p_amount": 30, "p_reason": "item", "p_ref": "world:neon"}
+		SupabaseWallet.spend_body(30, WalletService.ITEM, "world:neon", "r"),
+		{"p_amount": 30, "p_reason": "item", "p_ref": "world:neon", "p_request": "r"}
 	)
+
+
+## Every spend gets its own request id, so the server can tell a repeat (a
+## lost answer asked again) from a new spend.
+func test_spends_carry_a_fresh_request_id() -> void:
+	var a := SupabaseWallet.new_request_id()
+	var b := SupabaseWallet.new_request_id()
+	assert_ne(a, b)
+	var uuid := RegEx.create_from_string(
+		"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+	)
+	assert_true(uuid.search(a) != null, "%s is a UUID" % a)
+
+
+## The spend_requests migration answers a repeated request id without charging.
+func test_spend_requests_migration_matches_the_game() -> void:
+	var sql := FileAccess.get_file_as_string(SPEND_MIGRATION)
+	var fn := "spend_diamonds(integer, text, text, uuid)"
+	assert_true(sql.contains("grant execute on function public.%s to authenticated" % fn))
+	assert_true(sql.contains("revoke all on function public.%s from public, anon" % fn))
+	assert_true(sql.contains("alter table public.spend_requests enable row level security"))
+	assert_true(sql.contains("drop function if exists public.spend_diamonds(integer, text, text)"))
 
 
 ## The game calls three functions; the migration has to offer exactly those,
@@ -206,7 +229,7 @@ func test_home_offers_a_daily_prize_and_claims_it() -> void:
 	main.show_home()
 	assert_true((main._menus.current() as HomeScreen).prize_popup() == null, "claimed once")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_a_failed_claim_keeps_the_prize_on_screen() -> void:
@@ -227,7 +250,7 @@ func test_a_failed_claim_keeps_the_prize_on_screen() -> void:
 	popup.closed.emit()
 	assert_true(home.prize_popup() == null, "Later closes it")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_an_online_wallet_closes_the_pretend_store() -> void:
@@ -239,7 +262,7 @@ func test_an_online_wallet_closes_the_pretend_store() -> void:
 	var local := _make_main()
 	assert_true(local.store.is_open(), "debug builds with a local wallet can pretend")
 	local.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_premium_items_are_paid_through_the_wallet() -> void:
@@ -248,22 +271,22 @@ func test_premium_items_are_paid_through_the_wallet() -> void:
 	var wallet := FakeWallet.new(p)
 	var main := _make_main(wallet, p)
 	wallet._profile = main._profile
-	main.show_shop(Catalog.WORLD)
+	main.show_shop(ItemKind.WORLD)
 	var c := main._menus.current() as CollectionScreen
 	c._tap("neon")
 	wallet.refuse = true
 	c._on_action()
-	assert_false(main._profile.owns(Catalog.WORLD, "neon"), "a refused spend buys nothing")
+	assert_false(main._profile.owns(ItemKind.WORLD, "neon"), "a refused spend buys nothing")
 	assert_eq(main._profile.diamonds, 40)
 	wallet.refuse = false
 	c._tap("neon")
 	c._on_action()
-	assert_true(main._profile.owns(Catalog.WORLD, "neon"))
+	assert_true(main._profile.owns(ItemKind.WORLD, "neon"))
 	assert_eq(main._profile.diamonds, 10)
 	assert_eq(wallet.spends, [[30, "item", "world:neon"]], "the server is told what for")
 	assert_eq(Profile.load_or_new(TEST_PATH).diamonds, 10, "saved")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_converting_goes_through_the_wallet() -> void:
@@ -271,7 +294,7 @@ func test_converting_goes_through_the_wallet() -> void:
 	p.diamonds = 3
 	var wallet := FakeWallet.new(p)
 	wallet.refuse = true
-	var sheet := ConvertSheet.new(p, 2, "", wallet)
+	var sheet := ConvertSheet.new(Checkout.new(p, wallet), 2, "")
 	_in_tree(sheet)
 	sheet.confirm()
 	assert_eq([p.diamonds, p.coins], [3, 0], "a refused spend adds no gold")

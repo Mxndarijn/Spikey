@@ -6,15 +6,10 @@ extends CanvasLayer
 ##              The first flap swaps it for the pause button.
 ##   Running:   a bare pause icon top left, the score big at the top, the run's
 ##              coins top right.
-##   Paused:    the dimmed room with "Paused", the score, Music and Sounds
-##              toggle circles, the round Resume, and Home ("Ends this run").
+##   Paused:    PauseScreen (the score, sound circles, Resume, Home).
 ##   Crashed:   the revive offer (ReviveOffer) on the dimmed room, when the
 ##              run has its revive left: Revive (free, or for an ad) or Skip.
-##   Game over: "Game over", the score, "Best 92", a stats row (+coins, rooms
-##              cleared this run, today's rank) and the Game over dock (Home,
-##              Rooms | Again | #rank, Style). A new best gets the gold ribbon,
-##              the score counting up, three sparkles and confetti that falls
-##              through once (still with reduced motion).
+##   Game over: GameOverScreen (score, best, stats and the Game over dock).
 ## Practice runs add PracticeHud (banner, restart, crash screen); watching a
 ## leaderboard run adds ReplayHud (banner, exit, result) and hides the pause
 ## button and "Tap to flap"; its coins show lower, beside the score.
@@ -45,37 +40,11 @@ const COIN_ICON := preload("res://assets/ui/coin.svg")
 const PAUSE_ICON := preload("res://assets/ui/icons/pause.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const TAP_ICON := preload("res://assets/ui/icons/tap.svg")
-const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const HOME_ICON := preload("res://assets/ui/icons/home.svg")
-const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
-const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
-const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
-const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
-const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
-const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
-const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 ## A collected coin flies from the room into the coin counter (top right).
 const FLY_TIME := 0.5
 const FLY_SIZE := 28.0
 ## How high the flight curves above the straight line, in px.
 const FLY_ARC := 60.0
-## The new-best score counts up over this long.
-const COUNT_TIME := 1.1
-## Stops redrawing the new-best moment after this.
-const FX_TIME := 2.6
-const TOGGLE := 56.0
-## The stats row stays inside 54..306 px, clear of a crashed flyer lying on
-## either wall (it can come to rest at any height).
-const STAT_W := 80.0
-const STAT_GAP := 6
-const WALL_CLEAR := 54.0
-## The final score keeps 24px of room at each side ("1024" shrinks to fit).
-const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
-const FINAL_SCORE_MIN := 64
-const STAT_SIZE := 26
-const STAT_MIN := 12
-## The coin stat's icon and gap.
-const STAT_ICON := 26.0
 
 ## Settings > Reduced flashing: the new-best moment stays still.
 var reduced_motion := false
@@ -83,9 +52,12 @@ var reduced_motion := false
 ## it when the screen changes shape.
 ## The revive offer after a crash. Main shows it (show_offer) and listens to
 ## its Revive and Skip; the HUD clears the running HUD from under it.
-var revive_offer := ReviveOffer.new()
+var revive_offer: ReviveOffer
 ## The 3, 2, 1 over the frozen room after Resume.
-var countdown := ResumeCountdown.new()
+var countdown: ResumeCountdown
+## Paused and Game over.
+var pause_screen: PauseScreen
+var game_over: GameOverScreen
 var room_rect := Rect2(Vector2.ZERO, ScreenLayout.ROOM):
 	set(value):
 		room_rect = value
@@ -95,52 +67,48 @@ var room_rect := Rect2(Vector2.ZERO, ScreenLayout.ROOM):
 var _run: RunController
 var _toast_tween: Tween
 var _coin_tween: Tween
-var _run_coins := CoinPill.new()
-var _practice := PracticeHud.new()
+## Coins flying into the counter (fly_coin), until they land.
+var _flying: Array[Control] = []
+var _run_coins: CoinPill
+var _practice: PracticeHud
 var _practicing := false
-var _replay := ReplayHud.new()
+var _replay: ReplayHud
 var _replaying := false
 var _pause_button: Button
 var _back_button: Button
-var _score := Label.new()
-var _hint := VBoxContainer.new()
-var _toast := Label.new()
-var _paused := ColorRect.new()
-var _paused_score := Label.new()
-var _toggles := {}
-var _paused_home: Control
-var _game_over := Control.new()
-var _go_caption := Label.new()
-var _final_score := Label.new()
-var _best_score := Label.new()
-var _stats := HBoxContainer.new()
-## The run's seed in small text, so a player can report a run that looked wrong.
-var _seed := Label.new()
-## "Revived at 63" under the best score, when the run used its revive.
-var _revived_line := HBoxContainer.new()
-var _revived_icon := TextureRect.new()
-var _revived_text := Label.new()
-var _stat_coins: Label
-var _stat_rooms: Label
-var _stat_rank: Label
-var _dock: Dock
-var _new_best := NewBestFx.new()
-var _final_value := 0
-var _go_time := -1.0
-var _daily_rank := 0
+var _score: Label
+var _hint: VBoxContainer
+var _toast: Label
 
 @onready var _root: Control = $Root
 
 
 func _ready() -> void:
+	# Built here, not in the member list, so a screen freed before it is
+	# shown leaves nothing behind.
+	_run_coins = CoinPill.new()
+	_practice = PracticeHud.new()
+	_replay = ReplayHud.new()
+	revive_offer = ReviveOffer.new()
+	_score = Label.new()
+	_hint = VBoxContainer.new()
+	_toast = Label.new()
+	pause_screen = PauseScreen.new()
+	countdown = ResumeCountdown.new()
+	game_over = GameOverScreen.new()
 	_root.theme = UiTheme.get_theme()
 	_root.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_apply_room_rect()
 	_build_running()
 	_build_hint()
-	_build_paused()
-	_build_countdown()
-	_build_game_over()
+	_root.add_child(pause_screen)
+	pause_screen.resume_pressed.connect(pause_pressed.emit)
+	pause_screen.home_pressed.connect(home_pressed.emit)
+	pause_screen.sound_toggled.connect(sound_toggled.emit)
+	UiKit.across(_root, countdown, 300)
+	countdown.visible = false
+	_root.add_child(game_over)
+	game_over.dock_pressed.connect(_on_dock)
 	_root.add_child(_practice)
 	_practice.restart_pressed.connect(restart_pressed.emit)
 	_practice.rooms_pressed.connect(rooms_pressed.emit)
@@ -161,41 +129,14 @@ func _ready() -> void:
 	show_ready()
 
 
-## Frees parts built in the member list that never joined the tree.
-func _notification(what: int) -> void:
-	if what != NOTIFICATION_PREDELETE:
-		return
-	for n: Node in [
-		_run_coins,
-		_practice,
-		_replay,
-		revive_offer,
-		_score,
-		_hint,
-		_toast,
-		_paused,
-		countdown,
-		_game_over,
-		_new_best,
-		_revived_line,
-		_revived_icon,
-		_revived_text,
-	]:
-		if is_instance_valid(n) and n.get_parent() == null:
-			n.free()
-
-
 ## The run whose score the HUD shows.
 func bind_run(run: RunController) -> void:
 	_run = run
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _run != null and _run.sim != null and _score.visible:
-		_score.text = str(RoomView.practice_points(_run.sim))
-	if _go_time >= 0.0 and _game_over.visible and _new_best.visible:
-		_go_time += delta
-		_step_new_best()
+		_score.text = str(_run.sim.shown_score())
 
 
 func _build_running() -> void:
@@ -259,203 +200,6 @@ func _build_hint() -> void:
 	_root.add_child(_hint)
 
 
-func _build_paused() -> void:
-	_paused.color = UiTokens.SCRIM
-	ScrimBleed.attach(_paused)
-	_paused.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_paused.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_paused)
-	_at(_paused, UiKit.label("Paused", &"ScrimTitle"), 88)
-	_paused_score.theme_type_variation = &"ScrimScore"
-	_paused_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_paused_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_paused, _paused_score, 146)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 16)
-	row.add_child(_toggle("music", MUSIC_ICON))
-	row.add_child(_toggle("sfx", SOUND_ICON))
-	_at(_paused, row, 260)
-	var resume := UiKit.primary(PLAY_ICON, "Resume", true)
-	resume.name = "Resume"
-	resume.anchor_left = 0.5
-	resume.anchor_right = 0.5
-	resume.offset_left = -UiKit.PRIMARY / 2.0
-	resume.offset_right = UiKit.PRIMARY / 2.0
-	resume.offset_top = 380
-	resume.offset_bottom = 380 + UiKit.PRIMARY
-	resume.pressed.connect(pause_pressed.emit)
-	_paused.add_child(resume)
-	_paused_home = _scrim_link(HOME_ICON, "Home", "Ends this run")
-	(_paused_home.get_child(0) as Button).pressed.connect(home_pressed.emit)
-	_at(_paused, _paused_home, 500)
-
-
-func _build_countdown() -> void:
-	_at(_root, countdown, 300)
-	countdown.visible = false
-
-
-## A Music or Sounds circle: paper with an ink icon when on, faint when off.
-func _toggle(which: String, icon: Texture2D) -> Control:
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 6)
-	col.custom_minimum_size = Vector2(72, 0)
-	var b := Button.new()
-	b.name = which
-	b.toggle_mode = true
-	b.icon = icon
-	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(TOGGLE, TOGGLE)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var off := UiTheme.flat(Color(1, 1, 1, 0.18), UiTokens.RADIUS_PILL, 0)
-	var on := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
-	for state in ["normal", "hover"]:
-		b.add_theme_stylebox_override(state, off)
-	for state in ["pressed", "hover_pressed"]:
-		b.add_theme_stylebox_override(state, on)
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.add_theme_constant_override("icon_max_width", 24)
-	for state in ["icon_normal_color", "icon_hover_color"]:
-		b.add_theme_color_override(state, UiTokens.ON_SCRIM)
-	for state in ["icon_pressed_color", "icon_hover_pressed_color"]:
-		b.add_theme_color_override(state, UiTokens.ON_PANEL)
-	col.add_child(b)
-	var l := UiKit.label("", &"ScrimLabel")
-	l.add_theme_font_size_override("font_size", 13)
-	col.add_child(l)
-	b.toggled.connect(_on_toggle.bind(which))
-	_toggles[which] = b
-	return col
-
-
-func _on_toggle(on: bool, which: String) -> void:
-	_show_toggle(which)
-	sound_toggled.emit(which, on)
-
-
-func _show_toggle(which: String) -> void:
-	var b := _toggles[which] as Button
-	var l := b.get_parent().get_child(1) as Label
-	l.text = (
-		"%s %s" % ["Music" if which == "music" else "Sounds", "on" if b.button_pressed else "off"]
-	)
-	b.tooltip_text = l.text
-
-
-## A bare white button with an icon and text, and a small note under it.
-func _scrim_link(icon: Texture2D, text: String, note: String = "") -> Control:
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 0)
-	var b := Button.new()
-	b.theme_type_variation = &"ScrimButton"
-	b.text = text
-	b.icon = icon
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	b.add_theme_constant_override("icon_max_width", 20)
-	col.add_child(b)
-	if not note.is_empty():
-		var n := UiKit.label(note, &"ScrimCaption")
-		n.add_theme_font_size_override("font_size", 12)
-		col.add_child(n)
-	return col
-
-
-func _build_game_over() -> void:
-	_game_over.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_game_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_game_over)
-	_game_over.add_child(_new_best)
-	_go_caption.theme_type_variation = &"SkyLabel"
-	_go_caption.text = "Game over"
-	_go_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_go_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_game_over, _go_caption, 104)
-	_final_score.theme_type_variation = &"RoomBigScore"
-	_final_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_final_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_game_over, _final_score, 122)
-	_best_score.theme_type_variation = &"SkyCaption"
-	_best_score.add_theme_font_size_override("font_size", 16)
-	_best_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_best_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_game_over, _best_score, 274)
-	_revived_line.alignment = BoxContainer.ALIGNMENT_CENTER
-	_revived_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_revived_line.add_theme_constant_override("separation", 5)
-	_revived_icon.texture = HEART_ICON
-	_revived_icon.custom_minimum_size = Vector2(14, 14)
-	_revived_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_revived_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_revived_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_revived_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_revived_line.add_child(_revived_icon)
-	_revived_text.theme_type_variation = &"RoomMuted"
-	_revived_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_revived_line.add_child(_revived_text)
-	_at(_game_over, _revived_line, 300)
-	_stats.alignment = BoxContainer.ALIGNMENT_CENTER
-	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stats.add_theme_constant_override("separation", STAT_GAP)
-	_stat_coins = _stat(_stats, "coins", COIN_ICON)
-	_stat_rooms = _stat(_stats, "rooms")
-	_stat_rank = _stat(_stats, "today")
-	_at(_game_over, _stats, 330)
-	_seed.theme_type_variation = &"RoomMuted"
-	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_game_over, _seed, 400)
-	_dock = (
-		Dock
-		. new(
-			[
-				{"id": "home", "icon": HOME_ICON, "text": "Home"},
-				{"id": "rooms", "icon": ROOMS_ICON, "text": "Rooms"},
-			],
-			[
-				{"id": "rank", "icon": TROPHY_ICON, "text": "Ranks", "tip": "Leaderboards"},
-				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
-			],
-			{"id": "again", "icon": RESTART_ICON, "text": "Again"}
-		)
-	)
-	_dock.pressed.connect(_on_dock)
-	_game_over.add_child(_dock)
-
-
-## One stat: a big number (with an icon) over a small word.
-func _stat(row: HBoxContainer, word: String, icon: Texture2D = null) -> Label:
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 0)
-	col.custom_minimum_size = Vector2(STAT_W, 0)
-	var line := HBoxContainer.new()
-	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_theme_constant_override("separation", 6)
-	if icon != null:
-		var pic := TextureRect.new()
-		pic.texture = icon
-		pic.custom_minimum_size = Vector2(20, 20)
-		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_child(pic)
-	var value := UiKit.label("", &"RoomStat")
-	line.add_child(value)
-	col.add_child(line)
-	col.add_child(UiKit.label(word, &"RoomMuted"))
-	row.add_child(col)
-	return value
-
-
 func _on_dock(id: String) -> void:
 	match id:
 		"again":
@@ -468,17 +212,6 @@ func _on_dock(id: String) -> void:
 			leaderboard_pressed.emit()
 		"style":
 			style_pressed.emit()
-
-
-## Puts `c` across the parent's width at `top` px.
-static func _at(parent: Control, c: Control, top: float) -> void:
-	parent.add_child(c)
-	c.anchor_left = 0.0
-	c.anchor_right = 1.0
-	c.offset_left = 0
-	c.offset_right = 0
-	c.offset_top = top
-	c.offset_bottom = top + c.get_combined_minimum_size().y
 
 
 ## Updates the run's coin counter and gives it a little bump.
@@ -506,6 +239,7 @@ func fly_coin(from: Vector2, total: int) -> void:
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coin.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_root.add_child(coin)
+	_flying.append(coin)
 	var start := from - coin.size / 2.0
 	var end := _counter_target() - coin.size / 2.0
 	var bend := (start + end) / 2.0 + Vector2(0, -FLY_ARC)
@@ -535,21 +269,14 @@ static func _fly_step(t: float, coin: Control, start: Vector2, bend: Vector2, en
 
 
 func _land_coin(coin: Control, total: int) -> void:
+	_flying.erase(coin)
 	coin.queue_free()
 	set_run_coins(total)
 
 
 ## Coins still on their way to the counter.
 func flying_coins() -> int:
-	var n := 0
-	for c in _root.get_children():
-		if (
-			c is TextureRect
-			and (c as TextureRect).texture == COIN_ICON
-			and not c.is_queued_for_deletion()
-		):
-			n += 1
-	return n
+	return _flying.size()
 
 
 func run_coins_text() -> String:
@@ -562,15 +289,16 @@ func set_room_theme(t: Theme) -> void:
 		_root.theme = t
 
 
-## Settings > Large buttons: the pause and back buttons grow to 56px.
-func set_large_buttons(on: bool) -> void:
-	var s := UiKit.LARGE_BUTTON if on else UiKit.ICON_BUTTON
+## Settings > Large buttons changed: the pause and back buttons take
+## UiKit.button_size().
+func refresh_button_size() -> void:
+	var s := UiKit.button_size()
 	for b: Button in [_pause_button, _back_button]:
 		if b != null:
 			b.custom_minimum_size = Vector2(s, s)
 			b.size = Vector2(s, s)
-	_practice.set_large_buttons(on)
-	_replay.set_large_buttons(on)
+	_practice.refresh_button_size()
+	_replay.refresh_button_size()
 
 
 ## Hides everything (a menu screen is showing).
@@ -651,10 +379,9 @@ func show_ready() -> void:
 	_back_button.tooltip_text = "Rooms" if _practicing else "Home"
 	_run_coins.visible = false
 	_score.visible = false
-	_paused.visible = false
+	pause_screen.visible = false
 	countdown.visible = false
-	_game_over.visible = false
-	_go_time = -1.0
+	game_over.hide_result()
 	if _practicing:
 		_practice.show_playing(false)
 	if _replaying:
@@ -683,18 +410,13 @@ func show_running(waiting: bool = false) -> void:
 ## Paused: the score, the sound circles, Resume, and Home (or Back to rooms in
 ## practice).
 func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> void:
-	_paused.visible = value
+	pause_screen.visible = value
 	_pause_button.visible = not value
 	_back_button.visible = false
 	_score.visible = not value
 	_run_coins.visible = not value and not _practicing
-	_paused_home.visible = not _practicing
 	if value:
-		_paused_score.text = _score.text
-		(_toggles["music"] as Button).set_pressed_no_signal(music_on)
-		(_toggles["sfx"] as Button).set_pressed_no_signal(sfx_on)
-		_show_toggle("music")
-		_show_toggle("sfx")
+		pause_screen.show_state(_score.text, music_on, sfx_on, not _practicing)
 	if _practicing:
 		_practice.show_playing(value)
 
@@ -718,81 +440,27 @@ func show_game_over(
 	_back_button.visible = false
 	_run_coins.visible = false
 	_score.visible = false
-	_final_value = score
-	_final_score.add_theme_font_size_override("font_size", final_score_size(score))
-	_best_score.text = best_text(best, is_new_best, previous_best)
-	_stat_coins.text = "+%d" % coins_earned
-	_fit_stat(_stat_coins, STAT_W - STAT_ICON)
-	_stat_rooms.text = str(rooms)
-	_fit_stat(_stat_rooms, STAT_W)
-	set_daily_rank(rank)
-	_new_best.visible = is_new_best
-	_go_caption.visible = not is_new_best
-	# A new best moves the score down under the ribbon.
-	var top := 130.0 if is_new_best else 122.0
-	_final_score.offset_top = top
-	_final_score.offset_bottom = top + _final_score.get_combined_minimum_size().y
-	_best_score.offset_top = 276.0 if is_new_best else 274.0
-	_revived_line.visible = revived_at >= 0
-	_revived_text.text = "Revived at %d" % revived_at
-	# The heart takes the room text's colour (white on night rooms).
-	_revived_icon.modulate = _revived_text.get_theme_color("font_color")
-	_revived_line.offset_top = _best_score.offset_top + 26.0
-	_revived_line.offset_bottom = (
-		_revived_line.offset_top + _revived_line.get_combined_minimum_size().y
+	game_over.show_result(
+		score,
+		best,
+		is_new_best,
+		coins_earned,
+		previous_best,
+		rooms,
+		rank,
+		seed_value,
+		revived_at,
+		reduced_motion
 	)
-	_stats.offset_top = 356.0 if is_new_best else 330.0
-	_stats.offset_bottom = _stats.offset_top + _stats.get_combined_minimum_size().y
-	_seed.text = seed_text(seed_value)
-	_seed.visible = seed_value >= 0
-	_seed.offset_top = _stats.offset_bottom + 14.0
-	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
-	_game_over.visible = true
-	_new_best.still = reduced_motion
-	_go_time = 0.0 if is_new_best and not reduced_motion else FX_TIME
-	_step_new_best()
-
-
-## The final score's font size: big, smaller for a long score so it never
-## runs past the screen edges.
-static func final_score_size(score: int) -> int:
-	return UiKit.fit_font_size(
-		str(score), GameFonts.display(), UiTheme.BIG_SCORE_SIZE, FINAL_SCORE_W, FINAL_SCORE_MIN
-	)
-
-
-## A stat's number shrinks to stay inside its column ("+1240", "#1234").
-static func _fit_stat(value: Label, room: float) -> void:
-	var font := value.get_theme_font("font") if value.is_inside_tree() else GameFonts.display()
-	var size := UiKit.fit_font_size(value.text, font, STAT_SIZE, room, STAT_MIN)
-	value.add_theme_font_size_override("font_size", size)
 
 
 ## Today's rank on the game-over stats and dock ("-" until it arrives).
 func set_daily_rank(rank: int) -> void:
-	_daily_rank = rank
-	if _stat_rank != null:
-		_stat_rank.text = "#%d" % rank if rank > 0 else "-"
-		_fit_stat(_stat_rank, STAT_W)
-	if _dock != null:
-		_dock.set_text("rank", "#%d" % rank if rank > 0 else "Ranks")
-
-
-func _step_new_best() -> void:
-	var t := _go_time
-	if not _new_best.visible or t >= FX_TIME:
-		_final_score.text = str(_final_value)
-		_new_best.time = FX_TIME
-		_go_time = -1.0
-		return
-	var k := minf(1.0, t / COUNT_TIME)
-	var eased := 1.0 - pow(1.0 - k, 3.0)
-	_final_score.text = str(roundi(_final_value * eased))
-	_new_best.time = t
+	game_over.set_daily_rank(rank)
 
 
 func is_new_best_showing() -> bool:
-	return _game_over.visible and _new_best.visible
+	return game_over.is_new_best_showing()
 
 
 ## A short message on the room, e.g. the world's name after switching.
@@ -806,15 +474,3 @@ func show_toast(text: String) -> void:
 	_toast_tween.tween_interval(TOAST_SECONDS)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.3)
 	_toast_tween.tween_callback(_toast.hide)
-
-
-## "Seed 123456 · v11": the seed and gameplay version replay the run exactly.
-static func seed_text(seed_value: int) -> String:
-	return "Seed %d · v%d" % [seed_value, SimConfig.GAMEPLAY_VERSION]
-
-
-## "Best 92"; on a new best just "was 87" (the ribbon says New best).
-static func best_text(best: int, is_new_best: bool, previous_best: int) -> String:
-	if is_new_best:
-		return "was %d" % previous_best if previous_best > 0 else "Your first best"
-	return "Best %d" % best

@@ -23,7 +23,7 @@ static func is_supported() -> bool:
 	return Engine.has_singleton(CORE) and Engine.has_singleton(MESSAGING)
 
 
-func _init(api: SupabaseLeaderboard = null) -> void:
+func _init(api: SupabaseClient = null) -> void:
 	super(api)
 	if not is_supported():
 		return

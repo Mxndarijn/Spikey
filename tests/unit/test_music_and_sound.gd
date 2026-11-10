@@ -19,15 +19,15 @@ func _holder() -> Control:
 
 
 func test_music_catalog_and_prices() -> void:
-	var ids := Catalog.ids(Catalog.MUSIC)
+	var ids := Catalog.ids(ItemKind.MUSIC)
 	assert_eq(ids.slice(0, 2), [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE], "picks come first")
 	assert_eq(ids.size(), 2 + MusicTrack.all().size(), "then every track")
 	assert_eq(Catalog.tracks().size(), 5)
 	assert_eq(Catalog.track("lava_rush").bpm, 140)
 	assert_true(Catalog.track(MusicTrack.MATCH_WORLD) == null, "picks are not tracks")
-	assert_eq(Catalog.display_name(Catalog.MUSIC, MusicTrack.MATCH_WORLD), "Match my world")
-	assert_eq(Catalog.display_name(Catalog.MUSIC, MusicTrack.SHUFFLE), "Shuffle owned")
-	assert_eq(Catalog.display_name(Catalog.MUSIC, "star_arcade"), "Star Arcade")
+	assert_eq(Catalog.display_name(ItemKind.MUSIC, MusicTrack.MATCH_WORLD), "Match my world")
+	assert_eq(Catalog.display_name(ItemKind.MUSIC, MusicTrack.SHUFFLE), "Shuffle owned")
+	assert_eq(Catalog.display_name(ItemKind.MUSIC, "star_arcade"), "Star Arcade")
 	var prices := {
 		MusicTrack.MATCH_WORLD: 0,
 		MusicTrack.SHUFFLE: 0,
@@ -38,48 +38,64 @@ func test_music_catalog_and_prices() -> void:
 		"star_arcade": 400,
 	}
 	for id: String in prices:
-		assert_eq(Shop.price(Catalog.MUSIC, id), prices[id], "%s price" % id)
+		assert_eq(Shop.price(ItemKind.MUSIC, id), prices[id], "%s price" % id)
 	assert_eq(
-		Shop.starters(Catalog.MUSIC), [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE, "candy_hop"]
+		Shop.starters(ItemKind.MUSIC), [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE, "candy_hop"]
 	)
 
 
 func test_profile_saves_the_music_pick_and_settings() -> void:
 	var p := Profile.new()
 	for id in [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE, "candy_hop"]:
-		assert_true(p.owns(Catalog.MUSIC, id), "%s is owned from the start" % id)
-	assert_false(p.owns(Catalog.MUSIC, "lava_rush"))
-	assert_eq(p.equipped_id(Catalog.MUSIC), MusicTrack.MATCH_WORLD, "Match my world plays")
+		assert_true(p.owns(ItemKind.MUSIC, id), "%s is owned from the start" % id)
+	assert_false(p.owns(ItemKind.MUSIC, "lava_rush"))
+	assert_eq(p.equipped_id(ItemKind.MUSIC), MusicTrack.MATCH_WORLD, "Match my world plays")
 	p.coins = 300
-	assert_eq(Shop.buy(p, Catalog.MUSIC, "bubble_drift"), Shop.Result.OK)
-	assert_true(p.equip(Catalog.MUSIC, "bubble_drift"))
-	p.music_volume = 35
-	p.sfx_volume = 60
-	p.music_on = false
+	assert_eq(await Checkout.offline(p).buy(ItemKind.MUSIC, "bubble_drift"), Checkout.Result.OK)
+	assert_true(p.equip(ItemKind.MUSIC, "bubble_drift"))
+	p.settings.music_volume = 35
+	p.settings.sfx_volume = 60
+	p.settings.music_on = false
 	assert_true(p.save(TEST_PATH))
 	var back := Profile.load_or_new(TEST_PATH)
-	assert_eq(back.equipped_id(Catalog.MUSIC), "bubble_drift")
-	assert_true(back.owns(Catalog.MUSIC, "bubble_drift"))
+	assert_eq(back.equipped_id(ItemKind.MUSIC), "bubble_drift")
+	assert_true(back.owns(ItemKind.MUSIC, "bubble_drift"))
 	assert_eq(
-		[back.music_volume, back.sfx_volume, back.music_on, back.sfx_on], [35, 60, false, true]
+		[
+			back.settings.music_volume,
+			back.settings.sfx_volume,
+			back.settings.music_on,
+			back.settings.sfx_on
+		],
+		[35, 60, false, true]
 	)
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_old_saves_get_the_music_defaults() -> void:
 	var old := Profile.from_dict({"coins": 5, "owned": {"trail": ["world_ribbon"]}})
-	assert_eq(old.equipped_id(Catalog.MUSIC), MusicTrack.MATCH_WORLD)
-	assert_true(old.owns(Catalog.MUSIC, "candy_hop"))
-	assert_eq([old.music_volume, old.sfx_volume, old.music_on, old.sfx_on], [80, 100, true, true])
+	assert_eq(old.equipped_id(ItemKind.MUSIC), MusicTrack.MATCH_WORLD)
+	assert_true(old.owns(ItemKind.MUSIC, "candy_hop"))
+	assert_eq(
+		[
+			old.settings.music_volume,
+			old.settings.sfx_volume,
+			old.settings.music_on,
+			old.settings.sfx_on
+		],
+		[80, 100, true, true]
+	)
 	var odd := Profile.from_dict({"music_volume": 400, "sfx_volume": -3})
-	assert_eq([odd.music_volume, odd.sfx_volume], [100, 0], "volumes stay in 0..100")
+	assert_eq(
+		[odd.settings.music_volume, odd.settings.sfx_volume], [100, 0], "volumes stay in 0..100"
+	)
 
 
 func test_music_tab_lists_previews_and_buys() -> void:
 	var holder := _holder()
 	var p := Profile.new()
 	p.coins = 350
-	var c := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.MUSIC)
+	var c := CollectionScreen.new(Checkout.offline(p), CollectionScreen.Mode.SHOP, ItemKind.MUSIC)
 	var bought: Array[String] = []
 	c.equipped.connect(func(_k: String, id: String) -> void: bought.append(id))
 	holder.add_child(c)
@@ -102,16 +118,16 @@ func test_music_tab_lists_previews_and_buys() -> void:
 	assert_eq(c.playing_id(), "", "stop ends the preview")
 	assert_eq(c.preview_track(MusicTrack.MATCH_WORLD).id, MusicTrack.for_world(c._backdrop().id).id)
 	c._tap("lava_rush")
-	assert_eq(c._popup_thumb.music, "lava_rush", "the popup shows the record")
-	assert_true(c._badge_text.text.begins_with("Matches "), "and the worlds it matches")
+	assert_eq(c.popup().picture().music, "lava_rush", "the popup shows the record")
+	assert_true(c.popup().badge_text().begins_with("Matches "), "and the worlds it matches")
 	assert_eq(c.action_label(), ["Need 50 more gold", false])
 	c.toggle_preview("bubble_drift")
 	c._tap("bubble_drift")
 	c._on_action()
-	assert_eq(p.equipped_id(Catalog.MUSIC), "bubble_drift", "bought and put to use")
+	assert_eq(p.equipped_id(ItemKind.MUSIC), "bubble_drift", "bought and put to use")
 	assert_eq(bought, ["bubble_drift"], "main hears about it")
 	assert_eq(c.playing_id(), "", "the preview hands over to the new pick")
-	c._show_kind(Catalog.FLYER)
+	c._show_kind(ItemKind.FLYER)
 	assert_eq(c._owned_grid.columns, CollectionScreen.SHOP_COLUMNS, "other tabs stay grids")
 	holder.free()
 
@@ -119,7 +135,7 @@ func test_music_tab_lists_previews_and_buys() -> void:
 func test_settings_sheet_edits_the_profile() -> void:
 	var holder := _holder()
 	var p := Profile.new()
-	var home := HomeScreen.new(p)
+	var home := HomeScreen.new(p, AppServices.offline(p))
 	holder.add_child(home)
 	var changes := [0]
 	home.settings_changed.connect(func() -> void: changes[0] += 1)
@@ -127,19 +143,22 @@ func test_settings_sheet_edits_the_profile() -> void:
 	assert_true(sheet != null and sheet.get_parent() == home, "Settings opens the sheet")
 	assert_eq(sheet.value_text("music"), "80", "shows the saved volume")
 	sheet.set_volume("music", 35)
-	assert_eq(p.music_volume, 35)
+	assert_eq(p.settings.music_volume, 35)
 	assert_eq(sheet.value_text("music"), "35")
 	sheet.set_on("sfx", false)
-	assert_false(p.sfx_on, "the round button turns sounds off")
+	assert_false(p.settings.sfx_on, "the round button turns sounds off")
 	assert_true(sheet.slider("sfx").faded, "and fades its slider")
 	assert_eq(changes[0], 2, "each change is reported")
-	for key: String in SettingsSheet.SWITCHES:
+	for key: PlayerSettings.Switch in SettingsSheet.SWITCHES:
 		assert_true(sheet.switch(key) != null, "a %s switch" % key)
-	assert_true(sheet.switch("haptics").button_pressed, "haptics start on")
-	sheet.set_switch("reduced_flashing", true)
-	sheet.set_switch("large_buttons", true)
-	sheet.set_switch("color_blind_spikes", true)
-	assert_true(p.reduced_flashing and p.large_buttons and p.color_blind_spikes, "saved in profile")
+	assert_true(sheet.switch(PlayerSettings.Switch.HAPTICS).button_pressed, "haptics start on")
+	sheet.set_switch(PlayerSettings.Switch.REDUCED_FLASHING, true)
+	sheet.set_switch(PlayerSettings.Switch.LARGE_BUTTONS, true)
+	sheet.set_switch(PlayerSettings.Switch.COLOR_BLIND_SPIKES, true)
+	assert_true(
+		p.settings.reduced_flashing and p.settings.large_buttons and p.settings.color_blind_spikes,
+		"saved in profile"
+	)
 	assert_eq(changes[0], 5)
 	assert_false(sheet.is_showing_credits())
 	sheet.show_credits(true)
@@ -165,7 +184,7 @@ func test_volume_knob_stays_inside_the_bar() -> void:
 
 
 func test_play_settings_are_saved_and_applied() -> void:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load(MAIN_SCENE).instantiate()
 	main.profile_path = TEST_PATH
 	_tree().root.add_child(main)
@@ -175,34 +194,39 @@ func test_play_settings_are_saved_and_applied() -> void:
 		main.free()
 		return
 	var sheet := home.open_settings()
-	sheet.set_switch("reduced_flashing", true)
+	sheet.set_switch(PlayerSettings.Switch.REDUCED_FLASHING, true)
 	assert_false(main._room.flash_enabled, "reduced flashing turns the room flash off")
-	sheet.set_switch("large_buttons", true)
+	sheet.set_switch(PlayerSettings.Switch.LARGE_BUTTONS, true)
 	assert_eq(main._hud._pause_button.custom_minimum_size, Vector2(56, 56), "large pause")
-	sheet.set_switch("haptics", false)
+	sheet.set_switch(PlayerSettings.Switch.HAPTICS, false)
 	var saved := Profile.load_or_new(TEST_PATH)
-	assert_true(saved.reduced_flashing and saved.large_buttons, "saved at once")
-	assert_false(saved.haptics)
-	sheet.set_switch("reduced_flashing", false)
+	assert_true(saved.settings.reduced_flashing and saved.settings.large_buttons, "saved at once")
+	assert_false(saved.settings.haptics)
+	sheet.set_switch(PlayerSettings.Switch.REDUCED_FLASHING, false)
 	assert_true(main._room.flash_enabled, "and back on")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	UiKit.large_buttons = false
 
 
 func test_old_saves_get_the_play_setting_defaults() -> void:
 	var old := Profile.from_dict({"coins": 5})
 	assert_eq(
-		[old.haptics, old.reduced_flashing, old.color_blind_spikes, old.large_buttons],
+		[
+			old.settings.haptics,
+			old.settings.reduced_flashing,
+			old.settings.color_blind_spikes,
+			old.settings.large_buttons
+		],
 		[true, false, false, false]
 	)
 	var p := Profile.new()
-	p.color_blind_spikes = true
-	assert_true(Profile.from_dict(p.to_dict()).color_blind_spikes, "round trip")
+	p.settings.color_blind_spikes = true
+	assert_true(Profile.from_dict(p.to_dict()).settings.color_blind_spikes, "round trip")
 
 
 func test_main_saves_sound_settings_from_home() -> void:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load(MAIN_SCENE).instantiate()
 	main.profile_path = TEST_PATH
 	_tree().root.add_child(main)
@@ -211,13 +235,13 @@ func test_main_saves_sound_settings_from_home() -> void:
 	assert_true(home != null, "home")
 	if home != null:
 		home.open_settings().set_volume("music", 20)
-		assert_eq(Profile.load_or_new(TEST_PATH).music_volume, 20, "saved at once")
+		assert_eq(Profile.load_or_new(TEST_PATH).settings.music_volume, 20, "saved at once")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## Puts a flyer in use, as Customize would (first start already gave Sunset Glow).
 static func _use_flyer(main: Node, id: String) -> void:
-	main._profile.grant(Catalog.FLYER, id)
-	main._profile.equip(Catalog.FLYER, id)
-	main._load_equipped()
+	main._profile.grant(ItemKind.FLYER, id)
+	main._profile.equip(ItemKind.FLYER, id)
+	main._look.use_equipped()

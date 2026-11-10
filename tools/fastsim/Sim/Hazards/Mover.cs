@@ -54,8 +54,8 @@ public class Mover : Hazard
     public override void setup(GameSim sim, SimRng rng)
     {
         phase = rng.next_below(period());
-        var path = sim.start_path();
-        var arrival = sim.state.started ? sim.arrival_path() : new List<long>();
+        var path = FairLanes.start_path(sim);
+        var arrival = sim.state.started ? FairLanes.arrival_path(sim) : new List<long>();
         long first = phase;
         long tries = sim.state.started ? ARRIVAL_TRIES : PHASE_TRIES;
         long pick = phase;
@@ -66,12 +66,12 @@ public class Mover : Hazard
             if (sim.state.started)
             {
                 long clear = _arrival_clear(arrival);
-                if (clear >= GameSim.ARRIVAL_PATH_TICKS)
+                if (clear >= FairLanes.ARRIVAL_PATH_TICKS)
                 {
                     pick = phase;
                     break;
                 }
-                if (clear >= GameSim.ARRIVAL_PATH_MIN && !settled)
+                if (clear >= FairLanes.ARRIVAL_PATH_MIN && !settled)
                 {
                     pick = phase;
                     settled = true;
@@ -86,14 +86,14 @@ public class Mover : Hazard
     public long _arrival_clear(List<long> arrival)
     {
         long keep = t;
-        long out_ = GameSim.ARRIVAL_PATH_TICKS;
-        for (long k = 0; k < GameSim.ARRIVAL_PATH_TICKS; k++)
+        long out_ = FairLanes.ARRIVAL_PATH_TICKS;
+        for (long k = 0; k < FairLanes.ARRIVAL_PATH_TICKS; k++)
         {
             t = k;
             _place();
             for (long c = 0; c < count; c++)
-                if (GameSim.arrival_path_hits(arrival, k, xs[(int)c], ys[(int)c], RADIUS)) out_ = k;
-            if (out_ < GameSim.ARRIVAL_PATH_TICKS) break;
+                if (FairLanes.arrival_path_hits(arrival, k, xs[(int)c], ys[(int)c], RADIUS)) out_ = k;
+            if (out_ < FairLanes.ARRIVAL_PATH_TICKS) break;
         }
         t = keep;
         return out_;

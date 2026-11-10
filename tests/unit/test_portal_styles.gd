@@ -43,10 +43,10 @@ func _tree() -> SceneTree:
 
 
 func test_the_twelve_styles_and_their_prices() -> void:
-	assert_eq(Catalog.ids(Catalog.PORTAL), IDS, "Match my world first, then the shop")
+	assert_eq(Catalog.ids(ItemKind.PORTAL), IDS, "Match my world first, then the shop")
 	for i in IDS.size():
-		assert_eq(Shop.price(Catalog.PORTAL, IDS[i]), PRICES[i], "%s's price" % IDS[i])
-	assert_eq(Shop.starters(Catalog.PORTAL), ["match_world", "classic_spiral"], "two free portals")
+		assert_eq(Shop.price(ItemKind.PORTAL, IDS[i]), PRICES[i], "%s's price" % IDS[i])
+	assert_eq(Shop.starters(ItemKind.PORTAL), ["match_world", "classic_spiral"], "two free portals")
 	var match_world := Catalog.portal(PortalStyle.DEFAULT_ID)
 	assert_true(match_world != null and match_world.follows_world, "the default follows the world")
 	if match_world != null:
@@ -69,7 +69,7 @@ func test_every_portal_has_a_unique_id_name_and_blurb() -> void:
 	for p in Catalog.portals():
 		assert_false(p.id in seen, "%s is unique" % p.id)
 		seen.append(p.id)
-		assert_eq(Catalog.display_name(Catalog.PORTAL, p.id), p.display_name)
+		assert_eq(Catalog.display_name(ItemKind.PORTAL, p.id), p.display_name)
 		assert_false(p.blurb.is_empty(), "%s has a line for the popup" % p.id)
 		assert_eq(p.follows_world, p.id == PortalStyle.DEFAULT_ID, "%s's colours" % p.id)
 		if not p.follows_world:
@@ -109,33 +109,36 @@ func test_match_my_world_uses_the_world_and_its_rim_touch() -> void:
 
 func test_profile_saves_the_equipped_portal() -> void:
 	var p := Profile.new()
-	assert_true(p.owns(Catalog.PORTAL, PortalStyle.DEFAULT_ID), "Match my world from the start")
-	assert_true(p.owns(Catalog.PORTAL, "classic_spiral"), "and Classic Spiral")
-	assert_eq(p.equipped_portal(), PortalStyle.DEFAULT_ID, "Match my world in use")
-	assert_false(p.equip(Catalog.PORTAL, "galaxy"), "can't use a portal you don't own")
+	assert_true(p.owns(ItemKind.PORTAL, PortalStyle.DEFAULT_ID), "Match my world from the start")
+	assert_true(p.owns(ItemKind.PORTAL, "classic_spiral"), "and Classic Spiral")
+	assert_eq(p.equipped_id(ItemKind.PORTAL), PortalStyle.DEFAULT_ID, "Match my world in use")
+	assert_false(p.equip(ItemKind.PORTAL, "galaxy"), "can't use a portal you don't own")
 	p.coins = 1000
-	assert_eq(Shop.buy(p, Catalog.PORTAL, "galaxy"), Shop.Result.OK)
+	assert_eq(await Checkout.offline(p).buy(ItemKind.PORTAL, "galaxy"), Checkout.Result.OK)
 	assert_eq(p.coins, 700)
-	assert_true(p.equip(Catalog.PORTAL, "galaxy"))
+	assert_true(p.equip(ItemKind.PORTAL, "galaxy"))
 	assert_true(p.save(TEST_PATH), "saved")
 	var back := Profile.load_or_new(TEST_PATH)
-	assert_eq(back.equipped_portal(), "galaxy", "the equipped portal survives a reload")
-	assert_true(back.owns(Catalog.PORTAL, "galaxy"))
+	assert_eq(back.equipped_id(ItemKind.PORTAL), "galaxy", "the equipped portal survives a reload")
+	assert_true(back.owns(ItemKind.PORTAL, "galaxy"))
 	assert_eq(PortalStyle.equipped(back).id, "galaxy")
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_old_and_odd_saves_fall_back_to_match_my_world() -> void:
 	var old := Profile.from_dict({"owned": {"trail": ["world_ribbon"]}, "equipped": {}})
-	assert_eq(old.equipped_portal(), PortalStyle.DEFAULT_ID, "saves from before portals")
+	assert_eq(old.equipped_id(ItemKind.PORTAL), PortalStyle.DEFAULT_ID, "saves from before portals")
 	for gone in ["cloud_hole", "ink_splat", "feather_ring", "breakout_crack", "ripple_mirror"]:
 		var odd := Profile.from_dict(
 			{"owned": {"portal": ["cloud_hole", gone]}, "equipped": {"portal": gone}}
 		)
-		assert_eq(odd.equipped_portal(), PortalStyle.DEFAULT_ID, "%s falls back" % gone)
-		assert_eq(odd.equipped_id(Catalog.PORTAL), PortalStyle.DEFAULT_ID, "in the save too")
-		assert_eq(PortalStyle.equipped(odd).id, PortalStyle.DEFAULT_ID)
-		assert_true(odd.owns(Catalog.PORTAL, PortalStyle.DEFAULT_ID))
+		assert_eq(
+			PortalStyle.equipped(odd).id, PortalStyle.DEFAULT_ID, "%s draws as the default" % gone
+		)
+		Catalog.repair(odd)
+		assert_eq(odd.equipped_id(ItemKind.PORTAL), PortalStyle.DEFAULT_ID, "%s falls back" % gone)
+		assert_eq(odd.to_dict().equipped.portal, PortalStyle.DEFAULT_ID, "in the save too")
+		assert_true(odd.owns(ItemKind.PORTAL, PortalStyle.DEFAULT_ID))
 
 
 func test_customize_has_a_portals_section() -> void:
@@ -145,11 +148,11 @@ func test_customize_has_a_portals_section() -> void:
 	_tree().root.add_child(holder)
 	var p := Profile.new()
 	p.coins = 400
-	var c := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.PORTAL)
+	var c := CollectionScreen.new(Checkout.offline(p), CollectionScreen.Mode.SHOP, ItemKind.PORTAL)
 	holder.add_child(c)
 	assert_eq(c.title_text(), "Portals", "the Portals list")
-	assert_eq(c.kind, Catalog.PORTAL, "opened on it")
-	assert_eq(c.item_ids(), Catalog.ids(Catalog.PORTAL), "Match my world first, then the shop")
+	assert_eq(c.kind, ItemKind.PORTAL, "opened on it")
+	assert_eq(c.item_ids(), Catalog.ids(ItemKind.PORTAL), "Match my world first, then the shop")
 	assert_eq(c.selected_id(), PortalStyle.DEFAULT_ID, "the portal in use is picked")
 	assert_eq(c.action_label(), ["In use", false])
 	var statuses := {}
@@ -160,14 +163,14 @@ func test_customize_has_a_portals_section() -> void:
 	c._tap("galaxy")
 	assert_true(c.is_popup_open(), "tapping opens the popup")
 	assert_eq(c.preview_portal_id(), "galaxy", "the preview shows the tapped portal")
-	assert_eq(c._popup_thumb.portal.id, "galaxy", "and so does the popup picture")
+	assert_eq(c.popup().picture().portal.id, "galaxy", "and so does the popup picture")
 	assert_eq(c.action_label(), ["Unlock for 300", true])
 	c._on_action()
-	assert_eq(p.equipped_portal(), "galaxy", "bought and put to use")
+	assert_eq(p.equipped_id(ItemKind.PORTAL), "galaxy", "bought and put to use")
 	assert_eq(p.coins, 100)
 	c._tap("golden")
 	assert_eq(c.action_label(), ["Need 500 more gold", false])
-	c._show_kind(Catalog.FLYER)
+	c._show_kind(ItemKind.FLYER)
 	assert_eq(c.preview_portal_id(), "galaxy", "other tabs preview the portal in use")
 	holder.free()
 

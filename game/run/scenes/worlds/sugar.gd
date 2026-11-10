@@ -1,6 +1,9 @@
-extends RefCounted
+extends WorldScene
 ## Sugar Rush (Worlds v4): icing dripping from the ceiling, pink clouds, an
 ## iced far hill with lollipops, gumdrops and a cupcake in front.
+
+## Sprinkles on a Match my world portal's rim.
+const SPRINKLES: Array[Color] = [Color("FFFFFF"), Color("7FD3FF"), Color("FFD23F"), Color("7FE3B5")]
 
 const ICING := Color("#FFFFFF")
 const CLOUD := Color("#FFE1EE")
@@ -9,7 +12,13 @@ const LOLLY_BLUE := Color("#7FD3FF")
 const GUMDROPS := [Color("#7FD3FF"), Color("#B69CFF"), Color("#FFD23F"), Color("#7FE3B5")]
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "sprinkles"
+	mote_count = 16
+	mote_band = Vector2(196, 450)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(526, 24, 1.3, 0.4, t.hill_far, 1)
 	var near := SceneGround.new(584, 12, 1.6, 2.0, t.hill_near, 2)
@@ -43,3 +52,11 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var b := near.y(220) + 2
 	SceneProps.shadow(pen, 220, b, 16, near)
 	SceneProps.p_cupcake(pen, 220, b, 1.05)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return SPRINKLES
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_sprinkles(p, cols)

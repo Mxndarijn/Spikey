@@ -14,13 +14,13 @@ const RADIUS := 18
 const NAME_MIN := 70.0
 ## What each kind is called on its card.
 const LABELS := {
-	Catalog.FLYER: "Flyer",
-	Catalog.WORLD: "World",
-	Catalog.TRAIL: "Trail",
-	Catalog.PORTAL: "Portal",
-	Catalog.MUSIC: "Music",
-	Catalog.CRASH: "Crash",
-	Catalog.PLATE: "Name plate",
+	ItemKind.FLYER: "Flyer",
+	ItemKind.WORLD: "World",
+	ItemKind.TRAIL: "Trail",
+	ItemKind.PORTAL: "Portal",
+	ItemKind.MUSIC: "Music",
+	ItemKind.CRASH: "Crash",
+	ItemKind.PLATE: "Name plate",
 }
 
 var kind := ""
@@ -92,35 +92,15 @@ func _init(p_kind: String, profile: Profile, world: ThemeDef, p_wide: bool = fal
 ## The picture of the item in use, per kind. Only the world card shows a whole
 ## room; the others sit on a plain sky so the item itself reads.
 func _fill_thumb(id: String, profile: Profile) -> void:
-	match kind:
-		Catalog.FLYER:
-			var f := Catalog.flyer(id)
-			_thumb.flyer = f.idle if f != null else null
-			_thumb.bare = true
-		Catalog.WORLD:
-			var w := Catalog.world(id)
-			if w != null:
-				_thumb.world = w
-		Catalog.TRAIL:
-			_thumb.trail = Catalog.trail(id)
-			_thumb.plain = true
-		Catalog.PORTAL:
-			_thumb.portal = Catalog.portal(id)
-			_thumb.plain = true
-		Catalog.MUSIC:
-			_thumb.music = id
-			_thumb.plain = true
-		Catalog.CRASH:
-			# The effect bursts round the player's own flyer, as in a run.
-			_thumb.crash = Catalog.crash(id)
-			var own := Catalog.flyer(profile.equipped_id(Catalog.FLYER))
-			_thumb.flyer = own.idle if own != null else null
-			_thumb.plain = true
-			_thumb.clip_contents = true
-		Catalog.PLATE:
-			_thumb.plate = Catalog.plate(id)
-			var mine := Catalog.flyer(profile.equipped_id(Catalog.FLYER))
-			_thumb.flyer = mine.idle if mine != null else null
+	# A crash effect bursts round the player's own flyer, as in a run, and a
+	# plate carries it; the world card shows just the room.
+	var own: Texture2D = null
+	if kind in [ItemKind.CRASH, ItemKind.PLATE]:
+		own = Catalog.flyer_art(profile.equipped_id(ItemKind.FLYER))
+	_thumb.show_item(kind, id, own)
+	_thumb.bare = kind == ItemKind.FLYER
+	_thumb.plain = kind in [ItemKind.TRAIL, ItemKind.PORTAL, ItemKind.MUSIC, ItemKind.CRASH]
+	_thumb.clip_contents = kind == ItemKind.CRASH
 
 
 func _ready() -> void:

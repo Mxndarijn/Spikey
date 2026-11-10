@@ -46,15 +46,17 @@ var kind := ""
 var item_id := ""
 var layout := Layout.TILE
 
-var _thumb := ItemThumb.new()
+## Tiles only: the picture. Music rows only: the tempo line and the preview
+## button (not on Shuffle). Each is made only for the layout that shows it.
+var _thumb: ItemThumb
 var _name := Label.new()
-var _blurb := Label.new()
+var _blurb: Label
 var _status := HBoxContainer.new()
 var _use := PanelContainer.new()
 var _icon: TextureRect
 var _meta := Label.new()
 var _box: BoxContainer
-var _preview := Button.new()
+var _preview: Button
 var _backdrop: ThemeDef
 var _playing := false
 ## [left, top, right, bottom] padding of this card.
@@ -70,7 +72,7 @@ func _init(
 ) -> void:
 	kind = p_kind
 	item_id = p_id
-	layout = Layout.TRACK if p_kind == Catalog.MUSIC else p_layout
+	layout = Layout.TRACK if p_kind == ItemKind.MUSIC else p_layout
 	_backdrop = backdrop
 	theme_type_variation = &"CardButton"
 	toggle_mode = true
@@ -90,28 +92,6 @@ func _init(
 	_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(_box)
 	_icon = _small_icon(COIN_ICON, 14, Color.WHITE)
-	_thumb.world = backdrop
-	_thumb.outlined = false
-	match kind:
-		Catalog.WORLD:
-			var w := Catalog.world(p_id)
-			if w != null:
-				_thumb.world = w
-		Catalog.FLYER:
-			var f := Catalog.flyer(p_id)
-			if f != null:
-				_thumb.flyer = f.idle
-			_thumb.bare = true
-		Catalog.TRAIL:
-			_thumb.trail = Catalog.trail(p_id)
-		Catalog.PORTAL:
-			_thumb.portal = Catalog.portal(p_id)
-		Catalog.CRASH:
-			_thumb.crash = Catalog.crash(p_id)
-			# Pieces fly wide: keep them inside the picture.
-			_thumb.clip_contents = true
-		Catalog.PLATE:
-			_thumb.plate = Catalog.plate(p_id)
 	match layout:
 		Layout.TRACK:
 			_build_track()
@@ -133,8 +113,15 @@ static func _fit_name(label: Label, room: float) -> void:
 
 
 func _build_tile(thumb_height: float) -> void:
-	var wide := THUMB_WIDTH if kind == Catalog.FLYER else ROOM_THUMB_WIDTH
-	var high := thumb_height if kind == Catalog.FLYER else thumb_height + 18.0
+	var wide := THUMB_WIDTH if kind == ItemKind.FLYER else ROOM_THUMB_WIDTH
+	var high := thumb_height if kind == ItemKind.FLYER else thumb_height + 18.0
+	_thumb = ItemThumb.new()
+	_thumb.world = _backdrop
+	_thumb.outlined = false
+	_thumb.show_item(kind, item_id)
+	_thumb.bare = kind == ItemKind.FLYER
+	# Crash pieces fly wide: keep them inside the picture.
+	_thumb.clip_contents = kind == ItemKind.CRASH
 	_thumb.custom_minimum_size = Vector2(wide, high)
 	_thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_box.add_child(_thumb)
@@ -187,6 +174,7 @@ func _build_track() -> void:
 		disc.add_child(_small_icon(SHUFFLE_ICON, 20, UiTokens.INK_LINE))
 		_box.add_child(disc)
 	else:
+		_preview = Button.new()
 		_preview.icon = PLAY_ICON
 		_preview.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_preview.custom_minimum_size = Vector2(UiTokens.SIZE_TAP_MIN, UiTokens.SIZE_TAP_MIN)
@@ -207,6 +195,7 @@ func _build_track() -> void:
 	_name.text = Catalog.display_name(kind, item_id)
 	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text.add_child(_name)
+	_blurb = Label.new()
 	_blurb.theme_type_variation = &"MutedLabel"
 	_blurb.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
 	_blurb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -241,6 +230,8 @@ static func track_line(id: String, world: ThemeDef) -> String:
 ## Music cards: shows the stop icon (white on ink) while this card's preview plays.
 func set_playing(on: bool) -> void:
 	_playing = on
+	if _preview == null:
+		return
 	_preview.icon = STOP_ICON if on else PLAY_ICON
 	_preview.tooltip_text = "Stop the preview" if on else "Play a preview"
 	_style_preview()
@@ -280,15 +271,6 @@ func _small_icon(tex: Texture2D, side: float, tint: Color) -> TextureRect:
 	return r
 
 
-## Each layout uses only some of the widgets made above; free the rest, or they leak.
-func _notification(what: int) -> void:
-	if what != NOTIFICATION_PREDELETE:
-		return
-	for n: Node in [_thumb, _name, _blurb, _status, _use, _icon, _meta, _preview]:
-		if is_instance_valid(n) and n.get_parent() == null:
-			n.free()
-
-
 func _ready() -> void:
 	# A Button doesn't grow with its children, so size it to its content.
 	_box.minimum_size_changed.connect(_fit)
@@ -314,7 +296,8 @@ func refresh(profile: Profile, selected: bool) -> void:
 	var cost := Shop.cost(kind, item_id)
 	var short := not owned and not Shop.can_afford(profile, kind, item_id)
 	# Faded only while the player can't afford it; the price still shows.
-	_thumb.dimmed = layout == Layout.TILE and short
+	if _thumb != null:
+		_thumb.dimmed = short
 	_use.visible = false
 	_icon.visible = false
 	_meta.visible = true

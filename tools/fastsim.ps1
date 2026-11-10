@@ -36,7 +36,8 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $root "tools/fastsim/FastSim.csproj"
-$exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim.exe"
+# FastSim.exe on Windows, FastSim elsewhere (CI runs on Linux).
+$exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host "dotnet not found: install the .NET 9 SDK to use FastSim." -ForegroundColor Red
@@ -48,6 +49,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "FastSim build failed." -ForegroundColor Red
     exit 2
 }
+if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
 
 if ($Mode -eq "parity") {
     $godot = $env:GODOT

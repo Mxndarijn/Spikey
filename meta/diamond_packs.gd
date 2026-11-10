@@ -1,7 +1,7 @@
 class_name DiamondPacks
 extends RefCounted
 ## What real money buys: diamonds, in packs. Gold is never sold directly (a
-## player who wants gold converts, Economy.convert). The price text is a
+## player who wants gold converts, Checkout.convert). The price text is a
 ## placeholder until the app stores supply the local price (StoreService).
 
 const STARTER := "starter"

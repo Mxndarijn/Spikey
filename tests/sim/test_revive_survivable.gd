@@ -45,11 +45,11 @@ static func revived(index: int, seed_value: int, exit: String, side: int) -> Gam
 	match exit:
 		"open":
 			sim.state.score = base
-			sim._plan_exit(side, base)
+			ExitPlanner.plan(sim, sim._rng, side, base)
 			sim.state.exit_open = true
 		"ghost":
 			sim.state.score = base + every - 1
-			sim._plan_exit(side, base + every)
+			ExitPlanner.plan(sim, sim._rng, side, base + every)
 			sim.state.exit_preview = true
 	sim.kill(SimState.DeathCause.FLOOR)
 	sim.revive()

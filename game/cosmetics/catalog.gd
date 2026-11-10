@@ -1,18 +1,8 @@
 class_name Catalog
 extends RefCounted
-## Everything the player can pick or buy, by kind. Read-only content:
-## the Profile records what the player owns and uses.
-
-const FLYER := "flyer"
-const WORLD := "world"
-const TRAIL := "trail"
-const PORTAL := "portal"
-const MUSIC := "music"
-## What the flyer bursts into on a crash (CrashStyle).
-const CRASH := "crash"
-## The plate behind the player's leaderboard row (PlateStyle).
-const PLATE := "plate"
-const KINDS: Array[String] = [FLYER, WORLD, TRAIL, PORTAL, MUSIC, CRASH, PLATE]
+## Everything the player can pick or buy, by kind (ItemKind): what each id
+## looks like. Read-only content: the Profile records what the player owns
+## and uses, Shop what it costs.
 ## Music picks that are not tracks: always owned, free, listed first.
 const MUSIC_PICKS: Array[String] = [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE]
 const MUSIC_PICK_NAMES := {
@@ -26,6 +16,24 @@ static var _portals: Array[PortalStyle] = []
 static var _tracks: Array[MusicTrack] = []
 static var _crashes: Array[CrashStyle] = []
 static var _plates: Array[PlateStyle] = []
+
+
+## Swaps equipped looks that no longer exist (a portal style, crash effect or
+## name plate that was retired) for the default of their kind, so a save from
+## an older build always shows something. Returns true if it changed any.
+static func repair(profile: Profile) -> bool:
+	var changed := false
+	var lookups := {
+		ItemKind.PORTAL: portal,
+		ItemKind.CRASH: crash,
+		ItemKind.PLATE: plate,
+	}
+	for kind: String in lookups:
+		var find: Callable = lookups[kind]
+		if find.call(profile.equipped_id(kind)) == null:
+			profile.equipped[kind] = ItemKind.DEFAULTS[kind]
+			changed = true
+	return changed
 
 
 static func release() -> void:
@@ -106,26 +114,26 @@ static func plates() -> Array[PlateStyle]:
 static func ids(kind: String) -> Array[String]:
 	var out: Array[String] = []
 	match kind:
-		FLYER:
+		ItemKind.FLYER:
 			for f in flyers():
 				out.append(f.id)
-		WORLD:
+		ItemKind.WORLD:
 			for w in worlds():
 				out.append(w.id)
-		TRAIL:
+		ItemKind.TRAIL:
 			for t in trails():
 				out.append(t.id)
-		PORTAL:
+		ItemKind.PORTAL:
 			for p in portals():
 				out.append(p.id)
-		MUSIC:
+		ItemKind.MUSIC:
 			out.append_array(MUSIC_PICKS)
 			for t in tracks():
 				out.append(t.id)
-		CRASH:
+		ItemKind.CRASH:
 			for c in crashes():
 				out.append(c.id)
-		PLATE:
+		ItemKind.PLATE:
 			for p in plates():
 				out.append(p.id)
 	return out
@@ -136,6 +144,12 @@ static func flyer(id: String) -> CharacterDef:
 		if f.id == id:
 			return f
 	return null
+
+
+## The flyer's idle picture, or null for an id we don't know.
+static func flyer_art(id: String) -> Texture2D:
+	var f := flyer(id)
+	return f.idle if f != null else null
 
 
 static func world(id: String) -> ThemeDef:
@@ -180,25 +194,25 @@ static func plate(id: String) -> PlateStyle:
 
 static func display_name(kind: String, id: String) -> String:
 	match kind:
-		CRASH:
+		ItemKind.CRASH:
 			var c := crash(id)
 			return c.display_name if c != null else id
-		PLATE:
+		ItemKind.PLATE:
 			var pl := plate(id)
 			return pl.display_name if pl != null else id
-		FLYER:
+		ItemKind.FLYER:
 			var f := flyer(id)
 			return f.display_name if f != null else id
-		WORLD:
+		ItemKind.WORLD:
 			var w := world(id)
 			return w.display_name if w != null else id
-		TRAIL:
+		ItemKind.TRAIL:
 			var t := trail(id)
 			return t.display_name if t != null else id
-		PORTAL:
+		ItemKind.PORTAL:
 			var p := portal(id)
 			return p.display_name if p != null else id
-		MUSIC:
+		ItemKind.MUSIC:
 			if MUSIC_PICK_NAMES.has(id):
 				return MUSIC_PICK_NAMES[id]
 			var m := track(id)

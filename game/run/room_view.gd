@@ -57,39 +57,6 @@ const COIN_ICON := preload("res://assets/ui/coin.svg")
 const BLINK_OUTLINE_ALPHA := 0.6
 ## Falling things never enter the score area: they start below this line.
 const MOTE_TOP := 196.0
-## Falling things per world (design canvas "Worlds v4"): worlds not listed have
-## a calm sky with none.
-const MOTE_KIND := {
-	"ice": "snow",
-	"winterfest": "snow",
-	"lava": "embers",
-	"sugar": "sprinkles",
-	"autumn": "leaves",
-	"blossom": "petals",
-	"deepsea": "bubbles",
-	"aurora": "snow",
-}
-## Per world: how many, and the band they move in (top, bottom), px.
-const MOTE_COUNT := {
-	"ice": 12,
-	"winterfest": 28,
-	"lava": 14,
-	"sugar": 16,
-	"autumn": 12,
-	"blossom": 12,
-	"deepsea": 6,
-	"aurora": 14,
-}
-const MOTE_BAND := {
-	"ice": Vector2(200, 470),
-	"winterfest": Vector2(196, 520),
-	"lava": Vector2(200, 500),
-	"sugar": Vector2(196, 450),
-	"autumn": Vector2(196, 470),
-	"blossom": Vector2(260, 520),
-	"deepsea": Vector2(300, 540),
-	"aurora": Vector2(330, 540),
-}
 ## Per kind: drift speed in px/s (x, y) and sideways wobble in px.
 const MOTE_MOTION := {
 	"snow": [Vector2(-3, 18), 8.0],
@@ -274,7 +241,7 @@ func _current_sky() -> Array[Color]:
 func _shown_sky() -> Array[Color]:
 	var sky := _current_sky()
 	var room := _run.sim.room if _run != null and _run.sim != null else null
-	if room != null and room.def.skin == "midnight":
+	if room != null and RoomSkins.of(room.def.id) == "midnight":
 		# Midnight Cage: the sky darkens more than the scene.
 		var night := WorldScenes.midnight_dim(_theme).y
 		var dark: Array[Color] = []
@@ -303,7 +270,7 @@ func _draw() -> void:
 		return
 	var room := _run.sim.room if _run != null and _run.sim != null else null
 	_draw_motes()
-	if room != null and room.def.skin == "midnight":
+	if room != null and RoomSkins.of(room.def.id) == "midnight":
 		var dim := WorldScenes.midnight_dim(_theme).x
 		draw_rect(Rect2(0, 0, W, H), Color(WorldScenes.MIDNIGHT_TINT, dim))
 	_draw_score()
@@ -326,25 +293,21 @@ func _draw() -> void:
 		draw_rect(Rect2(0, 0, W, H), Color(_theme.world_accent, FLASH_ALPHA * _flash))
 
 
-## The particle kind for a world id ("" for worlds with none).
-static func mote_kind(world_id: String) -> String:
-	return MOTE_KIND.get(world_id, "")
-
-
-## The world's falling things (shape and motion from MOTE_KIND), in their band
-## below the score, wrapping round and fading at the band's ends.
+## The world's falling things (its WorldScene says which, how many and
+## where), below the score, wrapping round and fading at the band's ends.
 func _draw_motes() -> void:
-	var kind := mote_kind(_theme.id)
+	var look := WorldScenes.scene(_theme.id)
+	var kind := look.mote_kind
 	if kind.is_empty():
 		return
 	var pen := ScenePen.new(self)
 	var motion: Array = MOTE_MOTION[kind]
 	var vel: Vector2 = motion[0]
 	var wobble: float = motion[1]
-	var band: Vector2 = MOTE_BAND.get(_theme.id, Vector2(MOTE_TOP, H * 0.75))
+	var band := look.mote_band
 	var top := maxf(band.x, MOTE_TOP)
 	var span := band.y - top
-	for i in int(MOTE_COUNT.get(_theme.id, 12)):
+	for i in look.mote_count:
 		var size := i % 3
 		var speed: float = SNOW_SPEED[size] if kind == "snow" else 0.85 + 0.1 * size
 		var phase := _time * 0.8 + i * 1.7
@@ -411,18 +374,10 @@ func _draw_mote(
 			pen.ring(pos, r, col, 2.0)
 
 
-## The score to show: the run's score, or in practice the points scored since
-## the practice started (it starts at the room's from_score).
-static func practice_points(sim: GameSim) -> int:
-	if sim.is_practice():
-		return sim.state.score - RoomCatalog.all()[sim.practice_room].from_score
-	return sim.state.score
-
-
 func _draw_score() -> void:
 	if not show_score:
 		return
-	var score := 0 if _run == null or _run.sim == null else practice_points(_run.sim)
+	var score := 0 if _run == null or _run.sim == null else _run.sim.shown_score()
 	draw_string(
 		GameFonts.display(),
 		Vector2(0, 380),
@@ -684,8 +639,3 @@ func _draw_spike(base: Vector2, dir: Vector2, half: float, depth: float) -> void
 	)
 	if color_blind_spikes:
 		pen.stroke(pts, INK_SPIKE_LINE, INK_SPIKE_LINE_W)
-
-
-## Nothing is cached any more; kept so main can call it on exit.
-static func release() -> void:
-	pass

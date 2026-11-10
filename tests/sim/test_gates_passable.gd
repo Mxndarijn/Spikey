@@ -56,7 +56,7 @@ func test_exits_are_planned_near_the_gap() -> void:
 		var r := SimConfig.BIRD_RADIUS
 		sim.state.vx = SimConfig.SPEED_X if side == 0 else -SimConfig.SPEED_X
 		sim.state.x = r if side == 0 else SimConfig.WORLD_W - r
-		sim._plan_exit(side, sim.state.score + SimConfig.POINTS_PER_ROOM)
+		ExitPlanner.plan(sim, sim._rng, side, sim.state.score + SimConfig.POINTS_PER_ROOM)
 		# The gate next to that wall, when the bird passes it on its way back.
 		var last: Hazard = sim.room.hazards[side]
 		var steps := sim.steps_to_wall(side) - absi(last.x - sim.state.x) / SimConfig.SPEED_X
@@ -95,7 +95,7 @@ static func revived(seed_value: int, open: bool, side: int, exit_y: int) -> Game
 	sim.step(true)
 	sim.state.score = base if open else base + every - 1
 	sim._enter_room(index)
-	sim._plan_exit(side, base if open else base + every)
+	ExitPlanner.plan(sim, sim._rng, side, base if open else base + every)
 	sim.state.exit_a_y = exit_y
 	sim.state.exit_open = open
 	sim.state.exit_preview = not open

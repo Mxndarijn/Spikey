@@ -90,6 +90,40 @@ var scenic := false:
 		queue_redraw()
 
 
+## Shows item `id` of `kind` (ItemKind) and nothing else: a world becomes
+## the picture's sky, the other kinds sit on the sky already set. `owner`:
+## the player's flyer, drawn with the kinds that show one (a world, a crash
+## effect, a name plate); null for none. The look flags (bare, plain, scenic,
+## outlined) stay as the caller set them.
+func show_item(kind: String, id: String, owner: Texture2D = null) -> void:
+	flyer = null
+	trail = null
+	portal = null
+	crash = null
+	plate = null
+	music = ""
+	match kind:
+		ItemKind.FLYER:
+			flyer = Catalog.flyer_art(id)
+		ItemKind.WORLD:
+			var w := Catalog.world(id)
+			if w != null:
+				world = w
+			flyer = owner
+		ItemKind.TRAIL:
+			trail = Catalog.trail(id)
+		ItemKind.PORTAL:
+			portal = Catalog.portal(id)
+		ItemKind.MUSIC:
+			music = id
+		ItemKind.CRASH:
+			crash = Catalog.crash(id)
+			flyer = owner
+		ItemKind.PLATE:
+			plate = Catalog.plate(id)
+			flyer = owner
+
+
 func _init() -> void:
 	custom_minimum_size = Vector2(70, 70)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE

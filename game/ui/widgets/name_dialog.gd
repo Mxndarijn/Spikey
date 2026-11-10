@@ -13,7 +13,7 @@ const DICE_ICON := preload("res://assets/ui/icons/dice.svg")
 const TOP := 120
 const SIDE := 24
 const FIELD_H := 48.0
-## Says what LeaderboardService.name_problem() accepts.
+## Says what PlayerName.problem() accepts.
 const RULES := "%d to %d letters, numbers, dots or underscores."
 
 var _field := LineEdit.new()
@@ -72,7 +72,7 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	_style_field()
-	_field.max_length = LeaderboardService.NAME_MAX
+	_field.max_length = PlayerName.MAX
 	_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_field.custom_minimum_size = Vector2(0, FIELD_H)
 	_field.text = current_name if not current_name.is_empty() else suggestion()
@@ -153,7 +153,7 @@ func shuffle() -> void:
 
 
 func suggestion() -> String:
-	return LeaderboardService.suggest_name(_rng)
+	return PlayerName.suggest(_rng)
 
 
 func set_draft(text: String) -> void:
@@ -175,8 +175,8 @@ func hint_text() -> String:
 
 ## Shows the rules, or what is wrong in red, and only allows Save when valid.
 func _check() -> void:
-	var problem := LeaderboardService.name_problem(_field.text)
-	var rules := RULES % [LeaderboardService.NAME_MIN, LeaderboardService.NAME_MAX]
+	var problem := PlayerName.problem(_field.text)
+	var rules := RULES % [PlayerName.MIN, PlayerName.MAX]
 	_hint.text = rules if problem.is_empty() else problem
 	var color := UiTokens.ON_PANEL_MUTED if problem.is_empty() else UiTokens.DANGER
 	_hint.add_theme_color_override("font_color", color)

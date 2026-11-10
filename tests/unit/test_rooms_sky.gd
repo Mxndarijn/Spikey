@@ -159,7 +159,8 @@ func test_orchard_drops_coins_and_pinecones() -> void:
 	var sim := _started("orchard", 7)
 	var spawner: Hazard = sim.room.hazards[0]
 	var cone: Hazard = sim.room.hazards[1]
-	assert_eq(cone.skin, "pinecone")
+	assert_eq(cone.kind, "drop")
+	assert_eq(RoomSkins.of("orchard"), "pinecone", "its drops draw as pinecones")
 	for i in 120:
 		sim.room.step(sim)
 	assert_true(spawner.live_count() >= 3, "coins are falling")
@@ -298,34 +299,43 @@ func test_new_hazards_have_painters() -> void:
 ## frames with every skin.
 func test_mover_and_firework_draw() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
-	var run := RunController.new()
-	var layer := HazardLayer.new()
-	tree.root.add_child(run)
-	tree.root.add_child(layer)
-	run.new_run(3)
-	var list: Array[Hazard] = []
+	var sim := GameSim.new(3)
+	var canvas := SkinCanvas.new()
+	tree.root.add_child(canvas)
 	for skin in ["bat", "bee", ""]:
-		var m := Mover.new("figure8" if skin == "bat" else "wave", 3)
-		m.skin = skin
-		list.append(m)
+		canvas.add(Mover.new("figure8" if skin == "bat" else "wave", 3), skin)
 	for skin in ["icicle", "pinecone", ""]:
-		var d := Drop.new(0)
-		d.skin = skin
-		list.append(d)
-	list.append(Firework.new(0))
-	var ball := KeepyBall.new()
-	ball.skin = "beachball"
-	list.append(ball)
-	run.sim.room.hazards = list
+		canvas.add(Drop.new(0), skin)
+	canvas.add(Firework.new(0), "")
+	canvas.add(KeepyBall.new(), "beachball")
+	var list: Array[Hazard] = []
+	for pair in canvas.items:
+		list.append(pair[0])
+	sim.room.hazards = list
 	for h in list:
-		h.setup(run.sim, SimRng.new(4))
-	layer.bind(run, ThemeCatalog.default_theme())
+		h.setup(sim, SimRng.new(4))
 	for i in 140:
-		run.sim.room.step(run.sim)
+		sim.room.step(sim)
 		if i % 20 == 0:
+			canvas.queue_redraw()
 			await tree.process_frame
-	run.free()
-	layer.free()
+	canvas.free()
+
+
+## Paints hazards each with its own skin (a room has one skin for all of them).
+class SkinCanvas:
+	extends Node2D
+	## [hazard, skin] pairs.
+	var items: Array[Array] = []
+
+	func add(h: Hazard, skin: String) -> void:
+		items.append([h, skin])
+
+	func _draw() -> void:
+		for pair in items:
+			var h: Hazard = pair[0]
+			var look := HazardLook.new(ThemeCatalog.default_theme(), 1.0, str(pair[1]))
+			HazardLayer.painter(h.kind).paint(self, h, look)
 
 
 static func _started(id: String, seed_value: int) -> GameSim:

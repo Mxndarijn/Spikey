@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Cloud Kingdom: above the weather. Three banks of cloud instead of hills, a
 ## castle rising out of the middle one, a rainbow behind them, two balloons.
 
@@ -21,7 +21,7 @@ const LCG_MUL := 16807
 const LCG_MOD := 2147483647
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var far := SceneGround.new(506, 12, 1.0, 0.8, t.hill_far, 0)
 	var mid := SceneGround.new(552, 11, 1.3, 2.5, t.hill_mid, 1)
 	var near := SceneGround.new(600, 7, 1.1, 4.4, t.hill_near, 2)
@@ -94,3 +94,11 @@ static func _castle(pen: ScenePen, x: float, b: float, s: float, shade: Color) -
 	pen.rect(12.5, -36, 4, 6.5, WINDOW, 2)
 	pen.rect(-2, -21, 4, 6, WINDOW, 2)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_petals(p, cols)

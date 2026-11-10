@@ -41,10 +41,6 @@ const ADMOB_TEST := {
 	"iOS": "ca-app-pub-3940256099942544/1712485313",
 }
 
-## The service the game uses (Main sets it), for screens that only need to
-## ask about ad privacy. Null in tests that don't run Main.
-static var current: AdsService
-
 
 ## The rewarded ad unit for `platform` (OS.get_name()), or "" where there are
 ## no ads (desktop).

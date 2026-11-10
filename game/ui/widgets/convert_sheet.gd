@@ -1,6 +1,6 @@
 class_name ConvertSheet
 extends Control
-## Turns diamonds into gold (Economy.convert), one way: a flat paper card over
+## Turns diamonds into gold (Checkout.convert), one way: a flat paper card over
 ## the dimmed room with a minus / plus stepper, what the diamonds become, the
 ## Convert button and "Not now". It opens on the amount asked for (the fewest
 ## diamonds that cover a shortfall), never more than the player has.
@@ -15,7 +15,7 @@ const STEP_SIZE := 48.0
 const NOTE := "One way. Gold can't be turned back into diamonds."
 
 var _profile: Profile
-var _wallet: WalletService
+var _checkout: Checkout
 var _amount := 0
 var _busy := false
 var _count := Label.new()
@@ -26,12 +26,10 @@ var _convert := Button.new()
 
 
 ## `why`: a line under the title ("You need 160 more gold for Ember."), or "".
-## `wallet`: where the diamonds are spent (the local wallet when left out).
-func _init(
-	profile: Profile, suggested: int = 1, why: String = "", wallet: WalletService = null
-) -> void:
-	_profile = profile
-	_wallet = wallet if wallet != null else WalletService.new(profile)
+## `checkout`: where the diamonds are spent.
+func _init(checkout: Checkout, suggested: int = 1, why: String = "") -> void:
+	_checkout = checkout
+	_profile = checkout.profile
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = UiTokens.SCRIM
@@ -177,8 +175,7 @@ func confirm() -> void:
 		return
 	_busy = true
 	_convert.disabled = true
-	@warning_ignore("redundant_await")
-	var ok: bool = await _wallet.spend(spent, WalletService.CONVERT)
+	var ok: bool = await _checkout.convert(spent)
 	_busy = false
 	if not ok:
 		AudioDirector.ui("locked")
@@ -186,7 +183,6 @@ func confirm() -> void:
 		if _amount > 0:
 			_convert.text = "Try again"
 		return
-	_profile.coins += Economy.gold_for(spent)
 	AudioDirector.sound("purchase")
 	converted.emit(spent)
 	closed.emit()

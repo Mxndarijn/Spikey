@@ -39,7 +39,7 @@ func test_exit_opens_every_ten_points_on_the_wall_ahead() -> void:
 	assert_eq(sim.state.exit_side, 0, "on the wall the bird now heads to")
 	assert_true(GameSim.Event.EXIT_OPEN in sim.events)
 	assert_between(sim.state.exit_a_y, SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
-	assert_eq(sim.wall_mask(0) & sim.exit_slots(), 0, "no spike in the opening")
+	assert_eq(sim.wall_mask(0) & ExitPlanner.slots(sim.state), 0, "no spike in the opening")
 	var plain := _sim_at(4)
 	_hit_wall(plain, 1, 300 * SimConfig.SUB)
 	assert_false(plain.state.exit_open, "no exit at 5")
@@ -51,7 +51,7 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 		var sim := _sim_at(start[0], start[1])
 		_hit_wall(sim, 1, 300 * SimConfig.SUB)
 		assert_true(sim.state.exit_open)
-		var openings := sim.exit_slots()
+		var openings := ExitPlanner.slots(sim.state)
 		assert_ne(openings, 0, "the exit frees some slots")
 		assert_eq(sim.wall_mask(0), all & ~openings, "every other slot has a spike")
 		assert_ne(sim.wall_mask(1), all, "the wall without the exit is a normal wall")
@@ -262,7 +262,7 @@ func test_exits_sit_on_slot_centers_with_the_portal_in_the_middle() -> void:
 			var slot := (ey - SimConfig.slot_center_y(0)) / SimConfig.SLOT_SIZE
 			assert_eq(SimConfig.slot_center_y(slot), ey, "on a slot center")
 			var three := 0b111 << (slot - 1)
-			assert_eq(sim.exit_slots() & three, three, "that slot and one either side")
+			assert_eq(ExitPlanner.slots(sim.state) & three, three, "that slot and one either side")
 
 
 ## Coming out of a portal, the player hasn't seen the room yet: the gap ahead
@@ -347,7 +347,7 @@ func test_the_ghost_spot_is_spike_free_and_a_normal_bounce() -> void:
 		_hit_wall(sim, 1, 300 * SimConfig.SUB)
 		assert_true(sim.state.exit_preview)
 		sim.state.right_spikes = (1 << SimConfig.SLOT_COUNT) - 1
-		assert_eq(sim.wall_mask(1) & sim.exit_slots(), 0, "no spike in the ghost")
+		assert_eq(sim.wall_mask(1) & ExitPlanner.slots(sim.state), 0, "no spike in the ghost")
 		assert_ne(sim.wall_mask(1), 0, "the rest of the wall keeps its spikes")
 	# Turned back (Bumper Cloud) onto the ghost before point 10.
 	var back := _sim_at(8)

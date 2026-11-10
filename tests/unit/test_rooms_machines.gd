@@ -225,12 +225,11 @@ func test_crate_columns_stay_clear_of_the_walls() -> void:
 
 func test_gift_stack_puts_a_coin_on_each_new_stack() -> void:
 	var def := RoomDef.new("gift_test", "seasonal", 0)
-	def.skin = "gift"
-	def.hazards.append(func() -> Hazard: return CrateDrop.new())
+	def.hazards.append(func() -> Hazard: return CrateDrop.new(true))
 	var sim := GameSim.new(8)
 	sim.room.start(def, 0, sim, SimRng.new(8))
 	var cd: Hazard = sim.room.hazards[0]
-	assert_true(cd.gifts, "the gift skin turns on gifts")
+	assert_true(cd.gifts, "Gift Stack crates carry gifts")
 	var col: int = cd.col
 	while cd.heights[col] == 0:
 		sim.room.step(sim)
@@ -404,15 +403,14 @@ func test_hunter_misses_off_its_lane() -> void:
 
 func test_cupid_lanes_flash_then_cross_at_most_two() -> void:
 	var def := RoomDef.new("cupid_test", "seasonal", 0)
-	def.skin = "cupid"
-	def.hazards.append(func() -> Hazard: return Dart.new(false, 0))
-	def.hazards.append(func() -> Hazard: return Dart.new(false, 1))
+	def.hazards.append(func() -> Hazard: return Dart.new(true, 0))
+	def.hazards.append(func() -> Hazard: return Dart.new(true, 1))
 	var sim := GameSim.new(15)
 	sim.room.start(def, 0, sim, SimRng.new(15))
 	var darts: Array[Hazard] = []
 	darts.assign(sim.room.hazards)
 	for d in darts:
-		assert_true(d.lanes, "the cupid skin turns on lanes mode")
+		assert_true(d.lanes, "Cupid darts are in lanes mode")
 	var lanes_seen := {}
 	var killed_in_flash := false
 	for i in 3000:

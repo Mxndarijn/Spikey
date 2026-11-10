@@ -95,7 +95,6 @@ static func defs() -> Array[RoomDef]:
 	midnight.weight = 8
 	midnight.speed = RoomDef.Speed.FAST
 	midnight.extra_spikes = 2
-	midnight.skin = "midnight"
 	out.append(midnight)
 
 	return out

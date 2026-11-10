@@ -8,12 +8,11 @@ extends RefCounted
 ##   and values drawn from the room's SimRng in setup()/on_bounce().
 ## - Draw from the RNG in a fixed order. Changing it is a gameplay change.
 ## - Put every changing int in checksum().
-## - Public fields are what the painter in game/run/hazard_painters.gd draws.
+## - Public fields are what its painter (game/run/painters/<kind>_painter.gd)
+##   draws. Looks (a room's skin) live in game/, never here.
 
 ## Painter key, e.g. "block". One painter per kind.
 var kind := ""
-## Cosmetic variant set by the room ("pumpkin", "icicle"); painters use it.
-var skin := ""
 ## False once the hazard is gone (a coin taken, a ball on the floor).
 var alive := true
 ## Steps since the room started.
@@ -40,7 +39,16 @@ func touch(_sim: GameSim) -> void:
 	pass
 
 
+## A wall just got new spikes (`mask`, 0 = left, 1 = right): return the mask
+## it should have, so the hazard can keep a spot to bounce on clear of itself.
+## Called for every hazard, in order, before the room's own wall rules (tide,
+## blink) see the mask. No RNG draws here.
+func adjust_wall(_sim: GameSim, _side: int, mask: int) -> int:
+	return mask
+
+
 ## The bird bounced off a side wall (for hazards that reshuffle per bounce).
+## The new wall's spikes are already set; change them in adjust_wall().
 func on_bounce(_sim: GameSim, _rng: SimRng) -> void:
 	pass
 

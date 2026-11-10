@@ -1,6 +1,9 @@
-extends RefCounted
+extends WorldScene
 ## Neon City (Worlds v4): stars and a crescent moon over two layers of lit
 ## towers with neon signs, an elevated train, and a wet street with lamps.
+
+## Neon's spikes are hot pink, so a Match my world portal's rim glows cyan.
+const NEON_RING := Color("4FE3FF")
 
 const MOON := Color("#E9E1FF")
 const FAR_TOWER := Color("#2E1466")
@@ -17,7 +20,7 @@ const CAR := Color("#3A1A70")
 const STREET := Color("#170838")
 
 
-static func paint(pen: ScenePen, _t: ThemeDef) -> void:
+func paint(pen: ScenePen, _t: ThemeDef) -> void:
 	_stars(pen, 4, 22, 220, Vector3(180, 136, 110))
 	pen.circle(Vector2(300, 230), 22, MOON)
 	pen.circle(Vector2(309, 224), 19, pen.sky_at(224))
@@ -128,3 +131,11 @@ static func _stars(pen: ScenePen, seed_value: int, n: int, y1: float, avoid: Vec
 		if p.y + r > 62 and (p.x - r < 30 or p.x + r > 330):
 			continue
 		pen.circle(p, r, Color(1, 1, 1, a))
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [NEON_RING]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_glow_ring(p, cols)

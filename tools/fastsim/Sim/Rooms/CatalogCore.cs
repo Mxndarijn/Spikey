@@ -86,7 +86,6 @@ public static class CatalogCore
         midnight.weight = 8;
         midnight.speed = RoomDef.Speed.FAST;
         midnight.extra_spikes = 2;
-        midnight.skin = "midnight";
         out_.Add(midnight);
 
         return out_;

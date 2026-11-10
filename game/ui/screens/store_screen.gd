@@ -12,8 +12,6 @@ extends Control
 ## their buttons are off and the line under them says why.
 
 signal closed
-## The wallet changed here (a conversion): main saves.
-signal changed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
@@ -24,24 +22,27 @@ const LOOKS_ONLY := "Looks only. Nothing here changes how you play."
 
 ## Where diamonds are spent; main sets it before the screen is shown (the
 ## local wallet when left alone).
-var wallet_service: WalletService
 
 var _profile: Profile
 var _store: StoreService
-var _wallet := Wallet.new(false)
+var _wallet: Wallet
+var _checkout: Checkout
 var _starter: Control
-var _message := Label.new()
+var _message: Label
 var _sheet: ConvertSheet
 ## pack id -> its price button.
 var _buttons := {}
 
 
-func _init(profile: Profile, store: StoreService) -> void:
-	_profile = profile
+func _init(checkout: Checkout, store: StoreService) -> void:
+	_checkout = checkout
+	_profile = checkout.profile
 	_store = store
 
 
 func _ready() -> void:
+	_wallet = Wallet.new(false)
+	_message = Label.new()
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -80,15 +81,6 @@ func _ready() -> void:
 	_store.purchased.connect(_on_purchased)
 	_store.failed.connect(_on_failed)
 	refresh()
-
-
-## Free the widgets made in the member list if the screen never got ready.
-func _notification(what: int) -> void:
-	if what != NOTIFICATION_PREDELETE:
-		return
-	for n: Node in [_wallet, _message]:
-		if is_instance_valid(n) and n.get_parent() == null:
-			n.free()
 
 
 func _exit_tree() -> void:
@@ -239,7 +231,7 @@ func _on_failed(_id: String, reason: String) -> void:
 ## The convert sheet over the Shop, on one diamond.
 func open_convert() -> ConvertSheet:
 	if _sheet == null:
-		_sheet = ConvertSheet.new(_profile, 1, "", wallet_service)
+		_sheet = ConvertSheet.new(_checkout, 1, "")
 		_sheet.converted.connect(_on_converted)
 		_sheet.closed.connect(_close_sheet)
 		add_child(_sheet)
@@ -248,7 +240,6 @@ func open_convert() -> ConvertSheet:
 
 func _on_converted(_diamonds: int) -> void:
 	refresh()
-	changed.emit()
 
 
 func _close_sheet() -> void:

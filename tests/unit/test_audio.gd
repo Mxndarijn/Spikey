@@ -7,7 +7,7 @@ const TEST_PATH := "user://test_audio_profile.json"
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -16,7 +16,7 @@ func _make_main() -> Node:
 
 func _done(main: Node) -> void:
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_every_sound_and_stem_loads() -> void:
@@ -98,6 +98,9 @@ func test_buttons_click() -> void:
 	back.name = "BackButton"
 	main.add_child(back)
 	back.pressed.emit()
+	assert_eq(audio.played[audio.played.size() - 1], "ui_tap", "a name alone changes nothing")
+	UiKit.mark_back(back)
+	back.pressed.emit()
 	assert_eq(audio.played[audio.played.size() - 1], "ui_back")
 	_done(main)
 
@@ -122,11 +125,11 @@ func test_volume_settings_set_the_buses() -> void:
 
 func test_profile_keeps_sound_settings() -> void:
 	var p := Profile.new()
-	p.music_volume = 35
-	p.sfx_on = false
+	p.settings.music_volume = 35
+	p.settings.sfx_on = false
 	var back := Profile.from_dict(p.to_dict())
-	assert_eq(back.music_volume, 35)
-	assert_false(back.sfx_on)
+	assert_eq(back.settings.music_volume, 35)
+	assert_false(back.settings.sfx_on)
 	var old := Profile.from_dict({"coins": 3})
-	assert_eq(old.music_volume, 80, "old saves get the default")
-	assert_true(old.music_on and old.sfx_on, "old saves have sound on")
+	assert_eq(old.settings.music_volume, 80, "old saves get the default")
+	assert_true(old.settings.music_on and old.settings.sfx_on, "old saves have sound on")

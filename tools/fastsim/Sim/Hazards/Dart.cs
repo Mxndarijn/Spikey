@@ -43,7 +43,6 @@ public class Dart : Hazard
 
     public override void setup(GameSim sim, SimRng rng)
     {
-        if (skin == "cupid") lanes = true;
         salt = rng.next_u32();
         state = State.IDLE;
         since = 0;

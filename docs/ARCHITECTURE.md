@@ -1,4 +1,4 @@
-# Flapjaw — Architecture
+# Flapjaw â€” Architecture
 
 Godot 4 (GDScript), portrait mobile game for iOS and Android, with verified
 leaderboards that re-simulate every submitted run on a server.
@@ -16,16 +16,18 @@ Class diagrams for rooms, obstacles, themes, cosmetics, meta and server:
 ```mermaid
 flowchart TD
     subgraph Client["Godot app"]
-        UI["game/ui — HUD, menus, pause, shop"]
-        VIEW["game/run — RoomView, BirdView, VFX, audio, haptics"]
-        CTRL["game/run/run_controller — fixed 60 Hz driver, input, recording"]
-        META["meta/ — save, coins, unlocks, cosmetics, achievements (Phase 2-3)"]
-        SVC["services/ — seed + leaderboard API, ads, platform (Phase 3)"]
+        APP["game/main + game/app â€” screens and run modes, services, look, revive"]
+        UI["game/ui â€” HUD, pause, game over, menus, shop"]
+        VIEW["game/run â€” RoomView, BirdView, hazard painters, world scenes"]
+        CTRL["game/run/run_controller â€” fixed 60 Hz driver, input, recording"]
+        META["meta/ â€” save, settings, money rules, item kinds"]
+        SVC["services/ â€” Supabase client, leaderboards, wallet, store, ads, push"]
     end
-    SIM["sim/ — deterministic core (integers only, no Nodes, no time)"]
-    SERVER["server/verify_run.gd — headless Godot replay"]
+    SIM["sim/ â€” deterministic core (integers only, no Nodes, no time)"]
+    SERVER["server/verify_run.gd â€” headless Godot replay"]
 
-    UI --> CTRL
+    APP --> UI
+    APP --> CTRL
     CTRL -- "step(tap)" --> SIM
     SIM -- "state + events" --> VIEW
     CTRL -- "Replay (seed, taps, score)" --> SVC
@@ -36,20 +38,19 @@ flowchart TD
 
 | Folder | Owns | May depend on | Must never |
 |---|---|---|---|
-| `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data |
-| `game/` | Scenes, drawing, input, audio, haptics, UI | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
-| `meta/` | `Profile` (save file: coins, owned, equipped, first start), `Shop` (prices, buying), `Catalog` (flyers, worlds, trails, exit portal looks, music, crash effects, name plates). Later: achievements, ranks | `sim/` (read events) | Change gameplay |
-| `meta/` (economy) | `Economy` (gold and diamonds: 1 diamond = 100 gold, one way; daily top-10 prizes), `DiamondPacks` (what real money buys), `Shop.diamond_price` (premium worlds and listed premium items sell for diamonds). Proposal: https://claude.ai/artifact/2bA62CLfPznF1fgs3BqCqG | â€” | Sell anything that changes a run |
-| `services/` (store) | `StoreService` (closed store in release builds until app-store billing exists), `SampleStore` (debug builds and tests: pays at once). `WalletService` (diamonds in the save) and `SupabaseWallet` (diamonds on the server: balance, daily top-10 payout and claim, every spend; supabase/migrations/20261110100000_diamonds.sql). Still to come: store receipts checked on the server, owned items on the server, lost-spot alerts | â€” | Grant diamonds without the store's confirmation |
-| `services/` | `LeaderboardService` (screens only talk to this; `SampleLeaderboard` serves made-up boards until the server exists). Later: HTTP to seed/leaderboard server, ads, Game Center / Play Games mirror | â€” | Hold game rules |
+| `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data or skins |
+| `meta/` | The save and the rules about money: `Profile` (gold, diamonds, owned and equipped ids, rooms met and cleared, the leaderboard name) with its parts `PlayerSettings` (the Settings sheet) and `DailyRevives`; `ItemKind` (the kinds and the free starters); `PlayerName` + `NameFilter` (leaderboard name rules); `SafeFile` (crash-proof JSON saves with a backup); `Economy` (1 diamond = 100 gold, one way; daily top-10 prizes), `DiamondPacks`, `SeasonCalendar` | `sim/` | Change gameplay; know how anything looks |
+| `services/` | `LeaderboardService`, `WalletService`, `StoreService`, `AdsService`, `PushService`: each base class is the offline stand-in, with `Sample*`/`Fake*` and the real ones beside it. `SupabaseClient` is the one Supabase connection (session + database calls) that `SupabaseLeaderboard`, `SupabaseWallet` and push share | `sim/`, `meta/` | Hold game rules; grant diamonds without the store's confirmation |
+| `game/` | Scenes, drawing, input, audio, haptics, UI. `game/cosmetics/`: `Catalog` (every look by kind), `Shop` (prices), `Checkout` (buying and converting through the wallet), the style + painter pairs. `game/app/`: `AppServices`, `RunLook`, `ReviveFlow`, `BoardAlerts` | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | â€” | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | â€” | â€” |
-| `server/` | Headless verifier; later the cloud wrapper around it | `sim/` | Fork the sim (it runs the same files) |
-| `tests/` | Unit tests, golden replays, bot simulations | everything | — |
-| `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | — |
+| `server/` | Headless verifier; later the cloud wrapper around it | `sim/`, `meta/` | Fork the sim (it runs the same files) |
+| `tests/` | Unit tests, golden replays, bot simulations | everything | â€” |
+| `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | â€” |
 
-`tests/unit/test_sim_purity.gd` enforces the `sim/` rules by scanning the source,
-so breaking them fails the check script.
+`tests/unit/test_sim_purity.gd` enforces the `sim/` rules and
+`tests/unit/test_layers.gd` the "may depend on" column (sim -> meta -> services
+-> game) by scanning the source, so breaking them fails the check script.
 
 ## Deterministic core (`sim/`)
 
@@ -61,7 +62,7 @@ so breaking them fails the check script.
 - **Own RNG**: `SimRng` is xoshiro128** on 32-bit masked ints, seeded from the run
   seed. The draw order is part of the gameplay rules. A cross-language reference
   test pins its output.
-- **World**: 360 × 640 logical pixels. Ceiling and floor are always deadly. Side
+- **World**: 360 Ã— 640 logical pixels. Ceiling and floor are always deadly. Side
   walls have 13 spike slots stored as bitmasks (`left_spikes`, `right_spikes`).
 - **Loop**: bird flies sideways at constant speed, a tap sets an upward velocity,
   gravity pulls down. Hitting a side wall scores a point, clears that wall and
@@ -95,7 +96,7 @@ everything and replays match). Rooms also keep the way out of a portal fair: Flo
 keeps the lane in front of it clear (200 px), Pinwheel
 and Saw Ring move off the bird's height, Ghost Doors time their fade for it,
 Bee Line, Bat Loop, Lantern Swing and Ghost Doors time themselves to the path
-of a player holding height (`GameSim.arrival_path`), Shutter Gates has its gap
+of a player holding height (`FairLanes.arrival_path`), Shutter Gates has its gap
 at the bird's height when it gets there, and a wall the bird reaches while
 still reading (fast or narrow rooms) keeps that player's hops free of spikes.
 The bird comes out at least `SimConfig.ARRIVAL_EDGE` from the ceiling and
@@ -127,8 +128,8 @@ PlannerBot playtests in `tools/playtest.gd`) over many seeds on every CPU core;
 Fairness rules that came out of it (gameplay version 6): in rooms with hazards
 the wall's free run lands within `RoomRules.GAP_REACH` of the bird; hazards
 placed at room start keep off the bird's first, forced hop
-(`GameSim.start_path`) and, where they can, out of a hover lane in front of it
-(`GameSim.blocks_start_lane`); paired columns (stalactites, gates) keep their
+(`FairLanes.start_path`) and, where they can, out of a hover lane in front of it
+(`FairLanes.blocks_start_lane`); paired columns (stalactites, gates) keep their
 gaps close and clear the wall ahead near them; the open first room is only the
 start and never comes back.
 
@@ -141,19 +142,31 @@ start and never comes back.
 - `sim/rooms/room_runtime.gd` (RoomRuntime): the live room: steps, points,
   wall position and spike masks over time, steps per tick (fast/slow rooms).
 - `sim/rooms/hazard.gd` (Hazard) and `sim/hazards/*.gd`: one class per
-  obstacle (setup/step/kills/touch/on_bounce/on_flap/guards_edge/checksum).
-  Integer, tick-driven, so replays verify.
+  obstacle (setup/step/kills/touch/adjust_wall/on_bounce/on_flap/blocks_exit/
+  guards_edge/checksum). Integer, tick-driven, so replays verify. A hazard
+  that keeps a spot on a new wall clear of itself returns the mask from
+  `adjust_wall`; it never writes the wall spikes itself.
+- `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
+  of a portal will fly; hazards placed at room start keep off it.
+- `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
 - `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
-  painter per hazard kind; deadly parts in the world's spike color only.
+  `HazardPainter` per hazard kind, which casts the hazard to its own class and
+  gets a `HazardLook` (world, clock, the room's skin, color-blind mode).
+  Deadly parts in the world's spike color only.
+- Skins (a seasonal room drawing a year-round hazard differently) are looks
+  only: `game/rooms/room_skins.gd` maps room id to skin. The sim never sees
+  them.
 - Seasons (`sim/rooms/seasons.gd`) are a run input: `meta/season_calendar.gd`
   maps today's date to a season, `GameSim`/`Replay` store it.
 
-Adding a room: write the hazard (or reuse one), its painter, a RoomDef in a
-batch file, and tests; bump `GAMEPLAY_VERSION` and regenerate goldens.
+Adding a room: write the hazard (or reuse one) and port it to
+`tools/fastsim`, its painter, a RoomDef in a batch file, its name in
+`RoomInfo` (and a skin in `RoomSkins` if it reuses a hazard's look), and
+tests; bump `GAMEPLAY_VERSION` and regenerate goldens.
 
 ### Gameplay versions
 
-`SimConfig.GAMEPLAY_VERSION` (currently `3`: the room system) goes up whenever movement,
+`SimConfig.GAMEPLAY_VERSION` (its log of changes is in `sim/sim_config.gd`) goes up whenever movement,
 collision, generation or RNG draw order changes. Golden replays then fail on
 purpose. Regenerate them with `tools/make_golden.gd` only after bumping the
 version.
@@ -178,6 +191,17 @@ _process           views draw, interpolating between previous and current tick
 
 - `RunController` (Node) owns the `GameSim` and the `Replay` being recorded. It is
   the only place that touches the sim.
+- `game/main.gd` wires the app together and moves between screens and run
+  modes (menu, run, practice, replay). The parts it wires: `AppServices` (the
+  services, made once and handed to the screens that need them: no service
+  globals), `RunLook` (the flyer, world, trail, crash, portal and music in the
+  live room; borrowed during a replay), `ReviveFlow` (the revive offer, free
+  or for an ad), `BoardAlerts` (the daily prize spot and push alerts), and
+  the HUD with its `PauseScreen` and `GameOverScreen`.
+- Each world's look beyond its colours is one file,
+  `game/run/scenes/worlds/<id>.gd` (a `WorldScene`): its landscape, what falls
+  through its sky and its touch on a Match my world portal. A world without one
+  gets `generic.gd`.
 - `RoomView` / `BirdView` read `sim.state` and draw. Rooms are drawn
   procedurally in the "Soft light" style (gradient sky with blurred patches of
   its own sky stops, one glow bloom, drifting particles, rounded two-tone
@@ -187,7 +211,7 @@ _process           views draw, interpolating between previous and current tick
   the cradle dock on Home and Game over, Archivo as the only font. Real sprites
   replace the drawing later without touching the sim.
 - Pause just stops calling `step()`. The app auto-pauses when it loses focus.
-- Display: 360 × 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` puts the fixed 360 × 640 room at the top of the safe area, centred sideways, and RoomView fills around it), portrait, Compatibility
+- Display: 360 Ã— 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` puts the fixed 360 Ã— 640 room at the top of the safe area, centred sideways, and RoomView fills around it), portrait, Compatibility
   renderer (best for 2D on older phones).
 
 ## Verified leaderboards
@@ -220,24 +244,24 @@ Attest / Play Integrity to confirm a real device.
 
 | Pick | Where it lives |
 |---|---|
-| Sunset Glow art, Smooth classic spikes | `game/style/`, later `data/themes/*.tres` |
-| 6 launch characters, hats and accessories | `data/characters/`, `data/cosmetics/`, drawn by `BirdView`; never in `sim/` |
-| Bird trails (buyable cosmetic) | `TrailStyle` resource + `TrailView`; shop trails as `data/trails/*.tres` ([BACKLOG](BACKLOG.md)) |
-| Exit portal looks (buyable cosmetic) | `PortalStyle` (id, `kind`, `draw_portal`, `draw_thumb`) + `PortalPainter` (one draw function per kind); never changes the exit size |
+| Sunset Glow art, Smooth classic spikes | `game/style/`, `data/themes/*.tres` (generated from `data/design/`) |
+| Flyers (hats and accessories later) | `data/flyers/` (`CharacterDef`), drawn by `BirdView`; never in `sim/` |
+| Bird trails (buyable cosmetic) | `TrailStyle` + `TrailView` + `TrailPainter` |
+| Exit portal looks (buyable cosmetic) | `PortalStyle` (one entry in `STYLES`) + `PortalPainter` (one draw function per kind; a world's rim touch comes from its `WorldScene`); never changes the exit size |
 | Flap trails (buyable cosmetic) | Ten `TrailStyle`s with `stamp_on_flap`: one stamp where each flap happened (`TrailStyle.flap_trails()`, shapes in `TrailPainter`) |
 | Crash effects (buyable cosmetic) | `CrashStyle` (one row in `STYLES`) + `CrashPainter` (one draw function per kind) + `CrashView`; starts after the sim has ended the run and only knows where the flyer was drawn |
 | Name plates (buyable cosmetic) | `PlateStyle` + `PlatePainter`, drawn behind a `LeaderboardRow`. The plate goes along in a run's loadout; `get_board` returns it per row (migration `20261110095000_board_plates.sql`) |
-| Customize | `LookScreen` ("Your look": one `LookCard` per kind with what is in use) opens a kind's list, `CollectionScreen` (titled by the kind, no tabs); its Back returns to the overview |
+| Customize | `LookScreen` ("Your look": one `LookCard` per kind with what is in use) opens a kind's list, `CollectionScreen` (titled by the kind, no tabs): a `LookPreview` on the room, the `ItemCard` grid, and an `ItemPopup` whose action comes from `ItemOffer` (words from `ItemText`, music previews from `MusicPreview`, buying through `Checkout`); its Back returns to the overview |
 | Designed UI (game over, menus, buttons) | SVGs in `assets/ui/` + one shared UI `Theme` resource ([BACKLOG](BACKLOG.md)) |
-| 6 launch themes | `data/themes/` (palette, background props, spike skin) |
+| Worlds | `data/design/` (tokens) -> `data/themes/` (generated `ThemeDef`), `game/run/scenes/worlds/<id>.gd` (`WorldScene`) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |
 | Daily board | Best normal run of the day, resets at local midnight (replaced Hourly; the same-seed daily challenge was dropped) |
 | Boss rooms | New room kinds in `sim/room_rules.gd` (gameplay change, bumps version) |
-| Seasonal events | `data/events/` resources that swap themes and shop items by date (server-provided date, cosmetic only) |
-| Haptics and sound packs | `game/feedback/` listening to sim events; packs as resources |
-| Accessibility | Settings in `meta/settings`; color-blind spike palettes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
-| Fair monetization | `services/ads` (rewarded revive only), `meta/shop` (cosmetics only) |
-| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd`, `game/ui/screens/leaderboard_screen.gd` |
+| Seasonal rooms | `sim/rooms/catalog_seasonal.gd`, `meta/season_calendar.gd` (season is a run input) |
+| Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |
+| Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
+| Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only) |
+| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/supabase_*.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
 input) and replayed by the server. The design draft is in [REVIVE.md](REVIVE.md).
@@ -249,8 +273,8 @@ hidden debug page: [DEBUG.md](DEBUG.md).
 
 `tools/check.ps1` must pass before any change counts as done:
 
-1. **Lint and format**: `gdlint` and `gdformat --check` (gdtoolkit), skipped with a
-   warning if gdtoolkit isn't installed.
+1. **Lint and format**: `gdlint` and `gdformat --check` (gdtoolkit). Without
+   gdtoolkit the check fails.
 2. **Import**: `godot --headless --import` builds the class cache.
 3. **Load all**: every script and scene under `res://` loads without errors.
 4. **Tests** (`tests/run_tests.gd`, a small in-repo runner with no addon):
@@ -264,6 +288,13 @@ hidden debug page: [DEBUG.md](DEBUG.md).
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
    doing its share of the rooms or seeds; a `combine_` function then checks
    totals over all parts. Pieces start longest first, from the last run's times.
+5. **FastSim parity**: `tools/fastsim` (the C# copy of `sim/` for fast bots)
+   replays recorded runs in every room and season and must match tick for
+   tick. Without the .NET SDK the check fails. CI runs it too
+   (`.github/workflows/check.yml`).
+
+The database has its own tests (`tools/db_test.ps1`, needs Docker; CI runs
+them in `.github/workflows/supabase-db.yml`).
 
 Planned later: a search-based solvability check per generated room and
 screenshot comparisons of key screens. Both need rendering, so they run outside
@@ -271,7 +302,7 @@ plain headless mode.
 
 ## Milestones
 
-- **Phase 1, core loop** (in progress): deterministic sim, 3 room kinds, room
+- **Phase 1, core loop** (done): deterministic sim, 3 room kinds, room
   change every 10 points, Sunset Glow placeholder art, pause, restart.
 - **Phase 2, content**: 6 themes, moving obstacles, coins, feathers and stars,
   6 characters with hats, save file, sound and haptics, accessibility settings.

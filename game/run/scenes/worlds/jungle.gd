@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Jungle Canopy (Worlds v4): a leafy canopy with hanging vines, soft light
 ## spots, a parrot, round trees and bushes on three hills, big front leaves
 ## and pink flowers.
@@ -11,7 +11,7 @@ const PARROT_TAIL := Color("#3FA9F5")
 const FLOWER := Color("#FF6FA8")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(536, 8, 2.4, 1.0, t.hill_far, 0)
 	var mid := SceneGround.new(570, 9, 1.6, 2.6, t.hill_mid, 1)
@@ -75,3 +75,11 @@ static func _parrot(pen: ScenePen, x: float, y: float) -> void:
 	pen.fill(PackedVector2Array([Vector2(7, -10), Vector2(11, -7), Vector2(7, -6)]), BEAK)
 	pen.fill(ScenePath.at(-5, 2).q(-9, 14, -3, 22).l(0, 10).done(), PARROT_TAIL)
 	pen.pop()
+
+
+func portal_touch_colors(t: ThemeDef) -> Array[Color]:
+	return [t.world_accent, t.trail]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_leaves(p, cols)

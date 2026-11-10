@@ -13,7 +13,6 @@ public sealed class RoomDef
     public List<long> arrival_skip = new();
     public long weight = 10;
     public long season = Seasons.NONE;
-    public string skin = "";
 
     public bool spikes = true;
     public long extra_spikes = 0;

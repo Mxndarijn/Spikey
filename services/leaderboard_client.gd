@@ -20,10 +20,6 @@ const FRIENDS := "friends"
 ## Game Center / Play Games sign-in; SampleLeaderboard can still build them.
 const BOARDS: Array[String] = [DAILY, ALL_TIME]
 const TITLES := {DAILY: "Daily", TIER: "Tier", ALL_TIME: "All-time", FRIENDS: "Friends"}
-const NAME_MIN := 3
-const NAME_MAX := 14
-const NAME_FIRST: Array[String] = ["Swift", "Zippy", "Lucky", "Brave", "Bouncy", "Sunny"]
-const NAME_LAST: Array[String] = ["Buzz", "Flap", "Wing", "Hop", "Dash"]
 
 ## board id -> the player's rank from the last load (0: none yet).
 var _ranks := {}
@@ -66,7 +62,7 @@ func _deliver_run(run_id: int, run: Dictionary) -> void:
 ## ({"flyer": "dash", "world": "ice", ...}). Cosmetic only, never gameplay.
 static func loadout_of(profile: Profile) -> Dictionary:
 	var out := {}
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		var id := profile.equipped_id(kind)
 		if not id.is_empty():
 			out[kind] = id
@@ -98,40 +94,3 @@ func _flush() -> void:
 	_pending.clear()
 	for b: LeaderboardBoard in boards:
 		board_loaded.emit(b)
-
-
-## What is wrong with a leaderboard name, or "" when it is fine.
-static func name_problem(text: String) -> String:
-	if text.length() < NAME_MIN:
-		return "Use at least %d characters." % NAME_MIN
-	if text.length() > NAME_MAX:
-		return "Use at most %d characters." % NAME_MAX
-	for c in text:
-		var ok := (
-			(c >= "a" and c <= "z")
-			or (c >= "A" and c <= "Z")
-			or (c >= "0" and c <= "9")
-			or c == "."
-			or c == "_"
-		)
-		if not ok:
-			return "Only letters, numbers, dots and underscores."
-	if not NameFilter.is_allowed(text):
-		return "That name isn't allowed. Pick another one."
-	return ""
-
-
-static func is_valid_name(text: String) -> bool:
-	return name_problem(text).is_empty()
-
-
-## A random friendly name ("ZippyFlap42"), always valid.
-static func suggest_name(rng: RandomNumberGenerator) -> String:
-	return (
-		"%s%s%d"
-		% [
-			NAME_FIRST[rng.randi_range(0, NAME_FIRST.size() - 1)],
-			NAME_LAST[rng.randi_range(0, NAME_LAST.size() - 1)],
-			rng.randi_range(10, 99),
-		]
-	)

@@ -8,7 +8,7 @@ const FRAMES := 3
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -27,23 +27,23 @@ func test_every_world_and_trail_draws_in_a_run() -> void:
 	main.start_run()
 	main._run.request_tap()
 	await _frames()
-	for id in Catalog.ids(Catalog.WORLD):
+	for id in Catalog.ids(ItemKind.WORLD):
 		main.set_world(id)
 		await _frames()
 	for t in Catalog.trails():
-		main._trail.set_style(t, main._theme)
+		main._trail.set_style(t, main._look.theme)
 		main._trail.start()
 		main._trail.on_flap()
 		await _frames(6)
 	assert_true(main._run.sim != null, "the run kept going while drawing")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_shop_previews_draw_for_every_kind() -> void:
 	var main := _make_main()
 	_use_flyer(main, "buzz", "ice")
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		main.show_shop(kind)
 		var shop := main._menus.current() as CollectionScreen
 		for id in Catalog.ids(kind):
@@ -51,7 +51,7 @@ func test_shop_previews_draw_for_every_kind() -> void:
 			await _frames(1)
 	assert_true(main._menus.current() is CollectionScreen, "shop stayed open")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## Particles at many moments (embers flicker out, stars flare, bubbles grow)
@@ -62,13 +62,13 @@ func test_particles_and_trails_draw_through_their_life() -> void:
 	main.start_run()
 	main._run.request_tap()
 	await _frames()
-	for id in Catalog.ids(Catalog.WORLD):
+	for id in Catalog.ids(ItemKind.WORLD):
 		main.set_world(id)
 		for k in 4:
 			main._room._time = 3.7 * k
 			await _frames(1)
 	for t in Catalog.trails():
-		main._trail.set_style(t, main._theme)
+		main._trail.set_style(t, main._look.theme)
 		var pts := PackedVector2Array()
 		var ages := PackedFloat32Array()
 		for i in 12:
@@ -80,7 +80,7 @@ func test_particles_and_trails_draw_through_their_life() -> void:
 		await _frames(1)
 	assert_true(main._run.sim != null, "the run kept going while drawing")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_rooms_screens_and_practice_draw() -> void:
@@ -104,7 +104,7 @@ func test_rooms_screens_and_practice_draw() -> void:
 		await _frames(1)
 	assert_true(main._hud.practice_hud().is_over_showing(), "practice crash screen drew")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## Every world's scene in every time of day (room palettes fade in), with the
@@ -139,9 +139,9 @@ func test_every_world_scene_draws_in_every_time_of_day() -> void:
 ## Puts a flyer (and optionally a world) in use, as Customize would; a first
 ## start already gave the default world.
 static func _use_flyer(main: Node, id: String, world: String = "") -> void:
-	main._profile.grant(Catalog.FLYER, id)
-	main._profile.equip(Catalog.FLYER, id)
+	main._profile.grant(ItemKind.FLYER, id)
+	main._profile.equip(ItemKind.FLYER, id)
 	if not world.is_empty():
-		main._profile.grant(Catalog.WORLD, world)
-		main._profile.equip(Catalog.WORLD, world)
-	main._load_equipped()
+		main._profile.grant(ItemKind.WORLD, world)
+		main._profile.equip(ItemKind.WORLD, world)
+	main._look.use_equipped()

@@ -1,7 +1,10 @@
-extends RefCounted
+extends WorldScene
 ## Haunted Moon (Worlds v4): a crescent moon, stars and bats, a haunted house
 ## on the far hill crest, bare trees, a ghost, graves in the fog and a lit
 ## pumpkin up front.
+
+## Mist on a Match my world portal's rim.
+const WISP := Color(0.913725, 0.882353, 1.0, 0.8)
 
 const GRAVE := Color("#4A3A7A")
 const WINDOW := Color("#FFD27A")
@@ -14,7 +17,7 @@ const MOON := Vector2(76, 232)
 const CUT := Vector2(96, 220)
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(512, 28, 0.9, 2.6, t.hill_far, 0)
 	var mid := SceneGround.new(566, 12, 1.4, 0.4, t.hill_mid, 1)
@@ -100,3 +103,11 @@ static func _ghost(pen: ScenePen, x: float, y: float, eye: Color) -> void:
 	pen.fill(p.done(), GHOST)
 	pen.circle(Vector2(x - 4, y), 2, eye)
 	pen.circle(Vector2(x + 4, y), 2, eye)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [WISP]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_wisps(p, cols)

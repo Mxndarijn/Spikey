@@ -1,15 +1,18 @@
 class_name Profile
 extends RefCounted
-## The player's save: coins, best score, what they own and use, and whether
-## the first start (free flyer and world handed out) is done. Stored as JSON
-## in user://.
+## The player's save: gold and diamonds, best score, what they own and use,
+## rooms met and cleared, the leaderboard name, and whether the first start
+## (free flyer and world handed out) is done. Settings and free revives are
+## parts of it (PlayerSettings, DailyRevives) saved in the same file. Stored as
+## JSON in user:// through SafeFile, so a crash mid-save never loses it.
 
 const PATH := "user://profile.json"
-## 2: met rooms and per-room clear counts (version 1 saves load with none).
-## 3: diamonds and bought packs (older saves load with none).
+## Save format. Each version only added keys (older saves load with the new
+## ones at their defaults); _migrate() is where a change to an existing key
+## would go.
+## 2: met rooms and per-room clear counts.
+## 3: diamonds and bought packs.
 const VERSION := 3
-## Revives without an ad, per local day.
-const FREE_REVIVES_PER_DAY := 3
 
 ## Gold: collected in runs (Economy).
 var coins := 0
@@ -24,7 +27,7 @@ var daily_spot_until := 0
 var best_score := 0
 var runs := 0
 var onboarded := false
-## kind -> owned ids (Catalog.FLYER, WORLD, TRAIL, PORTAL, MUSIC, CRASH, PLATE)
+## kind (ItemKind) -> owned ids
 var owned := {}
 ## kind -> equipped id
 var equipped := {}
@@ -34,53 +37,31 @@ var met_rooms: Array[String] = []
 var room_clears := {}
 ## The name other players see on the leaderboards; "" until the player picks one.
 var leaderboard_name := ""
-## Sound settings: volumes 0..100 and on/off switches.
-var music_volume := 80
-var sfx_volume := 100
-var music_on := true
-var sfx_on := true
-## Settings > Play (the Settings sheet behind the Home gear).
-## A little buzz on flap and crash.
-var haptics := true
-## No room flash or shake, slow sky fades (RoomView.flash_enabled follows it).
-var reduced_flashing := false
-## Spikes turn dark with a white edge. Read by the room drawing (world-scenes);
-## the UI only stores it.
-var color_blind_spikes := false
-## Pause and other HUD icon buttons grow to 56px (UiKit.large_buttons).
-var large_buttons := false
-## Settings > Board alerts: a notification when someone takes the player's
-## prize spot on the daily board (PushService).
-var board_alerts := true
+## The Settings sheet.
+var settings := PlayerSettings.new()
+## Revives without an ad, per day.
+var revives := DailyRevives.new()
 ## The OS permission prompt for notifications was shown (it is shown once,
 ## after the first top-10 finish).
 var push_asked := false
-## Free revives used on `free_revives_day` ("YYYY-MM-DD", the phone's date).
-var free_revives_used := 0
-## The debug screen's switch: ask for Google's test ads instead of real ones.
-var test_ads := false
-var free_revives_day := ""
+## Keys a newer version of the game saved that this one doesn't know: written
+## back as they were, so opening an older build never deletes them.
+var _unknown := {}
+## The version of the build that wrote the save, when newer than this one: kept,
+## so the newer build doesn't take its own save for an old one.
+var _newer_version := 0
 
 
 func _init() -> void:
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		owned[kind] = []
 		equipped[kind] = ""
-	# The default trail and portal are everyone's from the start.
-	grant(Catalog.TRAIL, "world_ribbon")
-	equipped[Catalog.TRAIL] = "world_ribbon"
-	for id in Shop.starters(Catalog.PORTAL):
-		grant(Catalog.PORTAL, id)
-	equipped[Catalog.PORTAL] = PortalStyle.DEFAULT_ID
-	# Music: the two picks and the free starter track; Match my world plays.
-	for id in Catalog.MUSIC_PICKS + [MusicTrack.DEFAULT_ID]:
-		grant(Catalog.MUSIC, id)
-	equipped[Catalog.MUSIC] = MusicTrack.MATCH_WORLD
-	# The default crash effect and the plain name plate.
-	grant(Catalog.CRASH, CrashStyle.DEFAULT_ID)
-	equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
-	grant(Catalog.PLATE, PlateStyle.DEFAULT_ID)
-	equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
+	# The free defaults are everyone's from the start, and in use.
+	for kind: String in ItemKind.STARTERS:
+		for id: String in ItemKind.STARTERS[kind]:
+			grant(kind, id)
+	for kind: String in ItemKind.DEFAULTS:
+		equipped[kind] = ItemKind.DEFAULTS[kind]
 
 
 func owns(kind: String, id: String) -> bool:
@@ -104,14 +85,6 @@ func equipped_id(kind: String) -> String:
 	return equipped.get(kind, "")
 
 
-## The exit portal look in use (saved with the rest of `equipped`); older saves
-## without one, or with a style that is gone (cloud_hole, ink_splat...), keep
-## the default.
-func equipped_portal() -> String:
-	var id := equipped_id(Catalog.PORTAL)
-	return id if Catalog.portal(id) != null else PortalStyle.DEFAULT_ID
-
-
 ## Records a finished run and adds the coins collected in it.
 ## Both numbers come from the replay, so a server can verify them.
 func record_run(score: int, coins_collected: int) -> int:
@@ -120,28 +93,6 @@ func record_run(score: int, coins_collected: int) -> int:
 	var earned := maxi(coins_collected, 0)
 	coins += earned
 	return earned
-
-
-## The phone's date, the day free revives count for.
-static func today() -> String:
-	return Time.get_date_string_from_system()
-
-
-## Free revives still left on `day`; a new day starts with all of them.
-func free_revives_left(day: String) -> int:
-	var used := free_revives_used if day == free_revives_day else 0
-	return maxi(FREE_REVIVES_PER_DAY - used, 0)
-
-
-## Spends one of `day`'s free revives. Returns false when none is left.
-func use_free_revive(day: String) -> bool:
-	if free_revives_left(day) <= 0:
-		return false
-	if day != free_revives_day:
-		free_revives_day = day
-		free_revives_used = 0
-	free_revives_used += 1
-	return true
 
 
 ## A real run entered this room; practice runs never call this.
@@ -174,40 +125,43 @@ func total_clears() -> int:
 
 
 func to_dict() -> Dictionary:
-	return {
-		"version": VERSION,
-		"coins": coins,
-		"diamonds": diamonds,
-		"packs_bought": packs_bought,
-		"daily_spot_rank": daily_spot_rank,
-		"daily_spot_until": daily_spot_until,
-		"best_score": best_score,
-		"runs": runs,
-		"onboarded": onboarded,
-		"owned": owned,
-		"equipped": equipped,
-		"met_rooms": met_rooms,
-		"room_clears": room_clears,
-		"leaderboard_name": leaderboard_name,
-		"music_volume": music_volume,
-		"sfx_volume": sfx_volume,
-		"music_on": music_on,
-		"sfx_on": sfx_on,
-		"haptics": haptics,
-		"reduced_flashing": reduced_flashing,
-		"color_blind_spikes": color_blind_spikes,
-		"large_buttons": large_buttons,
-		"board_alerts": board_alerts,
-		"push_asked": push_asked,
-		"free_revives_used": free_revives_used,
-		"free_revives_day": free_revives_day,
-		"test_ads": test_ads,
-	}
+	var d := _unknown.duplicate()
+	(
+		d
+		. merge(
+			{
+				"version": maxi(VERSION, _newer_version),
+				"coins": coins,
+				"diamonds": diamonds,
+				"packs_bought": packs_bought,
+				"daily_spot_rank": daily_spot_rank,
+				"daily_spot_until": daily_spot_until,
+				"best_score": best_score,
+				"runs": runs,
+				"onboarded": onboarded,
+				"owned": owned,
+				"equipped": equipped,
+				"met_rooms": met_rooms,
+				"room_clears": room_clears,
+				"leaderboard_name": leaderboard_name,
+				"push_asked": push_asked,
+			},
+			true
+		)
+	)
+	settings.write_to(d)
+	revives.write_to(d)
+	return d
 
 
 ## Builds a profile from saved data, ignoring anything missing or malformed.
-static func from_dict(d: Dictionary) -> Profile:
+## Equipped ids are kept as saved; Catalog.repair() swaps any that are gone.
+static func from_dict(saved: Dictionary) -> Profile:
+	var d := _migrate(saved)
 	var p := Profile.new()
+	var version := int(d.get("version", VERSION))
+	if version > VERSION:
+		p._newer_version = version
 	p.coins = maxi(int(d.get("coins", 0)), 0)
 	p.diamonds = maxi(int(d.get("diamonds", 0)), 0)
 	p.daily_spot_rank = maxi(int(d.get("daily_spot_rank", 0)), 0)
@@ -221,26 +175,14 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.runs = maxi(int(d.get("runs", 0)), 0)
 	p.onboarded = bool(d.get("onboarded", false))
 	var saved_name: Variant = d.get("leaderboard_name", "")
-	if saved_name is String and LeaderboardService.is_valid_name(saved_name):
+	if saved_name is String and PlayerName.is_valid(saved_name):
 		p.leaderboard_name = saved_name
-	p.music_volume = clampi(int(d.get("music_volume", p.music_volume)), 0, 100)
-	p.sfx_volume = clampi(int(d.get("sfx_volume", p.sfx_volume)), 0, 100)
-	p.music_on = bool(d.get("music_on", true))
-	p.sfx_on = bool(d.get("sfx_on", true))
-	p.haptics = bool(d.get("haptics", true))
-	p.reduced_flashing = bool(d.get("reduced_flashing", false))
-	p.color_blind_spikes = bool(d.get("color_blind_spikes", false))
-	p.large_buttons = bool(d.get("large_buttons", false))
-	p.board_alerts = bool(d.get("board_alerts", true))
+	p.settings.read_from(d)
+	p.revives.read_from(d)
 	p.push_asked = bool(d.get("push_asked", false))
-	p.test_ads = bool(d.get("test_ads", false))
-	var revive_day: Variant = d.get("free_revives_day", "")
-	if revive_day is String:
-		p.free_revives_day = revive_day
-		p.free_revives_used = clampi(int(d.get("free_revives_used", 0)), 0, FREE_REVIVES_PER_DAY)
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
-		for kind in Catalog.KINDS:
+		for kind in ItemKind.ALL:
 			var list: Variant = saved_owned.get(kind, [])
 			if list is Array:
 				for id: Variant in list:
@@ -248,17 +190,10 @@ static func from_dict(d: Dictionary) -> Profile:
 						p.grant(kind, id)
 	var saved_equipped: Variant = d.get("equipped", {})
 	if saved_equipped is Dictionary:
-		for kind in Catalog.KINDS:
+		for kind in ItemKind.ALL:
 			var id: Variant = saved_equipped.get(kind, "")
 			if id is String:
 				p.equip(kind, id)
-	# A portal style that is gone falls back to Match my world.
-	p.equipped[Catalog.PORTAL] = p.equipped_portal()
-	# So does a crash effect or name plate that is gone (older saves have none).
-	if Catalog.crash(p.equipped_id(Catalog.CRASH)) == null:
-		p.equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
-	if Catalog.plate(p.equipped_id(Catalog.PLATE)) == null:
-		p.equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
 	var met: Variant = d.get("met_rooms", [])
 	if met is Array:
 		for id: Variant in met:
@@ -273,21 +208,31 @@ static func from_dict(d: Dictionary) -> Profile:
 			if id is String and n > 0:
 				p.room_clears[id] = n
 				p.record_room_met(id)
+	var known := p.to_dict()
+	for key: Variant in d:
+		if not known.has(key):
+			p._unknown[key] = d[key]
 	return p
 
 
+## Brings an older save up to VERSION. Every step so far only added keys, which
+## load at their defaults, so there is nothing to change yet.
+static func _migrate(saved: Dictionary) -> Dictionary:
+	var d := saved.duplicate()
+	var from := int(d.get("version", 1))
+	if from < VERSION:
+		d["version"] = VERSION
+	return d
+
+
+## Writes the save. Returns false when it could not be written; the last good
+## save is then still there.
 func save(path: String = PATH) -> bool:
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f == null:
-		return false
-	f.store_string(JSON.stringify(to_dict(), "  "))
-	f.close()
-	return true
+	return SafeFile.write_json(path, to_dict())
 
 
-## Loads the save, or a fresh profile when there is none (first start).
+## Loads the save (or its backup when the save is broken), or a fresh profile
+## when there is none (first start).
 static func load_or_new(path: String = PATH) -> Profile:
-	if not FileAccess.file_exists(path):
-		return Profile.new()
-	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var data: Variant = SafeFile.read_json(path)
 	return from_dict(data) if data is Dictionary else Profile.new()

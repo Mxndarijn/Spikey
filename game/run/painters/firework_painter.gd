@@ -1,4 +1,4 @@
-extends RefCounted
+extends HazardPainter
 ## Firework (New Year Firework Burst). On the pad: the rocket on the floor with
 ## a fizzing fuse and a faint ring where it will burst (the warning). Climbing:
 ## the rocket with a glowing trail. Burst: eight sparks in the spike colour
@@ -7,7 +7,10 @@ extends RefCounted
 const Firework := preload("res://sim/hazards/firework.gd")
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as Firework
+	var theme := look.theme
+	var time := look.time
 	var p := HazardLayer.at(h.x, h.y)
 	match h.phase:
 		Firework.Phase.PAD:

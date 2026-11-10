@@ -205,15 +205,18 @@ func test_no_world_token_reuses_the_spike_colour() -> void:
 
 ## Falling things: every kind moves, and they stay below the score.
 func test_falling_things_stay_below_the_score() -> void:
-	for id: String in RoomView.MOTE_KIND:
-		var kind := RoomView.mote_kind(id)
-		assert_true(RoomView.MOTE_MOTION.has(kind), "%s particle kind moves" % id)
-		assert_true(RoomView.MOTE_COUNT.get(id, 0) > 0, "%s has particles" % id)
-		var band: Vector2 = RoomView.MOTE_BAND[id]
+	for t in ThemeCatalog.all():
+		var look := WorldScenes.scene(t.id)
+		var id := t.id
+		if look.mote_kind.is_empty():
+			continue
+		assert_true(RoomView.MOTE_MOTION.has(look.mote_kind), "%s particle kind moves" % id)
+		assert_true(look.mote_count > 0, "%s has particles" % id)
+		var band := look.mote_band
 		assert_true(band.x >= RoomView.MOTE_TOP, "%s particles start below the score" % id)
 		assert_true(band.y > band.x and band.y < 606.0, "%s particle band is in the room" % id)
 	assert_true(RoomView.MOTE_TOP >= WorldScenes.SCORE_ZONE.end.y, "below the score area")
-	assert_eq(RoomView.mote_kind("not_a_world"), "", "unknown worlds have none")
+	assert_eq(WorldScenes.scene("not_a_world").mote_kind, "", "unknown worlds have none")
 
 
 ## The hill layers sit behind the walls' lowest spikes and the floor row.

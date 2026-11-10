@@ -71,11 +71,11 @@ func _act(action: String) -> void:
 	var screen: Control = _main._menus.current()
 	match action:
 		"shop_flyer":
-			_main.show_shop(Catalog.FLYER)
+			_main.show_shop(ItemKind.FLYER)
 		"shop_world":
-			(screen as CollectionScreen)._show_kind(Catalog.WORLD)
+			(screen as CollectionScreen)._show_kind(ItemKind.WORLD)
 		"shop_trail":
-			(screen as CollectionScreen)._show_kind(Catalog.TRAIL)
+			(screen as CollectionScreen)._show_kind(ItemKind.TRAIL)
 		"play":
 			_main.start_run()
 		"tap":
