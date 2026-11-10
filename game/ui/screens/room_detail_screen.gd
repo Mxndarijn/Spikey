@@ -1,10 +1,12 @@
 class_name RoomDetailScreen
 extends Control
 ## One room kind (minimal kit): a back arrow and the room's name, its rounded
-## picture, one paper card with its group and start score, the pitch, the
-## difficulty and how many times it was cleared in real runs, and the practice
-## note; then the round ink Practice button. A locked room shows why in place
-## of its clears and its Practice button is disabled.
+## picture, one paper card with its group and start score (and the clear rate
+## on the right), the pitch, the difficulty beside the room's stats from real
+## runs (reached, cleared, deaths) and the practice note; then the round ink
+## Practice button. An open room no real run reached yet says so in place of
+## its stats. A locked room shows why instead, and its Practice button is
+## disabled.
 
 signal closed
 signal practice_pressed(id: String)
@@ -20,12 +22,17 @@ const CARD_PAD_X := 18
 const CARD_PAD_Y := 14
 ## Names longer than this get a smaller title so they clear the back arrow.
 const LONG_NAME := 11
+## The stats' numbers: smaller than the old single count, so three fit beside
+## the difficulty.
+const STAT_SIZE := UiTokens.FONT_SIZE_HEADING
 
 var room_id := ""
 
 var _profile: Profile
 var _def: RoomDef
-var _cleared := Label.new()
+## Stat name ("reached", "cleared", "deaths") -> the label with its number.
+var _stats := {}
+var _rate: Label
 var _practice: Button
 var _why: Label
 
@@ -106,9 +113,21 @@ func _card() -> Control:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 10)
 	card.add_child(col)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	var where := UiKit.label(_where(), &"MutedLabel", false)
 	where.add_theme_font_override("font", GameFonts.ui(800))
-	col.add_child(where)
+	where.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	top.add_child(where)
+	if _is_open() and _reached() > 0:
+		_rate = UiKit.label("%s cleared" % rate_text(), &"MutedLabel", false)
+		_rate.name = "ClearRate"
+		_rate.add_theme_font_override("font", GameFonts.ui(800))
+		_rate.add_theme_color_override("font_color", UiTokens.ON_PANEL)
+		top.add_child(_rate)
+	col.add_child(top)
 	var pitch := UiKit.label(RoomInfo.pitch(room_id), &"CaptionLabel", false)
 	pitch.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_BODY)
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -147,11 +166,12 @@ func _where() -> String:
 	return "%s, from %d points" % [first, _def.from_score]
 
 
-## The difficulty pips over "Difficulty 3 of 5", and the clears over "cleared".
+## The difficulty pips over "Difficulty 3/5", then the stats (a locked room
+## says why instead).
 func _facts() -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	var diff := VBoxContainer.new()
 	diff.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	diff.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -160,21 +180,12 @@ func _facts() -> Control:
 	var pips := DifficultyPips.new(level)
 	pips.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diff.add_child(pips)
-	diff.add_child(UiKit.label("Difficulty %d of 5" % level, &"CaptionLabel", false))
+	diff.add_child(UiKit.label("Difficulty %d/5" % level, &"CaptionLabel", false))
 	row.add_child(diff)
-	var clears := VBoxContainer.new()
-	clears.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clears.add_theme_constant_override("separation", 0)
-	_cleared.theme_type_variation = &"NameLabel"
-	_cleared.add_theme_font_size_override("font_size", 22)
-	_cleared.text = cleared_text()
-	_cleared.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clears.add_child(_cleared)
-	clears.add_child(UiKit.label("cleared", &"CaptionLabel", false))
-	row.add_child(clears)
-	if not _is_open():
-		# A locked room says why in place of its clears (it has none yet).
-		clears.visible = false
+	if _is_open():
+		_add_stats(row)
+	else:
+		# A locked room says why in place of its stats (it has none yet).
 		var locked := VBoxContainer.new()
 		locked.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		locked.add_theme_constant_override("separation", 0)
@@ -187,9 +198,61 @@ func _facts() -> Control:
 	return row
 
 
-func cleared_text() -> String:
-	var n := _profile.clears(room_id)
-	return "%d×" % n if n > 0 else "Not yet"
+## Reached, cleared and deaths side by side, each a number over its name; a
+## room no real run reached yet says so instead.
+func _add_stats(row: HBoxContainer) -> void:
+	if _reached() <= 0 and _profile.deaths(room_id) <= 0:
+		var empty := UiKit.label("Not reached in a run yet", &"CaptionLabel", false)
+		empty.name = "NoStats"
+		empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		empty.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(empty)
+		return
+	var values := {
+		"reached": _reached(),
+		"cleared": _profile.clears(room_id),
+		"deaths": _profile.deaths(room_id),
+	}
+	for key: String in values:
+		var stat := _number(UiKit.thousands(values[key]), key)
+		stat.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_stats[key] = stat.get_child(0)
+		row.add_child(stat)
+
+
+## A big number over its caption.
+func _number(value: String, caption: String) -> Control:
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 0)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var n := UiKit.label(value, &"NameLabel", false)
+	n.add_theme_font_size_override("font_size", STAT_SIZE)
+	box.add_child(n)
+	box.add_child(UiKit.label(caption, &"CaptionLabel", false))
+	return box
+
+
+## Times reached; never fewer than the clears (each clear was reached).
+func _reached() -> int:
+	return maxi(_profile.reached(room_id), _profile.clears(room_id))
+
+
+## "64%": clears per reach ("" before the first reach).
+func rate_text() -> String:
+	return "%d%%" % _profile.clear_rate(room_id) if _reached() > 0 else ""
+
+
+## The number shown for "reached", "cleared" or "deaths" ("" when the stats
+## don't show: locked or not reached yet), for tests.
+func stat_text(key: String) -> String:
+	var l := _stats.get(key) as Label
+	return l.text if l != null else ""
+
+
+## Whether the clear rate shows (an open room reached in a real run), for tests.
+func shows_rate() -> bool:
+	return _rate != null
 
 
 ## Why a locked room can't be practised ("" when it is open).

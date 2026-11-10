@@ -1,7 +1,7 @@
 class_name RoomCard
 extends Button
 ## One room kind on the Rooms screen, a flat paper card: its rounded picture,
-## its name and one status line ("Cleared 12×" in ink, "Not cleared yet" or why
+## its name and one status line ("Cleared 9 of 14" in ink, "Not cleared yet" or why
 ## it's locked muted). Locked rooms are disabled (greyed picture with a lock);
 ## open ones open the room's detail.
 
