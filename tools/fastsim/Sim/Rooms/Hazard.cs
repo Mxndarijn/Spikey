@@ -17,6 +17,9 @@ public abstract class Hazard
     public virtual void on_flap(GameSim sim) { }
     public virtual bool blocks_exit(GameSim sim, long side, long y) => false;
     public virtual bool guards_edge(GameSim sim, bool top) => false;
+    public virtual long band_top() => -1;
+    public virtual long band_bottom() => -1;
+    public virtual bool near_row(GameSim sim, long _y, long _half, long _from, long _to) => false;
     public virtual long checksum(long h) => h;
 
     /// A deep copy. The default copies every plain field; a subclass with

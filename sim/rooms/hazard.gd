@@ -72,6 +72,25 @@ func guards_edge(_sim: GameSim, _top: bool) -> bool:
 	return false
 
 
+## The rows this hazard can ever cover while it holds its zone (top edge), or
+## -1 if it has no fixed band. In Double Trouble the partner hazard keeps its
+## danger inside this band, so the lanes above and below stay free.
+func band_top() -> int:
+	return -1
+
+
+## Bottom edge of band_top()'s band, or -1.
+func band_bottom() -> int:
+	return -1
+
+
+## True if this hazard will come within `half` (plus its own size) of height
+## `y` at some step from `from` to `to` steps ahead. Only hazards whose path
+## never reads the bird can know; the rest return false. No RNG draws here.
+func near_row(_sim: GameSim, _y: int, _half: int, _from: int, _to: int) -> bool:
+	return false
+
+
 func checksum(h: int) -> int:
 	return h
 

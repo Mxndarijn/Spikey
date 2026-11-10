@@ -64,6 +64,8 @@ public class SplittingBouncer : Bouncer
         return other != null && other.kills(sim);
     }
 
+    public override bool straight_path() => false;
+
     public override long checksum(long h)
     {
         long out_ = mix_all(base.checksum(h), radius, warn);

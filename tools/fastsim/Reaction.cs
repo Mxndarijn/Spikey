@@ -24,7 +24,7 @@ static class Reaction
     }
 
     /// Arrival `i` into room `index`, just out of the portal (ArrivalBench.arrival).
-    static GameSim arrival(int index, long i, string variant = "")
+    public static GameSim arrival(int index, long i, string variant = "")
     {
         var def = RoomCatalog.all()[index];
         var sim = new GameSim(9000 + i * 37);
@@ -47,7 +47,7 @@ static class Reaction
         return sim;
     }
 
-    static (long tick, string cause) play(GameSim sim, long delay, PlannerBot bot, long cap)
+    public static (long tick, string cause) play(GameSim sim, long delay, PlannerBot bot, long cap)
     {
         long y0 = sim.state.y;
         long n = 0;

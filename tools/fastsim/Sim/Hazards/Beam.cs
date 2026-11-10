@@ -17,18 +17,26 @@ public class Beam : Hazard
     public const long SPAN = 480 * SimConfig.SUB;
     public const long JITTER = 40 * SimConfig.SUB;
     public const long HALF_H = 6 * SimConfig.SUB;
+    public const long YIELD_GAP = 2 * SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB;
+    public const long YIELD_LEAD = 20;
 
     public List<long> rows = new();
     public List<long> delays = new();
+    public long warn_ticks = WARN_TICKS;
+    public bool yields = false;
+    public List<long> skip = new();
 
-    public Beam(long count = ROWS)
+    public Beam(long count = ROWS, long p_warn = WARN_TICKS, bool p_yields = false)
     {
         kind = "beam";
         for (long i = 0; i < count; i++)
         {
             rows.Add(0);
             delays.Add(0);
+            skip.Add(0);
         }
+        warn_ticks = p_warn;
+        yields = p_yields;
     }
 
     public override Hazard clone_deep()
@@ -36,6 +44,7 @@ public class Beam : Hazard
         var c = (Beam)MemberwiseClone();
         c.rows = new List<long>(rows);
         c.delays = new List<long>(delays);
+        c.skip = new List<long>(skip);
         return c;
     }
 
@@ -70,14 +79,31 @@ public class Beam : Hazard
     public long state(long i)
     {
         long p = cycle_pos(i);
-        if (p < 0 || p >= WARN_TICKS + ON_TICKS) return State.OFF;
-        return p < WARN_TICKS ? State.WARN : State.ON;
+        if (p < 0 || p >= warn_ticks + ON_TICKS || skip[(int)i] == 1) return State.OFF;
+        return p < warn_ticks ? State.WARN : State.ON;
+    }
+
+    public override void step(GameSim sim)
+    {
+        if (!yields) return;
+        for (long i = 0; i < rows.Count; i++)
+        {
+            if (cycle_pos(i) != 0) continue;
+            skip[(int)i] = 0;
+            foreach (Hazard h in sim.room.hazards)
+            {
+                if (h == this || !h.alive) continue;
+                long half = HALF_H + YIELD_GAP;
+                if (h.near_row(sim, rows[(int)i], half, warn_ticks - YIELD_LEAD, warn_ticks + ON_TICKS))
+                    skip[(int)i] = 1;
+            }
+        }
     }
 
     public long warn_progress(long i)
     {
         if (state(i) != State.WARN) return 0;
-        return SimTrig.ONE * cycle_pos(i) / WARN_TICKS;
+        return SimTrig.ONE * cycle_pos(i) / warn_ticks;
     }
 
     public long live_count()
@@ -101,5 +127,10 @@ public class Beam : Hazard
         return false;
     }
 
-    public override long checksum(long h) => mix_all(mix_all(h, rows), delays);
+    public override long checksum(long h)
+    {
+        long out_ = mix_all(mix_all(h, rows), delays);
+        if (yields) out_ = mix_all(out_, skip);
+        return out_;
+    }
 }

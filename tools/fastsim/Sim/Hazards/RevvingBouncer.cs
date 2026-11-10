@@ -29,5 +29,7 @@ public class RevvingBouncer : Bouncer
         vy = G.signi(vy) * SPEED_Y * (6 + level) / 10;
     }
 
+    public override bool straight_path() => false;
+
     public override long checksum(long h) => mix_all(base.checksum(h), level);
 }

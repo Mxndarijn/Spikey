@@ -10,6 +10,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity            # check it still matches sim/
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode reaction          # reaction benchmark, 60 arrivals per room
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode combos            # Double Trouble fairness gate, every pair
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
@@ -26,7 +27,7 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
@@ -88,6 +89,8 @@ switch ($Mode) {
     "runs" { $a += @($(if ($Seeds) { $Seeds } else { 4 })) }
     "reaction" { $a += @($(if ($Seeds) { $Seeds } else { 60 }), $Room); if ($Delays) { $a += $Delays } }
     "odds" { $a += @($(if ($Seeds) { $Seeds } else { 180 })); if ($Delays) { $a += $Delays } }
+    # Arrivals for the portal check: -Ticks (default 240).
+    "combos" { $a += @($(if ($Seeds) { $Seeds } else { 256 }), $(if ($Ticks) { $Ticks } else { 240 })) }
 }
 $a += @("--priority", $Priority.ToLower())
 if ($Jobs -gt 0) { $a += @("--jobs", $Jobs) }

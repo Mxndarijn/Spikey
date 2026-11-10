@@ -24,5 +24,7 @@ public class CuriousBouncer : Bouncer
         move(sim);
     }
 
+    public override bool straight_path() => false;
+
     public override long checksum(long h) => mix_all(base.checksum(h), look);
 }

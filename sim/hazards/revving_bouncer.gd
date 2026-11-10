@@ -26,5 +26,10 @@ func _set_speed() -> void:
 	vy = signi(vy) * SPEED_Y * (6 + level) / 10
 
 
+## Its path isn't a straight bounce, so it can't say ahead where it will be.
+func straight_path() -> bool:
+	return false
+
+
 func checksum(h: int) -> int:
 	return mix_all(super.checksum(h), [level])

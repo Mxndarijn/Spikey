@@ -37,5 +37,10 @@ func step(sim: GameSim) -> void:
 		bounces += 1
 
 
+## Its path isn't a straight bounce, so it can't say ahead where it will be.
+func straight_path() -> bool:
+	return false
+
+
 func checksum(h: int) -> int:
 	return mix_all(super.checksum(h), [bounces])

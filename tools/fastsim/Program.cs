@@ -12,6 +12,7 @@ using FastSim;
 //   fastsim bench
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
+//   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal),
 //   --variant <id>|all (search, rooms, reaction: play that room variant
@@ -74,6 +75,8 @@ if (mode == "parity")
     return Parity.run(P(1, "parity.txt"), new ParallelOptions { MaxDegreeOfParallelism = jobs });
 if (mode == "scan")
     return Reaction.scan(P(1, "ghostdoors"), long.Parse(P(2, "45")), long.Parse(P(3, "4")));
+if (mode == "combos")
+    return Combos.run(int.Parse(P(1, "256")), int.Parse(P(2, "240")), jobs);
 if (mode == "bench")
 {
     Bench.run();

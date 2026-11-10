@@ -150,6 +150,20 @@ public class Rotor : Hazard
         return a + i * SimTrig.TURN / blades;
     }
 
+    public override long band_top()
+    {
+        long out_ = hub_y(0) - reach();
+        for (long h = 0; h < hubs; h++) out_ = G.mini(out_, hub_y(h) - reach());
+        return out_;
+    }
+
+    public override long band_bottom()
+    {
+        long out_ = hub_y(0) + reach();
+        for (long h = 0; h < hubs; h++) out_ = G.maxi(out_, hub_y(h) + reach());
+        return out_;
+    }
+
     public override bool kills(GameSim sim)
     {
         for (long h = 0; h < hubs; h++)

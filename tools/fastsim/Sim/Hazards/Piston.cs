@@ -25,16 +25,41 @@ public class Piston : Hazard
     public long y = 0;
     public long delay = 0;
     public long half = 0;
+    public long glow_ticks = GLOW_TICKS;
+    public bool share_band = false;
+    public long y_lo = Y_MIN;
+    public long y_hi = Y_MAX;
 
-    public Piston(long p_side = 0, long p_half = 0, long p_delay = 0)
+    public Piston(long p_side = 0, long p_half = 0, long p_delay = 0, long p_glow = GLOW_TICKS, bool p_share_band = false)
     {
         kind = "piston";
         side = p_side;
         half = p_half;
         delay = p_delay;
+        glow_ticks = p_glow;
+        share_band = p_share_band;
     }
 
-    public override void setup(GameSim sim, SimRng rng) => _pick_y(rng);
+    public override void setup(GameSim sim, SimRng rng)
+    {
+        y_lo = half == 0 ? Y_MIN : Y_MID + HALF_H;
+        y_hi = half == 0 ? Y_MID - HALF_H : Y_MAX;
+        if (share_band)
+        {
+            foreach (Hazard h in sim.room.hazards)
+            {
+                if (h == this || h.band_top() < 0) continue;
+                long lo = G.maxi(Y_MIN, h.band_top() + HALF_H);
+                long hi = G.mini(Y_MAX, h.band_bottom() - HALF_H);
+                if (lo <= hi)
+                {
+                    y_lo = lo;
+                    y_hi = hi;
+                }
+            }
+        }
+        _pick_y(rng);
+    }
 
     public override void on_bounce(GameSim sim, SimRng rng)
     {
@@ -46,15 +71,15 @@ public class Piston : Hazard
 
     public void _pick_y(SimRng rng)
     {
-        long lo = half == 0 ? Y_MIN : Y_MID + HALF_H;
-        long hi = half == 0 ? Y_MID - HALF_H : Y_MAX;
-        y = lo + rng.next_below(hi - lo + 1);
+        y = y_lo + rng.next_below(y_hi - y_lo + 1);
     }
+
+    public long period() => IDLE_TICKS + glow_ticks + EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS;
 
     public long cycle_pos()
     {
         if (t < delay) return -1;
-        return G.posmod(t - delay, PERIOD);
+        return G.posmod(t - delay, period());
     }
 
     public long state()
@@ -62,8 +87,8 @@ public class Piston : Hazard
         long p = cycle_pos();
         if (p < IDLE_TICKS) return State.IDLE;
         p -= IDLE_TICKS;
-        if (p < GLOW_TICKS) return State.GLOW;
-        p -= GLOW_TICKS;
+        if (p < glow_ticks) return State.GLOW;
+        p -= glow_ticks;
         if (p < EXTEND_TICKS) return State.EXTEND;
         p -= EXTEND_TICKS;
         if (p < HOLD_TICKS) return State.HOLD;
@@ -73,12 +98,12 @@ public class Piston : Hazard
     public long glow()
     {
         if (state() != State.GLOW) return 0;
-        return SimTrig.ONE * (cycle_pos() - IDLE_TICKS) / GLOW_TICKS;
+        return SimTrig.ONE * (cycle_pos() - IDLE_TICKS) / glow_ticks;
     }
 
     public long extent()
     {
-        long p = cycle_pos() - IDLE_TICKS - GLOW_TICKS;
+        long p = cycle_pos() - IDLE_TICKS - glow_ticks;
         long s = state();
         if (s == State.EXTEND) return REACH * (p + 1) / EXTEND_TICKS;
         if (s == State.HOLD) return REACH;

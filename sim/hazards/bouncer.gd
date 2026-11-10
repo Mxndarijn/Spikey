@@ -111,5 +111,33 @@ func kills(sim: GameSim) -> bool:
 	return sim.bird_touches_circle(x, y, radius)
 
 
+## False for balls that steer, speed up, split or fall (the subclasses):
+## near_row() can only follow a straight bouncing path.
+func straight_path() -> bool:
+	return true
+
+
+## Plays the straight path forward on copies of the position (the walls as
+## they stand now) and checks it against height `y`.
+func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
+	if not straight_path():
+		return false
+	var keep_x := x
+	var keep_y := y
+	var keep_vx := vx
+	var keep_vy := vy
+	var out := false
+	for k in to:
+		move(sim)
+		if k + 1 >= from and absi(y - p_y) < radius + half:
+			out = true
+			break
+	x = keep_x
+	y = keep_y
+	vx = keep_vx
+	vy = keep_vy
+	return out
+
+
 func checksum(h: int) -> int:
 	return mix_all(h, [x, y, vx, vy])

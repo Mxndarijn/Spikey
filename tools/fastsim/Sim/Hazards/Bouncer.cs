@@ -116,5 +116,31 @@ public class Bouncer : Hazard
 
     public override bool kills(GameSim sim) => sim.bird_touches_circle(x, y, radius);
 
+    public virtual bool straight_path() => true;
+
+    public override bool near_row(GameSim sim, long p_y, long half, long from, long to)
+    {
+        if (!straight_path()) return false;
+        long keep_x = x;
+        long keep_y = y;
+        long keep_vx = vx;
+        long keep_vy = vy;
+        bool out_ = false;
+        for (long k = 0; k < to; k++)
+        {
+            move(sim);
+            if (k + 1 >= from && G.absi(y - p_y) < radius + half)
+            {
+                out_ = true;
+                break;
+            }
+        }
+        x = keep_x;
+        y = keep_y;
+        vx = keep_vx;
+        vy = keep_vy;
+        return out_;
+    }
+
     public override long checksum(long h) => mix_all(h, x, y, vx, vy);
 }

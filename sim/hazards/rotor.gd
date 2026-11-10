@@ -187,6 +187,22 @@ func blade_angle(h: int, i: int) -> int:
 	return a + i * SimTrig.TURN / blades
 
 
+## Highest row a blade can reach, over every hub.
+func band_top() -> int:
+	var out := hub_y(0) - reach()
+	for h in hubs:
+		out = mini(out, hub_y(h) - reach())
+	return out
+
+
+## Lowest row a blade can reach, over every hub.
+func band_bottom() -> int:
+	var out := hub_y(0) + reach()
+	for h in hubs:
+		out = maxi(out, hub_y(h) + reach())
+	return out
+
+
 func kills(sim: GameSim) -> bool:
 	for h in hubs:
 		var cx := hub_x(h)

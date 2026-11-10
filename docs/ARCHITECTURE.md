@@ -139,7 +139,10 @@ start and never comes back.
 
 - `sim/rooms/room_def.gd` (RoomDef): what a room is: group, from_score, weight,
   season, wall rules (spike count/gap, tide, blink, squeeze), gravity, speed,
-  and the hazards it builds (factories, or `combos` for Double Trouble).
+  and the hazards it builds (factories, or variants drawn at room start).
+  Double Trouble's pairs are variants that follow the combo rules in
+  `sim/rooms/catalog_combo.gd`, checked by `tests/sim/test_double_trouble.gd`
+  and `tools/fastsim.ps1 -Mode combos`.
 - `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
   seasonal, combo). `RoomCatalog.BATCHES` fixes the order; append new batches
   at the end.
