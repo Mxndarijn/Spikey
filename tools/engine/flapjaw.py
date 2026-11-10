@@ -1,0 +1,72 @@
+# SCons profile for Flapjaw's export templates: a 2D-only Godot without the parts the game
+# never uses. The stock template carries all of Godot (3D, Vulkan, physics, XR, video,
+# networking) and is about 90% of the APK and IPA. Built in CI by
+# .github/workflows/engine.yml:
+#
+#   scons platform=android target=template_release arch=arm64 profile=<this file>
+#
+# Changing this file changes the CI cache key, so the next build compiles a fresh engine.
+# Before turning a module off, check nothing exported uses it (a class missing from the
+# engine fails at load on the phone, not in the check). Keep:
+#   gdscript, freetype, text_server_adv (shaping), ogg/vorbis, interactive_music (the layered
+#   music uses AudioStreamSynchronized), regex, svg (the default theme draws its icons from
+#   SVG), webp (lossless textures), zip (ZIPReader), mbedtls (HTTPS to Supabase).
+
+production = "yes"
+optimize = "size"
+lto = "full"  # Android only; engine.yml turns it off for iOS
+debug_symbols = "no"
+
+# Flapjaw is 2D on the Compatibility renderer, with its own integer physics in sim/.
+disable_3d = "yes"
+disable_physics_2d = "yes"
+disable_physics_3d = "yes"
+disable_navigation_2d = "yes"
+disable_navigation_3d = "yes"
+disable_xr = "yes"
+vulkan = "no"
+use_volk = "no"
+openxr = "no"
+metal = "no"
+
+# Modules nothing in the game uses.
+module_basis_universal_enabled = "no"
+module_bmp_enabled = "no"
+module_camera_enabled = "no"
+module_csg_enabled = "no"
+module_dds_enabled = "no"
+module_enet_enabled = "no"
+module_fbx_enabled = "no"
+module_glslang_enabled = "no"
+module_gltf_enabled = "no"
+module_godot_physics_2d_enabled = "no"
+module_godot_physics_3d_enabled = "no"
+module_gridmap_enabled = "no"
+module_hdr_enabled = "no"
+module_jolt_physics_enabled = "no"
+module_jpg_enabled = "no"
+module_jsonrpc_enabled = "no"
+module_ktx_enabled = "no"
+module_lightmapper_rd_enabled = "no"
+module_meshoptimizer_enabled = "no"
+module_mobile_vr_enabled = "no"
+module_mp3_enabled = "no"
+module_msdfgen_enabled = "no"
+module_multiplayer_enabled = "no"
+module_navigation_2d_enabled = "no"
+module_navigation_3d_enabled = "no"
+module_noise_enabled = "no"
+module_objectdb_profiler_enabled = "no"
+module_openxr_enabled = "no"
+module_raycast_enabled = "no"
+module_text_server_fb_enabled = "no"
+module_tga_enabled = "no"
+module_theora_enabled = "no"
+module_tinyexr_enabled = "no"
+module_upnp_enabled = "no"
+module_vhacd_enabled = "no"
+module_visual_shader_enabled = "no"
+module_webrtc_enabled = "no"
+module_websocket_enabled = "no"
+module_webxr_enabled = "no"
+module_xatlas_unwrap_enabled = "no"

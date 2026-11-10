@@ -29,8 +29,11 @@ tests; the steps that ship (GitHub Release, Discord post, TestFlight) wait for i
 3. With the keystore secrets: exports a release-signed APK and, for `v*` tags or the "Build AAB"
    option, a release-signed AAB. Both go through Godot's Gradle build, which the AdMob plugin
    (`addons/admob`, the rewarded ad for the revive) needs; the first export installs the build
-   template into `android/` (ignored by git) and takes a few minutes longer than before.
-   Without them: a debug-signed APK, signed with a key made fresh on each run.
+   template into `android/` (ignored by git); CI installs it by hand and patches it, so the
+   export must not pass `--install-android-build-template` (that reinstalls the stock one).
+   Without them: still a release APK, signed with a key made fresh on each run.
+   Before the export, CI turns on R8 code shrinking (`tools/ci/patch_android_shrink.sh`) and
+   puts the small engine in the template (`tools/ci/swap_android_engine.sh`, see below).
 4. Uploads the APK/AAB as artifacts (kept 90 days, need a GitHub login).
 5. A separate job, once the build is done and Check has passed, publishes the APK as a
    GitHub Release, a direct public download because the repo is
@@ -49,6 +52,14 @@ tests; the steps that ship (GitHub Release, Discord post, TestFlight) wait for i
    switches the project to manual signing, builds a Release archive, uploads it to TestFlight,
    and keeps the IPA as an artifact for 7 days. Capped at 25 minutes.
 
+**Engine** (`engine.yml`, called by both phone workflows) builds the small engine: Godot from
+source at the exact `GODOT_VERSION`, 2D only, without the modules the game doesn't use
+(`tools/engine/flapjaw.py`). The stock engine is about 90% of each build. Android builds on
+Linux, iOS on macOS. The result is cached, so only a change to `tools/engine/`, `engine.yml`
+or the Godot version compiles again (a cold build takes a long time; a cache hit takes
+seconds). Before turning off another module, check that nothing exported uses it: a class
+missing from the engine fails when the game loads on the phone, not in the check.
+
 ## Secrets
 
 Add them under GitHub repo → Settings → Secrets and variables → Actions → New repository secret.
@@ -64,7 +75,7 @@ there can be reused, except the provisioning profile and its name (that one is p
 | `ANDROID_KEY_ALIAS` | Key alias inside the keystore, e.g. `spikey` |
 | `DISCORD_WEBHOOK_URL` | Optional, shared with iOS. Discord channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL. Every successful Android build and TestFlight upload posts an embed (version, build, type, commit; Android also attaches the APK when it fits). |
 
-Optional repository **variable** (Settings → Secrets and variables → Actions → Variables): `DISCORD_MAX_UPLOAD_MB`, the server's upload limit (10 normally, 50 at boost level 2, 100 at level 3). Larger APKs are only linked (the APK is about 52 MB, almost all of it the Godot engine for arm64 + armv7). Zipping does not help: an APK is already a compressed zip.
+Optional repository **variable** (Settings → Secrets and variables → Actions → Variables): `DISCORD_MAX_UPLOAD_MB`, the server's upload limit (10 normally, 50 at boost level 2, 100 at level 3). Larger APKs are only linked. Zipping does not help: an APK is already a compressed zip.
 
 All three are optional for testing: without them you get a debug APK. They are required for an
 AAB and for any APK you want to update in place later.
@@ -140,7 +151,8 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
 - **App id / bundle id**: `package/unique_name` (presets "Android" and "Android AAB") and
   `application/bundle_identifier` (preset "iOS") in `export_presets.cfg`, plus `IOS_BUNDLE_ID`
   in `ios-testflight.yml`. Android ids can never change after the first Play upload.
-- **Godot version**: `GODOT_VERSION` in all three workflow files. It must name a release on
+- **Godot version**: `GODOT_VERSION` in all three workflow files, plus `godot_version` in the
+  `engine` jobs of `android.yml` and `ios-testflight.yml` (the builds fail if they differ). It must name a release on
   github.com/godotengine/godot-builds (e.g. `4.7.2-stable`). CI downloads the matching export
   templates, so keep it equal to the editor you use locally (`tools/godot_path.txt`, now
   4.7.2-stable). The iOS AdMob libraries are built per Godot version (see `docs/REVIVE.md`).
@@ -148,7 +160,7 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
   full-bleed 1024×1024 PNG and set `icons/icon_1024x1024` (iOS) and the
   `launcher_icons/*` options (Android adaptive icon) in `export_presets.cfg`.
 - **Devices**: iOS is iPhone-only (`application/targeted_device_family=0`); set 2 for iPhone and
-  iPad. Android ships arm64 and armv7.
+  iPad. Android ships arm64 only.
 - **macOS image**: `ios-testflight.yml` uses `macos-15` with the newest stable Xcode. Apple needs
   the iOS 26 SDK for uploads; if that build step reports an old SDK, switch to a newer image.
 
@@ -164,3 +176,7 @@ Tested on this PC (Godot 4.6-beta2, headless; the full check also passes on 4.7.
 works with the stamped version and team id, the icon flattening works, and the workflow YAML
 parses. Not tested: the Android export (needs JDK 17, which this PC lacks), anything on
 GitHub's runners, signing, and the TestFlight upload.
+
+The small engine (`engine.yml`, R8, the template swaps) is checked only on GitHub's runners:
+Godot's Android and iOS engines can't be built on this PC. Playtest the rewarded ad and push
+alerts on both phones after an engine change: the plugins talk to the engine directly.
