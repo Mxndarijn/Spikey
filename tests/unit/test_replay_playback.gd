@@ -237,3 +237,29 @@ func test_old_version_and_empty_run_show_messages() -> void:
 	assert_eq(board.submitted, 0)
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
+
+
+## A replay shows the coins the recorded player picks up, like a run, but
+## lower: the replay chip holds the top middle.
+func test_replay_shows_the_run_coins_under_the_chip() -> void:
+	var main := _make_main(SpyBoard.new())
+	var p: Profile = main._profile
+	var coins_before := p.coins
+	var recorded := SimBots.play(5158, SimBots.gap_seeker, 11, 600)
+	main.play_replay(_run_of(recorded))
+	for i in 30:
+		main._run.advance()
+	assert_true(main._run.is_running(), "the replay is playing")
+	var counter: Control = main._hud._run_coins
+	assert_true(counter.visible, "the coin counter shows in a replay")
+	var chip: Control = main._hud.replay_hud()._banner
+	assert_true(
+		counter.get_global_rect().position.y >= chip.get_global_rect().end.y,
+		"the counter sits under the replay chip"
+	)
+	_play_out(main._run)
+	assert_eq(p.coins, coins_before, "the watcher is not paid the coins")
+	main._leave_replay()
+	assert_eq(counter.offset_top, Hud.RUN_COINS_TOP, "back up top for the player's own runs")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)

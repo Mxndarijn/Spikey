@@ -63,7 +63,7 @@ func _init(
 
 	var stepper := HBoxContainer.new()
 	stepper.alignment = BoxContainer.ALIGNMENT_CENTER
-	stepper.add_theme_constant_override("separation", UiTokens.SPACE_4)
+	stepper.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	_minus = _step_button("−", "One diamond less", -1)
 	stepper.add_child(_minus)
 	stepper.add_child(_icon(DIAMOND_ICON, 30))
@@ -83,6 +83,9 @@ func _init(
 	_convert.theme_type_variation = &"ActionButton"
 	_convert.custom_minimum_size = Vector2(0, UiTokens.SIZE_BUTTON_H)
 	_convert.focus_mode = Control.FOCUS_NONE
+	# The count is in the stepper above: the label never widens the card.
+	_convert.clip_text = true
+	_convert.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_convert.pressed.connect(confirm)
 	col.add_child(_convert)
 	var later := Button.new()
@@ -146,10 +149,8 @@ func set_amount(value: int) -> void:
 	_convert.disabled = _amount <= 0
 	if _amount <= 0:
 		_convert.text = "No diamonds yet"
-	elif _amount == 1:
-		_convert.text = "Convert 1 diamond"
 	else:
-		_convert.text = "Convert %d diamonds" % _amount
+		_convert.text = "Convert"
 
 
 func step(delta: int) -> void:
@@ -183,7 +184,7 @@ func confirm() -> void:
 		AudioDirector.ui("locked")
 		set_amount(_amount)
 		if _amount > 0:
-			_convert.text = "Couldn't convert. Try again"
+			_convert.text = "Try again"
 		return
 	_profile.coins += Economy.gold_for(spent)
 	AudioDirector.sound("purchase")

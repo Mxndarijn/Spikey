@@ -7,6 +7,10 @@
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Mode searchruns -Seeds 64 -Ticks 16000
 #
 # -Ticks: run length for search (default 1500 per room) and searchruns (default 16000).
+# -Jobs: Godot copies at once (default: a quarter of the cores).
+# -Priority: CPU priority of the copies (default BelowNormal, so the PC stays
+#   usable while the sweep runs: the copies only get what nothing else wants).
+#   Idle is gentler still; Normal is the old behaviour.
 #
 # Modes: search (can anyone survive each room?), searchruns (full runs through
 # the portals), rooms / runs (PlannerBot). Results: <Out>/summary.json plus one
@@ -17,6 +21,8 @@ param(
     [string]$Room = "*",
     [int]$Ticks = 0,
     [int]$Jobs = 0,
+    [ValidateSet("Idle", "BelowNormal", "Normal")]
+    [string]$Priority = "BelowNormal",
     [string]$Out = ""
 )
 
@@ -35,7 +41,8 @@ function Resolve-Godot {
 
 $godot = Resolve-Godot
 if (-not $godot) { Write-Host "Godot not found (set `$env:GODOT or tools/godot_path.txt)." -ForegroundColor Red; exit 2 }
-if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [Environment]::ProcessorCount - 2) }
+# Default: a quarter of the cores, so the PC stays usable (-Jobs for more).
+if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [int]([Environment]::ProcessorCount / 4)) }
 $Jobs = [Math]::Min($Jobs, $Seeds)
 if (-not $Out) { $Out = Join-Path ([IO.Path]::GetTempPath()) ("flapjaw_sweep_" + (Get-Date -Format "yyyyMMdd_HHmmss")) }
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -56,10 +63,12 @@ for ($j = 0; $j -lt $Jobs; $j++) {
     $log = Join-Path $Out "job_$j.log"
     $argList = @("--headless", "--path", "`"$root`"", "-s", "res://tools/playtest.gd", "--",
         $Mode, "`"$json`"", "$count", $filter, "$first", "$Ticks")
-    $procs += Start-Process -FilePath $godot -ArgumentList $argList -WindowStyle Hidden -PassThru `
+    $p = Start-Process -FilePath $godot -ArgumentList $argList -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+    try { $p.PriorityClass = $Priority } catch { }
+    $procs += $p
 }
-Write-Host "Sweep: $Mode, $Seeds seeds, $($procs.Count) jobs -> $Out"
+Write-Host "Sweep: $Mode, $Seeds seeds, $($procs.Count) jobs at $Priority priority -> $Out"
 $procs | Wait-Process
 $secs = [int]((Get-Date) - $start).TotalSeconds
 

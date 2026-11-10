@@ -14,6 +14,8 @@ const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const CHIP_TOP := 48.0
 const CHIP_H := 34.0
+## The chip stays clear of the corner buttons (Large buttons on, too).
+const CHIP_MAX := 224.0
 const NOTE := "Practice never counts for gold, best score, cleared rooms or leaderboards."
 
 var _banner := PanelContainer.new()
@@ -46,6 +48,7 @@ func _build_banner() -> void:
 	_room_line.add_theme_font_size_override("font_size", 14)
 	_room_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_room_line.custom_minimum_size = Vector2(0, CHIP_H)
+	_room_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_room_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_banner.add_child(_room_line)
 	_banner.anchor_left = 0.5
@@ -154,6 +157,7 @@ func _at(c: Control, top: float) -> void:
 func set_room(room_name: String) -> void:
 	_room_name = room_name
 	_room_line.text = "Practice: %s" % room_name
+	UiKit.cap_width(_room_line, CHIP_MAX - 28.0)
 	_over_room.text = room_name
 	visible = not room_name.is_empty()
 	show_playing(false)

@@ -17,7 +17,7 @@ extends CanvasLayer
 ##              through once (still with reduced motion).
 ## Practice runs add PracticeHud (banner, restart, crash screen); watching a
 ## leaderboard run adds ReplayHud (banner, exit, result) and hides the pause
-## button, coins and "Tap to flap".
+## button and "Tap to flap"; its coins show lower, beside the score.
 ## Taps outside buttons pass through to Main as flaps.
 
 signal pause_pressed
@@ -38,6 +38,9 @@ signal replay_again_pressed
 signal replay_back_pressed
 
 const TOAST_SECONDS := 1.2
+## The run's coin counter (top right); lower in a replay, under its chip.
+const RUN_COINS_TOP := 54.0
+const REPLAY_COINS_TOP := 112.0
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const PAUSE_ICON := preload("res://assets/ui/icons/pause.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
@@ -66,6 +69,13 @@ const TOGGLE := 56.0
 const STAT_W := 80.0
 const STAT_GAP := 6
 const WALL_CLEAR := 54.0
+## The final score keeps 24px of room at each side ("1024" shrinks to fit).
+const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
+const FINAL_SCORE_MIN := 64
+const STAT_SIZE := 26
+const STAT_MIN := 12
+## The coin stat's icon and gap.
+const STAT_ICON := 26.0
 
 ## Settings > Reduced flashing: the new-best moment stays still.
 var reduced_motion := false
@@ -212,7 +222,7 @@ func _build_running() -> void:
 	_run_coins.anchor_right = 1.0
 	_run_coins.offset_left = -18
 	_run_coins.offset_right = -18
-	_run_coins.offset_top = 54
+	_run_coins.offset_top = RUN_COINS_TOP
 	_run_coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_run_coins.set_amount(0)
 
@@ -576,6 +586,9 @@ func _place_score() -> void:
 	_score.offset_top = 92 if banner else 34
 	_score.offset_bottom = _score.offset_top + UiTheme.RUN_SCORE_SIZE + 6
 	_score.add_theme_font_size_override("font_size", 64 if banner else UiTheme.RUN_SCORE_SIZE)
+	# The replay chip fills the top middle; the coins drop beside the score.
+	_run_coins.offset_top = REPLAY_COINS_TOP if _replaying else RUN_COINS_TOP
+	_run_coins.offset_bottom = _run_coins.offset_top
 
 
 ## The replay banner and result. Its set_run() starts or ends replay mode.
@@ -650,8 +663,9 @@ func show_running(waiting: bool = false) -> void:
 	# A replay has no pause; its exit sits where pause would be.
 	_pause_button.visible = not _replaying
 	_score.visible = true
-	# Practice and replays never pay coins, so no counter.
-	_run_coins.visible = not _practicing and not _replaying
+	# Practice never pays coins, so no counter. A replay shows the coins the
+	# recorded player picked up (they are not paid to the watcher).
+	_run_coins.visible = not _practicing
 	if _practicing:
 		_practice.show_playing(false)
 
@@ -695,9 +709,12 @@ func show_game_over(
 	_run_coins.visible = false
 	_score.visible = false
 	_final_value = score
+	_final_score.add_theme_font_size_override("font_size", final_score_size(score))
 	_best_score.text = best_text(best, is_new_best, previous_best)
 	_stat_coins.text = "+%d" % coins_earned
+	_fit_stat(_stat_coins, STAT_W - STAT_ICON)
 	_stat_rooms.text = str(rooms)
+	_fit_stat(_stat_rooms, STAT_W)
 	set_daily_rank(rank)
 	_new_best.visible = is_new_best
 	_go_caption.visible = not is_new_best
@@ -726,11 +743,27 @@ func show_game_over(
 	_step_new_best()
 
 
+## The final score's font size: big, smaller for a long score so it never
+## runs past the screen edges.
+static func final_score_size(score: int) -> int:
+	return UiKit.fit_font_size(
+		str(score), GameFonts.display(), UiTheme.BIG_SCORE_SIZE, FINAL_SCORE_W, FINAL_SCORE_MIN
+	)
+
+
+## A stat's number shrinks to stay inside its column ("+1240", "#1234").
+static func _fit_stat(value: Label, room: float) -> void:
+	var font := value.get_theme_font("font") if value.is_inside_tree() else GameFonts.display()
+	var size := UiKit.fit_font_size(value.text, font, STAT_SIZE, room, STAT_MIN)
+	value.add_theme_font_size_override("font_size", size)
+
+
 ## Today's rank on the game-over stats and dock ("-" until it arrives).
 func set_daily_rank(rank: int) -> void:
 	_daily_rank = rank
 	if _stat_rank != null:
 		_stat_rank.text = "#%d" % rank if rank > 0 else "-"
+		_fit_stat(_stat_rank, STAT_W)
 	if _dock != null:
 		_dock.set_text("rank", "#%d" % rank if rank > 0 else "Ranks")
 

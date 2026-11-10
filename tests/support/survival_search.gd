@@ -39,6 +39,10 @@ var max_level := LEVELS.size() - 1
 var _bucket_h := 0
 var _bucket_vy := 0
 var _speed_buckets := 0
+## The tap tree of the current pass: each node's parent (-1 = the start) and
+## whether it tapped.
+var _parents := PackedInt32Array()
+var _taps := PackedByteArray()
 
 
 ## Runs `sim` (a copy is made; `sim` is not changed) for `ticks` steps or until
@@ -56,7 +60,12 @@ func run(sim: GameSim, ticks: int) -> bool:
 
 
 func _run_once(sim: GameSim, ticks: int) -> bool:
-	var frontier: Array = [[SimClone.copy(sim), PackedByteArray()]]
+	# Each copy carries one node id; the taps are rebuilt from the nodes only
+	# for the winner. Copying a whole tap list per branch per tick cost
+	# O(ticks) each, which dominated long searches.
+	_parents = PackedInt32Array()
+	_taps = PackedByteArray()
+	var frontier: Array = [[SimClone.copy(sim), -1]]
 	ticks_survived = 0
 	peak_width = 1
 	best = null
@@ -65,21 +74,18 @@ func _run_once(sim: GameSim, ticks: int) -> bool:
 		var next := {}
 		for e: Array in frontier:
 			var s: GameSim = e[0]
-			var inputs: PackedByteArray = e[1]
+			var node: int = e[1]
 			var grav := s.room.def.gravity_sign
 			if s.state.vy * grav > TAP_BELOW_VY or not s.state.started:
 				var c := SimClone.copy(s)
 				c.step(true)
-				var tapped := inputs.duplicate()
-				tapped.append(1)
-				_keep(next, c, tapped)
+				_keep(next, c, node, 1)
 			# A bird that has not started just waits and would "survive"
 			# forever: every copy starts on its first step.
 			if not s.state.started:
 				continue
 			s.step(false)
-			inputs.append(0)
-			_keep(next, s, inputs)
+			_keep(next, s, node, 0)
 		if next.is_empty():
 			last_rooms.clear()
 			last_deaths.clear()
@@ -90,7 +96,12 @@ func _run_once(sim: GameSim, ticks: int) -> bool:
 				var why: String = SimState.DeathCause.keys()[st.death_cause]
 				last_deaths[why] = int(last_deaths.get(why, 0)) + 1
 			return false
-		frontier = next.values()
+		frontier = []
+		for e: Array in next.values():
+			# Kept copies get their node now (dropped ones never need one).
+			_parents.append(e[1])
+			_taps.append(e[2])
+			frontier.append([e[0], _parents.size() - 1])
 		peak_width = maxi(peak_width, frontier.size())
 		ticks_survived = t + 1
 	var top: Array = frontier[0]
@@ -98,11 +109,24 @@ func _run_once(sim: GameSim, ticks: int) -> bool:
 		if _better(e[0], top[0]):
 			top = e
 	best = top[0]
-	best_inputs = top[1]
+	best_inputs = _inputs_to(top[1])
+	_parents = PackedInt32Array()
+	_taps = PackedByteArray()
 	return true
 
 
-func _keep(next: Dictionary, s: GameSim, inputs: PackedByteArray) -> void:
+## The taps from the start of the search to `node`.
+func _inputs_to(node: int) -> PackedByteArray:
+	var out := PackedByteArray()
+	var n := node
+	while n >= 0:
+		out.append(_taps[n])
+		n = _parents[n]
+	out.reverse()
+	return out
+
+
+func _keep(next: Dictionary, s: GameSim, parent: int, tap: int) -> void:
 	if s.is_over():
 		return
 	var st := s.state
@@ -112,7 +136,7 @@ func _keep(next: Dictionary, s: GameSim, inputs: PackedByteArray) -> void:
 	var speed := clampi(along / _bucket_vy, 0, _speed_buckets - 1)
 	var key := (st.y / _bucket_h) * _speed_buckets + speed
 	if not next.has(key) or _better(s, next[key][0]):
-		next[key] = [s, inputs]
+		next[key] = [s, parent, tap]
 
 
 ## Further along wins: more rooms, then more points, then more coins.

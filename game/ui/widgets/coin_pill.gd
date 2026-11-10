@@ -34,9 +34,10 @@ func _init(icon: Texture2D = COIN_ICON, word: String = "") -> void:
 	row.add_child(_label)
 
 
-## Coins read with thousands separators, as on the canvas ("1,240").
+## Coins read with thousands separators, as on the canvas ("1,240"); from
+## 10,000 on they are short ("12.3k") so a wallet leaves the header room.
 func set_amount(value: int) -> void:
-	_label.text = UiKit.thousands(value)
+	_label.text = UiKit.short_amount(value)
 
 
 func amount_text() -> String:

@@ -182,3 +182,19 @@ func test_popup_names_milestones_and_streaks() -> void:
 	assert_eq(mixed.summary(), "You won 4 diamonds from 3 prizes.")
 	assert_eq(mixed.claim_text(), "Claim 4")
 	mixed.free()
+
+
+func test_popup_headline_fits_a_narrow_screen() -> void:
+	assert_eq(DailyPrizePopup.headline_size("#2"), DailyPrizePopup.HEADLINE_SIZE, "short stays big")
+	for text in ["Best 50", "Best 1000", "7 days"]:
+		var size := DailyPrizePopup.headline_size(text)
+		var w := GameFonts.display().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		assert_true(w <= DailyPrizePopup.HEADLINE_W, "%s fits at %d" % [text, size])
+	var popup := DailyPrizePopup.new([{"kind": WalletService.MILESTONE, "ref": "1000"}])
+	_in_tree(popup)
+	var card := popup.get_child(1).get_child(0) as Control
+	assert_true(
+		card.get_combined_minimum_size().x <= UiTokens.SIZE_VIEWPORT_W - 2 * DailyPrizePopup.SIDE,
+		"the card stays inside the screen"
+	)
+	popup.free()

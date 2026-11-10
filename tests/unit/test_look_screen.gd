@@ -112,3 +112,17 @@ func test_flow_from_home_and_back() -> void:
 	assert_true(main._menus.current() is LookScreen, "Game over's Style opens it too")
 	main.free()
 	DirAccess.remove_absolute(TEST_PATH)
+
+
+## Only the world card shows a whole room; a trail, portal, track or crash sits
+## on a plain sky so the item itself is what you see.
+func test_cards_show_the_item_not_a_room() -> void:
+	var p := _profile()
+	for k: String in Catalog.KINDS:
+		var card := LookCard.new(k, p, ThemeCatalog.default_theme())
+		var thumb := card.thumb()
+		var want := k in [Catalog.TRAIL, Catalog.PORTAL, Catalog.MUSIC, Catalog.CRASH]
+		assert_eq(thumb.plain, want, "%s card on a plain sky" % k)
+		if k == Catalog.CRASH:
+			assert_true(thumb.flyer != null, "the crash bursts round the player's flyer")
+		card.free()

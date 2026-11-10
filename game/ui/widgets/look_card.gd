@@ -89,7 +89,8 @@ func _init(p_kind: String, profile: Profile, world: ThemeDef, p_wide: bool = fal
 	custom_minimum_size = Vector2(0, WIDE_HEIGHT if wide else HEIGHT)
 
 
-## The picture of the item in use, per kind (as ItemCard draws them).
+## The picture of the item in use, per kind. Only the world card shows a whole
+## room; the others sit on a plain sky so the item itself reads.
 func _fill_thumb(id: String, profile: Profile) -> void:
 	match kind:
 		Catalog.FLYER:
@@ -102,12 +103,19 @@ func _fill_thumb(id: String, profile: Profile) -> void:
 				_thumb.world = w
 		Catalog.TRAIL:
 			_thumb.trail = Catalog.trail(id)
+			_thumb.plain = true
 		Catalog.PORTAL:
 			_thumb.portal = Catalog.portal(id)
+			_thumb.plain = true
 		Catalog.MUSIC:
 			_thumb.music = id
+			_thumb.plain = true
 		Catalog.CRASH:
+			# The effect bursts round the player's own flyer, as in a run.
 			_thumb.crash = Catalog.crash(id)
+			var own := Catalog.flyer(profile.equipped_id(Catalog.FLYER))
+			_thumb.flyer = own.idle if own != null else null
+			_thumb.plain = true
 			_thumb.clip_contents = true
 		Catalog.PLATE:
 			_thumb.plate = Catalog.plate(id)
@@ -140,6 +148,11 @@ static func count_text(p_kind: String, profile: Profile) -> String:
 		if profile.owns(p_kind, id):
 			owned += 1
 	return "%d of %d" % [owned, ids.size()]
+
+
+## The card's picture, for tests.
+func thumb() -> ItemThumb:
+	return _thumb
 
 
 ## The item's name on the card, for tests.

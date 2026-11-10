@@ -48,8 +48,11 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 
 	var title := Label.new()
 	title.theme_type_variation = &"NameLabel"
-	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_font_size_override("font_size", 22)
 	title.text = "Change your name" if not current_name.is_empty() else "Pick your name"
+	# Wraps instead of pushing the card past the screen edge.
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.custom_minimum_size = Vector2(200, 0)
 	col.add_child(title)
 	var sub := Label.new()
 	sub.theme_type_variation = &"MutedLabel"
@@ -94,6 +97,8 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 		var keep := Button.new()
 		keep.theme_type_variation = &"InkButton"
 		keep.text = "Keep %s" % current_name
+		keep.clip_text = true
+		keep.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		for state in ["font_color", "font_hover_color", "font_pressed_color"]:
 			keep.add_theme_color_override(state, UiTokens.ON_PANEL)
 		keep.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)

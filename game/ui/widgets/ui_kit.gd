@@ -12,6 +12,8 @@ const ICON_BUTTON := 48.0
 const PRIMARY := float(UiTokens.SIZE_ROUND_BUTTON)
 ## Sub-screen header: the back arrow at the left, the title centred.
 const HEADER_HEIGHT := 48.0
+## The smallest a header title shrinks to beside a wide right side.
+const TITLE_MIN := 18
 const PRIMARY_ICON := 30
 ## "Large buttons" in Settings grows bare icon buttons to this.
 const LARGE_BUTTON := 56.0
@@ -86,7 +88,8 @@ static func spacer(height: float = 0.0, expand: bool = false) -> Control:
 
 
 ## A sub-screen header: back arrow left, the title centred on the screen,
-## `right` (coins, a count) at the right. Returns the row; `back` is wired to
+## `right` (coins, a count) at the right; with `right` the title sits left,
+## after the back arrow, and trims rather than run under either. Returns the row; `back` is wired to
 ## `on_back`.
 static func header(title: String, on_back: Callable, right: Control = null) -> Control:
 	var row := Control.new()
@@ -106,6 +109,12 @@ static func header(title: String, on_back: Callable, right: Control = null) -> C
 	back.offset_bottom = ICON_BUTTON / 2.0
 	back.pressed.connect(on_back)
 	row.add_child(back)
+	# A long title trims instead of running under the back button or `right`.
+	t.clip_text = true
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.offset_left = ICON_BUTTON
+	t.offset_right = -ICON_BUTTON
+	row.resized.connect(func() -> void: _fit_title(t, row.size.x + t.offset_right - t.offset_left))
 	if right != null:
 		row.add_child(right)
 		right.set_anchors_and_offsets_preset(
@@ -115,12 +124,70 @@ static func header(title: String, on_back: Callable, right: Control = null) -> C
 		right.grow_vertical = Control.GROW_DIRECTION_BOTH
 		right.offset_left -= 4
 		right.offset_right -= 4
+		# Next to a wide right side (the wallet) the title sits left, after
+		# the back arrow; it keeps clear as the counts grow.
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var keep_clear := func() -> void:
+			t.offset_right = -maxf(ICON_BUTTON, right.get_combined_minimum_size().x + 12)
+			_fit_title(t, row.size.x + t.offset_right - t.offset_left)
+		right.minimum_size_changed.connect(keep_clear)
+		keep_clear.call()
 	return row
+
+
+## The header title at its size, smaller (down to 18px) when it would not
+## fit `room` px; past that it trims. Starts from the size the screen set.
+static func _fit_title(t: Label, room: float) -> void:
+	if room <= 0.0:
+		return
+	var font := UiTheme.get_theme().get_font("font", &"TitleLabel")
+	if not t.has_meta(&"full_size"):
+		t.set_meta(&"full_size", t.get_theme_font_size("font_size"))
+	var full: int = t.get_meta(&"full_size")
+	t.add_theme_font_size_override("font_size", fit_font_size(t.text, font, full, room, TITLE_MIN))
 
 
 ## The header's back button, for tests.
 static func back_of(header_row: Control) -> Button:
 	return header_row.get_node_or_null("Back") as Button
+
+
+## The largest font size from `size` down to `smallest` (in steps of 2) at
+## which one line of `text` is at most `room` px wide.
+static func fit_font_size(text: String, font: Font, size: int, room: float, smallest: int) -> int:
+	while size > smallest:
+		if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= room:
+			break
+		size -= 2
+	return maxi(size, smallest)
+
+
+## Lets one line of `l` grow with its text up to `room` px, then trims it with
+## an ellipsis instead of widening its parent.
+static func cap_width(l: Label, room: float) -> void:
+	var font := UiTheme.get_theme().get_font("font", l.theme_type_variation)
+	var size := (
+		l.get_theme_font_size("font_size")
+		if l.has_theme_font_size_override("font_size")
+		else UiTheme.get_theme().get_font_size("font_size", l.theme_type_variation)
+	)
+	var need := font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	l.clip_text = true
+	l.custom_minimum_size.x = ceilf(minf(need, room))
+
+
+## 1240 -> "1,240", 12345 -> "12.3k", 250000 -> "250k", 1234567 -> "1.2M".
+static func short_amount(value: int) -> String:
+	if absi(value) < 10000:
+		return thousands(value)
+	for unit: Array in [[1000000, "M"], [1000, "k"]]:
+		var n: int = unit[0]
+		if absi(value) >= n:
+			var tenths := value * 10 / n
+			if absi(tenths) >= 1000 or tenths % 10 == 0:
+				return "%d%s" % [tenths / 10, unit[1]]
+			return "%d.%d%s" % [tenths / 10, absi(tenths) % 10, unit[1]]
+	return thousands(value)
 
 
 ## 1240 -> "1,240".

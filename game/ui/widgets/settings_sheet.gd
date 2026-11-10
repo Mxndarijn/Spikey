@@ -5,9 +5,9 @@ extends Control
 ##   Sound: Music and Sounds, each a round on/off button with its icon, the
 ##          name, a volume slider (0 to 100) and the value.
 ##   Play:  Haptics, Reduced flashing, Color-blind spikes, Large buttons.
-##   Ad choices, only where the player has an ad privacy choice to change
-##   (Europe): opens Google's form.
-##   Credits and licenses at the bottom (opens the credits in the same card).
+##   Credits and licenses at the bottom (opens the credits in the same card);
+##   where the player has an ad privacy choice to change (Europe), Ad choices
+##   shares that row and opens Google's form.
 ## Every change goes straight into the profile and emits `changed`; main saves
 ## and applies it (audio, RoomView.flash_enabled, button size, spikes).
 
@@ -107,11 +107,19 @@ func _build_main() -> void:
 	credits.pressed.connect(show_credits.bind(true))
 	_main_page.add_child(_divider())
 	var ads := AdsService.current
-	if ads != null and ads.privacy_options_required():
-		var choices := _link("AdChoices", "Ad choices")
-		choices.pressed.connect(ads.show_privacy_options)
-		_main_page.add_child(choices)
-	_main_page.add_child(credits)
+	if ads == null or not ads.privacy_options_required():
+		_main_page.add_child(credits)
+		return
+	# Side by side, so the extra row doesn't push the sheet off the screen.
+	var choices := _link("AdChoices", "Ad choices")
+	choices.pressed.connect(ads.show_privacy_options)
+	credits.text = "Credits"
+	var links := HBoxContainer.new()
+	links.add_theme_constant_override("separation", UiTokens.SPACE_4)
+	for b: Button in [choices, credits]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		links.add_child(b)
+	_main_page.add_child(links)
 
 
 ## A plain ink row with a chevron that opens something.

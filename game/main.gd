@@ -72,6 +72,8 @@ var _replay_run := {}
 var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
 var _replay_look := false
+## The room group the Rooms screen last showed ("" for the group cards).
+var _rooms_group := ""
 ## A lost prize spot to tell the player about on Home (SpotAlert), or "".
 var _spot_notice := ""
 ## Settings > Board alerts as last sent to the server.
@@ -372,15 +374,25 @@ func _show_spot_notice() -> void:
 	_spot_notice = ""
 
 
-## Every room kind, for practice.
-func show_rooms() -> void:
+## The Rooms screen: the room groups, or one group's rooms. Leaving practice
+## goes back to the practised room's group.
+func show_rooms(group: String = "") -> void:
+	if group.is_empty() and not _practice_id.is_empty():
+		var practised := RoomCatalog.find(_practice_id)
+		if practised != null:
+			group = RoomInfo.group(practised)
 	mode = Mode.MENU
 	_practice_id = ""
+	_rooms_group = group
 	_new_run()
 	_hud.show_menu()
 	_show_flyer(false)
-	var rooms := RoomsScreen.new(_profile)
-	rooms.closed.connect(show_home)
+	var rooms := RoomsScreen.new(_profile, group)
+	if group.is_empty():
+		rooms.closed.connect(show_home)
+	else:
+		rooms.closed.connect(show_rooms.bind(""))
+	rooms.group_opened.connect(show_rooms)
 	rooms.room_opened.connect(show_room)
 	_menus.show_screen(rooms)
 
@@ -390,7 +402,7 @@ func show_room(id: String) -> void:
 	_hud.show_menu()
 	_show_flyer(false)
 	var detail := RoomDetailScreen.new(_profile, id)
-	detail.closed.connect(show_rooms)
+	detail.closed.connect(show_rooms.bind(_rooms_group))
 	detail.practice_pressed.connect(start_practice)
 	_menus.show_screen(detail)
 
