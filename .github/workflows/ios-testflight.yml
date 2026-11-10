@@ -28,11 +28,14 @@ env:
 jobs:
   check:
     name: Check
+    # A build-only trial ("upload" off) skips the tests: nothing leaves GitHub.
+    if: inputs.upload != false
     uses: ./.github/workflows/check.yml
 
   export:
     name: Export Xcode project
     needs: check
+    if: always() && (needs.check.result == 'success' || needs.check.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -171,6 +174,7 @@ jobs:
   testflight:
     name: Build & upload to TestFlight
     needs: export
+    if: always() && needs.export.result == 'success'
     # macOS is required to build iOS. Apple requires the iOS 26 SDK (Xcode 26) for App Store
     # Connect uploads since 2026-04-28; bump the image if latest-stable resolves lower.
     runs-on: macos-15
@@ -221,10 +225,9 @@ jobs:
       - name: Decode signing assets
         run: |
           mkdir -p "$SIGNING_DIR"
-          printf "%s" "$IOS_DIST_CERT_P12_BASE64" | tr -d "
- " | base64 --decode > "$SIGNING_DIR/dist_cert.p12"
-          printf "%s" "$IOS_PROVISIONING_PROFILE_BASE64" | tr -d "
- " | base64 --decode > "$SIGNING_DIR/AppStore.mobileprovision"
+          # A secret set from a terminal can carry line endings; base64 on macOS refuses them.
+          printf '%s' "$IOS_DIST_CERT_P12_BASE64" | tr -d '\r\n ' | base64 --decode > "$SIGNING_DIR/dist_cert.p12"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > "$SIGNING_DIR/AppStore.mobileprovision"
         env:
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
