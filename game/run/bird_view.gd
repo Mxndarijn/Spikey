@@ -20,6 +20,8 @@ const ART_CANVAS := 120.0
 const DEAD_TINT := Color(0.8, 0.8, 0.85)
 ## Seconds a flyer takes to fade when its crash effect replaces it.
 const FADE_OUT_TIME := 0.15
+## Seconds the flyer takes to turn upside down (or back) when gravity flips.
+const FLIP_TIME := 0.2
 
 var _run: RunController
 var _character: CharacterDef
@@ -30,6 +32,9 @@ var _bob_time := 0.0
 var _stretch := 0.0
 var _tilt := 0.0
 var _fading := false
+## Flip progress: 1 = upright, -1 = upside down (Gravity Flip). Moves linearly;
+## flip_scale() eases it for drawing.
+var _flip := 1.0
 
 
 func _ready() -> void:
@@ -44,6 +49,8 @@ func bind(run: RunController, character: CharacterDef) -> void:
 	_stretch = 0.0
 	_tilt = 0.0
 	_fading = false
+	# A new run starts in its room's gravity at once, no flip animation.
+	_flip = flip_target(_gravity_sign())
 	modulate.a = 1.0
 	queue_redraw()
 
@@ -77,6 +84,30 @@ static func tilt_for(vy: int) -> float:
 	if vy < 0:
 		return -TILT_UP * clampf(float(vy) / SimConfig.FLAP_VY, 0.0, 1.0)
 	return TILT_DOWN * clampf(float(vy) / SimConfig.MAX_FALL_VY, 0.0, 1.0)
+
+
+## Flip progress the flyer heads for: upside down while gravity points up.
+static func flip_target(gravity_sign: int) -> float:
+	return -1.0 if gravity_sign < 0 else 1.0
+
+
+## One frame of the flip: moves `current` toward `target` so a full turn
+## (1 to -1) takes FLIP_TIME seconds.
+static func flip_step(current: float, target: float, delta: float) -> float:
+	return move_toward(current, target, delta * 2.0 / FLIP_TIME)
+
+
+## Vertical scale for a flip progress: eased so the turn starts and ends softly
+## and passes edge-on (0) halfway.
+static func flip_scale(progress: float) -> float:
+	return sin(clampf(progress, -1.0, 1.0) * PI / 2.0)
+
+
+## Body rotation for a tilt, the facing (+1 right, -1 left) and the drawn flip
+## scale. Upside down the rotation mirrors too, so the nose still points the
+## way the flyer moves.
+static func rotation_for(tilt: float, facing: float, flip: float) -> float:
+	return tilt * facing * flip
 
 
 ## How far between the last two sim ticks to draw the flyer. While the sim
@@ -116,12 +147,23 @@ func _process(delta: float) -> void:
 	position = Vector2(px, py)
 	var facing := 1.0 if s.vx > 0 else -1.0
 	_stretch = move_toward(_stretch, 0.0, delta * SQUASH_RECOVER * absf(_stretch) + delta * 0.2)
-	scale = Vector2(facing * (1.0 - _stretch), 1.0 + _stretch)
+	var g := _gravity_sign()
+	_flip = flip_step(_flip, flip_target(g), delta)
+	var flip := flip_scale(_flip)
+	scale = Vector2(facing * (1.0 - _stretch), (1.0 + _stretch) * flip)
 	# Ease toward the target so a flap swings the nose up instead of snapping it.
-	var target := tilt_for(s.vy) if s.started else 0.0
+	# Tilt is measured along gravity: "falling" is toward the ceiling when flipped.
+	var target := tilt_for(s.vy * g) if s.started else 0.0
 	_tilt = lerpf(_tilt, target, 1.0 - exp(-TILT_FOLLOW * delta))
-	rotation = _tilt * facing
+	rotation = rotation_for(_tilt, facing, flip)
 	queue_redraw()
+
+
+## The current room's gravity: 1 down, -1 up (Gravity Flip).
+func _gravity_sign() -> int:
+	if _run == null or _run.sim == null or _run.sim.room == null:
+		return 1
+	return _run.sim.room.def.gravity_sign
 
 
 func _draw() -> void:
