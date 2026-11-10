@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # Must match check.yml.
-  GODOT_VERSION: 4.6-beta2
+  GODOT_VERSION: 4.7.2-stable
 
 jobs:
   verify:

@@ -1,7 +1,7 @@
 # Flapjaw
 
 Tap to flap, bounce from wall to wall, don't touch the spikes. Built with
-Godot 4.6 for iOS and Android, with leaderboards verified by replaying every
+Godot 4.7 for iOS and Android, with leaderboards verified by replaying every
 run on the server.
 
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -9,7 +9,7 @@ run on the server.
 
 ## Play
 
-Open the folder in Godot 4.6 and press **F5**. Click or press Space to flap,
+Open the folder in Godot 4.7 and press **F5**. Click or press Space to flap,
 Esc or P to pause.
 
 ## Check

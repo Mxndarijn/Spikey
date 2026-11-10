@@ -1,6 +1,6 @@
 # Flapjaw
 
-Godot 4.6, GDScript, portrait mobile arcade game (tap to flap, bounce wall to
+Godot 4.7, GDScript, portrait mobile arcade game (tap to flap, bounce wall to
 wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
 
 ## Workflow

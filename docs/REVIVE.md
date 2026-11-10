@@ -249,7 +249,7 @@ Both units: direct AdMob, no partner bidding, reward 1 "Reward".
 
 `addons/admob` is the Poing Studios AdMob plugin v5.1.0 (MIT), unchanged, with
 only its core "ads" library for Android (`android/bin/ads`) and iOS
-(`ios/bin/ads`) from the Godot 4.6.0 templates; no mediation adapters. The
+(`ios/bin/ads`) from the plugin's Godot 4.7.2 templates; no mediation adapters. The
 libraries are committed, so builds download nothing. It is enabled in
 `project.godot` (`[editor_plugins]`), where the two app ids are set too
 (`[admob]`); its export plugin writes them into the Android manifest and the
@@ -278,7 +278,10 @@ iOS `Info.plist`.
 
 - No build with the plugin has been made: this PC has no JDK 17, and iOS needs
   a Mac. The first Android build from CI is the real test. Godot here is
-  4.6-beta2 and the libraries were built for 4.6.0.
+  4.7.2-stable and the libraries were built for 4.7.2. The Android libraries are
+  the same for every Godot version; the iOS ones are not, so replace
+  `addons/admob/ios/bin/ads` from the plugin's matching `ios-template-v<version>.zip`
+  whenever `GODOT_VERSION` changes.
 - Test on a phone with a **debug** build (Google's test ads): the consent form
   in Europe, the ad, the reward, closing early, flight mode.
 - AdMob console, Privacy & messaging: create the European consent message (and

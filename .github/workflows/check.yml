@@ -14,7 +14,7 @@ on:
 env:
   # Must match the editor used locally (tools/godot_path.txt). Change it in all three
   # workflow files together.
-  GODOT_VERSION: 4.6-beta2
+  GODOT_VERSION: 4.7.2-stable
 
 jobs:
   check:

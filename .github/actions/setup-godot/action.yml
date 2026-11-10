@@ -6,7 +6,7 @@ description: >
 
 inputs:
   version:
-    description: Release tag on godotengine/godot-builds, e.g. 4.6-beta2 or 4.6.2-stable
+    description: Release tag on godotengine/godot-builds, e.g. 4.8-beta3 or 4.7.2-stable
     required: true
   templates:
     description: Also install the export templates (about 1 GB, only needed for exports)
@@ -43,7 +43,7 @@ runs:
         echo "GODOT=$HOME/godot-bin/godot" >> "$GITHUB_ENV"
 
     # Godot looks for templates in a folder named after the version with '-' turned into '.'
-    # (4.6-beta2 -> 4.6.beta2).
+    # (4.7.2-stable -> 4.7.2.stable).
     - name: Work out the templates folder
       if: inputs.templates == 'true'
       id: tpl

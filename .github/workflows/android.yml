@@ -28,7 +28,7 @@ on:
     tags: ['v*']
 
 env:
-  GODOT_VERSION: 4.6-beta2
+  GODOT_VERSION: 4.7.2-stable
 
 jobs:
   check:
