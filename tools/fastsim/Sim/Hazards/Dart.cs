@@ -1,0 +1,124 @@
+namespace FastSim;
+
+/// Port of sim/hazards/dart.gd.
+public class Dart : Hazard
+{
+    public static class State
+    {
+        public const long IDLE = 0, GLOW = 1, FLY = 2;
+    }
+
+    public const long START_DELAY = 60;
+    public const long IDLE_TICKS = 50;
+    public const long GLOW_TICKS = 40;
+    public const long SPEED = 7 * SimConfig.SUB;
+    public const long LENGTH = 30 * SimConfig.SUB;
+    public const long HALF_H = 5 * SimConfig.SUB;
+    public const long LANE_MIN = 90 * SimConfig.SUB;
+    public const long LANE_MAX = 550 * SimConfig.SUB;
+    public const long LANES = 8;
+    public const long LANE_STEP = (LANE_MAX - LANE_MIN) / (LANES - 1);
+    public const long LANES_SPEED = 6 * SimConfig.SUB;
+    public const long LANES_FLASH = 45;
+    public const long LANES_IDLE = 40;
+    public const long SLOT_DELAY = 70;
+
+    public bool lanes = false;
+    public long slot = 0;
+    public long state = State.IDLE;
+    public long since = 0;
+    public long wait = START_DELAY;
+    public long side = 1;
+    public long lane_y = 0;
+    public long x = 0;
+    public long shots = 0;
+    public long salt = 0;
+
+    public Dart(bool p_lanes = false, long p_slot = 0)
+    {
+        kind = "dart";
+        lanes = p_lanes;
+        slot = p_slot;
+    }
+
+    public override void setup(GameSim sim, SimRng rng)
+    {
+        if (skin == "cupid") lanes = true;
+        salt = rng.next_u32();
+        state = State.IDLE;
+        since = 0;
+        wait = START_DELAY + (lanes ? slot * SLOT_DELAY : 0);
+        side = sim.state.x < SimConfig.WORLD_W / 2 ? 1 : 0;
+        lane_y = LANE_MIN;
+        x = _base_x();
+    }
+
+    public long _base_x() => side == 0 ? 0 : SimConfig.WORLD_W;
+
+    public long _dir() => side == 0 ? 1 : -1;
+
+    public override void step(GameSim sim)
+    {
+        if (state == State.IDLE)
+        {
+            if (t - since >= wait)
+            {
+                _aim(sim);
+                state = State.GLOW;
+                since = t;
+            }
+        }
+        else if (state == State.GLOW)
+        {
+            if (t - since >= (lanes ? LANES_FLASH : GLOW_TICKS))
+            {
+                state = State.FLY;
+                since = t;
+                x = _base_x();
+            }
+        }
+        else if (state == State.FLY)
+        {
+            x += _dir() * (lanes ? LANES_SPEED : SPEED);
+            if (x < -LENGTH || x > SimConfig.WORLD_W + LENGTH)
+            {
+                state = State.IDLE;
+                since = t;
+                wait = lanes ? LANES_IDLE : IDLE_TICKS;
+                shots += 1;
+                x = _base_x();
+            }
+        }
+    }
+
+    public void _aim(GameSim sim)
+    {
+        if (lanes)
+        {
+            long r = SimHash.mix(salt, shots);
+            lane_y = LANE_MIN + G.posmod(r, LANES) * LANE_STEP;
+            side = (r >> 8) & 1;
+            return;
+        }
+        // The far wall from the bird, at the bird's height right now.
+        side = sim.state.x < SimConfig.WORLD_W / 2 ? 1 : 0;
+        lane_y = G.clampi(sim.state.y, LANE_MIN, LANE_MAX);
+    }
+
+    public long glow()
+    {
+        if (state != State.GLOW) return 0;
+        return SimTrig.ONE * (t - since) / (lanes ? LANES_FLASH : GLOW_TICKS);
+    }
+
+    public long tail_x() => x - _dir() * LENGTH;
+
+    public override bool kills(GameSim sim)
+    {
+        if (state != State.FLY) return false;
+        return sim.bird_touches_rect(tail_x(), lane_y - HALF_H, x, lane_y + HALF_H);
+    }
+
+    public override long checksum(long h)
+        => mix_all(h, G.B(lanes), slot, state, since, wait, side, lane_y, x, shots, salt);
+}
