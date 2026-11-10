@@ -24,6 +24,10 @@ static func gap_reach(def: RoomDef) -> int:
 		return def.reach
 	if not def.hazards.is_empty() or not def.combos.is_empty():
 		return GAP_REACH
+	# Rooms that keep their hazards only in variants count too.
+	for variant: RoomVariant in def.variants:
+		if not variant.hazards.is_empty():
+			return GAP_REACH
 	return 0
 
 

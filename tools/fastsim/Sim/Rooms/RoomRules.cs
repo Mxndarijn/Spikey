@@ -16,6 +16,11 @@ public static class RoomRules
     {
         if (def.reach > 0) return def.reach;
         if (def.hazards.Count > 0 || def.combos.Count > 0) return GAP_REACH;
+        // Rooms that keep their hazards only in variants count too.
+        foreach (var variant in def.variants)
+        {
+            if (variant.hazards.Count > 0) return GAP_REACH;
+        }
         return 0;
     }
 

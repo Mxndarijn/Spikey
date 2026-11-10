@@ -14,6 +14,18 @@ func test_catalog_ids_are_unique_and_first_room_is_open() -> void:
 	assert_eq(RoomCatalog.find("open").from_score, 0)
 
 
+func test_rooms_with_hazards_keep_the_gap_near_the_bird() -> void:
+	# Hazards in the room itself, in combos or only in variants all count.
+	for def in RoomCatalog.all():
+		var has_hazards := not def.hazards.is_empty() or not def.combos.is_empty()
+		for variant: RoomVariant in def.variants:
+			has_hazards = has_hazards or not variant.hazards.is_empty()
+		if has_hazards:
+			assert_true(RoomRules.gap_reach(def) > 0, "%s keeps the gap in reach" % def.id)
+	for id in ["bramble", "pinwheel", "rain", "swing"]:
+		assert_eq(RoomRules.gap_reach(RoomCatalog.find(id)), RoomRules.GAP_REACH, id)
+
+
 func test_pick_respects_score_season_and_never_repeats() -> void:
 	var rng := SimRng.new(31)
 	for score in [10, 40, 90, 150]:
