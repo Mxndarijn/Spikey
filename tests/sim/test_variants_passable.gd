@@ -1,12 +1,12 @@
 extends TestCase
-## Narrow, Tide Spikes (every variant), Bumper Cloud (one and two clouds) and
-## Bramble Ball (every variant) can be played: SurvivalSearch finds a way
-## through each practice seed, long enough to take the first portal.
+## Narrow, Tide Spikes (every variant), Bumper Cloud (one and two clouds),
+## Bramble Ball and Spike Rain (every variant) can be played: SurvivalSearch
+## finds a way through each practice seed, long enough to take the first portal.
 
 ## Practice seeds per room variant.
 const SEEDS_EACH := 2
 ## [room id, ticks]: ten points and a portal (a Narrow crossing is shorter).
-const CASES := [["narrow", 900], ["tide", 1150], ["cloud", 1150], ["bramble", 1150]]
+const CASES := [["narrow", 900], ["tide", 1150], ["cloud", 1150], ["bramble", 1150], ["rain", 1150]]
 
 const PARALLEL := true
 ## The searches are shared out over this many parts, which can run side by side.
@@ -50,7 +50,7 @@ static func _cases() -> Array:
 		for v in maxi(def.variants.size(), 1):
 			wanted[v] = SEEDS_EACH
 		var seed_value := 500
-		while not wanted.is_empty() and seed_value < 2000:
+		while not wanted.is_empty() and seed_value < 6000:
 			seed_value += 37
 			var v := GameSim.new(seed_value, def.season, index).room.variant
 			if not wanted.has(v):
