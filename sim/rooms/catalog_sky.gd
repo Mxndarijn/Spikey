@@ -32,15 +32,24 @@ static func defs() -> Array[RoomDef]:
 	var coins: Array[Callable] = [_air.bind(180, 60, Updraft.LIFT)]
 	for y_px: int in [220, 270, 320]:
 		coins.append(_coin.bind(180, y_px))
+	# Out of a portal high up, the hover lanes are skipped: a tap to hold height
+	# in one keeps rising (hover cancels gravity) into the ceiling.
+	var high := PackedInt32Array([0, 172 * SUB])
 	updraft.variants = [
 		RoomVariant.new("chimney").with([_air.bind(180, 50, Updraft.CHIMNEY)]),
-		RoomVariant.new("twin").with(
-			[_air.bind(100, 40, Updraft.HOVER), _air.bind(260, 40, Updraft.HOVER)]
+		(
+			RoomVariant
+			. new("twin")
+			. with([_air.bind(100, 40, Updraft.HOVER), _air.bind(260, 40, Updraft.HOVER)])
+			. skipping(high)
 		),
 		RoomVariant.new("drift").with([_drift.bind(70, 220, 50)]),
 		RoomVariant.new("gust").with([_gust]),
-		RoomVariant.new("updown").with(
-			[_air.bind(120, 50, Updraft.HOVER), _air.bind(240, 50, -Updraft.HOVER)]
+		(
+			RoomVariant
+			. new("updown")
+			. with([_air.bind(120, 50, Updraft.HOVER), _air.bind(240, 50, -Updraft.HOVER)])
+			. skipping(high)
 		),
 		RoomVariant.new("coins").with(coins),
 	]

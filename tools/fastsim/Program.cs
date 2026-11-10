@@ -15,7 +15,7 @@ using FastSim;
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal),
-//   --variant <id>|all (search, rooms, reaction: play that room variant
+//   --variant <id>|all (search, rooms, reaction; scan: one id: play that room variant
 //   instead of the drawn one; "all" plays each variant in turn, one report
 //   line per variant).
 // Seeds and JSON match tools/playtest.gd, so results line up with Godot sweeps.
@@ -54,12 +54,12 @@ RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
 if (Targets.variant != "")
 {
-    if (mode != "search" && mode != "rooms" && mode != "reaction")
+    if (mode != "search" && mode != "rooms" && mode != "reaction" && mode != "scan")
     {
-        Console.Error.WriteLine("--variant works with the search, rooms and reaction modes only");
+        Console.Error.WriteLine("--variant works with the search, rooms, reaction and scan modes only");
         return 2;
     }
-    string filter = P(2, "*");
+    string filter = mode == "scan" ? P(1, "*") : P(2, "*");
     if (Targets.pick(filter, mode == "reaction").Count == 0)
     {
         Console.Error.WriteLine($"no room matching '{filter}' has a variant '{Targets.variant}'");

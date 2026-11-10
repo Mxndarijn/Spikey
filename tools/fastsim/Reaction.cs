@@ -89,17 +89,20 @@ static class Reaction
     {
         int index = (int)RoomCatalog.index_of(id);
         var def = RoomCatalog.all()[index];
+        var forced_v = def.variants.FirstOrDefault(v => v.id == Targets.variant);
         int bad = 0, total = 0;
         var lines = new List<string>();
         for (long y = SimConfig.KILL_TOP / SimConfig.SUB + SimConfig.ARRIVAL_EDGE / SimConfig.SUB;
              y <= (SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE) / SimConfig.SUB; y += 4)
         {
             if (!def.fits_arrival(y * SimConfig.SUB)) continue;
+            if (forced_v != null && !forced_v.fits_arrival(y * SimConfig.SUB)) continue;
             var hits = new List<string>();
             for (long side = 0; side < 2; side++)
                 for (long k = 0; k < seeds; k++)
                 {
                     var sim = new GameSim(9100 + k * 37 + y);
+                    sim.forced_variant = forced_v?.id ?? "";
                     sim.step(true);
                     sim.state.score = G.maxi(def.from_score, 10) + (k % 3) * 10;
                     sim.state.y = y * SimConfig.SUB;

@@ -11,19 +11,20 @@ public static class CatalogSky
         var out_ = new List<RoomDef>();
 
         var updraft = new RoomDef("updraft", "mid", 60);
+        var high = new List<long> { 0, 172 * SUB };
         updraft.variants = new List<RoomVariant>
         {
             new RoomVariant("chimney").with(new List<Func<Hazard>> { () => _air(180, 50, Updraft.CHIMNEY) }),
             new RoomVariant("twin").with(new List<Func<Hazard>>
             {
                 () => _air(100, 40, Updraft.HOVER), () => _air(260, 40, Updraft.HOVER),
-            }),
+            }).skipping(high),
             new RoomVariant("drift").with(new List<Func<Hazard>> { () => _drift(70, 220, 50) }),
             new RoomVariant("gust").with(new List<Func<Hazard>> { () => _gust() }),
             new RoomVariant("updown").with(new List<Func<Hazard>>
             {
                 () => _air(120, 50, Updraft.HOVER), () => _air(240, 50, -Updraft.HOVER),
-            }),
+            }).skipping(high),
             new RoomVariant("coins").with(new List<Func<Hazard>>
             {
                 () => _air(180, 60, Updraft.LIFT),
