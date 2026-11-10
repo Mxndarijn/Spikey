@@ -9,7 +9,8 @@ public class SawRing : Hazard
     public const long RING_MIN = 50 * SimConfig.SUB;
     public const long RING_MAX = 92 * SimConfig.SUB;
     public const long HOLD = 60;
-    public const long MOVE = 60;
+    /// Grow and shrink take 1.5 s each (playtest: 1 s came back too fast).
+    public const long MOVE = 90;
     public const long CYCLE = 2 * (HOLD + MOVE);
     public const long PERIOD = 300;
     public const long ARRIVAL_CLEAR = RING_MAX + SAW_RADIUS + SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB;

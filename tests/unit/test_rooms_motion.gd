@@ -303,3 +303,11 @@ func test_saw_ring_breathes_on_a_schedule() -> void:
 	assert_true(sizes.has(ring.RING_MAX), "reaches full size")
 	assert_true(sizes.size() > 30, "grows and shrinks smoothly")
 	assert_eq(ring.radius_at(0), ring.radius_at(ring.CYCLE), "the schedule repeats")
+	# Grow and shrink take 1.5 s each (90 steps), the holds 1 s.
+	var hold: int = ring.HOLD
+	var move: int = ring.MOVE
+	assert_eq(move, 90, "grow and shrink take 1.5 s each")
+	assert_eq(ring.radius_at(hold), ring.RING_MIN, "growth starts after the small hold")
+	assert_true(ring.radius_at(hold + 60) < ring.RING_MAX, "still growing after 1 s")
+	assert_eq(ring.radius_at(hold + move), ring.RING_MAX, "full size after 1.5 s")
+	assert_true(ring.radius_at(2 * hold + move + 60) > ring.RING_MIN, "still shrinking after 1 s")
