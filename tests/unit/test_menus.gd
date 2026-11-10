@@ -379,3 +379,39 @@ static func _use_flyer(main: Node, id: String) -> void:
 	main._profile.grant(Catalog.FLYER, id)
 	main._profile.equip(Catalog.FLYER, id)
 	main._load_equipped()
+
+
+## Resume counts 3, 2, 1 over the frozen room; taps do nothing until it ends,
+## and pausing again stops it.
+func test_resume_counts_down_before_the_run_plays_on() -> void:
+	var main := _make_main()
+	main.start_run()
+	main._run.request_tap()
+	main._run._physics_process(1.0 / 60.0)
+	var hud: Hud = main._hud
+	main._toggle_pause()
+	assert_true(main._run.paused, "paused")
+	main._toggle_pause()
+	assert_false(hud._paused.visible, "Resume takes the scrim away")
+	assert_true(main._run.paused, "but the run waits")
+	assert_true(hud.countdown.visible, "for the countdown")
+	assert_eq(hud.countdown.text, "3")
+	main._tick_countdown(1.0)
+	assert_eq(hud.countdown.text, "2")
+	var tick: int = main._run.sim.state.tick
+	main._run.request_tap()
+	main._run._physics_process(1.0 / 60.0)
+	assert_eq(main._run.sim.state.tick, tick, "nothing moves during the countdown")
+	main._toggle_pause()
+	assert_true(hud._paused.visible, "pause again during the countdown")
+	assert_false(hud.countdown.visible, "stops it")
+	main._toggle_pause()
+	assert_eq(hud.countdown.text, "3", "resume starts it over")
+	main._tick_countdown(1.0)
+	main._tick_countdown(1.0)
+	assert_eq(hud.countdown.text, "1")
+	main._tick_countdown(1.0)
+	assert_false(hud.countdown.visible, "it ends")
+	assert_false(main._run.paused, "and the run plays on")
+	main.free()
+	DirAccess.remove_absolute(TEST_PATH)

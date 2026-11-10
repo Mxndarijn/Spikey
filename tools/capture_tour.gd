@@ -21,8 +21,9 @@ const STEPS := [
 	[281, "pause", ""],
 	[295, "", "06_paused"],
 	[296, "pause", ""],
-	[297, "stop_tapping", ""],
-	[470, "", "07_game_over"],
+	[300, "", "07_countdown"],
+	[480, "stop_tapping", ""],
+	[650, "", "08_game_over"],
 ]
 
 var _main: Node

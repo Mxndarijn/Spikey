@@ -19,6 +19,8 @@ extends Node2D
 enum Mode { MENU, RUN, PRACTICE, REPLAY }
 
 const RESTART_DELAY_MS := 450
+## Resume counts 3, 2, 1 before the run plays on.
+const RESUME_COUNTDOWN := 3.0
 ## Settings > Haptics: a short buzz on flap, a longer one on a crash.
 const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
@@ -84,6 +86,8 @@ var _offer_replay: Replay
 var _revived_at := -1
 ## Just revived: the run waits, paused, for the player's tap.
 var _revive_wait := false
+## Seconds left in the 3, 2, 1 before a resumed run plays on (0: none).
+var _countdown := 0.0
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -717,6 +721,7 @@ func _new_run() -> void:
 	_offer_replay = null
 	_revived_at = -1
 	_revive_wait = false
+	_countdown = 0.0
 
 
 func _in_play() -> bool:
@@ -747,7 +752,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	get_viewport().set_input_as_handled()
 	if _run.paused:
-		_set_paused(false)
+		# A tap during the countdown does nothing; it is not a flap.
+		if _countdown <= 0.0:
+			_resume()
 	elif _run.sim.is_over():
 		_try_restart()
 	else:
@@ -777,12 +784,46 @@ func _notification(what: int) -> void:
 			_set_paused(true)
 
 
+## Pause, or Resume: pause again during the countdown and it stops there.
 func _toggle_pause() -> void:
-	if _run.is_running() or _run.paused:
-		_set_paused(not _run.paused)
+	if not (_run.is_running() or _run.paused):
+		return
+	if _run.paused and _countdown <= 0.0:
+		_resume()
+	else:
+		_set_paused(true)
 
 
+## Resume from the pause screen: the scrim goes and a 3, 2, 1 counts down over
+## the frozen room, so the player can find the bird before it moves. The tap
+## after a revive plays on at once (the bird is already in view).
+func _resume() -> void:
+	if _revive_wait:
+		_set_paused(false)
+		return
+	_hud.show_paused(false, _profile.music_on, _profile.sfx_on)
+	_countdown = RESUME_COUNTDOWN
+	_hud.countdown.show_count(ceili(_countdown))
+
+
+func _process(delta: float) -> void:
+	_tick_countdown(delta)
+
+
+func _tick_countdown(delta: float) -> void:
+	if _countdown <= 0.0:
+		return
+	_countdown -= delta
+	if _countdown > 0.0:
+		_hud.countdown.show_count(ceili(_countdown))
+	else:
+		_set_paused(false)
+
+
+## Pauses or plays on at once (no countdown).
 func _set_paused(value: bool) -> void:
+	_countdown = 0.0
+	_hud.countdown.show_count(0)
 	_run.set_paused(value)
 	_hud.show_paused(value, _profile.music_on, _profile.sfx_on)
 	if not value and _revive_wait:
