@@ -21,9 +21,16 @@ public class Mover : Hazard
     public const long WAVE_AMP = 70 * SUB;
     public const long WAVE_TURNS = 3;
     public const long WAVE_SPACING = 22;
+    public const long CHASE_DEN = 10;
+    public const long CHASE_STEP = 1;
+    public const long CHASE_LAPS = 3;
 
     public string mode = "figure8";
     public long count = 3;
+    public long loop_w = LOOP_W;
+    public long loop_h = LOOP_H;
+    public long loop_period = LOOP_PERIOD;
+    public bool chase = false;
     public long phase = 0;
     public List<long> xs = new();
     public List<long> ys = new();
@@ -120,9 +127,23 @@ public class Mover : Hazard
         return hit;
     }
 
-    public long period() => mode == "figure8" ? LOOP_PERIOD : WAVE_PERIOD;
+    public long period() => mode == "figure8" ? loop_period : WAVE_PERIOD;
 
     public override void step(GameSim sim) => _place();
+
+    public long chase_tenths(long tick)
+    {
+        long start = 0;
+        for (long k = 0; k < CHASE_LAPS; k++)
+        {
+            long num = CHASE_DEN + k * CHASE_STEP;
+            long lap = (loop_period * CHASE_DEN + num - 1) / num;
+            if (tick < start + lap) return k * loop_period * CHASE_DEN + (tick - start) * num;
+            start += lap;
+        }
+        long top = CHASE_DEN + CHASE_LAPS * CHASE_STEP;
+        return CHASE_LAPS * loop_period * CHASE_DEN + (tick - start) * top;
+    }
 
     public void _place()
     {
@@ -132,9 +153,11 @@ public class Mover : Hazard
             long ny = 0;
             if (mode == "figure8")
             {
-                long a = (t + phase) * SimTrig.TURN / LOOP_PERIOD + i * SimTrig.TURN / count;
-                nx = CENTER_X + LOOP_W * SimTrig.sin_t(a) / SimTrig.ONE;
-                ny = CENTER_Y + LOOP_H * SimTrig.sin_t(2 * a) / SimTrig.ONE;
+                long k = (t + phase) * CHASE_DEN;
+                if (chase && i == count - 1) k = chase_tenths(t) + phase * CHASE_DEN;
+                long a = k * SimTrig.TURN / (loop_period * CHASE_DEN) + i * SimTrig.TURN / count;
+                nx = CENTER_X + loop_w * SimTrig.sin_t(a) / SimTrig.ONE;
+                ny = CENTER_Y + loop_h * SimTrig.sin_t(2 * a) / SimTrig.ONE;
             }
             else
             {
@@ -159,6 +182,8 @@ public class Mover : Hazard
     public override long checksum(long h)
     {
         long out_ = mix_all(h, count, phase, G.B(mode == "figure8"));
+        if (chase || loop_w != LOOP_W || loop_h != LOOP_H || loop_period != LOOP_PERIOD)
+            out_ = mix_all(out_, G.B(chase), loop_w, loop_h, loop_period);
         for (long i = 0; i < count; i++)
             out_ = mix_all(out_, xs[(int)i], ys[(int)i], facing[(int)i]);
         return out_;

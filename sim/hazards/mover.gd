@@ -5,6 +5,11 @@ extends Hazard
 ## and turn back (Spring Bee Line, skin "bee"). Positions depend only on `t`
 ## and one phase drawn in setup(). Paths stay clear of the side walls, so they
 ## never start on the bird.
+##
+## Bat Loop variants set loop_w / loop_h / loop_period after new() (a bigger,
+## faster eight), or `chase`: the last creature speeds up by CHASE_STEP each
+## lap it flies, for CHASE_LAPS laps, then keeps that speed. Its place is
+## still a function of `t` alone.
 
 const SUB := SimConfig.SUB
 const RADIUS := 12 * SUB
@@ -28,9 +33,19 @@ const WAVE_AMP := 70 * SUB
 const WAVE_TURNS := 3
 ## Steps between creatures following each other on the wave.
 const WAVE_SPACING := 22
+## Chaser: speed in tenths of the loop speed, +1 tenth a lap for 3 laps (130%).
+const CHASE_DEN := 10
+const CHASE_STEP := 1
+const CHASE_LAPS := 3
 
 var mode := "figure8"
 var count := 3
+## Figure-eight size and steps per lap (variants change these before setup()).
+var loop_w := LOOP_W
+var loop_h := LOOP_H
+var loop_period := LOOP_PERIOD
+## The last creature speeds up every lap (Bat Loop, chasing pair).
+var chase := false
 var phase := 0
 var xs: Array[int] = []
 var ys: Array[int] = []
@@ -115,7 +130,21 @@ func _arrival_clear(arrival: PackedInt32Array) -> int:
 
 
 func period() -> int:
-	return LOOP_PERIOD if mode == "figure8" else WAVE_PERIOD
+	return loop_period if mode == "figure8" else WAVE_PERIOD
+
+
+## How far the chaser has flown by step `tick`, in 1 / CHASE_DEN steps at loop
+## speed: lap k goes at (CHASE_DEN + k * CHASE_STEP) / CHASE_DEN of the speed.
+func chase_tenths(tick: int) -> int:
+	var start := 0
+	for k in CHASE_LAPS:
+		var num := CHASE_DEN + k * CHASE_STEP
+		var lap := (loop_period * CHASE_DEN + num - 1) / num
+		if tick < start + lap:
+			return k * loop_period * CHASE_DEN + (tick - start) * num
+		start += lap
+	var top := CHASE_DEN + CHASE_LAPS * CHASE_STEP
+	return CHASE_LAPS * loop_period * CHASE_DEN + (tick - start) * top
 
 
 func step(_sim: GameSim) -> void:
@@ -127,9 +156,12 @@ func _place() -> void:
 		var nx := 0
 		var ny := 0
 		if mode == "figure8":
-			var a := (t + phase) * SimTrig.TURN / LOOP_PERIOD + i * SimTrig.TURN / count
-			nx = CENTER_X + LOOP_W * SimTrig.sin_t(a) / SimTrig.ONE
-			ny = CENTER_Y + LOOP_H * SimTrig.sin_t(2 * a) / SimTrig.ONE
+			var k := (t + phase) * CHASE_DEN
+			if chase and i == count - 1:
+				k = chase_tenths(t) + phase * CHASE_DEN
+			var a := k * SimTrig.TURN / (loop_period * CHASE_DEN) + i * SimTrig.TURN / count
+			nx = CENTER_X + loop_w * SimTrig.sin_t(a) / SimTrig.ONE
+			ny = CENTER_Y + loop_h * SimTrig.sin_t(2 * a) / SimTrig.ONE
 		else:
 			var k := t + phase - i * WAVE_SPACING
 			nx = WAVE_MIN_X + SimTrig.ping_pong(k, WAVE_PERIOD, WAVE_MAX_X - WAVE_MIN_X)
@@ -150,6 +182,8 @@ func kills(sim: GameSim) -> bool:
 
 func checksum(h: int) -> int:
 	var out := mix_all(h, [count, phase, int(mode == "figure8")])
+	if chase or loop_w != LOOP_W or loop_h != LOOP_H or loop_period != LOOP_PERIOD:
+		out = mix_all(out, [int(chase), loop_w, loop_h, loop_period])
 	for i in count:
 		out = mix_all(out, [xs[i], ys[i], facing[i]])
 	return out

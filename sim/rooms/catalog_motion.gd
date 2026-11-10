@@ -13,6 +13,8 @@ const SawRing := preload("res://sim/hazards/saw_ring.gd")
 const SUB := SimConfig.SUB
 ## Pinwheel variants, in draw order.
 const PINWHEELS: Array[String] = ["trim", "three", "twin", "rock", "lean", "breathe"]
+## Saw Ring variants, in draw order.
+const SAW_RINGS: Array[String] = ["classic", "two-rings", "off-centre", "oval", "pair"]
 
 
 static func defs() -> Array[RoomDef]:
@@ -82,10 +84,14 @@ static func defs() -> Array[RoomDef]:
 	out.append(pinwheel)
 
 	# Saw Ring: saws circle the middle; the ring grows and shrinks on a beat.
+	# Variants: the classic ring, a small ring turning the other way inside a
+	# big one, a ring left of the middle, a flat oval, and two faster saws.
+	# Every saw stays inside x 70..290 px.
 	var sawring := RoomDef.new("sawring", "late", 80)
 	sawring.weight = 8
 	sawring.max_spikes = 6
-	sawring.hazards.append(func() -> Hazard: return SawRing.new())
+	for shape: String in SAW_RINGS:
+		sawring.variants.append(RoomVariant.new(shape).with([_saw_ring.bind(shape)]))
 	out.append(sawring)
 
 	return out
@@ -117,6 +123,36 @@ static func _pinwheel(shape: String) -> Hazard:
 	elif shape == "rock":
 		r.spin = Rotor.Spin.ROCK
 	return r
+
+
+## One Saw Ring variant. "classic" is SawRing.new() as is.
+static func _saw_ring(shape: String) -> Hazard:
+	var ring := SawRing.new()
+	match shape:
+		"two-rings":
+			# Three big saws outside, two small ones inside turning back.
+			ring.fixed_count = 3
+			ring.ring_min = 60 * SUB
+			ring.inner_count = 2
+			ring.inner_min = 20 * SUB
+			ring.inner_max = 34 * SUB
+			ring.inner_saw = 13 * SUB
+		"off-centre":
+			# Three saws round a point 44 px left of the middle.
+			ring.fixed_count = 3
+			ring.center_x = 136 * SUB
+			ring.ring_min = 28 * SUB
+			ring.ring_max = 48 * SUB
+		"oval":
+			# Four saws on an orbit half as tall as it is wide.
+			ring.fixed_count = 4
+			ring.ry_num = 1
+			ring.ry_den = 2
+		"pair":
+			# Two saws opposite each other, a lap in 3 s instead of 5 s.
+			ring.fixed_count = 2
+			ring.period = 180
+	return ring
 
 
 static func _gate(x: int, period: int, follows: bool) -> Hazard:

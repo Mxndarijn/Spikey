@@ -25,6 +25,13 @@ public class Dart : Hazard
     public const long TWIN_DELAY = 75;
 
     public bool lanes = false;
+    public long lane_count = LANES;
+    public long lane_min = LANE_MIN;
+    public long lane_max = LANE_MAX;
+    public long lanes_speed = LANES_SPEED;
+    public long lanes_flash = LANES_FLASH;
+    public bool pair = false;
+    public long lane2_y = 0;
     public long slot = 0;
     public long home = -1;
     public long state = State.IDLE;
@@ -73,7 +80,7 @@ public class Dart : Hazard
         }
         else if (state == State.GLOW)
         {
-            if (t - since >= (lanes ? LANES_FLASH : GLOW_TICKS))
+            if (t - since >= (lanes ? lanes_flash : GLOW_TICKS))
             {
                 state = State.FLY;
                 since = t;
@@ -82,7 +89,7 @@ public class Dart : Hazard
         }
         else if (state == State.FLY)
         {
-            x += _dir() * (lanes ? LANES_SPEED : SPEED);
+            x += _dir() * (lanes ? lanes_speed : SPEED);
             if (x < -LENGTH || x > SimConfig.WORLD_W + LENGTH)
             {
                 state = State.IDLE;
@@ -99,8 +106,14 @@ public class Dart : Hazard
         if (lanes)
         {
             long r = SimHash.mix(salt, shots);
-            lane_y = LANE_MIN + G.posmod(r, LANES) * LANE_STEP;
+            long lane = G.posmod(r, lane_count);
+            lane_y = lane_min + lane * lane_step();
             side = (r >> 8) & 1;
+            if (pair)
+            {
+                long other = (lane + 1 + G.posmod(r >> 12, lane_count - 1)) % lane_count;
+                lane2_y = lane_min + other * lane_step();
+            }
             return;
         }
         // The far wall from the bird, at the bird's height right now.
@@ -109,10 +122,12 @@ public class Dart : Hazard
         lane_y = G.clampi(sim.state.y, LANE_MIN, LANE_MAX);
     }
 
+    public long lane_step() => (lane_max - lane_min) / (lane_count - 1);
+
     public long glow()
     {
         if (state != State.GLOW) return 0;
-        return SimTrig.ONE * (t - since) / (lanes ? LANES_FLASH : GLOW_TICKS);
+        return SimTrig.ONE * (t - since) / (lanes ? lanes_flash : GLOW_TICKS);
     }
 
     public long tail_x() => x - _dir() * LENGTH;
@@ -120,9 +135,15 @@ public class Dart : Hazard
     public override bool kills(GameSim sim)
     {
         if (state != State.FLY) return false;
+        if (pair && sim.bird_touches_rect(tail_x(), lane2_y - HALF_H, x, lane2_y + HALF_H)) return true;
         return sim.bird_touches_rect(tail_x(), lane_y - HALF_H, x, lane_y + HALF_H);
     }
 
     public override long checksum(long h)
-        => mix_all(h, G.B(lanes), slot, home, state, since, wait, side, lane_y, x, shots, salt);
+    {
+        long out_ = mix_all(h, G.B(lanes), slot, home, state, since, wait, side, lane_y, x, shots, salt);
+        if (pair || lane_count != LANES || lanes_speed != LANES_SPEED || lanes_flash != LANES_FLASH)
+            out_ = mix_all(out_, G.B(pair), lane2_y, lane_count, lane_min, lanes_speed, lanes_flash);
+        return out_;
+    }
 }

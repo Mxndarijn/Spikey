@@ -1,8 +1,9 @@
 extends HazardPainter
 ## Firework (New Year Firework Burst). On the pad: the rocket on the floor with
 ## a fizzing fuse and a faint ring where it will burst (the warning). Climbing:
-## the rocket with a glowing trail. Burst: eight sparks in the spike colour
-## with streaks back to the centre, fading out.
+## the rocket with a glowing trail. Burst: the sparks (a ring, two rings one
+## after the other, or a cross) in the spike colour with streaks back to the
+## centre, fading out.
 
 const Firework := preload("res://sim/hazards/firework.gd")
 
@@ -29,9 +30,11 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			c.draw_colored_polygon(trail, Color(theme.glow, 0.6))
 			_rocket(c, p, theme)
 		Firework.Phase.BURST:
-			var a: float = h.spark_alpha() / float(SimTrig.ONE)
 			var sr := HazardLayer.px(Firework.SPARK_RADIUS)
-			for i in Firework.SPARKS:
+			for i in h.spark_count():
+				var a: float = h.spark_alpha_of(i) / float(SimTrig.ONE)
+				if a <= 0.0:
+					continue
 				var s := HazardLayer.at(h.spark_x(i), h.spark_y(i))
 				var back := p.lerp(s, 0.55)
 				c.draw_line(back, s, Color(theme.spike, 0.35 * a), 2.0, true)

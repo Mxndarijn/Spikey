@@ -9,6 +9,10 @@ extends Hazard
 ##
 ## Twin hunters: one dart per wall (`home`), always firing from it; the second
 ## (slot 1) starts TWIN_DELAY steps later, half a cycle, so they take turns.
+##
+## Cupid variants set the lanes fields after new(): fewer lanes, slower arrows
+## with a longer warning, or `pair`: every shot is two arrows on two different
+## lanes, from the same wall.
 
 enum State { IDLE, GLOW, FLY }
 
@@ -35,6 +39,15 @@ const TWIN_DELAY := 75
 
 ## Lanes mode (Cupid Lanes) instead of hunting the bird.
 var lanes := false
+## Lanes mode: how many lanes from lane_min to lane_max, arrow speed, warning.
+var lane_count := LANES
+var lane_min := LANE_MIN
+var lane_max := LANE_MAX
+var lanes_speed := LANES_SPEED
+var lanes_flash := LANES_FLASH
+## Lanes mode: two arrows a shot, the second on lane2_y.
+var pair := false
+var lane2_y := 0
 ## Which of a room's lanes darts this is (staggers their timing).
 var slot := 0
 ## The wall this dart always fires from (0 = left, 1 = right), or -1: the far
@@ -89,12 +102,12 @@ func step(sim: GameSim) -> void:
 				state = State.GLOW
 				since = t
 		State.GLOW:
-			if t - since >= (LANES_FLASH if lanes else GLOW_TICKS):
+			if t - since >= (lanes_flash if lanes else GLOW_TICKS):
 				state = State.FLY
 				since = t
 				x = _base_x()
 		State.FLY:
-			x += _dir() * (LANES_SPEED if lanes else SPEED)
+			x += _dir() * (lanes_speed if lanes else SPEED)
 			if x < -LENGTH or x > SimConfig.WORLD_W + LENGTH:
 				state = State.IDLE
 				since = t
@@ -107,8 +120,12 @@ func step(sim: GameSim) -> void:
 func _aim(sim: GameSim) -> void:
 	if lanes:
 		var r := SimHash.mix(salt, shots)
-		lane_y = LANE_MIN + posmod(r, LANES) * LANE_STEP
+		var lane := posmod(r, lane_count)
+		lane_y = lane_min + lane * lane_step()
 		side = (r >> 8) & 1
+		if pair:
+			var other := (lane + 1 + posmod(r >> 12, lane_count - 1)) % lane_count
+			lane2_y = lane_min + other * lane_step()
 		return
 	# The far wall from the bird, at the bird's height right now.
 	side = 1 if sim.state.x < SimConfig.WORLD_W / 2 else 0
@@ -117,11 +134,24 @@ func _aim(sim: GameSim) -> void:
 	lane_y = clampi(sim.state.y, LANE_MIN, LANE_MAX)
 
 
+## Lanes mode: height between two lanes.
+func lane_step() -> int:
+	return (lane_max - lane_min) / (lane_count - 1)
+
+
+## Heights of the lanes this shot uses (one, or two for a pair).
+func shot_lanes() -> Array[int]:
+	var out: Array[int] = [lane_y]
+	if pair:
+		out.append(lane2_y)
+	return out
+
+
 ## 0..1024 how far into the warning (0 outside it).
 func glow() -> int:
 	if state != State.GLOW:
 		return 0
-	return SimTrig.ONE * (t - since) / (LANES_FLASH if lanes else GLOW_TICKS)
+	return SimTrig.ONE * (t - since) / (lanes_flash if lanes else GLOW_TICKS)
 
 
 ## The back end of the dart (the tip is `x`).
@@ -132,10 +162,15 @@ func tail_x() -> int:
 func kills(sim: GameSim) -> bool:
 	if state != State.FLY:
 		return false
+	if pair and sim.bird_touches_rect(tail_x(), lane2_y - HALF_H, x, lane2_y + HALF_H):
+		return true
 	return sim.bird_touches_rect(tail_x(), lane_y - HALF_H, x, lane_y + HALF_H)
 
 
 func checksum(h: int) -> int:
-	return mix_all(
+	var out := mix_all(
 		h, [int(lanes), slot, home, int(state), since, wait, side, lane_y, x, shots, salt]
 	)
+	if pair or lane_count != LANES or lanes_speed != LANES_SPEED or lanes_flash != LANES_FLASH:
+		out = mix_all(out, [int(pair), lane2_y, lane_count, lane_min, lanes_speed, lanes_flash])
+	return out

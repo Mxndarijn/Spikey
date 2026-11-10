@@ -4,6 +4,7 @@ namespace FastSim;
 public sealed class Firework : Hazard
 {
     public static class Phase { public const long PAD = 0, CLIMB = 1, BURST = 2, REST = 3; }
+    public static class Style { public const long RING = 0, DOUBLE = 1, CROSS = 2; }
 
     public const long SUB = SimConfig.SUB;
     public const long ROCKET_RADIUS = 8 * SUB;
@@ -15,6 +16,9 @@ public sealed class Firework : Hazard
     public const long BURST = 44;
     public const long SPARK_DEADLY = 30;
     public const long REST = 20;
+    public const long ECHO = 16;
+    public const long ARMS = 4;
+    public const long ARM_SPARKS = 3;
     public const long MIN_X = 80 * SUB;
     public const long MAX_X = 280 * SUB;
     public const long MIN_BURST_Y = 170 * SUB;
@@ -28,12 +32,14 @@ public sealed class Firework : Hazard
     public long timer = 0;
     public long spread = 0;
     public long delay = 0;
+    public long style = Style.RING;
     public SimRng _rng = new SimRng();
 
-    public Firework(long p_delay = 0)
+    public Firework(long p_delay = 0, long p_style = Style.RING)
     {
         kind = "firework";
         delay = p_delay;
+        style = p_style;
     }
 
     public override Hazard clone_deep()
@@ -81,7 +87,7 @@ public sealed class Firework : Hazard
             case Phase.BURST:
                 timer += 1;
                 spread += SPARK_SPEED;
-                if (timer >= BURST)
+                if (timer >= burst_steps())
                 {
                     phase = Phase.REST;
                     timer = REST;
@@ -94,11 +100,56 @@ public sealed class Firework : Hazard
         }
     }
 
-    public long spark_alpha()
+    public long burst_steps() => style == Style.DOUBLE ? BURST + ECHO : BURST;
+
+    public long spark_count()
     {
-        if (phase != Phase.BURST) return 0;
-        if (timer < SPARK_DEADLY) return SimTrig.ONE;
-        return SimTrig.ONE * (BURST - timer) / (BURST - SPARK_DEADLY);
+        switch (style)
+        {
+            case Style.DOUBLE: return 2 * SPARKS;
+            case Style.CROSS: return ARMS * ARM_SPARKS;
+        }
+        return SPARKS;
+    }
+
+    public long spark_start(long i) => style == Style.DOUBLE && i >= SPARKS ? ECHO : 0;
+
+    public long spark_age(long i) => timer - spark_start(i);
+
+    public long spark_alpha() => spark_alpha_of(0);
+
+    public long spark_alpha_of(long i)
+    {
+        long age = spark_age(i);
+        if (phase != Phase.BURST || age < 0) return 0;
+        if (age < SPARK_DEADLY) return SimTrig.ONE;
+        return G.maxi(0, SimTrig.ONE * (BURST - age) / (BURST - SPARK_DEADLY));
+    }
+
+    public bool spark_live(long i)
+    {
+        long age = spark_age(i);
+        return phase == Phase.BURST && age >= 0 && age < SPARK_DEADLY;
+    }
+
+    public long spark_angle(long i)
+    {
+        switch (style)
+        {
+            case Style.DOUBLE: return (2 * (i % SPARKS) + (i >= SPARKS ? 1 : 0)) * SimTrig.TURN / (2 * SPARKS);
+            case Style.CROSS: return (i / ARM_SPARKS) * SimTrig.TURN / ARMS;
+        }
+        return i * SimTrig.TURN / SPARKS;
+    }
+
+    public long spark_dist(long i)
+    {
+        switch (style)
+        {
+            case Style.DOUBLE: return G.maxi(0, spark_age(i)) * SPARK_SPEED;
+            case Style.CROSS: return spread * (i % ARM_SPARKS + 1) / ARM_SPARKS;
+        }
+        return spread;
     }
 
     public long fuse_progress()
@@ -107,20 +158,25 @@ public sealed class Firework : Hazard
         return SimTrig.ONE - SimTrig.ONE * G.mini(timer, PAD) / PAD;
     }
 
-    public long spark_x(long i) => x + spread * SimTrig.cos_t(i * SimTrig.TURN / SPARKS) / SimTrig.ONE;
+    public long spark_x(long i) => x + spark_dist(i) * SimTrig.cos_t(spark_angle(i)) / SimTrig.ONE;
 
-    public long spark_y(long i) => y + spread * SimTrig.sin_t(i * SimTrig.TURN / SPARKS) / SimTrig.ONE;
+    public long spark_y(long i) => y + spark_dist(i) * SimTrig.sin_t(spark_angle(i)) / SimTrig.ONE;
 
     public override bool kills(GameSim sim)
     {
         if (phase == Phase.CLIMB) return sim.bird_touches_circle(x, y, ROCKET_RADIUS);
-        if (phase == Phase.BURST && timer < SPARK_DEADLY)
+        if (phase == Phase.BURST)
         {
-            for (long i = 0; i < SPARKS; i++)
-                if (sim.bird_touches_circle(spark_x(i), spark_y(i), SPARK_RADIUS)) return true;
+            for (long i = 0; i < spark_count(); i++)
+                if (spark_live(i) && sim.bird_touches_circle(spark_x(i), spark_y(i), SPARK_RADIUS)) return true;
         }
         return false;
     }
 
-    public override long checksum(long h) => mix_all(h, x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum());
+    public override long checksum(long h)
+    {
+        long out_ = mix_all(h, x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum());
+        if (style != Style.RING) out_ = mix_all(out_, style);
+        return out_;
+    }
 }

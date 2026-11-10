@@ -1,7 +1,8 @@
 extends HazardPainter
 ## Hunter Spike (and Cupid Lanes, skin "cupid"): while warning, a spike glows on
 ## the wall it fires from and a dashed lane line crosses the room; then the dart
-## (or arrow) flies along it. Deadly parts in spike colour.
+## (or arrow) flies along it. Deadly parts in spike colour. Cupid pairs warn
+## and fly on two lanes at once.
 
 const DartHazard := preload("res://sim/hazards/dart.gd")
 
@@ -10,9 +11,13 @@ const LAUNCHER := 18.0
 
 func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var h := hazard as DartHazard
+	for lane: int in h.shot_lanes():
+		_lane(c, h, look, HazardLayer.px(lane))
+
+
+func _lane(c: CanvasItem, h: DartHazard, look: HazardLook, y: float) -> void:
 	var theme := look.theme
 	var time := look.time
-	var y := HazardLayer.px(h.lane_y)
 	var w := HazardLayer.px(SimConfig.WORLD_W)
 	var dir := 1.0 if h.side == 0 else -1.0
 	var wall := 0.0 if h.side == 0 else w

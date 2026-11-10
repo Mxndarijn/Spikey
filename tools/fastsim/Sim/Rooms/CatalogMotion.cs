@@ -5,6 +5,7 @@ public static class CatalogMotion
 {
     public const long SUB = SimConfig.SUB;
     public static readonly string[] PINWHEELS = { "trim", "three", "twin", "rock", "lean", "breathe" };
+    public static readonly string[] SAW_RINGS = { "classic", "two-rings", "off-centre", "oval", "pair" };
 
     public static List<RoomDef> defs()
     {
@@ -56,10 +57,43 @@ public static class CatalogMotion
         var sawring = new RoomDef("sawring", "late", 80);
         sawring.weight = 8;
         sawring.max_spikes = 6;
-        sawring.hazards.Add(() => new SawRing());
+        foreach (string shape in SAW_RINGS)
+            sawring.variants.Add(new RoomVariant(shape).with(new List<Func<Hazard>> { () => _saw_ring(shape) }));
         out_.Add(sawring);
 
         return out_;
+    }
+
+    static Hazard _saw_ring(string shape)
+    {
+        var ring = new SawRing();
+        switch (shape)
+        {
+            case "two-rings":
+                ring.fixed_count = 3;
+                ring.ring_min = 60 * SUB;
+                ring.inner_count = 2;
+                ring.inner_min = 20 * SUB;
+                ring.inner_max = 34 * SUB;
+                ring.inner_saw = 13 * SUB;
+                break;
+            case "off-centre":
+                ring.fixed_count = 3;
+                ring.center_x = 136 * SUB;
+                ring.ring_min = 28 * SUB;
+                ring.ring_max = 48 * SUB;
+                break;
+            case "oval":
+                ring.fixed_count = 4;
+                ring.ry_num = 1;
+                ring.ry_den = 2;
+                break;
+            case "pair":
+                ring.fixed_count = 2;
+                ring.period = 180;
+                break;
+        }
+        return ring;
     }
 
     static Hazard _pinwheel(string shape)

@@ -120,7 +120,14 @@ const ROOMS := {
 	["Stalker Rail", "A pair of spikes rides the wall rail to meet you.", 3, "star", "extra"],
 	"pinwheel":
 	["Pinwheel", "Spinning blades in the cage, six different ways.", 3, "sunset", "ball"],
-	"sawring": ["Saw Ring", "Three saws orbit the middle of the cage.", 4, "ice", "ball"],
+	"sawring":
+	[
+		"Saw Ring",
+		"Saws orbit the cage: in one ring or two, off to one side, flat or fast.",
+		4,
+		"ice",
+		"ball"
+	],
 	"updraft":
 	["Updraft", "Columns of moving air: ride them, time them or fight them.", 3, "desert", "cloud"],
 	"bubbles":
@@ -148,12 +155,19 @@ const ROOMS := {
 		"haunted",
 		"cols"
 	],
-	"bats": ["Bat Loop", "Three bats chase each other in a figure eight.", 3, "haunted", "crawl"],
+	"bats": ["Bat Loop", "Bats chase each other in a figure eight.", 3, "haunted", "crawl"],
 	"icicle": ["Icicle Drop", "Icicles shake on the ceiling, then fall.", 4, "winterfest", "rain"],
 	"gifts": ["Gift Stack", "Presents pile up instead of crates.", 4, "winterfest", "blocks"],
 	"hearts":
 	["Heart Bumpers", "Two soft hearts drift around and bump you.", 2, "blossom", "cloud"],
-	"cupid": ["Cupid Lanes", "Arrows fly across in marked lanes.", 3, "blossom", "beam"],
+	"cupid":
+	[
+		"Cupid Lanes",
+		"Arrows fly across in marked lanes, one or two at a time.",
+		3,
+		"blossom",
+		"beam"
+	],
 	"eggs":
 	[
 		"Egg Hunt",
@@ -166,7 +180,13 @@ const ROOMS := {
 	"beachball": ["Beach Ball", "Keepy-Uppy with a striped beach ball.", 2, "deepsea", "ball"],
 	"crabs": ["Crab Walk", "Crabs scuttle along the walls and floor.", 3, "deepsea", "crawl"],
 	"fireworks":
-	["Firework Burst", "Rockets rise and burst into a ring of sparks.", 4, "neon", "rain"],
+	[
+		"Firework Burst",
+		"Rockets rise and burst into rings or crosses of sparks.",
+		4,
+		"neon",
+		"rain"
+	],
 	"countdown": ["Countdown", "Ten coins, ten seconds, then confetti.", 1, "neon", "coins"],
 	"crosswind":
 	[

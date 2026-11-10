@@ -277,9 +277,19 @@ func test_stalker_chases_at_a_capped_speed() -> void:
 # --- Saw Ring -------------------------------------------------------------------
 
 
+## The classic ring (the other variants: test_orbit_variants.gd).
+static func classic_ring(seed_value: int) -> GameSim:
+	var sim := GameSim.new(seed_value)
+	sim.forced_variant = "classic"
+	var index := RoomCatalog.index_of("sawring")
+	sim.state.room_kind = index
+	sim.room.start(RoomCatalog.all()[index], index, sim, SimRng.new(seed_value + 1))
+	return sim
+
+
 func test_saws_kill_and_the_centre_is_safe() -> void:
 	for s in 10:
-		var sim := sim_in_room("sawring", s)
+		var sim := classic_ring(s)
 		var ring: Hazard = sim.room.hazards[0]
 		assert_between(ring.count, 4, 6, "4 to 6 saws")
 		for i in ring.count:
@@ -290,7 +300,7 @@ func test_saws_kill_and_the_centre_is_safe() -> void:
 
 
 func test_saw_ring_breathes_on_a_schedule() -> void:
-	var sim := sim_in_room("sawring", 2)
+	var sim := classic_ring(2)
 	var ring: Hazard = sim.room.hazards[0]
 	assert_eq(ring.radius, ring.RING_MIN, "starts small")
 	var sizes := {}
