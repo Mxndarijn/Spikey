@@ -24,6 +24,10 @@ func test_sky_rooms_spawn_their_hazards() -> void:
 		var kinds: Array[String] = []
 		for h in sim.room.hazards:
 			kinds.append(h.kind)
+		if id == "rain":
+			# Spike Rain's variants have two or four drops (test_rain_variants.gd).
+			assert_true(kinds.size() == 2 or kinds.size() == 4, "rain has 2 or 4 drops")
+			kinds.resize(2)
 		assert_eq(kinds, SKY_ROOMS[id], "%s builds its hazards" % id)
 	assert_eq(RoomCatalog.find("rain").weight, 8)
 	assert_eq(RoomCatalog.find("orchard").group, "bonus")
