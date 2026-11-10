@@ -83,7 +83,7 @@ func test_music_tab_lists_previews_and_buys() -> void:
 	var bought: Array[String] = []
 	c.equipped.connect(func(_k: String, id: String) -> void: bought.append(id))
 	holder.add_child(c)
-	assert_eq((c._tabs[Catalog.MUSIC] as Button).text, "Music", "a Music tab")
+	assert_eq(c.title_text(), "Music", "the Music list")
 	assert_eq(c.item_ids().slice(0, 3), [MusicTrack.MATCH_WORLD, MusicTrack.SHUFFLE, "candy_hop"])
 	assert_eq(c.selected_id(), MusicTrack.MATCH_WORLD, "the pick in use is selected")
 	assert_eq(c._owned_grid.columns, 1, "music cards are rows")
@@ -104,7 +104,7 @@ func test_music_tab_lists_previews_and_buys() -> void:
 	c._tap("lava_rush")
 	assert_eq(c._popup_thumb.music, "lava_rush", "the popup shows the record")
 	assert_true(c._badge_text.text.begins_with("Matches "), "and the worlds it matches")
-	assert_eq(c.action_label(), ["Need 50 more coins", false])
+	assert_eq(c.action_label(), ["Need 50 more gold", false])
 	c.toggle_preview("bubble_drift")
 	c._tap("bubble_drift")
 	c._on_action()

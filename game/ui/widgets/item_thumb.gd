@@ -15,6 +15,16 @@ const SPIKE_H := 9.0
 const SCENIC_CORNER := 18.0
 ## The popup flyer's body on the 264 x 160 canvas (big: 64 px across).
 const SCENIC_BODY := 64.0
+## Crash pictures: the flyer's canvas at most, how faded a flyer the effect
+## replaces is, and the room size an effect without a flyer is scaled from.
+const CRASH_FLYER := 96.0
+const CRASH_GONE := 0.25
+const CRASH_ROOM := 120.0
+## Plate pictures: the pill's widest, the width from which the sample row's
+## text shows, and its sample score.
+const PLATE_WIDTH := 300.0
+const PLATE_TEXT_MIN := 150.0
+const PLATE_SCORE := "87"
 
 var world: ThemeDef:
 	set(value):
@@ -31,6 +41,16 @@ var trail: TrailStyle:
 var portal: PortalStyle:
 	set(value):
 		portal = value
+		queue_redraw()
+## A crash effect at its best moment, round the flyer when one is set.
+var crash: CrashStyle:
+	set(value):
+		crash = value
+		queue_redraw()
+## A name plate: its pill, with a sample row on it when there is room.
+var plate: PlateStyle:
+	set(value):
+		plate = value
 		queue_redraw()
 ## A Customize music id (a track, Match my world or Shuffle owned): a record.
 var music := "":
@@ -85,8 +105,14 @@ func _draw() -> void:
 				flyer, Rect2((size - Vector2(s, s)) / 2.0, Vector2(s, s)), false, Color(1, 1, 1, a)
 			)
 		return
+	if plate != null:
+		_draw_plate(r, a)
+		return
 	if not open:
 		_room(r.grow(-BORDER / 2.0), a)
+	if crash != null:
+		_draw_crash(r, a)
+		return
 	if portal != null:
 		var door := portal.draw_thumb(self, r, world, a)
 		if trail == null and flyer == null:
@@ -105,6 +131,60 @@ func _draw() -> void:
 		draw_texture_rect(flyer, Rect2(at, Vector2(s, s)), false, Color(1, 1, 1, a))
 	if outlined and not open:
 		_outline(r.grow(-BORDER / 2.0), Color(UiTokens.INK_LINE, a))
+
+
+## The crash effect in the middle, as if the flyer hit the right wall. With a
+## flyer: the flyer under or over it, as in a run (faded when the effect
+## replaces it).
+func _draw_crash(r: Rect2, a: float) -> void:
+	var c := r.get_center()
+	var side := minf(r.size.y * 1.1, CRASH_FLYER) if flyer != null else 0.0
+	var k := side / CrashPainter.REF if flyer != null else minf(r.size.x, r.size.y) / CRASH_ROOM
+	var palette := PackedColorArray()
+	if flyer != null and crash.piece == CrashStyle.SHARD:
+		palette = CrashPainter.flyer_palette(flyer)
+	if not crash.in_front:
+		CrashPainter.paint(self, crash, crash.thumb_time(), c, -1.0, k, a, palette)
+	if flyer != null:
+		var tint := Color(1, 1, 1, a * (CRASH_GONE if crash.hides_flyer else 1.0))
+		draw_texture_rect(
+			flyer, Rect2(c - Vector2(side, side) / 2.0, Vector2(side, side)), false, tint
+		)
+	if crash.in_front:
+		CrashPainter.paint(self, crash, crash.thumb_time(), c, -1.0, k, a, palette)
+	if outlined and not open:
+		_outline(r.grow(-BORDER / 2.0), Color(UiTokens.INK_LINE, a))
+
+
+## The plate as a pill across the picture; when it is big enough, a sample row
+## on it (the flyer, "You" and a score).
+func _draw_plate(r: Rect2, a: float) -> void:
+	var high := minf(r.size.y * 0.6, LeaderboardRow.HEIGHT)
+	var wide := minf(r.size.x, PLATE_WIDTH)
+	var pill := Rect2(r.get_center() - Vector2(wide, high) / 2.0, Vector2(wide, high))
+	PlatePainter.paint(self, pill, plate, a, true)
+	if wide < PLATE_TEXT_MIN:
+		return
+	var ink := Color(plate.text_color(), a)
+	var font := GameFonts.ui(800)
+	var base := pill.position.y + high / 2.0 + 5.0
+	var x := pill.position.x + 14.0
+	if flyer != null:
+		var s := high * 0.7
+		var at := Vector2(x, pill.position.y + (high - s) / 2.0)
+		draw_texture_rect(flyer, Rect2(at, Vector2(s, s)), false, Color(1, 1, 1, a))
+		x += s + 8.0
+	draw_string(font, Vector2(x, base), "You", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, ink)
+	var score_w := font.get_string_size(PLATE_SCORE, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	draw_string(
+		font,
+		Vector2(pill.end.x - 16.0 - score_w, base + 1.0),
+		PLATE_SCORE,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		18,
+		ink
+	)
 
 
 ## The popup picture (laid out on a 264 x 160 canvas, scaled to fit): the sky

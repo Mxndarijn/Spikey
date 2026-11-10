@@ -6,15 +6,25 @@ extends RefCounted
 
 const PATH := "user://profile.json"
 ## 2: met rooms and per-room clear counts (version 1 saves load with none).
-const VERSION := 2
+## 3: diamonds and bought packs (older saves load with none).
+const VERSION := 3
 ## Revives without an ad, per local day.
 const FREE_REVIVES_PER_DAY := 3
 
+## Gold: collected in runs (Economy).
 var coins := 0
+## Diamonds: rare, won on the daily board or bought (Economy, DiamondPacks).
+var diamonds := 0
+## Ids of the diamond packs bought (a once-only pack can't be bought again).
+var packs_bought: Array[String] = []
+## The player's place on today's board when it was last loaded (0: none) and
+## the time (unix seconds) that board ends, to notice a lost prize spot.
+var daily_spot_rank := 0
+var daily_spot_until := 0
 var best_score := 0
 var runs := 0
 var onboarded := false
-## kind -> owned ids (Catalog.FLYER, WORLD, TRAIL, PORTAL, MUSIC)
+## kind -> owned ids (Catalog.FLYER, WORLD, TRAIL, PORTAL, MUSIC, CRASH, PLATE)
 var owned := {}
 ## kind -> equipped id
 var equipped := {}
@@ -39,6 +49,12 @@ var reduced_flashing := false
 var color_blind_spikes := false
 ## Pause and other HUD icon buttons grow to 56px (UiKit.large_buttons).
 var large_buttons := false
+## Settings > Board alerts: a notification when someone takes the player's
+## prize spot on the daily board (PushService).
+var board_alerts := true
+## The OS permission prompt for notifications was shown (it is shown once,
+## after the first top-10 finish).
+var push_asked := false
 ## Free revives used on `free_revives_day` ("YYYY-MM-DD", the phone's date).
 var free_revives_used := 0
 var free_revives_day := ""
@@ -58,6 +74,11 @@ func _init() -> void:
 	for id in Catalog.MUSIC_PICKS + [MusicTrack.DEFAULT_ID]:
 		grant(Catalog.MUSIC, id)
 	equipped[Catalog.MUSIC] = MusicTrack.MATCH_WORLD
+	# The default crash effect and the plain name plate.
+	grant(Catalog.CRASH, CrashStyle.DEFAULT_ID)
+	equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
+	grant(Catalog.PLATE, PlateStyle.DEFAULT_ID)
+	equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
 
 
 func owns(kind: String, id: String) -> bool:
@@ -154,6 +175,10 @@ func to_dict() -> Dictionary:
 	return {
 		"version": VERSION,
 		"coins": coins,
+		"diamonds": diamonds,
+		"packs_bought": packs_bought,
+		"daily_spot_rank": daily_spot_rank,
+		"daily_spot_until": daily_spot_until,
 		"best_score": best_score,
 		"runs": runs,
 		"onboarded": onboarded,
@@ -170,6 +195,8 @@ func to_dict() -> Dictionary:
 		"reduced_flashing": reduced_flashing,
 		"color_blind_spikes": color_blind_spikes,
 		"large_buttons": large_buttons,
+		"board_alerts": board_alerts,
+		"push_asked": push_asked,
 		"free_revives_used": free_revives_used,
 		"free_revives_day": free_revives_day,
 	}
@@ -179,6 +206,14 @@ func to_dict() -> Dictionary:
 static func from_dict(d: Dictionary) -> Profile:
 	var p := Profile.new()
 	p.coins = maxi(int(d.get("coins", 0)), 0)
+	p.diamonds = maxi(int(d.get("diamonds", 0)), 0)
+	p.daily_spot_rank = maxi(int(d.get("daily_spot_rank", 0)), 0)
+	p.daily_spot_until = maxi(int(d.get("daily_spot_until", 0)), 0)
+	var packs: Variant = d.get("packs_bought", [])
+	if packs is Array:
+		for pack_id: Variant in packs:
+			if pack_id is String and pack_id not in p.packs_bought:
+				p.packs_bought.append(pack_id)
 	p.best_score = maxi(int(d.get("best_score", 0)), 0)
 	p.runs = maxi(int(d.get("runs", 0)), 0)
 	p.onboarded = bool(d.get("onboarded", false))
@@ -193,6 +228,8 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.reduced_flashing = bool(d.get("reduced_flashing", false))
 	p.color_blind_spikes = bool(d.get("color_blind_spikes", false))
 	p.large_buttons = bool(d.get("large_buttons", false))
+	p.board_alerts = bool(d.get("board_alerts", true))
+	p.push_asked = bool(d.get("push_asked", false))
 	var revive_day: Variant = d.get("free_revives_day", "")
 	if revive_day is String:
 		p.free_revives_day = revive_day
@@ -213,6 +250,11 @@ static func from_dict(d: Dictionary) -> Profile:
 				p.equip(kind, id)
 	# A portal style that is gone falls back to Match my world.
 	p.equipped[Catalog.PORTAL] = p.equipped_portal()
+	# So does a crash effect or name plate that is gone (older saves have none).
+	if Catalog.crash(p.equipped_id(Catalog.CRASH)) == null:
+		p.equipped[Catalog.CRASH] = CrashStyle.DEFAULT_ID
+	if Catalog.plate(p.equipped_id(Catalog.PLATE)) == null:
+		p.equipped[Catalog.PLATE] = PlateStyle.DEFAULT_ID
 	var met: Variant = d.get("met_rooms", [])
 	if met is Array:
 		for id: Variant in met:

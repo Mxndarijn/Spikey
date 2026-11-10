@@ -15,6 +15,10 @@ const LEAF_VEIN := Color("#8A5A2A")
 const STAR_DOT := Color("#FFFFFF")
 ## Pixel Trail: squares snap to this grid (px at full scale).
 const PIXEL_GRID := 4.0
+## Flap trails: a feather's shaded half, a blossom's heart, a flame's core.
+const FEATHER_SHADE := Color("#DCE8EE")
+const BLOSSOM_HEART := Color("#FFE45C")
+const FLAME_CORE := Color("#FFE45C")
 ## Comet: the white centre line covers only the newest part of the tail.
 const COMET_CORE_SHARE := 0.7
 
@@ -205,6 +209,151 @@ static func _stamp(
 			half = maxf(roundf(half * 2.0) / 2.0, 1.0)
 			var c := Color(Color.WHITE, a) if newest else col
 			ci.draw_rect(Rect2(cell - Vector2(half, half), Vector2(half, half) * 2.0), c)
+		_:
+			_flap_stamp(ci, pos, s, age, i, a, col, style, scale)
+
+
+## The flap trails' shapes (one stamp per tap), `s` px from centre to edge.
+static func _flap_stamp(
+	ci: CanvasItem,
+	pos: Vector2,
+	s: float,
+	age: float,
+	i: int,
+	a: float,
+	col: Color,
+	style: TrailStyle,
+	scale: float
+) -> void:
+	# Pops in over the first 0.1 s.
+	var pop := 0.6 + 0.4 * clampf(age / 0.1, 0.0, 1.0)
+	var rot := style.spin * age + i * 0.9
+	match style.shape:
+		TrailStyle.Shape.CLOUD:
+			ci.draw_circle(pos + Vector2(-0.8, 0.1) * s, s * 0.7, col)
+			ci.draw_circle(pos + Vector2(0.1, -0.3) * s, s * 0.9, col)
+			ci.draw_circle(pos + Vector2(1.0, 0.2) * s, s * 0.6, col)
+		TrailStyle.Shape.RING:
+			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.45))
+			ci.draw_arc(Vector2.ZERO, s, 0.0, TAU, 24, col, maxf(2.5 * scale, 1.0), true)
+			ci.draw_arc(Vector2.ZERO, s * 0.5, 0.0, TAU, 16, col, maxf(2.5 * scale, 1.0), true)
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.HEART:
+			ci.draw_set_transform(pos, 0.0, Vector2(pop, pop))
+			ci.draw_colored_polygon(heart_points(s), col)
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.FEATHER:
+			ci.draw_set_transform(pos, sin(rot) * 0.7)
+			ci.draw_colored_polygon(_lens(s, s * 0.45), col)
+			ci.draw_colored_polygon(_half_lens(s, s * 0.45), Color(FEATHER_SHADE, a))
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.DROPS:
+			for k: int in [-1, 0, 1]:
+				var c := col
+				if k == 0 and style.colors.size() > 1:
+					c = Color(style.colors[(i + 1) % style.colors.size()], a)
+				var at := pos + Vector2(k * 0.85, -0.25 if k == 0 else 0.0) * s
+				ci.draw_set_transform(at, k * 0.7)
+				ci.draw_colored_polygon(_drop(s * 0.5), c)
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.SNOWFLAKE:
+			for k in 3:
+				var arm := Vector2.from_angle(rot + PI / 3.0 * k) * s
+				ci.draw_line(pos - arm, pos + arm, col, maxf(2.4 * scale, 1.0), true)
+		TrailStyle.Shape.BLOSSOM:
+			for k in 5:
+				var petal := Vector2.from_angle(TAU / 5.0 * k - PI / 2.0) * s * 0.75 * pop
+				ci.draw_circle(pos + petal, s * 0.55 * pop, col)
+			ci.draw_circle(pos, s * 0.4 * pop, Color(BLOSSOM_HEART, a))
+		TrailStyle.Shape.PAW:
+			# Left and right paws in turn.
+			ci.draw_set_transform(pos, 0.26 if i % 2 == 0 else -0.26, Vector2(1.0, 0.85))
+			ci.draw_circle(Vector2(0.0, s * 0.45), s * 0.75, col)
+			ci.draw_set_transform(pos, 0.26 if i % 2 == 0 else -0.26)
+			for k: int in [-1, 0, 1]:
+				var toe := Vector2(k * 0.8, -0.55 if k != 0 else -0.95) * s
+				ci.draw_circle(toe, s * 0.33, col)
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.FLAME:
+			ci.draw_set_transform(pos, 0.0, Vector2(pop, pop))
+			ci.draw_colored_polygon(_flame(s), col)
+			ci.draw_set_transform(pos + Vector2(0.0, s * 0.45), 0.0, Vector2(pop, pop) * 0.5)
+			ci.draw_colored_polygon(_flame(s), Color(FLAME_CORE, a))
+			ci.draw_set_transform(Vector2.ZERO)
+		TrailStyle.Shape.BOLT:
+			ci.draw_set_transform(pos, 0.0, Vector2(pop, pop))
+			ci.draw_colored_polygon(_bolt(s), col)
+			ci.draw_set_transform(Vector2.ZERO)
+
+
+## A heart, point down, `s` px from centre to its sides.
+static func heart_points(s: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for p: Vector2 in [
+		Vector2(0, 1),
+		Vector2(-1, -0.1),
+		Vector2(-1, -0.6),
+		Vector2(-0.75, -0.95),
+		Vector2(-0.4, -1),
+		Vector2(-0.1, -0.8),
+		Vector2(0, -0.5),
+		Vector2(0.1, -0.8),
+		Vector2(0.4, -1),
+		Vector2(0.75, -0.95),
+		Vector2(1, -0.6),
+		Vector2(1, -0.1),
+	]:
+		pts.append(p * s)
+	return pts
+
+
+## The lower half of a _lens (a feather's shaded side).
+static func _half_lens(half_len: float, half_w: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([Vector2(-half_len, 0.0)])
+	var steps := 6
+	for j in range(1, steps):
+		var t := float(j) / steps
+		pts.append(Vector2(lerpf(-half_len, half_len, t), sin(PI * t) * half_w))
+	pts.append(Vector2(half_len, 0.0))
+	return pts
+
+
+## A teardrop, tip up, `r` px round.
+static func _drop(r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([Vector2(0.0, -r * 1.7)])
+	for j in 9:
+		pts.append(Vector2.from_angle(-PI / 6.0 + (PI + PI / 3.0) * j / 8.0) * r)
+	return pts
+
+
+static func _flame(s: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for p: Vector2 in [
+		Vector2(0, -1.4),
+		Vector2(0.7, -0.2),
+		Vector2(0.75, 0.5),
+		Vector2(0.45, 1.0),
+		Vector2(0, 1.15),
+		Vector2(-0.45, 1.0),
+		Vector2(-0.75, 0.5),
+		Vector2(-0.7, -0.2),
+	]:
+		pts.append(p * s)
+	return pts
+
+
+static func _bolt(s: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for p: Vector2 in [
+		Vector2(0.25, -1),
+		Vector2(-0.6, 0.1),
+		Vector2(-0.1, 0.1),
+		Vector2(-0.35, 1),
+		Vector2(0.6, -0.15),
+		Vector2(0.1, -0.15),
+	]:
+		pts.append(p * s)
+	return pts
 
 
 ## A bubble: faint fill, white ring, a highlight up and to the left. It keeps

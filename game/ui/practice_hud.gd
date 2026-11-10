@@ -14,7 +14,7 @@ const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const CHIP_TOP := 48.0
 const CHIP_H := 34.0
-const NOTE := "Practice never counts for coins, best score, cleared rooms or leaderboards."
+const NOTE := "Practice never counts for gold, best score, cleared rooms or leaderboards."
 
 var _banner := PanelContainer.new()
 var _room_line := Label.new()

@@ -1,11 +1,13 @@
 class_name CollectionScreen
 extends Control
-## Customize (minimal kit): the shop and the loadout in one screen, over the
-## live room. A back arrow, the title and the coins; the flyer in use (or the
+## One kind's list in Customize (minimal kit): the shop and the player's own
+## items of that kind in one screen, over the live room. It opens from a card on
+## LookScreen ("Your look"), and Back returns there. A back arrow, the kind's
+## name as the title and the coins; the flyer in use (or the
 ## tapped one) standing on the room with its puff trail and a line under it
-## ("Buzz, in use"); the trail or exit portal of those tabs drawn with it (the
-## room behind already shows a tapped world); five tabs in a paper pill bar
-## (Flyers, Worlds, Trails, Portals, Music); and the items as flat paper tiles,
+## ("Buzz, in use"); the trail or exit portal of those kinds drawn with it (the
+## room behind already shows a tapped world; Crashes show the effect round the
+## flyer, Plates a sample leaderboard row); and the items as flat paper tiles,
 ## yours first, then the shop's. Tapping an item opens a small popup with its
 ## one action: Use, Get for free, Unlock for N or Need N more coins.
 ## Music items are playlist rows whose play button previews the track; the
@@ -17,21 +19,31 @@ signal closed
 signal equipped(kind: String, id: String)
 ## A world was tapped: the room behind the menu shows it until the screen closes.
 signal previewed(kind: String, id: String)
+## The wallet in the header was tapped: main opens the Shop.
+signal store_pressed
+## Diamonds were turned into gold here (already in the profile): main saves.
+signal wallet_changed
 
 ## Only the shop is left (the first-start pickers were removed).
 enum Mode { SHOP }
 
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
+## The action when gold is short but diamonds can cover it: opens the sheet.
+const CONVERT_LABEL := "Turn diamonds into gold"
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
-## No tab and no items yet: hats come later and will share the hitbox too.
+## No items yet: hats come later and will share the hitbox too.
 const HATS := "hats"
-const TAB_NAMES := {
+## The screen's title per kind.
+const TITLES := {
 	Catalog.FLYER: "Flyers",
 	Catalog.WORLD: "Worlds",
 	Catalog.TRAIL: "Trails",
 	Catalog.PORTAL: "Portals",
 	Catalog.MUSIC: "Music",
+	Catalog.CRASH: "Crashes",
+	Catalog.PLATE: "Plates",
 	HATS: "Hats",
 }
 ## The popup's clean picture, as wide as its card's inside.
@@ -45,21 +57,27 @@ const SHOP_ACTION_HEIGHT := float(UiTokens.SIZE_BUTTON_H)
 const SHOP_COLUMNS := 3
 const GRID_GAP := 10
 const SIDE := 14
-const TAB_FONT := 13
-const TAB_PAD := 2
 
 var mode: Mode
 var kind: String
+## Where diamonds are spent; main sets it before the screen is shown (the
+## local wallet when left alone).
+var wallet_service: WalletService
 
 var _profile: Profile
 var _selected := ""
 var _cards: Array[ItemCard] = []
-var _coins := CoinPill.new()
+var _wallet := Wallet.new()
+## The convert sheet, while it is open.
+var _sheet: ConvertSheet
+## A premium purchase is waiting for the wallet's answer.
+var _paying := false
 var _detail_name := Label.new()
 var _detail_text := Label.new()
 var _badge_text := Label.new()
 var _action := Button.new()
-var _tabs := {}
+## The header row; its "Title" label names the kind shown.
+var _header: Control
 ## Every item of the tab, yours first.
 var _owned_grid := GridContainer.new()
 ## The popup for a tapped item.
@@ -115,7 +133,7 @@ func _notification(what: int) -> void:
 	if what != NOTIFICATION_PREDELETE:
 		return
 	for n: Node in [
-		_coins,
+		_wallet,
 		_detail_name,
 		_detail_text,
 		_badge_text,
@@ -134,7 +152,9 @@ func _notification(what: int) -> void:
 
 
 func _build_shop(col: VBoxContainer) -> void:
-	col.add_child(UiKit.header("Customize", closed.emit, _coins))
+	_wallet.pressed.connect(store_pressed.emit)
+	_header = UiKit.header(title_for(kind), closed.emit, _wallet)
+	col.add_child(_header)
 
 	# The preview: the flyer standing on the room, no card.
 	_stage.custom_minimum_size = Vector2(0, PREVIEW_HEIGHT)
@@ -152,28 +172,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	_caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_caption)
-
-	var bar := PanelContainer.new()
-	bar.theme_type_variation = &"TabStrip"
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 0)
-	bar.add_child(tabs)
-	var group := ButtonGroup.new()
-	for k: String in Catalog.KINDS:
-		var tab := Button.new()
-		tab.theme_type_variation = &"TabButton"
-		tab.text = TAB_NAMES[k]
-		tab.toggle_mode = true
-		tab.button_group = group
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# Inside the bar's 3 px padding the strip is the 44 px tap height.
-		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-		tab.focus_mode = Control.FOCUS_NONE
-		tab.pressed.connect(_show_kind.bind(k))
-		_tight(tab)
-		_tabs[k] = tab
-		tabs.add_child(tab)
-	col.add_child(bar)
 
 	var scroll := SmoothScroll.new()
 	scroll.blocked = is_popup_open
@@ -199,21 +197,6 @@ func _build_shop(col: VBoxContainer) -> void:
 	pad.add_child(stack)
 	scroll.add_child(pad)
 	col.add_child(FadeMask.new(scroll))
-
-
-## Five tabs share 332 px equally (clip_text drops the text's own minimum
-## width, so a long name can't push the last tab into the bar's edge), with a
-## little less padding than the theme's (copied from
-## UiTheme: the tab isn't in the tree yet, so its own get_theme_stylebox()
-## would be Godot's).
-func _tight(tab: Button) -> void:
-	tab.add_theme_font_size_override("font_size", TAB_FONT)
-	tab.clip_text = true
-	for state in ["normal", "hover", "pressed", "hover_pressed"]:
-		var box := UiTheme.get_theme().get_stylebox(state, &"TabButton").duplicate() as StyleBox
-		box.content_margin_left = TAB_PAD
-		box.content_margin_right = TAB_PAD
-		tab.add_theme_stylebox_override(state, box)
 
 
 ## The item popup: dims the room; a paper card with the item's name and a
@@ -325,8 +308,8 @@ func _show_kind(k: String) -> void:
 	stop_preview()
 	kind = k
 	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
-	if _tabs.has(k):
-		(_tabs[k] as Button).button_pressed = true
+	if _header != null:
+		(_header.get_node("Title") as Label).text = title_for(k)
 	for c in _cards:
 		_owned_grid.remove_child(c)
 		c.queue_free()
@@ -349,6 +332,16 @@ func _show_kind(k: String) -> void:
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
 
 
+## "Crashes" for Catalog.CRASH: the title of a kind's list.
+static func title_for(k: String) -> String:
+	return str(TITLES.get(k, "Customize"))
+
+
+## The title in the header, for tests.
+func title_text() -> String:
+	return (_header.get_node("Title") as Label).text if _header != null else ""
+
+
 func _empty_message() -> String:
 	return "Hats are coming. Every flyer will wear them on the same hitbox."
 
@@ -368,7 +361,7 @@ func _select(id: String) -> void:
 
 ## Redraws the cards, the preview, the popup and its action button.
 func refresh() -> void:
-	_coins.set_amount(_profile.coins)
+	_wallet.show_balance(_profile)
 	for c in _cards:
 		c.refresh(_profile, c.item_id == _selected)
 	_detail_name.text = Catalog.display_name(kind, _selected)
@@ -384,7 +377,11 @@ func refresh() -> void:
 		_action.disabled = false
 	var buy: bool = label[1] and str(label[0]).begins_with("Unlock")
 	var short: bool = not label[1] and label[0] != "In use"
-	_action.icon = COIN_ICON if buy else (LOCK_ICON if short else null)
+	var pay_icon := DIAMOND_ICON if Shop.diamond_price(kind, _selected) > 0 else COIN_ICON
+	if label[0] == CONVERT_LABEL:
+		pay_icon = DIAMOND_ICON
+		buy = true
+	_action.icon = pay_icon if buy else (LOCK_ICON if short else null)
 	# The coin keeps its own colours on the ink button (white tints nothing).
 	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
 		_action.add_theme_color_override(state, Color.WHITE)
@@ -427,12 +424,21 @@ func _show_preview() -> void:
 	_preview.flyer = f.idle if f != null and kind == Catalog.TRAIL else null
 	_preview.trail = null
 	_preview.portal = null
+	_preview.crash = null
+	_preview.plate = null
 	match kind:
 		Catalog.TRAIL:
 			_preview.trail = t if t != null else TrailStyle.world_ribbon()
 		Catalog.PORTAL:
 			_preview.portal = _preview_portal
-	_flyer_art.visible = kind != Catalog.TRAIL
+		Catalog.CRASH:
+			# The picture draws the flyer itself, under or over the effect.
+			_preview.crash = Catalog.crash(_preview_id(Catalog.CRASH))
+			_preview.flyer = f.idle if f != null else null
+		Catalog.PLATE:
+			_preview.plate = Catalog.plate(_preview_id(Catalog.PLATE))
+			_preview.flyer = f.idle if f != null else null
+	_flyer_art.visible = kind not in [Catalog.TRAIL, Catalog.CRASH, Catalog.PLATE]
 
 
 ## The popup picture: flyers and worlds on a clean sky with a far hill (the
@@ -442,6 +448,8 @@ func _show_popup_picture() -> void:
 	_popup_thumb.flyer = null
 	_popup_thumb.trail = null
 	_popup_thumb.portal = null
+	_popup_thumb.crash = null
+	_popup_thumb.plate = null
 	_popup_thumb.music = ""
 	_popup_thumb.scenic = kind == Catalog.FLYER or kind == Catalog.WORLD
 	match kind:
@@ -460,6 +468,11 @@ func _show_popup_picture() -> void:
 			_popup_thumb.portal = Catalog.portal(_selected)
 		Catalog.MUSIC:
 			_popup_thumb.music = _selected
+		Catalog.CRASH, Catalog.PLATE:
+			var own := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+			_popup_thumb.flyer = own.idle if own != null else null
+			_popup_thumb.crash = Catalog.crash(_selected) if kind == Catalog.CRASH else null
+			_popup_thumb.plate = Catalog.plate(_selected) if kind == Catalog.PLATE else null
 
 
 ## What the preview shows, for tests: [flyer, world, trail] ids.
@@ -485,6 +498,9 @@ func action_label() -> Array:
 		return ["In use", false]
 	if _profile.owns(kind, _selected):
 		return ["Use %s" % ItemChip.short_name(kind, _selected), true]
+	var gems := Shop.diamond_price(kind, _selected)
+	if gems > 0:
+		return _diamond_label(gems)
 	return _price_label(Shop.price(kind, _selected))
 
 
@@ -493,17 +509,108 @@ func _price_label(cost: int) -> Array:
 		return ["Get for free", true]
 	if _profile.coins >= cost:
 		return ["Unlock for %d" % cost, true]
-	return ["Need %d more coins" % (cost - _profile.coins), false]
+	# Short on gold, but diamonds can make up for it.
+	if _profile.diamonds > 0:
+		return [CONVERT_LABEL, true]
+	return ["Need %d more gold" % (cost - _profile.coins), false]
+
+
+## A premium item: paid with diamonds (the wallet opens the Shop for more).
+func _diamond_label(gems: int) -> Array:
+	if _profile.diamonds >= gems:
+		return ["Unlock for %d" % gems, true]
+	return ["Need %d more diamonds" % (gems - _profile.diamonds), false]
+
+
+## Gold missing for the selected item (0 when it isn't a gold item or is
+## affordable).
+func gold_short() -> int:
+	if _selected.is_empty() or _profile.owns(kind, _selected):
+		return 0
+	if Shop.diamond_price(kind, _selected) > 0:
+		return 0
+	return maxi(Shop.price(kind, _selected) - _profile.coins, 0)
+
+
+## The convert sheet, on the fewest diamonds that cover the selected item.
+func open_convert() -> ConvertSheet:
+	if _sheet != null:
+		return _sheet
+	var short := gold_short()
+	var why := ""
+	if short > 0:
+		why = "You need %d more gold for %s." % [short, ItemChip.short_name(kind, _selected)]
+	_sheet = ConvertSheet.new(
+		_profile, maxi(Economy.diamonds_to_cover(short), 1), why, _wallet_service()
+	)
+	_sheet.converted.connect(_on_converted)
+	_sheet.closed.connect(_close_sheet)
+	add_child(_sheet)
+	return _sheet
+
+
+func sheet() -> ConvertSheet:
+	return _sheet
+
+
+func _wallet_service() -> WalletService:
+	if wallet_service == null:
+		wallet_service = WalletService.new(_profile)
+	return wallet_service
+
+
+## Pays for the selected premium item through the wallet (which may ask the
+## server) and hands it over. False when the diamonds could not be spent.
+func _buy_with_diamonds(gems: int) -> bool:
+	var item_kind := kind
+	var item_id := _selected
+	if _profile.diamonds < gems:
+		return false
+	_paying = true
+	@warning_ignore("redundant_await")
+	var ok: bool = await _wallet_service().spend(
+		gems, WalletService.ITEM, "%s:%s" % [item_kind, item_id]
+	)
+	_paying = false
+	if ok:
+		_profile.grant(item_kind, item_id)
+	return ok
+
+
+func _on_converted(_diamonds: int) -> void:
+	wallet_changed.emit()
+	refresh()
+
+
+func _close_sheet() -> void:
+	if _sheet != null:
+		_sheet.queue_free()
+		_sheet = null
 
 
 func _on_action() -> void:
-	if _selected.is_empty():
+	if _selected.is_empty() or _paying:
 		return
 	if _profile.equipped_id(kind) == _selected:
 		close_popup()
 		return
 	if not _profile.owns(kind, _selected):
-		if Shop.buy(_profile, kind, _selected) != Shop.Result.OK:
+		if gold_short() > 0 and _profile.diamonds > 0:
+			open_convert()
+			return
+		var gems := Shop.diamond_price(kind, _selected)
+		var bought := false
+		if gems > 0:
+			var wanted := _selected
+			bought = await _buy_with_diamonds(gems)
+			# The player may have tapped something else while the server answered.
+			if bought and wanted != _selected:
+				wallet_changed.emit()
+				refresh()
+				return
+		else:
+			bought = Shop.buy(_profile, kind, _selected) == Shop.Result.OK
+		if not bought:
 			AudioDirector.ui("locked")
 			refresh()
 			return
@@ -643,4 +750,12 @@ static func _detail(k: String, id: String) -> String:
 			if t == null:
 				return ""
 			return "%s. Music only: every run plays the same." % ItemCard.track_line(id, null)
+		Catalog.CRASH:
+			var c := Catalog.crash(id)
+			var line := c.blurb + " " if c != null and not c.blurb.is_empty() else ""
+			return line + "Looks only: it plays after the run has ended."
+		Catalog.PLATE:
+			var plate := Catalog.plate(id)
+			var line := plate.blurb + " " if plate != null and not plate.blurb.is_empty() else ""
+			return line + "Shows behind your row on the leaderboards."
 	return ""

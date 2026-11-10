@@ -147,9 +147,8 @@ func test_customize_has_a_portals_section() -> void:
 	p.coins = 400
 	var c := CollectionScreen.new(p, CollectionScreen.Mode.SHOP, Catalog.PORTAL)
 	holder.add_child(c)
-	var tab := c._tabs.get(Catalog.PORTAL) as Button
-	assert_true(tab != null and tab.text == "Portals", "a Portals tab")
-	assert_true(tab != null and tab.button_pressed, "opened on it")
+	assert_eq(c.title_text(), "Portals", "the Portals list")
+	assert_eq(c.kind, Catalog.PORTAL, "opened on it")
 	assert_eq(c.item_ids(), Catalog.ids(Catalog.PORTAL), "Match my world first, then the shop")
 	assert_eq(c.selected_id(), PortalStyle.DEFAULT_ID, "the portal in use is picked")
 	assert_eq(c.action_label(), ["In use", false])
@@ -167,7 +166,7 @@ func test_customize_has_a_portals_section() -> void:
 	assert_eq(p.equipped_portal(), "galaxy", "bought and put to use")
 	assert_eq(p.coins, 100)
 	c._tap("golden")
-	assert_eq(c.action_label(), ["Need 500 more coins", false])
+	assert_eq(c.action_label(), ["Need 500 more gold", false])
 	c._show_kind(Catalog.FLYER)
 	assert_eq(c.preview_portal_id(), "galaxy", "other tabs preview the portal in use")
 	holder.free()
