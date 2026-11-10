@@ -35,6 +35,9 @@ const FIREBASE_SINGLETON := "GodotxFirebaseMessaging"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
+## The Supabase config that turns on the online boards and wallet; tests that
+## need the offline ones clear it, so a config on the PC changes nothing.
+var board_config_path := SupabaseLeaderboard.CONFIG_PATH
 var mode := Mode.MENU
 ## Seasonal rooms in play (Seasons.*), from today's date; tests can set it.
 var season := SeasonCalendar.today()
@@ -307,7 +310,7 @@ func _on_leaderboard_name(player_name: String) -> void:
 
 ## Supabase when its config file is there (docs/LEADERBOARD_SETUP.md), else samples.
 func _make_leaderboard() -> LeaderboardService:
-	var config := SupabaseLeaderboard.load_config()
+	var config := SupabaseLeaderboard.load_config(board_config_path)
 	if config.is_empty():
 		return SampleLeaderboard.new(_profile)
 	var online := SupabaseLeaderboard.new(_profile, self, config.url, config.anon_key)

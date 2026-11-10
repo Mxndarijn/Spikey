@@ -44,6 +44,7 @@ func _make_main(wallet: WalletService = null, profile: Profile = null) -> Node:
 		profile.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
+	main.board_config_path = ""  # offline boards and wallet, whatever this PC has
 	if wallet != null:
 		main.wallet = wallet
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
