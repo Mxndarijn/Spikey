@@ -1,12 +1,14 @@
 extends TestCase
-## Narrow, Tide Spikes (every variant), Bumper Cloud (one and two clouds) and
-## Lantern Swing (every variant) can be played: SurvivalSearch finds a way
-## through each practice seed, long enough to take the first portal.
+## Narrow, Tide Spikes, Bumper Cloud, Bramble Ball and Lantern Swing (every
+## variant of each) can be played: SurvivalSearch finds a way through each
+## practice seed, long enough to take the first portal.
 
 ## Practice seeds per room variant.
 const SEEDS_EACH := 2
 ## [room id, ticks]: ten points and a portal (a Narrow crossing is shorter).
-const CASES := [["narrow", 900], ["tide", 1150], ["cloud", 1150], ["swing", 1150]]
+const CASES := [
+	["narrow", 900], ["tide", 1150], ["cloud", 1150], ["bramble", 1150], ["swing", 1150]
+]
 
 const PARALLEL := true
 ## The searches are shared out over this many parts, which can run side by side.

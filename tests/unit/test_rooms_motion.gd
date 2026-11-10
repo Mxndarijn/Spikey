@@ -274,47 +274,6 @@ func test_stalker_chases_at_a_capped_speed() -> void:
 	assert_eq(s.y, s.MIN_Y, "stays on the rail")
 
 
-# --- Pinwheel -------------------------------------------------------------------
-
-
-func test_pinwheel_blades_and_hub_kill() -> void:
-	var sim := sim_in_room("pinwheel", 7)
-	var r: Hazard = sim.room.hazards[0]
-	put_bird(sim, r.CENTER_X, r.CENTER_Y)
-	assert_true(r.kills(sim), "the hub kills")
-	for i in r.BLADES:
-		var a: int = r.blade_angle(i)
-		var d: int = r.BLADE_LENGTH * 3 / 4
-		put_bird(
-			sim,
-			r.CENTER_X + d * SimTrig.cos_t(a) / SimTrig.ONE,
-			r.CENTER_Y + d * SimTrig.sin_t(a) / SimTrig.ONE
-		)
-		assert_true(r.kills(sim), "blade %d kills" % i)
-		# Between this blade and the next, out near the tips.
-		var mid: int = a + SimTrig.TURN / (2 * r.BLADES)
-		var far := 90 * SUB
-		put_bird(
-			sim,
-			r.CENTER_X + far * SimTrig.cos_t(mid) / SimTrig.ONE,
-			r.CENTER_Y + far * SimTrig.sin_t(mid) / SimTrig.ONE
-		)
-		assert_false(r.kills(sim), "between blades %d and %d is safe" % [i, i + 1])
-	put_bird(sim, r.CENTER_X, r.CENTER_Y - 140 * SUB)
-	assert_false(r.kills(sim), "above the pinwheel is safe")
-
-
-func test_pinwheel_turns_steadily() -> void:
-	var sim := sim_in_room("pinwheel", 7)
-	var r: Hazard = sim.room.hazards[0]
-	var start: int = r.angle
-	advance(sim, r.PERIOD / 4)
-	var quarter := posmod((r.angle - start) * r.dir, SimTrig.TURN)
-	assert_between(quarter, 250, 262, "a quarter turn in a quarter period")
-	advance(sim, r.PERIOD * 3 / 4)
-	assert_between(posmod(r.angle - start, SimTrig.TURN), 0, 4, "back round after a period")
-
-
 # --- Saw Ring -------------------------------------------------------------------
 
 

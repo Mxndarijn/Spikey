@@ -4,6 +4,7 @@ namespace FastSim;
 public static class CatalogMotion
 {
     public const long SUB = SimConfig.SUB;
+    public static readonly string[] PINWHEELS = { "trim", "three", "twin", "rock", "lean", "breathe" };
 
     public static List<RoomDef> defs()
     {
@@ -48,7 +49,8 @@ public static class CatalogMotion
         out_.Add(stalker);
 
         var pinwheel = new RoomDef("pinwheel", "mid", 40);
-        pinwheel.hazards.Add(() => new Rotor());
+        foreach (string shape in PINWHEELS)
+            pinwheel.variants.Add(new RoomVariant(shape).with(new List<Func<Hazard>> { () => _pinwheel(shape) }));
         out_.Add(pinwheel);
 
         var sawring = new RoomDef("sawring", "late", 80);
@@ -58,6 +60,35 @@ public static class CatalogMotion
         out_.Add(sawring);
 
         return out_;
+    }
+
+    static Hazard _pinwheel(string shape)
+    {
+        switch (shape)
+        {
+            case "twin":
+                var pair = new Rotor(42 * SUB, 6 * SUB, 11 * SUB);
+                pair.hubs = 2;
+                pair.spread_x = 60 * SUB;
+                pair.spread_y = 72 * SUB;
+                pair.period = 300;
+                return pair;
+            case "lean":
+                var side = new Rotor(52 * SUB, 6 * SUB, 12 * SUB);
+                side.lean = 52 * SUB;
+                return side;
+            case "breathe":
+                var lung = new Rotor(72 * SUB, 7 * SUB, 14 * SUB);
+                lung.spin = Rotor.Spin.BREATHE;
+                lung.blade_min = 40 * SUB;
+                return lung;
+        }
+        var r = new Rotor(64 * SUB, 7 * SUB, 14 * SUB);
+        if (shape == "three")
+            r.blades = 3;
+        else if (shape == "rock")
+            r.spin = Rotor.Spin.ROCK;
+        return r;
     }
 
     static Hazard _gate(long x, long period, bool follows) => new Gate(x, period, follows);
