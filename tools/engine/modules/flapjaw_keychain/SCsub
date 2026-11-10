@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
+
+Import("env")
+Import("env_modules")
+
+env_keychain = env_modules.Clone()
+# Clang modules, as in Godot's own iOS code: `#import <Security/Security.h>` then links
+# Security.framework by itself, so the exported Xcode project needs no change.
+env_keychain.Append(CCFLAGS=["-fmodules", "-fcxx-modules"])
+env_keychain.add_source_files(env.modules_sources, "*.cpp")
+env_keychain.add_source_files(env.modules_sources, "*.mm")

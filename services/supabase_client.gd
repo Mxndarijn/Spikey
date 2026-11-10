@@ -12,7 +12,9 @@ extends RefCounted
 ## (supabase/functions/device-key). The refresh token changes every hour, so a
 ## phone backup (Android Auto Backup restores user:// after a reinstall or on
 ## a new phone) holds a dead one; with the key from the same backup the phone
-## signs in as the same player again.
+## signs in as the same player again. iOS deletes app files with the app, so
+## there the key is also kept in the Keychain, which outlives a reinstall (the
+## FlapjawKeychain engine module, tools/engine/modules/flapjaw_keychain).
 
 ## A sign-in or token refresh finished (ok: there is a valid session now).
 signal session_checked(ok: bool)
@@ -22,6 +24,10 @@ const SESSION_PATH := "user://supabase_session.json"
 const DEVICE_PATH := "user://device_key.json"
 ## The Edge Function that turns the device key into a sign-in.
 const DEVICE_FUNCTION := "/functions/v1/device-key"
+## The iOS engine's Keychain singleton, and the name the key is saved under
+## there (as the same {"key", "email"} JSON as the file).
+const KEYCHAIN_SINGLETON := "FlapjawKeychain"
+const KEYCHAIN_ITEM := "device_key"
 const TIMEOUT_S := 10.0
 ## Refresh the access token this long before it runs out.
 const REFRESH_MARGIN_S := 60
@@ -35,6 +41,11 @@ const SESSION_GONE: Array[String] = [
 ## Tests point this somewhere else.
 var session_path := SESSION_PATH
 var device_path := DEVICE_PATH
+## The Keychain (read(name) -> String, write(name, value) -> bool), or null
+## where there is none (every build but iOS). Looked up by name, never by class.
+var keychain: Object = (
+	Engine.get_singleton(KEYCHAIN_SINGLETON) if Engine.has_singleton(KEYCHAIN_SINGLETON) else null
+)
 
 var _url := ""
 var _key := ""
@@ -85,12 +96,18 @@ func restore() -> void:
 	_access = str(d.get("access_token", ""))
 	_refresh = str(d.get("refresh_token", ""))
 	_expires_at = int(d.get("expires_at", 0))
-	var k: Variant = SafeFile.read_json(device_path)
-	var dk: Dictionary = k if k is Dictionary else {}
-	_device_key = str(dk.get("key", ""))
-	_device_email = str(dk.get("email", "")) if is_device_key(_device_key) else ""
-	if not is_device_key(_device_key):
-		_device_key = ""
+	# The file first; the Keychain when the file is gone (an iOS reinstall).
+	var saved := device_entry(SafeFile.read_json(device_path))
+	var kept := {}
+	if keychain != null:
+		kept = device_entry(parse(str(keychain.call("read", KEYCHAIN_ITEM))))
+	var dev := saved if not saved.is_empty() else kept
+	_device_key = str(dev.get("key", ""))
+	_device_email = str(dev.get("email", ""))
+	# Put back whichever copy is missing (a key from before the Keychain was
+	# used goes into it too).
+	if dev != saved or (keychain != null and dev != kept):
+		_save_device()
 
 
 ## A valid access token: the saved one, a refreshed one, or a new anonymous
@@ -182,7 +199,21 @@ func _enroll_device() -> void:
 
 
 func _save_device() -> void:
-	SafeFile.write_json(device_path, {"key": _device_key, "email": _device_email})
+	var entry := {"key": _device_key, "email": _device_email}
+	SafeFile.write_json(device_path, entry)
+	if keychain != null:
+		# A refusal leaves the file's copy; the next restore tries again.
+		keychain.call("write", KEYCHAIN_ITEM, JSON.stringify(entry))
+
+
+## A saved {"key", "email"} with a well-formed key, or {} (the email is "" until
+## the server took the key).
+static func device_entry(saved: Variant) -> Dictionary:
+	var d: Dictionary = saved if saved is Dictionary else {}
+	var key := str(d.get("key", ""))
+	if not is_device_key(key):
+		return {}
+	return {"key": key, "email": str(d.get("email", ""))}
 
 
 ## "Fj-" and 64 hex characters from 32 random bytes (the function's KEY).

@@ -3,7 +3,8 @@ name: Engine
 # Builds Flapjaw's small 2D-only Godot engine (tools/engine/flapjaw.py) from the source of the
 # exact Godot release the exports use, and hands it on as an artifact:
 #   * android: libgodot_android.so for arm64 (Linux runner)
-#   * ios: libgodot.a for arm64 devices (macOS runner, Apple's toolchain is needed)
+#   * ios: libgodot.a for arm64 devices (macOS runner, Apple's toolchain is needed), with
+#     Flapjaw's own engine modules from tools/engine/modules (the Keychain, for the device key)
 # The Android and iOS workflows put it in place of the engine in Godot's stock templates.
 #
 # A compile takes a while, so the result is cached; it is only rebuilt when the Godot
@@ -85,8 +86,12 @@ jobs:
           # iOS ships the engine as a static library that Xcode links with the plugins. With
           # LTO the engine drops functions only the plugins call (link fails), so it's off
           # there, as in Godot's own iOS builds. Android links one finished .so: LTO is fine.
+          # Flapjaw's own modules (tools/engine/modules) are iOS-only; built into the engine, they
+          # compile with exactly its headers and flags, which a separate plugin library can't.
           extra=""
-          if [ "${{ inputs.platform }}" = ios ]; then extra="lto=none"; fi
+          if [ "${{ inputs.platform }}" = ios ]; then
+            extra="lto=none custom_modules=$GITHUB_WORKSPACE/tools/engine/modules"
+          fi
           scons platform=${{ inputs.platform }} target=template_release arch=arm64 \
             profile="$GITHUB_WORKSPACE/tools/engine/flapjaw.py" $extra -j"$jobs"
 
@@ -100,6 +105,8 @@ jobs:
           else
             lib="$(ls "$src"/bin/libgodot.ios.template_release*.arm64.a | head -n1)"
             test -f "$lib" || { echo "::error::No iOS engine library in $src/bin."; ls "$src/bin"; exit 1; }
+            # The Keychain module (tools/engine/modules/flapjaw_keychain) must be in it.
+            nm "$lib" 2>/dev/null | grep -q initialize_flapjaw_keychain_module               || { echo "::error::The iOS engine has no FlapjawKeychain module."; exit 1; }
             cp "$lib" engine-out/libgodot.a
           fi
           printf '%s\n' "${{ inputs.godot_version }}" > engine-out/godot_version.txt

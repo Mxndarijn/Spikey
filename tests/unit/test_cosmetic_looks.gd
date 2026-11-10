@@ -229,3 +229,28 @@ func test_bird_view_shows_flap_pose_after_a_flap() -> void:
 	bird.on_flap()
 	assert_true(bird._flap_timer > 0.0, "flap pose right after a flap")
 	bird.free()
+
+
+func test_bird_view_turns_upside_down_in_gravity_flip() -> void:
+	assert_eq(BirdView.flip_target(1), 1.0, "upright with normal gravity")
+	assert_eq(BirdView.flip_target(-1), -1.0, "upside down when gravity points up")
+	# A full turn takes FLIP_TIME seconds, not one frame.
+	var p := 1.0
+	p = BirdView.flip_step(p, -1.0, BirdView.FLIP_TIME / 2.0)
+	assert_true(absf(p) < 0.001, "halfway through the turn after half the time")
+	assert_true(absf(BirdView.flip_scale(p)) < 0.001, "edge-on halfway")
+	p = BirdView.flip_step(p, -1.0, BirdView.FLIP_TIME)
+	assert_eq(p, -1.0, "done and stays upside down")
+	assert_eq(BirdView.flip_scale(1.0), 1.0, "upright scale")
+	assert_eq(BirdView.flip_scale(-1.0), -1.0, "mirrored scale")
+	assert_true(BirdView.FLIP_TIME >= 0.15 and BirdView.FLIP_TIME <= 0.25, "a quick turn")
+
+
+func test_flipped_bird_still_points_its_nose_where_it_moves() -> void:
+	# Flipped, falling means moving up: tilt is taken along gravity (vy * -1).
+	var falling_up := BirdView.tilt_for(-SimConfig.MAX_FALL_VY * -1)
+	var nose := Vector2.from_angle(BirdView.rotation_for(falling_up, 1.0, -1.0))
+	assert_true(nose.x > 0.0 and nose.y < 0.0, "facing right and falling up: nose up-right")
+	var flap_down := BirdView.tilt_for(SimConfig.FLAP_VY * -1 * -1)
+	nose = Vector2.from_angle(BirdView.rotation_for(flap_down, -1.0, -1.0) + PI)
+	assert_true(nose.x < 0.0 and nose.y > 0.0, "facing left after a flap: nose down-left")

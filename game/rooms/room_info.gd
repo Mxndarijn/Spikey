@@ -304,11 +304,16 @@ static func is_open(profile: Profile, def: RoomDef) -> bool:
 	return DevMode.enabled() or profile.has_met_room(def.id)
 
 
-## The line under a room card: how often it was cleared, or why it's locked.
+## The line under a room card: how often it was cleared out of the times it
+## was reached ("Cleared 9 of 14"), or why it's locked.
 static func status(profile: Profile, def: RoomDef) -> String:
 	if is_open(profile, def):
 		var n := profile.clears(def.id)
-		return "Cleared %d×" % n if n > 0 else "Not cleared yet"
+		if n <= 0:
+			return "Not cleared yet"
+		# Each clear was reached, so the reaches are never shown below it.
+		var of := maxi(profile.reached(def.id), n)
+		return "Cleared %s of %s" % [UiKit.thousands(n), UiKit.thousands(of)]
 	if def.season != Seasons.NONE:
 		return "%s only" % season_name(def)
 	if profile.best_score < def.from_score:

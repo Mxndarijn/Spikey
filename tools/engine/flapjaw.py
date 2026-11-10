@@ -6,6 +6,8 @@
 #   scons platform=android target=template_release arch=arm64 profile=<this file>
 #
 # Changing this file changes the CI cache key, so the next build compiles a fresh engine.
+# The iOS build also compiles Flapjaw's own modules in tools/engine/modules (engine.yml passes
+# custom_modules), e.g. flapjaw_keychain for the device key.
 # Before turning a module off, check nothing exported uses it (a class missing from the
 # engine fails at load on the phone, not in the check). Keep:
 #   gdscript, freetype, text_server_adv (shaping), ogg/vorbis, interactive_music (the layered

@@ -8,7 +8,11 @@ extends Node2D
 ## Flow: Home -> Play. A first start goes straight to Home with the first free
 ## flyer and the default world; players change them in Customize.
 ## Home -> Rooms -> a room -> Practice repeats that room; practice never touches
-## coins, best score, cleared rooms or leaderboards.
+## coins, best score, room stats or leaderboards.
+## Room stats (Profile: reached, cleared, deaths per room id; a variant counts
+## under its room) come from real runs only: practice, replays and the bots
+## (which run the sim without this app) never count. A run left from the pause
+## menu counts its rooms as reached but neither cleared nor died in.
 ## Home -> the #rank item in the dock -> Leaderboards: the friends' Supabase
 ## boards when services/supabase_config.json exists, else made-up sample boards.
 ## Home -> Settings (the dock) -> the settings sheet; main applies each change.
@@ -702,20 +706,20 @@ func _on_coin_collected(total: int) -> void:
 	_hud.fly_coin(Vector2(s.pickup_x, s.pickup_y) / float(SimConfig.SUB), total)
 
 
-## A real run met its first room.
+## A real run reached its first room (the first tap; a revive is not a start).
 func _on_run_started() -> void:
 	if mode == Mode.RUN:
-		_profile.record_room_met(_room_id)
+		_profile.record_room_reached(_room_id)
 
 
-## A real run survived all of a room's points: count it, and meet the next.
+## A real run survived all of a room's points: count it, and reach the next.
 func _on_room_changed(_room_index: int) -> void:
 	if mode != Mode.RUN or _run.sim == null:
 		return
 	_profile.record_room_cleared(_room_id)
 	_rooms_cleared += 1
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
-	_profile.record_room_met(_room_id)
+	_profile.record_room_reached(_room_id)
 
 
 func _on_died(replay: Replay) -> void:
@@ -733,6 +737,9 @@ func _on_died(replay: Replay) -> void:
 		return
 	# Only a real run counts: nothing that ends behind a menu is the player's.
 	if mode == Mode.RUN:
+		# Every crash is a death in its room, also one the player then revives
+		# from; the revived run can still clear the room.
+		_profile.record_room_death(_room_id)
 		_revive.on_crash(replay)
 
 

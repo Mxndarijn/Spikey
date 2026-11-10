@@ -1,7 +1,7 @@
 class_name Profile
 extends RefCounted
 ## The player's save: gold and diamonds, best score, what they own and use,
-## rooms met and cleared, the leaderboard name, and whether the first start
+## rooms met, reached, cleared and died in, the leaderboard name, and whether the first start
 ## (free flyer and world handed out) is done. Settings and free revives are
 ## parts of it (PlayerSettings, DailyRevives) saved in the same file. Stored as
 ## JSON in user:// through SafeFile, so a crash mid-save never loses it.
@@ -13,7 +13,8 @@ const PATH := "user://profile.json"
 ## 2: met rooms and per-room clear counts.
 ## 3: diamonds and bought packs.
 ## 4: the copy on the server (cloud_revision, cloud_coins).
-const VERSION := 4
+## 5: per-room reached and death counts (room_reached, room_deaths).
+const VERSION := 5
 ## Keys that belong to this phone, not to the player: never sent to the server
 ## and never taken from it (cloud_dict, merge_cloud). Diamonds live in the
 ## server's wallet; the prize spot and the free revives are checked against the
@@ -53,6 +54,12 @@ var equipped := {}
 var met_rooms: Array[String] = []
 ## Room id -> times cleared in real runs (all of its points survived).
 var room_clears := {}
+## Room id -> times a real run reached it (started in it or moved into it).
+## Saves from before version 5 start at the clears, or 1 for a met room.
+var room_reached := {}
+## Room id -> crashes in it in real runs. A crash that is then revived still
+## counts, so a room can have more deaths than reaches.
+var room_deaths := {}
 ## The name other players see on the leaderboards; "" until the player picks one.
 var leaderboard_name := ""
 ## The Settings sheet.
@@ -124,6 +131,14 @@ func record_room_met(id: String) -> void:
 		met_rooms.append(id)
 
 
+## A real run started in this room or moved into it.
+func record_room_reached(id: String) -> void:
+	if id.is_empty():
+		return
+	record_room_met(id)
+	room_reached[id] = reached(id) + 1
+
+
 ## A real run survived all of this room's points.
 func record_room_cleared(id: String) -> void:
 	if id.is_empty():
@@ -132,12 +147,37 @@ func record_room_cleared(id: String) -> void:
 	room_clears[id] = clears(id) + 1
 
 
+## A real run crashed in this room (revived or not).
+func record_room_death(id: String) -> void:
+	if id.is_empty():
+		return
+	record_room_met(id)
+	room_deaths[id] = deaths(id) + 1
+
+
 func has_met_room(id: String) -> bool:
 	return id in met_rooms
 
 
 func clears(id: String) -> int:
 	return int(room_clears.get(id, 0))
+
+
+func reached(id: String) -> int:
+	return int(room_reached.get(id, 0))
+
+
+func deaths(id: String) -> int:
+	return int(room_deaths.get(id, 0))
+
+
+## Clears per reach as a whole percent (0 when never reached). Each clear was
+## reached, so the reaches count as at least the clears.
+func clear_rate(id: String) -> int:
+	var n := maxi(reached(id), clears(id))
+	if n <= 0:
+		return 0
+	return roundi(100.0 * clears(id) / n)
 
 
 func total_clears() -> int:
@@ -166,6 +206,8 @@ func to_dict() -> Dictionary:
 				"equipped": equipped,
 				"met_rooms": met_rooms,
 				"room_clears": room_clears,
+				"room_reached": room_reached,
+				"room_deaths": room_deaths,
 				"leaderboard_name": leaderboard_name,
 				"push_asked": push_asked,
 				"cloud_revision": cloud_revision,
@@ -226,20 +268,30 @@ static func from_dict(saved: Dictionary) -> Profile:
 		for id: Variant in met:
 			if id is String:
 				p.record_room_met(id)
-	var saved_clears: Variant = d.get("room_clears", {})
-	if saved_clears is Dictionary:
-		for id: Variant in saved_clears:
-			var n := (
-				int(saved_clears[id]) if saved_clears[id] is float or saved_clears[id] is int else 0
-			)
-			if id is String and n > 0:
-				p.room_clears[id] = n
-				p.record_room_met(id)
+	p.room_clears = _read_counts(d.get("room_clears", {}))
+	p.room_reached = _read_counts(d.get("room_reached", {}))
+	p.room_deaths = _read_counts(d.get("room_deaths", {}))
+	for counts: Dictionary in [p.room_clears, p.room_reached, p.room_deaths]:
+		for id: String in counts:
+			p.record_room_met(id)
 	var known := p.to_dict()
 	for key: Variant in d:
 		if not known.has(key):
 			p._unknown[key] = d[key]
 	return p
+
+
+## Room id -> count from saved data: only string ids with a count above 0.
+static func _read_counts(saved: Variant) -> Dictionary:
+	var out := {}
+	if not saved is Dictionary:
+		return out
+	for id: Variant in saved:
+		var v: Variant = saved[id]
+		var n := int(v) if v is float or v is int else 0
+		if id is String and n > 0:
+			out[id] = n
+	return out
 
 
 ## The part of the save the server keeps (everything but LOCAL_KEYS).
@@ -260,7 +312,9 @@ func mark_cloud_saved(revision: int, coins_sent: int) -> void:
 ## based on it: on a fresh install, or after another save reached the server
 ## first. Changes this profile in place (screens hold on to it).
 ## - Collections join: owned items, bought packs, met rooms; per-room clears,
-##   best score and run count take the higher; onboarded stays once done.
+##   reaches and deaths, best score and run count take the higher (so a merge
+##   never counts a run twice; runs played on two phones between syncs keep
+##   the larger side); onboarded stays once done.
 ## - Gold: the server's, plus what this phone earned or spent since its last
 ##   sync.
 ## - Choices (what is worn, settings, the board name): the server's when this
@@ -284,6 +338,10 @@ func merge_cloud(cloud: Profile, revision: int) -> void:
 		record_room_met(id)
 	for id: String in cloud.room_clears:
 		room_clears[id] = maxi(clears(id), cloud.clears(id))
+	for id: String in cloud.room_reached:
+		room_reached[id] = maxi(reached(id), cloud.reached(id))
+	for id: String in cloud.room_deaths:
+		room_deaths[id] = maxi(deaths(id), cloud.deaths(id))
 	if never_synced:
 		for kind: String in cloud.equipped:
 			equip(kind, cloud.equipped_id(kind))
@@ -302,11 +360,22 @@ func merge_cloud(cloud: Profile, revision: int) -> void:
 	cloud_coins = cloud.coins
 
 
-## Brings an older save up to VERSION. Every step so far only added keys, which
-## load at their defaults, so there is nothing to change yet.
+## Brings an older save up to VERSION. Most steps only added keys, which load
+## at their defaults.
+## 4 -> 5: reaches were not counted before, so each room starts at its clears
+## (every clear was reached), or 1 for a room met but never cleared. Deaths
+## start at 0.
 static func _migrate(saved: Dictionary) -> Dictionary:
 	var d := saved.duplicate()
 	var from := int(d.get("version", 1))
+	if from < 5 and not d.has("room_reached"):
+		var reached_from := _read_counts(d.get("room_clears", {}))
+		var met: Variant = d.get("met_rooms", [])
+		if met is Array:
+			for id: Variant in met:
+				if id is String and not reached_from.has(id):
+					reached_from[id] = 1
+		d["room_reached"] = reached_from
 	if from < VERSION:
 		d["version"] = VERSION
 	return d
