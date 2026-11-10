@@ -91,6 +91,18 @@ if ($TestFilter) {
 }
 if ($LASTEXITCODE -ne 0) { $failed += "tests" }
 
+# 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/. Skipped
+# with a -TestFilter unless the filter is "fastsim".
+if (-not $TestFilter -or $TestFilter -eq "fastsim") {
+    Write-Step "FastSim parity"
+    if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $root "tools/fastsim.ps1") -Mode parity -Quick -Jobs 4
+        if ($LASTEXITCODE -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
+    } else {
+        Write-Host "SKIPPED: dotnet not installed (.NET 9 SDK)" -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
 if ($failed.Count -gt 0) {
     Write-Host "CHECK FAILED: $($failed -join ', ')" -ForegroundColor Red

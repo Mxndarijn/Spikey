@@ -7,6 +7,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Mode searchruns -Seeds 64 -Ticks 16000
 #
 # -Ticks: run length for search (default 1500 per room) and searchruns (default 16000).
+# -Jobs: Godot copies at once (default: a quarter of the cores).
 # -Priority: CPU priority of the copies (default BelowNormal, so the PC stays
 #   usable while the sweep runs: the copies only get what nothing else wants).
 #   Idle is gentler still; Normal is the old behaviour.
@@ -40,7 +41,8 @@ function Resolve-Godot {
 
 $godot = Resolve-Godot
 if (-not $godot) { Write-Host "Godot not found (set `$env:GODOT or tools/godot_path.txt)." -ForegroundColor Red; exit 2 }
-if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [Environment]::ProcessorCount - 2) }
+# Default: a quarter of the cores, so the PC stays usable (-Jobs for more).
+if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [int]([Environment]::ProcessorCount / 4)) }
 $Jobs = [Math]::Min($Jobs, $Seeds)
 if (-not $Out) { $Out = Join-Path ([IO.Path]::GetTempPath()) ("flapjaw_sweep_" + (Get-Date -Format "yyyyMMdd_HHmmss")) }
 New-Item -ItemType Directory -Force $Out | Out-Null

@@ -1,0 +1,105 @@
+namespace FastSim;
+
+/// Port of sim/hazards/beam.gd.
+public class Beam : Hazard
+{
+    public static class State
+    {
+        public const long OFF = 0, WARN = 1, ON = 2;
+    }
+
+    public const long ROWS = 4;
+    public const long PERIOD = 180;
+    public const long WARN_TICKS = 40;
+    public const long ON_TICKS = 50;
+    public const long START_DELAY = 20;
+    public const long BAND_TOP = 130 * SimConfig.SUB;
+    public const long SPAN = 480 * SimConfig.SUB;
+    public const long JITTER = 40 * SimConfig.SUB;
+    public const long HALF_H = 6 * SimConfig.SUB;
+
+    public List<long> rows = new();
+    public List<long> delays = new();
+
+    public Beam(long count = ROWS)
+    {
+        kind = "beam";
+        for (long i = 0; i < count; i++)
+        {
+            rows.Add(0);
+            delays.Add(0);
+        }
+    }
+
+    public override Hazard clone_deep()
+    {
+        var c = (Beam)MemberwiseClone();
+        c.rows = new List<long>(rows);
+        c.delays = new List<long>(delays);
+        return c;
+    }
+
+    public override void setup(GameSim sim, SimRng rng)
+    {
+        long n = rows.Count;
+        long band = SPAN / n;
+        long stagger = PERIOD / n;
+        var order = new List<long>();
+        for (long i = 0; i < n; i++) order.Add(i);
+        // Fisher-Yates: the order rows fire in.
+        for (long i = n - 1; i > 0; i--)
+        {
+            long j = rng.next_below(i + 1);
+            long tmp = order[(int)i];
+            order[(int)i] = order[(int)j];
+            order[(int)j] = tmp;
+        }
+        for (long i = 0; i < n; i++)
+        {
+            rows[(int)i] = BAND_TOP + i * band + rng.next_below(JITTER + 1);
+            delays[(int)i] = START_DELAY + order[(int)i] * stagger;
+        }
+    }
+
+    public long cycle_pos(long i)
+    {
+        if (t < delays[(int)i]) return -1;
+        return G.posmod(t - delays[(int)i], PERIOD);
+    }
+
+    public long state(long i)
+    {
+        long p = cycle_pos(i);
+        if (p < 0 || p >= WARN_TICKS + ON_TICKS) return State.OFF;
+        return p < WARN_TICKS ? State.WARN : State.ON;
+    }
+
+    public long warn_progress(long i)
+    {
+        if (state(i) != State.WARN) return 0;
+        return SimTrig.ONE * cycle_pos(i) / WARN_TICKS;
+    }
+
+    public long live_count()
+    {
+        long n = 0;
+        for (long i = 0; i < rows.Count; i++)
+            if (state(i) == State.ON) n += 1;
+        return n;
+    }
+
+    public override bool kills(GameSim sim)
+    {
+        long left = sim.room.wall_left();
+        long right = sim.room.wall_right();
+        for (long i = 0; i < rows.Count; i++)
+        {
+            if (state(i) == State.ON)
+                if (sim.bird_touches_rect(left, rows[(int)i] - HALF_H, right, rows[(int)i] + HALF_H))
+                    return true;
+        }
+        return false;
+    }
+
+    public override long checksum(long h) => mix_all(mix_all(h, rows), delays);
+}
