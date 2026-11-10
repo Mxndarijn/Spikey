@@ -144,6 +144,15 @@ jobs:
           godot --headless --path . --export-release "iOS" build/ios/Flapjaw.ipa
           test -d build/ios/Flapjaw.xcodeproj
 
+      - name: Add the ad SDK's Swift package to the Xcode project
+        # The AdMob plugin adds Google's ad SDK as a Swift package, but only in a deferred
+        # call that a command-line export never reaches; without it the app fails to link.
+        run: |
+          godot --headless --path . -s res://tools/ci/patch_ios_spm.gd -- \
+            res://build/ios/Flapjaw.xcodeproj/project.pbxproj
+          grep -q "admob_spm" build/ios/Flapjaw.xcodeproj/project.pbxproj
+          test -f build/ios/admob_spm/Package.swift
+
       - name: Remove alpha from the app icons
         # App Store Connect rejects an app icon with transparency, and Godot renders the
         # rounded icon.svg with transparent corners. iOS masks the corners anyway, so filling
