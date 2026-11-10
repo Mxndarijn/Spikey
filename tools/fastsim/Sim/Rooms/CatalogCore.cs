@@ -52,7 +52,19 @@ public static class CatalogCore
         out_.Add(garden);
 
         var bramble = new RoomDef("bramble", "mid", 40);
-        bramble.hazards.Add(() => new Bouncer());
+        bramble.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new Bouncer() }),
+            new RoomVariant("twin").with(new List<Func<Hazard>>
+            {
+                () => _twin(Bouncer.Lane.UPPER),
+                () => _twin(Bouncer.Lane.LOWER),
+            }),
+            new RoomVariant("split").with(new List<Func<Hazard>> { () => new SplittingBouncer() }),
+            new RoomVariant("revup").with(new List<Func<Hazard>> { () => new RevvingBouncer() }),
+            new RoomVariant("curious").with(new List<Func<Hazard>> { () => new CuriousBouncer() }),
+            new RoomVariant("heavy").with(new List<Func<Hazard>> { () => new HeavyBouncer() }),
+        };
         out_.Add(bramble);
 
         var squeeze = new RoomDef("squeeze", "mid", 50);
@@ -97,6 +109,8 @@ public static class CatalogCore
         b.band = band;
         return b;
     }
+
+    static Hazard _twin(long lane) => new Bouncer(Bouncer.TWIN_RADIUS, lane);
 
     static Hazard _coin(long x, long y, long appear_at) => new CoinPickup(x, y, appear_at);
 }

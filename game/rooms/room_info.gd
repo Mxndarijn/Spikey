@@ -59,7 +59,14 @@ const ROOMS := {
 	["Caterpillar Crawl", "Spiky caterpillars walk the edges of the cage.", 3, "jungle", "crawl"],
 	"garden":
 	["Coin Garden", "Four coins and only a few spikes. Grab them all.", 1, "jungle", "coins"],
-	"bramble": ["Bramble Ball", "A big thorny ball ricochets around the room.", 3, "ice", "ball"],
+	"bramble":
+	[
+		"Bramble Ball",
+		"Thorny balls ricochet around. Some split, speed up, fall or follow you.",
+		3,
+		"ice",
+		"ball",
+	],
 	"squeeze":
 	["Squeeze Box", "The walls creep inward while you play this room.", 4, "desert", "extra"],
 	"slowmo":
