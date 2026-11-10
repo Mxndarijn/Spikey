@@ -17,6 +17,8 @@ var wallet: WalletService
 var store: StoreService
 var push: PushService
 var ads: AdsService
+## The server's copy of the save (does nothing without a server).
+var profile_sync: ProfileSync
 ## Buying and converting, through `wallet`.
 var checkout: Checkout
 ## The music and sounds; null in tests that build screens on their own.
@@ -32,6 +34,7 @@ static func offline(profile: Profile) -> AppServices:
 	s.store = StoreService.new()
 	s.push = PushService.new()
 	s.ads = AdsService.new()
+	s.profile_sync = ProfileSync.new(profile, null)
 	s.checkout = Checkout.new(profile, s.wallet)
 	return s
 
