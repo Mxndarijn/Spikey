@@ -6,7 +6,7 @@ const FLOOR_CLEARANCE := 40.0
 
 
 func test_shop_fits_on_every_tab() -> void:
-	for kind: String in ItemKind.ALL + [CollectionScreen.HATS]:
+	for kind: String in ItemKind.ALL + [ItemOffer.HATS]:
 		var shop := CollectionScreen.new(
 			Checkout.offline(_profile()), CollectionScreen.Mode.SHOP, kind
 		)

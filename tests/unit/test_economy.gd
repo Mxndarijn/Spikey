@@ -241,7 +241,7 @@ func test_customize_offers_to_convert_when_gold_is_short() -> void:
 	assert_eq(c.action_label(), ["Need 160 more gold", false], "no diamonds: as before")
 	main._profile.diamonds = 5
 	c.refresh()
-	assert_eq(c.action_label(), [CollectionScreen.CONVERT_LABEL, true])
+	assert_eq(c.action_label(), [ItemOffer.CONVERT, true])
 	c._on_action()
 	var sheet := c.sheet()
 	assert_true(sheet != null, "the action opens the convert sheet")

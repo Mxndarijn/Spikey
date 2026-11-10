@@ -182,7 +182,7 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	assert_eq(c.preview_ids(), ["buzz", "sunset", "comet_tail"], "trails too, flyer in use")
 	c._tap("world_ribbon")
 	assert_eq(c.action_label(), ["In use", false], "the trail in use")
-	assert_false(c._action.disabled, "In use still taps")
+	assert_false(c.popup().action_button().disabled, "In use still taps")
 	c._on_action()
 	assert_false(c.is_popup_open(), "In use just closes the popup")
 	main._profile.coins = Shop.price(ItemKind.TRAIL, "comet_tail")
@@ -192,7 +192,7 @@ func test_customize_previews_filters_and_merges_the_shop() -> void:
 	assert_eq(main._profile.equipped_id(ItemKind.TRAIL), "comet_tail", "and puts it on")
 	assert_false(c.is_popup_open(), "and closes")
 	assert_eq(c.item_ids().find("comet_tail"), 1, "it moves up to Yours")
-	c._show_kind(CollectionScreen.HATS)
+	c._show_kind(ItemOffer.HATS)
 	assert_eq(c.item_ids(), [], "no hats yet")
 	assert_eq(c.action_label(), ["Hats are coming", false])
 	main.show_home()
@@ -374,15 +374,15 @@ func test_paused_shows_the_score_sound_circles_and_home() -> void:
 
 
 func test_shop_badges_mark_premium_seasonal_and_fitting_worlds() -> void:
-	assert_eq(CollectionScreen.badge_text(ItemKind.WORLD, "neon"), "Premium")
-	assert_eq(CollectionScreen.badge_text(ItemKind.WORLD, "haunted"), "Seasonal: October")
-	assert_eq(CollectionScreen.badge_text(ItemKind.WORLD, "sunset"), "", "free worlds have none")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "neon"), "Premium")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "haunted"), "Seasonal: October")
+	assert_eq(ItemText.badge(ItemKind.WORLD, "sunset"), "", "free worlds have none")
 	var names: Array[String] = []
 	for w in Catalog.flyer("tock").fits_worlds:
 		names.append(Catalog.display_name(ItemKind.WORLD, w))
 	var want := "Fits " + " and ".join(names)
-	assert_eq(CollectionScreen.badge_text(ItemKind.FLYER, "tock"), want)
-	assert_eq(CollectionScreen.badge_text(ItemKind.FLYER, "fold"), "", "fits nothing special")
+	assert_eq(ItemText.badge(ItemKind.FLYER, "tock"), want)
+	assert_eq(ItemText.badge(ItemKind.FLYER, "fold"), "", "fits nothing special")
 
 
 ## Puts a flyer in use, as Customize would (first start already gave Sunset Glow).

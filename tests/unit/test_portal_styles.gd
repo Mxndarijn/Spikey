@@ -163,7 +163,7 @@ func test_customize_has_a_portals_section() -> void:
 	c._tap("galaxy")
 	assert_true(c.is_popup_open(), "tapping opens the popup")
 	assert_eq(c.preview_portal_id(), "galaxy", "the preview shows the tapped portal")
-	assert_eq(c._popup_thumb.portal.id, "galaxy", "and so does the popup picture")
+	assert_eq(c.popup().picture().portal.id, "galaxy", "and so does the popup picture")
 	assert_eq(c.action_label(), ["Unlock for 300", true])
 	c._on_action()
 	assert_eq(p.equipped_id(ItemKind.PORTAL), "galaxy", "bought and put to use")
