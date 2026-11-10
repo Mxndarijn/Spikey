@@ -98,8 +98,8 @@ static func defs() -> Array[RoomDef]:
 	out.append(crabs)
 
 	# New Year
-	# Firework Burst variants: a ring of sparks; a ring and then a second one;
-	# a cross of sparks.
+	# Firework Burst variants: a ring of sparks; a ring and then a second one
+	# (two rockets); a cross of sparks.
 	var fireworks := _room("fireworks", Seasons.NEW_YEAR, 50)
 	var styles := {
 		"classic": Firework.Style.RING,
@@ -108,7 +108,9 @@ static func defs() -> Array[RoomDef]:
 	}
 	for shape: String in styles:
 		var rockets: Array[Callable] = []
-		for delay: int in [0, 50, 100]:
+		# A double burst covers twice the sky, so it has two rockets, not three.
+		var delays: Array[int] = [0, 75] if shape == "double" else [0, 50, 100]
+		for delay: int in delays:
 			rockets.append(_firework.bind(delay, styles[shape]))
 		fireworks.variants.append(RoomVariant.new(shape).with(rockets))
 	out.append(fireworks)

@@ -91,7 +91,7 @@ public static class CatalogSeasonal
         foreach (var (shape, style) in styles)
         {
             var rockets = new List<Func<Hazard>>();
-            foreach (long delay in new long[] { 0, 50, 100 })
+            foreach (long delay in style == Firework.Style.DOUBLE ? new long[] { 0, 75 } : new long[] { 0, 50, 100 })
             {
                 long d = delay;
                 long st = style;
