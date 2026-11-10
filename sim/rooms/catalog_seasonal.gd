@@ -109,7 +109,7 @@ static func defs() -> Array[RoomDef]:
 	for shape: String in styles:
 		var rockets: Array[Callable] = []
 		# A double burst covers twice the sky, so it has two rockets, not three.
-		var delays: Array[int] = [0, 75] if shape == "double" else [0, 50, 100]
+		var delays := [0, 75] if shape == "double" else [0, 50, 100]
 		for delay: int in delays:
 			rockets.append(_firework.bind(delay, styles[shape]))
 		fireworks.variants.append(RoomVariant.new(shape).with(rockets))
