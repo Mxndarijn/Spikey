@@ -12,6 +12,14 @@ const RADIUS := 12 * SUB
 ## spaced phases to try.
 const START_MARGIN := 10 * SUB
 const PHASE_TRIES := 16
+## Out of a portal: the bird's way is kept clear this long (a player still
+## reading the room, then a second to steer), from ARRIVAL_UP above it
+## (it hops while holding height) to just below it.
+const ARRIVAL_TICKS := SimConfig.ARRIVAL_BLIND + 60
+## Evenly spaced phases tried out of a portal.
+const ARRIVAL_TRIES := 60
+const ARRIVAL_UP := 75 * SUB
+const ARRIVAL_DOWN := 18 * SUB
 const CENTER_X := 180 * SUB
 const CENTER_Y := 320 * SUB
 # Figure-eight.
@@ -50,11 +58,16 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	phase = rng.next_below(period())
 	# Shift along the path until no creature meets the bird's first hop (the
 	# room waits for the first tap, then both start moving together).
+	# Out of a portal: until no creature meets the bird flying straight on.
 	var path := sim.start_path()
 	var first := phase
-	for k in PHASE_TRIES:
-		phase = (first + k * period() / PHASE_TRIES) % period()
-		if not _meets_path(path):
+	var tries := ARRIVAL_TRIES if sim.state.started else PHASE_TRIES
+	for k in tries:
+		phase = (first + k * period() / tries) % period()
+		if sim.state.started:
+			if not _meets_arrival(sim):
+				break
+		elif not _meets_path(path):
 			break
 	_place()
 
@@ -71,6 +84,33 @@ func _meets_path(path: PackedInt32Array) -> bool:
 		for c in count:
 			var dx := xs[c] - path[i]
 			var dy := ys[c] - path[i + 1]
+			if dx * dx + dy * dy < reach * reach:
+				hit = true
+		if hit:
+			break
+	t = keep
+	return hit
+
+
+## Whether a creature comes near the bird's way out of a portal in its first
+## ARRIVAL_TICKS steps: flying straight on, between ARRIVAL_UP above its height
+## and ARRIVAL_DOWN below.
+func _meets_arrival(sim: GameSim) -> bool:
+	var keep := t
+	var st := sim.state
+	var g := sim.room.def.gravity_sign
+	var top := mini(st.y - ARRIVAL_UP * g, st.y + ARRIVAL_DOWN * g)
+	var bottom := maxi(st.y - ARRIVAL_UP * g, st.y + ARRIVAL_DOWN * g)
+	var reach := SimConfig.BIRD_RADIUS + RADIUS
+	var hit := false
+	for k in ARRIVAL_TICKS:
+		t = k
+		_place()
+		var bx := st.x + st.vx * k
+		for c in count:
+			var near_y := clampi(ys[c], top, bottom)
+			var dx := xs[c] - bx
+			var dy := ys[c] - near_y
 			if dx * dx + dy * dy < reach * reach:
 				hit = true
 		if hit:

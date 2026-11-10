@@ -3,7 +3,8 @@ extends RefCounted
 ## Out of a portal the player needs a moment to read the new room. This plays
 ## the arrival on a copy: for ARRIVAL_BLIND ticks the bird only holds its
 ## height (the player hasn't looked yet), then a few simple ways to play on
-## each get ARRIVAL_FOLLOW ticks. The arrival is fair when one of them lives.
+## each get ARRIVAL_FOLLOW ticks. The arrival is fair when two of them live
+## (more than one way through, so a real player has a fair chance).
 
 ## Heights the simple players aim at, around the gap ahead or where the bird
 ## came in.
@@ -11,8 +12,8 @@ const OFFSETS := [0, -24 * SimConfig.SUB, 24 * SimConfig.SUB]
 const HOLD_SHIFTS := [0, -60 * SimConfig.SUB, 60 * SimConfig.SUB]
 
 
-## Ticks the best simple player lived (ARRIVAL_BLIND + ARRIVAL_FOLLOW = fair).
-## `sim` is a copy that is used up.
+## Ticks the second-best simple player lived (ARRIVAL_BLIND + ARRIVAL_FOLLOW =
+## fair). `sim` is a copy that is used up.
 static func score(sim: GameSim) -> int:
 	var y0 := sim.state.y
 	var n := 0
@@ -22,14 +23,19 @@ static func score(sim: GameSim) -> int:
 			return n
 		n += 1
 	var best := 0
+	var second := 0
 	for kind in 2:
 		for i in 3:
 			var c := SimCopy.copy(sim)
 			var lived := _follow(c, kind, i, y0)
-			if lived >= SimConfig.ARRIVAL_FOLLOW:
-				return n + lived
-			best = maxi(best, lived)
-	return n + best
+			if lived > best:
+				second = best
+				best = lived
+			elif lived > second:
+				second = lived
+			if second >= SimConfig.ARRIVAL_FOLLOW:
+				return n + second
+	return n + second
 
 
 ## Plays on: kind 0 aims for the gap (or exit) on the wall ahead, kind 1 holds

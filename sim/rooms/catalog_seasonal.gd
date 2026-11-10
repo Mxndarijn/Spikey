@@ -118,7 +118,7 @@ static func _ghost_door(i: int) -> Hazard:
 	var col := i % 2
 	var row := i / 2
 	var x0 := (90 + col * 120) * SUB
-	var y0 := (150 + row * 130) * SUB
+	var y0 := (190 + row * 130) * SUB
 	var b := Block.new(x0, y0, x0 + 60 * SUB, y0 + 34 * SUB)
 	b.fade_period = 240
 	b.solid_ticks = 140

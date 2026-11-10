@@ -162,7 +162,7 @@ func test_fading_blocks_are_unchanged() -> void:
 		var i := doors
 		doors += 1
 		assert_eq(h.x0, (90 + (i % 2) * 120) * SimConfig.SUB, "door %d x" % i)
-		assert_eq(h.y0, (150 + (i / 2) * 130) * SimConfig.SUB, "door %d y" % i)
+		assert_eq(h.y0, (190 + (i / 2) * 130) * SimConfig.SUB, "door %d y" % i)
 		assert_true(h.alive, "door %d is there" % i)
 		for side in 2:
 			assert_false(h.blocks_exit(sim, side, (h.y0 + h.y1) / 2), "doors block no exit")

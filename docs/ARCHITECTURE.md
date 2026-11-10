@@ -88,14 +88,19 @@ same way (gameplay version 6), at full speed with no wait. Instead the room is
 laid out for a player who is still reading it (gameplay version 18; it replaced
 a frozen wait and then a slow-motion entrance): `ArrivalCheck` plays the
 arrival on copies of the sim (`SimCopy`), the bird only holding its height for
-`SimConfig.ARRIVAL_BLIND` ticks and then a few simple players trying to live
-`ARRIVAL_FOLLOW` ticks more. If none does, the layout is drawn again, up to
+`SimConfig.ARRIVAL_BLIND` ticks (0.75 s) and then a few simple players trying
+to live `ARRIVAL_FOLLOW` ticks more. If fewer than two do, the layout is drawn again, up to
 `ARRIVAL_TRIES` times (each retry skips one RNG draw, so the seed still decides
 everything and replays match). Rooms also keep the way out of a portal fair: Floating Isles
 keeps the lane in front of it clear (200 px, about 0.75 s of flight), Pinwheel
-moves off the bird's height, Shutter Gates has its gap at the bird's
+and Saw Ring move off the bird's height, Ghost Doors time their fade for it,
+Bee Line keeps its bees off its way, Shutter Gates has its gap at the bird's
 height when it gets there. `tools/arrival_test.gd` and `tools/arrival_room.gd`
-measure how often a player who reacts late dies right after a portal. Every 50 points a
+measure how often a player who reacts late dies right after a portal.
+The reaction benchmark: in every room a 0.75 s reaction may cost at most 5% of
+portal arrivals over an instant one (`ArrivalBench`, checked by
+`tests/sim/test_arrival_reaction.gd`; the full 60-arrival version is
+`tools/arrival_bench.gd`, run it after changing a room). Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
 mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
 picked by the seed

@@ -43,10 +43,12 @@ extends RefCounted
 ##     times its gap to be at the bird's height when it reaches the nearer
 ##     gate.
 ## 18: no slow motion out of a portal: the room is laid out (up to
-##     ARRIVAL_TRIES tries, ArrivalCheck) so a player who only holds height
-##     for ARRIVAL_BLIND ticks can still live; Floating Isles keeps a longer
-##     lane (200 px) clear in front of the bird, and Pinwheel's hub moves
-##     off the bird's height.
+##     ARRIVAL_TRIES tries, ArrivalCheck: two simple players must live) so a
+##     player who only holds height for ARRIVAL_BLIND ticks (0.75 s) can
+##     still live. Out of a portal Floating Isles keeps a 200 px lane clear,
+##     Pinwheel and Saw Ring move off the bird's height, Ghost Doors time
+##     their fade for it and Bee Line keeps its bees off its way. Ghost Doors
+##     sit 40 px lower.
 const GAMEPLAY_VERSION := 18
 ## How often a run can be revived.
 const MAX_REVIVES := 1
@@ -118,8 +120,8 @@ const ARRIVAL_HOLD := 60
 ## ARRIVAL_BLIND ticks (only holding height) can still live ARRIVAL_FOLLOW
 ## ticks after that; up to ARRIVAL_TRIES layouts are tried (ArrivalCheck).
 const ARRIVAL_BLIND := 45
-const ARRIVAL_FOLLOW := 90
-const ARRIVAL_TRIES := 8
+const ARRIVAL_FOLLOW := 120
+const ARRIVAL_TRIES := 16
 
 # Safety cap for replays (30 minutes of play).
 const MAX_TICKS := 60 * 60 * 30

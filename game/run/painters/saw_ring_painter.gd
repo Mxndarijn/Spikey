@@ -3,7 +3,7 @@ extends RefCounted
 
 
 static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
-	var center := HazardLayer.at(h.CENTER_X, h.CENTER_Y)
+	var center := HazardLayer.at(h.CENTER_X, h.center_y)
 	var ring := HazardLayer.px(h.radius)
 	c.draw_arc(center, ring, 0.0, TAU, 64, Color(theme.world_accent, 0.25), 2.0, true)
 	c.draw_circle(center, 4.0, Color(theme.world_accent, 0.4), true, -1.0, true)

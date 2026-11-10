@@ -42,6 +42,8 @@ var y1 := 0
 var fade_period := 0
 var solid_ticks := 0
 var phase := 0
+## The phase it was built with (Ghost Doors move theirs out of a portal).
+var base_phase := 0
 ## Floating Isles: which band of the room the island sits in (-1 = fixed box).
 ## Each band is BAND tall and an island fills at most 36 px of it, so the bird
 ## can always fly around every island.
@@ -58,6 +60,9 @@ func _init(p_x0: int = 0, p_y0: int = 0, p_x1: int = 0, p_y1: int = 0) -> void:
 
 func setup(sim: GameSim, rng: SimRng) -> void:
 	if band < 0:
+		base_phase = phase
+		if fade_period > 0 and sim.state.started:
+			_time_faders_for_arrival(sim)
 		return
 	var sub := SimConfig.SUB
 	var w := (50 + rng.next_below(41)) * sub
@@ -99,6 +104,51 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	# No spot leaves a way through: this band has no island this time.
 	if not found:
 		alive = false
+
+
+## Out of a portal (Ghost Doors): shifts every fading box's cycle by the same
+## amount (the pattern stays the same) so the boxes in the bird's way are
+## faded while it passes them, holding its height (hopping up to ARRIVAL_UP
+## above it): the shift with the fewest solid ticks in its way, the first
+## such. Boxes are set up one by one, so each redoes it from the boxes' own
+## phases (base_phase) for all set up so far; the last one decides. No RNG.
+func _time_faders_for_arrival(sim: GameSim) -> void:
+	var st := sim.state
+	var g := sim.room.def.gravity_sign
+	var r := SimConfig.BIRD_RADIUS
+	var up := st.y - ARRIVAL_UP * g
+	var down := st.y + (r + 4 * SimConfig.SUB) * g
+	var top := mini(up, down)
+	var bottom := maxi(up, down)
+	var in_way: Array[Hazard] = []
+	var all: Array[Hazard] = []
+	for h in sim.room.hazards:
+		if h.kind == kind and h.fade_period > 0:
+			h.phase = h.base_phase
+			all.append(h)
+			if h.y1 > top and h.y0 < bottom:
+				in_way.append(h)
+	if in_way.is_empty():
+		return
+	var best := 0
+	var best_hits := -1
+	for shift in fade_period:
+		var hits := 0
+		for b in in_way:
+			var near: int = b.x0 - r if st.vx > 0 else b.x1 + r
+			var far: int = b.x1 + r if st.vx > 0 else b.x0 - r
+			var from := absi(near - st.x) / SimConfig.SPEED_X
+			var to := absi(far - st.x) / SimConfig.SPEED_X + 1
+			for k in range(from, to + 1):
+				if posmod(k + b.phase + shift, b.fade_period) < b.solid_ticks:
+					hits += 1
+		if best_hits < 0 or hits < best_hits:
+			best_hits = hits
+			best = shift
+		if hits == 0:
+			break
+	for b in all:
+		b.phase = posmod(b.phase + best, b.fade_period)
 
 
 ## Whether an island in this box would leave the bird no fair way: on its
