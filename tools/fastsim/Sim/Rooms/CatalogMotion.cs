@@ -32,8 +32,14 @@ public static class CatalogMotion
         out_.Add(crawl);
 
         var swing = new RoomDef("swing", "mid", 30);
-        swing.hazards.Add(() => new Pendulum());
-        swing.arrival_skip = new List<long> { 318 * SUB, 368 * SUB };
+        swing.variants = new List<RoomVariant>
+        {
+            new RoomVariant("big").with(new List<Func<Hazard>> { _big_lantern }).skipping(_px_range(362, 428)),
+            new RoomVariant("twin").with(new List<Func<Hazard>> { _twin_lanterns }).skipping(_px_range(226, 380)),
+            new RoomVariant("chimes").with(new List<Func<Hazard>> { () => _chime(0), () => _chime(1), () => _chime(2) }).skipping(_px_range(192, 324)),
+            new RoomVariant("gusty").with(new List<Func<Hazard>> { _gusty_lantern }).skipping(_px_range(336, 392)),
+            new RoomVariant("winch").with(new List<Func<Hazard>> { _winch_lantern }).skipping(_px_range(240, 310)),
+        };
         out_.Add(swing);
 
         var stalker = new RoomDef("stalker", "mid", 40);
@@ -57,4 +63,24 @@ public static class CatalogMotion
     static Hazard _gate(long x, long period, bool follows) => new Gate(x, period, follows);
 
     static Hazard _crawler(long lane) => new Crawler(lane);
+
+    static Hazard _big_lantern() => new Pendulum(180 * SUB, 330 * SUB, 28 * SUB, 56, 210);
+
+    static Hazard _twin_lanterns() =>
+        new Pendulum(130 * SUB, 200 * SUB, 20 * SUB, 45, 180).with_twin(218 * SUB, 290 * SUB);
+
+    static Hazard _chime(int i)
+    {
+        long[] xs = { 95, 180, 265 };
+        long[] lengths = { 150, 240, 150 };
+        long[] periods = { 150, 180, 210 };
+        return new Pendulum(xs[i] * SUB, lengths[i] * SUB, 15 * SUB, 40, periods[i]);
+    }
+
+    static Hazard _gusty_lantern() => new Pendulum(180 * SUB, 300 * SUB, 24 * SUB, 41, 180).gusting(18, 600);
+
+    static Hazard _winch_lantern() =>
+        new Pendulum(180 * SUB, 265 * SUB, 24 * SUB, 50, 180).winding(65 * SUB, 420);
+
+    static List<long> _px_range(long from_px, long to_px) => new List<long> { from_px * SUB, to_px * SUB };
 }

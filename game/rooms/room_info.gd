@@ -99,7 +99,7 @@ const ROOMS := {
 		"extra"
 	],
 	"swing":
-	["Lantern Swing", "A spiked lantern swings on a chain from the ceiling.", 3, "autumn", "ball"],
+	["Lantern Swing", "Spiked lanterns swing on chains from the ceiling.", 3, "autumn", "ball"],
 	"stalker":
 	["Stalker Rail", "A pair of spikes rides the wall rail to meet you.", 3, "star", "extra"],
 	"pinwheel":

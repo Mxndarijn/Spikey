@@ -45,11 +45,24 @@ static func defs() -> Array[RoomDef]:
 	crawl.hazards.append(_crawler.bind(1))
 	out.append(crawl)
 
-	# Lantern Swing: a lantern on a chain swings through the middle.
+	# Lantern Swing: lanterns on chains swing from the ceiling. Variants: one
+	# big lantern; twins swinging opposite ways; a row of three small ones on
+	# their own beats; a gusty swing that grows and shrinks; a winch that winds
+	# the chain up and down. Every lantern stays inside x 40..320 px (clear of
+	# a bird at either wall) and moves slower than the bird.
+	# Each variant skips the portal heights where a bird holding height meets a
+	# lantern at the bottom of its swing however it is timed
+	# (tests/unit/test_arrival_check.gd); some variant fits every height.
 	var swing := RoomDef.new("swing", "mid", 30)
-	swing.hazards.append(func() -> Hazard: return Pendulum.new())
-	# Held there, the bird meets the lantern at the bottom of its swing.
-	swing.arrival_skip = PackedInt32Array([318 * SUB, 368 * SUB])
+	swing.variants = [
+		RoomVariant.new("big").with([_big_lantern]).skipping(_px_range(362, 428)),
+		RoomVariant.new("twin").with([_twin_lanterns]).skipping(_px_range(226, 380)),
+		RoomVariant.new("chimes").with([_chime.bind(0), _chime.bind(1), _chime.bind(2)]).skipping(
+			_px_range(192, 324)
+		),
+		RoomVariant.new("gusty").with([_gusty_lantern]).skipping(_px_range(336, 392)),
+		RoomVariant.new("winch").with([_winch_lantern]).skipping(_px_range(240, 310)),
+	]
 	out.append(swing)
 
 	# Stalker Rail: a spike pair on the far wall slides toward the bird's height.
@@ -79,3 +92,40 @@ static func _gate(x: int, period: int, follows: bool) -> Hazard:
 
 static func _crawler(lane: int) -> Hazard:
 	return Crawler.new(lane)
+
+
+## Lantern Swing, big: a 330 px chain, a 28 px lantern, about 20 degrees each
+## way, 3.5 s a swing.
+static func _big_lantern() -> Hazard:
+	return Pendulum.new(180 * SUB, 330 * SUB, 28 * SUB, 56, 210)
+
+
+## Lantern Swing, twin: a short and a long chain swinging opposite ways; they
+## cross at heights 90 px apart.
+static func _twin_lanterns() -> Hazard:
+	return Pendulum.new(130 * SUB, 200 * SUB, 20 * SUB, 45, 180).with_twin(218 * SUB, 290 * SUB)
+
+
+## Lantern Swing, chimes: three small lanterns, each with its own swing time
+## (2.5 s, 3 s, 3.5 s), so the pattern keeps changing.
+static func _chime(i: int) -> Hazard:
+	var xs: Array[int] = [95, 180, 265]
+	var lengths: Array[int] = [150, 240, 150]
+	var periods: Array[int] = [150, 180, 210]
+	return Pendulum.new(xs[i] * SUB, lengths[i] * SUB, 15 * SUB, 40, periods[i])
+
+
+## Lantern Swing, gusty: the widest swing grows from about 8 to 21 degrees and
+## back every 10 s.
+static func _gusty_lantern() -> Hazard:
+	return Pendulum.new(180 * SUB, 300 * SUB, 24 * SUB, 41, 180).gusting(18, 600)
+
+
+## Lantern Swing, winch: the chain winds between 200 and 330 px every 7 s.
+static func _winch_lantern() -> Hazard:
+	return Pendulum.new(180 * SUB, 265 * SUB, 24 * SUB, 50, 180).winding(65 * SUB, 420)
+
+
+## A from-to range of heights in pixels, as sub-units.
+static func _px_range(from_px: int, to_px: int) -> PackedInt32Array:
+	return PackedInt32Array([from_px * SUB, to_px * SUB])

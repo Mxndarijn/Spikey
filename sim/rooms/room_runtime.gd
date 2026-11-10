@@ -48,8 +48,18 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	hazards.clear()
 	var list: Array[Callable] = def.hazards.duplicate()
 	# The variant is drawn first, then the combo: this order is part of the rules.
-	if def.variants.size() > 1:
-		variant = rng.next_below(def.variants.size())
+	# Out of a portal only variants that fit the bird's height are drawn
+	# (RoomVariant.arrival_skip); none fitting = any.
+	var drawn: Array[int] = []
+	if sim.state.started:
+		drawn = def.arrival_variants(sim.state.y)
+	if drawn.is_empty():
+		for i in def.variants.size():
+			drawn.append(i)
+	if drawn.size() > 1:
+		variant = drawn[rng.next_below(drawn.size())]
+	elif drawn.size() == 1:
+		variant = drawn[0]
 	if not def.variants.is_empty():
 		for f: Callable in def.variants[variant].hazards:
 			list.append(f)
