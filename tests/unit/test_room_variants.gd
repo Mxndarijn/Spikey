@@ -26,6 +26,7 @@ func test_rooms_without_variants_play_as_before() -> void:
 func test_every_variant_shows_up() -> void:
 	var ids: Array[String] = ["tide", "cloud", "bramble", "rain", "swing", "updraft"]
 	ids.append_array(["bubbles", "garden", "slowmo", "court"])
+	ids.append_array(["crowded", "squeeze", "blink", "hunter", "flip", "midnight"])
 	for id: String in ids:
 		var seen := {}
 		for s in 200:

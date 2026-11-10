@@ -10,6 +10,12 @@ const BLINK_PERIOD := 60
 ## Squeeze Box: each point in the room moves both walls in by this much.
 const SQUEEZE_STEP := 6 * SimConfig.SUB
 const SQUEEZE_MAX_POINTS := 10
+## Left press: the one moving wall steps in this much per point.
+const SQUEEZE_LEFT_STEP := 9 * SimConfig.SUB
+## Breathing box: both walls slide this far in and back out, once per period
+## (steps). At most about 0.33 px a step, far slower than the bird.
+const BREATHE_IN := 60 * SimConfig.SUB
+const BREATHE_PERIOD := 360
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 
 var def: RoomDef
@@ -31,6 +37,9 @@ var tide_salt := 0
 ## Blink: the second pattern of each wall.
 var blink_left := 0
 var blink_right := 0
+## Which way gravity pulls right now: the room's gravity_sign, turned round on
+## every wall bounce in Flip-flop.
+var gravity := 1
 
 
 func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
@@ -45,6 +54,7 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	tide_salt = 0
 	blink_left = 0
 	blink_right = 0
+	gravity = def.gravity_sign
 	hazards.clear()
 	var list: Array[Callable] = def.hazards.duplicate()
 	# The variant is drawn first, then the combo: this order is part of the rules.
@@ -99,14 +109,36 @@ func step(sim: GameSim) -> void:
 			h.step(sim)
 
 
-## How far both walls stand in from the cage's edge right now. Narrow slides
-## them in over the room's first steps (the bird leaves its wall twice as fast,
-## so a wall never catches it); Squeeze Box steps them in per point.
-func inset() -> int:
+## How far wall `side` (0 = left) stands in from the cage's edge right now.
+## Narrow slides both in over the room's first steps (the bird leaves its wall
+## twice as fast, so a wall never catches it); Squeeze Box steps them in per
+## point (Left press: only the left one), or slides them in and out (Breathing).
+func inset(side: int = 0) -> int:
 	var out := mini(t * INSET_SPEED, def.inset)
 	if def.squeeze:
-		out += mini(points, SQUEEZE_MAX_POINTS) * SQUEEZE_STEP
+		var squeezed := mini(points, SQUEEZE_MAX_POINTS)
+		var mode := RoomVariant.Squeeze.POINTS
+		if not def.variants.is_empty():
+			mode = _variant().squeeze
+		match mode:
+			RoomVariant.Squeeze.LEFT:
+				if side == 0:
+					out += squeezed * SQUEEZE_LEFT_STEP
+			RoomVariant.Squeeze.BREATHE:
+				out += SimTrig.ping_pong(t, BREATHE_PERIOD, BREATHE_IN)
+			_:
+				out += squeezed * SQUEEZE_STEP
 	return out
+
+
+func _variant() -> RoomVariant:
+	return def.variants[variant]
+
+
+## The bird just bounced off a side wall (not a portal).
+func on_wall_bounce() -> void:
+	if not def.variants.is_empty() and _variant().flip_flop:
+		gravity = -gravity
 
 
 ## Index of the variant with id `id`, or `fallback` when this room has none.
@@ -149,21 +181,32 @@ func max_spike_depth() -> int:
 	return tide_max_depth() if def.wall_mode == RoomDef.WallMode.TIDE else spike_depth()
 
 
-## The variant's extra (or fewer) spikes per wall.
-func spike_bonus() -> int:
-	return 0 if def.variants.is_empty() else def.variants[variant].extra_spikes
+## The variant's extra (or fewer) spikes on wall `side` (Lopsided leans them
+## onto the left wall).
+func spike_bonus(side: int = 0) -> int:
+	if def.variants.is_empty():
+		return 0
+	var v := _variant()
+	return v.extra_spikes + (v.lean if side == 0 else -v.lean)
 
 
 func wall_left() -> int:
-	return inset()
+	return inset(0)
 
 
 func wall_right() -> int:
-	return SimConfig.WORLD_W - inset()
+	return SimConfig.WORLD_W - inset(1)
+
+
+## Steps between Blink Walls swaps.
+func _blink_period() -> int:
+	if not def.variants.is_empty() and _variant().blink_period > 0:
+		return _variant().blink_period
+	return BLINK_PERIOD
 
 
 func blink_showing_second() -> bool:
-	return def.wall_mode == RoomDef.WallMode.BLINK and (t / BLINK_PERIOD) % 2 == 1
+	return def.wall_mode == RoomDef.WallMode.BLINK and (t / _blink_period()) % 2 == 1
 
 
 ## The spike mask a wall shows right now (0 = left, 1 = right).
@@ -204,6 +247,10 @@ func on_wall_generated(side: int, mask: int, sim: GameSim, rng: SimRng) -> void:
 				tide_right = moving
 		RoomDef.WallMode.BLINK:
 			var second := RoomRules.generate_wall(rng, sim.state.score, def)
+			# A fast blink leaves no time to wait for a pattern: the first
+			# pattern's free run stays free in the second too.
+			if _blink_period() != BLINK_PERIOD:
+				second &= ~RoomRules.longest_gap_mask(mask)
 			if side == 0:
 				blink_left = second
 			else:
@@ -223,7 +270,8 @@ func checksum(h: int) -> int:
 			tide_right,
 			tide_salt,
 			blink_left,
-			blink_right
+			blink_right,
+			gravity
 		]
 	)
 	for hz in hazards:

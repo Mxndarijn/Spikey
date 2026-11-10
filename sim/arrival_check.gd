@@ -55,7 +55,7 @@ static func _follow(sim: GameSim, kind: int, i: int, y0: int) -> int:
 
 ## Tap when the bird has sunk past `target` (with gravity) and isn't rising.
 static func _toward(sim: GameSim, target: int) -> bool:
-	var g := sim.room.def.gravity_sign
+	var g := sim.room.gravity
 	return (sim.state.y - target) * g > 0 and sim.state.vy * g >= 0
 
 

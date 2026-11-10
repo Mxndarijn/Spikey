@@ -44,13 +44,19 @@ public static class CatalogMachines
 
         var hunter = new RoomDef("hunter", "late", 80);
         hunter.weight = 8;
-        hunter.hazards.Add(() => new Dart());
+        hunter.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic").with(new List<Func<Hazard>> { () => new Dart() }),
+            new RoomVariant("twin").with(new List<Func<Hazard>> { () => _hunter(0, 1), () => _hunter(1, 0) }),
+        };
         out_.Add(hunter);
 
         return out_;
     }
 
     static Hazard _piston(long side, long half, long delay) => new Piston(side, half, delay);
+
+    static Hazard _hunter(long slot, long home) => new Dart(false, slot, home);
 
     static Hazard _pad(bool top, long period) => new EdgePad(top, period);
 

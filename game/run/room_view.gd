@@ -55,6 +55,9 @@ const COIN_ICON := preload("res://assets/ui/coin.svg")
 ## Midnight Cage tints the room night blue (WorldScenes.midnight_dim per world).
 ## Blink Walls: alpha of the outlines that show the next pattern.
 const BLINK_OUTLINE_ALPHA := 0.6
+## Flip-flop: the "Pulls up / Pulls down" pill, its centre height and opacity.
+const GRAVITY_BADGE_Y := 560.0
+const GRAVITY_BADGE_ALPHA := 0.6
 ## Falling things never enter the score area: they start below this line.
 const MOTE_TOP := 196.0
 ## Per kind: drift speed in px/s (x, y) and sideways wobble in px.
@@ -165,6 +168,11 @@ func set_theme(theme: ThemeDef) -> void:
 	queue_redraw()
 
 
+## The world being drawn (NightView glows in its accent).
+func current_theme() -> ThemeDef:
+	return _theme
+
+
 func on_room_changed(room_index: int) -> void:
 	if _run != null and _run.sim != null and room_index > 0:
 		var s := _run.sim.state
@@ -248,7 +256,7 @@ func _shown_sky() -> Array[Color]:
 		for c in sky:
 			dark.append(c.lerp(WorldScenes.MIDNIGHT_TINT, night))
 		sky = dark
-	if room != null and room.def.gravity_sign < 0:
+	if room != null and room.gravity < 0:
 		var flipped: Array[Color] = [sky[2], sky[1], sky[0]]
 		return flipped
 	return sky
@@ -276,21 +284,67 @@ func _draw() -> void:
 	_draw_score()
 	_draw_edges()
 	if room != null:
-		var inset := room.inset() / float(SimConfig.SUB)
-		_draw_side_spikes(_left_reveal, 0, inset, 1.0)
-		_draw_side_spikes(_right_reveal, 1, W - inset, -1.0)
+		_draw_side_spikes(_left_reveal, 0, side_wall_x(0), 1.0)
+		_draw_side_spikes(_right_reveal, 1, side_wall_x(1), -1.0)
 		if room.def.wall_mode == RoomDef.WallMode.BLINK:
-			_draw_blink_preview(room, inset)
+			_draw_blink_preview(room)
 		if _arrival > 0.0:
-			var wall_x := inset if _arrival_side == 0 else W - inset
 			var into := 1.0 if _arrival_side == 0 else -1.0
-			_draw_exit(wall_x, into, _arrival_y, _arrival_kind, _arrival_curve(), false)
+			_draw_exit(
+				side_wall_x(_arrival_side), into, _arrival_y, _arrival_kind, _arrival_curve(), false
+			)
 		if _ghost_fade > 0.0 and (_run.sim.state.exit_preview or _run.sim.state.exit_open):
-			_draw_ghosts(inset)
+			_draw_ghosts()
 		if _run.sim.state.exit_open:
-			_draw_exits(inset)
+			_draw_exits()
+		if not room.def.variants.is_empty() and room.def.variants[room.variant].flip_flop:
+			_draw_gravity_badge(room.gravity)
 	if _flash > 0.0:
 		draw_rect(Rect2(0, 0, W, H), Color(_theme.world_accent, FLASH_ALPHA * _flash))
+
+
+## Where side wall `side` (0 = left) stands right now, px (Narrow and Squeeze
+## Box move it in).
+func side_wall_x(side: int) -> float:
+	var inset := _run.sim.room.inset(side) / float(SimConfig.SUB)
+	return inset if side == 0 else W - inset
+
+
+## Flip-flop: a pill low in the room says which way gravity pulls right now
+## (an arrow and words, not colour alone).
+func _draw_gravity_badge(pull: int) -> void:
+	var up := pull < 0
+	var text := "Pulls up" if up else "Pulls down"
+	var font := GameFonts.ui(900)
+	var size := UiTokens.FONT_SIZE_LABEL
+	var text_w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var h := 32.0
+	var arrow := 12.0
+	var w := 14.0 + arrow + 8.0 + text_w + 16.0
+	var rect := Rect2((W - w) / 2.0, GRAVITY_BADGE_Y - h / 2.0, w, h)
+	UiTheme.flat(Color(UiTokens.INK_900, GRAVITY_BADGE_ALPHA), UiTokens.RADIUS_PILL, 0).draw(
+		get_canvas_item(), rect
+	)
+	var ax := rect.position.x + 14.0 + arrow / 2.0
+	var cy := rect.position.y + h / 2.0
+	var tip := -arrow / 2.0 if up else arrow / 2.0
+	var pts := PackedVector2Array(
+		[
+			Vector2(ax, cy + tip),
+			Vector2(ax - arrow / 2.0, cy - tip),
+			Vector2(ax + arrow / 2.0, cy - tip),
+		]
+	)
+	draw_colored_polygon(pts, UiTokens.PANEL)
+	draw_string(
+		font,
+		Vector2(ax + arrow / 2.0 + 8.0, cy + size * 0.36),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		size,
+		UiTokens.PANEL
+	)
 
 
 ## The world's falling things (its WorldScene says which, how many and
@@ -417,7 +471,7 @@ static func surround_rects() -> Array[Rect2]:
 
 func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir: float) -> void:
 	var room := _run.sim.room
-	if room.inset() > 0:
+	if room.inset(side) > 0:
 		# Squeeze Box: the wall itself moves in; draw it as a band.
 		var band_x := 0.0 if side == 0 else wall_x
 		var band := INK_SPIKE if color_blind_spikes else _theme.spike
@@ -446,26 +500,26 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 ## The open exit(s). Safe, so never in the spike colour: the style's colour
 ## (by default the world's accent) for a normal exit, mint for Calm and gold
 ## for Wild (each fork exit also carries a sticker label, not colour alone).
-func _draw_exits(inset: float) -> void:
+func _draw_exits() -> void:
 	var s := _run.sim.state
-	var wall_x := inset if s.exit_side == 0 else W - inset
+	var x := side_wall_x(s.exit_side)
 	var into := 1.0 if s.exit_side == 0 else -1.0
 	var open := _exit_open_curve()
-	_draw_exit(wall_x, into, s.exit_a_y, s.exit_a_kind, open, true)
+	_draw_exit(x, into, s.exit_a_y, s.exit_a_kind, open, true)
 	if s.exit_b_kind != SimState.ExitKind.NORMAL:
-		_draw_exit(wall_x, into, s.exit_b_y, s.exit_b_kind, open, true)
+		_draw_exit(x, into, s.exit_b_y, s.exit_b_kind, open, true)
 
 
 ## The next exit(s), one point early: faint, slowly pulsing, with a dashed
 ## rim, on the wall and at the height(s) they will open at. They fade out
 ## while the real exit grows in their place.
-func _draw_ghosts(inset: float) -> void:
+func _draw_ghosts() -> void:
 	var s := _run.sim.state
-	var wall_x := inset if s.exit_side == 0 else W - inset
+	var x := side_wall_x(s.exit_side)
 	var into := 1.0 if s.exit_side == 0 else -1.0
-	_draw_ghost(wall_x, into, s.exit_a_y, s.exit_a_kind)
+	_draw_ghost(x, into, s.exit_a_y, s.exit_a_kind)
 	if s.exit_b_kind != SimState.ExitKind.NORMAL:
-		_draw_ghost(wall_x, into, s.exit_b_y, s.exit_b_kind)
+		_draw_ghost(x, into, s.exit_b_y, s.exit_b_kind)
 
 
 func _draw_ghost(wall_x: float, into: float, y_sub: int, kind: int) -> void:
@@ -578,7 +632,7 @@ func _draw_exit_tag(center: Vector2, into: float, kind: int, alpha: float = 1.0)
 
 
 ## Blink Walls: the pattern coming next shows as outlines.
-func _draw_blink_preview(room: RoomRuntime, inset: float) -> void:
+func _draw_blink_preview(room: RoomRuntime) -> void:
 	var s := _run.sim.state
 	var second := room.blink_showing_second()
 	var next_left := s.left_spikes if second else room.blink_left
@@ -586,13 +640,13 @@ func _draw_blink_preview(room: RoomRuntime, inset: float) -> void:
 	var outline := Color(INK_SPIKE if color_blind_spikes else _theme.spike, BLINK_OUTLINE_ALPHA)
 	for side in 2:
 		var mask := next_left if side == 0 else next_right
-		var wall_x := inset if side == 0 else W - inset
+		var x := side_wall_x(side)
 		var dir := 1.0 if side == 0 else -1.0
 		for slot in SimConfig.SLOT_COUNT:
 			if not RoomRules.has_slot(mask, slot):
 				continue
 			var cy := SimConfig.slot_center_y(slot) / float(SimConfig.SUB)
-			var pts := spike_points(Vector2(wall_x, cy), Vector2(dir, 0), SPIKE_HALF, SPIKE_DEPTH)
+			var pts := spike_points(Vector2(x, cy), Vector2(dir, 0), SPIKE_HALF, SPIKE_DEPTH)
 			draw_polyline(pts, outline, 2.0, true)
 
 

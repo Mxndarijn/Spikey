@@ -82,4 +82,25 @@ public static class RoomRules
         }
         return best;
     }
+
+    public static long longest_gap_mask(long mask)
+    {
+        long best = 0, best_end = 0, run = 0;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+        {
+            if (has_slot(mask, slot)) run = 0;
+            else
+            {
+                run++;
+                if (run > best)
+                {
+                    best = run;
+                    best_end = slot;
+                }
+            }
+        }
+        long out_ = 0;
+        for (long slot = best_end - best + 1; slot < best_end + 1; slot++) out_ |= 1L << (int)slot;
+        return out_;
+    }
 }

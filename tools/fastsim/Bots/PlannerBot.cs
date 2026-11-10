@@ -64,7 +64,7 @@ public sealed class PlannerBot
         }
         long jitter = (rng.next_below(9) - 4) * SimConfig.SUB;
         long margin = 6 * SimConfig.SUB;
-        if (sim.room.def.gravity_sign < 0) return s.y < target - margin - jitter && s.vy <= 0;
+        if (sim.room.gravity < 0) return s.y < target - margin - jitter && s.vy <= 0;
         return s.y > target + margin + jitter && s.vy >= 0;
     }
 

@@ -31,7 +31,7 @@ func _initialize() -> void:
 		while n < delay + AFTER and not sim.is_over():
 			var tap: bool
 			if n < delay:
-				var g := sim.room.def.gravity_sign
+				var g := sim.room.gravity
 				tap = (sim.state.y - y0) * g > 0 and sim.state.vy * g >= 0
 			else:
 				tap = bot.decide(sim)

@@ -26,8 +26,16 @@ static func defs() -> Array[RoomDef]:
 	# Open Sky: the classic cage, where every run starts.
 	out.append(RoomDef.new("open", "starter", 0))
 
+	# Crowded: Open Sky with a spike more per wall. Variants: as is; Lopsided
+	# (two more on the left wall, two fewer on the right); Spike storm (two
+	# more on each wall).
 	var crowded := RoomDef.new("crowded", "starter", 10)
 	crowded.extra_spikes = 1
+	crowded.variants = [
+		RoomVariant.new("classic"),
+		RoomVariant.new("lopsided").leaning(2),
+		RoomVariant.new("storm").sized(1, 1, 2),
+	]
 	out.append(crowded)
 
 	# Narrow: both walls slide 50 px in, so every crossing is short. The free
@@ -101,9 +109,16 @@ static func defs() -> Array[RoomDef]:
 	]
 	out.append(bramble)
 
-	# Squeeze Box: every point here moves both walls in a step.
+	# Squeeze Box: every point here moves both walls in a step. Variants: as
+	# is; Left press (only the left wall, in bigger steps); Breathing box (the
+	# walls slide in and back out on a loop).
 	var squeeze := RoomDef.new("squeeze", "mid", 50)
 	squeeze.squeeze = true
+	squeeze.variants = [
+		RoomVariant.new("classic"),
+		RoomVariant.new("left-only").squeezing(RoomVariant.Squeeze.LEFT),
+		RoomVariant.new("breathing").squeezing(RoomVariant.Squeeze.BREATHE),
+	]
 	out.append(squeeze)
 
 	# Slow-Mo Breather: everything at half speed, an arc of coins, few spikes.
@@ -126,22 +141,35 @@ static func defs() -> Array[RoomDef]:
 	out.append(slowmo)
 
 	# Blink Walls: each wall flips between two spike patterns every second.
+	# Variants: as is; Fast blink (twice a second, with a free run both
+	# patterns share).
 	var blink := RoomDef.new("blink", "late", 80)
 	blink.weight = 8
 	blink.wall_mode = RoomDef.WallMode.BLINK
+	blink.variants = [
+		RoomVariant.new("classic"),
+		RoomVariant.new("fast").blinking(RoomRuntime.BLINK_PERIOD / 2),
+	]
 	out.append(blink)
 
-	# Gravity Flip: gravity points to the ceiling; flaps push down.
+	# Gravity Flip: gravity points to the ceiling; flaps push down. Variants:
+	# as is; Flip-flop (gravity turns round at every wall bounce).
 	var flip := RoomDef.new("flip", "late", 90)
 	flip.weight = 8
 	flip.gravity_sign = -1
+	flip.variants = [RoomVariant.new("classic"), RoomVariant.new("flip-flop").flipping()]
 	out.append(flip)
 
-	# Midnight Cage: a dark, crowded cage that runs 25% faster.
+	# Midnight Cage: a dark, crowded cage that runs 25% faster. Variants only
+	# change the look (game/): as is; Lantern (a small light round the bird);
+	# Flicker (the light pulses).
 	var midnight := RoomDef.new("midnight", "late", 100)
 	midnight.weight = 8
 	midnight.speed = RoomDef.Speed.FAST
 	midnight.extra_spikes = 2
+	midnight.variants = [
+		RoomVariant.new("classic"), RoomVariant.new("lantern"), RoomVariant.new("flicker")
+	]
 	out.append(midnight)
 
 	return out

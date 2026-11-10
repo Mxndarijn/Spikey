@@ -85,3 +85,22 @@ static func longest_gap(mask: int) -> int:
 			run += 1
 			best = maxi(best, run)
 	return best
+
+
+## The slots of the first longest run of free slots in a wall mask.
+static func longest_gap_mask(mask: int) -> int:
+	var best := 0
+	var best_end := 0
+	var run := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if has_slot(mask, slot):
+			run = 0
+		else:
+			run += 1
+			if run > best:
+				best = run
+				best_end = slot
+	var out := 0
+	for slot in range(best_end - best + 1, best_end + 1):
+		out |= 1 << slot
+	return out

@@ -55,7 +55,7 @@ public static class ArrivalCheck
 
     public static bool _toward(GameSim sim, long target)
     {
-        long g = sim.room.def.gravity_sign;
+        long g = sim.room.gravity;
         return (sim.state.y - target) * g > 0 && sim.state.vy * g >= 0;
     }
 

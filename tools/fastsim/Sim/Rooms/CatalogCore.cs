@@ -16,6 +16,12 @@ public static class CatalogCore
 
         var crowded = new RoomDef("crowded", "starter", 10);
         crowded.extra_spikes = 1;
+        crowded.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic"),
+            new RoomVariant("lopsided").leaning(2),
+            new RoomVariant("storm").sized(1, 1, 2),
+        };
         out_.Add(crowded);
 
         var narrow = new RoomDef("narrow", "starter", 10);
@@ -91,6 +97,12 @@ public static class CatalogCore
 
         var squeeze = new RoomDef("squeeze", "mid", 50);
         squeeze.squeeze = true;
+        squeeze.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic"),
+            new RoomVariant("left-only").squeezing(RoomVariant.Squeeze.LEFT),
+            new RoomVariant("breathing").squeezing(RoomVariant.Squeeze.BREATHE),
+        };
         out_.Add(squeeze);
 
         var slowmo = new RoomDef("slowmo", "bonus", 60);
@@ -118,17 +130,27 @@ public static class CatalogCore
         var blink = new RoomDef("blink", "late", 80);
         blink.weight = 8;
         blink.wall_mode = RoomDef.WallMode.BLINK;
+        blink.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic"),
+            new RoomVariant("fast").blinking(RoomRuntime.BLINK_PERIOD / 2),
+        };
         out_.Add(blink);
 
         var flip = new RoomDef("flip", "late", 90);
         flip.weight = 8;
         flip.gravity_sign = -1;
+        flip.variants = new List<RoomVariant> { new RoomVariant("classic"), new RoomVariant("flip-flop").flipping() };
         out_.Add(flip);
 
         var midnight = new RoomDef("midnight", "late", 100);
         midnight.weight = 8;
         midnight.speed = RoomDef.Speed.FAST;
         midnight.extra_spikes = 2;
+        midnight.variants = new List<RoomVariant>
+        {
+            new RoomVariant("classic"), new RoomVariant("lantern"), new RoomVariant("flicker")
+        };
         out_.Add(midnight);
 
         return out_;

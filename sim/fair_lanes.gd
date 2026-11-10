@@ -31,7 +31,7 @@ const ARRIVAL_PATH_MIN := SimConfig.ARRIVAL_BLIND + 15
 static func entry_y(sim: GameSim) -> int:
 	if sim.state.started:
 		return sim.state.y
-	return sim.state.y - FIRST_HOP / 2 * sim.room.def.gravity_sign
+	return sim.state.y - FIRST_HOP / 2 * sim.room.gravity
 
 
 ## Out of a portal: where a player still reading the room flies, as x, y
@@ -40,7 +40,7 @@ static func entry_y(sim: GameSim) -> int:
 ## at the far wall.
 static func arrival_path(sim: GameSim) -> PackedInt32Array:
 	var out := PackedInt32Array()
-	var g := sim.room.def.gravity_sign
+	var g := sim.room.gravity
 	var y := sim.state.y
 	# It comes out flying level (_arrive).
 	var vy := 0
@@ -81,10 +81,10 @@ static func start_path(sim: GameSim) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if sim.state.started:
 		return out
-	var g := SimConfig.GRAVITY * sim.room.def.gravity_sign
+	var g := SimConfig.GRAVITY * sim.room.gravity
 	var x := sim.state.x
 	var y := sim.state.y
-	var vy := SimConfig.FLAP_VY * sim.room.def.gravity_sign
+	var vy := SimConfig.FLAP_VY * sim.room.gravity
 	for i in START_PATH:
 		vy = clampi(vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
 		x += sim.state.vx
@@ -115,8 +115,8 @@ static func blocks_start_lane(sim: GameSim, x0: int, y0: int, x1: int, y1: int) 
 	if sim.state.started:
 		return false
 	var w := START_LANE_W
-	var top := sim.state.y - (START_LANE_H - START_LANE_BELOW) * sim.room.def.gravity_sign
-	var bottom := sim.state.y + START_LANE_BELOW * sim.room.def.gravity_sign
+	var top := sim.state.y - (START_LANE_H - START_LANE_BELOW) * sim.room.gravity
+	var bottom := sim.state.y + START_LANE_BELOW * sim.room.gravity
 	var ly0 := mini(top, bottom)
 	var ly1 := maxi(top, bottom)
 	var lx0 := sim.state.x if sim.state.vx > 0 else sim.state.x - w

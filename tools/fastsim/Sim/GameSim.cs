@@ -84,7 +84,7 @@ public sealed class GameSim
                 state.started = true;
                 events.Add(Event.START);
             }
-            state.vy = SimConfig.FLAP_VY * room.def.gravity_sign;
+            state.vy = SimConfig.FLAP_VY * room.gravity;
             state.flaps += 1;
             for (int i = 0; i < room.hazards.Count; i++)
                 if (room.hazards[i].alive) room.hazards[i].on_flap(this);
@@ -215,7 +215,7 @@ public sealed class GameSim
 
     void _move()
     {
-        long g = SimConfig.GRAVITY * room.def.gravity_sign;
+        long g = SimConfig.GRAVITY * room.gravity;
         state.vy = G.clampi(state.vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
         state.x += state.vx;
         state.y += state.vy;
@@ -277,6 +277,7 @@ public sealed class GameSim
             if (_take_exit(1)) return;
             state.x = 2 * (right - r) - state.x;
             state.vx = -SimConfig.SPEED_X;
+            room.on_wall_bounce();
             state.right_spikes = 0;
             _bounce_score();
             _new_wall(0);
@@ -287,6 +288,7 @@ public sealed class GameSim
             if (_take_exit(0)) return;
             state.x = 2 * (left + r) - state.x;
             state.vx = SimConfig.SPEED_X;
+            room.on_wall_bounce();
             state.left_spikes = 0;
             _bounce_score();
             _new_wall(1);
@@ -428,7 +430,7 @@ public sealed class GameSim
             ticks += 1;
         }
         if (ticks > SimConfig.ARRIVAL_BLIND + ARRIVAL_WALL_SPARE) return;
-        long g = room.def.gravity_sign;
+        long g = room.gravity;
         long edge = SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB;
         long up = state.y - (FairLanes.FIRST_HOP + edge) * g;
         long down = state.y + edge * g;
@@ -446,7 +448,7 @@ public sealed class GameSim
 
     void _new_wall(long side)
     {
-        long mask = RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus());
+        long mask = RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus(side));
         for (int i = 0; i < room.hazards.Count; i++)
             if (room.hazards[i].alive) mask = room.hazards[i].adjust_wall(this, side, mask);
         if (side == 0) state.left_spikes = mask;

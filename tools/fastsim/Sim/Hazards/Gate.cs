@@ -71,7 +71,7 @@ public class Gate : Hazard
         long lead = 0;
         if (sim.state.started)
         {
-            aim -= ARRIVAL_HOVER * sim.room.def.gravity_sign;
+            aim -= ARRIVAL_HOVER * sim.room.gravity;
             lead = _lead(sim, x);
         }
         bool down = rng.next_below(2) == 0;

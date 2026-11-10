@@ -65,7 +65,7 @@ public sealed class SurvivalSearch
             foreach (var e in frontier)
             {
                 var s = e.sim;
-                long grav = s.room.def.gravity_sign;
+                long grav = s.room.gravity;
                 if (s.state.vy * grav > TAP_BELOW_VY || !s.state.started)
                 {
                     var c = s.clone_deep();
@@ -126,7 +126,7 @@ public sealed class SurvivalSearch
     {
         if (s.is_over()) return;
         var st = s.state;
-        long along = st.vy * s.room.def.gravity_sign - SimConfig.FLAP_VY;
+        long along = st.vy * s.room.gravity - SimConfig.FLAP_VY;
         long speed = G.clampi(along / _bucket_vy, 0, _speed_buckets - 1);
         long key = (st.y / _bucket_h) * _speed_buckets + speed;
         var entry = new Entry { sim = s, node = parent, tap = tap };

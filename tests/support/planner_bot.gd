@@ -75,6 +75,6 @@ static func aim(sim: GameSim, rng: SimRng) -> bool:
 			target = s.exit_b_y
 	var jitter := (rng.next_below(9) - 4) * SimConfig.SUB
 	var margin := 6 * SimConfig.SUB
-	if sim.room.def.gravity_sign < 0:
+	if sim.room.gravity < 0:
 		return s.y < target - margin - jitter and s.vy <= 0
 	return s.y > target + margin + jitter and s.vy >= 0

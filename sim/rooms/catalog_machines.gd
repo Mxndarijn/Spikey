@@ -58,9 +58,13 @@ static func defs() -> Array[RoomDef]:
 	out.append(stalac)
 
 	# Hunter Spike: a spike on the far wall aims at the bird's height and fires.
+	# Variants: the classic one; twin hunters, one on each wall, taking turns.
 	var hunter := RoomDef.new("hunter", "late", 80)
 	hunter.weight = 8
-	hunter.hazards.append(func() -> Hazard: return Dart.new())
+	hunter.variants = [
+		RoomVariant.new("classic").with([func() -> Hazard: return Dart.new()]),
+		RoomVariant.new("twin").with([_hunter.bind(0, 1), _hunter.bind(1, 0)]),
+	]
 	out.append(hunter)
 
 	return out
@@ -68,6 +72,11 @@ static func defs() -> Array[RoomDef]:
 
 static func _piston(side: int, half: int, delay: int) -> Hazard:
 	return Piston.new(side, half, delay)
+
+
+## Twin hunters: dart `slot` fires from wall `home`.
+static func _hunter(slot: int, home: int) -> Hazard:
+	return Dart.new(false, slot, home)
 
 
 static func _pad(top: bool, period: int) -> Hazard:

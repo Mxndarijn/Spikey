@@ -6,6 +6,9 @@ extends Hazard
 ## Lanes mode (Valentine's Cupid Lanes): a lane picked from the
 ## room's RNG flashes, then an arrow crosses it. Rooms use at most two lanes
 ## darts (different `slot`s) so at most two lanes are live at once.
+##
+## Twin hunters: one dart per wall (`home`), always firing from it; the second
+## (slot 1) starts TWIN_DELAY steps later, half a cycle, so they take turns.
 
 enum State { IDLE, GLOW, FLY }
 
@@ -27,11 +30,16 @@ const LANES_FLASH := 45
 const LANES_IDLE := 40
 ## Lanes mode: extra start delay per slot so two darts take turns.
 const SLOT_DELAY := 70
+## Twin hunters: the second dart's extra start delay (a cycle is about 150 steps).
+const TWIN_DELAY := 75
 
 ## Lanes mode (Cupid Lanes) instead of hunting the bird.
 var lanes := false
 ## Which of a room's lanes darts this is (staggers their timing).
 var slot := 0
+## The wall this dart always fires from (0 = left, 1 = right), or -1: the far
+## wall from the bird at each shot.
+var home := -1
 var state := State.IDLE
 ## Step at which the current state began, and how long the idle wait lasts.
 var since := 0
@@ -46,18 +54,21 @@ var shots := 0
 var salt := 0
 
 
-func _init(p_lanes: bool = false, p_slot: int = 0) -> void:
+func _init(p_lanes: bool = false, p_slot: int = 0, p_home: int = -1) -> void:
 	kind = "dart"
 	lanes = p_lanes
 	slot = p_slot
+	home = p_home
 
 
 func setup(sim: GameSim, rng: SimRng) -> void:
 	salt = rng.next_u32()
 	state = State.IDLE
 	since = 0
-	wait = START_DELAY + (slot * SLOT_DELAY if lanes else 0)
+	wait = START_DELAY + slot * (SLOT_DELAY if lanes else TWIN_DELAY)
 	side = 1 if sim.state.x < SimConfig.WORLD_W / 2 else 0
+	if home >= 0:
+		side = home
 	lane_y = LANE_MIN
 	x = _base_x()
 
@@ -101,6 +112,8 @@ func _aim(sim: GameSim) -> void:
 		return
 	# The far wall from the bird, at the bird's height right now.
 	side = 1 if sim.state.x < SimConfig.WORLD_W / 2 else 0
+	if home >= 0:
+		side = home
 	lane_y = clampi(sim.state.y, LANE_MIN, LANE_MAX)
 
 
@@ -123,4 +136,6 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [int(lanes), slot, int(state), since, wait, side, lane_y, x, shots, salt])
+	return mix_all(
+		h, [int(lanes), slot, home, int(state), since, wait, side, lane_y, x, shots, salt]
+	)

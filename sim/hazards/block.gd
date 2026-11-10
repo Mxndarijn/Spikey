@@ -189,8 +189,8 @@ func _blocks_arrival(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bo
 	var st := sim.state
 	if not st.started:
 		return false
-	var up := st.y - ARRIVAL_UP * sim.room.def.gravity_sign
-	var down := st.y + ARRIVAL_DOWN * sim.room.def.gravity_sign
+	var up := st.y - ARRIVAL_UP * sim.room.gravity
+	var down := st.y + ARRIVAL_DOWN * sim.room.gravity
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
 	if by1 > top and by0 < bottom:

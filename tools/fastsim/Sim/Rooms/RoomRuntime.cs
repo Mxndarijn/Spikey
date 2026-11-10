@@ -7,6 +7,9 @@ public sealed class RoomRuntime
     public const long BLINK_PERIOD = 60;
     public const long SQUEEZE_STEP = 6 * SimConfig.SUB;
     public const long SQUEEZE_MAX_POINTS = 10;
+    public const long SQUEEZE_LEFT_STEP = 9 * SimConfig.SUB;
+    public const long BREATHE_IN = 60 * SimConfig.SUB;
+    public const long BREATHE_PERIOD = 360;
 
     public RoomDef def;
     public long index = 0;
@@ -20,6 +23,7 @@ public sealed class RoomRuntime
     public long tide_salt = 0;
     public long blink_left = 0;
     public long blink_right = 0;
+    public long gravity = 1;
 
     public RoomRuntime clone_deep()
     {
@@ -53,6 +57,7 @@ public sealed class RoomRuntime
         tide_salt = 0;
         blink_left = 0;
         blink_right = 0;
+        gravity = def.gravity_sign;
         hazards.Clear();
         var list = new List<Func<Hazard>>(def.hazards);
         var drawn = new List<long>();
@@ -101,11 +106,29 @@ public sealed class RoomRuntime
         }
     }
 
-    public long inset()
+    public long inset(long side = 0)
     {
         long out_ = G.mini(t * INSET_SPEED, def.inset);
-        if (def.squeeze) out_ += G.mini(points, SQUEEZE_MAX_POINTS) * SQUEEZE_STEP;
+        if (def.squeeze)
+        {
+            long squeezed = G.mini(points, SQUEEZE_MAX_POINTS);
+            long mode = RoomVariant.Squeeze.POINTS;
+            if (def.variants.Count > 0) mode = _variant().squeeze;
+            if (mode == RoomVariant.Squeeze.LEFT)
+            {
+                if (side == 0) out_ += squeezed * SQUEEZE_LEFT_STEP;
+            }
+            else if (mode == RoomVariant.Squeeze.BREATHE) out_ += SimTrig.ping_pong(t, BREATHE_PERIOD, BREATHE_IN);
+            else out_ += squeezed * SQUEEZE_STEP;
+        }
         return out_;
+    }
+
+    public RoomVariant _variant() => def.variants[(int)variant];
+
+    public void on_wall_bounce()
+    {
+        if (def.variants.Count > 0 && _variant().flip_flop) gravity = -gravity;
     }
 
     public long _variant_index(string id, long fallback)
@@ -135,13 +158,24 @@ public sealed class RoomRuntime
 
     public long max_spike_depth() => def.wall_mode == RoomDef.WallMode.TIDE ? tide_max_depth() : spike_depth();
 
-    public long spike_bonus() => def.variants.Count == 0 ? 0 : def.variants[(int)variant].extra_spikes;
+    public long spike_bonus(long side = 0)
+    {
+        if (def.variants.Count == 0) return 0;
+        var v = _variant();
+        return v.extra_spikes + (side == 0 ? v.lean : -v.lean);
+    }
 
-    public long wall_left() => inset();
+    public long wall_left() => inset(0);
 
-    public long wall_right() => SimConfig.WORLD_W - inset();
+    public long wall_right() => SimConfig.WORLD_W - inset(1);
 
-    public bool blink_showing_second() => def.wall_mode == RoomDef.WallMode.BLINK && (t / BLINK_PERIOD) % 2 == 1;
+    public long _blink_period()
+    {
+        if (def.variants.Count > 0 && _variant().blink_period > 0) return _variant().blink_period;
+        return BLINK_PERIOD;
+    }
+
+    public bool blink_showing_second() => def.wall_mode == RoomDef.WallMode.BLINK && (t / _blink_period()) % 2 == 1;
 
     public long wall_mask(long side, long base_mask)
     {
@@ -176,13 +210,14 @@ public sealed class RoomRuntime
         else if (def.wall_mode == RoomDef.WallMode.BLINK)
         {
             long second = RoomRules.generate_wall(rng, sim.state.score, def);
+            if (_blink_period() != BLINK_PERIOD) second &= ~RoomRules.longest_gap_mask(mask);
             if (side == 0) blink_left = second; else blink_right = second;
         }
     }
 
     public long checksum(long h)
     {
-        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right);
+        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right, gravity);
         foreach (var hz in hazards)
         {
             out_ = SimHash.mix(out_, G.B(hz.alive));

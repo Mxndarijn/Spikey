@@ -79,6 +79,7 @@ var _countdown := 0.0
 @onready var _trail: TrailView = $TrailView
 @onready var _crash: CrashView = $CrashView
 @onready var _bird: BirdView = $BirdView
+@onready var _night: NightView = $NightView
 @onready var _coin: CoinView = $CoinView
 @onready var _hazards: HazardLayer = $HazardLayer
 @onready var _hud: Hud = $Hud
@@ -577,6 +578,7 @@ func _new_run() -> void:
 	_room.bind(_run, _look.theme)
 	_hazards.bind(_run, _look.theme)
 	_bird.bind(_run, _look.character)
+	_night.bind(_run, _room, _bird)
 	_crash.clear()
 	_coin.bind(_run)
 	_hud.set_run_coins(0)

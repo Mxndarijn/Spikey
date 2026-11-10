@@ -101,7 +101,7 @@ func step(tap: bool) -> void:
 		if not state.started:
 			state.started = true
 			events.append(Event.START)
-		state.vy = SimConfig.FLAP_VY * room.def.gravity_sign
+		state.vy = SimConfig.FLAP_VY * room.gravity
 		state.flaps += 1
 		for h in room.hazards:
 			if h.alive:
@@ -252,7 +252,7 @@ func _substep() -> void:
 
 
 func _move() -> void:
-	var g := SimConfig.GRAVITY * room.def.gravity_sign
+	var g := SimConfig.GRAVITY * room.gravity
 	state.vy = clampi(state.vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
 	state.x += state.vx
 	state.y += state.vy
@@ -311,6 +311,7 @@ func _check_walls() -> void:
 			return
 		state.x = 2 * (right - r) - state.x
 		state.vx = -SimConfig.SPEED_X
+		room.on_wall_bounce()
 		state.right_spikes = 0
 		_bounce_score()
 		_new_wall(0)
@@ -320,6 +321,7 @@ func _check_walls() -> void:
 			return
 		state.x = 2 * (left + r) - state.x
 		state.vx = SimConfig.SPEED_X
+		room.on_wall_bounce()
 		state.left_spikes = 0
 		_bounce_score()
 		_new_wall(1)
@@ -500,7 +502,7 @@ func _keep_hold_band_open(side: int) -> void:
 		ticks += 1
 	if ticks > SimConfig.ARRIVAL_BLIND + ARRIVAL_WALL_SPARE:
 		return
-	var g := room.def.gravity_sign
+	var g := room.gravity
 	var edge := SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB
 	var up := state.y - (FairLanes.FIRST_HOP + edge) * g
 	var down := state.y + edge * g
@@ -520,7 +522,9 @@ func _keep_hold_band_open(side: int) -> void:
 ## Spikes for the wall the bird is now heading to, then the room's per-bounce
 ## extras, then the coin. This order is part of the rules.
 func _new_wall(side: int) -> void:
-	var mask := RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus())
+	var mask := RoomRules.generate_wall(
+		_rng, state.score, room.def, state.y, room.spike_bonus(side)
+	)
 	for h in room.hazards:
 		if h.alive:
 			mask = h.adjust_wall(self, side, mask)

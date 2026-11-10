@@ -21,7 +21,8 @@ const SEASON_NAMES := ["October", "December", "February", "Spring", "Summer", "N
 ## id -> [name, pitch, difficulty, preview world, glyph]
 const ROOMS := {
 	"open": ["Open Sky", "The cage at its simplest: two spike walls and you.", 1, "sunset", ""],
-	"crowded": ["Crowded", "Open Sky with more spikes on every wall.", 2, "sunset", "extra"],
+	"crowded":
+	["Crowded", "Open Sky with more spikes. One wall may be packed.", 2, "sunset", "extra"],
 	"narrow": ["Narrow", "The walls slide in. Less room, quicker bounces.", 2, "ice", "extra"],
 	"tide":
 	[
@@ -74,7 +75,7 @@ const ROOMS := {
 		"ball",
 	],
 	"squeeze":
-	["Squeeze Box", "The walls creep inward while you play this room.", 4, "desert", "extra"],
+	["Squeeze Box", "The walls creep inward, or push in and ease back out.", 4, "desert", "extra"],
 	"slowmo":
 	[
 		"Slow-Mo Breather",
@@ -83,10 +84,12 @@ const ROOMS := {
 		"sunset",
 		"cloud"
 	],
-	"blink": ["Blink Walls", "The walls swap between two spike patterns.", 4, "neon", "extra"],
+	"blink":
+	["Blink Walls", "The walls swap spike patterns, some twice a second.", 4, "neon", "extra"],
 	"flip":
-	["Gravity Flip", "Up is down. Tapping pushes you toward the floor.", 4, "deepsea", "flip"],
-	"midnight": ["Midnight Cage", "The lights go down and the cage speeds up.", 5, "star", "dark"],
+	["Gravity Flip", "Gravity points up, or turns round at every wall.", 4, "deepsea", "flip"],
+	"midnight":
+	["Midnight Cage", "Lights down, cage faster. Some nights just a lantern.", 5, "star", "dark"],
 	"piston":
 	["Piston Press", "Spiked pistons punch out of the walls, then pull back.", 3, "lava", "blocks"],
 	"court":
@@ -110,13 +113,7 @@ const ROOMS := {
 		"cols"
 	],
 	"hunter":
-	[
-		"Hunter Spike",
-		"One glowing spike tears off the wall and darts at your height.",
-		4,
-		"lava",
-		"extra"
-	],
+	["Hunter Spike", "A glowing spike darts at your height. Or one per wall.", 4, "lava", "extra"],
 	"swing":
 	["Lantern Swing", "Spiked lanterns swing on chains from the ceiling.", 3, "autumn", "ball"],
 	"stalker":

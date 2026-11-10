@@ -4,6 +4,11 @@ extends RefCounted
 ## RNG every time the room starts (Bumper Cloud: one cloud or two; Tide Spikes:
 ## normal, big or small spikes). Gameplay data, like RoomDef.
 
+## Squeeze Box: how the walls move. POINTS: both step in per point (the
+## room's own rule); LEFT: only the left wall, in bigger steps; BREATHE: both
+## slide in and back out on a slow loop, whatever the score.
+enum Squeeze { POINTS, LEFT, BREATHE }
+
 var id := ""
 ## Wall spike size (depth and base) as a fraction of a normal spike.
 var spike_num := 1
@@ -16,6 +21,14 @@ var hazards: Array[Callable] = []
 ## in one of these ranges (sub-units, from and to in pairs), like
 ## RoomDef.arrival_skip. Empty = any height.
 var arrival_skip := PackedInt32Array()
+## Lopsided: added to the left wall's spike count and taken off the right's.
+var lean := 0
+var squeeze := Squeeze.POINTS
+## Blink Walls: steps between pattern swaps (0 = RoomRuntime.BLINK_PERIOD).
+## A faster blink keeps one free run in both patterns, so a lane stays open.
+var blink_period := 0
+## Gravity turns round at every wall bounce (Flip-flop).
+var flip_flop := false
 
 
 func _init(p_id: String = "") -> void:
@@ -36,6 +49,26 @@ func with(p_hazards: Array[Callable]) -> RoomVariant:
 
 func skipping(p_ranges: PackedInt32Array) -> RoomVariant:
 	arrival_skip = p_ranges
+	return self
+
+
+func leaning(p_lean: int) -> RoomVariant:
+	lean = p_lean
+	return self
+
+
+func squeezing(p_mode: Squeeze) -> RoomVariant:
+	squeeze = p_mode
+	return self
+
+
+func blinking(p_period: int) -> RoomVariant:
+	blink_period = p_period
+	return self
+
+
+func flipping() -> RoomVariant:
+	flip_flop = true
 	return self
 
 

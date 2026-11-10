@@ -59,7 +59,7 @@ static func arrival(index: int, i: int) -> GameSim:
 ## False if it died meanwhile.
 static func hold(sim: GameSim, delay: int) -> bool:
 	var y0 := sim.state.y
-	var g := sim.room.def.gravity_sign
+	var g := sim.room.gravity
 	for n in delay:
 		sim.step((sim.state.y - y0) * g > 0 and sim.state.vy * g >= 0)
 		if sim.is_over():
@@ -97,7 +97,7 @@ static func play(
 		while n < delay + after and not sim.is_over():
 			var tap: bool
 			if n < delay:
-				var g := sim.room.def.gravity_sign
+				var g := sim.room.gravity
 				tap = (sim.state.y - y0) * g > 0 and sim.state.vy * g >= 0
 			else:
 				tap = bot.decide(sim)

@@ -56,7 +56,7 @@ static class Reaction
             bool tap;
             if (n < delay)
             {
-                long g = sim.room.def.gravity_sign;
+                long g = sim.room.gravity;
                 tap = (sim.state.y - y0) * g > 0 && sim.state.vy * g >= 0;
             }
             else tap = bot.decide(sim);
@@ -76,7 +76,7 @@ static class Reaction
         long y0 = c.state.y;
         for (long n = 0; n < delay; n++)
         {
-            long g = c.room.def.gravity_sign;
+            long g = c.room.gravity;
             c.step((c.state.y - y0) * g > 0 && c.state.vy * g >= 0);
             if (c.is_over()) return true;
         }

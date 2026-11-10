@@ -97,6 +97,7 @@ func test_midnight_runs_faster() -> void:
 
 func test_squeeze_moves_walls_in_per_point() -> void:
 	var sim := sim_in_room("squeeze", 2)
+	sim.room.variant = 0
 	assert_eq(sim.room.wall_left(), 0)
 	sim.room.points = 4
 	assert_eq(sim.room.wall_left(), 4 * RoomRuntime.SQUEEZE_STEP)
@@ -118,6 +119,7 @@ func test_tide_spikes_move_blink_walls_switch() -> void:
 	sim.room.t = 0
 	assert_eq(sim.room.slot_depth(0, 1), SimConfig.SPIKE_DEPTH, "other spikes stay out")
 	var blink := sim_in_room("blink", 3)
+	blink.room.variant = 0
 	blink.room.blink_left = 0b101
 	blink.room.t = 0
 	assert_eq(blink.room.wall_mask(0, 0b11), 0b11)

@@ -22,9 +22,11 @@ public class Dart : Hazard
     public const long LANES_FLASH = 45;
     public const long LANES_IDLE = 40;
     public const long SLOT_DELAY = 70;
+    public const long TWIN_DELAY = 75;
 
     public bool lanes = false;
     public long slot = 0;
+    public long home = -1;
     public long state = State.IDLE;
     public long since = 0;
     public long wait = START_DELAY;
@@ -34,11 +36,12 @@ public class Dart : Hazard
     public long shots = 0;
     public long salt = 0;
 
-    public Dart(bool p_lanes = false, long p_slot = 0)
+    public Dart(bool p_lanes = false, long p_slot = 0, long p_home = -1)
     {
         kind = "dart";
         lanes = p_lanes;
         slot = p_slot;
+        home = p_home;
     }
 
     public override void setup(GameSim sim, SimRng rng)
@@ -46,8 +49,9 @@ public class Dart : Hazard
         salt = rng.next_u32();
         state = State.IDLE;
         since = 0;
-        wait = START_DELAY + (lanes ? slot * SLOT_DELAY : 0);
+        wait = START_DELAY + slot * (lanes ? SLOT_DELAY : TWIN_DELAY);
         side = sim.state.x < SimConfig.WORLD_W / 2 ? 1 : 0;
+        if (home >= 0) side = home;
         lane_y = LANE_MIN;
         x = _base_x();
     }
@@ -101,6 +105,7 @@ public class Dart : Hazard
         }
         // The far wall from the bird, at the bird's height right now.
         side = sim.state.x < SimConfig.WORLD_W / 2 ? 1 : 0;
+        if (home >= 0) side = home;
         lane_y = G.clampi(sim.state.y, LANE_MIN, LANE_MAX);
     }
 
@@ -119,5 +124,5 @@ public class Dart : Hazard
     }
 
     public override long checksum(long h)
-        => mix_all(h, G.B(lanes), slot, state, since, wait, side, lane_y, x, shots, salt);
+        => mix_all(h, G.B(lanes), slot, home, state, since, wait, side, lane_y, x, shots, salt);
 }

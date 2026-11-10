@@ -82,7 +82,7 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	var aim := FairLanes.entry_y(sim)
 	var lead := 0
 	if sim.state.started:
-		aim -= ARRIVAL_HOVER * sim.room.def.gravity_sign
+		aim -= ARRIVAL_HOVER * sim.room.gravity
 		lead = _lead(sim, x)
 	var down := rng.next_below(2) == 0
 	phase = _phase_for(aim, lead, down)

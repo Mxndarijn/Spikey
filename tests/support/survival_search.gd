@@ -75,7 +75,7 @@ func _run_once(sim: GameSim, ticks: int) -> bool:
 		for e: Array in frontier:
 			var s: GameSim = e[0]
 			var node: int = e[1]
-			var grav := s.room.def.gravity_sign
+			var grav := s.room.gravity
 			if s.state.vy * grav > TAP_BELOW_VY or not s.state.started:
 				var c := SimClone.copy(s)
 				c.step(true)
@@ -132,7 +132,7 @@ func _keep(next: Dictionary, s: GameSim, parent: int, tap: int) -> void:
 	var st := s.state
 	# Speed along gravity, so flipped rooms bucket the same way: negative is a
 	# fresh flap, then four bands as gravity takes over.
-	var along := st.vy * s.room.def.gravity_sign - SimConfig.FLAP_VY
+	var along := st.vy * s.room.gravity - SimConfig.FLAP_VY
 	var speed := clampi(along / _bucket_vy, 0, _speed_buckets - 1)
 	var key := (st.y / _bucket_h) * _speed_buckets + speed
 	if not next.has(key) or _better(s, next[key][0]):

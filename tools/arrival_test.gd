@@ -51,7 +51,7 @@ func _trial(sim: GameSim, delay: int, bot_seed: int, rhythm: bool) -> int:
 	while n < cap and not c.is_over():
 		var tap: bool
 		if n < delay:
-			var g := c.room.def.gravity_sign
+			var g := c.room.gravity
 			tap = (c.state.y - y0) * g > 0 and c.state.vy * g >= 0
 			if rhythm:
 				tap = n % 24 == 12

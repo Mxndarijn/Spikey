@@ -15,13 +15,13 @@ public static class FairLanes
     public static long entry_y(GameSim sim)
     {
         if (sim.state.started) return sim.state.y;
-        return sim.state.y - FIRST_HOP / 2 * sim.room.def.gravity_sign;
+        return sim.state.y - FIRST_HOP / 2 * sim.room.gravity;
     }
 
     public static List<long> arrival_path(GameSim sim)
     {
         var out_ = new List<long>((int)(2 * ARRIVAL_PATH_TICKS));
-        long g = sim.room.def.gravity_sign;
+        long g = sim.room.gravity;
         long y = sim.state.y;
         long vy = 0;
         for (long k = 0; k < ARRIVAL_PATH_TICKS; k++)
@@ -56,10 +56,10 @@ public static class FairLanes
     {
         var out_ = new List<long>();
         if (sim.state.started) return out_;
-        long g = SimConfig.GRAVITY * sim.room.def.gravity_sign;
+        long g = SimConfig.GRAVITY * sim.room.gravity;
         long x = sim.state.x;
         long y = sim.state.y;
-        long vy = SimConfig.FLAP_VY * sim.room.def.gravity_sign;
+        long vy = SimConfig.FLAP_VY * sim.room.gravity;
         for (long i = 0; i < START_PATH; i++)
         {
             vy = G.clampi(vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
@@ -85,8 +85,8 @@ public static class FairLanes
     {
         if (sim.state.started) return false;
         long w = START_LANE_W;
-        long top = sim.state.y - (START_LANE_H - START_LANE_BELOW) * sim.room.def.gravity_sign;
-        long bottom = sim.state.y + START_LANE_BELOW * sim.room.def.gravity_sign;
+        long top = sim.state.y - (START_LANE_H - START_LANE_BELOW) * sim.room.gravity;
+        long bottom = sim.state.y + START_LANE_BELOW * sim.room.gravity;
         long ly0 = G.mini(top, bottom);
         long ly1 = G.maxi(top, bottom);
         long lx0 = sim.state.vx > 0 ? sim.state.x : sim.state.x - w;
