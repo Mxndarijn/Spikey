@@ -221,8 +221,10 @@ jobs:
       - name: Decode signing assets
         run: |
           mkdir -p "$SIGNING_DIR"
-          echo "$IOS_DIST_CERT_P12_BASE64" | base64 --decode > "$SIGNING_DIR/dist_cert.p12"
-          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$SIGNING_DIR/AppStore.mobileprovision"
+          printf "%s" "$IOS_DIST_CERT_P12_BASE64" | tr -d "
+ " | base64 --decode > "$SIGNING_DIR/dist_cert.p12"
+          printf "%s" "$IOS_PROVISIONING_PROFILE_BASE64" | tr -d "
+ " | base64 --decode > "$SIGNING_DIR/AppStore.mobileprovision"
         env:
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
