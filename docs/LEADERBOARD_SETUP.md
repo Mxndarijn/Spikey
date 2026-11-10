@@ -76,8 +76,16 @@ Restore; scores are kept.
   reinstall or a new phone with the same Google account, so the game signs in
   with the key and is the same player. Order: refresh token, then the key, and
   only if the server says both are no good a new player. No answer at all
-  (offline) never makes a new player. iOS has no backup of app files across a
-  reinstall: it needs the key in the Keychain (not done yet).
+  (offline) never makes a new player. iOS deletes app files with the app, so
+  there the key is also kept in the Keychain, which survives an uninstall (and
+  moves to a new iPhone with an encrypted backup): a generic password, service
+  `flapjaw`, account `device_key`, readable after the first unlock. The game
+  reads the file first and the Keychain when the file is gone, and puts back
+  whichever copy is missing. The Keychain code is an engine module
+  (`tools/engine/modules/flapjaw_keychain`, singleton `FlapjawKeychain`) built
+  into the small iOS engine (`.github/workflows/engine.yml`), so only release
+  builds from CI have it; a build with Godot's stock template keeps the key in
+  the file only.
   The function is deployed by `.github/workflows/supabase-functions.yml`, which
   needs the GitHub secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF`.
   Until it is deployed, phones play on as anonymous players and try again at

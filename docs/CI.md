@@ -59,6 +59,11 @@ Linux, iOS on macOS. The result is cached, so only a change to `tools/engine/`, 
 or the Godot version compiles again (a cold build takes a long time; a cache hit takes
 seconds). Before turning off another module, check that nothing exported uses it: a class
 missing from the engine fails when the game loads on the phone, not in the check.
+The iOS engine also gets Flapjaw's own modules from `tools/engine/modules` (`custom_modules`):
+`flapjaw_keychain`, the `FlapjawKeychain` singleton that keeps the device key in the Keychain
+(`docs/LEADERBOARD_SETUP.md`). Compiled with the engine, it uses exactly its headers and flags,
+and `#import <Security/Security.h>` with clang modules links Security.framework, so the Xcode
+project needs no change. The build fails if the module is missing from the library.
 
 ## Secrets
 
