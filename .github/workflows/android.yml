@@ -229,8 +229,10 @@ jobs:
             echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, signing the APK with a throwaway key."
           fi
           mkdir -p build/android
-          godot --headless --path . --install-android-build-template \
-            --export-release "Android" build/android/Flapjaw.apk
+          # No --install-android-build-template: that would unzip the stock template again over
+          # the patched one installed above (losing the small engine, R8 and google-services).
+          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
+          unzip -l build/android/Flapjaw.apk 'lib/*/libgodot_android.so'
           test -f build/android/Flapjaw.apk
 
       - name: Report the APK size
