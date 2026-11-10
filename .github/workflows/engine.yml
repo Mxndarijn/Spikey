@@ -1,0 +1,111 @@
+name: Engine
+
+# Builds Flapjaw's small 2D-only Godot engine (tools/engine/flapjaw.py) from the source of the
+# exact Godot release the exports use, and hands it on as an artifact:
+#   * android: libgodot_android.so for arm64 (Linux runner)
+#   * ios: libgodot.a for arm64 devices (macOS runner, Apple's toolchain is needed)
+# The Android and iOS workflows put it in place of the engine in Godot's stock templates.
+#
+# A compile takes a while, so the result is cached; it is only rebuilt when the Godot
+# version, the profile in tools/engine or this file changes.
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: android or ios
+        type: string
+        required: true
+      godot_version:
+        description: Godot release tag, e.g. 4.7.2-stable
+        type: string
+        required: true
+
+jobs:
+  engine:
+    name: Build ${{ inputs.platform }} engine
+    runs-on: ${{ inputs.platform == 'ios' && 'macos-15' || 'ubuntu-latest' }}
+    # A cold build with full link-time optimisation; a cache hit takes seconds.
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache the engine
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: engine-out
+          key: engine-${{ inputs.platform }}-${{ inputs.godot_version }}-${{ hashFiles('tools/engine/**', '.github/workflows/engine.yml') }}
+
+      - name: Fetch the Godot source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${{ inputs.godot_version }}" \
+            https://github.com/godotengine/godot.git "$RUNNER_TEMP/godot"
+
+      - name: Set up Python
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install SCons
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python -m pip install --quiet scons
+
+      - name: Set up JDK
+        if: steps.cache.outputs.cache-hit != 'true' && inputs.platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android NDK
+        if: steps.cache.outputs.cache-hit != 'true' && inputs.platform == 'android'
+        run: |
+          # The NDK version Godot's own build asks for.
+          ndk="$(python3 -c "import re,sys; print(re.search(r'def get_ndk_version\(\):\s*return \"([^\"]+)\"', open(sys.argv[1]).read()).group(1))" "$RUNNER_TEMP/godot/platform/android/detect.py")"
+          echo "NDK $ndk"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
+          # Swappy frame pacing, which production Android builds use.
+          cd "$RUNNER_TEMP/godot" && python3 misc/scripts/install_swappy_android.py
+
+      - name: Select Xcode
+        if: steps.cache.outputs.cache-hit != 'true' && inputs.platform == 'ios'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build the engine
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}/godot
+        run: |
+          jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"
+          scons platform=${{ inputs.platform }} target=template_release arch=arm64 \
+            profile="$GITHUB_WORKSPACE/tools/engine/flapjaw.py" -j"$jobs"
+
+      - name: Collect the build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p engine-out
+          src="$RUNNER_TEMP/godot"
+          if [ "${{ inputs.platform }}" = android ]; then
+            cp "$src/platform/android/java/lib/libs/release/arm64-v8a/libgodot_android.so" engine-out/
+          else
+            lib="$(ls "$src"/bin/libgodot.ios.template_release*.arm64.a | head -n1)"
+            test -f "$lib" || { echo "::error::No iOS engine library in $src/bin."; ls "$src/bin"; exit 1; }
+            cp "$lib" engine-out/libgodot.a
+          fi
+          printf '%s\n' "${{ inputs.godot_version }}" > engine-out/godot_version.txt
+
+      - name: Report the size
+        run: ls -l engine-out
+
+      - name: Upload the engine
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-${{ inputs.platform }}
+          path: engine-out
+          if-no-files-found: error
+          retention-days: 3

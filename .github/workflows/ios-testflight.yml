@@ -32,10 +32,22 @@ jobs:
     if: inputs.upload != false
     uses: ./.github/workflows/check.yml
 
+  # The small 2D-only engine (tools/engine), cached between runs. Built on macOS; only a cold
+  # build takes long, a cache hit is seconds.
+  engine:
+    name: Engine
+    uses: ./.github/workflows/engine.yml
+    with:
+      platform: ios
+      # Keep in sync with GODOT_VERSION above (the export job checks).
+      godot_version: 4.7.2-stable
+
   export:
     name: Export Xcode project
-    needs: check
-    if: always() && (needs.check.result == 'success' || needs.check.result == 'skipped')
+    needs: [check, engine]
+    if: >-
+      always() && needs.engine.result == 'success'
+      && (needs.check.result == 'success' || needs.check.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -80,6 +92,20 @@ jobs:
         with:
           version: ${{ env.GODOT_VERSION }}
           templates: 'true'
+
+      - name: Download the small engine
+        uses: actions/download-artifact@v4
+        with:
+          name: engine-ios
+          path: ${{ runner.temp }}/engine
+
+      - name: Use the small engine
+        # Godot's stock iOS template with the small engine in place of the release one, set as
+        # the iOS preset's release template.
+        run: |
+          stock="$HOME/.local/share/godot/export_templates/$(echo "$GODOT_VERSION" | tr '-' '.')/ios.zip"
+          bash tools/ci/make_ios_template.sh "$RUNNER_TEMP/engine" "$stock" "$RUNNER_TEMP/flapjaw_ios.zip" "$GODOT_VERSION"
+          python3 tools/ci/set_ios_template.py export_presets.cfg "$RUNNER_TEMP/flapjaw_ios.zip"
 
       - name: Write the Supabase config (leaderboards)
         # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
