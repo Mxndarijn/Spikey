@@ -79,18 +79,37 @@ if ($Mode -eq "parity") {
         if (Test-Path $file) { $godot = (Get-Content $file -TotalCount 1).Trim() }
     }
     if (-not $godot -or -not (Test-Path $godot)) { Write-Host "Godot not found (set `$env:GODOT or tools/godot_path.txt)." -ForegroundColor Red; exit 2 }
-    $cases = Join-Path ([IO.Path]::GetTempPath()) "fastsim_parity.txt"
-    $gdArgs = @("--headless", "--path", $root, "-s", "res://tools/fastsim_parity.gd", "--", $cases)
-    if ($Quick) { $gdArgs += "quick" }
-    # Godot prints harmless warnings on stderr at exit; don't stop on them.
+    # Recorded in several headless Godot processes at once (each its share of
+    # the cases), then joined into one file.
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "fastsim_parity_$PID"
+    New-Item -ItemType Directory -Force $tmp | Out-Null
+    $cases = Join-Path $tmp "cases.txt"
+    $parts = if ($Jobs -gt 0) { [Math]::Min($Jobs, 8) } else { 4 }
+    $procs = @()
+    for ($k = 0; $k -lt $parts; $k++) {
+        $gdArgs = @("--headless", "--path", "`"$root`"", "-s", "res://tools/fastsim_parity.gd", "--",
+            "`"$(Join-Path $tmp "part_$k.txt")`"", $(if ($Quick) { "quick" } else { "full" }), $k, $parts)
+        $procs += Start-Process -FilePath $godot -ArgumentList $gdArgs -NoNewWindow -PassThru `
+            -RedirectStandardOutput (Join-Path $tmp "out_$k.txt") -RedirectStandardError (Join-Path $tmp "err_$k.txt")
+    }
+    $procs | Wait-Process
     $ErrorActionPreference = "Continue"
-    & $godot @gdArgs 2>&1 | ForEach-Object { "$_" } |
-        Where-Object { $_ -match "fastsim parity|SCRIPT ERROR|Parse Error" } | ForEach-Object { Write-Host $_ }
-    if (-not (Test-Path $cases)) { Write-Host "Recording the parity cases failed." -ForegroundColor Red; exit 2 }
+    $lines = @()
+    for ($k = 0; $k -lt $parts; $k++) {
+        # Godot prints harmless warnings on stderr at exit; show only what matters.
+        Get-Content (Join-Path $tmp "out_$k.txt"), (Join-Path $tmp "err_$k.txt") -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match "fastsim parity|SCRIPT ERROR|Parse Error" } | ForEach-Object { Write-Host $_ }
+        $part = Join-Path $tmp "part_$k.txt"
+        if (-not (Test-Path $part)) { Write-Host "Recording the parity cases failed (part $k)." -ForegroundColor Red; exit 2 }
+        $lines += Get-Content $part | Where-Object { $_ }
+    }
+    [IO.File]::WriteAllLines($cases, [string[]]$lines)
     $pa = @("parity", $cases, "--priority", $Priority.ToLower())
     if ($Jobs -gt 0) { $pa += @("--jobs", $Jobs) }
     & $exe @pa
-    exit $LASTEXITCODE
+    $code = $LASTEXITCODE
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+    exit $code
 }
 
 if ($Mode -eq "check") {
