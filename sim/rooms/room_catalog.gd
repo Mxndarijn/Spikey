@@ -14,6 +14,7 @@ const BATCHES: Array[Script] = [
 	preload("res://sim/rooms/catalog_sky.gd"),
 	preload("res://sim/rooms/catalog_seasonal.gd"),
 	preload("res://sim/rooms/catalog_combo.gd"),
+	preload("res://sim/rooms/catalog_twists.gd"),
 ]
 
 const CALM_GROUPS: Array[String] = ["starter", "mid", "bonus", "seasonal"]

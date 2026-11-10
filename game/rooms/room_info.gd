@@ -159,6 +159,33 @@ const ROOMS := {
 	"fireworks":
 	["Firework Burst", "Rockets rise and burst into a ring of sparks.", 4, "neon", "rain"],
 	"countdown": ["Countdown", "Ten coins, ten seconds, then confetti.", 1, "neon", "coins"],
+	"crosswind":
+	[
+		"Crosswind",
+		"A band of wind blows across the room. Ride it or fight it.",
+		2,
+		"sunset",
+		"beam"
+	],
+	"belt":
+	["Spike Belt", "The wall spikes ride a belt. The gap travels with them.", 2, "star", "extra"],
+	"lockexit":
+	[
+		"Locked Exit",
+		"The exit is locked. Grab the key first, or keep bouncing.",
+		3,
+		"jungle",
+		"coins"
+	],
+	"lava":
+	[
+		"Lava Rise",
+		"The lava climbs with every point. Grab a cool stone to sink it.",
+		3,
+		"lava",
+		"blocks"
+	],
+	"echo": ["Echo", "A shadow bird flies your path one second behind you.", 4, "ice", "flip"],
 }
 
 

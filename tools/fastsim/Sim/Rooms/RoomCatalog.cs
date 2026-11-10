@@ -20,6 +20,7 @@ public static class RoomCatalog
             list.AddRange(CatalogSky.defs());
             list.AddRange(CatalogSeasonal.defs());
             list.AddRange(CatalogCombo.defs());
+            list.AddRange(CatalogTwists.defs());
             _all = list;
         }
         return _all;

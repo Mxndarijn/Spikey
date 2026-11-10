@@ -86,6 +86,7 @@ public static class ArrivalCheck
         }
         if (best_len == 0) return s.y;
         long top = SimConfig.slot_center_y(best_start);
-        return (top + SimConfig.slot_center_y(best_start + best_len - 1)) / 2;
+        long mid = (top + SimConfig.slot_center_y(best_start + best_len - 1)) / 2;
+        return mid + sim.wall_shift(side);
     }
 }

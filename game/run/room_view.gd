@@ -422,11 +422,13 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		var band_x := 0.0 if side == 0 else wall_x
 		var band := INK_SPIKE if color_blind_spikes else _theme.spike
 		draw_rect(Rect2(band_x, 0, wall_x if side == 0 else W - wall_x, H), band)
+	# Spike Belt: the spikes ride the wall this far from their slots.
+	var shift := _run.sim.wall_shift(side) / float(SimConfig.SUB)
 	for slot in SimConfig.SLOT_COUNT:
 		var t := reveal[slot]
 		if t <= 0.0:
 			continue
-		var cy := SimConfig.slot_center_y(slot) / float(SimConfig.SUB)
+		var cy := SimConfig.slot_center_y(slot) / float(SimConfig.SUB) + shift
 		# Tide spikes slide in and out: the drawn depth follows the sim's. Up to
 		# normal size the spike slides out of the wall; past it, it grows longer.
 		# `full` and `half` are this room's still spike (a variant can scale it).

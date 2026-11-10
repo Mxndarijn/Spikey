@@ -84,4 +84,6 @@ static func gap_target(sim: GameSim) -> int:
 	if best_len == 0:
 		return s.y
 	var top := SimConfig.slot_center_y(best_start)
-	return (top + SimConfig.slot_center_y(best_start + best_len - 1)) / 2
+	var mid := (top + SimConfig.slot_center_y(best_start + best_len - 1)) / 2
+	# Spike Belt: the gap rides with the spikes.
+	return mid + sim.wall_shift(side)

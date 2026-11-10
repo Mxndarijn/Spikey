@@ -144,15 +144,19 @@ start and never comes back.
   `sim/rooms/catalog_combo.gd`, checked by `tests/sim/test_double_trouble.gd`
   and `tools/fastsim.ps1 -Mode combos`.
 - `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
-  seasonal, combo). `RoomCatalog.BATCHES` fixes the order; append new batches
-  at the end.
+  seasonal, combo, twists). `RoomCatalog.BATCHES` fixes the order; append new
+  batches at the end.
 - `sim/rooms/room_runtime.gd` (RoomRuntime): the live room: steps, points,
   wall position and spike masks over time, steps per tick (fast/slow rooms).
 - `sim/rooms/hazard.gd` (Hazard) and `sim/hazards/*.gd`: one class per
   obstacle (setup/step/kills/touch/adjust_wall/on_bounce/on_flap/blocks_exit/
-  guards_edge/checksum). Integer, tick-driven, so replays verify. A hazard
-  that keeps a spot on a new wall clear of itself returns the mask from
-  `adjust_wall`; it never writes the wall spikes itself.
+  guards_edge/wall_shift/locks_exit/checksum). Integer, tick-driven, so
+  replays verify. A hazard that keeps a spot on a new wall clear of itself
+  returns the mask from `adjust_wall`; it never writes the wall spikes itself.
+  `wall_shift` slides a wall's spikes along it (Spike Belt: collision and the
+  view both read `GameSim.wall_shift`); `locks_exit` turns an open exit into a
+  bounce (Locked Exit). A hazard in a room with variants may read
+  `room.variant_id()` in `setup()` instead of each variant adding its own.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.

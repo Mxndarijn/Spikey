@@ -168,6 +168,24 @@ func wall_mask(side: int) -> int:
 	return mask
 
 
+## How far wall `side`'s spikes are slid along the wall (Spike Belt),
+## sub-units, down is +. 0 in other rooms.
+func wall_shift(side: int) -> int:
+	var out := 0
+	for h in room.hazards:
+		if h.alive:
+			out += h.wall_shift(self, side)
+	return out
+
+
+## True while a hazard keeps the open exit shut (Locked Exit).
+func exit_locked() -> bool:
+	for h in room.hazards:
+		if h.alive and h.locks_exit(self):
+			return true
+	return false
+
+
 ## Full checksum of state, room and RNG, for golden replays and desync detection.
 func checksum() -> int:
 	return SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum())
@@ -266,13 +284,14 @@ func _hits_wall(side: int, base_x: int, dir: int) -> bool:
 	if mask == 0:
 		return false
 	var hb := room.spike_half_base()
+	var shift := wall_shift(side)
 	for slot in SimConfig.SLOT_COUNT:
 		if not RoomRules.has_slot(mask, slot):
 			continue
 		var depth := room.slot_depth(side, slot)
 		if depth <= 0:
 			continue
-		var cy := SimConfig.slot_center_y(slot)
+		var cy := SimConfig.slot_center_y(slot) + shift
 		if absi(state.y - cy) > hb + SimConfig.BIRD_RADIUS:
 			continue
 		var tip_x := base_x + dir * depth
@@ -311,6 +330,9 @@ func _check_walls() -> void:
 ## through to the next room. Returns true if it did.
 func _take_exit(side: int) -> bool:
 	if not state.exit_open or state.exit_side != side:
+		return false
+	# Locked Exit: a locked exit is a bounce.
+	if exit_locked():
 		return false
 	# Anywhere in the spike-free gap counts, so the bird can't bounce in the
 	# strip between the portal and the nearest spike. Past this, the bird's

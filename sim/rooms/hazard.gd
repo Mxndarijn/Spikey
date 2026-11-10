@@ -91,6 +91,19 @@ func near_row(_sim: GameSim, _y: int, _half: int, _from: int, _to: int) -> bool:
 	return false
 
 
+## How far this hazard slides the spikes of wall `side` along the wall right
+## now (Spike Belt), sub-units, down is +. The mask keeps its slots; spikes are
+## hit (and drawn) this much lower. No RNG draws.
+func wall_shift(_sim: GameSim, _side: int) -> int:
+	return 0
+
+
+## True while this hazard keeps the open exit shut (Locked Exit): flying into
+## it is a bounce, as if it weren't there. No RNG draws.
+func locks_exit(_sim: GameSim) -> bool:
+	return false
+
+
 func checksum(h: int) -> int:
 	return h
 

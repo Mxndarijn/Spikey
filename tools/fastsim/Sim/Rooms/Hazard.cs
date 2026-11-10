@@ -20,6 +20,8 @@ public abstract class Hazard
     public virtual long band_top() => -1;
     public virtual long band_bottom() => -1;
     public virtual bool near_row(GameSim sim, long _y, long _half, long _from, long _to) => false;
+    public virtual long wall_shift(GameSim sim, long side) => 0;
+    public virtual bool locks_exit(GameSim sim) => false;
     public virtual long checksum(long h) => h;
 
     /// A deep copy. The default copies every plain field; a subclass with

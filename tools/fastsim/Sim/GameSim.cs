@@ -134,6 +134,27 @@ public sealed class GameSim
         return mask;
     }
 
+    public long wall_shift(long side)
+    {
+        long out_ = 0;
+        for (int i = 0; i < room.hazards.Count; i++)
+        {
+            var h = room.hazards[i];
+            if (h.alive) out_ += h.wall_shift(this, side);
+        }
+        return out_;
+    }
+
+    public bool exit_locked()
+    {
+        for (int i = 0; i < room.hazards.Count; i++)
+        {
+            var h = room.hazards[i];
+            if (h.alive && h.locks_exit(this)) return true;
+        }
+        return false;
+    }
+
     public long checksum() => SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum());
 
     // --- Helpers for hazards ---
@@ -230,12 +251,13 @@ public sealed class GameSim
         long mask = wall_mask(side);
         if (mask == 0) return false;
         long hb = room.spike_half_base();
+        long shift = wall_shift(side);
         for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
         {
             if (!RoomRules.has_slot(mask, slot)) continue;
             long depth = room.slot_depth(side, slot);
             if (depth <= 0) continue;
-            long cy = SimConfig.slot_center_y(slot);
+            long cy = SimConfig.slot_center_y(slot) + shift;
             if (G.absi(state.y - cy) > hb + SimConfig.BIRD_RADIUS) continue;
             long tip_x = base_x + dir * depth;
             if (SimMath.circle_hits_triangle(
@@ -275,6 +297,7 @@ public sealed class GameSim
     bool _take_exit(long side)
     {
         if (!state.exit_open || state.exit_side != side) return false;
+        if (exit_locked()) return false;
         long fit = SimConfig.EXIT_FIT;
         long kind = -1;
         if (G.absi(state.y - state.exit_a_y) <= fit) kind = state.exit_a_kind;
