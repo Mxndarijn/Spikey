@@ -18,6 +18,10 @@ on:
         description: 'Upload to TestFlight and post on Discord (off: only build and sign)'
         type: boolean
         default: true
+      skip_check:
+        description: 'Skip the check (tests). Uploads an untested build; tags always run it'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -30,7 +34,8 @@ jobs:
   check:
     name: Check
     # A build-only trial ("upload" off) skips the tests: nothing leaves GitHub.
-    if: inputs.upload != false
+    # A manual run can also skip them with "skip_check"; a tag never does.
+    if: inputs.upload != false && inputs.skip_check != true
     uses: ./.github/workflows/check.yml
 
   # The small 2D-only engine (tools/engine), cached between runs. Built on macOS; only a cold
