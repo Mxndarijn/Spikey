@@ -13,6 +13,7 @@ const CORAL_FAR := Color("#FF9AA2")
 const CORAL := Color("#FF7A8A")
 const STARFISH := Color("#FFB347")
 const SHELL := Color("#FFC9D6")
+const SHELL_PALE := Color("#FFDDE5")
 
 
 static func paint(pen: ScenePen, t: ThemeDef) -> void:
@@ -47,7 +48,10 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var weed := t.prop.lerp(t.hill_near, 0.65)
 	SceneProps.put(pen, near, [70, 86, 330, 346], SceneProps.p_weed, sky, weed, 0)
 	SceneProps.put(pen, near, [180], SceneProps.p_starfish, sky, STARFISH, 8)
-	SceneProps.put(pen, near, [236, 132], SceneProps.p_shell, sky, SHELL, 7)
+	# One scallop big enough to read, and a small pale one.
+	SceneProps.put(pen, near, [236], SceneProps.p_shell, sky, SHELL, 13)
+	SceneProps.shadow(pen, 131, near.y(131) + 2, 8, near)
+	SceneProps.p_shell(pen, 131, near.y(131) + 2, 0.7, SHELL_PALE)
 	# Bubbles: (x, y, r).
 	for b: Vector3 in [
 		Vector3(80, 500, 4),

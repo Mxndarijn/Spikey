@@ -2,7 +2,8 @@ extends SceneTree
 ## Loads every script and scene in the project and fails on any error.
 ##   godot --headless --path . -s res://tools/ci/load_all.gd
 
-const SKIP_DIRS: Array[String] = [".godot", ".git", "addons", "build", "android"]
+# .claude holds other sessions' git worktrees: full copies of the project.
+const SKIP_DIRS: Array[String] = [".godot", ".git", ".claude", "addons", "build", "android"]
 
 
 class ErrorCounter:

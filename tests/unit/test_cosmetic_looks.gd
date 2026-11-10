@@ -71,6 +71,8 @@ func test_board_prices() -> void:
 	for id: String in trails:
 		assert_eq(Shop.price(Catalog.TRAIL, id), trails[id], "%s price" % id)
 	var flyers := {"pip": 350, "mochi": 400, "tock": 450, "lulu": 300, "puff": 350, "bubbles": 500}
+	flyers.merge({"waddle": 300, "flutter": 300, "boo": 350, "hamlet": 400, "scoop": 400})
+	flyers.merge({"glim": 450, "lumi": 450, "bolt": 500, "nova": 550})
 	for id: String in flyers:
 		assert_eq(Shop.price(Catalog.FLYER, id), flyers[id], "%s price" % id)
 
@@ -208,7 +210,7 @@ static func _scripts(dir: String) -> Array[String]:
 
 ## The flap pose is its own art, so a flap visibly changes the flyer.
 func test_every_flyer_has_distinct_idle_and_flap_art() -> void:
-	assert_eq(Catalog.flyers().size(), 12, "six launch flyers plus six new ones")
+	assert_eq(Catalog.flyers().size(), 21, "six launch flyers, six more, then nine")
 	for f in Catalog.flyers():
 		assert_true(f.idle != null and f.flap != null, "%s has both poses" % f.id)
 		assert_ne(f.idle.resource_path, f.flap.resource_path, "%s flap is its own art" % f.id)

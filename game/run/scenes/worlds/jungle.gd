@@ -36,7 +36,8 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	SceneProps.put(pen, far, range(10, 360, 26), SceneProps.p_round, sky, t.prop)
 	mid.paint(pen)
 	var bush := t.hill_mid.lerp(t.spike, 0.2)
-	SceneProps.put(pen, mid, [30, 96, 170, 250, 330], SceneProps.p_bush, sky, bush, 12)
+	var bush_leaf := SceneProps.shade(t.hill_far.lerp(t.hill_mid, 0.5), mid, sky)
+	SceneProps.put(pen, mid, [30, 96, 170, 250, 330], SceneProps.p_bush, sky, bush, 16, [bush_leaf])
 	near.paint(pen)
 	# Big leaves leaning in from both sides: (x, length, turn).
 	var big := t.hill_near.lerp(t.spike, 0.12)
@@ -44,8 +45,26 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 		Vector3(18, 64, 28), Vector3(46, 52, 58), Vector3(338, 68, -30), Vector3(310, 50, -58)
 	]:
 		var b := near.y(d.x) + 4
-		SceneProps.leaf(pen, d.x, b - d.y * 0.7, d.y, d.y * 0.42, d.z, big)
+		_big_leaf(pen, d.x, b - d.y * 0.7, d.y, d.z, big, t.hill_mid)
 	SceneProps.put(pen, near, [86, 120, 236, 276], SceneProps.p_flower, sky, FLOWER, 0, [t.prop])
+
+
+## A pointed leaf `l` long each way from (x, y), turned `deg`, with a midrib
+## and four pairs of side veins in `vein`.
+static func _big_leaf(
+	pen: ScenePen, x: float, y: float, l: float, deg: float, col: Color, vein: Color
+) -> void:
+	var w := l * 0.46
+	pen.push(ScenePen.place(x, y, deg))
+	var p := ScenePath.at(0, l).c(-w * 1.45, l * 0.45, -w * 1.15, -l * 0.5, 0, -l)
+	pen.fill(p.c(w * 1.15, -l * 0.5, w * 1.45, l * 0.45, 0, l).done(), col)
+	pen.line(0, l * 0.92, 0, -l * 0.82, vein, 2.2)
+	for k: float in [0.55, 0.2, -0.15, -0.48]:
+		for side: float in [-1.0, 1.0]:
+			var tip := Vector2(side * w * (0.72 - absf(k) * 0.35), l * (k - 0.26))
+			var v := ScenePath.at(0, l * k).q(side * w * 0.35, l * (k - 0.08), tip.x, tip.y)
+			pen.stroke(v.done(), vein, 2.2)
+	pen.pop()
 
 
 static func _parrot(pen: ScenePen, x: float, y: float) -> void:

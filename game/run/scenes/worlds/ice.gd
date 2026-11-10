@@ -1,6 +1,6 @@
 extends RefCounted
 ## Ice Cavern (Worlds v4): pale ice walls, icicles (short near the score),
-## snowy pines on a far drift, two crystals and two penguins in front.
+## snowy pines on a far drift, two crystals and a penguin with its chick in front.
 
 
 static func paint(pen: ScenePen, t: ThemeDef) -> void:
@@ -31,12 +31,15 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	for x: int in pines:
 		SceneProps.p_snowcap(pen, x, far.y(x) + 2, far.scale())
 	near.paint(pen)
-	# Crystals and penguins: (x, size).
+	# Crystals: (x, size).
 	for d: Vector2 in [Vector2(58, 1.2), Vector2(300, 1.4)]:
 		var b := near.y(d.x) + 2
 		SceneProps.shadow(pen, d.x, b, 20 * d.y, near)
 		SceneProps.p_crystal(pen, d.x, b, d.y, t.hill_far, t.prop)
-	for d: Vector2 in [Vector2(150, 1.0), Vector2(176, 0.75)]:
-		var b := near.y(d.x) + 2
-		SceneProps.shadow(pen, d.x, b, 10 * d.y, near)
-		SceneProps.p_penguin(pen, d.x, b, d.y)
+	# A penguin and its chick, facing each other.
+	var pb := near.y(150) + 2
+	SceneProps.shadow(pen, 150, pb, 10, near)
+	SceneProps.p_penguin(pen, 150, pb, 0.92)
+	pb = near.y(181) + 2
+	SceneProps.shadow(pen, 181, pb, 6, near)
+	SceneProps.p_penguin(pen, 181, pb, 0.56, true, true)

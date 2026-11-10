@@ -191,7 +191,8 @@ jobs:
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p build/android
-          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
+          godot --headless --path . --install-android-build-template \
+            --export-release "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export debug APK (no keystore secrets set)
@@ -199,7 +200,8 @@ jobs:
         run: |
           echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, building a debug-signed APK."
           mkdir -p build/android
-          godot --headless --path . --export-debug "Android" build/android/Flapjaw.apk
+          godot --headless --path . --install-android-build-template \
+            --export-debug "Android" build/android/Flapjaw.apk
           test -f build/android/Flapjaw.apk
 
       - name: Export AAB

@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="ThemeDef" format=3]
+
+[ext_resource type="Script" path="res://game/style/room_palette.gd" id="1_eigxh"]
+[ext_resource type="Script" path="res://game/style/theme_def.gd" id="2_30smu"]
+
+[sub_resource type="Resource" id="palette_0"]
+script = ExtResource("1_eigxh")
+name = "Violet hour"
+sky_top = Color(0.16470589, 0.12156863, 0.36078432, 1)
+sky_mid = Color(0.16862746, 0.20784314, 0.4392157, 1)
+sky_bottom = Color(0.16862746, 0.20784314, 0.4392157, 1)
+
+[resource]
+script = ExtResource("2_30smu")
+id = "aurora"
+display_name = "Aurora Bay"
+order = 17
+sky_top = Color(0.05490196, 0.15294118, 0.2784314, 1)
+sky_mid = Color(0.101960786, 0.25490198, 0.39215687, 1)
+sky_bottom = Color(0.101960786, 0.25490198, 0.39215687, 1)
+glow = Color(0.8117647, 0.96862745, 0.89411765, 1)
+spike = Color(0.8392157, 0.9019608, 0.96862745, 1)
+spike_edge = Color(0.95686275, 0.98039216, 1, 1)
+world_accent = Color(0.36078432, 0.9490196, 0.6901961, 1)
+trail = Color(0.6117647, 1, 0.8392157, 1)
+sun_ring = Color(0.08235294, 0.22745098, 0.36078432, 1)
+cloud = Color(0.12156863, 0.2901961, 0.4392157, 1)
+hill_far = Color(0.16862746, 0.36078432, 0.5176471, 1)
+hill_mid = Color(0.13725491, 0.30588236, 0.4509804, 1)
+hill_near = Color(0.105882354, 0.2509804, 0.38431373, 1)
+prop = Color(0.07058824, 0.17254902, 0.2784314, 1)
+ink = Color(0.9490196, 0.98039216, 1, 1)
+paper = Color(0.101960786, 0.25490198, 0.39215687, 1)
+sky_split = 0.6
+night = true
+room_palettes = Array[ExtResource("1_eigxh")]([SubResource("palette_0")])
+premium = true
+price = 1000

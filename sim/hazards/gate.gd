@@ -18,6 +18,9 @@ const BOTTOM := SimConfig.KILL_BOTTOM
 const LAG := 40
 ## No spike on the wall ahead within this of where the gap next to it will be.
 const WALL_CLEAR := 80 * SimConfig.SUB
+## A player holding height hops about 60 px over the line they hold: aim the
+## gap at the middle of that.
+const ARRIVAL_HOVER := 30 * SimConfig.SUB
 ## An exit is only planned within this of where the gap of the last gate before
 ## its wall will be when the bird comes through it (about 27 steps from the
 ## wall: one hop up, or a short drop).
@@ -63,14 +66,34 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 		# The leader now knows both gates, so it can aim the last one.
 		if sim.state.exit_open or sim.state.exit_preview:
 			partner.aim_at_exit(sim)
+		# Out of a portal the leader timed its own gap for the bird; when this
+		# gate is the nearer one, shift the pair so this gap is the one there.
+		elif sim.state.started and absi(x - sim.state.x) < absi(partner.x - sim.state.x):
+			var shift: int = _lead(sim, partner.x) - (_lead(sim, x) - LAG)
+			partner.phase = posmod(partner.phase + shift, period)
+			partner._place()
 		phase = posmod(partner.phase - LAG, period)
 		_place()
 		return
+	# Out of a portal: the gap reaches the bird's height (the middle of the
+	# hops a player holding height makes) when the bird gets to this gate
+	# (the follower shifts it if it is the nearer one), so a player still
+	# reading the room flies straight through.
+	var aim := sim.entry_y()
+	var lead := 0
+	if sim.state.started:
+		aim -= ARRIVAL_HOVER * sim.room.def.gravity_sign
+		lead = _lead(sim, x)
 	var down := rng.next_below(2) == 0
-	phase = _phase_for(sim.entry_y(), 0, down)
+	phase = _phase_for(aim, lead, down)
 	if sim.state.exit_open or sim.state.exit_preview:
 		aim_at_exit(sim)
 	_place()
+
+
+## Steps until the bird reaches a gate at `gate_x`.
+static func _lead(sim: GameSim, gate_x: int) -> int:
+	return absi(gate_x - sim.state.x) / SimConfig.SPEED_X
 
 
 func step(_sim: GameSim) -> void:

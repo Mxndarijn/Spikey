@@ -156,6 +156,78 @@
       "paper": "#FFFFFF",
       "sky-split": 0.62,
       "night": false
+    },
+    "meadow": {
+      "sun-ring": "#E6F5FF",
+      "cloud": "#FFFFFF",
+      "hill-far": "#9AD68F",
+      "hill-mid": "#77C47A",
+      "hill-near": "#5BB06A",
+      "prop": "#3F8F57",
+      "ink": "#17304D",
+      "paper": "#F6FCFF",
+      "sky-split": 0.62,
+      "night": false
+    },
+    "cove": {
+      "sun-ring": "#DDF6FF",
+      "cloud": "#FFFFFF",
+      "hill-far": "#3DB6D0",
+      "hill-mid": "#F3DDA8",
+      "hill-near": "#E7C98A",
+      "prop": "#2F9E62",
+      "ink": "#0E2A47",
+      "paper": "#FFFDF4",
+      "sky-split": 0.6,
+      "night": false
+    },
+    "clouds": {
+      "sun-ring": "#DDF0FF",
+      "cloud": "#FFFFFF",
+      "hill-far": "#DCEBFA",
+      "hill-mid": "#EEF6FE",
+      "hill-near": "#FFFFFF",
+      "prop": "#C4BBEF",
+      "ink": "#2B2A6B",
+      "paper": "#FFFFFF",
+      "sky-split": 0.55,
+      "night": false
+    },
+    "glade": {
+      "sun-ring": "#1C4954",
+      "cloud": "#1C4954",
+      "hill-far": "#1A4650",
+      "hill-mid": "#153C46",
+      "hill-near": "#0F323C",
+      "prop": "#0B2830",
+      "ink": "#F2FFF4",
+      "paper": "#1F5460",
+      "sky-split": 0.6,
+      "night": true
+    },
+    "aurora": {
+      "sun-ring": "#153A5C",
+      "cloud": "#1F4A70",
+      "hill-far": "#2B5C84",
+      "hill-mid": "#234E73",
+      "hill-near": "#1B4062",
+      "prop": "#122C47",
+      "ink": "#F2FAFF",
+      "paper": "#1A4164",
+      "sky-split": 0.6,
+      "night": true
+    },
+    "lantern": {
+      "sun-ring": "#5A2A5E",
+      "cloud": "#5A2A5E",
+      "hill-far": "#3D1B49",
+      "hill-mid": "#31163E",
+      "hill-near": "#261232",
+      "prop": "#1B0C26",
+      "ink": "#FFF4E2",
+      "paper": "#4C1F50",
+      "sky-split": 0.6,
+      "night": true
     }
   }
 }

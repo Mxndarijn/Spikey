@@ -104,6 +104,9 @@ func test_new_flyers_have_art_and_fit_real_worlds() -> void:
 	var ids := Catalog.ids(Catalog.FLYER)
 	for id in ["pip", "mochi", "tock", "lulu", "puff", "bubbles"]:
 		assert_true(id in ids, "flyer %s is in the catalog" % id)
+	for id in ["waddle", "flutter", "boo", "hamlet", "scoop", "glim", "lumi", "bolt", "nova"]:
+		assert_true(id in ids, "flyer %s is in the catalog" % id)
+		assert_true(Shop.price(Catalog.FLYER, id) > 0, "flyer %s has a price" % id)
 	var worlds := Catalog.ids(Catalog.WORLD)
 	for f in Catalog.flyers():
 		assert_true(f.idle != null and f.flap != null, "%s has idle and flap art" % f.id)

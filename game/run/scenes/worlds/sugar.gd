@@ -23,17 +23,23 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	SceneProps.cloud(pen, 30, 236, 110, CLOUD)
 	SceneProps.cloud(pen, 222, 300, 116, CLOUD)
 	far.paint(pen)
-	# A wavy icing line along the far hill.
-	var icing := PackedVector2Array([Vector2(-10, far.y(-10) + 6)])
-	for x in range(-4, 371, 9):
-		icing.append(Vector2(x, far.y(x) + (11 if posmod(floori(x / 18.0), 2) == 1 else 4)))
-	pen.stroke(icing, ICING, 8)
-	SceneProps.put(pen, far, [60, 300], SceneProps.p_lolly, sky, LOLLY_PINK, 6)
-	SceneProps.put(pen, far, [180], SceneProps.p_lolly, sky, LOLLY_BLUE, 6)
+	# Icing over the far hill, dripping down it in scallops: every third drip is
+	# long, the one after it short.
+	var icing := ScenePath.at(-10, far.y(-10) - 4)
+	for x in range(-4, 371, 6):
+		icing.l(x, far.y(x) - 4)
+	var nth := 0
+	for x in range(370, -10, -22):
+		var deep := 34.0 if nth % 3 == 1 else (15.0 if nth % 3 == 2 else 22.0)
+		icing.q(x - 11, far.y(x - 11) + deep, x - 22, far.y(x - 22) + 5)
+		nth += 1
+	pen.fill(icing.done(), ICING)
+	SceneProps.put(pen, far, [60, 300], SceneProps.p_lolly, sky, LOLLY_PINK, 7)
+	SceneProps.put(pen, far, [180], SceneProps.p_lolly, sky, LOLLY_BLUE, 7)
 	near.paint(pen)
 	var xs := [40, 84, 290, 330]
 	for k in xs.size():
 		SceneProps.put(pen, near, [xs[k]], SceneProps.p_gumdrop, sky, GUMDROPS[k], 9)
 	var b := near.y(220) + 2
-	SceneProps.shadow(pen, 220, b, 15, near)
-	SceneProps.p_cupcake(pen, 220, b, 1.0)
+	SceneProps.shadow(pen, 220, b, 16, near)
+	SceneProps.p_cupcake(pen, 220, b, 1.05)

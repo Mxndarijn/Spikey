@@ -47,16 +47,33 @@ static func _volcano(pen: ScenePen) -> void:
 	pen.fill(notch.done(), CRATER_ROCK)
 	# Lava running down the slopes.
 	var left := ScenePath.at(168, 338).q(150, 380, 140, 420).q(128, 470, 96, 520).done()
-	pen.stroke(left, MOLTEN_DEEP, 9)
-	pen.stroke(left, MOLTEN, 4)
+	_stream(pen, left, 11, 2.5, MOLTEN_DEEP)
+	_stream(pen, left, 5, 0.8, MOLTEN)
 	var right := ScenePath.at(192, 338).q(206, 390, 222, 430).q(240, 480, 272, 520).done()
-	pen.stroke(right, MOLTEN_DEEP, 7)
-	pen.stroke(right, MOLTEN, 3)
+	_stream(pen, right, 9, 2, MOLTEN_DEEP)
+	_stream(pen, right, 4, 0.6, MOLTEN)
 	# Blobs thrown up from the crater.
 	for c: Vector3 in [
 		Vector3(170, 304, 4), Vector3(188, 296, 5), Vector3(204, 310, 3.5), Vector3(156, 318, 3)
 	]:
 		pen.circle(Vector2(c.x, c.y), c.z, MOLTEN)
+
+
+## A lava stream along `pts`: `w0` wide at the crater, thinning to `w1`.
+static func _stream(
+	pen: ScenePen, pts: PackedVector2Array, w0: float, w1: float, col: Color
+) -> void:
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	var last := pts.size() - 1
+	for i in pts.size():
+		var along := (pts[mini(i + 1, last)] - pts[maxi(i - 1, 0)]).normalized()
+		var out := along.orthogonal() * lerpf(w0, w1, float(i) / last) / 2.0
+		left.append(pts[i] + out)
+		right.append(pts[i] - out)
+	right.reverse()
+	left.append_array(right)
+	pen.fill(left, col)
 
 
 static func _lake(pen: ScenePen) -> void:

@@ -1,4 +1,4 @@
-# Flapjaw â€” Architecture
+# Flapjaw — Architecture
 
 Godot 4 (GDScript), portrait mobile game for iOS and Android, with verified
 leaderboards that re-simulate every submitted run on a server.
@@ -16,14 +16,14 @@ Class diagrams for rooms, obstacles, themes, cosmetics, meta and server:
 ```mermaid
 flowchart TD
     subgraph Client["Godot app"]
-        UI["game/ui â€” HUD, menus, pause, shop"]
-        VIEW["game/run â€” RoomView, BirdView, VFX, audio, haptics"]
-        CTRL["game/run/run_controller â€” fixed 60 Hz driver, input, recording"]
-        META["meta/ â€” save, coins, unlocks, cosmetics, achievements (Phase 2-3)"]
-        SVC["services/ â€” seed + leaderboard API, ads, platform (Phase 3)"]
+        UI["game/ui — HUD, menus, pause, shop"]
+        VIEW["game/run — RoomView, BirdView, VFX, audio, haptics"]
+        CTRL["game/run/run_controller — fixed 60 Hz driver, input, recording"]
+        META["meta/ — save, coins, unlocks, cosmetics, achievements (Phase 2-3)"]
+        SVC["services/ — seed + leaderboard API, ads, platform (Phase 3)"]
     end
-    SIM["sim/ â€” deterministic core (integers only, no Nodes, no time)"]
-    SERVER["server/verify_run.gd â€” headless Godot replay"]
+    SIM["sim/ — deterministic core (integers only, no Nodes, no time)"]
+    SERVER["server/verify_run.gd — headless Godot replay"]
 
     UI --> CTRL
     CTRL -- "step(tap)" --> SIM
@@ -45,8 +45,8 @@ flowchart TD
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | â€” | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | â€” | â€” |
 | `server/` | Headless verifier; later the cloud wrapper around it | `sim/` | Fork the sim (it runs the same files) |
-| `tests/` | Unit tests, golden replays, bot simulations | everything | â€” |
-| `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | â€” |
+| `tests/` | Unit tests, golden replays, bot simulations | everything | — |
+| `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | — |
 
 `tests/unit/test_sim_purity.gd` enforces the `sim/` rules by scanning the source,
 so breaking them fails the check script.
@@ -61,7 +61,7 @@ so breaking them fails the check script.
 - **Own RNG**: `SimRng` is xoshiro128** on 32-bit masked ints, seeded from the run
   seed. The draw order is part of the gameplay rules. A cross-language reference
   test pins its output.
-- **World**: 360 Ã— 640 logical pixels. Ceiling and floor are always deadly. Side
+- **World**: 360 × 640 logical pixels. Ceiling and floor are always deadly. Side
   walls have 13 spike slots stored as bitmasks (`left_spikes`, `right_spikes`).
 - **Loop**: bird flies sideways at constant speed, a tap sets an upward velocity,
   gravity pulls down. Hitting a side wall scores a point, clears that wall and
@@ -84,9 +84,13 @@ random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
-same way (gameplay version 6). It first waits there one second
-(`SimConfig.ARRIVAL_HOLD`) with the new room frozen, so the player sees the room
-before flying on (gameplay version 12). Every 50 points a
+same way (gameplay version 6). For its first second the new room runs in slow
+motion (half speed, easing back to full; `SimConfig.ARRIVAL_SLOW_*`), so the
+player can read it while still steering (gameplay version 15; it replaced a
+frozen one-second wait). Rooms keep the way out of a portal fair: Floating Isles
+keeps the lane in front of it clear, Shutter Gates has its gap at the bird's
+height when it gets there. `tools/arrival_test.gd` and `tools/arrival_room.gd`
+measure how often a player who reacts late dies right after a portal. Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
 mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
 picked by the seed
@@ -162,7 +166,7 @@ _process           views draw, interpolating between previous and current tick
   the cradle dock on Home and Game over, Archivo as the only font. Real sprites
   replace the drawing later without touching the sim.
 - Pause just stops calling `step()`. The app auto-pauses when it loses focus.
-- Display: 360 Ã— 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` puts the fixed 360 Ã— 640 room at the top of the safe area, centred sideways, and RoomView fills around it), portrait, Compatibility
+- Display: 360 × 640 viewport, `canvas_items` stretch with `expand` aspect (no black bars; `game/style/screen_layout.gd` puts the fixed 360 × 640 room at the top of the safe area, centred sideways, and RoomView fills around it), portrait, Compatibility
   renderer (best for 2D on older phones).
 
 ## Verified leaderboards
