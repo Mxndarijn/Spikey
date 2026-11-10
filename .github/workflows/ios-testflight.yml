@@ -119,8 +119,8 @@ jobs:
         # the plugin's release (the same version as addons/godotx_firebase), checked by hash.
         if: steps.firebase.outputs.push == 'true'
         env:
-          PLUGIN_URL: https://github.com/godot-x/firebase/releases/download/2.4.1/godotx_firebase.zip
-          PLUGIN_SHA256: eacfc7a3e777f5731865046f33204b00f4101612c0be651ebd4cecf17a428565
+          PLUGIN_URL: https://github.com/godot-x/firebase/releases/download/3.1.0/godotx_firebase.zip
+          PLUGIN_SHA256: da7273def2ff744efacaab70e2ad863d65a4225ec401f5335de40a19df8170c1
         run: |
           curl -fsSL --retry 5 -o "$RUNNER_TEMP/godotx_firebase.zip" "$PLUGIN_URL"
           echo "$PLUGIN_SHA256  $RUNNER_TEMP/godotx_firebase.zip" | sha256sum -c -

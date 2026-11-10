@@ -54,6 +54,15 @@ class AppleExportPlugin extends EditorExportPlugin:
 			"default_value": "res://GoogleService-Info.plist"
 		})
 
+		# Privacy-safe defaults (collection off + consent denied until the user opts in)
+		options.append({
+			"option": {
+				"name": "firebase/privacy_safe_defaults",
+				"type": TYPE_BOOL
+			},
+			"default_value": true
+		})
+
 		return options
 
 
@@ -67,7 +76,27 @@ class AppleExportPlugin extends EditorExportPlugin:
 			print("[Firebase] Adding iOS config: " + ios_file)
 			add_apple_embedded_platform_bundle_file(ios_file)
 
+		if get_option("firebase/privacy_safe_defaults"):
+			_apply_privacy_safe_defaults()
 
+
+	func _apply_privacy_safe_defaults() -> void:
+		# Hold analytics and crash reporting, and default every consent signal to denied until the user opts in
+		var keys: PackedStringArray = [
+			"FIREBASE_ANALYTICS_COLLECTION_ENABLED",
+			"FirebaseCrashlyticsCollectionEnabled",
+			"GOOGLE_ANALYTICS_DEFAULT_ALLOW_ANALYTICS_STORAGE",
+			"GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE",
+			"GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA",
+			"GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS"
+		]
+
+		var contents := ""
+		for key in keys:
+			contents += "<key>%s</key>\n<false/>\n" % key
+
+		add_apple_embedded_platform_plist_content(contents)
+		print("[Firebase] Applied privacy-safe defaults to iOS Info.plist")
 
 
 # ============================================================================
@@ -114,7 +143,7 @@ class AndroidExportPlugin extends EditorExportPlugin:
 				"name": "firebase/core_version",
 				"type": TYPE_STRING
 			},
-			"default_value": "22.0.1"
+			"default_value": "22.1.0"
 		})
 
 		# Enable Analytics
@@ -132,7 +161,7 @@ class AndroidExportPlugin extends EditorExportPlugin:
 				"name": "firebase/analytics_version",
 				"type": TYPE_STRING
 			},
-			"default_value": "23.0.0"
+			"default_value": "23.2.0"
 		})
 
 		# Enable Crashlytics
@@ -150,7 +179,7 @@ class AndroidExportPlugin extends EditorExportPlugin:
 				"name": "firebase/crashlytics_version",
 				"type": TYPE_STRING
 			},
-			"default_value": "20.0.3"
+			"default_value": "20.1.0"
 		})
 
 		# Enable Messaging
@@ -168,7 +197,16 @@ class AndroidExportPlugin extends EditorExportPlugin:
 				"name": "firebase/messaging_version",
 				"type": TYPE_STRING
 			},
-			"default_value": "25.0.1"
+			"default_value": "25.1.1"
+		})
+
+		# Privacy-safe defaults (collection off + consent denied until the user opts in)
+		options.append({
+			"option": {
+				"name": "firebase/privacy_safe_defaults",
+				"type": TYPE_BOOL
+			},
+			"default_value": true
 		})
 
 		return options
@@ -282,3 +320,30 @@ class AndroidExportPlugin extends EditorExportPlugin:
 
 		print("[Firebase] Copied Android config to " + dest_res_path)
 
+	func _get_android_manifest_application_element_contents(platform: EditorExportPlatform, debug: bool) -> String:
+		if not _supports_platform(platform) or not get_option("firebase/privacy_safe_defaults"):
+			return ""
+
+		var keys: PackedStringArray = []
+
+		# Hold analytics collection and default every consent signal to denied until the user opts in
+		if get_option("firebase/enable_analytics"):
+			keys.append("firebase_analytics_collection_enabled")
+			keys.append("google_analytics_default_allow_analytics_storage")
+			keys.append("google_analytics_default_allow_ad_storage")
+			keys.append("google_analytics_default_allow_ad_user_data")
+			keys.append("google_analytics_default_allow_ad_personalization_signals")
+
+		# Hold crash reporting until the user opts in
+		if get_option("firebase/enable_crashlytics"):
+			keys.append("firebase_crashlytics_collection_enabled")
+
+		if keys.is_empty():
+			return ""
+
+		var contents := ""
+		for key in keys:
+			contents += '<meta-data android:name="%s" android:value="false" />\n' % key
+
+		print("[Firebase] Applied privacy-safe defaults to Android manifest")
+		return contents
