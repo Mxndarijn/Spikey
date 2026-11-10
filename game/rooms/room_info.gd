@@ -106,7 +106,7 @@ const ROOMS := {
 	["Pinwheel", "A four-blade star spins in the middle of the cage.", 3, "sunset", "ball"],
 	"sawring": ["Saw Ring", "Three saws orbit the middle of the cage.", 4, "ice", "ball"],
 	"updraft":
-	["Updraft", "A column of warm air lifts you through the middle.", 3, "desert", "cloud"],
+	["Updraft", "Columns of moving air: ride them, time them or fight them.", 3, "desert", "cloud"],
 	"bubbles":
 	[
 		"Bubble Lift",

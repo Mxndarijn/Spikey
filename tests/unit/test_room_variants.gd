@@ -24,9 +24,9 @@ func test_rooms_without_variants_play_as_before() -> void:
 
 
 func test_every_variant_shows_up() -> void:
-	for id: String in ["tide", "cloud"]:
+	for id: String in ["tide", "cloud", "updraft"]:
 		var seen := {}
-		for s in 60:
+		for s in 200:
 			seen[sim_in_room(id, s).room.variant_id()] = true
 		assert_eq(seen.size(), RoomCatalog.find(id).variants.size(), "%s variants" % id)
 

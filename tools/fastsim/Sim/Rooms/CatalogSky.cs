@@ -10,7 +10,27 @@ public static class CatalogSky
         var out_ = new List<RoomDef>();
 
         var updraft = new RoomDef("updraft", "mid", 60);
-        updraft.hazards.Add(() => new Updraft());
+        updraft.variants = new List<RoomVariant>
+        {
+            new RoomVariant("chimney").with(new List<Func<Hazard>> { () => _air(180, 50, Updraft.CHIMNEY) }),
+            new RoomVariant("twin").with(new List<Func<Hazard>>
+            {
+                () => _air(100, 40, Updraft.HOVER), () => _air(260, 40, Updraft.HOVER),
+            }),
+            new RoomVariant("drift").with(new List<Func<Hazard>> { () => _drift(70, 220, 50) }),
+            new RoomVariant("gust").with(new List<Func<Hazard>> { () => _gust() }),
+            new RoomVariant("updown").with(new List<Func<Hazard>>
+            {
+                () => _air(120, 50, Updraft.HOVER), () => _air(240, 50, -Updraft.HOVER),
+            }),
+            new RoomVariant("coins").with(new List<Func<Hazard>>
+            {
+                () => _air(180, 60, Updraft.LIFT),
+                () => _coin(180, 220),
+                () => _coin(180, 270),
+                () => _coin(180, 320),
+            }),
+        };
         out_.Add(updraft);
 
         var bubbles = new RoomDef("bubbles", "mid", 50);
@@ -44,6 +64,15 @@ public static class CatalogSky
 
         return out_;
     }
+
+    static Hazard _air(long x_px, long half_px, long lift) => new Updraft(x_px * SUB, half_px * SUB, lift);
+
+    static Hazard _drift(long min_px, long span_px, long half_px) =>
+        new Updraft(min_px * SUB, half_px * SUB, Updraft.HOVER).drifting(min_px * SUB, span_px * SUB);
+
+    static Hazard _gust() => new Updraft(SimConfig.WORLD_W / 2, Updraft.HALF_W, Updraft.STRONG).gusty();
+
+    static Hazard _coin(long x_px, long y_px) => new CoinPickup(x_px * SUB, y_px * SUB);
 
     static Hazard _bubble(long lane) => new Bubble(lane);
 
