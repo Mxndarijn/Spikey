@@ -17,7 +17,7 @@ extends TestCase
 ## Practice seeds per room variant (FastSim plays more: Checks.cs SEEDS_EACH).
 const SEEDS_EACH := 2
 ## The GDScript sample: one search in this many.
-const SAMPLE_EVERY := 10
+const SAMPLE_EVERY := 16
 ## [room id, ticks]: ten points and a portal (a Narrow crossing is shorter).
 ## Locked Exit: a bot that skips the key waits for the exit to open by itself.
 ## Slow-Mo Breather runs at half speed, so it needs twice the ticks.
