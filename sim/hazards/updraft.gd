@@ -1,26 +1,89 @@
 extends Hazard
-## A column of rising air in the middle of the room (Updraft). While the bird's
-## center is inside the band, every step adds a fixed lift to its vertical
-## speed. Never deadly; the ceiling still is.
+## A column of moving air (Updraft room). While the bird's center is inside the
+## band, every step adds `lift` to its upward speed (a negative lift pulls it
+## down: a downdraft). Never deadly itself; the ceiling and floor still are.
+##
+## Variants (catalog_sky.gd) set where the band is, how wide and how strong,
+## and can make it drift wall to wall (drift_span) or blow in gusts
+## (gust: off, then a warning, then on).
+
+enum Gust { NONE, OFF, WARN, ON }
 
 const SUB := SimConfig.SUB
-## Half the band width (the band is 120 px wide).
+## Today's band: 120 px wide in the middle.
 const HALF_W := 60 * SUB
-## Upward speed added per step while inside: two thirds of gravity, so the bird
-## floats and flaps carry it further, but it still sinks slowly. Tied to
-## SimConfig.GRAVITY so a physics change can't turn it into a rocket.
+## Soft lift: two thirds of gravity, the bird still sinks slowly. Tied to
+## SimConfig.GRAVITY so a physics change keeps the balance.
 const LIFT := SimConfig.GRAVITY * 2 / 3
+## Hover: lift equals gravity, the bird keeps its vertical speed.
+const HOVER := SimConfig.GRAVITY
+## Chimney: one and a half gravity, the bird is carried up. At this strength the
+## forced first flap out of a practice start or a revive still clears the
+## ceiling; a fresh flap just before the column does not.
+const CHIMNEY := SimConfig.GRAVITY * 3 / 2
+## Gusts: twice gravity, the bird is thrown up (after a 1 s warning).
+const STRONG := SimConfig.GRAVITY * 2
+## Gust timing, steps: off, then the warning (ARRIVAL_BLIND, the same 1 s a
+## player gets out of a portal), then on.
+const GUST_OFF := 60
+const GUST_WARN := SimConfig.ARRIVAL_BLIND
+const GUST_ON := 90
+const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
 
-## Band edges, sub-units.
+## Band edges, sub-units (they move when the band drifts).
 var x0 := 0
 var x1 := 0
+var half_w := HALF_W
+## Upward speed added per step while inside (negative: pulled down).
 var lift := LIFT
+## Drift: the band's center moves between drift_min and drift_min + drift_span
+## and back, 1 px per step. 0 = it stays put.
+var drift_min := 0
+var drift_span := 0
+## Gust: NONE = always on; otherwise where in its cycle it is.
+var gust := Gust.NONE
+## Steps into the cycle (drift or gust), drawn at setup.
+var phase := 0
 
 
-func _init() -> void:
+func _init(
+	p_center: int = SimConfig.WORLD_W / 2, p_half_w: int = HALF_W, p_lift: int = LIFT
+) -> void:
 	kind = "updraft"
-	x0 = SimConfig.WORLD_W / 2 - HALF_W
-	x1 = SimConfig.WORLD_W / 2 + HALF_W
+	half_w = p_half_w
+	lift = p_lift
+	_place(p_center)
+
+
+## Drifts the band's center between `p_min` and `p_min + p_span`.
+func drifting(p_min: int, p_span: int) -> Hazard:
+	drift_min = p_min
+	drift_span = p_span
+	_place(p_min)
+	return self
+
+
+## Blows in gusts (off, warning, on) instead of all the time.
+func gusty() -> Hazard:
+	gust = Gust.OFF
+	return self
+
+
+func setup(_sim: GameSim, rng: SimRng) -> void:
+	if drift_span > 0:
+		phase = rng.next_below(_drift_period())
+	elif gust != Gust.NONE:
+		# Always starts in the off part, so a full warning comes before the first gust.
+		phase = rng.next_below(GUST_OFF)
+	_update()
+
+
+func step(_sim: GameSim) -> void:
+	_update()
+
+
+func blowing() -> bool:
+	return gust == Gust.NONE or gust == Gust.ON
 
 
 func inside(sim: GameSim) -> bool:
@@ -28,10 +91,38 @@ func inside(sim: GameSim) -> bool:
 
 
 func touch(sim: GameSim) -> void:
-	if inside(sim):
+	if blowing() and inside(sim):
 		var vy := sim.state.vy - lift
 		sim.state.vy = clampi(vy, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
 
 
+## Steps into the gust cycle (0 .. GUST_PERIOD - 1).
+func gust_step() -> int:
+	return posmod(t + phase, GUST_PERIOD)
+
+
+func _update() -> void:
+	if drift_span > 0:
+		_place(drift_min + SimTrig.ping_pong(t + phase, _drift_period(), drift_span))
+	if gust != Gust.NONE:
+		var m := gust_step()
+		if m < GUST_OFF:
+			gust = Gust.OFF
+		elif m < GUST_OFF + GUST_WARN:
+			gust = Gust.WARN
+		else:
+			gust = Gust.ON
+
+
+## A full drift there and back at 1 px per step.
+func _drift_period() -> int:
+	return 2 * drift_span / SUB
+
+
+func _place(center: int) -> void:
+	x0 = center - half_w
+	x1 = center + half_w
+
+
 func checksum(h: int) -> int:
-	return mix_all(h, [x0, x1, lift])
+	return mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase])

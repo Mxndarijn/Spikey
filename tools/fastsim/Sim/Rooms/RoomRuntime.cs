@@ -55,7 +55,12 @@ public sealed class RoomRuntime
         blink_right = 0;
         hazards.Clear();
         var list = new List<Func<Hazard>>(def.hazards);
-        if (def.variants.Count > 1) variant = rng.next_below(def.variants.Count);
+        var drawn = new List<long>();
+        if (sim.state.started) drawn = def.arrival_variants(sim.state.y);
+        if (drawn.Count == 0)
+            for (int i = 0; i < def.variants.Count; i++) drawn.Add(i);
+        if (drawn.Count > 1) variant = drawn[(int)rng.next_below(drawn.Count)];
+        else if (drawn.Count == 1) variant = drawn[0];
         if (sim.forced_variant != "") variant = _variant_index(sim.forced_variant, variant);
         if (def.variants.Count > 0)
             foreach (var f in def.variants[(int)variant].hazards) list.Add(f);

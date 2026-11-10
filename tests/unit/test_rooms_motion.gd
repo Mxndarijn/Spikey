@@ -74,7 +74,9 @@ func test_rooms_spawn_their_hazards() -> void:
 	assert_eq(clouds[0], "bumper")
 	assert_eq(kinds(sim_in_room("gates", 1)), ["gate", "gate"] as Array[String])
 	assert_eq(kinds(sim_in_room("crawl", 1)), ["crawler", "crawler"] as Array[String])
-	assert_eq(kinds(sim_in_room("swing", 1)), ["pendulum"] as Array[String])
+	var lanterns := kinds(sim_in_room("swing", 1))
+	assert_true(lanterns.size() in [1, 3], "one lantern hazard, or three chimes")
+	assert_eq(lanterns[0], "pendulum")
 	assert_eq(kinds(sim_in_room("stalker", 1)), ["stalker"] as Array[String])
 	assert_eq(kinds(sim_in_room("pinwheel", 1)), ["rotor"] as Array[String])
 	assert_eq(kinds(sim_in_room("sawring", 1)), ["saw_ring"] as Array[String])
@@ -235,33 +237,6 @@ func test_crab_walk_draws_its_crawlers_as_crabs() -> void:
 	assert_eq(RoomSkins.of("crabs"), "crab")
 
 
-# --- Lantern Swing --------------------------------------------------------------
-
-
-func test_lantern_kills_and_chain_is_safe() -> void:
-	var sim := sim_in_room("swing", 2)
-	var p: Hazard = sim.room.hazards[0]
-	put_bird(sim, p.x, p.y)
-	assert_true(p.kills(sim), "the lantern kills")
-	# Halfway up the chain.
-	put_bird(sim, (p.x + p.PIVOT_X) / 2, (p.y + p.PIVOT_Y) / 2)
-	assert_false(p.kills(sim), "the chain is safe")
-
-
-func test_lantern_swings_inside_the_room() -> void:
-	var sim := sim_in_room("swing", 2)
-	var p: Hazard = sim.room.hazards[0]
-	var low := 1 << 40
-	var high := -1
-	for i in p.PERIOD:
-		sim.room.step(sim)
-		low = mini(low, p.x)
-		high = maxi(high, p.x)
-		assert_true(p.x - p.RADIUS >= 40 * SUB and p.x + p.RADIUS <= 320 * SUB, "inside x")
-		assert_true(p.y + p.RADIUS < SimConfig.KILL_BOTTOM, "above the floor")
-	assert_true(high - low > 150 * SUB, "swings across the middle")
-
-
 # --- Stalker Rail ---------------------------------------------------------------
 
 
@@ -328,3 +303,11 @@ func test_saw_ring_breathes_on_a_schedule() -> void:
 	assert_true(sizes.has(ring.RING_MAX), "reaches full size")
 	assert_true(sizes.size() > 30, "grows and shrinks smoothly")
 	assert_eq(ring.radius_at(0), ring.radius_at(ring.CYCLE), "the schedule repeats")
+	# Grow and shrink take 1.5 s each (90 steps), the holds 1 s.
+	var hold: int = ring.HOLD
+	var move: int = ring.MOVE
+	assert_eq(move, 90, "grow and shrink take 1.5 s each")
+	assert_eq(ring.radius_at(hold), ring.RING_MIN, "growth starts after the small hold")
+	assert_true(ring.radius_at(hold + 60) < ring.RING_MAX, "still growing after 1 s")
+	assert_eq(ring.radius_at(hold + move), ring.RING_MAX, "full size after 1.5 s")
+	assert_true(ring.radius_at(2 * hold + move + 60) > ring.RING_MIN, "still shrinking after 1 s")

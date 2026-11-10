@@ -103,8 +103,10 @@ The bird comes out at least `SimConfig.ARRIVAL_EDGE` from the ceiling and
 floor lines, so holding height never hops into them. Where no timing can
 work, the room isn't picked out of a portal at that height
 (`RoomDef.arrival_skip`): rooms with a hazard near the ceiling skip high
-arrivals, Bee Line and Lantern Swing skip the middle heights their hazards
-sweep. `tools/arrival_test.gd` and `tools/arrival_room.gd`
+arrivals, Bee Line skips the middle heights its bees sweep. A room variant
+can skip heights too (`RoomVariant.arrival_skip`): out of a portal the room
+only draws variants that fit, so each Lantern Swing variant skips the heights
+where its lanterns hang lowest. `tools/arrival_test.gd` and `tools/arrival_room.gd`
 measure how often a player who reacts late dies right after a portal.
 The reaction benchmark: a player who needs 0.75 s is never killed by a
 portal (every death there still had a way to live: `SurvivalSearch` finds

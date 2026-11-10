@@ -32,7 +32,13 @@ static class Reaction
         sim.step(true);
         sim.state.score = G.maxi(def.from_score, 10) + (i % 3) * 10;
         long y = 130 + (i * 53) % 380;
-        while (!def.fits_arrival(y * SimConfig.SUB)) y = 130 + (y - 130 + 53) % 380;
+        // A forced variant is only tried at heights the game would draw it for.
+        var forced = def.variants.FirstOrDefault(v => v.id == variant);
+        for (int n = 0; n < 380; n++)
+        {
+            if (def.fits_arrival(y * SimConfig.SUB) && (forced == null || forced.fits_arrival(y * SimConfig.SUB))) break;
+            y = 130 + (y - 130 + 53) % 380;
+        }
         sim.state.y = y * SimConfig.SUB;
         long side = i % 2;
         long skip = sim._arrival_retries(side, index);

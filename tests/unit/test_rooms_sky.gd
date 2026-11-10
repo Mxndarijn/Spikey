@@ -1,6 +1,6 @@
 extends TestCase
-## Sky and bonus rooms (Updraft, Bubble Lift, Spike Rain, Orchard Drop,
-## Keepy-Uppy) and the seasonal path mover and firework hazards.
+## Sky and bonus rooms (Bubble Lift, Spike Rain, Orchard Drop, Keepy-Uppy)
+## and the seasonal path mover and firework hazards. Updraft: test_updraft.gd.
 
 const Rooms := preload("res://tests/unit/test_rooms.gd")
 const Drop := preload("res://sim/hazards/drop.gd")
@@ -10,7 +10,6 @@ const KeepyBall := preload("res://sim/hazards/keepy_ball.gd")
 
 const SUB := SimConfig.SUB
 const SKY_ROOMS := {
-	"updraft": ["updraft"],
 	"bubbles": ["bubble", "bubble", "bubble"],
 	"rain": ["drop", "drop"],
 	"orchard": ["orchard_spawner", "drop"],
@@ -24,6 +23,10 @@ func test_sky_rooms_spawn_their_hazards() -> void:
 		var kinds: Array[String] = []
 		for h in sim.room.hazards:
 			kinds.append(h.kind)
+		if id == "rain":
+			# Spike Rain's variants have two or four drops (test_rain_variants.gd).
+			assert_true(kinds.size() == 2 or kinds.size() == 4, "rain has 2 or 4 drops")
+			kinds.resize(2)
 		assert_eq(kinds, SKY_ROOMS[id], "%s builds its hazards" % id)
 	assert_eq(RoomCatalog.find("rain").weight, 8)
 	assert_eq(RoomCatalog.find("orchard").group, "bonus")
@@ -41,24 +44,6 @@ func test_nothing_spawns_on_the_bird_at_a_wall() -> void:
 					sim.state.y = y_px * SUB
 					for h in sim.room.hazards:
 						assert_false(h.kills(sim), "%s seed %d clear of the wall" % [id, s])
-
-
-## The lift is tied to gravity: inside the band the bird floats (falls far
-## slower), outside it falls normally. It never rockets up.
-func test_updraft_pushes_up_only_inside_the_band() -> void:
-	var inside := _started("updraft", 1)
-	inside.state.x = SimConfig.WORLD_W / 2
-	inside.state.vx = 0
-	inside.state.vy = 0
-	var outside := _started("updraft", 1)
-	outside.state.x = 60 * SimConfig.SUB
-	outside.state.vx = 0
-	outside.state.vy = 0
-	for i in 30:
-		inside.step(false)
-		outside.step(false)
-	assert_true(inside.state.vy >= 0, "it never rises on its own")
-	assert_true(inside.state.vy * 2 < outside.state.vy, "it falls far slower inside")
 
 
 func test_bubble_carries_the_bird_and_a_tap_releases_it() -> void:

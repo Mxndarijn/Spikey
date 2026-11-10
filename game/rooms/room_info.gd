@@ -106,14 +106,14 @@ const ROOMS := {
 		"extra"
 	],
 	"swing":
-	["Lantern Swing", "A spiked lantern swings on a chain from the ceiling.", 3, "autumn", "ball"],
+	["Lantern Swing", "Spiked lanterns swing on chains from the ceiling.", 3, "autumn", "ball"],
 	"stalker":
 	["Stalker Rail", "A pair of spikes rides the wall rail to meet you.", 3, "star", "extra"],
 	"pinwheel":
 	["Pinwheel", "Spinning blades in the cage, six different ways.", 3, "sunset", "ball"],
 	"sawring": ["Saw Ring", "Three saws orbit the middle of the cage.", 4, "ice", "ball"],
 	"updraft":
-	["Updraft", "A column of warm air lifts you through the middle.", 3, "desert", "cloud"],
+	["Updraft", "Columns of moving air: ride them, time them or fight them.", 3, "desert", "cloud"],
 	"bubbles":
 	[
 		"Bubble Lift",

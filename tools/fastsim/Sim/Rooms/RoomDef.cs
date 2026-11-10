@@ -50,6 +50,22 @@ public sealed class RoomDef
     {
         for (int i = 0; i < arrival_skip.Count; i += 2)
             if (y >= arrival_skip[i] && y < arrival_skip[i + 1]) return false;
-        return true;
+        return variants.Count == 0 || arrival_variants(y).Count > 0;
+    }
+
+    public List<long> arrival_variants(long y)
+    {
+        var out_ = new List<long>();
+        for (int i = 0; i < variants.Count; i++)
+            if (variants[i].fits_arrival(y)) out_.Add(i);
+        return out_;
+    }
+
+    public bool skips_heights()
+    {
+        if (arrival_skip.Count > 0) return true;
+        foreach (var v in variants)
+            if (v.arrival_skip.Count > 0) return true;
+        return false;
     }
 }

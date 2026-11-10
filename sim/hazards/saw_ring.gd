@@ -11,7 +11,8 @@ const RING_MIN := 50 * SimConfig.SUB
 const RING_MAX := 92 * SimConfig.SUB
 ## Schedule in steps: hold small, grow, hold wide, shrink.
 const HOLD := 60
-const MOVE := 60
+## Grow and shrink take 1.5 s each (playtest: 1 s came back too fast).
+const MOVE := 90
 const CYCLE := 2 * (HOLD + MOVE)
 ## Steps per lap of the ring.
 const PERIOD := 300
