@@ -7,6 +7,9 @@
 #   powershell -ExecutionPolicy Bypass -File tools/sweep.ps1 -Mode searchruns -Seeds 64 -Ticks 16000
 #
 # -Ticks: run length for search (default 1500 per room) and searchruns (default 16000).
+# -Priority: CPU priority of the copies (default BelowNormal, so the PC stays
+#   usable while the sweep runs: the copies only get what nothing else wants).
+#   Idle is gentler still; Normal is the old behaviour.
 #
 # Modes: search (can anyone survive each room?), searchruns (full runs through
 # the portals), rooms / runs (PlannerBot). Results: <Out>/summary.json plus one
@@ -17,6 +20,8 @@ param(
     [string]$Room = "*",
     [int]$Ticks = 0,
     [int]$Jobs = 0,
+    [ValidateSet("Idle", "BelowNormal", "Normal")]
+    [string]$Priority = "BelowNormal",
     [string]$Out = ""
 )
 
@@ -56,10 +61,12 @@ for ($j = 0; $j -lt $Jobs; $j++) {
     $log = Join-Path $Out "job_$j.log"
     $argList = @("--headless", "--path", "`"$root`"", "-s", "res://tools/playtest.gd", "--",
         $Mode, "`"$json`"", "$count", $filter, "$first", "$Ticks")
-    $procs += Start-Process -FilePath $godot -ArgumentList $argList -WindowStyle Hidden -PassThru `
+    $p = Start-Process -FilePath $godot -ArgumentList $argList -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+    try { $p.PriorityClass = $Priority } catch { }
+    $procs += $p
 }
-Write-Host "Sweep: $Mode, $Seeds seeds, $($procs.Count) jobs -> $Out"
+Write-Host "Sweep: $Mode, $Seeds seeds, $($procs.Count) jobs at $Priority priority -> $Out"
 $procs | Wait-Process
 $secs = [int]((Get-Date) - $start).TotalSeconds
 
