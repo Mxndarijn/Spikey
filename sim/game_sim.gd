@@ -30,8 +30,21 @@ const START_LANE_W := 150 * SimConfig.SUB
 const START_PATH := 32
 ## How high one flap lifts the bird (about 60 px).
 const FIRST_HOP := SimConfig.FLAP_VY * SimConfig.FLAP_VY / (2 * SimConfig.GRAVITY)
+## The arrival path (see arrival_path): its length, and how far off it
+## hazards keep (the bird and the hazard each move a few pixels a step).
+const ARRIVAL_PATH_TICKS := SimConfig.ARRIVAL_BLIND + 60
+const ARRIVAL_PATH_MARGIN := 10 * SimConfig.SUB
+## A hazard on a fixed path times itself so it stays off the arrival path for
+## ARRIVAL_PATH_TICKS; if no timing does, the first that does for this long
+## (the reading time and a bit). The first one, not the best, so the layouts
+## ArrivalCheck tries stay different from each other.
+const ARRIVAL_PATH_MIN := SimConfig.ARRIVAL_BLIND + 15
+## See _keep_hold_band_open: half a second to steer after reading the room.
+const ARRIVAL_WALL_SPARE := 30
 ## Practice starts this far from the left wall.
 const PRACTICE_START_GAP := 40 * SimConfig.SUB
+## As the practice room: a blank sim with no room built yet, for SimCopy to fill.
+const FOR_COPY := -2
 
 var seed_value: int
 var season: int
@@ -56,6 +69,8 @@ func _init(p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1)
 	seed_value = p_seed
 	season = p_season
 	_rng = SimRng.new(p_seed)
+	if p_practice_room == FOR_COPY:
+		return
 	if p_practice_room >= 0 and p_practice_room < RoomCatalog.all().size():
 		practice_room = p_practice_room
 		state.score = RoomCatalog.all()[practice_room].from_score
@@ -74,6 +89,45 @@ func entry_y() -> int:
 	if state.started:
 		return state.y
 	return state.y - FIRST_HOP / 2 * room.def.gravity_sign
+
+
+## Out of a portal: where a player still reading the room flies, as x, y
+## pairs for ARRIVAL_PATH_TICKS steps. It holds the height it came in at,
+## tapping whenever it has sunk under it (as ArrivalCheck plays it), and turns
+## at the far wall.
+func arrival_path() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var g := room.def.gravity_sign
+	var y := state.y
+	# It comes out flying level (_arrive).
+	var vy := 0
+	for k in ARRIVAL_PATH_TICKS:
+		if (y - state.y) * g > 0 and vy * g >= 0:
+			vy = SimConfig.FLAP_VY * g
+		vy = clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
+		y += vy
+		out.append(arrival_x(k + 1))
+		out.append(y)
+	return out
+
+
+## Whether a circle at (cx, cy) comes within ARRIVAL_PATH_MARGIN of the bird
+## on `path` (arrival_path) at room step `k`.
+static func arrival_path_hits(path: PackedInt32Array, k: int, cx: int, cy: int, r: int) -> bool:
+	var dx := cx - path[2 * k]
+	var dy := cy - path[2 * k + 1]
+	var reach := SimConfig.BIRD_RADIUS + r + ARRIVAL_PATH_MARGIN
+	return dx * dx + dy * dy < reach * reach
+
+
+## The bird's x `k` steps after coming out of a portal, flying straight on and
+## turning at the far wall.
+func arrival_x(k: int) -> int:
+	var r := SimConfig.BIRD_RADIUS
+	var lo := room.wall_left() + r
+	var span := room.wall_right() - r - lo
+	var at := posmod(state.x + state.vx * k - lo, 2 * span)
+	return lo + (at if at <= span else 2 * span - at)
 
 
 ## Before the first tap: where the bird goes in its first START_PATH steps
@@ -503,9 +557,16 @@ func _go_through(side: int, kind: int) -> void:
 		for i in SimConfig.WILD_COINS:
 			collect_coin(state.x, state.y)
 	state.room_index += 1
+	# Far enough from the ceiling and floor to hop while reading the room (the
+	# bird jumps walls here anyway, so the view shows no slide).
+	state.y = clampi(
+		state.y,
+		SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE,
+		SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE
+	)
 	var next := practice_room
 	if not is_practice():
-		next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route)
+		next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route, state.y)
 	# Lay the room out so a player who needs a moment to look can live: the
 	# check plays it on copies, and each retry skips one RNG draw.
 	for i in _arrival_retries(side, next):
@@ -571,6 +632,38 @@ func _arrive(side: int, event: Event) -> void:
 	state.right_spikes = 0
 	events.append(event)
 	_new_wall(side)
+	if event == Event.ROOM_CHANGE:
+		_keep_hold_band_open(side)
+
+
+## Out of a portal, if the bird gets to the wall ahead within the reading
+## time and ARRIVAL_WALL_SPARE ticks more (a fast or narrow room), that wall
+## has no spikes where a player holding height hops: one hop over its height,
+## the bird under it.
+func _keep_hold_band_open(side: int) -> void:
+	var steps := steps_to_wall(side)
+	var ticks := 0
+	var done := 0
+	while done < steps:
+		done += room.steps_at(ticks)
+		ticks += 1
+	if ticks > SimConfig.ARRIVAL_BLIND + ARRIVAL_WALL_SPARE:
+		return
+	var g := room.def.gravity_sign
+	var edge := SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB
+	var up := state.y - (FIRST_HOP + edge) * g
+	var down := state.y + edge * g
+	var top := mini(up, down)
+	var bottom := maxi(up, down)
+	var mask := state.right_spikes if side == 1 else state.left_spikes
+	for slot in SimConfig.SLOT_COUNT:
+		var cy := SimConfig.slot_center_y(slot)
+		if cy + SimConfig.SPIKE_HALF_BASE > top and cy - SimConfig.SPIKE_HALF_BASE < bottom:
+			mask &= ~(1 << slot)
+	if side == 1:
+		state.right_spikes = mask
+	else:
+		state.left_spikes = mask
 
 
 ## Spikes for the wall the bird is now heading to, then the room's per-bounce

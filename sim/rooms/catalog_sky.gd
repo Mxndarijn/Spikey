@@ -23,6 +23,8 @@ static func defs() -> Array[RoomDef]:
 
 	# Bubble Lift: rising bubbles carry the bird until a tap pops them.
 	var bubbles := RoomDef.new("bubbles", "mid", 50)
+	# A bubble can carry the bird up into the ceiling.
+	bubbles.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	for lane in 3:
 		bubbles.hazards.append(_bubble.bind(lane))
 	out.append(bubbles)

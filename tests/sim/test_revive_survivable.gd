@@ -6,11 +6,14 @@ extends TestCase
 ## Ticks after the revive each case must be survivable for.
 const TICKS := SimConfig.ARRIVAL_HOLD + 180
 const CASES: Array[String] = ["none", "open", "ghost"]
+const PARALLEL := true
+## The rooms are shared out over this many parts, which can run side by side.
+const PARTS := 8
 
 
-func test_every_room_is_survivable_after_a_revive() -> void:
+func test_every_room_is_survivable_after_a_revive(part: int, parts: int) -> void:
 	var rooms := RoomCatalog.all()
-	for index in rooms.size():
+	for index in range(part, rooms.size(), parts):
 		# The search is slow, so each room gets one exit case and one wall here;
 		# across the rooms every case and both walls come up. (All rooms x all
 		# cases passed when revive was added: loop over CASES to run that again.)

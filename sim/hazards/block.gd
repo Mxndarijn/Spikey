@@ -16,7 +16,7 @@ const MIN_GAP := 95 * SimConfig.SUB
 ## overlapping: the slot between their ends is too short to change height in.
 const PINCH_X := 48 * SimConfig.SUB
 ## The arrival lane, kept clear in front of a bird that comes out of a wall
-## (portal or revive): this far into the room (about 0.75 s of flight, so a
+## (portal or revive): this far into the room (about 50 steps of flight, so a
 ## player still reading the room flies through), and from ARRIVAL_UP above
 ## the bird (one hop) to ARRIVAL_DOWN below it.
 const ARRIVAL_W := 200 * SimConfig.SUB
@@ -107,41 +107,43 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 
 
 ## Out of a portal (Ghost Doors): shifts every fading box's cycle by the same
-## amount (the pattern stays the same) so the boxes in the bird's way are
-## faded while it passes them, holding its height (hopping up to ARRIVAL_UP
-## above it): the shift with the fewest solid ticks in its way, the first
-## such. Boxes are set up one by one, so each redoes it from the boxes' own
-## phases (base_phase) for all set up so far; the last one decides. No RNG.
+## amount (the pattern stays the same) so the boxes are faded whenever a player
+## holding height (GameSim.arrival_path) would touch them: the first shift with
+## no solid touch, else the one with the fewest, counting touches in the first
+## GameSim.ARRIVAL_PATH_MIN steps far above later ones. Boxes are set up one by
+## one, so each redoes it from the boxes' own phases (base_phase) for all set
+## up so far; the last one decides. No RNG.
 func _time_faders_for_arrival(sim: GameSim) -> void:
-	var st := sim.state
-	var g := sim.room.def.gravity_sign
-	var r := SimConfig.BIRD_RADIUS
-	var up := st.y - ARRIVAL_UP * g
-	var down := st.y + (r + 4 * SimConfig.SUB) * g
-	var top := mini(up, down)
-	var bottom := maxi(up, down)
-	var in_way: Array[Hazard] = []
+	var path := sim.arrival_path()
+	var margin := 4 * SimConfig.SUB
+	var reach := SimConfig.BIRD_RADIUS + margin
 	var all: Array[Hazard] = []
+	# Per box, the path steps at which the bird would touch it.
+	var touches: Array[PackedInt32Array] = []
 	for h in sim.room.hazards:
-		if h.kind == kind and h.fade_period > 0:
-			h.phase = h.base_phase
-			all.append(h)
-			if h.y1 > top and h.y0 < bottom:
-				in_way.append(h)
-	if in_way.is_empty():
-		return
+		if h.kind != kind or h.fade_period <= 0:
+			continue
+		h.phase = h.base_phase
+		all.append(h)
+		var at := PackedInt32Array()
+		for k in GameSim.ARRIVAL_PATH_TICKS:
+			var px := path[2 * k]
+			var py := path[2 * k + 1]
+			var nx := clampi(px, h.x0, h.x1)
+			var ny := clampi(py, h.y0, h.y1)
+			if (px - nx) * (px - nx) + (py - ny) * (py - ny) < reach * reach:
+				at.append(k)
+		touches.append(at)
 	var best := 0
 	var best_hits := -1
 	for shift in fade_period:
 		var hits := 0
-		for b in in_way:
-			var near: int = b.x0 - r if st.vx > 0 else b.x1 + r
-			var far: int = b.x1 + r if st.vx > 0 else b.x0 - r
-			var from := absi(near - st.x) / SimConfig.SPEED_X
-			var to := absi(far - st.x) / SimConfig.SPEED_X + 1
-			for k in range(from, to + 1):
-				if posmod(k + b.phase + shift, b.fade_period) < b.solid_ticks:
-					hits += 1
+		for i in all.size():
+			var b: Hazard = all[i]
+			for k in touches[i]:
+				# Path step k is room step k + 1.
+				if posmod(k + 1 + b.phase + shift, b.fade_period) < b.solid_ticks:
+					hits += 1000 if k < GameSim.ARRIVAL_PATH_MIN else 1
 		if best_hits < 0 or hits < best_hits:
 			best_hits = hits
 			best = shift

@@ -2,6 +2,9 @@ extends TestCase
 ## Many simulated runs on random seeds: catches crashes, broken invariants and
 ## rooms that are too hard for a simple bot to get through.
 
+## Each test can run in a worker of its own (tests/run_tests.gd).
+const PARALLEL := true
+
 const RANDOM_RUNS := 150
 const SEEKER_RUNS := 40
 

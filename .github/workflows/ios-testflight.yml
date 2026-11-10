@@ -5,11 +5,12 @@ name: iOS TestFlight
 # "Run workflow".
 #
 # Split across jobs to keep macOS time short:
-#   * check (Linux) runs the test suite.
+#   * check (Linux) runs the test suite, while
 #   * export (Linux) runs Godot's iOS export with "Export Project Only", which writes a ready
 #     Xcode project (Godot does this on any OS), and uploads it as an artifact.
 #   * testflight (macOS) only does what needs a Mac: signing, xcodebuild and the upload, via
-#     fastlane (see .github/ios/fastlane/Fastfile).
+#     fastlane (see .github/ios/fastlane/Fastfile). It waits for both, so a failing check
+#     never reaches TestFlight (or spends macOS minutes).
 on:
   workflow_dispatch:
     inputs:
@@ -34,8 +35,6 @@ jobs:
 
   export:
     name: Export Xcode project
-    needs: check
-    if: always() && (needs.check.result == 'success' || needs.check.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -182,8 +181,10 @@ jobs:
 
   testflight:
     name: Build & upload to TestFlight
-    needs: export
-    if: always() && needs.export.result == 'success'
+    needs: [check, export]
+    if: >-
+      always() && needs.export.result == 'success'
+      && (needs.check.result == 'success' || needs.check.result == 'skipped')
     # macOS is required to build iOS. Apple requires the iOS 26 SDK (Xcode 26) for App Store
     # Connect uploads since 2026-04-28; bump the image if latest-stable resolves lower.
     runs-on: macos-15

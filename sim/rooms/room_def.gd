@@ -7,11 +7,21 @@ extends RefCounted
 enum WallMode { STATIC, TIDE, BLINK }
 enum Speed { NORMAL, FAST, SLOW }
 
+## Heights out of a portal for rooms with something deadly near the ceiling
+## all the time (arrival_skip): a hop from 170 px peaks about 110 px down,
+## clear of it.
+const CEILING_ARRIVAL := 170 * SimConfig.SUB
+
 var id := ""
 ## starter, mid, late, bonus, seasonal (for the picker's odds and the views).
 var group := "starter"
 ## Lowest score at which the room can be picked.
 var from_score := 0
+## Out of a portal the room isn't picked when the bird comes in at a height
+## in one of these ranges (sub-units, from and to in pairs): a player holding
+## height there for SimConfig.ARRIVAL_BLIND ticks (it hops about 60 px up)
+## runs into the hazards however they are timed. Empty = any height.
+var arrival_skip := PackedInt32Array()
 ## Relative pick chance among the rooms allowed at a score.
 var weight := 10
 ## Season the room belongs to (Seasons.*), or Seasons.NONE for all year.
@@ -60,3 +70,11 @@ func _init(p_id: String, p_group: String, p_from: int) -> void:
 func with(p_hazards: Array[Callable]) -> RoomDef:
 	hazards = p_hazards
 	return self
+
+
+## Whether the room can be picked for a bird coming out of a portal at `y`.
+func fits_arrival(y: int) -> bool:
+	for i in range(0, arrival_skip.size(), 2):
+		if y >= arrival_skip[i] and y < arrival_skip[i + 1]:
+			return false
+	return true

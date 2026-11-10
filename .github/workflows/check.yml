@@ -2,8 +2,9 @@ name: Check
 
 # The Linux version of tools/check.ps1: lint + format, headless import, load every script
 # and scene, then the full test suite (unit, sim purity, golden replays, bot runs).
-# Runs on its own for pushes and pull requests, and as the first job of the Android and iOS
-# workflows so a broken build never ships.
+# Runs on its own for pushes and pull requests, and next to the builds in the Android and
+# iOS workflows: they build while this runs, and nothing is released, uploaded to
+# TestFlight or announced unless it passes.
 on:
   push:
     branches: [main]
@@ -54,4 +55,5 @@ jobs:
         run: godot --headless --path . -s res://tools/ci/load_all.gd
 
       - name: Tests
-        run: godot --headless --path . -s res://tests/run_tests.gd
+        # Side by side, one headless Godot per core (tests/run_tests.gd).
+        run: godot --headless --path . -s res://tests/run_tests.gd -- --jobs "$(nproc)"

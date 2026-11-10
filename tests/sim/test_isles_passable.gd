@@ -4,6 +4,9 @@ extends TestCase
 ## the next room, and after a revive. SurvivalSearch plays each case; the
 ## layout rules it relies on are checked on many more seeds without it.
 
+## Each test can run in a worker of its own (tests/run_tests.gd).
+const PARALLEL := true
+
 const Block := preload("res://sim/hazards/block.gd")
 
 ## Practice seeds. 1 and 322 used to be impossible off the start (an island in

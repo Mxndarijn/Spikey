@@ -48,6 +48,8 @@ static func defs() -> Array[RoomDef]:
 	out.append(icicles)
 
 	var gifts := _room("gifts", Seasons.WINTER, 60, "gift")
+	# Gifts drop from the ceiling.
+	gifts.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	gifts.hazards.append(func() -> Hazard: return CrateDrop.new(true))
 	out.append(gifts)
 
@@ -72,6 +74,8 @@ static func defs() -> Array[RoomDef]:
 
 	var bees := _room("bees", Seasons.SPRING, 30, "bee")
 	bees.hazards.append(func() -> Hazard: return Mover.new("wave", 4))
+	# Held there, the bird crosses the middle of the bee wave.
+	bees.arrival_skip = PackedInt32Array([295 * SUB, 405 * SUB])
 	out.append(bees)
 
 	# Summer
@@ -82,6 +86,8 @@ static func defs() -> Array[RoomDef]:
 	out.append(beach)
 
 	var crabs := _room("crabs", Seasons.SUMMER, 30, "crab")
+	# A crab walks the ceiling.
+	crabs.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	crabs.hazards.append(func() -> Hazard: return Crawler.new(0))
 	crabs.hazards.append(func() -> Hazard: return Crawler.new(1))
 	out.append(crabs)

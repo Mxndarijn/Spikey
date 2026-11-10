@@ -1,23 +1,72 @@
 class_name SimCopy
 extends RefCounted
 ## Deep copies a GameSim (state, room, hazards, RNGs), so the sim can try a
-## room arrival on a copy (ArrivalCheck) without touching the real run.
+## room arrival on a copy (ArrivalCheck) without touching the real run, and
+## planners and searches in tests can try many futures.
 ## RoomDefs and Callables are shared (they never change during a run).
+##
+## It runs thousands of times per second, so it is quick: the copy starts from
+## a blank GameSim (no room built only to be thrown away), and each class's
+## fields are listed once, then copied straight. Every script variable is
+## copied, so a field added later is copied too (tests/unit/test_sim_copy.gd).
+
+## How a field is copied.
+enum Mode { VALUE, SHALLOW, DEEP }
+
+## Script instance id -> its fields, [name, Mode] pairs, worked out on first
+## use. (Keyed by id, so the cache doesn't keep scripts alive at exit.)
+static var _plans := {}
 
 
 static func copy(sim: GameSim) -> GameSim:
-	var out := GameSim.new(sim.seed_value, sim.season, sim.practice_room)
+	var out := GameSim.new(sim.seed_value, sim.season, GameSim.FOR_COPY)
 	var memo := {sim.get_instance_id(): out}
 	_copy_fields(sim, out, memo)
 	return out
 
 
 static func _copy_fields(src: Object, dst: Object, memo: Dictionary) -> void:
-	for p in src.get_property_list():
+	for field: Array in _plan(src.get_script()):
+		var name: StringName = field[0]
+		match field[1]:
+			Mode.VALUE:
+				dst.set(name, src.get(name))
+			Mode.SHALLOW:
+				dst.set(name, src.get(name).duplicate())
+			_:
+				dst.set(name, _copy_value(src.get(name), memo))
+
+
+## The fields of a script and how each is copied.
+static func _plan(script: Script) -> Array:
+	var id := script.get_instance_id()
+	if _plans.has(id):
+		return _plans[id]
+	var plan := []
+	for p in script.get_script_property_list():
 		if not (p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue
-		var name: String = p.name
-		dst.set(name, _copy_value(src.get(name), memo))
+		plan.append([StringName(p.name), _mode(p)])
+	_plans[id] = plan
+	return plan
+
+
+static func _mode(p: Dictionary) -> Mode:
+	match p.type:
+		TYPE_OBJECT, TYPE_DICTIONARY:
+			return Mode.DEEP
+		TYPE_ARRAY:
+			# A typed array of plain values only needs its own copy.
+			var plain := ["int", "bool", "String", "StringName"]
+			if p.hint == PROPERTY_HINT_ARRAY_TYPE and p.hint_string in plain:
+				return Mode.SHALLOW
+			return Mode.DEEP
+		TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_BYTE_ARRAY:
+			return Mode.SHALLOW
+		TYPE_NIL:
+			# Untyped: whatever it holds.
+			return Mode.DEEP
+	return Mode.VALUE
 
 
 static func _copy_value(v: Variant, memo: Dictionary) -> Variant:

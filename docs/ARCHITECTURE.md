@@ -88,19 +88,30 @@ same way (gameplay version 6), at full speed with no wait. Instead the room is
 laid out for a player who is still reading it (gameplay version 18; it replaced
 a frozen wait and then a slow-motion entrance): `ArrivalCheck` plays the
 arrival on copies of the sim (`SimCopy`), the bird only holding its height for
-`SimConfig.ARRIVAL_BLIND` ticks (0.75 s) and then a few simple players trying
+`SimConfig.ARRIVAL_BLIND` ticks (1 s, gameplay version 19) and then a few simple players trying
 to live `ARRIVAL_FOLLOW` ticks more. If fewer than two do, the layout is drawn again, up to
 `ARRIVAL_TRIES` times (each retry skips one RNG draw, so the seed still decides
 everything and replays match). Rooms also keep the way out of a portal fair: Floating Isles
-keeps the lane in front of it clear (200 px, about 0.75 s of flight), Pinwheel
+keeps the lane in front of it clear (200 px), Pinwheel
 and Saw Ring move off the bird's height, Ghost Doors time their fade for it,
-Bee Line keeps its bees off its way, Shutter Gates has its gap at the bird's
-height when it gets there. `tools/arrival_test.gd` and `tools/arrival_room.gd`
+Bee Line, Bat Loop, Lantern Swing and Ghost Doors time themselves to the path
+of a player holding height (`GameSim.arrival_path`), Shutter Gates has its gap
+at the bird's height when it gets there, and a wall the bird reaches while
+still reading (fast or narrow rooms) keeps that player's hops free of spikes.
+The bird comes out at least `SimConfig.ARRIVAL_EDGE` from the ceiling and
+floor lines, so holding height never hops into them. Where no timing can
+work, the room isn't picked out of a portal at that height
+(`RoomDef.arrival_skip`): rooms with a hazard near the ceiling skip high
+arrivals, Bee Line and Lantern Swing skip the middle heights their hazards
+sweep. `tools/arrival_test.gd` and `tools/arrival_room.gd`
 measure how often a player who reacts late dies right after a portal.
-The reaction benchmark: in every room a 0.75 s reaction may cost at most 5% of
-portal arrivals over an instant one (`ArrivalBench`, checked by
-`tests/sim/test_arrival_reaction.gd`; the full 60-arrival version is
-`tools/arrival_bench.gd`, run it after changing a room). Every 50 points a
+The reaction benchmark: a player who needs 0.75 s is never killed by a
+portal (every death there still had a way to live: `SurvivalSearch` finds
+one), and a 1 s reaction may cost at most 2% of portal arrivals over an
+instant one (`ArrivalBench`, checked by
+`tests/sim/test_arrival_reaction.gd`; run the full version on FastSim after
+changing a room: `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
+survival by reaction time in real runs). Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
 mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
 picked by the seed
@@ -243,6 +254,13 @@ input) and replayed by the server. The design draft is in [REVIVE.md](REVIVE.md)
    unit tests, sim purity scan, golden replays, and bot simulations (random
    tapper for crashes and invariants, plus a heuristic bot that must clear
    several rooms, as a first solvability check).
+   The check runs them side by side in headless worker processes
+   (`--jobs N`, one per core): each worker claims the next piece of work, a
+   whole test file by default, so tests sharing a save file stay together.
+   Bot test files mark `const PARALLEL := true` (each method a piece), and the
+   slowest methods take `(part, parts)` with `const PARTS := n`, each part
+   doing its share of the rooms or seeds; a `combine_` function then checks
+   totals over all parts. Pieces start longest first, from the last run's times.
 
 Planned later: a search-based solvability check per generated room and
 screenshot comparisons of key screens. Both need rendering, so they run outside

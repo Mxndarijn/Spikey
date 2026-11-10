@@ -2,6 +2,9 @@ extends TestCase
 ## Caterpillar Crawl (and Summer Crab Walk, the same hazard): a crawler on a
 ## wall side must never stand in front of the only bounce spot or the exit.
 
+## Each test can run in a worker of its own (tests/run_tests.gd).
+const PARALLEL := true
+
 const SUB := SimConfig.SUB
 const Crawler := preload("res://sim/hazards/crawler.gd")
 const ROOMS: Array[String] = ["crawl", "crabs"]
@@ -12,6 +15,8 @@ const ROOMS: Array[String] = ["crawl", "crabs"]
 ## free wall slot (64) as the bird flew in.
 const SEARCH_TICKS := 1000
 const SEARCH_CASES := [["crawl", 22], ["crawl", 64], ["crabs", 89]]
+## One search case per part, so they can run side by side.
+const PARTS := 3
 
 ## The sweep: practice seeds per room, and ticks each (two to three portals).
 const SWEEP_SEEDS := 60
@@ -34,8 +39,9 @@ class Harmless:
 		return false
 
 
-func test_search_gets_past_the_first_portal() -> void:
-	for c: Array in SEARCH_CASES:
+func test_search_gets_past_the_first_portal(part: int, parts: int) -> void:
+	for i in range(part, SEARCH_CASES.size(), parts):
+		var c: Array = SEARCH_CASES[i]
 		var index := RoomCatalog.index_of(c[0])
 		var def: RoomDef = RoomCatalog.all()[index]
 		var sim := GameSim.new(c[1], def.season, index)

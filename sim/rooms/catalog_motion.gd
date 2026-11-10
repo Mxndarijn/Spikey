@@ -30,12 +30,17 @@ static func defs() -> Array[RoomDef]:
 	# second a moment behind the first, like one moving tunnel.
 	var gates := RoomDef.new("gates", "starter", 20)
 	gates.max_spikes = 6
+	# Near the top and bottom the gaps are at the end of their range and turn
+	# away before a slow player gets through both gates.
+	gates.arrival_skip = PackedInt32Array([0, 178 * SUB, 502 * SUB, SimConfig.WORLD_H])
 	gates.hazards.append(_gate.bind(130 * SUB, 760, false))
 	gates.hazards.append(_gate.bind(230 * SUB, 760, true))
 	out.append(gates)
 
 	# Caterpillar Crawl: two crawlers walk round the inside of the cage.
 	var crawl := RoomDef.new("crawl", "starter", 30)
+	# A crawler walks the ceiling.
+	crawl.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	crawl.hazards.append(_crawler.bind(0))
 	crawl.hazards.append(_crawler.bind(1))
 	out.append(crawl)
@@ -43,6 +48,8 @@ static func defs() -> Array[RoomDef]:
 	# Lantern Swing: a lantern on a chain swings through the middle.
 	var swing := RoomDef.new("swing", "mid", 30)
 	swing.hazards.append(func() -> Hazard: return Pendulum.new())
+	# Held there, the bird meets the lantern at the bottom of its swing.
+	swing.arrival_skip = PackedInt32Array([318 * SUB, 368 * SUB])
 	out.append(swing)
 
 	# Stalker Rail: a spike pair on the far wall slides toward the bird's height.

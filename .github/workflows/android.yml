@@ -35,24 +35,21 @@ jobs:
     name: Check
     uses: ./.github/workflows/check.yml
 
+  # Builds while the check runs. Its APK and AAB are workflow artifacts; nothing goes out
+  # (release, Discord) until the publish job, which waits for the check to pass.
   build:
     name: Build APK / AAB
-    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # contents: write lets GITHUB_TOKEN create the GitHub Release that hosts the APK.
-    permissions:
-      contents: write
+    outputs:
+      build: ${{ steps.version.outputs.build }}
+      version: ${{ steps.version.outputs.version }}
 
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       WANT_AAB: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.aab == true }}
-      # Tags always publish and announce; a manual run can switch either off.
-      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != false }}
-      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.release != false && inputs.announce != false) }}
 
     steps:
       - name: Checkout repository
@@ -231,6 +228,37 @@ jobs:
           path: build/android/Flapjaw.aab
           if-no-files-found: error
 
+      - name: Clean up signing assets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/debug.keystore"
+
+  publish:
+    name: Release and announce
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # contents: write lets GITHUB_TOKEN create the GitHub Release that hosts the APK.
+    permissions:
+      contents: write
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      # Tags always publish and announce; a manual run can switch either off.
+      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != false }}
+      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.release != false && inputs.announce != false) }}
+
+    steps:
+      - name: Checkout repository
+        # For the commit message and the Discord action.
+        uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: flapjaw-${{ needs.build.outputs.version }}-${{ needs.build.outputs.build }}-apk
+          path: build/android
+
       - name: Read the commit message
         id: commit
         run: |
@@ -246,8 +274,8 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          BUILD: ${{ steps.version.outputs.build }}
+          VERSION: ${{ needs.build.outputs.version }}
+          BUILD: ${{ needs.build.outputs.build }}
           SUBJECT: ${{ steps.commit.outputs.subject }}
           SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release key' || 'debug key, uninstall the previous build first' }}
         run: |
@@ -284,7 +312,7 @@ jobs:
           max_file_mb: ${{ vars.DISCORD_MAX_UPLOAD_MB || '10' }}
           # Android green.
           color: '3066993'
-          title: '🤖 Flapjaw ${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }}) for Android'
+          title: '🤖 Flapjaw ${{ needs.build.outputs.version }} (${{ needs.build.outputs.build }}) for Android'
           url: ${{ steps.release.outputs.page_url }}
           description: |
             **[⬇️ Download APK](${{ steps.release.outputs.apk_url }})**, tap on your phone to install
@@ -295,7 +323,3 @@ jobs:
             Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
             Signing|${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'Release key' || 'Debug key, uninstall the old build first' }}
             Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-
-      - name: Clean up signing assets
-        if: always()
-        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/debug.keystore"

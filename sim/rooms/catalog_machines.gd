@@ -44,6 +44,8 @@ static func defs() -> Array[RoomDef]:
 	# Stalactite Run: two rock columns with a gap; the gaps move on every bounce.
 	var stalac := RoomDef.new("stalac", "mid", 30)
 	stalac.max_spikes = 4
+	# The gap can't come up far enough for a hop near the top.
+	stalac.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	stalac.hazards.append(_stalactite.bind(130 * SUB, false))
 	stalac.hazards.append(_stalactite.bind(230 * SUB, true))
 	out.append(stalac)
