@@ -47,7 +47,8 @@ func test_cards_show_what_is_in_use() -> void:
 		assert_eq(look.card(k).name_text(), want[k], "%s card names the item in use" % k)
 	assert_eq(look.card(Catalog.TRAIL).count_line(), "2 of 20", "the default trail and Hearts")
 	assert_eq(look.card(Catalog.CRASH).count_line(), "2 of 10")
-	assert_eq(look.card(Catalog.FLYER).count_line(), "1 of 12")
+	# Counted from the catalog: new flyers must not break this test.
+	assert_eq(look.card(Catalog.FLYER).count_line(), "1 of %d" % Catalog.ids(Catalog.FLYER).size())
 	assert_true(look.card(Catalog.PLATE).wide, "the name plate is the wide card")
 	assert_false(look.card(Catalog.CRASH).wide)
 	assert_eq(look.card(Catalog.TRAIL).tooltip_text, "Change trail")
@@ -75,7 +76,7 @@ func test_count_text_counts_only_real_items() -> void:
 	assert_eq(LookCard.count_text(Catalog.CRASH, p), "1 of 10", "the free default")
 	p.grant(Catalog.CRASH, "not_an_effect")
 	assert_eq(LookCard.count_text(Catalog.CRASH, p), "1 of 10", "unknown ids don't count")
-	assert_eq(LookCard.count_text(Catalog.FLYER, p), "0 of 12")
+	assert_eq(LookCard.count_text(Catalog.FLYER, p), "0 of %d" % Catalog.ids(Catalog.FLYER).size())
 	assert_eq(LookCard.label_for(Catalog.PLATE), "Name plate")
 
 

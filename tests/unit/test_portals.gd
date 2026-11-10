@@ -5,6 +5,7 @@ extends TestCase
 ## opens, it shows as a ghost on the wall and at the height it will open at.
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
+const Gate := preload("res://sim/hazards/gate.gd")
 
 
 ## A run already at `score`, heading right, about to bounce off the left wall.
@@ -144,7 +145,8 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 			if absi(h.x - g.state.x) < absi(near.x - g.state.x):
 				near = h
 		var steps := absi(near.x - g.state.x) / SimConfig.SPEED_X
-		var want := clampi(y - 30 * SimConfig.SUB, 150 * SimConfig.SUB, 490 * SimConfig.SUB)
+		# The gate's own range and hover: the room rework moved them (a taller gap).
+		var want := clampi(y - Gate.ARRIVAL_HOVER, Gate.GAP_MIN_Y, Gate.GAP_MAX_Y)
 		assert_true(absi(near.gap_at(steps) - want) <= 2 * SimConfig.SUB, "gate gap at the bird")
 	assert_eq(lane_ok, 40, "isles lane clear in every arrival")
 
