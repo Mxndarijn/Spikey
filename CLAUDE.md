@@ -9,6 +9,10 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   `powershell -ExecutionPolicy Bypass -File tools/check.ps1`
   (filter tests: `-TestFilter replay`). Fix failures and rerun; never skip a check.
 - The user playtests at each milestone. Keep changes small and testable.
+- Every feature or fix gets its own git worktree and branch, made from `main`
+  (`git worktree add ../SpikeCage-<name> -b <name> main`). Never work in the
+  main checkout: other sessions share it. Copy `tools/godot_path.txt` into the
+  new worktree. Merge into `main` only when the check passes there.
 - Godot path: `$env:GODOT` or `tools/godot_path.txt` (untracked, local machine).
 - Never pop up a game window on the user's PC. Every Godot run is `--headless`
   (check script, tests, tools). On Windows, rendering always shows a window,
