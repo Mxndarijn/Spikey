@@ -103,7 +103,7 @@ const ROOMS := {
 	"stalker":
 	["Stalker Rail", "A pair of spikes rides the wall rail to meet you.", 3, "star", "extra"],
 	"pinwheel":
-	["Pinwheel", "A four-blade star spins in the middle of the cage.", 3, "sunset", "ball"],
+	["Pinwheel", "Spinning blades in the cage, six different ways.", 3, "sunset", "ball"],
 	"sawring": ["Saw Ring", "Three saws orbit the middle of the cage.", 4, "ice", "ball"],
 	"updraft":
 	["Updraft", "A column of warm air lifts you through the middle.", 3, "desert", "cloud"],
