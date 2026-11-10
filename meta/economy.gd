@@ -6,8 +6,6 @@ extends RefCounted
 ##   a pack (DiamondPacks). They turn into gold, never the other way: gold can
 ##   be farmed, so a way back would drain what a top-10 finish is worth.
 
-enum Result { OK, NOT_ENOUGH_DIAMONDS, BAD_AMOUNT }
-
 const GOLD := "gold"
 const DIAMOND := "diamond"
 ## The one anchor every price follows from: 1 diamond = 100 gold.
@@ -33,14 +31,3 @@ static func diamonds_to_cover(gold_short: int) -> int:
 		return 0
 	@warning_ignore("integer_division")
 	return (gold_short + GOLD_PER_DIAMOND - 1) / GOLD_PER_DIAMOND
-
-
-## Turns diamonds into gold. One way.
-static func convert(profile: Profile, diamonds: int) -> Result:
-	if diamonds <= 0:
-		return Result.BAD_AMOUNT
-	if profile.diamonds < diamonds:
-		return Result.NOT_ENOUGH_DIAMONDS
-	profile.diamonds -= diamonds
-	profile.coins += gold_for(diamonds)
-	return Result.OK

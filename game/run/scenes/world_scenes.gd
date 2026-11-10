@@ -22,41 +22,40 @@ const MIDNIGHT_TINT := Color("#182447")
 const MIDNIGHT_MAX := 0.35
 const MIDNIGHT_SKY_MAX := 0.5
 const MIDNIGHT_MIN_CONTRAST := 3.05
-const GENERIC := preload("res://game/run/scenes/worlds/generic.gd")
-const PAINTERS := {
-	"sunset": preload("res://game/run/scenes/worlds/sunset.gd"),
-	"jungle": preload("res://game/run/scenes/worlds/jungle.gd"),
-	"ice": preload("res://game/run/scenes/worlds/ice.gd"),
-	"lava": preload("res://game/run/scenes/worlds/lava.gd"),
-	"deepsea": preload("res://game/run/scenes/worlds/deepsea.gd"),
-	"sugar": preload("res://game/run/scenes/worlds/sugar.gd"),
-	"star": preload("res://game/run/scenes/worlds/star.gd"),
-	"autumn": preload("res://game/run/scenes/worlds/autumn.gd"),
-	"desert": preload("res://game/run/scenes/worlds/desert.gd"),
-	"blossom": preload("res://game/run/scenes/worlds/blossom.gd"),
-	"neon": preload("res://game/run/scenes/worlds/neon.gd"),
-	"haunted": preload("res://game/run/scenes/worlds/haunted.gd"),
-	"winterfest": preload("res://game/run/scenes/worlds/winterfest.gd"),
-	"meadow": preload("res://game/run/scenes/worlds/meadow.gd"),
-	"cove": preload("res://game/run/scenes/worlds/cove.gd"),
-	"clouds": preload("res://game/run/scenes/worlds/clouds.gd"),
-	"glade": preload("res://game/run/scenes/worlds/glade.gd"),
-	"aurora": preload("res://game/run/scenes/worlds/aurora.gd"),
-	"lantern": preload("res://game/run/scenes/worlds/lantern.gd"),
-}
+## Each world's scene: game/run/scenes/worlds/<id>.gd, else generic.gd.
+const SCENE_DIR := "res://game/run/scenes/worlds"
+const GENERIC := "generic"
 
 static var _midnight := {}
+static var _scenes: Dictionary[String, WorldScene] = {}
 
 
+static func scene_path(world_id: String) -> String:
+	return SCENE_DIR.path_join(world_id + ".gd")
+
+
+## Whether the world has its own scene (else it gets the generic one).
 static func has_scene(world_id: String) -> bool:
-	return PAINTERS.has(world_id)
+	return world_id != GENERIC and ResourceLoader.exists(scene_path(world_id))
+
+
+## The world's look beyond its colours: landscape, motes, portal touch.
+static func scene(world_id: String) -> WorldScene:
+	var id := world_id if has_scene(world_id) else GENERIC
+	if not _scenes.has(id):
+		_scenes[id] = (load(scene_path(id)) as GDScript).new() as WorldScene
+	return _scenes[id]
+
+
+static func release() -> void:
+	_scenes.clear()
+	_midnight.clear()
 
 
 ## The sky (from the pen's current sky stops), then the world's scene.
 static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	pen.paint_sky()
-	var painter: GDScript = PAINTERS.get(t.id, GENERIC)
-	painter.paint(pen, t)
+	scene(t.id).paint(pen, t)
 
 
 static func in_spike_zone(rect: Rect2) -> bool:

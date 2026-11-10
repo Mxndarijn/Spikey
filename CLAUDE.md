@@ -22,6 +22,8 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   data. `tests/unit/test_sim_purity.gd` enforces this.
 - Gameplay rules live only in `sim/`. `game/` reads sim state and events and
   never changes them.
+- Layers only point back: `sim/` -> `meta/` -> `services/` -> `game/`
+  (`tests/unit/test_layers.gd`). `meta/` holds ids and money rules, never looks.
 - Any change to movement, collision, generation or RNG draw order: bump
   `SimConfig.GAMEPLAY_VERSION`, then regenerate goldens with
   `godot --headless --path . -s res://tools/make_golden.gd`. Never regenerate
@@ -36,7 +38,7 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   pay-to-win.
 - Visual design follows the Flapjaw Design Kit
   (https://claude.ai/artifact/2nzQWN24GGt8WCpsoJFGd8, read its `project/README.md`
-  and `project/tokens.json`): fonts Baloo 2 + Nunito, its color, spacing, radius
+  and `project/tokens.json`): the font Archivo, its color, spacing, radius
   and size tokens. World tokens change with the theme picker; UI tokens never do.
   Every theme (free, paid or seasonal) must provide all world tokens and keep
   `spike` at 3:1 or more against every sky stop.

@@ -6,7 +6,7 @@ const TEST_PATH := "user://test_spot_alert_profile.json"
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -102,7 +102,7 @@ func test_home_tells_a_lost_spot_once() -> void:
 	main.show_home()
 	assert_eq((main._menus.current() as HomeScreen).notice_text(), "", "told once")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_a_loss_during_a_run_waits_for_home() -> void:
@@ -117,7 +117,7 @@ func test_a_loss_during_a_run_waits_for_home() -> void:
 		"You're off the podium. 4th now: 1 diamond instead of 2."
 	)
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_a_new_day_and_an_offline_board_tell_nothing() -> void:
@@ -132,7 +132,7 @@ func test_a_new_day_and_an_offline_board_tell_nothing() -> void:
 	main._on_board_loaded(offline)
 	assert_eq(main._profile.daily_spot_rank, 8, "offline changes nothing")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_daily_rows_show_their_prize() -> void:
@@ -161,7 +161,7 @@ func test_your_look_shows_the_wallet_and_opens_the_shop() -> void:
 	shop.closed.emit()
 	assert_true(main._menus.current() is LookScreen, "back returns to Your look")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_popup_names_milestones_and_streaks() -> void:

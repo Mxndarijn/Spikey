@@ -1,21 +1,26 @@
-extends RefCounted
+extends HazardPainter
 ## Mover (Bat Loop "bat", Bee Line "bee"): small deadly creatures in the spike
 ## colour, facing the way they fly. Without a skin: small spiked balls.
 
+const MoverHazard := preload("res://sim/hazards/mover.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as MoverHazard
+	var theme := look.theme
+	var time := look.time
 	var r := HazardLayer.px(h.RADIUS)
 	for i in h.xs.size():
 		var p := HazardLayer.at(h.xs[i], h.ys[i])
 		var face: float = h.facing[i]
 		var flap := sin(time * 18.0 + i * 1.9)
-		match h.skin:
+		match look.skin:
 			"bat":
 				_bat(c, p, r, face, flap, theme)
 			"bee":
 				_bee(c, p, r, face, flap, theme)
 			_:
-				HazardLayer.spiky_ball(c, p, r, theme, time * 3.0)
+				HazardLayer.spiky_ball(c, p, r, look, time * 3.0)
 
 
 static func _bat(

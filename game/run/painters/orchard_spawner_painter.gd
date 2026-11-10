@@ -1,11 +1,15 @@
-extends RefCounted
+extends HazardPainter
 ## Orchard Drop's falling coins: the coin art, swaying a little as it falls.
+
+const OrchardSpawnerHazard := preload("res://sim/hazards/orchard_spawner.gd")
 
 const COIN := preload("res://assets/ui/coin.svg")
 const SIZE := 28.0
 
 
-static func paint(c: CanvasItem, h: Hazard, _theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as OrchardSpawnerHazard
+	var time := look.time
 	for i in h.xs.size():
 		if not h.live[i]:
 			continue

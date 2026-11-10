@@ -26,8 +26,6 @@ var arrival_skip := PackedInt32Array()
 var weight := 10
 ## Season the room belongs to (Seasons.*), or Seasons.NONE for all year.
 var season := Seasons.NONE
-## Cosmetic variant for the painters ("pumpkin" draws Bramble Ball as a pumpkin).
-var skin := ""
 
 # Walls
 var spikes := true

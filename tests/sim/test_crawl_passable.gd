@@ -119,11 +119,11 @@ static func _revived(index: int, seed_value: int, exit: String, side: int, y: in
 	sim._enter_room(index)
 	if exit == "open":
 		sim.state.score = base
-		sim._plan_exit(side, base)
+		ExitPlanner.plan(sim, sim._rng, side, base)
 		sim.state.exit_open = true
 	else:
 		sim.state.score = base + SimConfig.POINTS_PER_ROOM - 1
-		sim._plan_exit(side, base + SimConfig.POINTS_PER_ROOM)
+		ExitPlanner.plan(sim, sim._rng, side, base + SimConfig.POINTS_PER_ROOM)
 		sim.state.exit_preview = true
 	sim.state.exit_a_y = y
 	sim.kill(SimState.DeathCause.FLOOR)
@@ -232,7 +232,6 @@ static func _make_harmless(sim: GameSim) -> void:
 	for i in sim.room.hazards.size():
 		var from: Hazard = sim.room.hazards[i]
 		var h := Harmless.new(from.lane)
-		h.skin = from.skin
 		h.t = from.t
 		h.start = from.start
 		h.xs = from.xs.duplicate()

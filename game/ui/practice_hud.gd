@@ -77,9 +77,9 @@ func _place_restart(side: float) -> void:
 	_restart.offset_bottom = 42 + side
 
 
-## Settings > Large buttons.
-func set_large_buttons(on: bool) -> void:
-	_place_restart(UiKit.LARGE_BUTTON if on else UiKit.ICON_BUTTON)
+## Settings > Large buttons changed.
+func refresh_button_size() -> void:
+	_place_restart(UiKit.button_size())
 
 
 func _build_pause_rooms() -> void:
@@ -102,6 +102,7 @@ func _scrim_link(text: String) -> Control:
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
 	b.add_theme_constant_override("icon_max_width", 20)
 	b.pressed.connect(rooms_pressed.emit)
+	UiKit.mark_back(b)
 	row.add_child(b)
 	return row
 

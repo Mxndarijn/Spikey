@@ -40,6 +40,7 @@ const FLYER_CENTER := Vector2(196, 346)
 const FLYER_BODY := 52.0
 
 var _profile: Profile
+var _services: AppServices
 var _logo: Label
 var _stats: Label
 var _flyer: FlyerArt
@@ -52,8 +53,9 @@ var _notice: Label
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
-func _init(profile: Profile, daily_rank: int = 0) -> void:
+func _init(profile: Profile, services: AppServices, daily_rank: int = 0) -> void:
 	_profile = profile
+	_services = services
 	_daily_rank = daily_rank
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -77,7 +79,7 @@ func _ready() -> void:
 	_logo.add_theme_font_size_override("font_size", LOGO_SIZE)
 	_stats = _row_label(stats_text(_profile.best_score, _daily_rank), &"SkyCaption", STATS_TOP)
 
-	var character := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
+	var character := Catalog.flyer(_profile.equipped_id(ItemKind.FLYER))
 	if character == null:
 		character = Catalog.flyers()[0]
 	_flyer = FlyerArt.new(character.idle, FLYER_BODY)
@@ -143,7 +145,7 @@ func rank_text() -> String:
 ## The settings sheet over Home (the dock's Settings).
 func open_settings() -> SettingsSheet:
 	if _settings == null:
-		_settings = SettingsSheet.new(_profile)
+		_settings = SettingsSheet.new(_profile, _services)
 		_settings.changed.connect(settings_changed.emit)
 		_settings.closed.connect(func() -> void: _settings = null)
 		add_child(_settings)

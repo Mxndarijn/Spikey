@@ -7,7 +7,7 @@ const TEST_PATH := "user://test_economy_profile.json"
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	main.board_config_path = ""  # offline boards and wallet, whatever this PC has
@@ -46,11 +46,12 @@ func test_convert_is_one_way_and_exact() -> void:
 	var p := Profile.new()
 	p.diamonds = 3
 	p.coins = 40
-	assert_eq(Economy.convert(p, 0), Economy.Result.BAD_AMOUNT)
-	assert_eq(Economy.convert(p, -2), Economy.Result.BAD_AMOUNT)
-	assert_eq(Economy.convert(p, 4), Economy.Result.NOT_ENOUGH_DIAMONDS)
+	var checkout := Checkout.offline(p)
+	assert_false(await checkout.convert(0))
+	assert_false(await checkout.convert(-2))
+	assert_false(await checkout.convert(4), "not enough diamonds")
 	assert_eq([p.diamonds, p.coins], [3, 40], "a refused conversion changes nothing")
-	assert_eq(Economy.convert(p, 2), Economy.Result.OK)
+	assert_true(await checkout.convert(2))
 	assert_eq([p.diamonds, p.coins], [1, 240], "2 diamonds became 200 gold")
 
 
@@ -62,7 +63,7 @@ func test_diamonds_and_packs_are_saved() -> void:
 	var back := Profile.load_or_new(TEST_PATH)
 	assert_eq(back.diamonds, 7)
 	assert_eq(back.packs_bought, [DiamondPacks.STARTER] as Array[String])
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var old := Profile.from_dict({"version": 2, "coins": 50})
 	assert_eq(old.diamonds, 0, "older saves load with no diamonds")
 	assert_eq(old.coins, 50)
@@ -101,19 +102,19 @@ func test_bigger_packs_are_better_value() -> void:
 
 func test_premium_worlds_sell_for_diamonds() -> void:
 	for w in Catalog.worlds():
-		var gems := Shop.diamond_price(Catalog.WORLD, w.id)
+		var gems := Shop.diamond_price(ItemKind.WORLD, w.id)
 		if not w.premium:
 			assert_eq(gems, 0, "%s sells for gold" % w.id)
 		elif w.season.is_empty():
 			assert_eq(gems, Shop.DIAMOND_WORLD, "%s is a premium world" % w.id)
 		else:
 			assert_eq(gems, Shop.DIAMOND_SEASONAL, "%s is a seasonal world" % w.id)
-	assert_eq(Shop.diamond_price(Catalog.WORLD, "neon"), 30)
-	assert_eq(Shop.diamond_price(Catalog.WORLD, "haunted"), 25)
-	assert_eq(Shop.diamond_price(Catalog.FLYER, "ember"), 0)
-	assert_eq(Shop.cost(Catalog.FLYER, "ember"), Shop.price(Catalog.FLYER, "ember"))
-	assert_eq(Shop.cost(Catalog.WORLD, "neon"), 30)
-	for kind in Catalog.KINDS:
+	assert_eq(Shop.diamond_price(ItemKind.WORLD, "neon"), 30)
+	assert_eq(Shop.diamond_price(ItemKind.WORLD, "haunted"), 25)
+	assert_eq(Shop.diamond_price(ItemKind.FLYER, "ember"), 0)
+	assert_eq(Shop.cost(ItemKind.FLYER, "ember"), Shop.price(ItemKind.FLYER, "ember"))
+	assert_eq(Shop.cost(ItemKind.WORLD, "neon"), 30)
+	for kind in ItemKind.ALL:
 		for id in Catalog.ids(kind):
 			assert_true(Shop.cost(kind, id) >= 0, "%s %s is for sale" % [kind, id])
 
@@ -121,14 +122,16 @@ func test_premium_worlds_sell_for_diamonds() -> void:
 func test_buying_a_premium_item_spends_diamonds_only() -> void:
 	var p := Profile.new()
 	p.coins = 5000
-	assert_false(Shop.can_afford(p, Catalog.WORLD, "neon"), "gold doesn't buy it")
-	assert_eq(Shop.buy(p, Catalog.WORLD, "neon"), Shop.Result.NOT_ENOUGH_DIAMONDS)
+	assert_false(Shop.can_afford(p, ItemKind.WORLD, "neon"), "gold doesn't buy it")
+	assert_eq(
+		await Checkout.offline(p).buy(ItemKind.WORLD, "neon"), Checkout.Result.NOT_ENOUGH_DIAMONDS
+	)
 	p.diamonds = 32
-	assert_true(Shop.can_afford(p, Catalog.WORLD, "neon"))
-	assert_eq(Shop.buy(p, Catalog.WORLD, "neon"), Shop.Result.OK)
+	assert_true(Shop.can_afford(p, ItemKind.WORLD, "neon"))
+	assert_eq(await Checkout.offline(p).buy(ItemKind.WORLD, "neon"), Checkout.Result.OK)
 	assert_eq([p.diamonds, p.coins], [2, 5000], "30 diamonds, no gold")
-	assert_true(p.owns(Catalog.WORLD, "neon"))
-	assert_eq(Shop.buy(p, Catalog.WORLD, "neon"), Shop.Result.ALREADY_OWNED)
+	assert_true(p.owns(ItemKind.WORLD, "neon"))
+	assert_eq(await Checkout.offline(p).buy(ItemKind.WORLD, "neon"), Checkout.Result.ALREADY_OWNED)
 
 
 func test_closed_store_fails_and_sample_store_pays() -> void:
@@ -182,12 +185,12 @@ func test_home_wallet_opens_the_shop_and_packs_are_granted() -> void:
 	shop.closed.emit()
 	assert_true(main._menus.current() is HomeScreen, "back goes Home")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_a_closed_store_says_why_and_grants_nothing() -> void:
 	var p := Profile.new()
-	var shop := StoreScreen.new(p, StoreService.new())
+	var shop := StoreScreen.new(Checkout.offline(p), StoreService.new())
 	_in_tree(shop)
 	assert_eq(shop.message_text(), StoreService.CLOSED, "it says why from the start")
 	assert_eq(shop.price_button("chest").text, "€9.99", "the packs still show their price")
@@ -205,7 +208,7 @@ func test_a_closed_store_says_why_and_grants_nothing() -> void:
 
 func test_convert_sheet_stays_within_the_wallet() -> void:
 	var p := Profile.new()
-	var empty := ConvertSheet.new(p, 2)
+	var empty := ConvertSheet.new(Checkout.offline(p), 2)
 	_in_tree(empty)
 	assert_eq(empty.amount(), 0)
 	assert_false(empty.can_convert(), "nothing to convert")
@@ -214,7 +217,7 @@ func test_convert_sheet_stays_within_the_wallet() -> void:
 	assert_eq(p.coins, 0)
 	empty.free()
 	p.diamonds = 3
-	var sheet := ConvertSheet.new(p, 9)
+	var sheet := ConvertSheet.new(Checkout.offline(p), 9)
 	_in_tree(sheet)
 	assert_eq(sheet.amount(), 3, "never more than the player has")
 	sheet.step(-5)
@@ -230,9 +233,9 @@ func test_convert_sheet_stays_within_the_wallet() -> void:
 
 func test_customize_offers_to_convert_when_gold_is_short() -> void:
 	var main := _make_main()
-	main.show_shop(Catalog.FLYER)
+	main.show_shop(ItemKind.FLYER)
 	var c := main._menus.current() as CollectionScreen
-	var cost := Shop.price(Catalog.FLYER, "ember")
+	var cost := Shop.price(ItemKind.FLYER, "ember")
 	main._profile.coins = cost - 160
 	c._tap("ember")
 	assert_eq(c.action_label(), ["Need 160 more gold", false], "no diamonds: as before")
@@ -242,23 +245,23 @@ func test_customize_offers_to_convert_when_gold_is_short() -> void:
 	c._on_action()
 	var sheet := c.sheet()
 	assert_true(sheet != null, "the action opens the convert sheet")
-	assert_false(main._profile.owns(Catalog.FLYER, "ember"), "nothing is bought yet")
+	assert_false(main._profile.owns(ItemKind.FLYER, "ember"), "nothing is bought yet")
 	assert_eq(sheet.amount(), 2, "the fewest diamonds that cover 160 gold")
 	sheet.confirm()
 	assert_eq([main._profile.diamonds, main._profile.coins], [3, cost + 40])
 	assert_eq(Profile.load_or_new(TEST_PATH).diamonds, 3, "saved")
 	assert_eq(c.action_label(), ["Unlock for %d" % cost, true], "now it can be bought")
 	c._on_action()
-	assert_true(main._profile.owns(Catalog.FLYER, "ember"))
+	assert_true(main._profile.owns(ItemKind.FLYER, "ember"))
 	assert_eq(main._profile.coins, 40)
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_customize_sells_premium_worlds_for_diamonds() -> void:
 	var main := _make_main()
 	main._profile.coins = 9000
-	main.show_shop(Catalog.WORLD)
+	main.show_shop(ItemKind.WORLD)
 	var c := main._menus.current() as CollectionScreen
 	c._tap("neon")
 	assert_eq(c.action_label(), ["Need 30 more diamonds", false], "gold doesn't count")
@@ -271,13 +274,41 @@ func test_customize_sells_premium_worlds_for_diamonds() -> void:
 	c.refresh()
 	assert_eq(c.action_label(), ["Unlock for 30", true])
 	c._on_action()
-	assert_true(main._profile.owns(Catalog.WORLD, "neon"))
+	assert_true(main._profile.owns(ItemKind.WORLD, "neon"))
 	assert_eq([main._profile.diamonds, main._profile.coins], [1, 9000])
 	c._wallet.pressed.emit()
 	var shop := main._menus.current() as StoreScreen
 	assert_true(shop != null, "the wallet in Customize opens the Shop")
 	shop.closed.emit()
 	var back := main._menus.current() as CollectionScreen
-	assert_true(back != null and back.kind == Catalog.WORLD, "back returns to the same tab")
+	assert_true(back != null and back.kind == ItemKind.WORLD, "back returns to the same tab")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
+
+
+## Every new profile starts with the free items: ItemKind.STARTERS lists the
+## same ids Shop prices at 0, and what each kind starts with in use is one of them.
+func test_starters_are_the_free_items() -> void:
+	for kind: String in ItemKind.STARTERS:
+		assert_eq(
+			ItemKind.STARTERS[kind] as Array[String], Shop.starters(kind), "%s starters" % kind
+		)
+		assert_true(ItemKind.DEFAULTS[kind] in ItemKind.STARTERS[kind], "%s default is free" % kind)
+
+
+## A premium item whose diamonds can't be spent (offline) is not handed out.
+func test_a_failed_spend_hands_nothing_out() -> void:
+	var p := Profile.new()
+	p.diamonds = 50
+	var checkout := Checkout.new(p, NoWallet.new(p))
+	assert_eq(await checkout.buy(ItemKind.WORLD, "neon"), Checkout.Result.FAILED)
+	assert_false(p.owns(ItemKind.WORLD, "neon"))
+	assert_eq(p.diamonds, 50)
+
+
+## A wallet that can never reach its server.
+class NoWallet:
+	extends WalletService
+
+	func spend(_amount: int, _reason: String, _ref: String = "") -> bool:
+		return false

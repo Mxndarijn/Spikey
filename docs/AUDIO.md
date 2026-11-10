@@ -106,7 +106,7 @@ Layer rules (fade 0.4 s; stems stay in sync because they share a start time and 
 - **Match my world** (free, default) plays the track mapped to the equipped world.
 - **Shuffle owned** picks a random owned track each run (cosmetic randomness only,
   never from the sim RNG).
-- Tracks are cosmetic shop items like any other; prices below follow `meta/shop.gd`
+- Tracks are cosmetic shop items like any other; prices below follow `game/cosmetics/shop.gd`
   world prices.
 
 ### Starter tracks

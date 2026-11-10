@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Lantern Night (seasonal, February): a festival evening. A string of paper
 ## lanterns under the ceiling, sky lanterns drifting up both sides, a full
 ## moon, a pagoda on the far hill, a red bridge, bamboo and a lantern post.
@@ -21,7 +21,7 @@ const BAMBOO_DARK := Color("#27593F")
 const BAMBOO_JOINT := Color("#1D4A38")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var far := SceneGround.new(506, 16, 0.9, 2.2, t.hill_far, 0)
 	var mid := SceneGround.new(556, 11, 1.3, 0.6, t.hill_mid, 1)
 	var near := SceneGround.new(602, 6, 1.2, 3.4, t.hill_near, 2)
@@ -139,3 +139,11 @@ static func _bamboo(pen: ScenePen, x: float, b: float, length: float, col: Color
 	# Leaves: (how far up, which side).
 	for d: Vector2 in [Vector2(0.55, 1), Vector2(0.75, -1), Vector2(0.95, 1)]:
 		pen.ellipse(Vector2(x + d.y * 9, b - length * d.x - 3), 9, 2.8, col, d.y * -24)
+
+
+func portal_touch_colors(t: ThemeDef) -> Array[Color]:
+	return [t.world_accent]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_sparks(p, cols)

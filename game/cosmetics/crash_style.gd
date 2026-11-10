@@ -11,7 +11,7 @@ extends Resource
 ## draw one moment of it (thumb_time) with CrashPainter.
 
 ## The free default.
-const DEFAULT_ID := "feather_puff"
+const DEFAULT_ID := ItemKind.DEFAULT_CRASH
 ## Kinds CrashPainter knows. A kind is a string so new ones need no enum change.
 const BURST := "burst"
 const SPLAT := "splat"
@@ -30,119 +30,119 @@ const DURATIONS := {BURST: 1.4, RAYS: 1.3, POW: 1.3, GHOST: 1.8}
 ## The moment the shop pictures show.
 const THUMB_TIMES := {BURST: 0.3, SPLAT: 1.0, RAYS: 0.38, POW: 0.4, GHOST: 0.9}
 
-## id, name, kind, burst piece, colours, pieces, hides the flyer, drawn in front
-## of the flyer, blurb.
-const STYLES := [
-	[
-		DEFAULT_ID,
-		"Feather Puff",
-		BURST,
-		FEATHER,
-		["FFFFFF"],
-		9,
-		false,
-		true,
-		"A puff where it hit; feathers rock slowly down."
-	],
-	[
-		"confetti_pop",
-		"Confetti Pop",
-		BURST,
-		CONFETTI,
-		["5CC8FF", "FFB020", "8A6AD0", "3FD9A3", "FF5E7A"],
-		20,
-		false,
-		true,
-		"Strips, dots and triangles shoot across the room."
-	],
-	[
-		"bubble_trap",
-		"Bubble Trap",
-		BUBBLE,
-		"",
-		["FFFFFF"],
-		4,
-		false,
-		true,
-		"A bubble closes round the flyer; small ones rise."
-	],
-	[
-		"dizzy_stars",
-		"Dizzy Stars",
-		ORBIT,
-		"",
-		["FFE45C", "FFFFFF"],
-		3,
-		false,
-		true,
-		"Stars circle the flyer's head."
-	],
-	[
-		"shatter",
-		"Shatter",
-		BURST,
-		SHARD,
-		["2E64D9", "4C82F0", "F2F5FA", "FFB020"],
-		12,
-		true,
-		true,
-		"The flyer breaks into shards in its own colours."
-	],
-	[
-		"pixel_dissolve",
-		"Pixel Dissolve",
-		BURST,
-		PIXEL,
-		["00E5FF", "7DF9FF", "FFC928"],
-		18,
-		true,
-		true,
-		"The flyer crumbles into blocks that shrink away."
-	],
-	[
-		"paint_splat",
-		"Paint Splat",
-		SPLAT,
-		"",
-		["FF5FA2"],
-		6,
-		false,
-		false,
-		"A pink splat that drips; drops fly off."
-	],
-	[
-		"comic_pow",
-		"Comic Pow",
-		POW,
-		"",
-		["FFE45C", "FFFFFF"],
-		12,
-		false,
-		false,
-		"A flat comic burst pops behind the flyer."
-	],
-	[
-		"firework",
-		"Firework",
-		RAYS,
-		"",
-		["FF5E7A", "FFE45C", "5FD3A8", "5CC8FF", "B69CFF"],
-		12,
-		true,
-		true,
-		"The flyer goes up as a twelve-ray firework."
-	],
-	[
-		"little_ghost",
-		"Little Ghost",
-		GHOST,
-		"",
-		["FFFFFF", "FFC93C"],
-		1,
-		false,
-		true,
-		"A ghost with a halo floats up out of the flyer."
-	],
+## One entry per style, in display order; the keys are the fields below
+## ("name" is display_name, "colors" hex strings).
+const STYLES: Array[Dictionary] = [
+	{
+		"id": DEFAULT_ID,
+		"name": "Feather Puff",
+		"kind": BURST,
+		"piece": FEATHER,
+		"colors": ["FFFFFF"],
+		"count": 9,
+		"hides_flyer": false,
+		"in_front": true,
+		"blurb": "A puff where it hit; feathers rock slowly down."
+	},
+	{
+		"id": "confetti_pop",
+		"name": "Confetti Pop",
+		"kind": BURST,
+		"piece": CONFETTI,
+		"colors": ["5CC8FF", "FFB020", "8A6AD0", "3FD9A3", "FF5E7A"],
+		"count": 20,
+		"hides_flyer": false,
+		"in_front": true,
+		"blurb": "Strips, dots and triangles shoot across the room."
+	},
+	{
+		"id": "bubble_trap",
+		"name": "Bubble Trap",
+		"kind": BUBBLE,
+		"piece": "",
+		"colors": ["FFFFFF"],
+		"count": 4,
+		"hides_flyer": false,
+		"in_front": true,
+		"blurb": "A bubble closes round the flyer; small ones rise."
+	},
+	{
+		"id": "dizzy_stars",
+		"name": "Dizzy Stars",
+		"kind": ORBIT,
+		"piece": "",
+		"colors": ["FFE45C", "FFFFFF"],
+		"count": 3,
+		"hides_flyer": false,
+		"in_front": true,
+		"blurb": "Stars circle the flyer's head."
+	},
+	{
+		"id": "shatter",
+		"name": "Shatter",
+		"kind": BURST,
+		"piece": SHARD,
+		"colors": ["2E64D9", "4C82F0", "F2F5FA", "FFB020"],
+		"count": 12,
+		"hides_flyer": true,
+		"in_front": true,
+		"blurb": "The flyer breaks into shards in its own colours."
+	},
+	{
+		"id": "pixel_dissolve",
+		"name": "Pixel Dissolve",
+		"kind": BURST,
+		"piece": PIXEL,
+		"colors": ["00E5FF", "7DF9FF", "FFC928"],
+		"count": 18,
+		"hides_flyer": true,
+		"in_front": true,
+		"blurb": "The flyer crumbles into blocks that shrink away."
+	},
+	{
+		"id": "paint_splat",
+		"name": "Paint Splat",
+		"kind": SPLAT,
+		"piece": "",
+		"colors": ["FF5FA2"],
+		"count": 6,
+		"hides_flyer": false,
+		"in_front": false,
+		"blurb": "A pink splat that drips; drops fly off."
+	},
+	{
+		"id": "comic_pow",
+		"name": "Comic Pow",
+		"kind": POW,
+		"piece": "",
+		"colors": ["FFE45C", "FFFFFF"],
+		"count": 12,
+		"hides_flyer": false,
+		"in_front": false,
+		"blurb": "A flat comic burst pops behind the flyer."
+	},
+	{
+		"id": "firework",
+		"name": "Firework",
+		"kind": RAYS,
+		"piece": "",
+		"colors": ["FF5E7A", "FFE45C", "5FD3A8", "5CC8FF", "B69CFF"],
+		"count": 12,
+		"hides_flyer": true,
+		"in_front": true,
+		"blurb": "The flyer goes up as a twelve-ray firework."
+	},
+	{
+		"id": "little_ghost",
+		"name": "Little Ghost",
+		"kind": GHOST,
+		"piece": "",
+		"colors": ["FFFFFF", "FFC93C"],
+		"count": 1,
+		"hides_flyer": false,
+		"in_front": true,
+		"blurb": "A ghost with a halo floats up out of the flyer."
+	},
 ]
 
 ## Stable id, kept in saves: never rename a shipped one.
@@ -166,25 +166,25 @@ const STYLES := [
 ## Every style, in display order (Catalog.crashes()).
 static func all() -> Array[CrashStyle]:
 	var out: Array[CrashStyle] = []
-	for row: Array in STYLES:
+	for row: Dictionary in STYLES:
 		var c := CrashStyle.new()
-		c.id = row[0]
-		c.display_name = row[1]
-		c.kind = row[2]
-		c.piece = row[3]
-		for hex: String in row[4]:
+		c.id = row.id
+		c.display_name = row.name
+		c.kind = row.kind
+		c.piece = row.piece
+		for hex: String in row.colors:
 			c.colors.append(Color(hex))
-		c.count = row[5]
-		c.hides_flyer = row[6]
-		c.in_front = row[7]
-		c.blurb = row[8]
+		c.count = row.count
+		c.hides_flyer = row.hides_flyer
+		c.in_front = row.in_front
+		c.blurb = row.blurb
 		out.append(c)
 	return out
 
 
 ## The style a player has in use; the default when the save names none we know.
 static func equipped(profile: Profile) -> CrashStyle:
-	var c := Catalog.crash(profile.equipped_id(Catalog.CRASH)) if profile != null else null
+	var c := Catalog.crash(profile.equipped_id(ItemKind.CRASH)) if profile != null else null
 	return c if c != null else Catalog.crash(DEFAULT_ID)
 
 

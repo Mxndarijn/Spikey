@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Deep Sea (Worlds v4): wavy light at the surface, light rays, small fish, a
 ## jellyfish, a sandy floor with corals, sea weed, a starfish, shells and bubbles.
 
@@ -16,7 +16,13 @@ const SHELL := Color("#FFC9D6")
 const SHELL_PALE := Color("#FFDDE5")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "bubbles"
+	mote_count = 6
+	mote_band = Vector2(300, 540)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(562, 8, 1.3, 0.8, SAND_FAR, 1)
 	var near := SceneGround.new(600, 6, 1.6, 2.4, SAND_NEAR, 2)
@@ -74,3 +80,11 @@ static func _jelly(pen: ScenePen, x: float, y: float) -> void:
 	pen.stroke(ScenePath.at(0, 3).q(4, 18, -2, 34).done(), JELLY, 2.5)
 	pen.stroke(ScenePath.at(10, 2).q(14, 16, 8, 28).done(), JELLY, 2.5)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_bubbles(p, cols)

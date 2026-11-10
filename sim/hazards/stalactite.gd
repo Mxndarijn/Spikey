@@ -50,7 +50,7 @@ func setup(sim: GameSim, _rng: SimRng) -> void:
 				h.partner = self
 	# Start with the gap at the bird's height: it enters at a wall and reaches
 	# the first column before it could climb or drop far.
-	gap_y = clampi(sim.entry_y(), GAP_MIN, GAP_MAX)
+	gap_y = clampi(FairLanes.entry_y(sim), GAP_MIN, GAP_MAX)
 	target_y = gap_y
 
 

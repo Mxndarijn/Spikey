@@ -1,9 +1,14 @@
-extends RefCounted
+extends HazardPainter
 ## Edge pad (Bumper Court): a soft, safe pill lying on the ceiling or floor
 ## line, squashing when it bounces the bird. Never in the spike colour.
 
+const EdgePadHazard := preload("res://sim/hazards/edge_pad.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as EdgePadHazard
+	var theme := look.theme
+	var time := look.time
 	var x0 := HazardLayer.px(h.x0())
 	var x1 := HazardLayer.px(h.x1())
 	var line := HazardLayer.px(h.line_y())

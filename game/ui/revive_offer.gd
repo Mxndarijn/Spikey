@@ -42,7 +42,7 @@ func _init() -> void:
 	_pips.alignment = BoxContainer.ALIGNMENT_CENTER
 	_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pips.add_theme_constant_override("separation", 8)
-	for i in Profile.FREE_REVIVES_PER_DAY:
+	for i in DailyRevives.PER_DAY:
 		var pip := Panel.new()
 		pip.custom_minimum_size = Vector2(PIP, PIP)
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -123,7 +123,7 @@ func _at(c: Control, top: float) -> void:
 ## revive is free; otherwise it costs an ad.
 func show_offer(score: int, free_left: int) -> void:
 	_score.text = str(score)
-	var total := Profile.FREE_REVIVES_PER_DAY
+	var total := DailyRevives.PER_DAY
 	for i in _pips.get_child_count():
 		var on := i < free_left
 		var box := UiTheme.flat(UiTokens.ON_SCRIM if on else PIP_OFF, UiTokens.RADIUS_PILL, 0)

@@ -9,7 +9,7 @@ extends Resource
 ## `scene` also needs its draw function in PlatePainter.
 
 ## The free default: the plain paper row.
-const DEFAULT_ID := "paper"
+const DEFAULT_ID := ItemKind.DEFAULT_PLATE
 ## Scenes PlatePainter knows; "" draws nothing (the plain row).
 const SUNSET := "sunset"
 const JUNGLE := "jungle"
@@ -21,32 +21,89 @@ const STAR := "star"
 const FINISH := "finish"
 const ROYAL := "royal"
 
-## id, name, scene, base colour, white text (a dark plate), blurb.
-const STYLES := [
-	[DEFAULT_ID, "Paper", "", "FFF4E2", false, "The plain row everyone starts with."],
-	["sunset_glow", "Sunset Glow", SUNSET, "FFC78E", false, "A low sun behind two warm hills."],
-	["jungle_canopy", "Jungle Canopy", JUNGLE, "D6F2A0", false, "Pointed trees on green hills."],
-	[
-		"ice_cavern",
-		"Ice Cavern",
-		ICE,
-		"EAF7FF",
-		false,
-		"Two-tone ice shards rising from the floor."
-	],
-	["lava_forge", "Lava Forge", LAVA, "FFC27A", false, "A flat volcano with a yellow lava cap."],
-	["deep_sea", "Deep Sea", DEEPSEA, "8EEDE4", false, "Coral on the seabed and rising bubbles."],
-	["sugar_rush", "Sugar Rush", SUGAR, "FFE9F3", false, "Two lollipops on pink hills."],
-	[
-		"star_station",
-		"Star Station",
-		STAR,
-		"241A63",
-		true,
-		"Night sky, a pale moon, a lit station."
-	],
-	["finish_line", "Finish Line", FINISH, "FFFFFF", false, "A checkered flag on each end."],
-	["royal", "Royal", ROYAL, "6447C2", true, "Purple with a gold band and a crown."],
+## One entry per plate, in display order; the keys are the fields below
+## ("name" is display_name, "base" a hex string).
+const STYLES: Array[Dictionary] = [
+	{
+		"id": DEFAULT_ID,
+		"name": "Paper",
+		"scene": "",
+		"base": "FFF4E2",
+		"dark": false,
+		"blurb": "The plain row everyone starts with."
+	},
+	{
+		"id": "sunset_glow",
+		"name": "Sunset Glow",
+		"scene": SUNSET,
+		"base": "FFC78E",
+		"dark": false,
+		"blurb": "A low sun behind two warm hills."
+	},
+	{
+		"id": "jungle_canopy",
+		"name": "Jungle Canopy",
+		"scene": JUNGLE,
+		"base": "D6F2A0",
+		"dark": false,
+		"blurb": "Pointed trees on green hills."
+	},
+	{
+		"id": "ice_cavern",
+		"name": "Ice Cavern",
+		"scene": ICE,
+		"base": "EAF7FF",
+		"dark": false,
+		"blurb": "Two-tone ice shards rising from the floor."
+	},
+	{
+		"id": "lava_forge",
+		"name": "Lava Forge",
+		"scene": LAVA,
+		"base": "FFC27A",
+		"dark": false,
+		"blurb": "A flat volcano with a yellow lava cap."
+	},
+	{
+		"id": "deep_sea",
+		"name": "Deep Sea",
+		"scene": DEEPSEA,
+		"base": "8EEDE4",
+		"dark": false,
+		"blurb": "Coral on the seabed and rising bubbles."
+	},
+	{
+		"id": "sugar_rush",
+		"name": "Sugar Rush",
+		"scene": SUGAR,
+		"base": "FFE9F3",
+		"dark": false,
+		"blurb": "Two lollipops on pink hills."
+	},
+	{
+		"id": "star_station",
+		"name": "Star Station",
+		"scene": STAR,
+		"base": "241A63",
+		"dark": true,
+		"blurb": "Night sky, a pale moon, a lit station."
+	},
+	{
+		"id": "finish_line",
+		"name": "Finish Line",
+		"scene": FINISH,
+		"base": "FFFFFF",
+		"dark": false,
+		"blurb": "A checkered flag on each end."
+	},
+	{
+		"id": "royal",
+		"name": "Royal",
+		"scene": ROYAL,
+		"base": "6447C2",
+		"dark": true,
+		"blurb": "Purple with a gold band and a crown."
+	},
 ]
 
 ## Stable id, kept in saves and sent with runs: never rename a shipped one.
@@ -64,21 +121,21 @@ const STYLES := [
 ## Every plate, in display order (Catalog.plates()).
 static func all() -> Array[PlateStyle]:
 	var out: Array[PlateStyle] = []
-	for row: Array in STYLES:
+	for row: Dictionary in STYLES:
 		var p := PlateStyle.new()
-		p.id = row[0]
-		p.display_name = row[1]
-		p.scene = row[2]
-		p.base = Color(str(row[3]))
-		p.dark = row[4]
-		p.blurb = row[5]
+		p.id = row.id
+		p.display_name = row.name
+		p.scene = row.scene
+		p.base = Color(str(row.base))
+		p.dark = row.dark
+		p.blurb = row.blurb
 		out.append(p)
 	return out
 
 
 ## The plate a player has in use; Paper when the save names none we know.
 static func equipped(profile: Profile) -> PlateStyle:
-	var p := Catalog.plate(profile.equipped_id(Catalog.PLATE)) if profile != null else null
+	var p := Catalog.plate(profile.equipped_id(ItemKind.PLATE)) if profile != null else null
 	return p if p != null else Catalog.plate(DEFAULT_ID)
 
 

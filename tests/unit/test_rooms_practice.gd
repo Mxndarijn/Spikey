@@ -12,7 +12,7 @@ func _real_mode() -> void:
 
 
 func _make_main() -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
@@ -56,7 +56,7 @@ func test_practice_repeats_one_room_from_its_start_score() -> void:
 	assert_eq(sim.state.score, RoomCatalog.find("piston").from_score, "starts at its from score")
 	_finish_room(sim)
 	assert_eq(sim.state.room_kind, i, "the same room comes back")
-	assert_eq(RoomView.practice_points(sim), SimConfig.POINTS_PER_ROOM, "points count from 0")
+	assert_eq(sim.shown_score(), SimConfig.POINTS_PER_ROOM, "points count from 0")
 	var real := GameSim.new(7)
 	assert_false(real.is_practice(), "a real run is not practice")
 	assert_eq(real.state.room_kind, RoomCatalog.first_index(), "real runs start in Open Sky")
@@ -174,7 +174,7 @@ func test_real_runs_count_clears_and_practice_never_does() -> void:
 		assert_eq(back.group(), RoomInfo.group(def), "on the practised room's group")
 	assert_false(main._hud.is_practicing(), "the practice HUD hides in menus")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_locked_rooms_cannot_be_practised() -> void:
@@ -183,7 +183,7 @@ func test_locked_rooms_cannot_be_practised() -> void:
 	main.start_practice("flip")
 	assert_eq(main.mode, main.Mode.MENU, "flip was never met, so no practice")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_home_has_a_rooms_button() -> void:
@@ -207,7 +207,7 @@ func test_home_has_a_rooms_button() -> void:
 			(main._menus.current() as RoomsScreen).closed.emit()
 			assert_true(main._menus.current() is HomeScreen, "and Home")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_developer_mode_opens_every_room_and_shows_dev() -> void:
@@ -240,7 +240,7 @@ func test_seasonal_practice_plays_in_its_season() -> void:
 	assert_eq(main._run.sim.season, Seasons.HALLOWEEN, "a Halloween room runs in Halloween")
 	assert_eq(main._run.sim.state.room_kind, RoomCatalog.index_of("pumpkin"))
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	DevMode.override = -1
 
 
@@ -257,7 +257,7 @@ func test_practice_ready_back_arrow_goes_to_rooms() -> void:
 	assert_true(main._menus.current() is RoomsScreen, "back goes to Rooms")
 	assert_false(hud._back_button.visible, "no back arrow over the menus")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	DevMode.override = -1
 
 
@@ -283,7 +283,7 @@ func test_practice_never_changes_the_save() -> void:
 	assert_eq(JSON.stringify(main._profile.to_dict()), data_before, "profile unchanged")
 	assert_eq(FileAccess.get_file_as_string(TEST_PATH), before, "save file unchanged")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	DevMode.override = -1
 
 
@@ -298,9 +298,9 @@ func test_old_version_1_saves_still_load() -> void:
 ## Puts a flyer (and optionally a world) in use, as Customize would; a first
 ## start already gave the default world.
 static func _use_flyer(main: Node, id: String, world: String = "") -> void:
-	main._profile.grant(Catalog.FLYER, id)
-	main._profile.equip(Catalog.FLYER, id)
+	main._profile.grant(ItemKind.FLYER, id)
+	main._profile.equip(ItemKind.FLYER, id)
 	if not world.is_empty():
-		main._profile.grant(Catalog.WORLD, world)
-		main._profile.equip(Catalog.WORLD, world)
-	main._load_equipped()
+		main._profile.grant(ItemKind.WORLD, world)
+		main._profile.equip(ItemKind.WORLD, world)
+	main._look.use_equipped()

@@ -11,8 +11,8 @@ const QUEUE := "user://test_supabase_queue.json"
 func _profile() -> Profile:
 	var p := Profile.new()
 	p.leaderboard_name = "buzzybee"
-	p.grant(Catalog.FLYER, "dash")
-	p.equip(Catalog.FLYER, "dash")
+	p.grant(ItemKind.FLYER, "dash")
+	p.equip(ItemKind.FLYER, "dash")
 	return p
 
 
@@ -24,31 +24,32 @@ func _write(path: String, text: String) -> void:
 
 func _client(p: Profile) -> SupabaseLeaderboard:
 	# No host node: every request fails at once, like a phone without internet.
-	var c := SupabaseLeaderboard.new(p, null, "https://example.supabase.co/", "public-key")
-	c.session_path = SESSION
+	var api := SupabaseClient.new(null, "https://example.supabase.co/", "public-key")
+	api.session_path = SESSION
+	var c := SupabaseLeaderboard.new(p, api)
 	c.queue_path = QUEUE
 	return c
 
 
 func _clean() -> void:
 	for path in [CONFIG, SESSION, QUEUE]:
-		DirAccess.remove_absolute(path)
+		SafeFile.remove(path)
 
 
 func test_config_needs_an_https_url_and_a_key() -> void:
 	_clean()
-	assert_eq(SupabaseLeaderboard.load_config(CONFIG), {}, "no file: sample boards")
+	assert_eq(SupabaseClient.load_config(CONFIG), {}, "no file: sample boards")
 	_write(CONFIG, "not json")
-	assert_eq(SupabaseLeaderboard.load_config(CONFIG), {}, "broken file")
+	assert_eq(SupabaseClient.load_config(CONFIG), {}, "broken file")
 	_write(CONFIG, '{"url": "http://insecure.example", "anon_key": "k"}')
-	assert_eq(SupabaseLeaderboard.load_config(CONFIG), {}, "https only")
+	assert_eq(SupabaseClient.load_config(CONFIG), {}, "https only")
 	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": ""}')
-	assert_eq(SupabaseLeaderboard.load_config(CONFIG), {}, "a key is needed")
+	assert_eq(SupabaseClient.load_config(CONFIG), {}, "a key is needed")
 	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": "PASTE-THE-KEY-HERE"}')
-	assert_eq(SupabaseLeaderboard.load_config(CONFIG), {}, "a placeholder key")
+	assert_eq(SupabaseClient.load_config(CONFIG), {}, "a placeholder key")
 	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": "k"}')
 	assert_eq(
-		SupabaseLeaderboard.load_config(CONFIG), {"url": "https://abc.supabase.co", "anon_key": "k"}
+		SupabaseClient.load_config(CONFIG), {"url": "https://abc.supabase.co", "anon_key": "k"}
 	)
 	_clean()
 
@@ -134,13 +135,13 @@ func test_older_databases_get_the_arguments_they_know() -> void:
 
 func test_loadout_has_every_equipped_cosmetic() -> void:
 	var p := _profile()
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		var id: String = Catalog.ids(kind)[0] if not Catalog.ids(kind).is_empty() else ""
 		if not id.is_empty():
 			p.grant(kind, id)
 			p.equip(kind, id)
 	var look := LeaderboardService.loadout_of(p)
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		if not p.equipped_id(kind).is_empty():
 			assert_eq(look.get(kind), p.equipped_id(kind), "%s is in the loadout" % kind)
 
@@ -192,5 +193,34 @@ func test_a_saved_session_is_restored() -> void:
 	_write(SESSION, '{"access_token": "a", "refresh_token": "r", "expires_at": 4102444800}')
 	var c := _client(_profile())
 	c.restore()
-	assert_true(await c._ensure_session(), "an unexpired token is used without asking the server")
+	assert_true(
+		await c.client.ensure_session(), "an unexpired token is used without asking the server"
+	)
+	_clean()
+
+
+## Only an answer that says the session is gone for good makes a new player;
+## a busy server or a refresh token used twice in a race keeps the old one.
+func test_only_a_dead_session_makes_a_new_player() -> void:
+	var gone := {"ok": false, "code": 400, "data": {"error_code": "refresh_token_not_found"}}
+	var raced := {"ok": false, "code": 400, "data": {"error_code": "refresh_token_already_used"}}
+	var busy := {"ok": false, "code": 503, "data": null}
+	assert_true(SupabaseClient.session_gone(gone))
+	assert_false(SupabaseClient.session_gone(raced))
+	assert_false(SupabaseClient.session_gone(busy))
+
+
+## A broken session file falls back to the last good one.
+func test_a_broken_session_file_uses_the_backup() -> void:
+	_clean()
+	SafeFile.write_json(
+		SESSION, {"access_token": "a", "refresh_token": "r", "expires_at": 4102444800}
+	)
+	SafeFile.write_json(
+		SESSION, {"access_token": "b", "refresh_token": "r2", "expires_at": 4102444800}
+	)
+	_write(SESSION, "{oops")
+	var c := _client(_profile())
+	c.restore()
+	assert_true(await c.client.ensure_session(), "the backup session works offline")
 	_clean()

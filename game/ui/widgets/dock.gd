@@ -69,6 +69,8 @@ func _add_group(items: Array, at_right: bool, current: String) -> void:
 	for item: Dictionary in items:
 		var b := Button.new()
 		b.name = item.id
+		if item.get("back", false):
+			UiKit.mark_back(b)
 		b.theme_type_variation = &"DockButton"
 		b.icon = item.icon
 		b.text = item.text

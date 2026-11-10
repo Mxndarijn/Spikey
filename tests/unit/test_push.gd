@@ -28,7 +28,7 @@ class FakePush:
 
 
 func _make_main(push: PushService = null, profile: Profile = null) -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	if profile != null:
 		profile.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
@@ -102,18 +102,20 @@ func test_migration_matches_the_game() -> void:
 
 func test_board_alerts_is_a_saved_setting() -> void:
 	var p := Profile.new()
-	assert_true(p.board_alerts, "on by default")
+	assert_true(p.settings.board_alerts, "on by default")
 	assert_false(p.push_asked)
-	var sheet := SettingsSheet.new(p)
+	var sheet := SettingsSheet.new(p, AppServices.offline(p))
 	(Engine.get_main_loop() as SceneTree).root.add_child(sheet)
-	sheet.set_switch("board_alerts", false)
-	assert_false(p.board_alerts, "the switch writes the profile")
+	sheet.set_switch(PlayerSettings.Switch.BOARD_ALERTS, false)
+	assert_false(p.settings.board_alerts, "the switch writes the profile")
 	sheet.free()
 	p.push_asked = true
 	var back := Profile.from_dict(p.to_dict())
-	assert_false(back.board_alerts)
+	assert_false(back.settings.board_alerts)
 	assert_true(back.push_asked)
-	assert_true(Profile.from_dict({"version": 3}).board_alerts, "older saves have alerts on")
+	assert_true(
+		Profile.from_dict({"version": 3}).settings.board_alerts, "older saves have alerts on"
+	)
 
 
 func test_permission_is_asked_once_at_the_first_prize_spot() -> void:
@@ -129,7 +131,7 @@ func test_permission_is_asked_once_at_the_first_prize_spot() -> void:
 	main._on_board_loaded(_board(7))
 	assert_eq(push.asked, 1, "only once")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_a_later_start_fetches_the_token_again() -> void:
@@ -142,29 +144,29 @@ func test_a_later_start_fetches_the_token_again() -> void:
 	main.free()
 	var off := Profile.new()
 	off.push_asked = true
-	off.board_alerts = false
+	off.settings.board_alerts = false
 	var quiet := FakePush.new()
 	var main2 := _make_main(quiet, off)
 	assert_eq(quiet.started, 0, "alerts off: no token")
 	main2.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_the_switch_tells_the_server_and_asks_late() -> void:
 	var p := Profile.new()
-	p.board_alerts = false
+	p.settings.board_alerts = false
 	var push := FakePush.new()
 	var main := _make_main(push, p)
 	main._on_board_loaded(_board(2))
 	assert_eq(push.asked, 0, "alerts off: never ask")
-	main._profile.board_alerts = true
+	main._profile.settings.board_alerts = true
 	main._on_settings_changed()
 	assert_eq(push.enabled_calls, [true], "the server hears the switch")
 	assert_eq(push.asked, 1, "switched on while holding a prize spot: ask now")
 	main._on_settings_changed()
 	assert_eq(push.enabled_calls, [true], "other settings don't repeat it")
-	main._profile.board_alerts = false
+	main._profile.settings.board_alerts = false
 	main._on_settings_changed()
 	assert_eq(push.enabled_calls, [true, false])
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)

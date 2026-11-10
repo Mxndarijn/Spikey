@@ -23,7 +23,7 @@ func test_bad_names_are_refused() -> void:
 		"lul",
 	]:
 		assert_false(NameFilter.is_allowed(bad), "%s is refused" % bad)
-		assert_ne(LeaderboardService.name_problem(bad), "", "%s shows a problem" % bad)
+		assert_ne(PlayerName.problem(bad), "", "%s shows a problem" % bad)
 
 
 func test_normal_names_pass() -> void:
@@ -49,9 +49,7 @@ func test_normal_names_pass() -> void:
 
 
 func test_problem_text_for_a_bad_name() -> void:
-	assert_eq(
-		LeaderboardService.name_problem("shithead"), "That name isn't allowed. Pick another one."
-	)
+	assert_eq(PlayerName.problem("shithead"), "That name isn't allowed. Pick another one.")
 
 
 ## Every dice suggestion passes the filter.
@@ -59,7 +57,7 @@ func test_suggestions_are_clean() -> void:
 	var rng := RandomNumberGenerator.new()
 	for i in 300:
 		rng.seed = i
-		var n := LeaderboardService.suggest_name(rng)
+		var n := PlayerName.suggest(rng)
 		assert_true(NameFilter.is_allowed(n), "suggestion %s is clean" % n)
 
 

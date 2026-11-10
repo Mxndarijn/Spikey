@@ -1,21 +1,26 @@
-extends RefCounted
+extends HazardPainter
 ## Crate Drop (and Winter Gift Stack, skin "gift"): stacked crates and the one
 ## falling, in spike colour with lighter planks; a pulsing marker under the
 ## ceiling shows where the next crate falls. Gift stacks carry a coin on top.
+
+const CrateDropHazard := preload("res://sim/hazards/crate_drop.gd")
 
 const COIN := preload("res://assets/ui/coin.svg")
 const COIN_SIZE := 26.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as CrateDropHazard
+	var theme := look.theme
+	var time := look.time
 	var size := HazardLayer.px(h.CRATE)
-	var gift: bool = h.gifts or h.skin == "gift"
+	var gift := h.gifts
 	for col in h.COLS:
 		var n: int = h.heights[col]
 		var x := HazardLayer.px(h.col_left(col))
 		for i in n:
 			var y := HazardLayer.px(h.FLOOR) - size * (i + 1)
-			_crate(c, Rect2(x, y, size, size), theme, gift)
+			_crate(c, Rect2(x, y, size, size), look, gift)
 		if h.coins[col] == 1:
 			var p := HazardLayer.at(h.col_center(col), h.coin_y(col))
 			p.y += sin(time * 4.0 + col) * 2.0
@@ -39,11 +44,12 @@ static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> voi
 		c.draw_polyline(chev, Color(theme.spike, pulse), 3.0, true)
 		c.draw_rect(Rect2(cx, land - 3.0, size, 3.0), Color(theme.spike, pulse * 0.6), true)
 		return
-	_crate(c, Rect2(cx, HazardLayer.px(h.y), size, size), theme, gift)
+	_crate(c, Rect2(cx, HazardLayer.px(h.y), size, size), look, gift)
 
 
-static func _crate(c: CanvasItem, r: Rect2, theme: ThemeDef, gift: bool) -> void:
-	HazardLayer.rock_box(c, r, theme)
+static func _crate(c: CanvasItem, r: Rect2, look: HazardLook, gift: bool) -> void:
+	HazardLayer.rock_box(c, r, look)
+	var theme := look.theme
 	var edge := Color(theme.spike_edge, 0.75)
 	if gift:
 		# Ribbon cross and a bow.

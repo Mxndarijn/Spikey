@@ -245,7 +245,7 @@ func _pinned(board: LeaderboardBoard) -> Control:
 	var me := board.me
 	_pinned_rank = LeaderboardRow.rank_label(_rank_text(me.rank) if me != null else "#–")
 	row.add_child(_pinned_rank)
-	var flyer := LeaderboardRow.flyer_texture(_profile.equipped_id(Catalog.FLYER))
+	var flyer := LeaderboardRow.flyer_texture(_profile.equipped_id(ItemKind.FLYER))
 	row.add_child(LeaderboardRow.icon(flyer, PINNED_FLYER))
 	var words := VBoxContainer.new()
 	words.add_theme_constant_override("separation", -3)
@@ -485,7 +485,7 @@ func _sign_in() -> void:
 func open_name_dialog() -> void:
 	if _dialog != null:
 		return
-	_dialog = NameDialog.new(_profile.leaderboard_name, _profile.equipped_id(Catalog.FLYER))
+	_dialog = NameDialog.new(_profile.leaderboard_name, _profile.equipped_id(ItemKind.FLYER))
 	_dialog.saved.connect(_on_name_saved)
 	_dialog.cancelled.connect(_close_name_dialog)
 	add_child(_dialog)

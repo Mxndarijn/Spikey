@@ -49,8 +49,6 @@ func _init(p_gifts: bool = false) -> void:
 
 
 func setup(_sim: GameSim, rng: SimRng) -> void:
-	if skin == "gift":
-		gifts = true
 	salt = rng.next_u32()
 	_next_drop(START_DELAY + WARN_TICKS)
 

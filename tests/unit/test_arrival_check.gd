@@ -88,7 +88,7 @@ func test_rooms_are_not_picked_at_heights_they_skip() -> void:
 
 ## Bee Line, Bat Loop and Lantern Swing time themselves out of a portal: at
 ## every height they can be picked at, a bird holding height stays clear of
-## them for the reading time and a bit (GameSim.ARRIVAL_PATH_MIN).
+## them for the reading time and a bit (FairLanes.ARRIVAL_PATH_MIN).
 func test_moving_hazards_keep_off_a_bird_holding_height() -> void:
 	for id: String in ["bees", "bats", "swing"]:
 		var index := RoomCatalog.index_of(id)
@@ -101,9 +101,9 @@ func test_moving_hazards_keep_off_a_bird_holding_height() -> void:
 				sim.state.y = y_px * SimConfig.SUB
 				sim._arrive_in(side, index)
 				var h: Hazard = sim.room.hazards[0]
-				var clear: int = h._arrival_clear(sim.arrival_path())
+				var clear: int = h._arrival_clear(FairLanes.arrival_path(sim))
 				assert_true(
-					clear >= GameSim.ARRIVAL_PATH_MIN,
+					clear >= FairLanes.ARRIVAL_PATH_MIN,
 					"%s at %d px, side %d: clear %d steps" % [id, y_px, side, clear]
 				)
 

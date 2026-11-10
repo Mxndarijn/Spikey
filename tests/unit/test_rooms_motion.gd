@@ -147,13 +147,10 @@ func test_cloud_follows_its_loop_and_heart_skin() -> void:
 		assert_between(cloud.y, 100 * SUB, 540 * SUB, "cloud y in the room")
 		seen[cloud.x / (20 * SUB) * 100 + cloud.y / (20 * SUB)] = true
 	assert_true(seen.size() > 20, "the cloud travels")
-	var heart := RoomDef.new("heart_test", "seasonal", 0)
-	heart.skin = "heart"
-	heart.hazards = RoomCatalog.find("cloud").hazards
 	var hs := GameSim.new(1)
-	hs.room.start(heart, 0, hs, SimRng.new(1))
-	assert_eq(hs.room.hazards[0].skin, "heart")
+	hs.room.start(RoomCatalog.find("hearts"), 0, hs, SimRng.new(1))
 	assert_eq(hs.room.hazards[0].kind, "bumper")
+	assert_eq(RoomSkins.of("hearts"), "heart", "Heart Bumpers draw the bumper as a heart")
 
 
 # --- Shutter Gates --------------------------------------------------------------
@@ -231,13 +228,11 @@ func test_crawlers_walk_the_whole_loop() -> void:
 	assert_eq(walls.size(), 4, "visits ceiling, floor and both walls")
 
 
-func test_crab_skin_reaches_the_crawler() -> void:
-	var crab := RoomDef.new("crab_test", "seasonal", 0)
-	crab.skin = "crab"
-	crab.hazards = RoomCatalog.find("crawl").hazards
+func test_crab_walk_draws_its_crawlers_as_crabs() -> void:
 	var sim := GameSim.new(1)
-	sim.room.start(crab, 0, sim, SimRng.new(1))
-	assert_eq(sim.room.hazards[0].skin, "crab")
+	sim.room.start(RoomCatalog.find("crabs"), 0, sim, SimRng.new(1))
+	assert_eq(sim.room.hazards[0].kind, "crawler")
+	assert_eq(RoomSkins.of("crabs"), "crab")
 
 
 # --- Lantern Swing --------------------------------------------------------------

@@ -154,10 +154,10 @@ func _fill_friends(b: LeaderboardBoard) -> void:
 
 func _me(rank: int, score: int) -> LeaderboardBoard.Entry:
 	var e := LeaderboardBoard.Entry.new(
-		rank, display_name(), _profile.equipped_id(Catalog.FLYER), score
+		rank, display_name(), _profile.equipped_id(ItemKind.FLYER), score
 	)
 	e.is_me = true
-	e.plate_id = _profile.equipped_id(Catalog.PLATE)
+	e.plate_id = _profile.equipped_id(ItemKind.PLATE)
 	return e
 
 

@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Aurora Bay: polar night. Three ribbons of light across the sky, snow peaks,
 ## pines and an igloo with a lit door on the middle drift, a polar bear with
 ## her cub and snow mounds up front.
@@ -18,7 +18,13 @@ const FUR_SHADE := Color("#C9DCEC")
 const BEAR_NOSE := Color("#122C47")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "snow"
+	mote_count = 14
+	mote_band = Vector2(330, 540)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var mid := SceneGround.new(558, 10, 1.2, 1.6, t.hill_mid, 1)
 	# A little high, so the bears' pale feet stay above the floor spikes.
 	var near := SceneGround.new(595, 7, 1.5, 0.4, t.hill_near, 2)
@@ -114,3 +120,11 @@ static func _bear(pen: ScenePen, x: float, b: float, s: float, flip: bool) -> vo
 	pen.circle(Vector2(24.4, -14.4), 1.4, BEAR_NOSE)
 	pen.circle(Vector2(17, -17), 1.1, BEAR_NOSE)
 	pen.pop()
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_stars(p, cols)

@@ -18,8 +18,65 @@ const PRIMARY_ICON := 30
 ## "Large buttons" in Settings grows bare icon buttons to this.
 const LARGE_BUTTON := 56.0
 
-## Settings > Large buttons, read by every icon button made after it changes.
+## Buttons in this group click with the falling "back" pop instead of the
+## rising tap (AudioDirector): back, close and home buttons. See mark_back().
+const BACK_GROUP := &"back_buttons"
+
+## Settings > Large buttons: the one place it is read (button_size()). Main
+## sets it; buttons that live on (the HUD's) are resized by refresh_button_size.
 static var large_buttons := false
+
+
+## The size of a bare icon button now: LARGE_BUTTON with Settings > Large
+## buttons, else ICON_BUTTON.
+static func button_size() -> float:
+	return LARGE_BUTTON if large_buttons else ICON_BUTTON
+
+
+## Puts `c` across `parent`'s width at `top` px.
+static func across(parent: Control, c: Control, top: float) -> void:
+	parent.add_child(c)
+	c.anchor_left = 0.0
+	c.anchor_right = 1.0
+	c.offset_left = 0
+	c.offset_right = 0
+	c.offset_top = top
+	c.offset_bottom = top + c.get_combined_minimum_size().y
+
+
+## A bare white button with an icon and text over the dimmed room, and a small
+## note under it; link_button() gives the button. `back`: it sounds like a way
+## back (mark_back).
+static func scrim_link(icon: Texture2D, text: String, note: String = "", back := false) -> Control:
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 0)
+	var b := Button.new()
+	b.theme_type_variation = &"ScrimButton"
+	b.text = text
+	b.icon = icon
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.add_theme_constant_override("icon_max_width", 20)
+	if back:
+		mark_back(b)
+	col.add_child(b)
+	if not note.is_empty():
+		var n := label(note, &"ScrimCaption")
+		n.add_theme_font_size_override("font_size", 12)
+		col.add_child(n)
+	return col
+
+
+## The button inside a scrim_link().
+static func link_button(link: Control) -> Button:
+	return link.get_child(0) as Button
+
+
+## Makes `b` sound like a way back (back, close, home).
+static func mark_back(b: BaseButton) -> void:
+	b.add_to_group(BACK_GROUP)
 
 
 ## A bare icon (no box) that is still a 48px tap target. `variation`:
@@ -28,13 +85,15 @@ static func icon_button(
 	icon: Texture2D, tip: String, variation: StringName = &"RoundButton", side: float = -1.0
 ) -> Button:
 	var b := Button.new()
+	if icon == BACK_ICON or icon == CLOSE_ICON:
+		mark_back(b)
 	b.theme_type_variation = variation
 	b.icon = icon
 	b.tooltip_text = tip
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.expand_icon = false
 	b.focus_mode = Control.FOCUS_NONE
-	var s := side if side > 0.0 else (LARGE_BUTTON if large_buttons else ICON_BUTTON)
+	var s := side if side > 0.0 else button_size()
 	b.custom_minimum_size = Vector2(s, s)
 	return b
 

@@ -66,7 +66,6 @@ public sealed class RoomRuntime
         foreach (var f in list)
         {
             Hazard h = f();
-            h.skin = def.skin;
             hazards.Add(h);
             h.setup(sim, rng);
         }
@@ -149,7 +148,6 @@ public sealed class RoomRuntime
     public void add_coin(long x, long y)
     {
         Hazard h = new CoinPickup(x, y, 0);
-        h.skin = def.skin;
         h.t = t;
         hazards.Add(h);
     }

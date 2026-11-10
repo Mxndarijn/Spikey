@@ -1,8 +1,12 @@
-extends RefCounted
+extends HazardPainter
 ## Rotor (Pinwheel): four tapered blades round a hub, all in the spike colour.
 
+const RotorHazard := preload("res://sim/hazards/rotor.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, _time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as RotorHazard
+	var theme := look.theme
 	var center := HazardLayer.at(h.CENTER_X, h.center_y)
 	var length := HazardLayer.px(h.BLADE_LENGTH) + HazardLayer.px(h.BLADE_HALF_W)
 	var half := HazardLayer.px(h.BLADE_HALF_W)

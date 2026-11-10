@@ -1,7 +1,10 @@
-extends RefCounted
+extends WorldScene
 ## Lava Forge (Worlds v4): a wide volcano with a glowing crater, a smoke plume
 ## and lava running down its slopes, rock hills in front and a lava lake with
 ## stepping stones at the bottom.
+
+## Embers on a Match my world portal's rim.
+const EMBER := Color("FFD27A")
 
 const ROCK := Color("#7A2E2C")
 const CRATER_ROCK := Color("#5A2024")
@@ -15,7 +18,13 @@ const MOLTEN := Color("#FFD27A")
 const MOLTEN_DEEP := Color("#FFA94D")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "embers"
+	mote_count = 14
+	mote_band = Vector2(200, 500)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	# Smoke plume from the crater, drifting right, below the score.
 	for c: Vector3 in [
@@ -87,3 +96,11 @@ static func _lake(pen: ScenePen) -> void:
 	for d: Vector2 in [Vector2(70, 30), Vector2(150, 24), Vector2(226, 32), Vector2(300, 26)]:
 		pen.ellipse(Vector2(d.x, 598), d.y / 2.0, 7, ROCK_DARK)
 		pen.ellipse(Vector2(d.x - 3, 595), d.y / 4.0, 2.5, STONE_HI)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [EMBER]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_sparks(p, cols)

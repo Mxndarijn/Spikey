@@ -47,7 +47,7 @@ public class Stalactite : Hazard
                 }
             }
         }
-        gap_y = G.clampi(sim.entry_y(), GAP_MIN, GAP_MAX);
+        gap_y = G.clampi(FairLanes.entry_y(sim), GAP_MIN, GAP_MAX);
         target_y = gap_y;
     }
 

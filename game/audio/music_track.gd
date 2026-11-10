@@ -11,9 +11,9 @@ extends Resource
 
 ## Special picks (not tracks): the track that fits the equipped world, or a
 ## random owned track each run.
-const MATCH_WORLD := "match_world"
-const SHUFFLE := "shuffle"
-const DEFAULT_ID := "candy_hop"
+const MATCH_WORLD := ItemKind.MUSIC_MATCH_WORLD
+const SHUFFLE := ItemKind.MUSIC_SHUFFLE
+const DEFAULT_ID := ItemKind.DEFAULT_TRACK
 ## Stem order inside AudioStreamSynchronized.
 const STEMS: Array[String] = ["pad", "bass", "drums", "lead"]
 const PAD := 0

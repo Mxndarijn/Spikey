@@ -6,7 +6,11 @@ public class CoinPickup : Hazard
     public long x = 0;
     public long y = 0;
     public long appear_at = 0;
+    public const long BESIDE_GAP = 22 * SimConfig.SUB;
+    public const long BESIDE_MAX_X = 290 * SimConfig.SUB;
+
     public long vy = 0;
+    public long beside_band = -1;
 
     public CoinPickup(long p_x = 0, long p_y = 0, long p_appear_at = 0)
     {
@@ -14,6 +18,21 @@ public class CoinPickup : Hazard
         x = p_x;
         y = p_y;
         appear_at = p_appear_at;
+    }
+
+    public override void setup(GameSim sim, SimRng _rng)
+    {
+        if (beside_band < 0) return;
+        var hs = sim.room.hazards;
+        for (int i = 0; i < hs.Count; i++)
+        {
+            if (hs[i] is Block island && island.band == beside_band)
+            {
+                x = island.x1 + BESIDE_GAP <= BESIDE_MAX_X ? island.x1 + BESIDE_GAP : island.x0 - BESIDE_GAP;
+                y = (island.y0 + island.y1) / 2;
+                return;
+            }
+        }
     }
 
     public bool visible() => t >= appear_at;

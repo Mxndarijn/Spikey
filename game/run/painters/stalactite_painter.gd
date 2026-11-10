@@ -1,13 +1,18 @@
-extends RefCounted
+extends HazardPainter
 ## Stalactite Run: dripping rock. A stalactite hangs from the top and a
 ## stalagmite stands from the bottom, both with bumpy, tapering sides and a
 ## lighter ridge, in spike colour. Water drips (safe, white) fall from the tip.
+
+const StalactiteHazard := preload("res://sim/hazards/stalactite.gd")
 
 const STEPS := 14
 const TAPER := 18.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as StalactiteHazard
+	var theme := look.theme
+	var time := look.time
 	var x := HazardLayer.px(h.x)
 	var half := HazardLayer.px(h.HALF_W)
 	var top_tip := HazardLayer.px(h.top_tip())

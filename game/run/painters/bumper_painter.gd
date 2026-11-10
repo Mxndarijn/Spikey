@@ -1,14 +1,19 @@
-extends RefCounted
+extends HazardPainter
 ## Bumper (Bumper Cloud; "heart" skin for Heart Bumpers): a soft, safe shape
 ## that squashes a little as it breathes. Never in the spike colour.
 
+const BumperHazard := preload("res://sim/hazards/bumper.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as BumperHazard
+	var theme := look.theme
+	var time := look.time
 	var center := HazardLayer.at(h.x, h.y)
 	var r := HazardLayer.px(h.RADIUS)
 	var pulse := 1.0 + sin(time * 3.0) * 0.04
 	c.draw_circle(center, r * 1.25 * pulse, Color(theme.glow, 0.25), true, -1.0, true)
-	if h.skin == "heart":
+	if look.skin == "heart":
 		_heart(c, center, r * pulse, theme)
 	else:
 		_cloud(c, center, r * pulse, theme)

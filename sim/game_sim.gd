@@ -21,24 +21,6 @@ enum Event {
 ## How hard a bumper shoves the bird (vertical speed, sub-units per step): a bit
 ## more than a flap, tied to it so the shove stays survivable if the flap changes.
 const BUMP_VY := -SimConfig.FLAP_VY * 6 / 5
-## The start lane (see blocks_start_lane): tall enough to hover in (one hop
-## is about 60 px plus the bird), reaching most of the way across.
-const START_LANE_H := 100 * SimConfig.SUB
-const START_LANE_BELOW := 12 * SimConfig.SUB
-const START_LANE_W := 150 * SimConfig.SUB
-## Steps of the start path (one flap up to its peak and a little after).
-const START_PATH := 32
-## How high one flap lifts the bird (about 60 px).
-const FIRST_HOP := SimConfig.FLAP_VY * SimConfig.FLAP_VY / (2 * SimConfig.GRAVITY)
-## The arrival path (see arrival_path): its length, and how far off it
-## hazards keep (the bird and the hazard each move a few pixels a step).
-const ARRIVAL_PATH_TICKS := SimConfig.ARRIVAL_BLIND + 60
-const ARRIVAL_PATH_MARGIN := 10 * SimConfig.SUB
-## A hazard on a fixed path times itself so it stays off the arrival path for
-## ARRIVAL_PATH_TICKS; if no timing does, the first that does for this long
-## (the reading time and a bit). The first one, not the best, so the layouts
-## ArrivalCheck tries stay different from each other.
-const ARRIVAL_PATH_MIN := SimConfig.ARRIVAL_BLIND + 15
 ## See _keep_hold_band_open: half a second to steer after reading the room.
 const ARRIVAL_WALL_SPARE := 30
 ## Practice starts this far from the left wall.
@@ -62,7 +44,6 @@ var events: Array[int] = []
 var _rng: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
-## True while a room is set up for a bird coming out of a portal.
 
 
 func _init(p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1) -> void:
@@ -82,105 +63,16 @@ func _init(p_seed: int, p_season: int = Seasons.NONE, p_practice_room: int = -1)
 		_enter_room(RoomCatalog.first_index())
 
 
-## Where the bird will be soon after the room starts: its height, or, before
-## the first tap (which is a flap), half a hop higher. Hazards that line a
-## gap up with the bird use this.
-func entry_y() -> int:
-	if state.started:
-		return state.y
-	return state.y - FIRST_HOP / 2 * room.def.gravity_sign
-
-
-## Out of a portal: where a player still reading the room flies, as x, y
-## pairs for ARRIVAL_PATH_TICKS steps. It holds the height it came in at,
-## tapping whenever it has sunk under it (as ArrivalCheck plays it), and turns
-## at the far wall.
-func arrival_path() -> PackedInt32Array:
-	var out := PackedInt32Array()
-	var g := room.def.gravity_sign
-	var y := state.y
-	# It comes out flying level (_arrive).
-	var vy := 0
-	for k in ARRIVAL_PATH_TICKS:
-		if (y - state.y) * g > 0 and vy * g >= 0:
-			vy = SimConfig.FLAP_VY * g
-		vy = clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
-		y += vy
-		out.append(arrival_x(k + 1))
-		out.append(y)
-	return out
-
-
-## Whether a circle at (cx, cy) comes within ARRIVAL_PATH_MARGIN of the bird
-## on `path` (arrival_path) at room step `k`.
-static func arrival_path_hits(path: PackedInt32Array, k: int, cx: int, cy: int, r: int) -> bool:
-	var dx := cx - path[2 * k]
-	var dy := cy - path[2 * k + 1]
-	var reach := SimConfig.BIRD_RADIUS + r + ARRIVAL_PATH_MARGIN
-	return dx * dx + dy * dy < reach * reach
-
-
-## The bird's x `k` steps after coming out of a portal, flying straight on and
-## turning at the far wall.
-func arrival_x(k: int) -> int:
-	var r := SimConfig.BIRD_RADIUS
-	var lo := room.wall_left() + r
-	var span := room.wall_right() - r - lo
-	var at := posmod(state.x + state.vx * k - lo, 2 * span)
-	return lo + (at if at <= span else 2 * span - at)
-
-
-## Before the first tap: where the bird goes in its first START_PATH steps
-## (the first tap is a flap, and the player can't steer until it peaks), as
-## x, y pairs. Empty once the bird is flying. Hazards placed at room start
-## keep off this path, so a room never kills on its first, forced hop.
-func start_path() -> PackedInt32Array:
-	var out := PackedInt32Array()
-	if state.started:
-		return out
-	var g := SimConfig.GRAVITY * room.def.gravity_sign
-	var x := state.x
-	var y := state.y
-	var vy := SimConfig.FLAP_VY * room.def.gravity_sign
-	for i in START_PATH:
-		vy = clampi(vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
-		x += state.vx
-		y += vy
-		out.append(x)
-		out.append(y)
-	return out
-
-
-## Whether a box (corners, sub-units) comes within `margin` of the bird's
-## start path.
-func start_path_hits_rect(x0: int, y0: int, x1: int, y1: int, margin: int) -> bool:
-	var path := start_path()
-	var r := SimConfig.BIRD_RADIUS + margin
-	for i in range(0, path.size(), 2):
-		if path[i] + r > x0 and path[i] - r < x1 and path[i + 1] + r > y0 and path[i + 1] - r < y1:
-			return true
-	return false
-
-
-## Before the first tap: whether a box (sub-units) blocks the start lane, a
-## strip START_LANE_H tall from the bird's height up, from its wall to
-## START_LANE_W into the room. The bird can hover in that strip while it finds
-## its way, so rooms keep it clear. False once the bird is flying.
-func blocks_start_lane(x0: int, y0: int, x1: int, y1: int) -> bool:
-	if state.started:
-		return false
-	var w := START_LANE_W
-	var top := state.y - (START_LANE_H - START_LANE_BELOW) * room.def.gravity_sign
-	var bottom := state.y + START_LANE_BELOW * room.def.gravity_sign
-	var ly0 := mini(top, bottom)
-	var ly1 := maxi(top, bottom)
-	var lx0 := state.x if state.vx > 0 else state.x - w
-	var lx1 := state.x + w if state.vx > 0 else state.x
-	return x1 > lx0 and x0 < lx1 and y1 > ly0 and y0 < ly1
-
-
 func is_practice() -> bool:
 	return practice_room >= 0
+
+
+## The score to show: the run's score, or in practice the points scored since
+## the practice started (it starts at the room's from_score).
+func shown_score() -> int:
+	if is_practice():
+		return state.score - RoomCatalog.all()[practice_room].from_score
+	return state.score
 
 
 func is_over() -> bool:
@@ -261,24 +153,11 @@ func revive() -> bool:
 ## ghost's slots, so the ghost never sits on a spike.
 func wall_mask(side: int) -> int:
 	if state.exit_open and state.exit_side == side:
-		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~exit_slots()
+		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state)
 	var mask := room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
 	if state.exit_preview and state.exit_side == side:
-		mask &= ~exit_slots()
+		mask &= ~ExitPlanner.slots(state)
 	return mask
-
-
-## Wall slots that overlap the open (or ghost) exit(s), so no spike sits in one.
-func exit_slots() -> int:
-	var out := 0
-	var reach := SimConfig.EXIT_HALF + SimConfig.SPIKE_HALF_BASE
-	for slot in SimConfig.SLOT_COUNT:
-		var cy := SimConfig.slot_center_y(slot)
-		if absi(cy - state.exit_a_y) < reach:
-			out |= 1 << slot
-		if state.exit_b_kind != SimState.ExitKind.NORMAL and absi(cy - state.exit_b_y) < reach:
-			out |= 1 << slot
-	return out
 
 
 ## Full checksum of state, room and RNG, for golden replays and desync detection.
@@ -460,71 +339,13 @@ func _maybe_open_exit(side: int) -> void:
 			events.append(Event.EXIT_OPEN)
 		return
 	if (state.score + 1) % every == 0:
-		_plan_exit(1 - side, state.score + 1)
+		ExitPlanner.plan(self, _rng, 1 - side, state.score + 1)
 		state.exit_preview = true
 		events.append(Event.EXIT_PREVIEW)
 	elif state.score % every == 0:
-		_plan_exit(side, state.score)
+		ExitPlanner.plan(self, _rng, side, state.score)
 		state.exit_open = true
 		events.append(Event.EXIT_OPEN)
-
-
-## Picks where the exit(s) for score `at` go, on wall `side`.
-func _plan_exit(side: int, at: int) -> void:
-	state.exit_side = side
-	var fork := at % SimConfig.FORK_EVERY == 0 and not is_practice()
-	if fork:
-		var top := _random_exit_y(
-			SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF
-		)
-		var bottom := _random_exit_y(
-			SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF, SimConfig.EXIT_MAX_Y
-		)
-		var calm_on_top := _rng.next_below(2) == 0
-		state.exit_a_y = top
-		state.exit_b_y = bottom
-		state.exit_a_kind = SimState.ExitKind.CALM if calm_on_top else SimState.ExitKind.WILD
-		state.exit_b_kind = SimState.ExitKind.WILD if calm_on_top else SimState.ExitKind.CALM
-	else:
-		state.exit_a_y = _random_exit_y(SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
-		state.exit_a_kind = SimState.ExitKind.NORMAL
-		state.exit_b_y = 0
-		state.exit_b_kind = SimState.ExitKind.NORMAL
-
-
-## A random exit height between lo and hi, on a spike slot's center. The
-## opening is then always that slot and one either side, with the portal in
-## the middle of it, so the gap is the same everywhere.
-func _random_exit_y(lo: int, hi: int) -> int:
-	var c0 := SimConfig.slot_center_y(0)
-	var first := (lo - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
-	var last := (hi - c0) / SimConfig.SLOT_SIZE
-	# Slots no hazard blocks (Hazard.blocks_exit). One draw either way; if all
-	# are blocked, any slot will have to do.
-	var open: Array[int] = []
-	for slot in range(first, last + 1):
-		if not _exit_blocked(SimConfig.slot_center_y(slot)):
-			open.append(slot)
-	if open.is_empty():
-		var any := first + _rng.next_below(last - first + 1)
-		# A room with a short reach (Narrow) takes the slot nearest the bird (a
-		# fork's far half has none within reach); the draw is still made.
-		if room.def.reach > 0:
-			any = clampi(
-				(state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, first, last
-			)
-		return SimConfig.slot_center_y(any)
-	return SimConfig.slot_center_y(open[_rng.next_below(open.size())])
-
-
-func _exit_blocked(y: int) -> bool:
-	# A room with a short reach (Narrow) keeps the exit near the bird's height.
-	if room.def.reach > 0 and absi(y - state.y) > room.def.reach:
-		return true
-	for h in room.hazards:
-		if h.alive and h.blocks_exit(self, state.exit_side, y):
-			return true
-	return false
 
 
 ## Sim steps until the bird, flying straight on, reaches wall `side` (0 = left,
@@ -651,7 +472,7 @@ func _keep_hold_band_open(side: int) -> void:
 		return
 	var g := room.def.gravity_sign
 	var edge := SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB
-	var up := state.y - (FIRST_HOP + edge) * g
+	var up := state.y - (FairLanes.FIRST_HOP + edge) * g
 	var down := state.y + edge * g
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
@@ -670,6 +491,9 @@ func _keep_hold_band_open(side: int) -> void:
 ## extras, then the coin. This order is part of the rules.
 func _new_wall(side: int) -> void:
 	var mask := RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus())
+	for h in room.hazards:
+		if h.alive:
+			mask = h.adjust_wall(self, side, mask)
 	if side == 0:
 		state.left_spikes = mask
 	else:

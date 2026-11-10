@@ -26,7 +26,7 @@ public class Pendulum : Hazard
         phase = rng.next_below(SimTrig.TURN);
         if (sim.state.started)
         {
-            var arrival = sim.arrival_path();
+            var arrival = FairLanes.arrival_path(sim);
             long first = phase;
             long pick = phase;
             bool settled = false;
@@ -34,12 +34,12 @@ public class Pendulum : Hazard
             {
                 phase = (first + k * SimTrig.TURN / ARRIVAL_TRIES) % SimTrig.TURN;
                 long clear = _arrival_clear(arrival);
-                if (clear >= GameSim.ARRIVAL_PATH_TICKS)
+                if (clear >= FairLanes.ARRIVAL_PATH_TICKS)
                 {
                     pick = phase;
                     break;
                 }
-                if (clear >= GameSim.ARRIVAL_PATH_MIN && !settled)
+                if (clear >= FairLanes.ARRIVAL_PATH_MIN && !settled)
                 {
                     pick = phase;
                     settled = true;
@@ -53,12 +53,12 @@ public class Pendulum : Hazard
     public long _arrival_clear(List<long> arrival)
     {
         long keep = t;
-        long out_ = GameSim.ARRIVAL_PATH_TICKS;
-        for (long k = 0; k < GameSim.ARRIVAL_PATH_TICKS; k++)
+        long out_ = FairLanes.ARRIVAL_PATH_TICKS;
+        for (long k = 0; k < FairLanes.ARRIVAL_PATH_TICKS; k++)
         {
             t = k;
             _place();
-            if (GameSim.arrival_path_hits(arrival, k, x, y, RADIUS))
+            if (FairLanes.arrival_path_hits(arrival, k, x, y, RADIUS))
             {
                 out_ = k;
                 break;

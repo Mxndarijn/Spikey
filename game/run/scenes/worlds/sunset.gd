@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Sunset Glow (Worlds v4): a big low sun behind three hills, clouds and birds,
 ## round trees, a wooden fence on the middle hill, grass tufts and flowers.
 
@@ -7,7 +7,7 @@ const FLOWER := Color("#FFF2CC")
 const DARK := Color("#000000")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(478, 16, 1.1, 0.6, t.hill_far, 0)
 	var mid := SceneGround.new(528, 14, 1.4, 2.2, t.hill_mid, 1)
@@ -27,3 +27,11 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	SceneProps.put(pen, near, [22, 46, 312, 338], SceneProps.p_tuft, sky, grass, 0)
 	var stem := t.hill_near.lerp(t.spike, 0.3)
 	SceneProps.put(pen, near, [70, 286], SceneProps.p_flower, sky, FLOWER, 0, [stem])
+
+
+func portal_touch_colors(t: ThemeDef) -> Array[Color]:
+	return [t.glow]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_ticks(p, cols)

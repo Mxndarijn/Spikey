@@ -52,7 +52,7 @@ extends RefCounted
 ## 19: ARRIVAL_BLIND 1 s. Out of a portal: the bird stays ARRIVAL_EDGE off
 ##     the ceiling and floor lines; Bee Line, Bat Loop, Lantern Swing and
 ##     Ghost Doors time themselves to the path of a player holding height
-##     (GameSim.arrival_path); a wall the bird reaches while still reading
+##     (FairLanes.arrival_path); a wall the bird reaches while still reading
 ##     (fast or narrow rooms) keeps that player's hops free of spikes; the
 ##     picker skips rooms at heights they can't take (RoomDef.arrival_skip:
 ##     Shutter Gates, Stalactite Run, Caterpillar Crawl, Crab Walk, Gift Drop

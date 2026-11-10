@@ -23,20 +23,16 @@ const TEST_ANSWERS := {
 	"no_player": "Play one run first (no player on the server yet)",
 }
 
-## The service the game uses (Main sets it), for the debug screen. Null in
-## tests that don't run Main.
-static var current: PushService
-
 ## The last thing that went wrong, for the debug screen.
 var last_error := ""
 
-var _api: SupabaseLeaderboard
+var _api: SupabaseClient
 var _token := ""
 var _platform := ""
 
 
 ## api: the Supabase session to register with, or null (no server).
-func _init(api: SupabaseLeaderboard = null) -> void:
+func _init(api: SupabaseClient = null) -> void:
 	_api = api
 
 

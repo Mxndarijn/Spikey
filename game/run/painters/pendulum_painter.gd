@@ -1,11 +1,16 @@
-extends RefCounted
+extends HazardPainter
 ## Pendulum (Lantern Swing): a safe chain of links from the ceiling and a
 ## deadly lantern in the spike colour with a warm glowing core.
+
+const PendulumHazard := preload("res://sim/hazards/pendulum.gd")
 
 const LINKS := 14
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as PendulumHazard
+	var theme := look.theme
+	var time := look.time
 	var pivot := HazardLayer.at(h.PIVOT_X, h.PIVOT_Y)
 	var lamp := HazardLayer.at(h.x, h.y)
 	var r := HazardLayer.px(h.RADIUS)

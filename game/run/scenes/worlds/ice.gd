@@ -1,9 +1,15 @@
-extends RefCounted
+extends WorldScene
 ## Ice Cavern (Worlds v4): pale ice walls, icicles (short near the score),
 ## snowy pines on a far drift, two crystals and a penguin with its chick in front.
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "snow"
+	mote_count = 12
+	mote_band = Vector2(200, 470)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(552, 6, 1.0, 0.3, t.hill_mid, 1)
 	var near := SceneGround.new(596, 7, 1.4, 2.0, t.hill_near, 2)
@@ -43,3 +49,11 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 	pb = near.y(181) + 2
 	SceneProps.shadow(pen, 181, pb, 6, near)
 	SceneProps.p_penguin(pen, 181, pb, 0.56, true, true)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_shards(p, cols)

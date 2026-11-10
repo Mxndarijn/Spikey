@@ -1,13 +1,18 @@
-extends RefCounted
+extends HazardPainter
 ## Keepy-Uppy ball: a soft ball in the world accent with a white shine
 ## ("beachball": white with coloured panels). Safe, never the spike colour.
 
+const KeepyBallHazard := preload("res://sim/hazards/keepy_ball.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as KeepyBallHazard
+	var theme := look.theme
+	var time := look.time
 	var center := HazardLayer.at(h.x, h.y)
 	var r := HazardLayer.px(h.RADIUS)
 	var spin := time * 1.5 + HazardLayer.px(h.x) * 0.03
-	if h.skin == "beachball":
+	if look.skin == "beachball":
 		c.draw_circle(center, r, Color.WHITE)
 		var colors: Array[Color] = [theme.world_accent, theme.glow, theme.world_accent]
 		for i in 3:

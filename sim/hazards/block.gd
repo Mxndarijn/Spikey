@@ -108,13 +108,13 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 
 ## Out of a portal (Ghost Doors): shifts every fading box's cycle by the same
 ## amount (the pattern stays the same) so the boxes are faded whenever a player
-## holding height (GameSim.arrival_path) would touch them: the first shift with
+## holding height (FairLanes.arrival_path) would touch them: the first shift with
 ## no solid touch, else the one with the fewest, counting touches in the first
-## GameSim.ARRIVAL_PATH_MIN steps far above later ones. Boxes are set up one by
+## FairLanes.ARRIVAL_PATH_MIN steps far above later ones. Boxes are set up one by
 ## one, so each redoes it from the boxes' own phases (base_phase) for all set
 ## up so far; the last one decides. No RNG.
 func _time_faders_for_arrival(sim: GameSim) -> void:
-	var path := sim.arrival_path()
+	var path := FairLanes.arrival_path(sim)
 	var margin := 4 * SimConfig.SUB
 	var reach := SimConfig.BIRD_RADIUS + margin
 	var all: Array[Hazard] = []
@@ -126,7 +126,7 @@ func _time_faders_for_arrival(sim: GameSim) -> void:
 		h.phase = h.base_phase
 		all.append(h)
 		var at := PackedInt32Array()
-		for k in GameSim.ARRIVAL_PATH_TICKS:
+		for k in FairLanes.ARRIVAL_PATH_TICKS:
 			var px := path[2 * k]
 			var py := path[2 * k + 1]
 			var nx := clampi(px, h.x0, h.x1)
@@ -143,7 +143,7 @@ func _time_faders_for_arrival(sim: GameSim) -> void:
 			for k in touches[i]:
 				# Path step k is room step k + 1.
 				if posmod(k + 1 + b.phase + shift, b.fade_period) < b.solid_ticks:
-					hits += 1000 if k < GameSim.ARRIVAL_PATH_MIN else 1
+					hits += 1000 if k < FairLanes.ARRIVAL_PATH_MIN else 1
 		if best_hits < 0 or hits < best_hits:
 			best_hits = hits
 			best = shift
@@ -159,8 +159,8 @@ func _time_faders_for_arrival(sim: GameSim) -> void:
 ## front of an exit that is already there (revive).
 func _in_the_way(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
 	return (
-		sim.start_path_hits_rect(bx0, by0, bx1, by1, START_MARGIN)
-		or sim.blocks_start_lane(bx0, by0, bx1, by1)
+		FairLanes.start_path_hits_rect(sim, bx0, by0, bx1, by1, START_MARGIN)
+		or FairLanes.blocks_start_lane(sim, bx0, by0, bx1, by1)
 		or _blocks_arrival(sim, bx0, by0, bx1, by1)
 		or _crowds_neighbour(sim, bx0, by0, bx1)
 		or _covers_exit(sim, bx0, by0, bx1, by1)

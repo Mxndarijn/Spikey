@@ -5,7 +5,6 @@ namespace FastSim;
 public abstract class Hazard
 {
     public string kind = "";
-    public string skin = "";
     public bool alive = true;
     public long t = 0;
 
@@ -13,6 +12,7 @@ public abstract class Hazard
     public virtual void step(GameSim sim) { }
     public virtual bool kills(GameSim sim) => false;
     public virtual void touch(GameSim sim) { }
+    public virtual long adjust_wall(GameSim sim, long side, long mask) => mask;
     public virtual void on_bounce(GameSim sim, SimRng rng) { }
     public virtual void on_flap(GameSim sim) { }
     public virtual bool blocks_exit(GameSim sim, long side, long y) => false;

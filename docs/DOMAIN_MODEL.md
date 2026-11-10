@@ -304,115 +304,130 @@ Notes:
 ```mermaid
 classDiagram
 direction TB
-class Catalog {
-  +themes() Array~ThemeDef~
-  +characters() Array~CharacterDef~
-  +cosmetics(slot) Array~CosmeticDef~
-  +find(id) Resource
-}
 class Profile {
-  +int version
-  +Wallet wallet
-  +Array~String~ owned_ids
-  +Loadout loadout
-  +Stats stats
-  +Settings settings
-  +Dictionary achievement_progress
-  +save() void
-  +load()$ Profile
-}
-class Wallet {
   +int coins
-  +add(n, reason) void
-  +spend(n, reason) bool
+  +int diamonds
+  +Dictionary owned
+  +Dictionary equipped
+  +PlayerSettings settings
+  +DailyRevives revives
+  +record_run(score, coins) int
+  +save(path) bool
+  +load_or_new(path)$ Profile
 }
-class Stats {
-  +int best_score
-  +int runs
-  +int total_bounces
-  +int rank_xp
-}
-class Settings {
+class PlayerSettings {
+  +int music_volume
   +bool haptics
-  +String sound_pack
   +bool color_blind_spikes
-  +bool reduced_flashing
-  +bool large_tap_area
+  +is_on(Switch) bool
+  +set_on(Switch, bool) void
+}
+class DailyRevives {
+  +left(day) int
+  +use(day) bool
+}
+class SafeFile {
+  +write_json(path, data)$ bool
+  +read_json(path)$ Variant
+}
+class ItemKind {
+  <<ids>>
+  +ALL
+  +STARTERS
+  +DEFAULTS
+}
+class Economy {
+  +gold_for(diamonds)$ int
+  +daily_prize(rank)$ int
+}
+class Catalog {
+  <<game/cosmetics>>
+  +flyers() Array
+  +portal(id) PortalStyle
+  +repair(profile)$ bool
 }
 class Shop {
-  +can_unlock(item) bool
-  +unlock(item) bool
+  <<game/cosmetics>>
+  +price(kind, id)$ int
+  +diamond_price(kind, id)$ int
 }
-class AchievementTracker {
-  +on_run_finished(replay, events) void
+class Checkout {
+  <<game/cosmetics>>
+  +buy(kind, id) Result
+  +convert(diamonds) bool
 }
-class RankSystem {
-  +rank_for(xp) int
+class SupabaseClient {
+  +ensure_session() bool
+  +call_db(function, body) Dictionary
 }
-class EventCalendar {
-  +active_events(server_date) Array
+class LeaderboardService {
+  +request_board(id) void
+  +submit_run(score, replay) void
 }
-class SeedService {
-  +request_seed() SeedTicket
-  +daily_seed() SeedTicket
+class WalletService {
+  +spend(amount, reason, ref) bool
+  +claim() int
 }
-class LeaderboardClient {
-  +submit(replay, ticket) SubmitResult
-  +fetch(board) Array
+class StoreService
+class AdsService
+class PushService
+class AppServices {
+  <<game/app>>
 }
-class AdsService {
-  +show_rewarded_revive() bool
-}
-class RunVerifier {
+class RunChecker {
   <<server>>
-  +verify(submission) Verdict
+  +check(run) Verdict
 }
-class SimVersionRegistry {
-  <<server>>
-  +sim_for(gameplay_version) Script
-}
-Profile *-- Wallet
-Profile *-- Stats
-Profile *-- Settings
-Profile *-- Loadout
-Shop ..> Catalog
-Shop ..> Profile
-AchievementTracker ..> Profile
-RankSystem ..> Stats
-EventCalendar ..> Catalog : seasonal items
-LeaderboardClient ..> Replay : submits
-LeaderboardClient ..> SeedService
-RunVerifier ..> SimVersionRegistry
-SimVersionRegistry ..> GameSim : one per gameplay version
-RunVerifier ..> Replay
+Profile *-- PlayerSettings
+Profile *-- DailyRevives
+Profile ..> SafeFile : saves through
+Profile ..> ItemKind : starters
+Checkout ..> Shop
+Checkout ..> WalletService : premium items, converting
+Checkout ..> Profile
+Catalog ..> Profile : repair()
+LeaderboardService <|-- SupabaseLeaderboard
+WalletService <|-- SupabaseWallet
+SupabaseLeaderboard ..> SupabaseClient
+SupabaseWallet ..> SupabaseClient
+PushService ..> SupabaseClient
+AppServices o-- LeaderboardService
+AppServices o-- WalletService
+AppServices o-- StoreService
+AppServices o-- AdsService
+AppServices o-- PushService
+AppServices o-- Checkout
+RunChecker ..> Replay : replays with the same sim/
 ```
 
 Notes:
 
-- `Profile` is the save file (`user://profile.json`, with a `version` field for
-  migrations). It is the only thing that changes when you buy or unlock
-  something; `Catalog` is read-only content.
-- Coins earned in a run come from the sim (`SimState.coins`, checked by `Replay.verify()`), so
-  rewards and leaderboards use the same verified numbers.
-- `SeedService` gives one-time seeds for ranked runs and the shared daily seed
-  for the daily challenge room. Offline play uses a local seed and simply isn't
-  submitted.
-- `SimVersionRegistry` maps each allowed `gameplay_version` to a frozen copy of
-  `sim/` (for example `sim/versions/g1/`), so old runs keep verifying after an
-  update.
+- `Profile` is the save file (`user://profile.json`). `SafeFile` writes it to a
+  temp file first and keeps the last good one as `.bak`; a broken save loads the
+  backup and is kept aside, never overwritten. The `version` field goes through
+  `Profile._migrate()`, and keys a newer build wrote are written back as they
+  were. Equipped ids are stored as saved; `Catalog.repair()` swaps looks that
+  no longer exist.
+- `meta/` knows nothing about how things look: ids only (`ItemKind`). What an
+  id looks like is `Catalog`, its price `Shop`, buying it `Checkout`.
+- Coins earned in a run come from the sim (`SimState.coins`, checked by
+  `Replay.verify()`), so rewards and leaderboards use the same verified numbers.
+- Every service base class is also its offline stand-in (no boards, the local
+  wallet, a closed store, no ads, no push). `AppServices` picks the real one
+  when the build and setup allow it and hands the set to the screens.
+- A diamond spend carries a request id, so a lost answer can be asked again
+  without a second charge (`supabase/migrations/20261110140000_spend_requests.sql`).
+- Planned: server-issued one-time seeds, and frozen copies of older sims
+  (for example `sim/versions/g1/`) so old runs keep verifying after an update.
 
-## Today vs target
+## Today
 
-| Piece | Today (Phase 1) | Target |
-|---|---|---|
-| Bird and room state | Flat fields on `SimState` | Split into `BirdState` + `RoomState` |
-| Room kinds | `RoomRules.KINDS` (3 kinds) | `RoomKind` data in `RoomCatalog`, generation in `RoomGenerator` |
-| Obstacles, pickups | None | `ObstacleState` subclasses, `PickupState` |
-| Events | `GameSim.Event` | Same, plus `PICKUP`, `REVIVE` |
-| Look | `SunsetPalette` dictionaries | `ThemeDef` / `RoomPalette` `.tres` files |
-| Cosmetics | `TrailStyle` (2 styles in code) | `CosmeticDef` family in `data/`, owned via `Profile` |
-| Meta, services, server registry | Not started | Phases 2–3 |
-
-The first refactor (split `SimState`, rename `RoomRules`) should keep
-behavior identical. The golden replays prove it: if they still pass without
-regenerating, gameplay did not change and `GAMEPLAY_VERSION` stays the same.
+| Piece | Where |
+|---|---|
+| Bird and room state | Flat fields on `SimState`; the live room is `RoomRuntime` |
+| Room kinds | `RoomDef` batches in `sim/rooms/catalog_*.gd`, picked by `RoomCatalog.pick_next` |
+| Obstacles, pickups | One `Hazard` subclass each in `sim/hazards/` |
+| Fairness | `FairLanes` (start and arrival lanes), `ArrivalCheck`, `ExitPlanner`, hazard hooks |
+| Look | `ThemeDef` `.tres` per world (generated), `WorldScene` per world, a painter per hazard |
+| Cosmetics | Style + painter pairs in `game/cosmetics/`, owned and equipped via `Profile` |
+| Meta, services, server | `meta/`, `services/`, `server/run_checker.gd` (see section 3) |

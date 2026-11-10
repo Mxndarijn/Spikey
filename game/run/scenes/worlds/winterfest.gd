@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Winter Fest (Worlds v4): snowy hills with pines and a cabin far off, pines
 ## with fairy lights on a pale drift, and a snowman up front.
 
@@ -7,7 +7,13 @@ const SNOW := Color("#EAF3FA")
 const TRUNK := Color("#6E3A2E")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "snow"
+	mote_count = 28
+	mote_band = Vector2(196, 520)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(504, 22, 1.0, 1.4, t.hill_far, 0)
 	var mid := SceneGround.new(556, 14, 1.4, 3.2, SNOW, 1)
@@ -34,3 +40,11 @@ static func _lit_pine(pen: ScenePen, g: SceneGround, x: float, s: float, col: Co
 	SceneProps.shadow(pen, x, b, 14 * s if g.depth == 1 else 16, g)
 	SceneProps.p_pine(pen, x, b, s, col, TRUNK)
 	SceneProps.p_lights(pen, x, b, s)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_flakes(p, cols)

@@ -3,7 +3,7 @@
   Runs every check. Nothing counts as done until this passes.
 
 .DESCRIPTION
-  1. Lint + format check (gdtoolkit; skipped with a warning if not installed)
+  1. Lint + format check (gdtoolkit; missing gdtoolkit fails the check)
   2. Godot headless import (builds the class cache)
   3. Load every script and scene
   4. Tests: unit, sim purity, golden replays, bot simulations, run side by side
@@ -73,7 +73,8 @@ if ($gdlint -and $gdformat) {
     & $gdformat --check --line-length 100 @gdDirs
     if ($LASTEXITCODE -ne 0) { $failed += "format (run: gdformat --line-length 100 sim game meta services tests tools server)" }
 } else {
-    Write-Host "SKIPPED: gdtoolkit not installed (pip install --user `"gdtoolkit==4.*`")" -ForegroundColor Yellow
+    Write-Host "gdtoolkit not installed: pip install --user `"gdtoolkit==4.*`"" -ForegroundColor Red
+    $failed += "lint and format (gdtoolkit not installed)"
 }
 
 # 2. Import
@@ -102,7 +103,8 @@ if (-not $TestFilter -or $TestFilter -eq "fastsim") {
         & powershell -ExecutionPolicy Bypass -File (Join-Path $root "tools/fastsim.ps1") -Mode parity -Quick -Jobs 4
         if ($LASTEXITCODE -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
     } else {
-        Write-Host "SKIPPED: dotnet not installed (.NET 9 SDK)" -ForegroundColor Yellow
+        Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
+        $failed += "fastsim parity (dotnet not installed)"
     }
 }
 

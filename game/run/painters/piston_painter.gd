@@ -1,14 +1,19 @@
-extends RefCounted
+extends HazardPainter
 ## Piston (Piston Press): a metal housing in the wall. While warning, its face
 ## glows and a faint outline shows how far the ram will reach; once out, the
 ## ram is a rod in spike colour with a toothed nose.
+
+const PistonHazard := preload("res://sim/hazards/piston.gd")
 
 const HOUSING_W := 12.0
 const TEETH := 3
 const NOSE := 12.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as PistonHazard
+	var theme := look.theme
+	var time := look.time
 	var y := HazardLayer.px(h.y)
 	var half := HazardLayer.px(h.HALF_H)
 	var base := HazardLayer.px(h.base_x())
@@ -42,7 +47,7 @@ static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> voi
 	var nose_x := tip - dir * minf(NOSE, ext)
 	var body := Rect2(minf(base, nose_x), y - half * 0.7, absf(nose_x - base), half * 1.4)
 	if body.size.x > 0.5:
-		HazardLayer.rock_box(c, body, theme)
+		HazardLayer.rock_box(c, body, look)
 	# Nose: a plate with teeth pointing into the room.
 	var head := Rect2(minf(nose_x, nose_x - dir * 6.0), y - half, 6.0, half * 2.0)
 	c.draw_rect(head, theme.spike, true)

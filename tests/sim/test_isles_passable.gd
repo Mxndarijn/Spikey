@@ -90,11 +90,12 @@ func test_islands_keep_off_the_start() -> void:
 		var sim := _practice("isles", s)
 		for b: Block in _islands(sim):
 			assert_false(
-				sim.start_path_hits_rect(b.x0, b.y0, b.x1, b.y1, Block.START_MARGIN),
+				FairLanes.start_path_hits_rect(sim, b.x0, b.y0, b.x1, b.y1, Block.START_MARGIN),
 				"seed %d: island on the first hop" % s
 			)
 			assert_false(
-				sim.blocks_start_lane(b.x0, b.y0, b.x1, b.y1), "seed %d: island in the lane" % s
+				FairLanes.blocks_start_lane(sim, b.x0, b.y0, b.x1, b.y1),
+				"seed %d: island in the lane" % s
 			)
 
 
@@ -119,7 +120,7 @@ func test_exits_open_clear_of_islands() -> void:
 		var sim := _practice("isles", s)
 		var side := s % 2
 		sim.state.exit_side = side
-		var y := sim._random_exit_y(SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
+		var y := ExitPlanner.random_y(sim, sim._rng, SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
 		for b: Block in _islands(sim):
 			var away := b.x0 if side == 0 else SimConfig.WORLD_W - b.x1
 			var level := absi(y - (b.y0 + b.y1) / 2) < (b.y1 - b.y0) / 2 + SimConfig.BIRD_RADIUS
@@ -225,12 +226,12 @@ static func _revived(id: String, seed_value: int, exit: String, side: int) -> Ga
 	if exit == "open":
 		sim.state.score = base
 		sim._enter_room(index)
-		sim._plan_exit(side, base)
+		ExitPlanner.plan(sim, sim._rng, side, base)
 		sim.state.exit_open = true
 	else:
 		sim.state.score = base + every - 1
 		sim._enter_room(index)
-		sim._plan_exit(side, base + every)
+		ExitPlanner.plan(sim, sim._rng, side, base + every)
 		sim.state.exit_preview = true
 	sim.kill(SimState.DeathCause.HAZARD)
 	sim.revive()

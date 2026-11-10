@@ -6,7 +6,7 @@ extends Hazard
 ## A crawler on a wall side stands between the bird and that wall, so the room
 ## keeps a way past it: no exit is planned where a crawler will be when the
 ## bird gets there (blocks_exit), and every new wall keeps a spike-free bounce
-## spot clear of the crawlers (on_bounce).
+## spot clear of the crawlers (adjust_wall).
 
 const SEGMENTS := 6
 const SEG_RADIUS := 10 * SimConfig.SUB
@@ -132,11 +132,10 @@ func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
 ## they leave alone, so there is always a spot to bounce on that is free of
 ## both. The first crawler does this for all of them. A wall with an open exit
 ## is left as it is (blocks_exit kept the exit clear).
-func on_bounce(sim: GameSim, _rng: SimRng) -> void:
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var s := sim.state
-	var side := 1 if s.vx > 0 else 0
 	if s.exit_open and s.exit_side == side:
-		return
+		return mask
 	var arrive := t + sim.steps_to_wall(side)
 	var covered := 0
 	var first := true
@@ -144,7 +143,7 @@ func on_bounce(sim: GameSim, _rng: SimRng) -> void:
 		if h.kind != kind:
 			continue
 		if first and h != self:
-			return
+			return mask
 		first = false
 		var from: int = h.start
 		var span := _in_the_way(sim, from, side, arrive, WALL_WINDOW)
@@ -153,15 +152,8 @@ func on_bounce(sim: GameSim, _rng: SimRng) -> void:
 			if cy > span[0] - SLOT_CLEAR and cy < span[1] + SLOT_CLEAR:
 				covered |= 1 << slot
 	if covered == 0:
-		return
-	var mask := s.right_spikes if side == 1 else s.left_spikes
-	var run := _best_run(mask, covered, s.y)
-	if run & mask == 0:
-		return
-	if side == 1:
-		s.right_spikes = mask & ~run
-	else:
-		s.left_spikes = mask & ~run
+		return mask
+	return mask & ~_best_run(mask, covered, s.y)
 
 
 ## The run of FREE_RUN slots (as a mask) the crawlers leave alone that is best

@@ -59,7 +59,6 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 			list.append(f)
 	for f in list:
 		var h: Hazard = f.call()
-		h.skin = def.skin
 		hazards.append(h)
 		h.setup(sim, rng)
 
@@ -169,7 +168,6 @@ func slot_depth(side: int, slot: int) -> int:
 ## Adds a room coin at (x, y) now (Coin Garden's extra bounce coins).
 func add_coin(x: int, y: int) -> void:
 	var h: Hazard = CoinPickup.new(x, y, 0)
-	h.skin = def.skin
 	h.t = t
 	hazards.append(h)
 

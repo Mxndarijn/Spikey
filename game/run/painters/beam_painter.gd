@@ -1,11 +1,16 @@
-extends RefCounted
+extends HazardPainter
 ## Beam Gates: emitter pairs on both walls. A dashed line flickers while a beam
 ## warms up; a live beam is a bright bar in spike colour with a light core.
+
+const BeamHazard := preload("res://sim/hazards/beam.gd")
 
 const EMITTER := Vector2(10.0, 22.0)
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as BeamHazard
+	var theme := look.theme
+	var time := look.time
 	var w := HazardLayer.px(SimConfig.WORLD_W)
 	for i in h.rows.size():
 		var y := HazardLayer.px(h.rows[i])

@@ -22,15 +22,18 @@ class FakePush:
 		started += 1
 
 
-## Statics other tests also use: every test starts and ends with them clean.
+## The services the page gets; tests swap in their fakes.
+var _svc: AppServices
+
+
+## Fresh offline services, and DevMode (a static other tests also use) as asked.
 func _reset(dev_mode: int = -1) -> void:
-	AdsService.current = null
-	PushService.current = null
+	_svc = AppServices.offline(Profile.new())
 	DevMode.override = dev_mode
 
 
 func _sheet(profile: Profile) -> SettingsSheet:
-	var sheet := SettingsSheet.new(profile)
+	var sheet := SettingsSheet.new(profile, _svc)
 	(Engine.get_main_loop() as SceneTree).root.add_child(sheet)
 	return sheet
 
@@ -67,14 +70,14 @@ func test_developer_mode_has_a_debug_row() -> void:
 func test_report_lists_app_ads_and_notifications() -> void:
 	_reset(0)
 	var ads := FakeAds.new()
-	AdsService.current = ads
+	_svc.ads = ads
 	var push := FakePush.new()
 	push.accept_token("abcdef-a-long-push-token-wxyz", PushService.IOS)
 	push.last_error = "no APNs token"
-	PushService.current = push
+	_svc.push = push
 	var profile := Profile.new()
 	profile.best_score = 56
-	var page := DebugPage.new(profile)
+	var page := DebugPage.new(profile, _svc)
 	var text := page.report()
 	assert_true(text.contains("Gameplay: version %d" % SimConfig.GAMEPLAY_VERSION))
 	assert_true(text.contains("Best score: 56"))
@@ -90,10 +93,10 @@ func test_report_lists_app_ads_and_notifications() -> void:
 
 func test_report_without_services() -> void:
 	_reset(0)
-	var page := DebugPage.new(Profile.new())
+	var page := DebugPage.new(Profile.new(), _svc)
 	var text := page.report()
-	assert_true(text.contains("Ads: not started"))
-	assert_true(text.contains("Push: not started"))
+	assert_true(text.contains("Ads: none in this build"))
+	assert_true(text.contains("Push: not in this build"))
 	assert_true(page.find_child("GiveRevives", true, false) == null, "players can't add revives")
 	page.free()
 	assert_eq(AdsService.new().debug_rows(), [["Ads", "none in this build"]])
@@ -106,8 +109,8 @@ func test_ad_buttons() -> void:
 	_reset(0)
 	var ads := FakeAds.new()
 	ads.ready = false
-	AdsService.current = ads
-	var page := DebugPage.new(Profile.new())
+	_svc.ads = ads
+	var page := DebugPage.new(Profile.new(), _svc)
 	page.press("ShowAd")
 	assert_eq(ads.shown, 0, "nothing to show")
 	assert_eq(page.note(DebugPage.ADS), "No ad is loaded")
@@ -130,11 +133,11 @@ func test_ad_buttons() -> void:
 func test_using_up_free_revives_is_saved() -> void:
 	_reset(0)
 	var profile := Profile.new()
-	var page := DebugPage.new(profile)
+	var page := DebugPage.new(profile, _svc)
 	var saves := [0]
 	page.changed.connect(func() -> void: saves[0] += 1)
 	page.press("UseRevives")
-	assert_eq(profile.free_revives_left(Profile.today()), 0)
+	assert_eq(profile.revives.left(DailyRevives.today()), 0)
 	assert_eq(saves[0], 1, "main saves the profile")
 	assert_true(page.report().contains("Free revives: 0 of 3 left today"))
 	page.free()
@@ -144,19 +147,21 @@ func test_using_up_free_revives_is_saved() -> void:
 func test_test_ads_switch_is_saved_and_switches_the_unit() -> void:
 	_reset(0)
 	var ads := FakeAds.new()
-	AdsService.current = ads
+	_svc.ads = ads
 	var profile := Profile.new()
-	assert_false(profile.test_ads, "real ads by default")
-	var page := DebugPage.new(profile)
+	assert_false(profile.settings.test_ads, "real ads by default")
+	var page := DebugPage.new(profile, _svc)
 	var saves := [0]
 	page.changed.connect(func() -> void: saves[0] += 1)
 	(page.find_child("TestAds", true, false) as SettingSwitch).button_pressed = true
-	assert_true(profile.test_ads)
+	assert_true(profile.settings.test_ads)
 	assert_eq(saves[0], 1)
 	assert_eq(ads.units.size(), 1, "the ad service is told at once")
 	page.free()
-	assert_true(Profile.from_dict(profile.to_dict()).test_ads, "the switch survives a restart")
-	assert_false(Profile.from_dict({"version": 3}).test_ads)
+	assert_true(
+		Profile.from_dict(profile.to_dict()).settings.test_ads, "the switch survives a restart"
+	)
+	assert_false(Profile.from_dict({"version": 3}).settings.test_ads)
 	assert_eq(AdsService.revive_unit("iOS", true), AdsService.ADMOB_TEST["iOS"])
 	assert_eq(AdsService.revive_unit("iOS", false), AdsService.ADMOB["iOS"]["revive"])
 	_reset()
@@ -165,12 +170,12 @@ func test_test_ads_switch_is_saved_and_switches_the_unit() -> void:
 func test_notification_buttons() -> void:
 	_reset(0)
 	var profile := Profile.new()
-	var page := DebugPage.new(profile)
+	var page := DebugPage.new(profile, _svc)
 	page.press("AskPush")
 	assert_eq(page.note(DebugPage.PUSH), "Push is not in this build")
 	assert_false(profile.push_asked)
 	var push := FakePush.new()
-	PushService.current = push
+	_svc.push = push
 	page.press("AskPush")
 	assert_eq(push.asked, 1)
 	assert_true(profile.push_asked, "so the next start fetches the token again")

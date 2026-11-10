@@ -45,7 +45,8 @@ line. Keep names, order and structure the same.
 - `assert(...)`: leave out.
 - Hazard base: `Sim/Rooms/Hazard.cs`. Override with the same names:
   `setup(GameSim sim, SimRng rng)`, `step(GameSim sim)`, `kills(GameSim sim)`,
-  `touch(GameSim sim)`, `on_bounce(GameSim sim, SimRng rng)`,
+  `touch(GameSim sim)`, `adjust_wall(GameSim sim, long side, long mask)`,
+  `on_bounce(GameSim sim, SimRng rng)`,
   `on_flap(GameSim sim)`, `blocks_exit(GameSim sim, long side, long y)`,
   `guards_edge(GameSim sim, bool top)`, `checksum(long h)`.
   `Hazard.mix_all(h, a, b, c)` takes values directly (params) or a
@@ -59,12 +60,14 @@ line. Keep names, order and structure the same.
   hazard (`partner`) overrides `remap(map)`:
   `if (partner != null) partner = map[partner];`.
 - GameSim API (same names as GDScript): `sim.state.*`, `sim.room.*`,
-  `sim.entry_y()`, `sim.start_path()` (a `List<long>`),
-  `sim.start_path_hits_rect(...)`, `sim.blocks_start_lane(...)`,
-  `sim.steps_to_wall(side)`, `sim.wall_mask(side)`, `sim.exit_slots()`,
+  `sim.steps_to_wall(side)`, `sim.wall_mask(side)`,
   `sim.bird_touches_circle(...)`, `sim.bird_touches_rect(...)`,
   `sim.bump_bird_from(...)`, `sim.collect_coin(...)`, `sim.kill(cause)`,
   `sim.is_practice()`, `sim.events` (a `List<int>`, `Event.COIN` etc.).
+  Lanes and exits are their own static classes, as in GDScript:
+  `FairLanes.entry_y(sim)`, `FairLanes.start_path(sim)` (a `List<long>`),
+  `FairLanes.start_path_hits_rect(sim, ...)`, `FairLanes.blocks_start_lane(sim, ...)`,
+  `FairLanes.arrival_path(sim)`, `ExitPlanner.slots(sim.state)`.
   Constants: `SimConfig.*`, `GameSim.BUMP_VY`, `DeathCause.*`, `ExitKind.*`,
   `RoomDef.WallMode.*`, `RoomDef.Speed.*`, `Seasons.*`, `SimTrig.*`,
   `SimMath.*`, `RoomRules.*`, `RoomRuntime.*`.

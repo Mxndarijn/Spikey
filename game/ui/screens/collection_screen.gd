@@ -21,8 +21,6 @@ signal equipped(kind: String, id: String)
 signal previewed(kind: String, id: String)
 ## The wallet in the header was tapped: main opens the Shop.
 signal store_pressed
-## Diamonds were turned into gold here (already in the profile): main saves.
-signal wallet_changed
 
 ## Only the shop is left (the first-start pickers were removed).
 enum Mode { SHOP }
@@ -37,13 +35,13 @@ const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 const HATS := "hats"
 ## The screen's title per kind.
 const TITLES := {
-	Catalog.FLYER: "Flyers",
-	Catalog.WORLD: "Worlds",
-	Catalog.TRAIL: "Trails",
-	Catalog.PORTAL: "Portals",
-	Catalog.MUSIC: "Music",
-	Catalog.CRASH: "Crashes",
-	Catalog.PLATE: "Plates",
+	ItemKind.FLYER: "Flyers",
+	ItemKind.WORLD: "Worlds",
+	ItemKind.TRAIL: "Trails",
+	ItemKind.PORTAL: "Portals",
+	ItemKind.MUSIC: "Music",
+	ItemKind.CRASH: "Crashes",
+	ItemKind.PLATE: "Plates",
 	HATS: "Hats",
 }
 ## The popup's clean picture, as wide as its card's inside.
@@ -60,50 +58,67 @@ const SIDE := 14
 
 var mode: Mode
 var kind: String
-## Where diamonds are spent; main sets it before the screen is shown (the
-## local wallet when left alone).
-var wallet_service: WalletService
+## Plays music previews; null in tests (only the state changes then).
+var audio: AudioDirector
 
 var _profile: Profile
 var _selected := ""
 var _cards: Array[ItemCard] = []
-var _wallet := Wallet.new()
+var _wallet: Wallet
+## Buying and converting (the wallet may ask the server).
+var _checkout: Checkout
 ## The convert sheet, while it is open.
 var _sheet: ConvertSheet
 ## A premium purchase is waiting for the wallet's answer.
 var _paying := false
-var _detail_name := Label.new()
-var _detail_text := Label.new()
-var _badge_text := Label.new()
-var _action := Button.new()
+var _detail_name: Label
+var _detail_text: Label
+var _badge_text: Label
+var _action: Button
 ## The header row; its "Title" label names the kind shown.
 var _header: Control
 ## Every item of the tab, yours first.
-var _owned_grid := GridContainer.new()
+var _owned_grid: GridContainer
 ## The popup for a tapped item.
-var _popup := Control.new()
-var _popup_thumb := ItemThumb.new()
+var _popup: Control
+var _popup_thumb: ItemThumb
 ## The preview on the room: the flyer with its puffs, or (Trails, Portals) a
 ## picture with no room of its own, and the line under it.
-var _stage := Control.new()
-var _flyer_art := FlyerArt.new(null, PREVIEW_BODY)
-var _preview := ItemThumb.new()
-var _caption := Label.new()
+var _stage: Control
+var _flyer_art: FlyerArt
+var _preview: ItemThumb
+var _caption: Label
 var _preview_portal: PortalStyle
-var _empty := PanelContainer.new()
+var _empty: PanelContainer
 var _empty_text := Label.new()
 ## Music preview: the card id playing ("" for none) and the track to go back to.
 var _playing := ""
 var _resting: MusicTrack
 
 
-func _init(profile: Profile, p_mode: Mode, tab: String = Catalog.FLYER) -> void:
-	_profile = profile
+func _init(checkout: Checkout, p_mode: Mode, tab: String = ItemKind.FLYER) -> void:
+	_checkout = checkout
+	_profile = checkout.profile
 	mode = p_mode
 	kind = tab
 
 
 func _ready() -> void:
+	# Built here, not in the member list, so a screen freed before it is
+	# shown leaves nothing behind.
+	_wallet = Wallet.new()
+	_detail_name = Label.new()
+	_detail_text = Label.new()
+	_badge_text = Label.new()
+	_action = Button.new()
+	_stage = Control.new()
+	_flyer_art = FlyerArt.new(null, PREVIEW_BODY)
+	_preview = ItemThumb.new()
+	_caption = Label.new()
+	_empty = PanelContainer.new()
+	_popup = Control.new()
+	_popup_thumb = ItemThumb.new()
+	_owned_grid = GridContainer.new()
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -128,30 +143,6 @@ func _ready() -> void:
 	_action.pressed.connect(_on_action)
 	add_child(_build_popup())
 	_show_kind(kind)
-
-
-## Free any widget made in the member list that never joined the screen, or
-## it leaks.
-func _notification(what: int) -> void:
-	if what != NOTIFICATION_PREDELETE:
-		return
-	for n: Node in [
-		_wallet,
-		_detail_name,
-		_detail_text,
-		_badge_text,
-		_action,
-		_stage,
-		_flyer_art,
-		_preview,
-		_caption,
-		_empty,
-		_popup,
-		_popup_thumb,
-		_owned_grid,
-	]:
-		if is_instance_valid(n) and n.get_parent() == null:
-			n.free()
 
 
 func _build_shop(col: VBoxContainer) -> void:
@@ -312,7 +303,7 @@ func step(delta: int) -> void:
 func _show_kind(k: String) -> void:
 	stop_preview()
 	kind = k
-	_owned_grid.columns = 1 if k == Catalog.MUSIC else SHOP_COLUMNS
+	_owned_grid.columns = 1 if k == ItemKind.MUSIC else SHOP_COLUMNS
 	if _header != null:
 		(_header.get_node("Title") as Label).text = title_for(k)
 	for c in _cards:
@@ -331,13 +322,13 @@ func _show_kind(k: String) -> void:
 	_empty.visible = ids.is_empty()
 	_empty_text.text = _empty_message()
 	# Music rows need the room: no flyer preview there.
-	_stage.visible = k != Catalog.MUSIC
-	_caption.visible = k != Catalog.MUSIC
+	_stage.visible = k != ItemKind.MUSIC
+	_caption.visible = k != ItemKind.MUSIC
 	var current := _profile.equipped_id(kind)
 	_select(current if current in ids else (ids[0] if not ids.is_empty() else ""))
 
 
-## "Crashes" for Catalog.CRASH: the title of a kind's list.
+## "Crashes" for ItemKind.CRASH: the title of a kind's list.
 static func title_for(k: String) -> String:
 	return str(TITLES.get(k, "Customize"))
 
@@ -353,7 +344,7 @@ func _empty_message() -> String:
 
 ## Flyers and trails are shown on the player's world.
 func _backdrop() -> ThemeDef:
-	var w := Catalog.world(_profile.equipped_id(Catalog.WORLD))
+	var w := Catalog.world(_profile.equipped_id(ItemKind.WORLD))
 	return w if w != null else ThemeCatalog.default_theme()
 
 
@@ -418,72 +409,46 @@ func _preview_id(k: String) -> String:
 ## the tapped item on its own.
 func _show_preview() -> void:
 	_show_popup_picture()
-	var w := Catalog.world(_preview_id(Catalog.WORLD))
-	var f := Catalog.flyer(_preview_id(Catalog.FLYER))
-	var t := Catalog.trail(_preview_id(Catalog.TRAIL))
-	var p := Catalog.portal(_preview_id(Catalog.PORTAL))
+	var w := Catalog.world(_preview_id(ItemKind.WORLD))
+	var f := Catalog.flyer(_preview_id(ItemKind.FLYER))
+	var t := Catalog.trail(_preview_id(ItemKind.TRAIL))
+	var p := Catalog.portal(_preview_id(ItemKind.PORTAL))
 	_preview_portal = p if p != null else Catalog.portal(PortalStyle.DEFAULT_ID)
 	_flyer_art.texture = f.idle if f != null else null
 	# Trails: the flyer leads its trail; Portals: the exit on the right wall.
 	_preview.world = w if w != null else ThemeCatalog.default_theme()
-	_preview.flyer = f.idle if f != null and kind == Catalog.TRAIL else null
+	_preview.flyer = f.idle if f != null and kind == ItemKind.TRAIL else null
 	_preview.trail = null
 	_preview.portal = null
 	_preview.crash = null
 	_preview.plate = null
 	match kind:
-		Catalog.TRAIL:
+		ItemKind.TRAIL:
 			_preview.trail = t if t != null else TrailStyle.world_ribbon()
-		Catalog.PORTAL:
+		ItemKind.PORTAL:
 			_preview.portal = _preview_portal
-		Catalog.CRASH:
+		ItemKind.CRASH:
 			# The picture draws the flyer itself, under or over the effect.
-			_preview.crash = Catalog.crash(_preview_id(Catalog.CRASH))
+			_preview.crash = Catalog.crash(_preview_id(ItemKind.CRASH))
 			_preview.flyer = f.idle if f != null else null
-		Catalog.PLATE:
-			_preview.plate = Catalog.plate(_preview_id(Catalog.PLATE))
+		ItemKind.PLATE:
+			_preview.plate = Catalog.plate(_preview_id(ItemKind.PLATE))
 			_preview.flyer = f.idle if f != null else null
-	_flyer_art.visible = kind not in [Catalog.TRAIL, Catalog.CRASH, Catalog.PLATE]
+	_flyer_art.visible = kind not in [ItemKind.TRAIL, ItemKind.CRASH, ItemKind.PLATE]
 
 
 ## The popup picture: flyers and worlds on a clean sky with a far hill (the
 ## tapped world, or the player's), the other kinds as their small picture.
 func _show_popup_picture() -> void:
 	_popup_thumb.world = _backdrop()
-	_popup_thumb.flyer = null
-	_popup_thumb.trail = null
-	_popup_thumb.portal = null
-	_popup_thumb.crash = null
-	_popup_thumb.plate = null
-	_popup_thumb.music = ""
-	_popup_thumb.scenic = kind == Catalog.FLYER or kind == Catalog.WORLD
-	match kind:
-		Catalog.FLYER:
-			var pf := Catalog.flyer(_selected)
-			_popup_thumb.flyer = pf.idle if pf != null else null
-		Catalog.WORLD:
-			var pw := Catalog.world(_selected)
-			if pw != null:
-				_popup_thumb.world = pw
-			var mine := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
-			_popup_thumb.flyer = mine.idle if mine != null else null
-		Catalog.TRAIL:
-			_popup_thumb.trail = Catalog.trail(_selected)
-		Catalog.PORTAL:
-			_popup_thumb.portal = Catalog.portal(_selected)
-		Catalog.MUSIC:
-			_popup_thumb.music = _selected
-		Catalog.CRASH, Catalog.PLATE:
-			var own := Catalog.flyer(_profile.equipped_id(Catalog.FLYER))
-			_popup_thumb.flyer = own.idle if own != null else null
-			_popup_thumb.crash = Catalog.crash(_selected) if kind == Catalog.CRASH else null
-			_popup_thumb.plate = Catalog.plate(_selected) if kind == Catalog.PLATE else null
+	_popup_thumb.scenic = kind == ItemKind.FLYER or kind == ItemKind.WORLD
+	_popup_thumb.show_item(kind, _selected, Catalog.flyer_art(_profile.equipped_id(ItemKind.FLYER)))
 
 
 ## What the preview shows, for tests: [flyer, world, trail] ids.
 func preview_ids() -> Array[String]:
 	var out: Array[String] = []
-	for k: String in [Catalog.FLYER, Catalog.WORLD, Catalog.TRAIL]:
+	for k: String in [ItemKind.FLYER, ItemKind.WORLD, ItemKind.TRAIL]:
 		out.append(_preview_id(k))
 	return out
 
@@ -546,9 +511,7 @@ func open_convert() -> ConvertSheet:
 	var why := ""
 	if short > 0:
 		why = "You need %d more gold for %s." % [short, ItemChip.short_name(kind, _selected)]
-	_sheet = ConvertSheet.new(
-		_profile, maxi(Economy.diamonds_to_cover(short), 1), why, _wallet_service()
-	)
+	_sheet = ConvertSheet.new(_checkout, maxi(Economy.diamonds_to_cover(short), 1), why)
 	_sheet.converted.connect(_on_converted)
 	_sheet.closed.connect(_close_sheet)
 	add_child(_sheet)
@@ -559,32 +522,7 @@ func sheet() -> ConvertSheet:
 	return _sheet
 
 
-func _wallet_service() -> WalletService:
-	if wallet_service == null:
-		wallet_service = WalletService.new(_profile)
-	return wallet_service
-
-
-## Pays for the selected premium item through the wallet (which may ask the
-## server) and hands it over. False when the diamonds could not be spent.
-func _buy_with_diamonds(gems: int) -> bool:
-	var item_kind := kind
-	var item_id := _selected
-	if _profile.diamonds < gems:
-		return false
-	_paying = true
-	@warning_ignore("redundant_await")
-	var ok: bool = await _wallet_service().spend(
-		gems, WalletService.ITEM, "%s:%s" % [item_kind, item_id]
-	)
-	_paying = false
-	if ok:
-		_profile.grant(item_kind, item_id)
-	return ok
-
-
 func _on_converted(_diamonds: int) -> void:
-	wallet_changed.emit()
 	refresh()
 
 
@@ -604,20 +542,16 @@ func _on_action() -> void:
 		if gold_short() > 0 and _profile.diamonds > 0:
 			open_convert()
 			return
-		var gems := Shop.diamond_price(kind, _selected)
-		var bought := false
-		if gems > 0:
-			var wanted := _selected
-			bought = await _buy_with_diamonds(gems)
-			# The player may have tapped something else while the server answered.
-			if bought and wanted != _selected:
-				wallet_changed.emit()
-				refresh()
-				return
-		else:
-			bought = Shop.buy(_profile, kind, _selected) == Shop.Result.OK
-		if not bought:
+		var wanted := _selected
+		_paying = true
+		var result: Checkout.Result = await _checkout.buy(kind, wanted)
+		_paying = false
+		if result != Checkout.Result.OK:
 			AudioDirector.ui("locked")
+			refresh()
+			return
+		# The player may have tapped something else while the server answered.
+		if wanted != _selected:
 			refresh()
 			return
 		AudioDirector.sound("purchase")
@@ -670,11 +604,10 @@ func stop_preview() -> void:
 
 
 ## The live AudioDirector, or null (tests, or one already freed).
-static func _director() -> AudioDirector:
-	var d: Variant = AudioDirector.current
-	if not is_instance_valid(d) or not (d as AudioDirector).is_inside_tree():
+func _director() -> AudioDirector:
+	if not is_instance_valid(audio) or not audio.is_inside_tree():
 		return null
-	return d as AudioDirector
+	return audio
 
 
 func _show_playing() -> void:
@@ -699,28 +632,28 @@ func _exit_tree() -> void:
 ## music. Empty when there is nothing.
 static func badge_text(k: String, id: String) -> String:
 	match k:
-		Catalog.WORLD:
+		ItemKind.WORLD:
 			var w := Catalog.world(id)
 			if w == null:
 				return ""
 			if not w.season.is_empty():
 				return "Seasonal: %s" % w.season
 			return "Premium" if w.premium else ""
-		Catalog.FLYER:
+		ItemKind.FLYER:
 			var f := Catalog.flyer(id)
 			if f == null or f.fits_worlds.is_empty():
 				return ""
 			var names: Array[String] = []
 			for wid in f.fits_worlds:
-				names.append(Catalog.display_name(Catalog.WORLD, wid))
+				names.append(Catalog.display_name(ItemKind.WORLD, wid))
 			return "Fits " + " and ".join(names)
-		Catalog.MUSIC:
+		ItemKind.MUSIC:
 			var t := Catalog.track(id)
 			if t == null or t.worlds.is_empty():
 				return ""
 			var names: Array[String] = []
 			for wid in t.worlds:
-				names.append(Catalog.display_name(Catalog.WORLD, wid))
+				names.append(Catalog.display_name(ItemKind.WORLD, wid))
 			var last: String = names.pop_back()
 			if names.is_empty():
 				return "Matches " + last
@@ -730,23 +663,23 @@ static func badge_text(k: String, id: String) -> String:
 
 static func _detail(k: String, id: String) -> String:
 	match k:
-		Catalog.FLYER:
+		ItemKind.FLYER:
 			var f := Catalog.flyer(id)
 			if f == null:
 				return ""
 			return f.blurb + " Looks only, same hitbox."
-		Catalog.WORLD:
+		ItemKind.WORLD:
 			return "A world to play in. Looks only: every world plays the same."
-		Catalog.TRAIL:
+		ItemKind.TRAIL:
 			var t := Catalog.trail(id)
 			if t != null and t.use_world_color:
 				return "Takes the color of the world you play in."
 			return "A trail behind your flyer."
-		Catalog.PORTAL:
+		ItemKind.PORTAL:
 			var p := Catalog.portal(id)
 			var blurb := p.blurb + " " if p != null and not p.blurb.is_empty() else ""
 			return blurb + "Looks only: every exit is the same size."
-		Catalog.MUSIC:
+		ItemKind.MUSIC:
 			match id:
 				MusicTrack.MATCH_WORLD:
 					return "Plays the track that fits the world you pick."
@@ -756,11 +689,11 @@ static func _detail(k: String, id: String) -> String:
 			if t == null:
 				return ""
 			return "%s. Music only: every run plays the same." % ItemCard.track_line(id, null)
-		Catalog.CRASH:
+		ItemKind.CRASH:
 			var c := Catalog.crash(id)
 			var line := c.blurb + " " if c != null and not c.blurb.is_empty() else ""
 			return line + "Looks only: it plays after the run has ended."
-		Catalog.PLATE:
+		ItemKind.PLATE:
 			var plate := Catalog.plate(id)
 			var line := plate.blurb + " " if plate != null and not plate.blurb.is_empty() else ""
 			return line + "Shows behind your row on the leaderboards."

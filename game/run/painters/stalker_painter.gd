@@ -1,9 +1,14 @@
-extends RefCounted
+extends HazardPainter
 ## Stalker (Stalker Rail): a faint rail along the wall and the spike pair that
 ## slides on it, shaped like the wall spikes so it reads as one of them.
 
+const StalkerHazard := preload("res://sim/hazards/stalker.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as StalkerHazard
+	var theme := look.theme
+	var time := look.time
 	var bx := HazardLayer.px(h.x)
 	var cy := HazardLayer.px(h.y)
 	var dir := 1.0 if h.side == 0 else -1.0

@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Windmill Meadow: a plain sunny day. A small sun and two clouds, a barn and
 ## round trees on the far hill, a windmill and a fence on the middle one, two
 ## sheep, grass tufts and flowers up front.
@@ -19,7 +19,7 @@ const DAISY := Color("#FFFFFF")
 const BUTTERCUP := Color("#FFE066")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(486, 14, 1.1, 0.6, t.hill_far, 0)
 	var mid := SceneGround.new(534, 13, 1.4, 2.2, t.hill_mid, 1)
@@ -101,3 +101,11 @@ static func _sheep(pen: ScenePen, x: float, b: float, s: float, flip: bool) -> v
 	pen.ellipse(Vector2(9.5, -17), 2.6, 1.4, SHEEP_FACE, -30)
 	pen.circle(Vector2(13.6, -14.5), 1, WOOL)
 	pen.pop()
+
+
+func portal_touch_colors(t: ThemeDef) -> Array[Color]:
+	return [t.world_accent, t.trail]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_leaves(p, cols)

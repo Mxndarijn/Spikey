@@ -10,7 +10,7 @@ func _profile(best: int = 87) -> Profile:
 	p.best_score = best
 	p.onboarded = true
 	p.leaderboard_name = "buzzybee"
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		var id: String = Catalog.ids(kind)[0]
 		p.grant(kind, id)
 		p.equip(kind, id)
@@ -48,15 +48,15 @@ func _free(screen: LeaderboardScreen) -> void:
 
 func test_names_follow_the_rules() -> void:
 	for ok in ["abc", "buzzy.bee", "Tap_Tap_Leo_12", "ZippyFlap42"]:
-		assert_true(LeaderboardService.is_valid_name(ok), "%s is fine" % ok)
+		assert_true(PlayerName.is_valid(ok), "%s is fine" % ok)
 	for bad in ["", "ab", "has space", "emoji❤", "fifteen_letters", "dash-name"]:
-		assert_false(LeaderboardService.is_valid_name(bad), "%s is refused" % bad)
-	assert_eq(LeaderboardService.name_problem("ab"), "Use at least 3 characters.")
+		assert_false(PlayerName.is_valid(bad), "%s is refused" % bad)
+	assert_eq(PlayerName.problem("ab"), "Use at least 3 characters.")
 	var rng := RandomNumberGenerator.new()
 	for i in 50:
 		rng.seed = i
-		var n := LeaderboardService.suggest_name(rng)
-		assert_true(LeaderboardService.is_valid_name(n), "suggestion %s is valid" % n)
+		var n := PlayerName.suggest(rng)
+		assert_true(PlayerName.is_valid(n), "suggestion %s is valid" % n)
 
 
 func test_name_is_saved_and_bad_saved_names_are_dropped() -> void:
@@ -259,7 +259,7 @@ func test_first_visit_asks_for_a_name() -> void:
 	if dialog == null:
 		_free(screen)
 		return
-	assert_true(LeaderboardService.is_valid_name(dialog.draft()), "a valid name is suggested")
+	assert_true(PlayerName.is_valid(dialog.draft()), "a valid name is suggested")
 	dialog.set_draft("no")
 	assert_false(dialog.can_save(), "too short")
 	assert_eq(dialog.hint_text(), "Use at least 3 characters.")
@@ -278,7 +278,7 @@ func test_first_visit_asks_for_a_name() -> void:
 
 
 func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var p := _profile()
 	p.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
@@ -308,7 +308,7 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 		var shown := "#%d" % want if want > 0 else "Ranks"
 		assert_eq(home.dock().button("rank").text, shown, "today's rank on home")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_tapping_a_score_with_a_replay_opens_the_sheet_and_hands_over_the_run() -> void:

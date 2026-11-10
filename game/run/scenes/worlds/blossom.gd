@@ -1,4 +1,4 @@
-extends RefCounted
+extends WorldScene
 ## Blossom (Worlds v4): a blossom branch in the top-left corner, white round
 ## trees on the far hill, a small blossom tree, grass tufts and flowers.
 
@@ -7,7 +7,13 @@ const PETAL := Color("#FFFFFF")
 const FAR_TRUNK := Color("#B8869E")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "petals"
+	mote_count = 12
+	mote_band = Vector2(260, 520)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(520, 16, 1.0, 1.2, t.hill_far, 0)
 	var mid := SceneGround.new(560, 14, 1.3, 3.0, t.hill_mid, 1)
@@ -52,3 +58,11 @@ static func _bloom(pen: ScenePen, x: float, y: float, r: float, c: Color) -> voi
 		var a := k * TAU / 5.0
 		pen.circle(Vector2(x + cos(a) * r * 0.55, y + sin(a) * r * 0.55), r * 0.5, PETAL)
 	pen.circle(Vector2(x, y), r * 0.25, c)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return [Color.WHITE]
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_petals(p, cols)

@@ -19,7 +19,7 @@ class SpyBoard:
 
 
 func _make_main(board: LeaderboardService) -> Node:
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
 	main.leaderboard = board
@@ -47,7 +47,7 @@ static func _other_id(kind: String, not_this: String) -> String:
 	for id in Catalog.ids(kind):
 		if id == not_this:
 			continue
-		if kind == Catalog.MUSIC and Catalog.track(id) == null:
+		if kind == ItemKind.MUSIC and Catalog.track(id) == null:
 			continue
 		return id
 	return not_this
@@ -102,14 +102,14 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	var main := _make_main(board)
 	var p: Profile = main._profile
 	var own := {}
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		own[kind] = p.equipped_id(kind)
 	# What the player sees now, for kinds the save leaves empty.
 	var shown := own.duplicate()
-	shown[Catalog.TRAIL] = main._trail_style.id
-	shown[Catalog.PORTAL] = main._room.portal_style.id
+	shown[ItemKind.TRAIL] = main._look.trail_style.id
+	shown[ItemKind.PORTAL] = main._room.portal_style.id
 	var look := {}
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		look[kind] = _other_id(kind, shown[kind])
 		assert_ne(look[kind], shown[kind], "a different %s to show" % kind)
 	var before := JSON.stringify(p.to_dict())
@@ -122,11 +122,11 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	assert_true(main._menus.current() == null, "the room shows, no menu")
 	assert_false(main._hud._back_button.visible, "a replay has its own exit, no back arrow")
 	assert_eq(main._hud.replay_hud().chip_text(), "Replay: Noor, %d" % recorded.score)
-	assert_eq(main._bird._character.id, look[Catalog.FLYER], "their flyer")
-	assert_eq(main._theme.id, look[Catalog.WORLD], "their world")
-	assert_eq(main._trail_style.id, look[Catalog.TRAIL], "their trail")
-	assert_eq(main._room.portal_style.id, look[Catalog.PORTAL], "their portal")
-	assert_eq(main._audio.track.id, look[Catalog.MUSIC], "their music")
+	assert_eq(main._bird._character.id, look[ItemKind.FLYER], "their flyer")
+	assert_eq(main._look.theme.id, look[ItemKind.WORLD], "their world")
+	assert_eq(main._look.trail_style.id, look[ItemKind.TRAIL], "their trail")
+	assert_eq(main._room.portal_style.id, look[ItemKind.PORTAL], "their portal")
+	assert_eq(main._audio.track.id, look[ItemKind.MUSIC], "their music")
 	# Touching the screen does nothing.
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
@@ -141,7 +141,7 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	assert_eq(board.submitted, 0, "nothing sent to the leaderboards")
 	assert_eq(JSON.stringify(p.to_dict()), before, "the profile is unchanged")
 	assert_eq(FileAccess.get_file_as_string(TEST_PATH), saved_before, "the save is unchanged")
-	for kind in Catalog.KINDS:
+	for kind in ItemKind.ALL:
 		assert_eq(p.equipped_id(kind), own[kind], "nothing equipped: %s" % kind)
 	# Watch again: the same run from the top.
 	main._replay_again()
@@ -155,13 +155,13 @@ func test_replay_plays_with_their_look_and_changes_nothing() -> void:
 	var screen := main._menus.current() as LeaderboardScreen
 	assert_true(screen != null, "back on the leaderboards")
 	assert_eq(screen.board_id(), LeaderboardService.ALL_TIME, "on the same board")
-	assert_eq(main._bird._character.id, own[Catalog.FLYER], "own flyer back")
-	assert_eq(main._theme.id, own[Catalog.WORLD], "own world back")
+	assert_eq(main._bird._character.id, own[ItemKind.FLYER], "own flyer back")
+	assert_eq(main._look.theme.id, own[ItemKind.WORLD], "own world back")
 	assert_eq(main._room.portal_style.id, PortalStyle.equipped(p).id, "own portal back")
 	assert_false(main._hud.replay_hud().visible, "the replay HUD is gone")
 	assert_eq(JSON.stringify(p.to_dict()), before, "still unchanged")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_leaving_midway_stops_the_replay() -> void:
@@ -187,7 +187,7 @@ func test_leaving_midway_stops_the_replay() -> void:
 	assert_eq(JSON.stringify(p.to_dict()), before, "the profile is unchanged")
 	assert_false(main._hud.replay_hud().visible, "the replay HUD is gone")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## A run that somehow ends behind a menu is never counted as the player's.
@@ -204,19 +204,19 @@ func test_death_in_menu_counts_for_nothing() -> void:
 	assert_eq(board.submitted, 0, "nothing sent to the leaderboards")
 	assert_eq(JSON.stringify(p.to_dict()), before, "the profile is unchanged")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_unknown_look_falls_back_to_own() -> void:
 	var main := _make_main(SpyBoard.new())
 	var p: Profile = main._profile
-	var look := {Catalog.FLYER: "no_such_flyer", Catalog.WORLD: "", Catalog.PORTAL: "gone"}
+	var look := {ItemKind.FLYER: "no_such_flyer", ItemKind.WORLD: "", ItemKind.PORTAL: "gone"}
 	main.play_replay(_run_of(SimBots.play(5154, SimBots.gap_seeker, 7, 120), look))
-	assert_eq(main._bird._character.id, p.equipped_id(Catalog.FLYER), "own flyer")
-	assert_eq(main._theme.id, p.equipped_id(Catalog.WORLD), "own world")
+	assert_eq(main._bird._character.id, p.equipped_id(ItemKind.FLYER), "own flyer")
+	assert_eq(main._look.theme.id, p.equipped_id(ItemKind.WORLD), "own world")
 	assert_eq(main._room.portal_style.id, PortalStyle.equipped(p).id, "own portal")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 func test_old_version_and_empty_run_show_messages() -> void:
@@ -236,7 +236,7 @@ func test_old_version_and_empty_run_show_messages() -> void:
 	assert_true(main._menus.current() is LeaderboardScreen, "Back to the leaderboards")
 	assert_eq(board.submitted, 0)
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)
 
 
 ## A replay shows the coins the recorded player picks up, like a run, but
@@ -262,4 +262,4 @@ func test_replay_shows_the_run_coins_under_the_chip() -> void:
 	main._leave_replay()
 	assert_eq(counter.offset_top, Hud.RUN_COINS_TOP, "back up top for the player's own runs")
 	main.free()
-	DirAccess.remove_absolute(TEST_PATH)
+	SafeFile.remove(TEST_PATH)

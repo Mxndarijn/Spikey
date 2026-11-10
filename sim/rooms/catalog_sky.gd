@@ -41,7 +41,6 @@ static func defs() -> Array[RoomDef]:
 	orchard.weight = 4
 	orchard.max_spikes = 2
 	orchard.bounce_coin = false
-	orchard.skin = "pinecone"
 	orchard.hazards.append(func() -> Hazard: return OrchardSpawner.new())
 	orchard.hazards.append(_drop.bind(90, 6 * SUB, 140))
 	out.append(orchard)

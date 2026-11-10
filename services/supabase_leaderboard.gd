@@ -1,81 +1,40 @@
 class_name SupabaseLeaderboard
 extends LeaderboardService
 ## The real leaderboards for friends, on Supabase's free plan (supabase/migrations/,
-## setup in docs/LEADERBOARD_SETUP.md). Each phone signs in anonymously once and
-## keeps its session in user://. Runs are sent with their seed and taps; a
+## setup in docs/LEADERBOARD_SETUP.md), through this phone's SupabaseClient.
+## Runs are sent with their seed and taps; a
 ## checker replays each one (.github/workflows/verify-runs.yml, started by the
 ## database when a run arrives) and the boards only show runs that passed, plus
 ## the player's own runs still waiting.
 ## Runs that can't be sent (offline) wait in user:// and go out with the next
 ## board request or run.
 
-## A sign-in or token refresh finished (ok: there is a valid session now).
-signal session_checked(ok: bool)
-
-const CONFIG_PATH := "res://services/supabase_config.json"
-const SESSION_PATH := "user://supabase_session.json"
 const QUEUE_PATH := "user://pending_runs.json"
-const TIMEOUT_S := 10.0
-## Refresh the access token this long before it runs out.
-const REFRESH_MARGIN_S := 60
 ## submit_run's later arguments, newest migration last. A database that doesn't
 ## know the newest ones yet answers 404; the run is then sent without them.
 const NEWER_ARGS := [["p_loadout"], ["p_season", "p_coins", "p_end_tick"]]
 
-## Tests point these somewhere else.
-var session_path := SESSION_PATH
+## Tests point this somewhere else.
 var queue_path := QUEUE_PATH
+## The connection, shared with the wallet and push alerts.
+var client: SupabaseClient
 
-var _url := ""
-var _key := ""
-var _host: Node
 var _profile: Profile
-var _access := ""
-var _refresh := ""
-var _expires_at := 0
 ## Runs not sent yet, oldest first (each the body of a submit_run call).
 var _queue: Array[Dictionary] = []
 var _sending := false
-var _signing_in := false
 
 
-## url: "https://<project>.supabase.co"; key: the project's public anon key.
-## host: a node in the tree to hang the HTTP requests on.
-func _init(profile: Profile, host: Node, url: String, key: String) -> void:
+func _init(profile: Profile, p_client: SupabaseClient) -> void:
 	_profile = profile
-	_host = host
-	_url = url.trim_suffix("/")
-	_key = key
-
-
-## {"url": ..., "anon_key": ...} from the config file, or {} when it is missing
-## or incomplete (the game then falls back to the sample boards).
-static func load_config(path: String = CONFIG_PATH) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		return {}
-	var data: Variant = _read_json_any(path)
-	if not data is Dictionary:
-		return {}
-	var url := str((data as Dictionary).get("url", ""))
-	var key := str((data as Dictionary).get("anon_key", ""))
-	# The example file's placeholders ("YOUR-...", "PASTE-...") count as missing.
-	if not url.begins_with("https://") or key.is_empty() or _placeholder(url + key):
-		return {}
-	return {"url": url, "anon_key": key}
-
-
-static func _placeholder(text: String) -> bool:
-	return "YOUR-" in text or "PASTE-" in text
+	client = p_client
 
 
 ## Loads the saved session and the runs still waiting to be sent.
 func restore() -> void:
-	var s := _read_json(session_path)
-	_access = str(s.get("access_token", ""))
-	_refresh = str(s.get("refresh_token", ""))
-	_expires_at = int(s.get("expires_at", 0))
+	client.restore()
 	_queue.clear()
-	var q: Variant = _read_json_any(queue_path)
+	var q: Variant = SafeFile.read_json(queue_path)
 	if q is Array:
 		for item: Variant in q:
 			if item is Dictionary:
@@ -100,7 +59,7 @@ func set_player(player_name: String, flyer_id: String) -> void:
 static func run_body(profile: Profile, score: int, replay: Dictionary, now_s: int) -> Dictionary:
 	var body := {
 		"p_name": profile.leaderboard_name,
-		"p_flyer": profile.equipped_id(Catalog.FLYER),
+		"p_flyer": profile.equipped_id(ItemKind.FLYER),
 		"p_score": score,
 		"p_gameplay_version": int(replay.get("gameplay_version", SimConfig.GAMEPLAY_VERSION)),
 		"p_seed": int(replay.get("seed", 0)),
@@ -168,12 +127,8 @@ func request_run(run_id: int) -> void:
 
 
 func _load_run(run_id: int) -> void:
-	var run := {}
-	if await _ensure_session():
-		var res := await _post("/rest/v1/rpc/get_run", {"p_run": run_id}, true)
-		if res.ok:
-			run = parse_run(res.data)
-	run_loaded.emit(run_id, run)
+	var res := await client.call_db("get_run", {"p_run": run_id})
+	run_loaded.emit(run_id, parse_run(res.data) if res.ok else {})
 
 
 ## Turns get_board's answer into a board; anything unexpected reads as offline.
@@ -221,11 +176,11 @@ func pending_runs() -> int:
 
 
 func _load_board(board_id: String) -> void:
-	if not await _ensure_session():
+	if not await client.ensure_session():
 		_deliver(LeaderboardBoard.make(board_id, LeaderboardBoard.Status.OFFLINE))
 		return
 	await _send_queue()
-	var res := await _post("/rest/v1/rpc/get_board", {"p_board": board_id}, true)
+	var res := await client.call_db("get_board", {"p_board": board_id})
 	if not res.ok:
 		_deliver(LeaderboardBoard.make(board_id, LeaderboardBoard.Status.OFFLINE))
 		return
@@ -234,13 +189,12 @@ func _load_board(board_id: String) -> void:
 	# run was sent with.
 	for e in board.entries:
 		if e.is_me:
-			e.plate_id = _profile.equipped_id(Catalog.PLATE)
+			e.plate_id = _profile.equipped_id(ItemKind.PLATE)
 	_deliver(board)
 
 
 func _set_player(player_name: String, flyer_id: String) -> void:
-	if await _ensure_session():
-		await _post("/rest/v1/rpc/set_player", {"p_name": player_name, "p_flyer": flyer_id}, true)
+	await client.call_db("set_player", {"p_name": player_name, "p_flyer": flyer_id})
 
 
 ## Sends waiting runs oldest first; stops at the first failure and tries again later.
@@ -248,9 +202,9 @@ func _send_queue() -> void:
 	if _sending or _queue.is_empty():
 		return
 	_sending = true
-	if await _ensure_session():
+	if await client.ensure_session():
 		while not _queue.is_empty():
-			var res := await _post("/rest/v1/rpc/submit_run", _queue[0], true)
+			var res := await client.call_db("submit_run", _queue[0])
 			if not res.ok and res.code == 404 and _queue[0].has("p_revives"):
 				# The database can't store revives yet. Without them the run would
 				# be rejected, so it waits here for the migration.
@@ -272,95 +226,5 @@ func _send_queue() -> void:
 	_sending = false
 
 
-## A valid access token: the saved one, a refreshed one, or a new anonymous player.
-## Calls that arrive while signing in wait for it, so a phone never makes two players.
-func _ensure_session() -> bool:
-	var now := int(Time.get_unix_time_from_system())
-	if not _access.is_empty() and now < _expires_at - REFRESH_MARGIN_S:
-		return true
-	if _signing_in:
-		return await session_checked
-	_signing_in = true
-	var ok := await _renew_session(now)
-	_signing_in = false
-	session_checked.emit(ok)
-	return ok
-
-
-func _renew_session(now: int) -> bool:
-	var res: Dictionary
-	if not _refresh.is_empty():
-		res = await _post(
-			"/auth/v1/token?grant_type=refresh_token", {"refresh_token": _refresh}, false
-		)
-	if _refresh.is_empty() or (not res.ok and res.code >= 400 and res.code < 500):
-		res = await _post("/auth/v1/signup", {}, false)
-	if not res.ok or not res.data is Dictionary:
-		return false
-	var d := res.data as Dictionary
-	_access = str(d.get("access_token", ""))
-	_refresh = str(d.get("refresh_token", ""))
-	_expires_at = now + int(d.get("expires_in", 3600))
-	_write_json(
-		session_path,
-		{"access_token": _access, "refresh_token": _refresh, "expires_at": _expires_at}
-	)
-	return not _access.is_empty()
-
-
-## Calls one of the database's functions as this phone's player (the wallet
-## uses it too, so both share one session). Same answer as _post().
-func call_db(function: String, body: Dictionary) -> Dictionary:
-	if not await _ensure_session():
-		return {"ok": false, "code": 0, "data": null}
-	return await _post("/rest/v1/rpc/" + function, body, true)
-
-
-## One POST. Returns {"ok": bool, "code": HTTP status (0: no answer), "data": parsed JSON}.
-func _post(path: String, body: Dictionary, signed_in: bool) -> Dictionary:
-	if _host == null or not _host.is_inside_tree():
-		return {"ok": false, "code": 0, "data": null}
-	var req := HTTPRequest.new()
-	req.timeout = TIMEOUT_S
-	_host.add_child(req)
-	var headers := PackedStringArray(["apikey: " + _key, "Content-Type: application/json"])
-	if signed_in:
-		headers.append("Authorization: Bearer " + _access)
-	var err := req.request(_url + path, headers, HTTPClient.METHOD_POST, JSON.stringify(body))
-	if err != OK:
-		req.queue_free()
-		return {"ok": false, "code": 0, "data": null}
-	var answer: Array = await req.request_completed
-	req.queue_free()
-	var code := int(answer[1])
-	var text := (answer[3] as PackedByteArray).get_string_from_utf8()
-	var ok := int(answer[0]) == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 300
-	return {"ok": ok, "code": code, "data": _parse(text)}
-
-
 func _save_queue() -> void:
-	_write_json(queue_path, _queue)
-
-
-## Parsed JSON, or null for an empty or broken text (never logs an error).
-static func _parse(text: String) -> Variant:
-	var json := JSON.new()
-	return json.data if not text.is_empty() and json.parse(text) == OK else null
-
-
-static func _read_json(path: String) -> Dictionary:
-	var v: Variant = _read_json_any(path)
-	return v if v is Dictionary else {}
-
-
-static func _read_json_any(path: String) -> Variant:
-	if not FileAccess.file_exists(path):
-		return null
-	return _parse(FileAccess.get_file_as_string(path))
-
-
-static func _write_json(path: String, value: Variant) -> void:
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f != null:
-		f.store_string(JSON.stringify(value))
-		f.close()
+	SafeFile.write_json(queue_path, _queue)

@@ -1,20 +1,24 @@
-extends RefCounted
+extends HazardPainter
 ## Gate (Shutter Gates): a rock bar above and below a sliding gap, with teeth
 ## on the gap edges so the deadly lips read clearly.
+
+const GateHazard := preload("res://sim/hazards/gate.gd")
 
 const TEETH := 3
 const TOOTH := 6.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, _time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as GateHazard
+	var theme := look.theme
 	var half := HazardLayer.px(h.HALF_W)
 	var cx := HazardLayer.px(h.x)
 	var top := HazardLayer.px(h.TOP)
 	var bottom := HazardLayer.px(h.BOTTOM)
 	var gap_top := HazardLayer.px(h.gap_top())
 	var gap_bottom := HazardLayer.px(h.gap_bottom())
-	HazardLayer.rock_box(c, Rect2(cx - half, top, half * 2.0, gap_top - top), theme)
-	HazardLayer.rock_box(c, Rect2(cx - half, gap_bottom, half * 2.0, bottom - gap_bottom), theme)
+	HazardLayer.rock_box(c, Rect2(cx - half, top, half * 2.0, gap_top - top), look)
+	HazardLayer.rock_box(c, Rect2(cx - half, gap_bottom, half * 2.0, bottom - gap_bottom), look)
 	_teeth(c, cx, half, gap_top, 1.0, theme)
 	_teeth(c, cx, half, gap_bottom, -1.0, theme)
 

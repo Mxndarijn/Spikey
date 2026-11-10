@@ -43,7 +43,6 @@ public sealed class CrateDrop : Hazard
 
     public override void setup(GameSim sim, SimRng rng)
     {
-        if (skin == "gift") gifts = true;
         salt = rng.next_u32();
         _next_drop(START_DELAY + WARN_TICKS);
     }

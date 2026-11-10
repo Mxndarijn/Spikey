@@ -79,7 +79,7 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	# hops a player holding height makes) when the bird gets to this gate
 	# (the follower shifts it if it is the nearer one), so a player still
 	# reading the room flies straight through.
-	var aim := sim.entry_y()
+	var aim := FairLanes.entry_y(sim)
 	var lead := 0
 	if sim.state.started:
 		aim -= ARRIVAL_HOVER * sim.room.def.gravity_sign
@@ -151,7 +151,7 @@ func aim_at_exit(sim: GameSim) -> void:
 	# How far the gap slides between the two.
 	var slide := (GAP_MAX_Y - GAP_MIN_Y) * (last_at - first_at) / (period / 2)
 	var reach := maxi(REVIVE_REACH + slide, 0)
-	var from := sim.entry_y()
+	var from := FairLanes.entry_y(sim)
 	var target := clampi(clampi(s.exit_a_y, GAP_MIN_Y, GAP_MAX_Y), from - reach, from + reach)
 	phase = _phase_for(target, t + last_at, target > from)
 	_place()
@@ -159,21 +159,18 @@ func aim_at_exit(sim: GameSim) -> void:
 
 ## The leader keeps the wall ahead open where the gate next to it will have
 ## its gap when the bird gets there.
-func on_bounce(sim: GameSim, _rng: SimRng) -> void:
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if follows:
-		return
+		return mask
 	var s := sim.state
-	var near := _last_before(1 if s.vx > 0 else 0)
+	var near := _last_before(side)
 	var steps := absi(near.x - s.x) / SimConfig.SPEED_X
 	var gap: int = near.gap_at(t + steps)
-	var mask := s.right_spikes if s.vx > 0 else s.left_spikes
+	var out := mask
 	for slot in SimConfig.SLOT_COUNT:
 		if absi(SimConfig.slot_center_y(slot) - gap) < WALL_CLEAR:
-			mask &= ~(1 << slot)
-	if s.vx > 0:
-		s.right_spikes = mask
-	else:
-		s.left_spikes = mask
+			out &= ~(1 << slot)
+	return out
 
 
 ## An exit goes only where the bird can get to from the gap of the last gate

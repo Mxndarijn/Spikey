@@ -88,7 +88,7 @@ public class Block : Hazard
 
     void _time_faders_for_arrival(GameSim sim)
     {
-        var path = sim.arrival_path();
+        var path = FairLanes.arrival_path(sim);
         long margin = 4 * SimConfig.SUB;
         long reach = SimConfig.BIRD_RADIUS + margin;
         var all = new List<Block>();
@@ -99,7 +99,7 @@ public class Block : Hazard
             h.phase = h.base_phase;
             all.Add(h);
             var at = new List<long>();
-            for (long k = 0; k < GameSim.ARRIVAL_PATH_TICKS; k++)
+            for (long k = 0; k < FairLanes.ARRIVAL_PATH_TICKS; k++)
             {
                 long px = path[(int)(2 * k)];
                 long py = path[(int)(2 * k + 1)];
@@ -119,7 +119,7 @@ public class Block : Hazard
                 var b = all[i];
                 foreach (long k in touches[i])
                     if (G.posmod(k + 1 + b.phase + shift, b.fade_period) < b.solid_ticks)
-                        hits += k < GameSim.ARRIVAL_PATH_MIN ? 1000 : 1;
+                        hits += k < FairLanes.ARRIVAL_PATH_MIN ? 1000 : 1;
             }
             if (best_hits < 0 || hits < best_hits)
             {
@@ -133,8 +133,8 @@ public class Block : Hazard
 
     public bool _in_the_way(GameSim sim, long bx0, long by0, long bx1, long by1)
     {
-        return sim.start_path_hits_rect(bx0, by0, bx1, by1, START_MARGIN)
-            || sim.blocks_start_lane(bx0, by0, bx1, by1)
+        return FairLanes.start_path_hits_rect(sim, bx0, by0, bx1, by1, START_MARGIN)
+            || FairLanes.blocks_start_lane(sim, bx0, by0, bx1, by1)
             || _blocks_arrival(sim, bx0, by0, bx1, by1)
             || _crowds_neighbour(sim, bx0, by0, bx1)
             || _covers_exit(sim, bx0, by0, bx1, by1);

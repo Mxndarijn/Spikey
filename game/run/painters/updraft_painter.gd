@@ -1,12 +1,17 @@
-extends RefCounted
+extends HazardPainter
 ## Updraft: a soft glowing column with chevrons drifting up. Safe, so it uses
 ## the world's glow, never the spike colour.
+
+const UpdraftHazard := preload("res://sim/hazards/updraft.gd")
 
 const ROWS := 8
 const SPEED := 70.0
 
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as UpdraftHazard
+	var theme := look.theme
+	var time := look.time
 	var x0 := HazardLayer.px(h.x0)
 	var x1 := HazardLayer.px(h.x1)
 	var top := HazardLayer.px(SimConfig.KILL_TOP)

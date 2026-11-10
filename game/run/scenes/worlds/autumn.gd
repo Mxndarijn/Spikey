@@ -1,13 +1,22 @@
-extends RefCounted
+extends WorldScene
 ## Autumn (Worlds v4): a low sun and a cloud, a pine ridge, orange round trees
 ## on the middle hill, pumpkins and grass tufts up front.
+
+## Leaves on a Match my world portal's rim.
+const RIM_LEAVES: Array[Color] = [Color("E2603A"), Color("F2A23A"), Color("C9452F")]
 
 const PINE_TINT := Color("#7A3A1E")
 const LEAVES := Color("#E2603A")
 const TRUNK := Color("#6B3A22")
 
 
-static func paint(pen: ScenePen, t: ThemeDef) -> void:
+func _init() -> void:
+	mote_kind = "leaves"
+	mote_count = 12
+	mote_band = Vector2(196, 470)
+
+
+func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var sky := t.sky_mid
 	var far := SceneGround.new(486, 12, 1.2, 0.4, t.hill_far, 0)
 	var mid := SceneGround.new(532, 12, 1.5, 2.4, t.hill_mid, 1)
@@ -29,3 +38,11 @@ static func paint(pen: ScenePen, t: ThemeDef) -> void:
 		SceneProps.p_pumpkin(pen, d.x, b, d.y)
 	var grass := t.hill_near.lerp(t.spike, 0.2)
 	SceneProps.put(pen, near, [140, 220, 340], SceneProps.p_tuft, sky, grass, 0)
+
+
+func portal_touch_colors(_t: ThemeDef) -> Array[Color]:
+	return RIM_LEAVES
+
+
+func draw_portal_touch(p: PortalPen, _t: ThemeDef, cols: Array[Color]) -> void:
+	PortalPainter.touch_leaves(p, cols)

@@ -1,9 +1,14 @@
-extends RefCounted
+extends HazardPainter
 ## Crawler (Caterpillar Crawl; "crab" skin for Summer Crab Walk): round body
 ## segments in the spike colour that bob as they walk, with a face on the head.
 
+const CrawlerHazard := preload("res://sim/hazards/crawler.gd")
 
-static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> void:
+
+func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
+	var h := hazard as CrawlerHazard
+	var theme := look.theme
+	var time := look.time
 	var r := HazardLayer.px(h.SEG_RADIUS)
 	var n: int = h.xs.size()
 	# Tail first, so the head is drawn on top.
@@ -11,7 +16,7 @@ static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, time: float) -> voi
 		var i := n - 1 - k
 		var p := HazardLayer.at(h.xs[i], h.ys[i])
 		var bob := sin(time * 8.0 + i * 1.3) * 1.2
-		if h.skin == "crab":
+		if look.skin == "crab":
 			_crab_segment(c, p, r, theme, i == 0, bob)
 		else:
 			_segment(c, p + Vector2(0, bob), r, theme, i == 0)

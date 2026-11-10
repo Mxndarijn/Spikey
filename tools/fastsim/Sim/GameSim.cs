@@ -12,14 +12,6 @@ public static class Event
 public sealed class GameSim
 {
     public const long BUMP_VY = -SimConfig.FLAP_VY * 6 / 5;
-    public const long START_LANE_H = 100 * SimConfig.SUB;
-    public const long START_LANE_BELOW = 12 * SimConfig.SUB;
-    public const long START_LANE_W = 150 * SimConfig.SUB;
-    public const long START_PATH = 32;
-    public const long FIRST_HOP = SimConfig.FLAP_VY * SimConfig.FLAP_VY / (2 * SimConfig.GRAVITY);
-    public const long ARRIVAL_PATH_TICKS = SimConfig.ARRIVAL_BLIND + 60;
-    public const long ARRIVAL_PATH_MARGIN = 10 * SimConfig.SUB;
-    public const long ARRIVAL_PATH_MIN = SimConfig.ARRIVAL_BLIND + 15;
     public const long ARRIVAL_WALL_SPARE = 30;
     public const long PRACTICE_START_GAP = 40 * SimConfig.SUB;
 
@@ -65,88 +57,6 @@ public sealed class GameSim
         c._rng = _rng.Clone();
         c._checking = _checking;
         return c;
-    }
-
-    public long entry_y()
-    {
-        if (state.started) return state.y;
-        return state.y - FIRST_HOP / 2 * room.def.gravity_sign;
-    }
-
-    public List<long> arrival_path()
-    {
-        var out_ = new List<long>((int)(2 * ARRIVAL_PATH_TICKS));
-        long g = room.def.gravity_sign;
-        long y = state.y;
-        long vy = 0;
-        for (long k = 0; k < ARRIVAL_PATH_TICKS; k++)
-        {
-            if ((y - state.y) * g > 0 && vy * g >= 0) vy = SimConfig.FLAP_VY * g;
-            vy = G.clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
-            y += vy;
-            out_.Add(arrival_x(k + 1));
-            out_.Add(y);
-        }
-        return out_;
-    }
-
-    public static bool arrival_path_hits(List<long> path, long k, long cx, long cy, long r)
-    {
-        long dx = cx - path[(int)(2 * k)];
-        long dy = cy - path[(int)(2 * k + 1)];
-        long reach = SimConfig.BIRD_RADIUS + r + ARRIVAL_PATH_MARGIN;
-        return dx * dx + dy * dy < reach * reach;
-    }
-
-    public long arrival_x(long k)
-    {
-        long r = SimConfig.BIRD_RADIUS;
-        long lo = room.wall_left() + r;
-        long span = room.wall_right() - r - lo;
-        long at = G.posmod(state.x + state.vx * k - lo, 2 * span);
-        return lo + (at <= span ? at : 2 * span - at);
-    }
-
-    public List<long> start_path()
-    {
-        var out_ = new List<long>();
-        if (state.started) return out_;
-        long g = SimConfig.GRAVITY * room.def.gravity_sign;
-        long x = state.x;
-        long y = state.y;
-        long vy = SimConfig.FLAP_VY * room.def.gravity_sign;
-        for (long i = 0; i < START_PATH; i++)
-        {
-            vy = G.clampi(vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
-            x += state.vx;
-            y += vy;
-            out_.Add(x);
-            out_.Add(y);
-        }
-        return out_;
-    }
-
-    public bool start_path_hits_rect(long x0, long y0, long x1, long y1, long margin)
-    {
-        var path = start_path();
-        long r = SimConfig.BIRD_RADIUS + margin;
-        for (int i = 0; i < path.Count; i += 2)
-            if (path[i] + r > x0 && path[i] - r < x1 && path[i + 1] + r > y0 && path[i + 1] - r < y1)
-                return true;
-        return false;
-    }
-
-    public bool blocks_start_lane(long x0, long y0, long x1, long y1)
-    {
-        if (state.started) return false;
-        long w = START_LANE_W;
-        long top = state.y - (START_LANE_H - START_LANE_BELOW) * room.def.gravity_sign;
-        long bottom = state.y + START_LANE_BELOW * room.def.gravity_sign;
-        long ly0 = G.mini(top, bottom);
-        long ly1 = G.maxi(top, bottom);
-        long lx0 = state.vx > 0 ? state.x : state.x - w;
-        long lx1 = state.vx > 0 ? state.x + w : state.x;
-        return x1 > lx0 && x0 < lx1 && y1 > ly0 && y0 < ly1;
     }
 
     public bool is_practice() => practice_room >= 0;
@@ -214,24 +124,10 @@ public sealed class GameSim
     public long wall_mask(long side)
     {
         if (state.exit_open && state.exit_side == side)
-            return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~exit_slots();
+            return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state);
         long mask = room.wall_mask(side, side == 0 ? state.left_spikes : state.right_spikes);
-        if (state.exit_preview && state.exit_side == side) mask &= ~exit_slots();
+        if (state.exit_preview && state.exit_side == side) mask &= ~ExitPlanner.slots(state);
         return mask;
-    }
-
-    public long exit_slots()
-    {
-        long out_ = 0;
-        long reach = SimConfig.EXIT_HALF + SimConfig.SPIKE_HALF_BASE;
-        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
-        {
-            long cy = SimConfig.slot_center_y(slot);
-            if (G.absi(cy - state.exit_a_y) < reach) out_ |= 1L << (int)slot;
-            if (state.exit_b_kind != ExitKind.NORMAL && G.absi(cy - state.exit_b_y) < reach)
-                out_ |= 1L << (int)slot;
-        }
-        return out_;
     }
 
     public long checksum() => SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum());
@@ -401,68 +297,16 @@ public sealed class GameSim
         }
         if ((state.score + 1) % every == 0)
         {
-            _plan_exit(1 - side, state.score + 1);
+            ExitPlanner.plan(this, _rng, 1 - side, state.score + 1);
             state.exit_preview = true;
             events.Add(Event.EXIT_PREVIEW);
         }
         else if (state.score % every == 0)
         {
-            _plan_exit(side, state.score);
+            ExitPlanner.plan(this, _rng, side, state.score);
             state.exit_open = true;
             events.Add(Event.EXIT_OPEN);
         }
-    }
-
-    void _plan_exit(long side, long at)
-    {
-        state.exit_side = side;
-        bool fork = at % SimConfig.FORK_EVERY == 0 && !is_practice();
-        if (fork)
-        {
-            long top = _random_exit_y(SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF);
-            long bottom = _random_exit_y(SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF, SimConfig.EXIT_MAX_Y);
-            bool calm_on_top = _rng.next_below(2) == 0;
-            state.exit_a_y = top;
-            state.exit_b_y = bottom;
-            state.exit_a_kind = calm_on_top ? ExitKind.CALM : ExitKind.WILD;
-            state.exit_b_kind = calm_on_top ? ExitKind.WILD : ExitKind.CALM;
-        }
-        else
-        {
-            state.exit_a_y = _random_exit_y(SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y);
-            state.exit_a_kind = ExitKind.NORMAL;
-            state.exit_b_y = 0;
-            state.exit_b_kind = ExitKind.NORMAL;
-        }
-    }
-
-    long _random_exit_y(long lo, long hi)
-    {
-        long c0 = SimConfig.slot_center_y(0);
-        long first = (lo - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE;
-        long last = (hi - c0) / SimConfig.SLOT_SIZE;
-        var open = new List<long>();
-        for (long slot = first; slot < last + 1; slot++)
-            if (!_exit_blocked(SimConfig.slot_center_y(slot))) open.Add(slot);
-        if (open.Count == 0)
-        {
-            long any = first + _rng.next_below(last - first + 1);
-            if (room.def.reach > 0)
-                any = G.clampi((state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, first, last);
-            return SimConfig.slot_center_y(any);
-        }
-        return SimConfig.slot_center_y(open[(int)_rng.next_below(open.Count)]);
-    }
-
-    bool _exit_blocked(long y)
-    {
-        if (room.def.reach > 0 && G.absi(y - state.y) > room.def.reach) return true;
-        for (int i = 0; i < room.hazards.Count; i++)
-        {
-            var h = room.hazards[i];
-            if (h.alive && h.blocks_exit(this, state.exit_side, y)) return true;
-        }
-        return false;
     }
 
     public long steps_to_wall(long side)
@@ -559,7 +403,7 @@ public sealed class GameSim
         if (ticks > SimConfig.ARRIVAL_BLIND + ARRIVAL_WALL_SPARE) return;
         long g = room.def.gravity_sign;
         long edge = SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB;
-        long up = state.y - (FIRST_HOP + edge) * g;
+        long up = state.y - (FairLanes.FIRST_HOP + edge) * g;
         long down = state.y + edge * g;
         long top = G.mini(up, down);
         long bottom = G.maxi(up, down);
@@ -576,6 +420,8 @@ public sealed class GameSim
     void _new_wall(long side)
     {
         long mask = RoomRules.generate_wall(_rng, state.score, room.def, state.y, room.spike_bonus());
+        for (int i = 0; i < room.hazards.Count; i++)
+            if (room.hazards[i].alive) mask = room.hazards[i].adjust_wall(this, side, mask);
         if (side == 0) state.left_spikes = mask;
         else state.right_spikes = mask;
         room.on_wall_generated(side, mask, this, _rng);

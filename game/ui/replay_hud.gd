@@ -75,9 +75,9 @@ func _place_exit(side: float) -> void:
 	_exit.position = Vector2(10, 42)
 
 
-## Settings > Large buttons.
-func set_large_buttons(on: bool) -> void:
-	_place_exit(UiKit.LARGE_BUTTON if on else UiKit.ICON_BUTTON)
+## Settings > Large buttons changed.
+func refresh_button_size() -> void:
+	_place_exit(UiKit.button_size())
 
 
 func _build_over() -> void:
@@ -117,6 +117,7 @@ func _build_over() -> void:
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
 	b.add_theme_constant_override("icon_max_width", 20)
 	b.pressed.connect(back_pressed.emit)
+	UiKit.mark_back(b)
 	back.add_child(b)
 	_at(back, 470)
 	add_child(_over)
