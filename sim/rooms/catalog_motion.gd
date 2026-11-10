@@ -11,6 +11,8 @@ const Rotor := preload("res://sim/hazards/rotor.gd")
 const SawRing := preload("res://sim/hazards/saw_ring.gd")
 
 const SUB := SimConfig.SUB
+## Pinwheel variants, in draw order.
+const PINWHEELS: Array[String] = ["trim", "three", "twin", "rock", "lean", "breathe"]
 
 
 static func defs() -> Array[RoomDef]:
@@ -58,9 +60,12 @@ static func defs() -> Array[RoomDef]:
 	stalker.hazards.append(func() -> Hazard: return Stalker.new())
 	out.append(stalker)
 
-	# Pinwheel: a four-blade pinwheel turns in the middle of the room.
+	# Pinwheel: a pinwheel turns in the middle of the room. Variants: the plain
+	# wheel, three blades, a twin pair, one that rocks back and forth, one off
+	# to one side, one whose blades grow and shrink.
 	var pinwheel := RoomDef.new("pinwheel", "mid", 40)
-	pinwheel.hazards.append(func() -> Hazard: return Rotor.new())
+	for shape: String in PINWHEELS:
+		pinwheel.variants.append(RoomVariant.new(shape).with([_pinwheel.bind(shape)]))
 	out.append(pinwheel)
 
 	# Saw Ring: saws circle the middle; the ring grows and shrinks on a beat.
@@ -71,6 +76,34 @@ static func defs() -> Array[RoomDef]:
 	out.append(sawring)
 
 	return out
+
+
+## One Pinwheel variant. Most use the trimmed wheel (blades 64 px, 14 wide,
+## hub 14); the original Rotor.new() is 80 / 16 / 16.
+static func _pinwheel(shape: String) -> Hazard:
+	match shape:
+		"twin":
+			var pair := Rotor.new(42 * SUB, 6 * SUB, 11 * SUB)
+			pair.hubs = 2
+			pair.spread_x = 60 * SUB
+			pair.spread_y = 72 * SUB
+			pair.period = 300
+			return pair
+		"lean":
+			var side := Rotor.new(52 * SUB, 6 * SUB, 12 * SUB)
+			side.lean = 52 * SUB
+			return side
+		"breathe":
+			var lung := Rotor.new(72 * SUB, 7 * SUB, 14 * SUB)
+			lung.spin = Rotor.Spin.BREATHE
+			lung.blade_min = 40 * SUB
+			return lung
+	var r := Rotor.new(64 * SUB, 7 * SUB, 14 * SUB)
+	if shape == "three":
+		r.blades = 3
+	elif shape == "rock":
+		r.spin = Rotor.Spin.ROCK
+	return r
 
 
 static func _gate(x: int, period: int, follows: bool) -> Hazard:
