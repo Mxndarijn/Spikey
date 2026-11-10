@@ -68,7 +68,7 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	assert_false(missed.state.alive, "missing the exit hits a spike")
 
 
-func test_flying_through_moves_to_the_next_room_in_slow_motion() -> void:
+func test_flying_through_moves_to_the_next_room() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
 	var room_before := sim.state.room_index
@@ -85,38 +85,10 @@ func test_flying_through_moves_to_the_next_room_in_slow_motion() -> void:
 	assert_eq(sim.state.x, sim.room.wall_right() - r, "out of the opposite (right) wall")
 	assert_eq(sim.state.right_spikes, 0, "no spikes on the wall it came out of")
 	assert_true(sim.state.left_spikes != 0, "the wall ahead has spikes again")
-	var x := sim.state.x
 	var t := sim.room.t
 	sim.step(true)
 	assert_true(GameSim.Event.FLAP in sim.events, "taps work from the first tick")
-	for i in SimConfig.ARRIVAL_SLOW_TICKS - 1:
-		sim.step(false)
-	var slow_steps := sim.room.t - t
-	assert_true(slow_steps < SimConfig.ARRIVAL_SLOW_TICKS * 3 / 4, "the room ran slower")
-	assert_true(slow_steps > SimConfig.ARRIVAL_SLOW_TICKS / 2, "but never stopped")
-	assert_true(sim.state.x < x, "it keeps flying the same way")
-	t = sim.room.t
-	sim.step(false)
-	assert_eq(sim.room.t, t + 1, "then full speed again")
-
-
-## Over the slow-motion entrance the steps add up as planned: ARRIVAL_SLOW_PCT
-## for ARRIVAL_SLOW_FLAT ticks, then easing to full speed.
-func test_slow_motion_steps_add_up() -> void:
-	var sim := GameSim.new(5)
-	sim.state.arrival_slow = SimConfig.ARRIVAL_SLOW_TICKS
-	var flat := 0
-	var total := 0
-	for i in SimConfig.ARRIVAL_SLOW_TICKS:
-		var n := sim._arrival_steps(1)
-		assert_between(n, 0, 1)
-		total += n
-		if i < SimConfig.ARRIVAL_SLOW_FLAT:
-			flat += n
-	assert_eq(flat, SimConfig.ARRIVAL_SLOW_FLAT * SimConfig.ARRIVAL_SLOW_PCT / 100)
-	assert_between(total, 35, 40)
-	assert_eq(sim.state.arrival_slow, 0)
-	assert_eq(sim._arrival_steps(1), 1, "full speed after")
+	assert_eq(sim.room.t, t + 1, "no wait and no slow motion")
 
 
 ## Out of a portal, Floating Isles keeps its islands out of the lane in front

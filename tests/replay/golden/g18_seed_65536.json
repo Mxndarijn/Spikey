@@ -1,5 +1,5 @@
 {
-  "gameplay_version": 17,
+  "gameplay_version": 18,
   "seed": 65536,
   "season": -1,
   "taps": [
@@ -29,6 +29,6 @@
   "revives": [],
   "score": 10,
   "coins": 2,
-  "end_tick": 917,
-  "checksum": 3416380476
+  "end_tick": 896,
+  "checksum": 4210259783
 }

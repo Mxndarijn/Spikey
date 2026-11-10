@@ -21,6 +21,9 @@ func _initialize() -> void:
 		sim.step(true)
 		sim.state.score = maxi(def.from_score, 10) + (i % 3) * 10
 		sim.state.y = (130 + (i * 53) % 380) * SimConfig.SUB
+		# As out of a real portal: the hidden arrival check picks the layout.
+		for k in sim._arrival_retries(i % 2, index):
+			sim._rng.next_u32()
 		sim._arrive_in(i % 2, index)
 		var y0 := sim.state.y
 		var bot := PlannerBot.new(i + 1)

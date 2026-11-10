@@ -84,11 +84,16 @@ random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
-same way (gameplay version 6). For its first second the new room runs in slow
-motion (half speed, easing back to full; `SimConfig.ARRIVAL_SLOW_*`), so the
-player can read it while still steering (gameplay version 15; it replaced a
-frozen one-second wait). Rooms keep the way out of a portal fair: Floating Isles
-keeps the lane in front of it clear, Shutter Gates has its gap at the bird's
+same way (gameplay version 6), at full speed with no wait. Instead the room is
+laid out for a player who is still reading it (gameplay version 18; it replaced
+a frozen wait and then a slow-motion entrance): `ArrivalCheck` plays the
+arrival on copies of the sim (`SimCopy`), the bird only holding its height for
+`SimConfig.ARRIVAL_BLIND` ticks and then a few simple players trying to live
+`ARRIVAL_FOLLOW` ticks more. If none does, the layout is drawn again, up to
+`ARRIVAL_TRIES` times (each retry skips one RNG draw, so the seed still decides
+everything and replays match). Rooms also keep the way out of a portal fair: Floating Isles
+keeps the lane in front of it clear (200 px, about 0.75 s of flight), Pinwheel
+moves off the bird's height, Shutter Gates has its gap at the bird's
 height when it gets there. `tools/arrival_test.gd` and `tools/arrival_room.gd`
 measure how often a player who reacts late dies right after a portal. Every 50 points a
 fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,

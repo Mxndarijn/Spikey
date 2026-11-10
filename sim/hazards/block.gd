@@ -16,9 +16,10 @@ const MIN_GAP := 95 * SimConfig.SUB
 ## overlapping: the slot between their ends is too short to change height in.
 const PINCH_X := 48 * SimConfig.SUB
 ## The arrival lane, kept clear in front of a bird that comes out of a wall
-## (portal or revive): this far into the room, and from ARRIVAL_UP above the
-## bird (one hop) to ARRIVAL_DOWN below it.
-const ARRIVAL_W := 150 * SimConfig.SUB
+## (portal or revive): this far into the room (about 0.75 s of flight, so a
+## player still reading the room flies through), and from ARRIVAL_UP above
+## the bird (one hop) to ARRIVAL_DOWN below it.
+const ARRIVAL_W := 200 * SimConfig.SUB
 const ARRIVAL_UP := 75 * SimConfig.SUB
 const ARRIVAL_DOWN := 45 * SimConfig.SUB
 ## An island this close to a wall is in front of an exit there when it is
