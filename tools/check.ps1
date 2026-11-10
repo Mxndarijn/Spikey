@@ -6,7 +6,9 @@
   1. Lint + format check (gdtoolkit; skipped with a warning if not installed)
   2. Godot headless import (builds the class cache)
   3. Load every script and scene
-  4. Tests: unit, sim purity, golden replays, bot simulations
+  4. Tests: unit, sim purity, golden replays, bot simulations, run side by side
+     in -Jobs headless Godot processes (default: one per core, at most 24;
+     -Jobs 1 runs them all in one process)
 
   Godot is found via $env:GODOT, then tools/godot_path.txt, then `godot` on PATH.
   On Windows point it at the *_console.exe build so output shows up.
@@ -14,9 +16,11 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools/check.ps1
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -TestFilter replay
+  powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Jobs 1
 #>
 param(
-    [string]$TestFilter = ""
+    [string]$TestFilter = "",
+    [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Continue"
@@ -84,11 +88,10 @@ if ($LASTEXITCODE -ne 0) { $failed += "load" }
 
 # 4. Tests
 Write-Step "Tests"
-if ($TestFilter) {
-    & $godot --headless --path $root -s res://tests/run_tests.gd -- $TestFilter
-} else {
-    & $godot --headless --path $root -s res://tests/run_tests.gd
-}
+if ($Jobs -le 0) { $Jobs = [Math]::Min([Environment]::ProcessorCount, 24) }
+$testArgs = @("--jobs", $Jobs)
+if ($TestFilter) { $testArgs += $TestFilter }
+& $godot --headless --path $root -s res://tests/run_tests.gd -- @testArgs
 if ($LASTEXITCODE -ne 0) { $failed += "tests" }
 
 # 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/. Skipped

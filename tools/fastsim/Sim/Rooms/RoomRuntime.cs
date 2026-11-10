@@ -72,10 +72,12 @@ public sealed class RoomRuntime
         }
     }
 
-    public long steps_this_tick()
+    public long steps_this_tick() => steps_at(ticks);
+
+    public long steps_at(long tick)
     {
-        if (def.speed == RoomDef.Speed.FAST) return ticks % 4 == 0 ? 2 : 1;
-        if (def.speed == RoomDef.Speed.SLOW) return ticks % 2 == 0 ? 1 : 0;
+        if (def.speed == RoomDef.Speed.FAST) return tick % 4 == 0 ? 2 : 1;
+        if (def.speed == RoomDef.Speed.SLOW) return tick % 2 == 0 ? 1 : 0;
         return 1;
     }
 

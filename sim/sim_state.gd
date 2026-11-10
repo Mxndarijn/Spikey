@@ -54,10 +54,6 @@ var pickup_y := 0
 var arrival_hold := 0
 ## Revives used this run (GameSim.revive), at most SimConfig.MAX_REVIVES.
 var revives := 0
-## Ticks left of the slow-motion entrance out of a portal (ARRIVAL_SLOW_TICKS),
-## and the part-step carried between its ticks (hundredths of a step).
-var arrival_slow := 0
-var arrival_slow_acc := 0
 
 
 func copy() -> SimState:
@@ -92,8 +88,6 @@ func copy() -> SimState:
 	s.pickup_y = pickup_y
 	s.arrival_hold = arrival_hold
 	s.revives = revives
-	s.arrival_slow = arrival_slow
-	s.arrival_slow_acc = arrival_slow_acc
 	return s
 
 
@@ -126,8 +120,6 @@ func checksum() -> int:
 		exit_b_kind,
 		route,
 		arrival_hold,
-		arrival_slow,
-		arrival_slow_acc,
 		int(exit_preview),
 		revives,
 	]:

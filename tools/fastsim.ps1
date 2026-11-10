@@ -8,6 +8,8 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode searchruns -Seeds 256 -Ticks 16000
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode runs -Seeds 200   # PlannerBot
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity            # check it still matches sim/
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode reaction          # reaction benchmark, 60 arrivals per room
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
 #
 # -Jobs: worker processes (default: a quarter of the cores, so the PC stays usable).
@@ -17,11 +19,13 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
     [int]$Ticks = 0,
+    # reaction / odds: reaction times to play, in ticks ("0,60").
+    [string]$Delays = "",
     [int]$Jobs = 0,
     [ValidateSet("Idle", "BelowNormal", "Normal")]
     [string]$Priority = "BelowNormal",
@@ -72,6 +76,8 @@ switch ($Mode) {
     "searchruns" { $a += @($(if ($Seeds) { $Seeds } else { 64 }), $(if ($Ticks) { $Ticks } else { 16000 })) }
     "rooms" { $a += @($(if ($Seeds) { $Seeds } else { 4 }), $Room) }
     "runs" { $a += @($(if ($Seeds) { $Seeds } else { 4 })) }
+    "reaction" { $a += @($(if ($Seeds) { $Seeds } else { 60 }), $Room); if ($Delays) { $a += $Delays } }
+    "odds" { $a += @($(if ($Seeds) { $Seeds } else { 180 })); if ($Delays) { $a += $Delays } }
 }
 $a += @("--priority", $Priority.ToLower())
 if ($Jobs -gt 0) { $a += @("--jobs", $Jobs) }

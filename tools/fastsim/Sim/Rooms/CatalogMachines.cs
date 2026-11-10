@@ -32,6 +32,7 @@ public static class CatalogMachines
 
         var stalac = new RoomDef("stalac", "mid", 30);
         stalac.max_spikes = 4;
+        stalac.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
         stalac.hazards.Add(() => _stalactite(130 * SUB, false));
         stalac.hazards.Add(() => _stalactite(230 * SUB, true));
         out_.Add(stalac);

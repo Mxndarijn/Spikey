@@ -3,7 +3,7 @@ extends RefCounted
 
 
 static func paint(c: CanvasItem, h: Hazard, theme: ThemeDef, _time: float) -> void:
-	var center := HazardLayer.at(h.CENTER_X, h.CENTER_Y)
+	var center := HazardLayer.at(h.CENTER_X, h.center_y)
 	var length := HazardLayer.px(h.BLADE_LENGTH) + HazardLayer.px(h.BLADE_HALF_W)
 	var half := HazardLayer.px(h.BLADE_HALF_W)
 	for i in h.BLADES:

@@ -38,11 +38,27 @@ extends RefCounted
 ##     exit off heights they block (Hazard.blocks_exit): Floating Isles,
 ##     Shutter Gates (wider gap too) and Caterpillar Crawl always leave a way
 ##     to the wall and the portal.
-## 17: out of a portal the room runs in slow motion for a second instead of
-##     the frozen wait (the player can tap from the first tick; a revive still
-##     waits ARRIVAL_HOLD); Shutter Gates times its gap to be at the bird's
-##     height when it reaches the nearer gate.
-const GAMEPLAY_VERSION := 17
+## 17: out of a portal the room ran in slow motion for a second instead of
+##     the frozen wait (a revive still waits ARRIVAL_HOLD); Shutter Gates
+##     times its gap to be at the bird's height when it reaches the nearer
+##     gate.
+## 18: no slow motion out of a portal: the room is laid out (up to
+##     ARRIVAL_TRIES tries, ArrivalCheck: two simple players must live) so a
+##     player who only holds height for ARRIVAL_BLIND ticks (then 0.75 s) can
+##     still live. Out of a portal Floating Isles keeps a 200 px lane clear,
+##     Pinwheel and Saw Ring move off the bird's height, Ghost Doors time
+##     their fade for it and Bee Line keeps its bees off its way. Ghost Doors
+##     sit 40 px lower.
+## 19: ARRIVAL_BLIND 1 s. Out of a portal: the bird stays ARRIVAL_EDGE off
+##     the ceiling and floor lines; Bee Line, Bat Loop, Lantern Swing and
+##     Ghost Doors time themselves to the path of a player holding height
+##     (GameSim.arrival_path); a wall the bird reaches while still reading
+##     (fast or narrow rooms) keeps that player's hops free of spikes; the
+##     picker skips rooms at heights they can't take (RoomDef.arrival_skip:
+##     Shutter Gates, Stalactite Run, Caterpillar Crawl, Crab Walk, Gift Drop
+##     and Bubble Lift near the ceiling, Shutter Gates near the floor, Bee
+##     Line and Lantern Swing in the middle).
+const GAMEPLAY_VERSION := 19
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
@@ -107,14 +123,18 @@ const FORK_EVERY := 50
 ## Coins for taking the Wild exit.
 const WILD_COINS := 3
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
-## wait, taps ignored) after a revive. Portals use slow motion (version 17).
+## wait, taps ignored) after a revive.
 const ARRIVAL_HOLD := 60
-## Out of a portal the whole room runs in slow motion: ARRIVAL_SLOW_PCT of
-## normal speed for ARRIVAL_SLOW_FLAT ticks, then back up to full speed over
-## the rest of ARRIVAL_SLOW_TICKS. The player can tap all the while.
-const ARRIVAL_SLOW_TICKS := 60
-const ARRIVAL_SLOW_FLAT := 30
-const ARRIVAL_SLOW_PCT := 50
+## Out of a portal the room is laid out so a player who doesn't react for
+## ARRIVAL_BLIND ticks (only holding height) can still live ARRIVAL_FOLLOW
+## ticks after that; up to ARRIVAL_TRIES layouts are tried (ArrivalCheck).
+const ARRIVAL_BLIND := 60
+const ARRIVAL_FOLLOW := 120
+const ARRIVAL_TRIES := 16
+## Out of a portal the bird comes out at least this far from the ceiling and
+## floor lines (it may have flown through the very top or bottom of the exit):
+## a player holding height hops about 60 px, plus the bird, plus a margin.
+const ARRIVAL_EDGE := 84 * SUB
 
 # Safety cap for replays (30 minutes of play).
 const MAX_TICKS := 60 * 60 * 30

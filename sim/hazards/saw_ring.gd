@@ -15,7 +15,14 @@ const MOVE := 60
 const CYCLE := 2 * (HOLD + MOVE)
 ## Steps per lap of the ring.
 const PERIOD := 300
+## Out of a portal the ring sits at least this far below the bird, or this
+## plus HOP above it (holding height, the bird hops about HOP up), so a player
+## still reading the room flies past every saw.
+const ARRIVAL_CLEAR := RING_MAX + SAW_RADIUS + SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB
+const HOP := 64 * SimConfig.SUB
 
+## Ring centre height: CENTER_Y, or moved off the bird's height out of a portal.
+var center_y := CENTER_Y
 var count := 4
 var phase := 0
 var dir := 1
@@ -31,7 +38,14 @@ func _init() -> void:
 	kind = "saw_ring"
 
 
-func setup(_sim: GameSim, rng: SimRng) -> void:
+func setup(sim: GameSim, rng: SimRng) -> void:
+	center_y = CENTER_Y
+	var y := sim.state.y
+	if sim.state.started and y - CENTER_Y > -ARRIVAL_CLEAR and y - CENTER_Y < ARRIVAL_CLEAR + HOP:
+		# Below the bird if the ring still fits above the floor, else above it.
+		center_y = y + ARRIVAL_CLEAR
+		if center_y + RING_MAX + SAW_RADIUS > SimConfig.KILL_BOTTOM:
+			center_y = y - ARRIVAL_CLEAR - HOP
 	count = 4 + rng.next_below(2)
 	phase = rng.next_below(SimTrig.TURN)
 	dir = 1 if rng.next_below(2) == 0 else -1
@@ -66,7 +80,7 @@ func _place() -> void:
 	for i in count:
 		var a := angle + i * SimTrig.TURN / count
 		xs[i] = CENTER_X + radius * SimTrig.cos_t(a) / SimTrig.ONE
-		ys[i] = CENTER_Y + radius * SimTrig.sin_t(a) / SimTrig.ONE
+		ys[i] = center_y + radius * SimTrig.sin_t(a) / SimTrig.ONE
 
 
 func kills(sim: GameSim) -> bool:
@@ -77,7 +91,7 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	var out := mix_all(h, [count, phase, dir, radius, angle])
+	var out := mix_all(h, [count, phase, dir, radius, angle, center_y])
 	for i in count:
 		out = mix_all(out, [xs[i], ys[i]])
 	return out

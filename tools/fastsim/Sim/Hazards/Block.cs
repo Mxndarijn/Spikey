@@ -9,7 +9,7 @@ public class Block : Hazard
     public const long START_MARGIN = 6 * SimConfig.SUB;
     public const long MIN_GAP = 95 * SimConfig.SUB;
     public const long PINCH_X = 48 * SimConfig.SUB;
-    public const long ARRIVAL_W = 150 * SimConfig.SUB;
+    public const long ARRIVAL_W = 200 * SimConfig.SUB;
     public const long ARRIVAL_UP = 75 * SimConfig.SUB;
     public const long ARRIVAL_DOWN = 45 * SimConfig.SUB;
     public const long EXIT_CLEAR_X = 130 * SimConfig.SUB;
@@ -23,6 +23,7 @@ public class Block : Hazard
     public long fade_period = 0;
     public long solid_ticks = 0;
     public long phase = 0;
+    public long base_phase = 0;
     public long band = -1;
 
     public Block(long p_x0 = 0, long p_y0 = 0, long p_x1 = 0, long p_y1 = 0)
@@ -36,7 +37,12 @@ public class Block : Hazard
 
     public override void setup(GameSim sim, SimRng rng)
     {
-        if (band < 0) return;
+        if (band < 0)
+        {
+            base_phase = phase;
+            if (fade_period > 0 && sim.state.started) _time_faders_for_arrival(sim);
+            return;
+        }
         long sub = SimConfig.SUB;
         long w = (50 + rng.next_below(41)) * sub;
         long h = (24 + rng.next_below(13)) * sub;
@@ -78,6 +84,51 @@ public class Block : Hazard
         x1 = x0 + w;
         y1 = y0 + h;
         if (!found) alive = false;
+    }
+
+    void _time_faders_for_arrival(GameSim sim)
+    {
+        var path = sim.arrival_path();
+        long margin = 4 * SimConfig.SUB;
+        long reach = SimConfig.BIRD_RADIUS + margin;
+        var all = new List<Block>();
+        var touches = new List<List<long>>();
+        for (int i = 0; i < sim.room.hazards.Count; i++)
+        {
+            if (sim.room.hazards[i] is not Block h || h.kind != kind || h.fade_period <= 0) continue;
+            h.phase = h.base_phase;
+            all.Add(h);
+            var at = new List<long>();
+            for (long k = 0; k < GameSim.ARRIVAL_PATH_TICKS; k++)
+            {
+                long px = path[(int)(2 * k)];
+                long py = path[(int)(2 * k + 1)];
+                long nx = G.clampi(px, h.x0, h.x1);
+                long ny = G.clampi(py, h.y0, h.y1);
+                if ((px - nx) * (px - nx) + (py - ny) * (py - ny) < reach * reach) at.Add(k);
+            }
+            touches.Add(at);
+        }
+        long best = 0;
+        long best_hits = -1;
+        for (long shift = 0; shift < fade_period; shift++)
+        {
+            long hits = 0;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var b = all[i];
+                foreach (long k in touches[i])
+                    if (G.posmod(k + 1 + b.phase + shift, b.fade_period) < b.solid_ticks)
+                        hits += k < GameSim.ARRIVAL_PATH_MIN ? 1000 : 1;
+            }
+            if (best_hits < 0 || hits < best_hits)
+            {
+                best_hits = hits;
+                best = shift;
+            }
+            if (hits == 0) break;
+        }
+        foreach (var b in all) b.phase = G.posmod(b.phase + best, b.fade_period);
     }
 
     public bool _in_the_way(GameSim sim, long bx0, long by0, long bx1, long by1)

@@ -12,6 +12,8 @@ const RADIUS := 12 * SUB
 ## spaced phases to try.
 const START_MARGIN := 10 * SUB
 const PHASE_TRIES := 16
+## Evenly spaced phases tried out of a portal.
+const ARRIVAL_TRIES := 60
 const CENTER_X := 180 * SUB
 const CENTER_Y := 320 * SUB
 # Figure-eight.
@@ -50,12 +52,28 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	phase = rng.next_below(period())
 	# Shift along the path until no creature meets the bird's first hop (the
 	# room waits for the first tap, then both start moving together).
+	# Out of a portal: until none meets the arrival path (else see
+	# GameSim.ARRIVAL_PATH_MIN; else the phase drawn).
 	var path := sim.start_path()
+	var arrival := sim.arrival_path() if sim.state.started else PackedInt32Array()
 	var first := phase
-	for k in PHASE_TRIES:
-		phase = (first + k * period() / PHASE_TRIES) % period()
-		if not _meets_path(path):
+	var tries := ARRIVAL_TRIES if sim.state.started else PHASE_TRIES
+	var pick := phase
+	var settled := false
+	for k in tries:
+		phase = (first + k * period() / tries) % period()
+		if sim.state.started:
+			var clear := _arrival_clear(arrival)
+			if clear >= GameSim.ARRIVAL_PATH_TICKS:
+				pick = phase
+				break
+			if clear >= GameSim.ARRIVAL_PATH_MIN and not settled:
+				pick = phase
+				settled = true
+		elif not _meets_path(path):
 			break
+	if sim.state.started:
+		phase = pick
 	_place()
 
 
@@ -77,6 +95,23 @@ func _meets_path(path: PackedInt32Array) -> bool:
 			break
 	t = keep
 	return hit
+
+
+## Steps until a creature first comes near the arrival path (GameSim.arrival_path),
+## or ARRIVAL_PATH_TICKS if none does.
+func _arrival_clear(arrival: PackedInt32Array) -> int:
+	var keep := t
+	var out := GameSim.ARRIVAL_PATH_TICKS
+	for k in GameSim.ARRIVAL_PATH_TICKS:
+		t = k
+		_place()
+		for c in count:
+			if GameSim.arrival_path_hits(arrival, k, xs[c], ys[c], RADIUS):
+				out = k
+		if out < GameSim.ARRIVAL_PATH_TICKS:
+			break
+	t = keep
+	return out
 
 
 func period() -> int:

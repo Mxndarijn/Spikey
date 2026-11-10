@@ -3,7 +3,7 @@ namespace FastSim;
 /// Port of sim/sim_config.gd (generated from it; keep in step).
 public static class SimConfig
 {
-    public const long GAMEPLAY_VERSION = 17;
+    public const long GAMEPLAY_VERSION = 19;
     public const long MAX_REVIVES = 1;
     public const long TICKS_PER_SECOND = 60;
     public const long SUB = 64;
@@ -40,9 +40,10 @@ public static class SimConfig
     public const long FORK_EVERY = 50;
     public const long WILD_COINS = 3;
     public const long ARRIVAL_HOLD = 60;
-    public const long ARRIVAL_SLOW_TICKS = 60;
-    public const long ARRIVAL_SLOW_FLAT = 30;
-    public const long ARRIVAL_SLOW_PCT = 50;
+    public const long ARRIVAL_BLIND = 60;
+    public const long ARRIVAL_FOLLOW = 120;
+    public const long ARRIVAL_TRIES = 16;
+    public const long ARRIVAL_EDGE = 84 * SUB;
     public const long MAX_TICKS = 60 * 60 * 30;
 
     public static long slot_center_y(long slot) => SLOT_TOP + slot * SLOT_SIZE + SLOT_SIZE / 2;

@@ -67,11 +67,16 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 ## How many sim steps this tick runs: Midnight Cage runs 5 per 4 ticks,
 ## Slow-Mo Breather 1 per 2 ticks.
 func steps_this_tick() -> int:
+	return steps_at(ticks)
+
+
+## Sim steps that room tick `tick` runs.
+func steps_at(tick: int) -> int:
 	match def.speed:
 		RoomDef.Speed.FAST:
-			return 2 if ticks % 4 == 0 else 1
+			return 2 if tick % 4 == 0 else 1
 		RoomDef.Speed.SLOW:
-			return 1 if ticks % 2 == 0 else 0
+			return 1 if tick % 2 == 0 else 0
 	return 1
 
 

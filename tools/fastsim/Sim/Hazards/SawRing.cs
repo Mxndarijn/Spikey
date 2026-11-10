@@ -12,7 +12,10 @@ public class SawRing : Hazard
     public const long MOVE = 60;
     public const long CYCLE = 2 * (HOLD + MOVE);
     public const long PERIOD = 300;
+    public const long ARRIVAL_CLEAR = RING_MAX + SAW_RADIUS + SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB;
+    public const long HOP = 64 * SimConfig.SUB;
 
+    public long center_y = CENTER_Y;
     public long count = 4;
     public long phase = 0;
     public long dir = 1;
@@ -42,6 +45,13 @@ public class SawRing : Hazard
 
     public override void setup(GameSim sim, SimRng rng)
     {
+        center_y = CENTER_Y;
+        long y = sim.state.y;
+        if (sim.state.started && y - CENTER_Y > -ARRIVAL_CLEAR && y - CENTER_Y < ARRIVAL_CLEAR + HOP)
+        {
+            center_y = y + ARRIVAL_CLEAR;
+            if (center_y + RING_MAX + SAW_RADIUS > SimConfig.KILL_BOTTOM) center_y = y - ARRIVAL_CLEAR - HOP;
+        }
         count = 4 + rng.next_below(2);
         phase = rng.next_below(SimTrig.TURN);
         dir = rng.next_below(2) == 0 ? 1 : -1;
@@ -73,7 +83,7 @@ public class SawRing : Hazard
         {
             long a = angle + i * SimTrig.TURN / count;
             xs[(int)i] = CENTER_X + radius * SimTrig.cos_t(a) / SimTrig.ONE;
-            ys[(int)i] = CENTER_Y + radius * SimTrig.sin_t(a) / SimTrig.ONE;
+            ys[(int)i] = center_y + radius * SimTrig.sin_t(a) / SimTrig.ONE;
         }
     }
 
@@ -86,7 +96,7 @@ public class SawRing : Hazard
 
     public override long checksum(long h)
     {
-        long out_ = mix_all(h, count, phase, dir, radius, angle);
+        long out_ = mix_all(h, count, phase, dir, radius, angle, center_y);
         for (long i = 0; i < count; i++)
             out_ = mix_all(out_, xs[(int)i], ys[(int)i]);
         return out_;

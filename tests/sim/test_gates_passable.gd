@@ -4,6 +4,9 @@ extends TestCase
 ## and after a revive the gaps lead from the bird to the exit that stayed
 ## (Gate.aim_at_exit). SurvivalSearch must find a way through the portal.
 
+## Each test can run in a worker of its own (tests/run_tests.gd).
+const PARALLEL := true
+
 const Gate := preload("res://sim/hazards/gate.gd")
 
 ## Practice seeds whose first portal no way of tapping could reach before

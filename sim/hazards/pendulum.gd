@@ -11,6 +11,9 @@ const RADIUS := 22 * SimConfig.SUB
 const AMPLITUDE := 52
 ## Steps per full swing (there and back).
 const PERIOD := 180
+## Out of a portal: evenly spaced swings tried, to keep the lantern off the
+## arrival path (GameSim.arrival_path).
+const ARRIVAL_TRIES := 32
 
 var phase := 0
 ## Current swing angle (SimTrig units, 0 = straight down, + = to the right).
@@ -24,9 +27,42 @@ func _init() -> void:
 	kind = "pendulum"
 
 
-func setup(_sim: GameSim, rng: SimRng) -> void:
+func setup(sim: GameSim, rng: SimRng) -> void:
 	phase = rng.next_below(SimTrig.TURN)
+	# Out of a portal: the first swing that keeps the lantern off the arrival
+	# lane (else see GameSim.ARRIVAL_PATH_MIN; else the swing drawn).
+	if sim.state.started:
+		var arrival := sim.arrival_path()
+		var first := phase
+		var pick := phase
+		var settled := false
+		for k in ARRIVAL_TRIES:
+			phase = (first + k * SimTrig.TURN / ARRIVAL_TRIES) % SimTrig.TURN
+			var clear := _arrival_clear(arrival)
+			if clear >= GameSim.ARRIVAL_PATH_TICKS:
+				pick = phase
+				break
+			if clear >= GameSim.ARRIVAL_PATH_MIN and not settled:
+				pick = phase
+				settled = true
+		phase = pick
 	_place()
+
+
+## Steps until the lantern first comes near the arrival path
+## (GameSim.arrival_path), or ARRIVAL_PATH_TICKS if it doesn't.
+func _arrival_clear(arrival: PackedInt32Array) -> int:
+	var keep := t
+	var out := GameSim.ARRIVAL_PATH_TICKS
+	for k in GameSim.ARRIVAL_PATH_TICKS:
+		t = k
+		_place()
+		if GameSim.arrival_path_hits(arrival, k, x, y, RADIUS):
+			out = k
+			break
+	t = keep
+	_place()
+	return out
 
 
 func step(_sim: GameSim) -> void:

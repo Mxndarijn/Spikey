@@ -4,6 +4,8 @@ extends RefCounted
 ## Any engine or script error logged during a test also fails it.
 
 var failures: Array[String] = []
+## What one part of a split test found, for its combine_ check (tests/run_tests.gd).
+var report := {}
 
 
 func fail(message: String) -> void:

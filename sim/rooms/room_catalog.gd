@@ -76,11 +76,17 @@ static func route_weight(def: RoomDef, route: int) -> int:
 
 
 ## Picks the next room by weight among the allowed ones on the route, never the
-## current one or the open first room. If the route allows nothing yet, any
-## allowed room is fine.
+## current one or the open first room, nor one that doesn't fit a bird coming
+## out of a portal at `arrival_y` (RoomDef.arrival_skip). If the route allows
+## nothing yet, any allowed room is fine.
 ## One RNG draw (none if only one room fits).
 static func pick_next(
-	rng: SimRng, current: int, score: int, season: int, route: int = SimState.ExitKind.NORMAL
+	rng: SimRng,
+	current: int,
+	score: int,
+	season: int,
+	route: int = SimState.ExitKind.NORMAL,
+	arrival_y: int = SimConfig.WORLD_H
 ) -> int:
 	var list := all()
 	# The open first room is only the start: a run never comes back to it.
@@ -89,12 +95,13 @@ static func pick_next(
 	var total := 0
 	for i in list.size():
 		var w := 0
-		if i != current and i != start and allowed(list[i], score, season):
+		var fits := list[i].fits_arrival(arrival_y)
+		if i != current and i != start and fits and allowed(list[i], score, season):
 			w = route_weight(list[i], route)
 		weights.append(w)
 		total += w
 	if total == 0 and route != SimState.ExitKind.NORMAL:
-		return pick_next(rng, current, score, season)
+		return pick_next(rng, current, score, season, SimState.ExitKind.NORMAL, arrival_y)
 	if total == 0:
 		return current
 	var r := rng.next_below(total)

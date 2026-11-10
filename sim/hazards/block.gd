@@ -16,9 +16,10 @@ const MIN_GAP := 95 * SimConfig.SUB
 ## overlapping: the slot between their ends is too short to change height in.
 const PINCH_X := 48 * SimConfig.SUB
 ## The arrival lane, kept clear in front of a bird that comes out of a wall
-## (portal or revive): this far into the room, and from ARRIVAL_UP above the
-## bird (one hop) to ARRIVAL_DOWN below it.
-const ARRIVAL_W := 150 * SimConfig.SUB
+## (portal or revive): this far into the room (about 50 steps of flight, so a
+## player still reading the room flies through), and from ARRIVAL_UP above
+## the bird (one hop) to ARRIVAL_DOWN below it.
+const ARRIVAL_W := 200 * SimConfig.SUB
 const ARRIVAL_UP := 75 * SimConfig.SUB
 const ARRIVAL_DOWN := 45 * SimConfig.SUB
 ## An island this close to a wall is in front of an exit there when it is
@@ -41,6 +42,8 @@ var y1 := 0
 var fade_period := 0
 var solid_ticks := 0
 var phase := 0
+## The phase it was built with (Ghost Doors move theirs out of a portal).
+var base_phase := 0
 ## Floating Isles: which band of the room the island sits in (-1 = fixed box).
 ## Each band is BAND tall and an island fills at most 36 px of it, so the bird
 ## can always fly around every island.
@@ -57,6 +60,9 @@ func _init(p_x0: int = 0, p_y0: int = 0, p_x1: int = 0, p_y1: int = 0) -> void:
 
 func setup(sim: GameSim, rng: SimRng) -> void:
 	if band < 0:
+		base_phase = phase
+		if fade_period > 0 and sim.state.started:
+			_time_faders_for_arrival(sim)
 		return
 	var sub := SimConfig.SUB
 	var w := (50 + rng.next_below(41)) * sub
@@ -98,6 +104,53 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	# No spot leaves a way through: this band has no island this time.
 	if not found:
 		alive = false
+
+
+## Out of a portal (Ghost Doors): shifts every fading box's cycle by the same
+## amount (the pattern stays the same) so the boxes are faded whenever a player
+## holding height (GameSim.arrival_path) would touch them: the first shift with
+## no solid touch, else the one with the fewest, counting touches in the first
+## GameSim.ARRIVAL_PATH_MIN steps far above later ones. Boxes are set up one by
+## one, so each redoes it from the boxes' own phases (base_phase) for all set
+## up so far; the last one decides. No RNG.
+func _time_faders_for_arrival(sim: GameSim) -> void:
+	var path := sim.arrival_path()
+	var margin := 4 * SimConfig.SUB
+	var reach := SimConfig.BIRD_RADIUS + margin
+	var all: Array[Hazard] = []
+	# Per box, the path steps at which the bird would touch it.
+	var touches: Array[PackedInt32Array] = []
+	for h in sim.room.hazards:
+		if h.kind != kind or h.fade_period <= 0:
+			continue
+		h.phase = h.base_phase
+		all.append(h)
+		var at := PackedInt32Array()
+		for k in GameSim.ARRIVAL_PATH_TICKS:
+			var px := path[2 * k]
+			var py := path[2 * k + 1]
+			var nx := clampi(px, h.x0, h.x1)
+			var ny := clampi(py, h.y0, h.y1)
+			if (px - nx) * (px - nx) + (py - ny) * (py - ny) < reach * reach:
+				at.append(k)
+		touches.append(at)
+	var best := 0
+	var best_hits := -1
+	for shift in fade_period:
+		var hits := 0
+		for i in all.size():
+			var b: Hazard = all[i]
+			for k in touches[i]:
+				# Path step k is room step k + 1.
+				if posmod(k + 1 + b.phase + shift, b.fade_period) < b.solid_ticks:
+					hits += 1000 if k < GameSim.ARRIVAL_PATH_MIN else 1
+		if best_hits < 0 or hits < best_hits:
+			best_hits = hits
+			best = shift
+		if hits == 0:
+			break
+	for b in all:
+		b.phase = posmod(b.phase + best, b.fade_period)
 
 
 ## Whether an island in this box would leave the bird no fair way: on its

@@ -20,17 +20,20 @@ public static class CatalogMotion
 
         var gates = new RoomDef("gates", "starter", 20);
         gates.max_spikes = 6;
+        gates.arrival_skip = new List<long> { 0, 178 * SUB, 502 * SUB, SimConfig.WORLD_H };
         gates.hazards.Add(() => _gate(130 * SUB, 760, false));
         gates.hazards.Add(() => _gate(230 * SUB, 760, true));
         out_.Add(gates);
 
         var crawl = new RoomDef("crawl", "starter", 30);
+        crawl.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
         crawl.hazards.Add(() => _crawler(0));
         crawl.hazards.Add(() => _crawler(1));
         out_.Add(crawl);
 
         var swing = new RoomDef("swing", "mid", 30);
         swing.hazards.Add(() => new Pendulum());
+        swing.arrival_skip = new List<long> { 318 * SUB, 368 * SUB };
         out_.Add(swing);
 
         var stalker = new RoomDef("stalker", "mid", 40);

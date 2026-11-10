@@ -10,6 +10,8 @@ using FastSim;
 //   fastsim rooms [seeds] [room]                    PlannerBot per room
 //   fastsim runs [seeds]                            PlannerBot full runs
 //   fastsim bench
+//   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
+//   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal).
 // Seeds and JSON match tools/playtest.gd, so results line up with Godot sweeps.
@@ -49,12 +51,14 @@ RoomCatalog.first_index();
 var clock = Stopwatch.StartNew();
 if (mode == "parity")
     return Parity.run(P(1, "parity.txt"), new ParallelOptions { MaxDegreeOfParallelism = jobs });
+if (mode == "scan")
+    return Reaction.scan(P(1, "ghostdoors"), long.Parse(P(2, "45")), long.Parse(P(3, "4")));
 if (mode == "bench")
 {
     Bench.run();
     return 0;
 }
-int seeds = int.Parse(P(1, mode == "search" || mode == "searchruns" ? "64" : "4"));
+int seeds = int.Parse(P(1, mode == "search" || mode == "searchruns" ? "64" : mode == "reaction" ? "60" : "4"));
 JsonObject report;
 if (worker || jobs <= 1 || seeds <= 1)
 {
@@ -64,6 +68,8 @@ if (worker || jobs <= 1 || seeds <= 1)
         "searchruns" => Modes.search_runs(seeds, long.Parse(P(2, "16000")), first),
         "rooms" => Modes.planner_rooms(seeds, P(2, "*"), first),
         "runs" => Modes.planner_runs(seeds, first),
+        "reaction" => Reaction.rooms(seeds, P(2, "*"), P(3, ""), first),
+        "odds" => Reaction.odds(seeds, P(2, ""), first),
         _ => null,
     };
     if (report == null)
@@ -81,7 +87,7 @@ report["seconds"] = Math.Round(clock.Elapsed.TotalSeconds, 1);
 if (opts.TryGetValue("out", out var outPath))
     File.WriteAllText(outPath, report.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 if (worker) return 0;
-int exit = Summary.print(report);
+int exit = mode == "reaction" || mode == "odds" ? Reaction.print(report) : Summary.print(report);
 Console.WriteLine($"fastsim {mode}: {seeds} seeds in {clock.Elapsed.TotalSeconds:F1} s ({Math.Min(jobs, seeds)} workers, {priority} priority)");
 return exit;
 

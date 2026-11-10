@@ -14,6 +14,7 @@ public static class CatalogSky
         out_.Add(updraft);
 
         var bubbles = new RoomDef("bubbles", "mid", 50);
+        bubbles.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
         for (long lane = 0; lane < 3; lane++)
         {
             long l = lane;

@@ -44,8 +44,6 @@ public sealed class SimState
     public long pickup_y = 0;
     public long arrival_hold = 0;
     public long revives = 0;
-    public long arrival_slow = 0;
-    public long arrival_slow_acc = 0;
 
     public SimState copy() => (SimState)MemberwiseClone();
 
@@ -78,8 +76,6 @@ public sealed class SimState
         h = SimHash.mix(h, exit_b_kind);
         h = SimHash.mix(h, route);
         h = SimHash.mix(h, arrival_hold);
-        h = SimHash.mix(h, arrival_slow);
-        h = SimHash.mix(h, arrival_slow_acc);
         h = SimHash.mix(h, G.B(exit_preview));
         h = SimHash.mix(h, revives);
         return h;

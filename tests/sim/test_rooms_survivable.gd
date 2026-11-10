@@ -14,9 +14,14 @@ const CASES := [
 	["double", 1077, 520],
 ]
 
+const PARALLEL := true
+## One case per part, so they can run side by side.
+const PARTS := 4
 
-func test_once_impossible_rooms_are_survivable() -> void:
-	for c: Array in CASES:
+
+func test_once_impossible_rooms_are_survivable(part: int, parts: int) -> void:
+	for i in range(part, CASES.size(), parts):
+		var c: Array = CASES[i]
 		var index := RoomCatalog.index_of(c[0])
 		var def: RoomDef = RoomCatalog.all()[index]
 		var sim := GameSim.new(c[1], def.season, index)

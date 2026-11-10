@@ -12,10 +12,15 @@ const HORIZON := 120
 const ROLLOUTS := 4
 
 var _rng: SimRng
+## This bot's look-ahead and rollouts (lighter for fast tests).
+var _horizon := HORIZON
+var _rollouts := ROLLOUTS
 
 
-func _init(seed_value: int = 1) -> void:
+func _init(seed_value: int = 1, horizon: int = HORIZON, rollouts: int = ROLLOUTS) -> void:
 	_rng = SimRng.new(seed_value)
+	_horizon = horizon
+	_rollouts = rollouts
 
 
 ## Whether to tap this tick.
@@ -30,12 +35,12 @@ func decide(sim: GameSim) -> bool:
 ## Best result over the rollouts after taking `first` now.
 func _value(sim: GameSim, first: bool) -> int:
 	var best := -1
-	for r in ROLLOUTS:
+	for r in _rollouts:
 		var c := SimClone.copy(sim)
 		c.step(first)
 		var prng := SimRng.new(_rng.next_u32())
 		var n := 0
-		while n < HORIZON and not c.is_over():
+		while n < _horizon and not c.is_over():
 			c.step(_policy(c, prng, r))
 			n += 1
 		# Living longer counts most; then rooms reached, points and coins.
@@ -43,7 +48,7 @@ func _value(sim: GameSim, first: bool) -> int:
 		var gain := (c.state.score - sim.state.score) * 3 + room_gain * 40 + c.state.coins
 		var value := n * 100 + gain
 		best = maxi(best, value)
-		if n >= HORIZON and r > 0:
+		if n >= _horizon and r > 0:
 			break
 	return best
 

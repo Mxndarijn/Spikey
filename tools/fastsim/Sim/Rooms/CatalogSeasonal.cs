@@ -41,6 +41,7 @@ public static class CatalogSeasonal
         out_.Add(icicles);
 
         var gifts = _room("gifts", Seasons.WINTER, 60, "gift");
+        gifts.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
         gifts.hazards.Add(() => new CrateDrop(true));
         out_.Add(gifts);
 
@@ -68,6 +69,7 @@ public static class CatalogSeasonal
 
         var bees = _room("bees", Seasons.SPRING, 30, "bee");
         bees.hazards.Add(() => new Mover("wave", 4));
+        bees.arrival_skip = new List<long> { 295 * SUB, 405 * SUB };
         out_.Add(bees);
 
         // Summer
@@ -78,6 +80,7 @@ public static class CatalogSeasonal
         out_.Add(beach);
 
         var crabs = _room("crabs", Seasons.SUMMER, 30, "crab");
+        crabs.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
         crabs.hazards.Add(() => new Crawler(0));
         crabs.hazards.Add(() => new Crawler(1));
         out_.Add(crabs);
@@ -121,7 +124,7 @@ public static class CatalogSeasonal
         long col = i % 2;
         long row = i / 2;
         long x0 = (90 + col * 120) * SUB;
-        long y0 = (150 + row * 130) * SUB;
+        long y0 = (190 + row * 130) * SUB;
         var b = new Block(x0, y0, x0 + 60 * SUB, y0 + 34 * SUB);
         b.fade_period = 240;
         b.solid_ticks = 140;

@@ -5,9 +5,12 @@ public sealed class RoomDef
     public static class WallMode { public const long STATIC = 0, TIDE = 1, BLINK = 2; }
     public static class Speed { public const long NORMAL = 0, FAST = 1, SLOW = 2; }
 
+    public const long CEILING_ARRIVAL = 170 * SimConfig.SUB;
+
     public string id = "";
     public string group = "starter";
     public long from_score = 0;
+    public List<long> arrival_skip = new();
     public long weight = 10;
     public long season = Seasons.NONE;
     public string skin = "";
@@ -42,5 +45,12 @@ public sealed class RoomDef
     {
         hazards = p_hazards;
         return this;
+    }
+
+    public bool fits_arrival(long y)
+    {
+        for (int i = 0; i < arrival_skip.Count; i += 2)
+            if (y >= arrival_skip[i] && y < arrival_skip[i + 1]) return false;
+        return true;
     }
 }

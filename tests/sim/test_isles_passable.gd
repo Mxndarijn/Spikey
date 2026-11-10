@@ -4,6 +4,9 @@ extends TestCase
 ## the next room, and after a revive. SurvivalSearch plays each case; the
 ## layout rules it relies on are checked on many more seeds without it.
 
+## Each test can run in a worker of its own (tests/run_tests.gd).
+const PARALLEL := true
+
 const Block := preload("res://sim/hazards/block.gd")
 
 ## Practice seeds. 1 and 322 used to be impossible off the start (an island in
@@ -162,7 +165,7 @@ func test_fading_blocks_are_unchanged() -> void:
 		var i := doors
 		doors += 1
 		assert_eq(h.x0, (90 + (i % 2) * 120) * SimConfig.SUB, "door %d x" % i)
-		assert_eq(h.y0, (150 + (i / 2) * 130) * SimConfig.SUB, "door %d y" % i)
+		assert_eq(h.y0, (190 + (i / 2) * 130) * SimConfig.SUB, "door %d y" % i)
 		assert_true(h.alive, "door %d is there" % i)
 		for side in 2:
 			assert_false(h.blocks_exit(sim, side, (h.y0 + h.y1) / 2), "doors block no exit")

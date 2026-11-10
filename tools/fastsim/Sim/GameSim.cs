@@ -17,6 +17,10 @@ public sealed class GameSim
     public const long START_LANE_W = 150 * SimConfig.SUB;
     public const long START_PATH = 32;
     public const long FIRST_HOP = SimConfig.FLAP_VY * SimConfig.FLAP_VY / (2 * SimConfig.GRAVITY);
+    public const long ARRIVAL_PATH_TICKS = SimConfig.ARRIVAL_BLIND + 60;
+    public const long ARRIVAL_PATH_MARGIN = 10 * SimConfig.SUB;
+    public const long ARRIVAL_PATH_MIN = SimConfig.ARRIVAL_BLIND + 15;
+    public const long ARRIVAL_WALL_SPARE = 30;
     public const long PRACTICE_START_GAP = 40 * SimConfig.SUB;
 
     public long seed_value;
@@ -26,6 +30,7 @@ public sealed class GameSim
     public RoomRuntime room = new RoomRuntime();
     public List<int> events = new List<int>(8);
     public SimRng _rng;
+    public bool _checking = false;
 
     GameSim() { }
 
@@ -58,6 +63,7 @@ public sealed class GameSim
         c.room = room.clone_deep();
         c.events = new List<int>(events);
         c._rng = _rng.Clone();
+        c._checking = _checking;
         return c;
     }
 
@@ -65,6 +71,40 @@ public sealed class GameSim
     {
         if (state.started) return state.y;
         return state.y - FIRST_HOP / 2 * room.def.gravity_sign;
+    }
+
+    public List<long> arrival_path()
+    {
+        var out_ = new List<long>((int)(2 * ARRIVAL_PATH_TICKS));
+        long g = room.def.gravity_sign;
+        long y = state.y;
+        long vy = 0;
+        for (long k = 0; k < ARRIVAL_PATH_TICKS; k++)
+        {
+            if ((y - state.y) * g > 0 && vy * g >= 0) vy = SimConfig.FLAP_VY * g;
+            vy = G.clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
+            y += vy;
+            out_.Add(arrival_x(k + 1));
+            out_.Add(y);
+        }
+        return out_;
+    }
+
+    public static bool arrival_path_hits(List<long> path, long k, long cx, long cy, long r)
+    {
+        long dx = cx - path[(int)(2 * k)];
+        long dy = cy - path[(int)(2 * k + 1)];
+        long reach = SimConfig.BIRD_RADIUS + r + ARRIVAL_PATH_MARGIN;
+        return dx * dx + dy * dy < reach * reach;
+    }
+
+    public long arrival_x(long k)
+    {
+        long r = SimConfig.BIRD_RADIUS;
+        long lo = room.wall_left() + r;
+        long span = room.wall_right() - r - lo;
+        long at = G.posmod(state.x + state.vx * k - lo, 2 * span);
+        return lo + (at <= span ? at : 2 * span - at);
     }
 
     public List<long> start_path()
@@ -138,7 +178,7 @@ public sealed class GameSim
         }
         if (state.started)
         {
-            long n = _arrival_steps(room.steps_this_tick());
+            long n = room.steps_this_tick();
             for (long i = 0; i < n; i++)
             {
                 _substep();
@@ -444,12 +484,38 @@ public sealed class GameSim
         if (kind == ExitKind.WILD)
             for (long i = 0; i < SimConfig.WILD_COINS; i++) collect_coin(state.x, state.y);
         state.room_index += 1;
+        state.y = G.clampi(state.y, SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE, SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE);
         long next = practice_room;
-        if (!is_practice()) next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route);
+        if (!is_practice()) next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route, state.y);
+        long skip = _arrival_retries(side, next);
+        for (long i = 0; i < skip; i++) _rng.next_u32();
         _arrive_in(side, next);
     }
 
-    void _arrive_in(long side, long next)
+    public long _arrival_retries(long side, long next)
+    {
+        if (_checking || SimConfig.ARRIVAL_BLIND == 0) return 0;
+        long fair = SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW;
+        long best = 0;
+        long best_score = -1;
+        for (long k = 0; k < SimConfig.ARRIVAL_TRIES; k++)
+        {
+            var c = clone_deep();
+            c._checking = true;
+            for (long i = 0; i < k; i++) c._rng.next_u32();
+            c._arrive_in(side, next);
+            long lived = ArrivalCheck.score(c);
+            if (lived >= fair) return k;
+            if (lived > best_score)
+            {
+                best_score = lived;
+                best = k;
+            }
+        }
+        return best;
+    }
+
+    public void _arrive_in(long side, long next)
     {
         long r = SimConfig.BIRD_RADIUS;
         state.vx = side == 1 ? SimConfig.SPEED_X : -SimConfig.SPEED_X;
@@ -472,38 +538,39 @@ public sealed class GameSim
             state.vx = -SimConfig.SPEED_X;
         }
         state.vy = 0;
-        state.arrival_slow_acc = 0;
-        if (ev == Event.REVIVE)
-        {
-            state.arrival_hold = SimConfig.ARRIVAL_HOLD;
-            state.arrival_slow = 0;
-        }
-        else
-        {
-            state.arrival_slow = SimConfig.ARRIVAL_SLOW_TICKS;
-        }
+        if (ev == Event.REVIVE) state.arrival_hold = SimConfig.ARRIVAL_HOLD;
         state.left_spikes = 0;
         state.right_spikes = 0;
         events.Add(ev);
         _new_wall(side);
+        if (ev == Event.ROOM_CHANGE) _keep_hold_band_open(side);
     }
 
-    long _arrival_steps(long steps)
+    void _keep_hold_band_open(long side)
     {
-        if (state.arrival_slow <= 0) return steps;
-        long elapsed = SimConfig.ARRIVAL_SLOW_TICKS - state.arrival_slow;
-        long pct = SimConfig.ARRIVAL_SLOW_PCT;
-        if (elapsed >= SimConfig.ARRIVAL_SLOW_FLAT)
+        long steps = steps_to_wall(side);
+        long ticks = 0;
+        long done = 0;
+        while (done < steps)
         {
-            long ramp = SimConfig.ARRIVAL_SLOW_TICKS - SimConfig.ARRIVAL_SLOW_FLAT;
-            pct += (100 - pct) * (elapsed - SimConfig.ARRIVAL_SLOW_FLAT) / ramp;
+            done += room.steps_at(ticks);
+            ticks += 1;
         }
-        state.arrival_slow_acc += steps * pct;
-        long out_ = state.arrival_slow_acc / 100;
-        state.arrival_slow_acc -= out_ * 100;
-        state.arrival_slow -= 1;
-        if (state.arrival_slow == 0) state.arrival_slow_acc = 0;
-        return out_;
+        if (ticks > SimConfig.ARRIVAL_BLIND + ARRIVAL_WALL_SPARE) return;
+        long g = room.def.gravity_sign;
+        long edge = SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB;
+        long up = state.y - (FIRST_HOP + edge) * g;
+        long down = state.y + edge * g;
+        long top = G.mini(up, down);
+        long bottom = G.maxi(up, down);
+        long mask = side == 1 ? state.right_spikes : state.left_spikes;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+        {
+            long cy = SimConfig.slot_center_y(slot);
+            if (cy + SimConfig.SPIKE_HALF_BASE > top && cy - SimConfig.SPIKE_HALF_BASE < bottom) mask &= ~(1L << (int)slot);
+        }
+        if (side == 1) state.right_spikes = mask;
+        else state.left_spikes = mask;
     }
 
     void _new_wall(long side)

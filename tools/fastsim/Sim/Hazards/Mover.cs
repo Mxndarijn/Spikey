@@ -7,6 +7,7 @@ public class Mover : Hazard
     public const long RADIUS = 12 * SUB;
     public const long START_MARGIN = 10 * SUB;
     public const long PHASE_TRIES = 16;
+    public const long ARRIVAL_TRIES = 60;
     public const long CENTER_X = 180 * SUB;
     public const long CENTER_Y = 320 * SUB;
     // Figure-eight.
@@ -54,13 +55,48 @@ public class Mover : Hazard
     {
         phase = rng.next_below(period());
         var path = sim.start_path();
+        var arrival = sim.state.started ? sim.arrival_path() : new List<long>();
         long first = phase;
-        for (long k = 0; k < PHASE_TRIES; k++)
+        long tries = sim.state.started ? ARRIVAL_TRIES : PHASE_TRIES;
+        long pick = phase;
+        bool settled = false;
+        for (long k = 0; k < tries; k++)
         {
-            phase = (first + k * period() / PHASE_TRIES) % period();
-            if (!_meets_path(path)) break;
+            phase = (first + k * period() / tries) % period();
+            if (sim.state.started)
+            {
+                long clear = _arrival_clear(arrival);
+                if (clear >= GameSim.ARRIVAL_PATH_TICKS)
+                {
+                    pick = phase;
+                    break;
+                }
+                if (clear >= GameSim.ARRIVAL_PATH_MIN && !settled)
+                {
+                    pick = phase;
+                    settled = true;
+                }
+            }
+            else if (!_meets_path(path)) break;
         }
+        if (sim.state.started) phase = pick;
         _place();
+    }
+
+    public long _arrival_clear(List<long> arrival)
+    {
+        long keep = t;
+        long out_ = GameSim.ARRIVAL_PATH_TICKS;
+        for (long k = 0; k < GameSim.ARRIVAL_PATH_TICKS; k++)
+        {
+            t = k;
+            _place();
+            for (long c = 0; c < count; c++)
+                if (GameSim.arrival_path_hits(arrival, k, xs[(int)c], ys[(int)c], RADIUS)) out_ = k;
+            if (out_ < GameSim.ARRIVAL_PATH_TICKS) break;
+        }
+        t = keep;
+        return out_;
     }
 
     public bool _meets_path(List<long> path)

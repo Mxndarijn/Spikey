@@ -66,7 +66,7 @@ public static class RoomCatalog
         return def.weight;
     }
 
-    public static long pick_next(SimRng rng, long current, long score, long season, long route = ExitKind.NORMAL)
+    public static long pick_next(SimRng rng, long current, long score, long season, long route = ExitKind.NORMAL, long arrival_y = SimConfig.WORLD_H)
     {
         var list = all();
         long start = first_index();
@@ -75,11 +75,12 @@ public static class RoomCatalog
         for (int i = 0; i < list.Count; i++)
         {
             long w = 0;
-            if (i != current && i != start && allowed(list[i], score, season)) w = route_weight(list[i], route);
+            bool fits = list[i].fits_arrival(arrival_y);
+            if (i != current && i != start && fits && allowed(list[i], score, season)) w = route_weight(list[i], route);
             weights[i] = w;
             total += w;
         }
-        if (total == 0 && route != ExitKind.NORMAL) return pick_next(rng, current, score, season);
+        if (total == 0 && route != ExitKind.NORMAL) return pick_next(rng, current, score, season, ExitKind.NORMAL, arrival_y);
         if (total == 0) return current;
         long r = rng.next_below(total);
         for (int i = 0; i < list.Count; i++)

@@ -16,8 +16,9 @@ Release flow: bump `config/version` in `project.godot`, commit, then
 ## What each workflow does
 
 **Check** is the Linux version of `tools/check.ps1`: gdlint and gdformat, headless import, load
-every script and scene (`tools/ci/load_all.gd`), then `tests/run_tests.gd`. Both phone
-workflows call it first, so a failing test stops the build.
+every script and scene (`tools/ci/load_all.gd`), then `tests/run_tests.gd`, one worker per
+core. Both phone workflows run it next to the build, so the build doesn't wait for the
+tests; the steps that ship (GitHub Release, Discord post, TestFlight) wait for it to pass.
 
 **Android Build**
 
@@ -31,7 +32,8 @@ workflows call it first, so a failing test stops the build.
    template into `android/` (ignored by git) and takes a few minutes longer than before.
    Without them: a debug-signed APK, signed with a key made fresh on each run.
 4. Uploads the APK/AAB as artifacts (kept 90 days, need a GitHub login).
-5. Publishes the APK as a GitHub Release, a direct public download because the repo is
+5. A separate job, once the build is done and Check has passed, publishes the APK as a
+   GitHub Release, a direct public download because the repo is
    public: `v*` tags become a release named after the version, other runs a pre-release
    tagged `build-<n>`. Old test pre-releases pile up; delete them on the Releases page
    (also delete the tag) when the list gets long.
@@ -43,7 +45,7 @@ workflows call it first, so a failing test stops the build.
    iOS preset, then runs Godot's iOS export with "Export Project Only", which writes a complete
    Xcode project. It removes transparency from the app icons (App Store Connect rejects icons
    with alpha) and uploads the project as an artifact (about 100 MB).
-2. macOS job: fastlane (`.github/ios/fastlane/Fastfile`) imports the certificate and profile,
+2. macOS job, once the export is done and Check has passed: fastlane (`.github/ios/fastlane/Fastfile`) imports the certificate and profile,
    switches the project to manual signing, builds a Release archive, uploads it to TestFlight,
    and keeps the IPA as an artifact for 7 days. Capped at 25 minutes.
 
