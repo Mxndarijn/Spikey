@@ -22,11 +22,11 @@ const SEASON_NAMES := ["October", "December", "February", "Spring", "Summer", "N
 const ROOMS := {
 	"open": ["Open Sky", "The cage at its simplest: two spike walls and you.", 1, "sunset", ""],
 	"crowded": ["Crowded", "Open Sky with more spikes on every wall.", 2, "sunset", "extra"],
-	"narrow": ["Narrow", "Open Sky, but the gaps between spikes are smaller.", 2, "ice", "extra"],
+	"narrow": ["Narrow", "The walls slide in. Less room, quicker bounces.", 2, "ice", "extra"],
 	"tide":
 	[
 		"Tide Spikes",
-		"Wall spikes breathe in and out, extra long at high tide.",
+		"Wall spikes breathe in and out. Some tides are big, some small.",
 		2,
 		"deepsea",
 		"extra"
@@ -42,7 +42,7 @@ const ROOMS := {
 	"cloud":
 	[
 		"Bumper Cloud",
-		"A fat friendly cloud drifts around and bumps you off course.",
+		"A fat friendly cloud, or two, drifts around and bumps you.",
 		2,
 		"sunset",
 		"cloud"

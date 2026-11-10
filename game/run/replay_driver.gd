@@ -13,13 +13,22 @@ const OLD_VERSION_MESSAGE := (
 var seed_value := 0
 var season := Seasons.NONE
 var taps := PackedInt32Array()
+## Ticks at which the recorded run was revived (Replay.revive_ticks).
+var revives := PackedInt32Array()
 var _next := 0
+var _next_revive := 0
 
 
-func _init(p_seed: int = 0, p_taps: PackedInt32Array = [], p_season: int = Seasons.NONE) -> void:
+func _init(
+	p_seed: int = 0,
+	p_taps: PackedInt32Array = [],
+	p_season: int = Seasons.NONE,
+	p_revives: PackedInt32Array = []
+) -> void:
 	seed_value = p_seed
 	taps = p_taps
 	season = p_season
+	revives = p_revives
 
 
 ## A driver for a leaderboard run. `fallback_season` is used when the run
@@ -29,7 +38,13 @@ static func from_run(run: Dictionary, fallback_season: int = Seasons.NONE) -> Re
 	for t: Variant in run.get("taps", []):
 		list.append(int(t))
 	list.sort()
-	return ReplayDriver.new(int(run.get("seed", 0)), list, int(run.get("season", fallback_season)))
+	var revive_list := PackedInt32Array()
+	for t: Variant in run.get("revives", []):
+		revive_list.append(int(t))
+	revive_list.sort()
+	return ReplayDriver.new(
+		int(run.get("seed", 0)), list, int(run.get("season", fallback_season)), revive_list
+	)
 
 
 ## Why a run can't be played, or "" when it can.
@@ -43,6 +58,7 @@ static func problem(run: Dictionary) -> String:
 
 func restart() -> void:
 	_next = 0
+	_next_revive = 0
 
 
 ## Whether the run tapped on `tick`. Ticks are asked in order, once each.
@@ -51,6 +67,15 @@ func tap_at(tick: int) -> bool:
 		_next += 1
 	if _next < taps.size() and taps[_next] == tick:
 		_next += 1
+		return true
+	return false
+
+
+## Whether the run was revived when it died at `tick` (the tick the sim stands
+## at once dead). Each recorded revive is used once.
+func revive_at(tick: int) -> bool:
+	if _next_revive < revives.size() and revives[_next_revive] == tick:
+		_next_revive += 1
 		return true
 	return false
 

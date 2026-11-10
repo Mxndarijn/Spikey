@@ -83,6 +83,23 @@ func test_bird_tilts_nose_up_when_rising_and_down_when_falling() -> void:
 	assert_eq(BirdView.tilt_for(0), 0.0)
 
 
+func test_bird_holds_still_when_the_sim_stops() -> void:
+	var rc := RunController.new()
+	rc.new_run(77)
+	rc.request_tap()
+	rc.advance()
+	assert_eq(BirdView.blend_fraction(rc, 0.25), 0.25, "interpolates while flying")
+	rc.set_paused(true)
+	assert_eq(BirdView.blend_fraction(rc, 0.25), 1.0, "paused: on the latest tick")
+	rc.set_paused(false)
+	# No more taps: it falls to its death.
+	while not rc.sim.is_over() and rc.sim.state.tick < SimConfig.MAX_TICKS:
+		rc.advance()
+	assert_true(rc.sim.is_over(), "the run ended")
+	assert_eq(BirdView.blend_fraction(rc, 0.25), 1.0, "dead: on the latest tick")
+	rc.free()
+
+
 func test_new_flyers_have_art_and_fit_real_worlds() -> void:
 	var ids := Catalog.ids(Catalog.FLYER)
 	for id in ["pip", "mochi", "tock", "lulu", "puff", "bubbles"]:

@@ -26,7 +26,9 @@ workflows call it first, so a failing test stops the build.
    runner only.
 2. Installs JDK 17, the Android SDK and Godot plus export templates (cached after the first run).
 3. With the keystore secrets: exports a release-signed APK and, for `v*` tags or the "Build AAB"
-   option, a release-signed AAB through Godot's Gradle build (preset "Android AAB").
+   option, a release-signed AAB. Both go through Godot's Gradle build, which the AdMob plugin
+   (`addons/admob`, the rewarded ad for the revive) needs; the first export installs the build
+   template into `android/` (ignored by git) and takes a few minutes longer than before.
    Without them: a debug-signed APK, signed with a key made fresh on each run.
 4. Uploads the APK/AAB as artifacts (kept 90 days, need a GitHub login).
 5. Publishes the APK as a GitHub Release, a direct public download because the repo is

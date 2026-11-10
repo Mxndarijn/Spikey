@@ -34,6 +34,9 @@ const BIG_SCORE_SIZE := 140
 const SCRIM_TITLE_SIZE := 44
 ## The live score at the top of the run.
 const RUN_SCORE_SIZE := 72
+## The round main action: the margins above its icon and below its name.
+const PRIMARY_PAD_TOP := 22
+const PRIMARY_PAD_BOTTOM := 16
 ## Selected and disabled fills on paper.
 const SELECTED_FILL := UiTokens.PANEL_RAISED
 const DISABLED_FILL := UiTokens.EDGE
@@ -259,6 +262,12 @@ static func _buttons(t: Theme, room: Color) -> void:
 
 static func _primary(t: Theme, type_name: String, fill: Color, text: Color) -> void:
 	var disc := flat(fill, UiTokens.RADIUS_PILL, 8)
+	# A Button pins a top icon to the top margin and centres the name in what is
+	# left below it. These margins put the icon and its name together in the
+	# middle of the disc (icon 22..52, name 61..77 of 100); more margin would
+	# grow the button past 100px.
+	disc.content_margin_top = PRIMARY_PAD_TOP
+	disc.content_margin_bottom = PRIMARY_PAD_BOTTOM
 	var down := disc.duplicate() as StyleBoxFlat
 	down.bg_color = fill.lightened(0.15) if fill.get_luminance() < 0.5 else fill.darkened(0.06)
 	_button(t, type_name, disc, down, text)

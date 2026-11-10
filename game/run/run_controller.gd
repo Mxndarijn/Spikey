@@ -10,6 +10,8 @@ signal bounced
 signal scored(score: int)
 signal room_changed(room_index: int)
 signal died(replay: Replay)
+## A dead bird came back (revive(), or a replay's recorded revive).
+signal revived
 signal coin_spawned
 signal coin_collected(total: int)
 ## An exit portal opened (every 10 points; two at a fork).
@@ -25,6 +27,8 @@ var paused := false
 var driver: ReplayDriver
 
 var _taps := PackedInt32Array()
+## Ticks at which this run was revived, for the replay.
+var _revive_ticks := PackedInt32Array()
 var _tap_pending := false
 
 
@@ -35,6 +39,7 @@ func new_run(seed_value: int, season: int = Seasons.NONE, practice_room: int = -
 	sim = GameSim.new(seed_value, season, practice_room)
 	prev_state = sim.state.copy()
 	_taps.clear()
+	_revive_ticks.clear()
 	_tap_pending = false
 	paused = false
 	driver = null
@@ -55,6 +60,34 @@ func request_tap() -> void:
 func set_paused(value: bool) -> void:
 	paused = value
 	_tap_pending = false
+
+
+## The player's own run is over and has its revive left.
+func can_revive() -> bool:
+	return sim != null and driver == null and sim.can_revive()
+
+
+## Brings the dead bird back (GameSim.revive) and records it for the replay.
+## Returns false when can_revive() is false.
+func revive() -> bool:
+	if not can_revive():
+		return false
+	_revive()
+	return true
+
+
+## The run so far as a replay: taps, revives and the result.
+func replay() -> Replay:
+	return Replay.from_sim(sim, _taps.duplicate(), _revive_ticks.duplicate())
+
+
+func _revive() -> void:
+	_revive_ticks.append(sim.state.tick)
+	sim.revive()
+	# No sliding from where it died to where it arrives.
+	prev_state = sim.state.copy()
+	_tap_pending = false
+	_dispatch_events()
 
 
 func is_running() -> bool:
@@ -81,6 +114,7 @@ func advance() -> void:
 
 
 func _dispatch_events() -> void:
+	var replay_revives := false
 	for e in sim.events:
 		match e:
 			GameSim.Event.START:
@@ -101,5 +135,13 @@ func _dispatch_events() -> void:
 				coin_spawned.emit()
 			GameSim.Event.COIN:
 				coin_collected.emit(sim.state.coins)
+			GameSim.Event.REVIVE:
+				revived.emit()
 			GameSim.Event.DEATH:
-				died.emit(Replay.from_sim(sim, _taps.duplicate()))
+				# A replay that was revived here plays on instead of ending.
+				if driver != null and driver.revive_at(sim.state.tick):
+					replay_revives = true
+				else:
+					died.emit(replay())
+	if replay_revives:
+		_revive()

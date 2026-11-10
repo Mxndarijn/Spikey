@@ -214,6 +214,20 @@ func on_room_changed(room_index: int) -> void:
 		_flash = 1.0
 
 
+## A revived bird comes out of a portal in the wall behind it, in the same
+## room: the arrival portal and the flash, but the sky stays.
+func on_revived() -> void:
+	if _run == null or _run.sim == null:
+		return
+	var s := _run.sim.state
+	_arrival_side = 0 if s.vx > 0 else 1
+	_arrival_y = s.y
+	_arrival_kind = SimState.ExitKind.NORMAL
+	_arrival = 1.0
+	if flash_enabled:
+		_flash = 1.0
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	if _theme != null and _shown_sky() != _drawn_sky:
@@ -460,13 +474,16 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		var cy := SimConfig.slot_center_y(slot) / float(SimConfig.SUB)
 		# Tide spikes slide in and out: the drawn depth follows the sim's. Up to
 		# normal size the spike slides out of the wall; past it, it grows longer.
+		# `full` and `half` are this room's still spike (a variant can scale it).
 		var out := float(room.slot_depth(side, slot)) / SimConfig.SPIKE_DEPTH
 		var depth := SPIKE_DEPTH * ease(t, 0.5) * out
-		if depth > SPIKE_DEPTH:
-			_draw_spike(Vector2(wall_x, cy), Vector2(dir, 0), SPIKE_HALF, depth)
+		var full := SPIKE_DEPTH * room.spike_depth() / SimConfig.SPIKE_DEPTH
+		var half := SPIKE_HALF * room.spike_half_base() / SimConfig.SPIKE_HALF_BASE
+		if depth > full:
+			_draw_spike(Vector2(wall_x, cy), Vector2(dir, 0), half, depth)
 		else:
-			var base_x := wall_x - dir * (SPIKE_DEPTH - depth)
-			_draw_spike(Vector2(base_x, cy), Vector2(dir, 0), SPIKE_HALF, SPIKE_DEPTH)
+			var base_x := wall_x - dir * (full - depth)
+			_draw_spike(Vector2(base_x, cy), Vector2(dir, 0), half, full)
 
 
 ## The open exit(s). Safe, so never in the spike colour: the style's colour

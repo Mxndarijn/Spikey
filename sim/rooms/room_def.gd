@@ -27,6 +27,12 @@ var max_spikes := SimConfig.MAX_SPIKES
 var wall_mode := WallMode.STATIC
 ## Walls step inward with every point scored in this room.
 var squeeze := false
+## Both walls slide this far in when the room starts (Narrow), sub-units.
+var inset := 0
+## The free run on a new wall and the next exit stay within this of the bird's
+## height (sub-units). 0 = the usual rule: RoomRules.GAP_REACH for the free run
+## in rooms with hazards, anywhere otherwise.
+var reach := 0
 
 # Movement
 var gravity_sign := 1
@@ -40,6 +46,9 @@ var bounce_coin_stacks := false
 var hazards: Array[Callable] = []
 ## Alternatives: one of these lists is picked by the RNG and added (Double Trouble).
 var combos: Array = []
+## Ways the room can turn out: one is drawn by the RNG at room start. Empty =
+## the room is always the same.
+var variants: Array[RoomVariant] = []
 
 
 func _init(p_id: String, p_group: String, p_from: int) -> void:

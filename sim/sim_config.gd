@@ -29,11 +29,22 @@ extends RefCounted
 ##     turning back off the Bumper Cloud).
 ## 14: each exit is planned one point early (on the 9th of every 10) and
 ##     shown as a ghost on the wall it will open on; no spikes in its slots.
-## 15: out of a portal the room runs in slow motion for a second instead of
-##     the frozen wait (the player can tap from the first tick); Floating
-##     Isles keeps a lane clear in front of the portal; Shutter Gates times
-##     its gap to be at the bird's height when it reaches the nearer gate.
-const GAMEPLAY_VERSION := 15
+## 15: revive (GameSim.revive): once per run a dead bird arrives in the same
+##     room again as if through a portal. Runs without one play as in 14.
+## 16: room rework from playtests. Narrow is a narrow cage (walls slide 50 px
+##     in; free run and exit stay near the bird) instead of smaller gaps. Room
+##     variants drawn at room start: Tide Spikes normal / big / small, Bumper
+##     Cloud one or two clouds (Heart Bumpers always two). Hazards can keep an
+##     exit off heights they block (Hazard.blocks_exit): Floating Isles,
+##     Shutter Gates (wider gap too) and Caterpillar Crawl always leave a way
+##     to the wall and the portal.
+## 17: out of a portal the room runs in slow motion for a second instead of
+##     the frozen wait (the player can tap from the first tick; a revive still
+##     waits ARRIVAL_HOLD); Shutter Gates times its gap to be at the bird's
+##     height when it reaches the nearer gate.
+const GAMEPLAY_VERSION := 17
+## How often a run can be revived.
+const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
 const SUB := 64
 
@@ -96,7 +107,7 @@ const FORK_EVERY := 50
 ## Coins for taking the Wild exit.
 const WILD_COINS := 3
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
-## wait, taps ignored). Portals no longer use it (version 15: slow motion).
+## wait, taps ignored) after a revive. Portals use slow motion (version 17).
 const ARRIVAL_HOLD := 60
 ## Out of a portal the whole room runs in slow motion: ARRIVAL_SLOW_PCT of
 ## normal speed for ARRIVAL_SLOW_FLAT ticks, then back up to full speed over

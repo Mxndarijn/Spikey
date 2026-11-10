@@ -69,7 +69,9 @@ func test_rooms_are_in_the_catalog_in_order() -> void:
 
 
 func test_rooms_spawn_their_hazards() -> void:
-	assert_eq(kinds(sim_in_room("cloud", 1)), ["bumper"] as Array[String])
+	var clouds := kinds(sim_in_room("cloud", 1))
+	assert_true(clouds.size() in [1, 2], "one cloud or two")
+	assert_eq(clouds[0], "bumper")
 	assert_eq(kinds(sim_in_room("gates", 1)), ["gate", "gate"] as Array[String])
 	assert_eq(kinds(sim_in_room("crawl", 1)), ["crawler", "crawler"] as Array[String])
 	assert_eq(kinds(sim_in_room("swing", 1)), ["pendulum"] as Array[String])

@@ -26,6 +26,12 @@ static func check(run: Dictionary) -> Dictionary:
 	var taps: Variant = _taps(run.get("taps"))
 	if taps == null:
 		return _result(id, REJECTED, "invalid taps")
+	# Runs sent before revives existed have none.
+	var revives: Variant = PackedInt32Array()
+	if run.get("revives") != null:
+		revives = _taps(run.get("revives"))
+	if revives == null:
+		return _result(id, REJECTED, "invalid revives")
 	var day := str(run.get("day", ""))
 	var allowed := seasons_around(day)
 	if allowed.is_empty():
@@ -39,7 +45,8 @@ static func check(run: Dictionary) -> Dictionary:
 		candidates = [season]
 	var reason := ""
 	for candidate in candidates:
-		var result := _replay(run, taps as PackedInt32Array, candidate).verify()
+		var replay := _replay(run, taps as PackedInt32Array, candidate, revives as PackedInt32Array)
+		var result := replay.verify()
 		if result.ok:
 			return _result(id, OK, "")
 		reason = str(result.reason)
@@ -70,17 +77,20 @@ static func seasons_around(day: String) -> Array[int]:
 
 ## The run as a Replay. Coins and end tick that weren't stored (runs sent
 ## before they were) are taken from the replay itself, so only the score counts.
-static func _replay(run: Dictionary, taps: PackedInt32Array, season: int) -> Replay:
+static func _replay(
+	run: Dictionary, taps: PackedInt32Array, season: int, revives: PackedInt32Array
+) -> Replay:
 	var r := Replay.new()
 	r.gameplay_version = _int(run.get("gameplay_version"), -1)
 	r.seed_value = _int(run.get("seed"), 0)
 	r.season = season
 	r.taps = taps
+	r.revive_ticks = revives
 	r.score = _int(run.get("score"), -1)
 	r.coins = _int(run.get("coins"), -1)
 	r.end_tick = _int(run.get("end_tick"), -1)
 	if run.get("coins") == null or run.get("end_tick") == null:
-		var sim := Replay.simulate(r.seed_value, taps, season)
+		var sim := Replay.simulate(r.seed_value, taps, season, revives)
 		if run.get("coins") == null:
 			r.coins = sim.state.coins
 		if run.get("end_tick") == null:

@@ -119,7 +119,7 @@ func test_slow_motion_steps_add_up() -> void:
 
 
 ## Out of a portal, Floating Isles keeps its islands out of the lane in front
-## of the portal where it can, and Shutter Gates has the gap at the bird when
+## of the portal, and Shutter Gates has the gap at the bird when
 ## it reaches the nearer gate.
 func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 	var isles := RoomCatalog.index_of("isles")
@@ -132,11 +132,8 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 		sim._arrive_in(i % 2, isles)
 		var clear := true
 		for h in sim.room.hazards:
-			if h.alive and h.kind == "block":
-				sim._arriving = true
-				if sim.blocks_start_lane(h.x0, h.y0, h.x1, h.y1, true):
-					clear = false
-				sim._arriving = false
+			if h.alive and h.kind == "block" and h._blocks_arrival(sim, h.x0, h.y0, h.x1, h.y1):
+				clear = false
 		if clear:
 			lane_ok += 1
 		var g := _sim_at(20, 100 + i)
@@ -149,7 +146,7 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 		var steps := absi(near.x - g.state.x) / SimConfig.SPEED_X
 		var want := clampi(y - 30 * SimConfig.SUB, 150 * SimConfig.SUB, 490 * SimConfig.SUB)
 		assert_true(absi(near.gap_at(steps) - want) <= 2 * SimConfig.SUB, "gate gap at the bird")
-	assert_true(lane_ok >= 36, "isles lane clear in most arrivals (%d/40)" % lane_ok)
+	assert_eq(lane_ok, 40, "isles lane clear in every arrival")
 
 
 func test_the_bird_comes_out_flying_level() -> void:
