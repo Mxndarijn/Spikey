@@ -17,18 +17,23 @@ const HORIZON := 45
 const ROLLOUTS := 2
 
 
+## Every room, and every variant of it on its own (ArrivalBench.cases), so a
+## variant the random draw would rarely pick is still checked.
 func test_every_room_allows_a_slow_reaction_out_of_a_portal(part: int, parts: int) -> void:
 	var total := 0
 	var no_way := 0
 	var killed: Array[String] = []
-	for index in range(part, RoomCatalog.all().size(), parts):
+	var cases := ArrivalBench.cases()
+	for c in range(part, cases.size(), parts):
+		var index: int = cases[c][0]
+		var variant: String = cases[c][1]
 		var early := ArrivalBench.play(
-			index, COUNT, ArrivalBench.EARLY_DELAY, AFTER, HORIZON, ROLLOUTS, true
+			index, COUNT, ArrivalBench.EARLY_DELAY, AFTER, HORIZON, ROLLOUTS, true, variant
 		)
 		if early.forced > 0:
 			killed.append("%s (%d of %d)" % [early.id, early.forced, COUNT])
 		var late := ArrivalBench.play(
-			index, COUNT, SimConfig.ARRIVAL_BLIND, AFTER, HORIZON, ROLLOUTS, true
+			index, COUNT, SimConfig.ARRIVAL_BLIND, AFTER, HORIZON, ROLLOUTS, true, variant
 		)
 		total += COUNT
 		no_way += late.forced
@@ -36,7 +41,7 @@ func test_every_room_allows_a_slow_reaction_out_of_a_portal(part: int, parts: in
 	report = {"total": total, "no_way": no_way}
 
 
-## The 1 s benchmark over every room together.
+## The 1 s benchmark over every room and variant together.
 static func combine_test_every_room_allows_a_slow_reaction_out_of_a_portal(
 	reports: Array
 ) -> Array[String]:
@@ -45,8 +50,9 @@ static func combine_test_every_room_allows_a_slow_reaction_out_of_a_portal(
 	for r: Dictionary in reports:
 		total += int(r.total)
 		no_way += int(r.no_way)
-	if total != RoomCatalog.all().size() * COUNT:
-		return ["only %d of %d arrivals ran" % [total, RoomCatalog.all().size() * COUNT]]
+	var expected := ArrivalBench.cases().size() * COUNT
+	if total != expected:
+		return ["only %d of %d arrivals ran" % [total, expected]]
 	if no_way * 100 > ArrivalBench.MAX_EXTRA_PCT * total:
 		return ["a 1 s reaction leaves no way to live in %d of %d arrivals" % [no_way, total]]
 	return []

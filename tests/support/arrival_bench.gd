@@ -36,23 +36,51 @@ static func room(
 	return slow
 
 
-## Arrival `i` into room `index`, just out of the portal.
-static func arrival(index: int, i: int) -> GameSim:
+## Every (room index, variant id) to bench: each variant of a room on its own,
+## or just the room ("") when it has none.
+static func cases() -> Array[Array]:
+	var out: Array[Array] = []
+	var rooms := RoomCatalog.all()
+	for index in rooms.size():
+		if rooms[index].variants.is_empty():
+			out.append([index, ""])
+		for v: RoomVariant in rooms[index].variants:
+			out.append([index, v.id])
+	return out
+
+
+## Arrival `i` into room `index`, just out of the portal. With `variant` set,
+## the room plays that variant (GameSim.forced_variant) and only heights it
+## can be drawn at are used.
+static func arrival(index: int, i: int, variant := "") -> GameSim:
 	var def := RoomCatalog.all()[index]
 	var sim := GameSim.new(9000 + i * 37)
+	sim.forced_variant = variant
 	sim.step(true)
 	sim.state.score = maxi(def.from_score, 10) + (i % 3) * 10
 	# Only heights the room can be picked at out of a portal
 	# (RoomDef.arrival_skip): spread from 130 to 510 px, skipped ones moved on.
 	var y := 130 + (i * 53) % 380
-	while not def.fits_arrival(y * SimConfig.SUB):
+	var tries := 0
+	while not _fits(def, variant, y * SimConfig.SUB) and tries < 380:
 		y = 130 + (y - 130 + 53) % 380
+		tries += 1
 	sim.state.y = y * SimConfig.SUB
 	var side := i % 2
 	for k in sim._arrival_retries(side, index):
 		sim._rng.next_u32()
 	sim._arrive_in(side, index)
 	return sim
+
+
+## Whether room `def` (as `variant`, if set) can be drawn out of a portal at `y`.
+static func _fits(def: RoomDef, variant: String, y: int) -> bool:
+	if not def.fits_arrival(y):
+		return false
+	for v: RoomVariant in def.variants:
+		if v.id == variant:
+			return v.fits_arrival(y)
+	return true
 
 
 ## Holds the bird's height for `delay` ticks (a player still reading the room).
@@ -69,8 +97,8 @@ static func hold(sim: GameSim, delay: int) -> bool:
 
 ## Whether arrival `i` leaves no way to live for `after` ticks once the player
 ## reacts after `delay`.
-static func forced(index: int, i: int, delay: int, after: int) -> bool:
-	var sim := arrival(index, i)
+static func forced(index: int, i: int, delay: int, after: int, variant := "") -> bool:
+	var sim := arrival(index, i, variant)
 	if not hold(sim, delay):
 		return true
 	return not SurvivalSearch.new().run(sim, after)
@@ -83,14 +111,15 @@ static func play(
 	after: int,
 	horizon := PlannerBot.HORIZON,
 	rollouts := PlannerBot.ROLLOUTS,
-	check_forced := false
+	check_forced := false,
+	variant := ""
 ) -> Dictionary:
 	var def := RoomCatalog.all()[index]
 	var dead := 0
 	var forced_count := 0
 	var causes := {}
 	for i in count:
-		var sim := arrival(index, i)
+		var sim := arrival(index, i, variant)
 		var y0 := sim.state.y
 		var bot := PlannerBot.new(i + 1, horizon, rollouts)
 		var n := 0
@@ -108,6 +137,7 @@ static func play(
 			var why: String = SimState.DeathCause.keys()[sim.state.death_cause]
 			var key := "%s@%s" % [why, "blind" if n <= delay else "play"]
 			causes[key] = int(causes.get(key, 0)) + 1
-			if check_forced and forced(index, i, delay, after):
+			if check_forced and forced(index, i, delay, after, variant):
 				forced_count += 1
-	return {"id": def.id, "dead": dead, "causes": causes, "forced": forced_count}
+	var id := def.id if variant == "" else "%s/%s" % [def.id, variant]
+	return {"id": id, "dead": dead, "causes": causes, "forced": forced_count}
