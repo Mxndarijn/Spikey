@@ -6,6 +6,10 @@ extends Hazard
 ## In Double Trouble it glows for 1 s (glow_ticks) and keeps its height inside
 ## the other hazard's band (share_band), so the lanes that hazard leaves free
 ## stay free.
+##
+## Variants (Piston Press): a shorter ram (reach), the whole room to pick from
+## (HALF_ALL), a ram that copies the height of the piston before it so both
+## slam as one (follows), or a fixed height that never moves (fixed_y).
 
 enum State { IDLE, GLOW, EXTEND, HOLD, RETRACT }
 
@@ -25,6 +29,8 @@ const Y_MIN := 110 * SimConfig.SUB
 const Y_MAX := 530 * SimConfig.SUB
 ## Pistons in one room stay in their own half (upper / lower).
 const Y_MID := 320 * SimConfig.SUB
+## `half` for a piston that picks from the whole room.
+const HALF_ALL := 2
 
 ## 0 = left wall, 1 = right wall.
 var side := 0
@@ -32,7 +38,7 @@ var side := 0
 var y := 0
 ## Steps before the first cycle starts (staggers pistons in one room).
 var delay := 0
-## 0 = upper half of the room, 1 = lower half.
+## 0 = upper half of the room, 1 = lower half, HALF_ALL = anywhere.
 var half := 0
 ## Steps of warning glow before each slam.
 var glow_ticks := GLOW_TICKS
@@ -41,6 +47,13 @@ var share_band := false
 ## The centre heights it picks from (set in setup()).
 var y_lo := Y_MIN
 var y_hi := Y_MAX
+## How far the ram reaches into the room when fully out.
+var reach := REACH
+## Copies the height of the piston before it in the room (found at setup).
+var follows := false
+var leader: Hazard = null
+## A fixed centre height (sub-units), or -1 to pick one after each bounce.
+var fixed_y := -1
 
 
 func _init(
@@ -59,7 +72,20 @@ func _init(
 
 
 func setup(sim: GameSim, rng: SimRng) -> void:
-	y_lo = Y_MIN if half == 0 else Y_MID + HALF_H
+	if fixed_y >= 0:
+		y = fixed_y
+		return
+	if follows:
+		leader = null
+		for h: Hazard in sim.room.hazards:
+			if h == self:
+				break
+			if h.kind == kind:
+				leader = h
+		if leader != null:
+			y = leader.y
+			return
+	y_lo = Y_MIN if half != 1 else Y_MID + HALF_H
 	y_hi = Y_MID - HALF_H if half == 0 else Y_MAX
 	if share_band:
 		for h: Hazard in sim.room.hazards:
@@ -74,6 +100,12 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 
 
 func on_bounce(_sim: GameSim, rng: SimRng) -> void:
+	if fixed_y >= 0:
+		return
+	if leader != null:
+		# The leader has already moved (or kept still): stay level with it.
+		y = leader.y
+		return
 	# Always draw so the RNG order does not depend on the piston's state.
 	var old := y
 	_pick_y(rng)
@@ -125,12 +157,12 @@ func extent() -> int:
 	var p := cycle_pos() - IDLE_TICKS - glow_ticks
 	match state():
 		State.EXTEND:
-			return REACH * (p + 1) / EXTEND_TICKS
+			return reach * (p + 1) / EXTEND_TICKS
 		State.HOLD:
-			return REACH
+			return reach
 		State.RETRACT:
 			p -= EXTEND_TICKS + HOLD_TICKS
-			return REACH * (RETRACT_TICKS - p - 1) / RETRACT_TICKS
+			return reach * (RETRACT_TICKS - p - 1) / RETRACT_TICKS
 	return 0
 
 

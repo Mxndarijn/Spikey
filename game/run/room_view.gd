@@ -454,7 +454,25 @@ func _draw_edges() -> void:
 	for i in count:
 		var cx := step * (i + 0.5)
 		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
-		_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
+		# A floor spike under a hazard that landed on it sinks into the floor.
+		var depth := EDGE_SPIKE_DEPTH * (1.0 - _floor_sink(cx - step / 2.0, cx + step / 2.0))
+		if depth > TIP_BACK + 1.0:
+			_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), EDGE_SPIKE_HALF, depth)
+
+
+## How far the floor spike from `left` to `right` has sunk (0..1), from the
+## hazards' painters (HazardPainter.floor_sink).
+func _floor_sink(left: float, right: float) -> float:
+	if _run == null or _run.sim == null:
+		return 0.0
+	var out := 0.0
+	for h in _run.sim.room.hazards:
+		if not h.alive:
+			continue
+		var p := HazardLayer.painter(h.kind)
+		if p != null:
+			out = maxf(out, p.floor_sink(h, left, right))
+	return out
 
 
 ## The band colour around the room: above, below, left and right of it.

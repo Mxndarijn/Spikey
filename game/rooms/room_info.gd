@@ -97,7 +97,13 @@ const ROOMS := {
 	"midnight":
 	["Midnight Cage", "Lights down, cage faster. Some nights just a lantern.", 5, "star", "dark"],
 	"piston":
-	["Piston Press", "Spiked pistons punch out of the walls, then pull back.", 3, "lava", "blocks"],
+	[
+		"Piston Press",
+		"Spiked pistons punch out of the walls: in turns, together or in a wave.",
+		3,
+		"lava",
+		"blocks"
+	],
 	"court":
 	[
 		"Bumper Court",
@@ -107,13 +113,19 @@ const ROOMS := {
 		"cloud"
 	],
 	"crates":
-	["Crate Drop", "Crates fall from the sky and pile up into towers.", 4, "autumn", "blocks"],
+	[
+		"Crate Drop",
+		"Crates fall from the sky and pile up into towers. Some big, some in pairs.",
+		4,
+		"autumn",
+		"blocks"
+	],
 	"beams":
 	["Beam Gates", "Light beams snap on and off across the cage to a beat.", 3, "neon", "beam"],
 	"stalac":
 	[
 		"Stalactite Run",
-		"Rounded rock fingers hang from the roof and rise from the floor.",
+		"Rock fingers hang from the roof and rise from the floor, five different ways.",
 		3,
 		"jungle",
 		"cols"
@@ -170,7 +182,14 @@ const ROOMS := {
 	],
 	"bats": ["Bat Loop", "Bats chase each other in a figure eight.", 3, "haunted", "crawl"],
 	"icicle": ["Icicle Drop", "Icicles shake on the ceiling, then fall.", 4, "winterfest", "rain"],
-	"gifts": ["Gift Stack", "Presents pile up instead of crates.", 4, "winterfest", "blocks"],
+	"gifts":
+	[
+		"Gift Stack",
+		"Presents pile up instead of crates. Some big, some in pairs.",
+		4,
+		"winterfest",
+		"blocks"
+	],
 	"hearts":
 	["Heart Bumpers", "Soft hearts drift or circle around and bump you.", 2, "blossom", "cloud"],
 	"cupid":

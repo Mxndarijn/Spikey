@@ -2,6 +2,7 @@ extends HazardPainter
 ## Stalactite Run: dripping rock. A stalactite hangs from the top and a
 ## stalagmite stands from the bottom, both with bumpy, tapering sides and a
 ## lighter ridge, in spike colour. Water drips (safe, white) fall from the tip.
+## Variant columns may have only one of the two rocks.
 
 const StalactiteHazard := preload("res://sim/hazards/stalactite.gd")
 
@@ -14,12 +15,15 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var theme := look.theme
 	var time := look.time
 	var x := HazardLayer.px(h.x)
-	var half := HazardLayer.px(h.HALF_W)
+	var half := HazardLayer.px(h.half_w)
 	var top_tip := HazardLayer.px(h.top_tip())
 	var bottom_tip := HazardLayer.px(h.bottom_tip())
 	var floor_y := HazardLayer.px(SimConfig.WORLD_H)
+	if h.bottom:
+		_rock(c, x, half, floor_y, bottom_tip, theme, -1.0)
+	if not h.top:
+		return
 	_rock(c, x, half, 0.0, top_tip, theme, 1.0)
-	_rock(c, x, half, floor_y, bottom_tip, theme, -1.0)
 	# A drop forming at the tip and falling a little way (cosmetic, safe).
 	var cycle := fmod(time * 0.9 + x * 0.01, 1.0)
 	var drop_y := top_tip + 3.0 + cycle * cycle * 40.0

@@ -35,7 +35,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 		var pulse := 0.55 + 0.45 * sin(time * 24.0)
 		var face := Rect2(hx, y - half, HOUSING_W, half * 2.0)
 		c.draw_rect(face, Color(theme.spike_edge, (0.4 + 0.6 * glow) * pulse), true)
-		var reach := HazardLayer.px(h.REACH)
+		var reach := HazardLayer.px(h.reach)
 		var x0 := minf(base, base + dir * reach)
 		var outline := Rect2(x0, y - half, reach, half * 2.0)
 		c.draw_rect(outline, Color(theme.spike, 0.25 + 0.35 * glow), false, 2.0, true)

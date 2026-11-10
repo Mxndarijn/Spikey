@@ -271,7 +271,7 @@ func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
 	for seed_value in 12:
 		for heading_right in [true, false]:
 			var y := (130 + seed_value * 35) * SimConfig.SUB
-			var sim := RoomsTest.sim_in_room("stalac", 50 + seed_value)
+			var sim := RoomsTest.sim_in_room("stalac", 50 + seed_value, Seasons.NONE, "classic")
 			sim.state.started = true
 			sim.state.y = y
 			sim.state.vx = SimConfig.SPEED_X if heading_right else -SimConfig.SPEED_X

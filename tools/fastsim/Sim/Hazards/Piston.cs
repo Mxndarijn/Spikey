@@ -20,6 +20,7 @@ public class Piston : Hazard
     public const long Y_MIN = 110 * SimConfig.SUB;
     public const long Y_MAX = 530 * SimConfig.SUB;
     public const long Y_MID = 320 * SimConfig.SUB;
+    public const long HALF_ALL = 2;
 
     public long side = 0;
     public long y = 0;
@@ -29,6 +30,11 @@ public class Piston : Hazard
     public bool share_band = false;
     public long y_lo = Y_MIN;
     public long y_hi = Y_MAX;
+    public long reach = REACH;
+    public bool follows = false;
+    /// GDScript types this as Hazard; only Pistons are ever stored in it.
+    public Piston leader = null;
+    public long fixed_y = -1;
 
     public Piston(long p_side = 0, long p_half = 0, long p_delay = 0, long p_glow = GLOW_TICKS, bool p_share_band = false)
     {
@@ -40,9 +46,34 @@ public class Piston : Hazard
         share_band = p_share_band;
     }
 
+    public override void remap(Dictionary<Hazard, Hazard> map)
+    {
+        if (leader != null) leader = (Piston)map[leader];
+    }
+
     public override void setup(GameSim sim, SimRng rng)
     {
-        y_lo = half == 0 ? Y_MIN : Y_MID + HALF_H;
+        if (fixed_y >= 0)
+        {
+            y = fixed_y;
+            return;
+        }
+        if (follows)
+        {
+            leader = null;
+            for (int i = 0; i < sim.room.hazards.Count; i++)
+            {
+                var h = sim.room.hazards[i];
+                if (h == this) break;
+                if (h.kind == kind) leader = (Piston)h;
+            }
+            if (leader != null)
+            {
+                y = leader.y;
+                return;
+            }
+        }
+        y_lo = half != 1 ? Y_MIN : Y_MID + HALF_H;
         y_hi = half == 0 ? Y_MID - HALF_H : Y_MAX;
         if (share_band)
         {
@@ -63,6 +94,12 @@ public class Piston : Hazard
 
     public override void on_bounce(GameSim sim, SimRng rng)
     {
+        if (fixed_y >= 0) return;
+        if (leader != null)
+        {
+            y = leader.y;
+            return;
+        }
         // Always draw so the RNG order does not depend on the piston state.
         long old = y;
         _pick_y(rng);
@@ -105,12 +142,12 @@ public class Piston : Hazard
     {
         long p = cycle_pos() - IDLE_TICKS - glow_ticks;
         long s = state();
-        if (s == State.EXTEND) return REACH * (p + 1) / EXTEND_TICKS;
-        if (s == State.HOLD) return REACH;
+        if (s == State.EXTEND) return reach * (p + 1) / EXTEND_TICKS;
+        if (s == State.HOLD) return reach;
         if (s == State.RETRACT)
         {
             p -= EXTEND_TICKS + HOLD_TICKS;
-            return REACH * (RETRACT_TICKS - p - 1) / RETRACT_TICKS;
+            return reach * (RETRACT_TICKS - p - 1) / RETRACT_TICKS;
         }
         return 0;
     }

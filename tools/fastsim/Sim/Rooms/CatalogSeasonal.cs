@@ -71,7 +71,7 @@ public static class CatalogSeasonal
 
         var gifts = _room("gifts", Seasons.WINTER, 60);
         gifts.arrival_skip = new List<long> { 0, RoomDef.CEILING_ARRIVAL };
-        gifts.hazards.Add(() => new CrateDrop(true));
+        gifts.variants = CatalogMachines.crate_variants(true);
         out_.Add(gifts);
 
         // Valentine's

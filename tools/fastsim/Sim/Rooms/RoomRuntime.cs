@@ -33,7 +33,7 @@ public sealed class RoomRuntime
         foreach (var h in hazards)
         {
             c.hazards.Add(h.clone_deep());
-            partners |= h is Gate || h is Stalactite;
+            partners |= h is Gate || h is Stalactite || h is Piston;
         }
         if (partners)
         {

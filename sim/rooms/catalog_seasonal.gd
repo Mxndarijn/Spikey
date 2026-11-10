@@ -9,7 +9,7 @@ const Block := preload("res://sim/hazards/block.gd")
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 const Mover := preload("res://sim/hazards/mover.gd")
 const Drop := preload("res://sim/hazards/drop.gd")
-const CrateDrop := preload("res://sim/hazards/crate_drop.gd")
+const Machines := preload("res://sim/rooms/catalog_machines.gd")
 const Bumper := preload("res://sim/hazards/bumper.gd")
 const Dart := preload("res://sim/hazards/dart.gd")
 const KeepyBall := preload("res://sim/hazards/keepy_ball.gd")
@@ -94,7 +94,7 @@ static func defs() -> Array[RoomDef]:
 	var gifts := _room("gifts", Seasons.WINTER, 60)
 	# Gifts drop from the ceiling.
 	gifts.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
-	gifts.hazards.append(func() -> Hazard: return CrateDrop.new(true))
+	gifts.variants = Machines.crate_variants(true)
 	out.append(gifts)
 
 	# Valentine's

@@ -11,6 +11,8 @@ public class Stalactite : Hazard
     public const long MAX_STEP = 60 * SimConfig.SUB;
     public const long WALL_CLEAR = 70 * SimConfig.SUB;
     public const long SLIDE = 3 * SimConfig.SUB;
+    public const long HOP_MID = 30 * SimConfig.SUB;
+    public const long EXIT_NEAR = 120 * SimConfig.SUB;
 
     public long x = 0;
     public long gap_y = 0;
@@ -18,6 +20,12 @@ public class Stalactite : Hazard
     public bool follows = false;
     /// GDScript types this as Hazard; only Stalactites are ever stored in it.
     public Stalactite partner = null;
+    public bool top = true;
+    public bool bottom = true;
+    public long gap = GAP;
+    public long half_w = HALF_W;
+    public long fixed_lo = -1;
+    public long fixed_hi = -1;
 
     public Stalactite(long p_x = 0, bool p_follows = false)
     {
@@ -34,6 +42,12 @@ public class Stalactite : Hazard
     public override void setup(GameSim sim, SimRng rng)
     {
         partner = null;
+        if (fixed_lo >= 0)
+        {
+            gap_y = G.clampi(FairLanes.entry_y(sim) - HOP_MID, fixed_lo, fixed_hi);
+            target_y = gap_y;
+            return;
+        }
         if (follows)
         {
             for (int i = 0; i < sim.room.hazards.Count; i++)
@@ -54,6 +68,11 @@ public class Stalactite : Hazard
     public override void on_bounce(GameSim sim, SimRng rng)
     {
         if (follows) return;
+        if (fixed_lo >= 0)
+        {
+            _clear_wall_ahead(sim, this);
+            return;
+        }
         Stalactite near = this;
         Stalactite far = partner;
         if (partner != null && (partner.x > x) == (sim.state.vx < 0))
@@ -86,21 +105,31 @@ public class Stalactite : Hazard
         return lo + rng.next_below(hi - lo + 1);
     }
 
+    public override bool blocks_exit(GameSim sim, long side, long y)
+    {
+        if (fixed_lo < 0) return false;
+        long wall = side == 0 ? 0 : SimConfig.WORLD_W;
+        if (G.absi(x - wall) > EXIT_NEAR) return false;
+        long r = SimConfig.BIRD_RADIUS;
+        if (top && y < top_tip() + r) return true;
+        return bottom && y > bottom_tip() - r;
+    }
+
     public override void step(GameSim sim)
     {
         if (gap_y < target_y) gap_y = G.mini(gap_y + SLIDE, target_y);
         else if (gap_y > target_y) gap_y = G.maxi(gap_y - SLIDE, target_y);
     }
 
-    public long top_tip() => gap_y - GAP / 2;
+    public long top_tip() => gap_y - gap / 2;
 
-    public long bottom_tip() => gap_y + GAP / 2;
+    public long bottom_tip() => gap_y + gap / 2;
 
     public override bool kills(GameSim sim)
     {
-        return sim.bird_touches_rect(x - HALF_W, 0, x + HALF_W, top_tip())
-            || sim.bird_touches_rect(x - HALF_W, bottom_tip(), x + HALF_W, SimConfig.WORLD_H);
+        return (top && sim.bird_touches_rect(x - half_w, 0, x + half_w, top_tip()))
+            || (bottom && sim.bird_touches_rect(x - half_w, bottom_tip(), x + half_w, SimConfig.WORLD_H));
     }
 
-    public override long checksum(long h) => mix_all(h, x, gap_y, target_y, G.B(follows));
+    public override long checksum(long h) => mix_all(h, x, gap_y, target_y, G.B(follows), G.B(top), G.B(bottom), gap, half_w, fixed_lo);
 }

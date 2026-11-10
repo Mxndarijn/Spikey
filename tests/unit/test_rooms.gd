@@ -40,8 +40,12 @@ func test_pick_respects_score_season_and_never_repeats() -> void:
 
 
 ## Puts a fresh run straight into one room kind.
-static func sim_in_room(id: String, seed_value: int, season: int = Seasons.NONE) -> GameSim:
+## `variant`: play that room variant (GameSim.forced_variant), "" = the drawn one.
+static func sim_in_room(
+	id: String, seed_value: int, season: int = Seasons.NONE, variant: String = ""
+) -> GameSim:
 	var sim := GameSim.new(seed_value, season)
+	sim.forced_variant = variant
 	var index := RoomCatalog.index_of(id)
 	sim.state.room_kind = index
 	sim.room.start(RoomCatalog.all()[index], index, sim, SimRng.new(seed_value + 1))

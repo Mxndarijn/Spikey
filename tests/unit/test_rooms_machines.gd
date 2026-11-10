@@ -24,6 +24,12 @@ static func _advance(sim: GameSim, steps: int) -> void:
 		sim.room.step(sim)
 
 
+## A sim in room `id` playing its classic variant (rooms without variants
+## just play).
+static func _classic(id: String, seed_value: int) -> GameSim:
+	return RoomsTest.sim_in_room(id, seed_value, Seasons.NONE, "classic")
+
+
 ## Puts the bird somewhere in the room (out of the way unless a test says so).
 static func _bird(sim: GameSim, x: int, y: int) -> void:
 	sim.state.x = x
@@ -52,7 +58,7 @@ func test_rooms_spawn_their_hazards() -> void:
 		"hunter": ["dart", 1],
 	}
 	for id: String in expect:
-		var sim := RoomsTest.sim_in_room(id, 5)
+		var sim := _classic(id, 5)
 		var want: Array = expect[id]
 		assert_eq(_hazards(sim, want[0]).size(), want[1], "%s builds its hazards" % id)
 
@@ -74,7 +80,7 @@ func test_nothing_spawns_on_the_bird() -> void:
 
 func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
 	assert_between(Piston.GLOW_TICKS, 25, 40, "the glow lasts about half a second")
-	var sim := RoomsTest.sim_in_room("piston", 3)
+	var sim := _classic("piston", 3)
 	var p: Hazard = _hazards(sim, "piston")[0]
 	var reach_x: int = p.base_x() + (60 * SUB if p.side == 0 else -60 * SUB)
 	_bird(sim, reach_x, p.y)
@@ -171,7 +177,7 @@ func test_court_pads_slide() -> void:
 
 
 func test_crates_warn_fall_and_kill() -> void:
-	var sim := RoomsTest.sim_in_room("crates", 7)
+	var sim := _classic("crates", 7)
 	var cd: Hazard = _hazards(sim, "crate_drop")[0]
 	var col: int = cd.col
 	assert_true(col >= 0 and cd.warn_left > 0, "the first crate is marked before it falls")
@@ -196,7 +202,7 @@ func test_crates_warn_fall_and_kill() -> void:
 
 func test_crates_always_leave_a_path() -> void:
 	for s in 10:
-		var sim := RoomsTest.sim_in_room("crates", s)
+		var sim := _classic("crates", s)
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
 		for i in 6000:
 			sim.room.step(sim)
@@ -242,7 +248,7 @@ func test_gift_stack_puts_a_coin_on_each_new_stack() -> void:
 	cd.touch(sim)
 	assert_eq(sim.state.coins, 1, "only once")
 	# Plain crates never carry coins.
-	var plain := RoomsTest.sim_in_room("crates", 8)
+	var plain := _classic("crates", 8)
 	var pc: Hazard = _hazards(plain, "crate_drop")[0]
 	_advance(plain, 2000)
 	for c in CrateDrop.COLS:
@@ -300,7 +306,7 @@ func test_beams_never_more_than_two_and_never_all_rows() -> void:
 
 
 func test_stalactites_kill_and_leave_a_gap() -> void:
-	var sim := RoomsTest.sim_in_room("stalac", 10)
+	var sim := _classic("stalac", 10)
 	for st in _hazards(sim, "stalactite"):
 		assert_true(st.bottom_tip() - st.top_tip() >= 120 * SUB, "gap at least 120 px")
 		_bird(sim, st.x, st.gap_y)
@@ -312,7 +318,7 @@ func test_stalactites_kill_and_leave_a_gap() -> void:
 
 
 func test_stalactites_move_on_bounce() -> void:
-	var sim := RoomsTest.sim_in_room("stalac", 11)
+	var sim := _classic("stalac", 11)
 	var rocks := _hazards(sim, "stalactite")
 	# Past the room's first step: a bounce at step 0 is a portal entry.
 	_advance(sim, 1)
@@ -340,7 +346,7 @@ func test_stalactites_move_on_bounce() -> void:
 func test_stalactites_shift_after_a_real_wall_bounce() -> void:
 	var changes := 0
 	for seed_value in 10:
-		var sim := RoomsTest.sim_in_room("stalac", 30 + seed_value)
+		var sim := _classic("stalac", 30 + seed_value)
 		var rock: Hazard = _hazards(sim, "stalactite")[0]
 		var before: int = rock.target_y
 		sim.state.started = true

@@ -4,6 +4,9 @@ extends Hazard
 ## stacks kill. Stacks never grow past MAX_HEIGHT, so the bird can always fly
 ## over them. With `gifts` (Winter Gift Stack) a coin sits on top of each new
 ## stack until the bird takes it.
+##
+## Variants: bigger crates in fewer columns (cols, col_w, crate_w, crate_h,
+## max_height), or two crates falling at once in different columns (pair).
 
 const COLS := 7
 ## Column 0 starts here; columns are COL_W wide, clear of the wall spikes.
@@ -21,11 +24,29 @@ const MAX_FALL := 9 * SimConfig.SUB
 ## Gap between a stack's top and the coin sitting on it.
 const COIN_LIFT := 4 * SimConfig.SUB
 
+## Columns, their width and the crates' size; stacks never get taller than
+## max_height crates. The columns sit in the middle of the room.
+var cols := COLS
+var col_w := COL_W
+var col_x0 := COL_X0
+var crate_w := CRATE
+var crate_h := CRATE
+var max_height := MAX_HEIGHT
+## Two crates fall at once (the second one is crate "b").
+var pair := false
+
 ## Column of the crate being dropped, or -1 once every column is full.
 var col := -1
 ## Top of the falling crate and its speed, sub-units.
 var y := 0
 var vy := 0
+## The crate has landed (with a pair it waits for crate b).
+var done := false
+## Pair: crate b's column (-1 = none), top, speed and whether it has landed.
+var col_b := -1
+var y_b := 0
+var vy_b := 0
+var done_b := false
 ## Steps of warning left before the crate falls (0 = falling).
 var warn_left := 0
 ## Crates dropped so far (picks the next column with `salt`).
@@ -39,12 +60,27 @@ var coins: Array[int] = []
 var gifts := false
 
 
-func _init(p_gifts: bool = false) -> void:
+func _init(
+	p_gifts: bool = false,
+	p_cols: int = COLS,
+	p_col_w: int = COL_W,
+	p_crate_w: int = CRATE,
+	p_crate_h: int = CRATE,
+	p_max_height: int = MAX_HEIGHT,
+	p_pair: bool = false
+) -> void:
 	kind = "crate_drop"
 	gifts = p_gifts
-	heights.resize(COLS)
+	cols = p_cols
+	col_w = p_col_w
+	col_x0 = (SimConfig.WORLD_W - cols * col_w) / 2
+	crate_w = p_crate_w
+	crate_h = p_crate_h
+	max_height = p_max_height
+	pair = p_pair
+	heights.resize(cols)
 	heights.fill(0)
-	coins.resize(COLS)
+	coins.resize(cols)
 	coins.fill(0)
 
 
@@ -54,17 +90,28 @@ func setup(_sim: GameSim, rng: SimRng) -> void:
 
 
 func _next_drop(warn: int) -> void:
-	col = -1
-	var start := posmod(SimHash.mix(salt, drops), COLS)
-	for i in COLS:
-		var c := (start + i) % COLS
-		if heights[c] < MAX_HEIGHT:
-			col = c
-			break
+	col = _free_col(posmod(SimHash.mix(salt, drops), cols), -1)
+	col_b = -1
+	if pair and col >= 0:
+		# The second crate falls about half the room away.
+		col_b = _free_col((col + cols / 2) % cols, col)
 	drops += 1
-	y = -CRATE
+	y = -crate_h
 	vy = 0
+	done = false
+	y_b = y
+	vy_b = 0
+	done_b = false
 	warn_left = warn
+
+
+## The first column from `start` on (wrapping) that is not full and not `skip`.
+func _free_col(start: int, skip: int) -> int:
+	for i in cols:
+		var c := (start + i) % cols
+		if c != skip and heights[c] < max_height:
+			return c
+	return -1
 
 
 func step(_sim: GameSim) -> void:
@@ -73,15 +120,30 @@ func step(_sim: GameSim) -> void:
 	if warn_left > 0:
 		warn_left -= 1
 		return
-	vy = mini(vy + FALL_ACCEL, MAX_FALL)
-	y += vy
-	var land := stack_top(col) - CRATE
-	if y >= land:
-		y = land
-		heights[col] += 1
-		if gifts and heights[col] == 1:
-			coins[col] = 1
+	if not done:
+		vy = mini(vy + FALL_ACCEL, MAX_FALL)
+		y += vy
+		var land := stack_top(col) - crate_h
+		if y >= land:
+			y = land
+			_land(col)
+			done = true
+	if col_b >= 0 and not done_b:
+		vy_b = mini(vy_b + FALL_ACCEL, MAX_FALL)
+		y_b += vy_b
+		var land_b := stack_top(col_b) - crate_h
+		if y_b >= land_b:
+			y_b = land_b
+			_land(col_b)
+			done_b = true
+	if done and (col_b < 0 or done_b):
 		_next_drop(WARN_TICKS)
+
+
+func _land(c: int) -> void:
+	heights[c] += 1
+	if gifts and heights[c] == 1:
+		coins[c] = 1
 
 
 func falling() -> bool:
@@ -89,16 +151,16 @@ func falling() -> bool:
 
 
 func col_left(c: int) -> int:
-	return COL_X0 + c * COL_W + (COL_W - CRATE) / 2
+	return col_x0 + c * col_w + (col_w - crate_w) / 2
 
 
 func col_center(c: int) -> int:
-	return COL_X0 + c * COL_W + COL_W / 2
+	return col_x0 + c * col_w + col_w / 2
 
 
 ## Top of the stack in column c (the floor when empty).
 func stack_top(c: int) -> int:
-	return FLOOR - heights[c] * CRATE
+	return FLOOR - heights[c] * crate_h
 
 
 func coin_y(c: int) -> int:
@@ -107,19 +169,24 @@ func coin_y(c: int) -> int:
 
 func kills(sim: GameSim) -> bool:
 	if falling():
-		var x := col_left(col)
-		if sim.bird_touches_rect(x, y, x + CRATE, y + CRATE):
-			return true
-	for c in COLS:
+		if not done:
+			var x := col_left(col)
+			if sim.bird_touches_rect(x, y, x + crate_w, y + crate_h):
+				return true
+		if col_b >= 0 and not done_b:
+			var xb := col_left(col_b)
+			if sim.bird_touches_rect(xb, y_b, xb + crate_w, y_b + crate_h):
+				return true
+	for c in cols:
 		if heights[c] > 0:
 			var x := col_left(c)
-			if sim.bird_touches_rect(x, stack_top(c), x + CRATE, SimConfig.WORLD_H):
+			if sim.bird_touches_rect(x, stack_top(c), x + crate_w, SimConfig.WORLD_H):
 				return true
 	return false
 
 
 func touch(sim: GameSim) -> void:
-	for c in COLS:
+	for c in cols:
 		if (
 			coins[c] == 1
 			and sim.bird_touches_circle(col_center(c), coin_y(c), SimConfig.COIN_RADIUS)
@@ -130,5 +197,7 @@ func touch(sim: GameSim) -> void:
 
 func checksum(h: int) -> int:
 	var out := mix_all(h, [col, y, vy, warn_left, drops, salt, int(gifts)])
+	if pair:
+		out = mix_all(out, [col_b, y_b, vy_b, int(done), int(done_b)])
 	out = mix_all(out, heights)
 	return mix_all(out, coins)
