@@ -65,6 +65,13 @@ The iOS engine also gets Flapjaw's own modules from `tools/engine/modules` (`cus
 and `#import <Security/Security.h>` with clang modules links Security.framework, so the Xcode
 project needs no change. The build fails if the module is missing from the library.
 
+The iOS workflow uses Godot's stock engine unless a manual run turns on "small_engine":
+build 127, the first one tested with the small engine, crashed at launch on iOS 27 inside the
+engine's own Swift startup code (`SwiftUIApp.body`), and the stock engine (build 58) starts
+fine. Until that is solved, iOS builds are larger and have no `FlapjawKeychain`, so the device
+key lives in the file only and a reinstall is a new player there. Android still uses the
+small engine.
+
 ## Secrets
 
 Add them under GitHub repo → Settings → Secrets and variables → Actions → New repository secret.

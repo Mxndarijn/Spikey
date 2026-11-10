@@ -22,6 +22,10 @@ on:
         description: 'Skip the check (tests). Uploads an untested build; tags always run it'
         type: boolean
         default: false
+      small_engine:
+        description: 'Use the small 2D-only engine (crashed at launch in build 127; trial only)'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -41,8 +45,12 @@ jobs:
   # The small 2D-only engine (tools/engine), cached between runs. Built on macOS; only a cold
   # build takes long, a cache hit is seconds. It carries the FlapjawKeychain module
   # (tools/engine/modules/flapjaw_keychain) that keeps the device key across a reinstall.
+  # Off unless a manual run asks for it ("small_engine"): build 127 with this engine crashed at
+  # launch on iOS 27, inside the engine's own Swift startup code (SwiftUIApp.body), where
+  # Godot's stock engine (build 58) starts fine. Tags and plain runs use the stock engine.
   engine:
     name: Engine
+    if: inputs.small_engine == true
     uses: ./.github/workflows/engine.yml
     with:
       platform: ios
@@ -52,6 +60,8 @@ jobs:
   export:
     name: Export Xcode project
     needs: engine
+    # The engine job is skipped for a stock-engine build.
+    if: always() && (needs.engine.result == 'success' || needs.engine.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -98,12 +108,14 @@ jobs:
           templates: 'true'
 
       - name: Download the small engine
+        if: inputs.small_engine == true
         uses: actions/download-artifact@v4
         with:
           name: engine-ios
           path: ${{ runner.temp }}/engine
 
       - name: Use the small engine
+        if: inputs.small_engine == true
         # Godot's stock iOS template with the small engine in place of the release one, set as
         # the iOS preset's release template.
         run: |
