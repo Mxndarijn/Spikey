@@ -57,8 +57,9 @@ public static class Observer
         // Where the bird reaches the wall if it waits, and if it taps now
         // (its own fall only: what a player judges by eye).
         long steps = sim.steps_to_wall(side);
-        foreach (bool tap in new[] { false, true })
+        for (int tn = 0; tn < 2; tn++)
         {
+            bool tap = tn == 1;
             long y = fall(sim, steps, tap);
             f[i++] = Math.Clamp((float)(y - s.y) / (SimConfig.WORLD_H / 2), -1f, 1f);
             f[i++] = wall_hits(mask, shift, hb, y) ? 1f : -1f;
@@ -132,6 +133,13 @@ public static class Observer
         return (best_y, best_len);
     }
 
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> _guards = new();
+
+    /// Whether the hazard's type overrides guards_edge (the base answers
+    /// false), so the others need no copy to ask.
+    static bool can_guard(Hazard h) =>
+        _guards.GetOrAdd(h.GetType(), t => t.GetMethod(nameof(Hazard.guards_edge))!.DeclaringType != typeof(Hazard));
+
     /// The danger grid: 1 where a bird would be killed by a hazard, the
     /// ceiling or the floor, -1 where not.
     public static void grid(GameSim sim, float[] f, int at)
@@ -156,7 +164,7 @@ public static class Observer
             bool top_guard = false, bottom_guard = false;
             for (int h = 0; h < hz.Count; h++)
             {
-                if (!hz[h].alive) continue;
+                if (!hz[h].alive || !can_guard(hz[h])) continue;
                 if (need_top && !top_guard)
                 {
                     s.x = px;
