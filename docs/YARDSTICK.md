@@ -1,0 +1,129 @@
+# Bot yardstick
+
+One measure for every playtest bot, so the RL tiers, the world-model planner, the
+human-like planner, the MPC planner and any later bot can be compared on the same
+numbers. FastSim only (`tools/fastsim/Yardstick/`): no Godot, no window.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode list
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all              # quick set
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot mybot:all -Set full
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode compare            # rebuild the table
+```
+
+Each bot and set writes `<bot>_<set>.json` to `-Out` (default
+`D:\SoftwareProjects\SpikeCage-coord\research\yardstick`). `comparison.md` there is
+rebuilt from every JSON in the folder after each run, so one table covers every bot
+that has been measured. Take a CPU slot for big runs.
+
+## Plugging a bot in
+
+A bot is anything that answers "tap this tick?" for a live `GameSim`: a function
+`GameSim -> bool`, called once per tick before `sim.step()`. It must not step or
+change that sim (clone it to look ahead). Register it from your own file, so no one
+edits the yardstick's files:
+
+```csharp
+static class MyBotYardstick
+{
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Init()
+    {
+        foreach (var level in new[] { "beginner", "normal", "good", "expert", "beast" })
+            FastSim.Yard.Bots.add(new(
+                $"mybot:{level}",              // family:level; "mybot:all" runs them in tier order
+                "what it is, its knobs",        // shown in the JSON and by -Mode list
+                peeks: false,                   // true if it reads the future (see below)
+                seed => new MyBot(level, seed).decide));
+    }
+}
+```
+
+`seed` is the run's seed: use it for the bot's own randomness so runs repeat. A new
+instance is made per run, so per-run state is fine. Name levels after the tiers
+(`beginner normal good expert beast`): the table then checks the claimed tier.
+
+`peeks: true` marks a bot that reads anything a player can't see: rollouts on a copy
+of the real sim, RNG, rooms not yet shown. PlannerBot and the SurvivalSearch oracle
+do. Their numbers are ceilings, not players.
+
+Built in: `gap` (gap seeker), `planner` (PlannerBot), `search` (SurvivalSearch
+replanned every 30 ticks, an oracle; slow, use `-Seeds 32` to 200), `rl:<tier>` (the
+policy and tiers in `tools/rlbot`).
+
+## Seeds and cap
+
+| set | seeds | cap |
+|---|---|---|
+| quick | 7 000 001 .. 7 000 200 | 72 000 ticks (20 min) |
+| full | 7 000 001 .. 7 001 000 | 72 000 ticks |
+
+The quick set is the first fifth of the full set. These seeds are apart from the RL
+calibration seeds (500 001..) and the usual 1..n sweeps. A run ends at its first death:
+no revives. 72 000 ticks is about 800 points, well past a beast median of 500.
+
+## Strength
+
+- `median`, `p25`, `p75`, `p90` of the score.
+- `death_rate_per_point` h = deaths / (points scored + deaths): the chance to die at
+  each point. Scores are roughly exponential (Isaksen et al. 2015), so h uses every run
+  and is steadier than the median. `rate_median` = ln 0.5 / ln(1 − h) is the median an
+  exponential player with that rate would have; tiers are judged on it.
+- Tiers: the nearest target on a log scale. Edges are the geometric middles of
+  30 / 60 / 120 / 250 / 500: beginner < 42, normal < 85, good < 173, expert < 354,
+  beast from 354. Under 21 is "below beginner". `fits` says whether the tier a bot's
+  name claims is the one it lands in.
+- `exp_fit_ks`: the Kolmogorov-Smirnov distance between the scores and the
+  exponential fit. Small (~0.1) means the bot dies at a steady rate, like a human
+  population; large means it dies in the same few places.
+- `killers`: the rooms (room/variant) it dies in most, with deaths per visit, and
+  `deadliest_per_visit` (rooms visited 20+ times).
+
+## Human-likeness
+
+- `taps_per_s` (per run), and the inter-tap interval histogram. Humans tap at most
+  7.7 times a second (Isaksen 2015), so `under_8_ticks` should be about 0. A bot that
+  taps on many ticks in a row shows up here.
+- `height_bands`: share of ticks in 8 bands from the ceiling kill line (band 0) to
+  the floor kill line (band 7).
+- `timing`: tap timing against the ideal moment. A *press* is a tap or a burst of
+  taps no more than 3 ticks apart. Each press is moved by −12..+12 ticks with the run's
+  other taps kept; the shifts the bird survives (40 ticks past) form its window, and
+  the window's middle is the ideal moment. For presses whose window is closed on both
+  sides (`critical`), `error_sd` is the spread around the ideal (positive mean = late).
+  Isaksen measured σ 36–61 ms for humans: 2.2–3.7 ticks. This replays the real sim
+  but only to judge taps already made. Judged on the first 40 runs, 20 presses each.
+- `react_new`: ticks from a new room or a new hazard to the next tap; `react_bounce`
+  the same after a wall bounce. Humans react in ~17 ticks (288 ms), rarely under 10.
+  This is a proxy: a tap can be planned before the new thing shows.
+- `reference`: pass/fail against those published human numbers.
+
+### Against human runs
+
+No human runs of Flapjaw exist on this PC yet (no `runs.json` in the game's user
+data, the upload queue is empty, golden replays are bot-made). The yardstick reads
+any run file (`meta/run_file.gd`), a folder of them, or a Your runs file
+(`user://runs.json`, every object with `"format": "flapjaw_run"`). Runs of another
+gameplay version are skipped, since they no longer replay.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <file or folder>
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all -Human <file or folder>
+```
+
+`-Mode humans` adds a `human` row to the table. `-Human` with a run adds `vs_human`
+to each bot's JSON: total-variation distances of the interval, height and reaction
+histograms, a KS distance of taps per second, `likeness` (1 − their mean), and a
+human-vs-bot classifier (logistic regression on 15 per-run features, 5-fold
+cross-validated; the Navigation Turing Test idea, Devlin et al. 2021). Balanced
+accuracy 0.5 means the classifier can't tell the bot from the humans.
+
+What would be enough: 30+ human runs on the current gameplay version, ideally from a
+few players at different skill, played on the phone (touch timing differs from a
+mouse). The Your runs file keeps the last 100.
+
+## Check
+
+`fastsim check yardstick` (part of `tools/check.ps1`) checks that a replay of a bot's
+taps scores what the bot scored, the tier edges, and that the classifier tells the
+gap seeker from the RL bot but not two halves of the gap seeker's runs.
