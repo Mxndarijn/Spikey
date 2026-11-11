@@ -20,6 +20,8 @@ public sealed record BotSpec(string name, string about, string copies, Func<long
 public static class Copies
 {
     public const string REAL = "real", SCRAMBLED = "scrambled", NONE = "none";
+    /// Scrambled copies that still leak some hidden draws.
+    public const string LEAKY = "scrambled (leaky)";
 }
 
 /// The bots the yardstick knows. A new bot plugs in from its own file, so no
@@ -96,8 +98,12 @@ public static class Bots
             seed => new PlannerBot(seed).decide));
         add(new("search", "SurvivalSearch every 30 ticks, 240 ticks ahead on a copy of the real sim (an oracle)", Copies.REAL,
             seed => new SearchBot().decide));
-        add(new("honest", "review's honest planner: beam on 3 scrambled copies, 40 ticks past the next bounce, re-plan every 4 " +
-            "(Bubble.next_x and Stalactite.target_y not scrambled yet)", Copies.SCRAMBLED, seed => new HonestBot(seed).decide));
+        add(new("honest", "review's BlindPlanner (651f45d): beam on one copy with every hidden draw replaced, horizon 200, " +
+            "110 past the bounce, margin 10, re-plan every 4", Copies.SCRAMBLED,
+            seed => new BlindPlanner(seed) { horizon = 200, past = 110, margin = 10 }.decide));
+        add(new("honest-v1", "review's first honest planner (Review.honest, 3a5dae4): 3 copies with RNG and crate/dart salts " +
+            "replaced; still leaks other hidden draws (Drop, Firework, Orchard RNGs, Bubble.next_x, Stalactite.target_y, beam order)",
+            Copies.LEAKY, seed => new HonestBot(seed).decide));
         add_rl();
     }
 
