@@ -205,32 +205,8 @@ public sealed class WorldPlanner
         {
             var pre = ghost.room.Copy();
             tl.room[at] = pre;
-            var post = pre.Copy();
-            post.spikes[ahead] = 0;
-            post.unknown[ahead] = false;
-            if (!post.exit_open)
-            {
-                post.score += 1;
-                post.points += 1;
-            }
-            post.unknown[1 - ahead] = true;
-            if (next_exit >= 0)
-            {
-                post.exit_preview = false;
-                post.exit_open = true;
-                post.unknown[1 - ahead] = false;
-            }
-            tl.after[at] = post;
-            var back = pre.Copy();
-            back.spikes[1 - ahead] = 0;
-            back.unknown[1 - ahead] = false;
-            if (!back.exit_open)
-            {
-                back.score += 1;
-                back.points += 1;
-            }
-            back.unknown[ahead] = true;
-            tl.after_back[at] = back;
+            tl.after[at] = AfterBounce(pre, ahead);
+            tl.after_back[at] = AfterBounce(pre, 1 - ahead);
             var snap = new HazardModel[ghost.hz.Length];
             for (int i = 0; i < snap.Length; i++) snap[i] = ghost.hz[i].Copy();
             tl.hz[at] = snap;
@@ -243,6 +219,38 @@ public sealed class WorldPlanner
             ghost.GhostSubstep(() => Keep(at), bounce: false);
         }
         return tl;
+    }
+
+    /// The room as a path sees it after it bounced off wall `side`: the room's
+    /// own bounce rule (WorldModel.ApplyBounce) on a copy. The new wall is not
+    /// drawn yet; an exit shown as a preview opens now, on its known wall.
+    static RoomModel AfterBounce(RoomModel pre, int side)
+    {
+        var r = pre.Copy();
+        r.spikes[side] = 0;
+        r.unknown[side] = false;
+        bool was_open = r.exit_open;
+        if (!was_open)
+        {
+            r.score += 1;
+            r.points += 1;
+        }
+        r.unknown[1 - side] = true;
+        if (!was_open)
+        {
+            long every = SimConfig.POINTS_PER_ROOM;
+            if (r.exit_preview)
+            {
+                if (r.score % every == 0)
+                {
+                    r.exit_preview = false;
+                    r.exit_open = true;
+                    r.unknown[r.exit_side] = false;
+                }
+            }
+            else if ((r.score + 1) % every == 0 || r.score % every == 0) r.exit_unknown = true;
+        }
+        return r;
     }
 
     /// The best first move from `w`: true = tap. Easy ticks are planned with a
@@ -392,6 +400,7 @@ public sealed class WorldPlanner
                                 c.back = r.bounced != ahead;
                                 c.cost += next_exit >= 0 ? EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB : MIDDLE_COST * Math.Abs(c.b.y - MID_Y) / SimConfig.SUB;
                             }
+                            scratch.bird = c.b;
                             foreach (var h in c.own)
                                 if (h.alive) h.OnBounce(scratch);
                         }

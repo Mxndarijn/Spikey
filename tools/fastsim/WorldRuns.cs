@@ -25,6 +25,7 @@ public static partial class WorldCheck
         long cap = long.Parse(O("cap", SimConfig.MAX_TICKS.ToString()));
         long first = long.Parse(O("first", "0"));
         double minutes = double.Parse(O("minutes", "55"), System.Globalization.CultureInfo.InvariantCulture);
+        if (opts.ContainsKey("guess")) Physics.guess_margin = long.Parse(opts["guess"]) * SimConfig.SUB;
         switch (what)
         {
             case "runs":
@@ -54,6 +55,11 @@ public static partial class WorldCheck
                 long seed = long.Parse(pos.Count > 2 ? pos[2] : "1");
                 var sk = Skill(opts);
                 var sim = new GameSim(seed);
+                if (opts.ContainsKey("room"))
+                {
+                    long ri = RoomCatalog.index_of(opts["room"]);
+                    sim = new GameSim(seed, RoomCatalog.all()[(int)ri].season, ri, O("variant", ""));
+                }
                 var bot = new WorldPlanner(sk, seed);
                 var mem = new Memory();
                 var log = new List<string>();
@@ -61,7 +67,8 @@ public static partial class WorldCheck
                 {
                     bool tap = bot.Decide(sim, mem);
                     var st = sim.state;
-                    log.Add($"t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} causes {string.Join("/", bot.last_causes)} postb {bot.last_bounced_deaths} L {Convert.ToString(sim.wall_mask(0), 2).PadLeft(13, (char)48)} R {Convert.ToString(sim.wall_mask(1), 2).PadLeft(13, (char)48)} vx {st.vx}");
+                    string stl = string.Join(" ", sim.room.hazards.OfType<Stalactite>().Select(q => $"[x{q.x / 64} g{q.gap_y / 64} T{q.target_y / 64} gap{q.gap / 64}]"));
+                    log.Add(stl + $" t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} causes {string.Join("/", bot.last_causes)} postb {bot.last_bounced_deaths} L {Convert.ToString(sim.wall_mask(0), 2).PadLeft(13, (char)48)} R {Convert.ToString(sim.wall_mask(1), 2).PadLeft(13, (char)48)} vx {st.vx} sc {st.score} ex {(st.exit_open ? 1 : 0)}{(st.exit_preview ? "p" : "")} side {st.exit_side} ey {st.exit_a_y / 64} hold {st.arrival_hold} room {st.room_index}");
                     sim.step(tap);
                 }
                 Console.WriteLine($"seed {seed}: score {sim.state.score} died {DeathCause.NAMES[sim.state.death_cause]} in {sim.room.def.id}/{sim.room.variant_id()} at tick {sim.state.tick}");

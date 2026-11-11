@@ -351,10 +351,14 @@ public static class Physics
         r.cause = cause;
     }
 
+    /// Extra safety margin around bodies the model only guesses (hidden random choices).
+    public static long guess_margin = 0;
+
     static bool Kills(HazardModel[] list, in Bird b, long margin, ref SubResult r)
     {
         if (list == null) return false;
         long rm = R + margin;
+        long rg = rm + guess_margin;
         foreach (var h in list)
         {
             if (!h.alive) continue;
@@ -364,7 +368,7 @@ public static class Physics
                 ref var body = ref bodies[i];
                 if (!body.on || !body.deadly) continue;
                 if (body.s.Hits(b.x, b.y, R)) return true;
-                if (margin > 0 && !r.near && body.s.Hits(b.x, b.y, rm))
+                if (margin > 0 && !r.near && body.s.Hits(b.x, b.y, body.guess ? rg : rm))
                 {
                     r.near = true;
                     r.near_guess = body.guess;
@@ -465,6 +469,9 @@ public sealed class Memory
     public Dictionary<int, long> gap = new();
     public Dictionary<int, long> gap_v = new();
     public long bounce_y = -1;
+    public long bounce_tick = -1000;
+    /// The bird's sideways speed just after the last bounce.
+    public long bounce_vx;
     long _last_vx;
 
     public void Observe(GameSim sim)
@@ -476,9 +483,15 @@ public sealed class Memory
             gap.Clear();
             gap_v.Clear();
             bounce_y = s.y;
+            bounce_tick = -1000;
             last_tick = -1;
         }
-        if (_last_vx != 0 && Math.Sign(_last_vx) != Math.Sign(s.vx)) bounce_y = s.y;
+        if (_last_vx != 0 && Math.Sign(_last_vx) != Math.Sign(s.vx))
+        {
+            bounce_y = s.y;
+            bounce_tick = s.tick;
+            bounce_vx = s.vx;
+        }
         _last_vx = s.vx;
         long dt = sim.room.t - last_t;
         for (int i = 0; i < sim.room.hazards.Count; i++)
