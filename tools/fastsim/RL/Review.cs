@@ -24,8 +24,7 @@ public static class Review
                     horizon(long.Parse(h), int.Parse(O("k", "4")), O("cut", "0") == "1", seeds, cap, threads);
                 return 0;
             case "honest":
-                foreach (string h in O("h", "90").Split(','))
-                    honest(long.Parse(h), int.Parse(O("k", "4")), int.Parse(O("n", "3")), long.Parse(O("past", "8")), seeds, cap, threads);
+                honest(opts, seeds, cap, threads);
                 return 0;
             case "sens":
                 return sens(dir, seeds, threads);
@@ -83,138 +82,57 @@ public static class Review
         Console.WriteLine($"horizon {h,3} ticks{(cut ? ", cut at the bounce" : "")}: {deaths} deaths in {pts} points ({ticks} ticks, {seeds} runs) -> median about {med}  [{string.Join(", ", rooms)}]  {clock.Elapsed.TotalSeconds:F0} s");
     }
 
-    /// A planner that knows the rules but not the hidden future: it looks
-    /// ahead on `n` copies of the sim whose RNG (and crate / dart salts) are
-    /// replaced by its own random numbers, never more than `past` ticks past
-    /// the next bounce, and wants a line of taps that lives in every copy.
-    static void honest(long h, int k, int n, long past, int seeds, long cap, int threads)
+    /// The BlindPlanner (Bots/BlindPlanner.cs) on full runs: deaths per 100
+    /// points by score band, and how the last look before each death ended.
+    static void honest(Dictionary<string, string> opts, int seeds, long cap, int threads)
     {
+        long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
+        long first = L("first", 0);
         var clock = Stopwatch.StartNew();
-        var res = new (long points, long ticks, bool dead, string room)[seeds];
+        var res = new (long points, long ticks, bool dead, string room, int look, string cause)[seeds];
+        long looks = 0, fine = 0, shorter = 0, none = 0;
+        string setup = "";
         Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
         {
-            var sim = new GameSim(i + 1);
-            var own = new SimRng(977 * (i + 1) + 5);
-            var plan = new Queue<bool>();
-            int since = k;
+            var sim = new GameSim(first + i + 1);
+            var bot = new BlindPlanner(first + i + 1);
+            bot.horizon = L("h", bot.horizon);
+            bot.past = L("past", bot.past);
+            bot.replan = (int)L("k", bot.replan);
+            bot.mid_cost = L("mid", bot.mid_cost);
+            bot.tap_cost = L("tap", bot.tap_cost);
+            bot.margin = L("margin", bot.margin);
+            bot.margin_cost = L("margincost", bot.margin_cost);
+            bot.bucket_px = L("bpx", bot.bucket_px);
+            bot.speed_buckets = L("speeds", bot.speed_buckets);
+            bot.fine_px = L("fine", bot.fine_px);
+            if (i == 0) setup = $"h {bot.horizon} past {bot.past} k {bot.replan} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
             long ticks = 0;
             while (!sim.is_over() && ticks < cap)
             {
-                if (!sim.state.started)
-                {
-                    sim.step(true);
-                    ticks++;
-                    continue;
-                }
-                if (since >= k || plan.Count == 0)
-                {
-                    long want = Math.Min(h, sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0) + past);
-                    byte[] found = null;
-                    for (int copies = n; copies >= 1 && found == null; copies = copies == 1 ? 0 : 1)
-                        for (long t = want; t >= 2 && found == null; t = t * 3 / 4)
-                        {
-                            var roots = new GameSim[copies];
-                            for (int j = 0; j < copies; j++) roots[j] = blind_copy(sim, own);
-                            found = beam(roots, t);
-                        }
-                    plan.Clear();
-                    if (found != null)
-                        foreach (byte b in found) plan.Enqueue(b != 0);
-                    since = 0;
-                }
-                sim.step(plan.Count > 0 && plan.Dequeue());
-                since++;
+                sim.step(bot.decide(sim));
                 ticks++;
             }
-            res[i] = (sim.state.score, ticks, sim.is_over(), sim.room.def.id + "/" + sim.room.variant_id());
+            Interlocked.Add(ref looks, bot.looks);
+            Interlocked.Add(ref fine, bot.fine_looks);
+            Interlocked.Add(ref shorter, bot.short_looks);
+            Interlocked.Add(ref none, bot.no_looks);
+            res[i] = (sim.state.score, ticks, sim.is_over(), sim.room.def.id + "/" + sim.room.variant_id(), bot.last_look,
+                sim.is_over() ? DeathCause.NAMES[sim.state.death_cause] : "");
         });
         long pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead), all = res.Sum(r => r.ticks);
-        string med = deaths == 0 ? $"> {pts * 0.69 / 3:F0} (no deaths; 95% bound)" : $"{0.693 * pts / deaths:F0}";
-        var rooms = res.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()).Take(8).Select(g => $"{g.Key} {g.Count()}");
-        Console.WriteLine($"honest planner, horizon {h}, {past} past the bounce, {n} copies: {deaths} deaths in {pts} points ({all} ticks, {seeds} runs) -> median about {med}; real median of the runs {Tiers.pct(res.Select(r => r.points), 0.5)}  [{string.Join(", ", rooms)}]  {clock.Elapsed.TotalSeconds:F0} s");
-    }
-
-    static GameSim blind_copy(GameSim sim, SimRng own)
-    {
-        var c = sim.clone_deep();
-        c._rng = new SimRng(own.next_u32());
-        foreach (var hz in c.room.hazards)
+        Console.WriteLine($"blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}: {deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; median of the runs {Tiers.pct(res.Select(r => r.points), 0.5)}, {res.Count(r => !r.dead)} alive at the cap; {all / clock.Elapsed.TotalSeconds / threads:F0} ticks/s per thread, {clock.Elapsed.TotalSeconds:F0} s");
+        foreach (var (lo, hi) in new[] { (0L, 40L), (40, 100000) })
         {
-            if (hz is CrateDrop cd) cd.salt = own.next_u32();
-            if (hz is Dart d) d.salt = own.next_u32();
+            long played = res.Sum(r => Math.Clamp(r.points - lo, 0, hi - lo));
+            long died = res.Count(r => r.dead && r.points >= lo && r.points < hi);
+            Console.WriteLine($"  score {lo}+: {died} deaths in {played} points = {100.0 * died / Math.Max(1, played):F3} per 100");
         }
-        return c;
-    }
-
-    struct Node
-    {
-        public GameSim[] sims;
-        public int parent;
-        public byte tap;
-    }
-
-    /// Beam search over tap / wait for `ticks` ticks: a line lives only if
-    /// the bird lives in every copy. One survivor per height and speed bucket.
-    /// Of the lines that live, the one ending nearest the middle height.
-    static byte[] beam(GameSim[] roots, long ticks)
-    {
-        var parents = new List<int>();
-        var taps = new List<byte>();
-        var frontier = new List<Node> { new Node { sims = roots, parent = -1 } };
-        var slots = new Dictionary<long, int>();
-        var next = new List<Node>();
-        for (long t = 0; t < ticks; t++)
-        {
-            slots.Clear();
-            next.Clear();
-            foreach (var e in frontier)
-            {
-                var s0 = e.sims[0];
-                bool can_tap = s0.state.vy * s0.room.gravity > SurvivalSearch.TAP_BELOW_VY;
-                for (int a = can_tap ? 1 : 0; a >= 0; a--)
-                {
-                    var sims = e.sims;
-                    if (a == 1)
-                    {
-                        sims = new GameSim[e.sims.Length];
-                        for (int j = 0; j < sims.Length; j++) sims[j] = e.sims[j].clone_deep();
-                    }
-                    bool dead = false;
-                    foreach (var s in sims)
-                    {
-                        s.step(a == 1);
-                        if (s.is_over()) dead = true;
-                    }
-                    if (dead) continue;
-                    var st = sims[0].state;
-                    long along = st.vy * sims[0].room.gravity - SimConfig.FLAP_VY;
-                    long speed = G.clampi(along / Teacher.BUCKET_VY, 0, Teacher.SPEED_BUCKETS - 1);
-                    long key = (st.room_index * 1000 + st.y / Teacher.BUCKET_H) * Teacher.SPEED_BUCKETS + speed;
-                    if (slots.ContainsKey(key)) continue;
-                    slots[key] = next.Count;
-                    next.Add(new Node { sims = sims, parent = e.parent, tap = (byte)a });
-                }
-            }
-            if (next.Count == 0) return null;
-            frontier = new List<Node>(next.Count);
-            foreach (var e in next)
-            {
-                parents.Add(e.parent);
-                taps.Add(e.tap);
-                frontier.Add(new Node { sims = e.sims, parent = parents.Count - 1 });
-            }
-        }
-        long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
-        var top = frontier[0];
-        foreach (var e in frontier)
-        {
-            var (a, b) = (e.sims[0].state, top.sims[0].state);
-            if (a.room_index > b.room_index || (a.room_index == b.room_index && Math.Abs(a.y - mid) < Math.Abs(b.y - mid))) top = e;
-        }
-        var out_ = new List<byte>();
-        for (int nd = top.parent; nd >= 0; nd = parents[nd]) out_.Add(taps[nd]);
-        out_.Reverse();
-        return out_.ToArray();
+        Console.WriteLine($"  looks {looks}: fine {100.0 * fine / looks:F2}%, shorter {100.0 * shorter / looks:F2}%, none {100.0 * none / looks:F3}%");
+        string[] kinds = { "surprise (had a full line)", "after a fine look", "after a shorter look", "no line" };
+        Console.WriteLine("  deaths by last look: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.look).OrderBy(g => g.Key).Select(g => $"{kinds[g.Key]} {g.Count()}")));
+        Console.WriteLine("  deaths by cause: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.cause).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}")));
+        Console.WriteLine("  deaths by room: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.room + (r.look == 0 ? "!" : "")).OrderByDescending(g => g.Count()).Take(16).Select(g => $"{g.Key} {g.Count()}")) + "   (! = surprise)");
     }
 
     static int sens(string dir, int seeds, int threads)
