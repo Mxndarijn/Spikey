@@ -178,7 +178,7 @@ func wall_shift(side: int) -> int:
 	return out
 
 
-## True while a hazard keeps the open exit shut (Locked Exit).
+## True while a hazard keeps the open exit shut (Locked Out).
 func exit_locked() -> bool:
 	for h in room.hazards:
 		if h.alive and h.locks_exit(self):
@@ -334,7 +334,7 @@ func _check_walls() -> void:
 func _take_exit(side: int) -> bool:
 	if not state.exit_open or state.exit_side != side:
 		return false
-	# Locked Exit: a locked exit is a bounce.
+	# Locked Out: a locked exit is a bounce.
 	if exit_locked():
 		return false
 	# Anywhere in the spike-free gap counts, so the bird can't bounce in the

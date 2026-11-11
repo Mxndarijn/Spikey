@@ -43,6 +43,7 @@ parity proves the sim, the bots and the start sims (`BotSetups` /
 | `points` | `tests/sim/test_room_points_cap.gd` | no room stay pays more than `POINTS_PER_ROOM`, every variant, revives included |
 | `revive` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case and both walls, a way to live on |
 | `pairs` | `tests/sim/test_double_trouble.gd` | every Double Trouble pair has a way through |
+| `keys` | (new, named `tests/unit/test_locked_out.gd:test_every_key_can_be_taken`) | Locked Out, every variant, 12 seeds each: SurvivalSearch takes every key before it leaves through the exit |
 | `crawl` | searches of `tests/sim/test_crawl_passable.gd` | through the first portal on the seeds a crawler once blocked; from a revive through the hard exits |
 | `gates` | searches of `tests/sim/test_gates_passable.gd` | the portal is reachable: once impossible seeds, quick runs before an exit, after a revive at every height |
 | `isles` | searches of `tests/sim/test_isles_passable.gd` | Floating Isles and Egg Hunt, every variant: through the portal, and from a revive through the exit (QuickSearch) |

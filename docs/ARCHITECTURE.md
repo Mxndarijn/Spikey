@@ -158,7 +158,7 @@ start and never comes back.
   returns the mask from `adjust_wall`; it never writes the wall spikes itself.
   `wall_shift` slides a wall's spikes along it (Spike Belt: collision and the
   view both read `GameSim.wall_shift`); `locks_exit` turns an open exit into a
-  bounce (Locked Exit). A hazard in a room with variants may read
+  bounce (Locked Out). A hazard in a room with variants may read
   `room.variant_id()` in `setup()` instead of each variant adding its own.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
