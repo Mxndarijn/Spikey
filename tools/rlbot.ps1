@@ -7,13 +7,14 @@
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode train -Minutes 45         # fresh training
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode train -Minutes 45 -Resume # go on
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode teach -Minutes 45 [-Resume]  # then learn from the teacher
+#   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode deaths -Seeds 200        # were the deaths avoidable?
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode calibrate                # refit the tier handicaps
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode speed                    # ticks per second
 #
 # -Threads: at most 4 (default 4). Training saves after every generation and
 # stops after -Minutes, so split long training into chunks with -Resume.
 param(
-    [ValidateSet("train", "teach", "calibrate", "measure", "speed")]
+    [ValidateSet("train", "teach", "deaths", "calibrate", "measure", "speed")]
     [string]$Mode = "measure",
     [string]$Tier = "all",
     [int]$Seeds = 0,
@@ -70,6 +71,12 @@ switch ($Mode) {
         if ($Seeds) { $a += @("--seeds", $Seeds) }
         if ($Cap) { $a += @("--cap", $Cap) }
         if ($Expert) { $a += @("--expert", $Expert) }
+    }
+    "deaths" {
+        $a += @("--first", $First)
+        if ($Seeds) { $a += @("--seeds", $Seeds) }
+        if ($Cap) { $a += @("--cap", $Cap) }
+        if ($Out) { $a += @("--out", $Out) }
     }
     "measure" {
         $a += @("--tier", $Tier, "--first", $First)

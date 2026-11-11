@@ -26,7 +26,7 @@ public sealed class Dagger
     public int anchor_every = 90;
     public float anchor_weight = 0.05f;
     public int max_data = 200_000;
-    public int batches = 60;
+    public int batches = 300;
     public int batch = 512;
     public float lr = 3e-4f;
     public int eval_every = 5;
@@ -42,6 +42,9 @@ public sealed class Dagger
     long next_seed = TRAIN_SEED;
     double best = -1;
     readonly List<(sbyte[] x, byte y, float wt)> data = new();
+    /// Recent deaths per room (decaying): practice runs start more often in
+    /// the rooms that kill the policy (each room keeps a floor of 1).
+    readonly Dictionary<long, double> killers = new();
     int data_head;
 
     public Dagger(string dir) => this.dir = dir;
@@ -49,7 +52,21 @@ public sealed class Dagger
     string policy_path => Path.Combine(dir, "policy.json");
     string state_path => Path.Combine(dir, "teach_state.json");
 
-    record struct Run(long seed, long room, byte[] taps, bool dead);
+    record struct Run(long seed, long room, byte[] taps, bool dead, long died_in);
+
+    long pick_room(Random rng)
+    {
+        var rooms = Ppo.rooms();
+        double total = 0;
+        foreach (long r in rooms) total += 1 + killers.GetValueOrDefault(r);
+        double at = rng.NextDouble() * total;
+        foreach (long r in rooms)
+        {
+            at -= 1 + killers.GetValueOrDefault(r);
+            if (at <= 0) return r;
+        }
+        return rooms[^1];
+    }
 
     public int run(bool resume, double minutes)
     {
@@ -87,20 +104,26 @@ public sealed class Dagger
             var pts = new long[runs];
             var deaths = new int[runs];
             var labels = new int[runs];
+            var died_in = new long[runs];
+            for (int r = 0; r < runs; r++) died_in[r] = -1;
             Parallel.For(0, runs, par, r =>
             {
                 long seed = first + r;
                 var rng = new Random((int)(seed % int.MaxValue));
-                long room = rng.NextDouble() < practice ? Ppo.rooms()[rng.Next(Ppo.rooms().Count)] : -1;
+                long room = rng.NextDouble() < practice ? pick_room(rng) : -1;
                 var mine = new List<(sbyte[] x, byte y, float wt)>();
                 var run = play(pol, seed, room, mine, out pts[r]);
                 if (run.dead)
                 {
                     deaths[r] = 1;
                     labels[r] = teach(pol, run, mine);
+                    died_in[r] = run.died_in;
                 }
                 found[r] = mine;
             });
+            foreach (var k in killers.Keys.ToList()) killers[k] *= 0.98;
+            foreach (long room in died_in)
+                if (room >= 0) killers[room] = killers.GetValueOrDefault(room) + 1;
             int added = 0;
             foreach (var list in found)
                 foreach (var d in list)
@@ -151,7 +174,7 @@ public sealed class Dagger
             sim.step(tap);
         }
         points = sim.state.score - start;
-        return new Run(seed, room, taps.ToArray(), sim.is_over());
+        return new Run(seed, room, taps.ToArray(), sim.is_over(), sim.is_over() ? sim.room.index : -1);
     }
 
     /// The sim before tick `t` of a run and what the bird saw then.

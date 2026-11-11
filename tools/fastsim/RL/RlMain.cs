@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace FastSim.Rl;
 
-/// `fastsim rl <train|teach|calibrate|measure|speed> [options]` (tools/rlbot.ps1, docs/RL_BOT.md).
+/// `fastsim rl <train|teach|deaths|calibrate|measure|speed> [options]` (tools/rlbot.ps1, docs/RL_BOT.md).
 public static class RlMain
 {
     /// tools/rlbot, next to the build (bin/Release/net9.0).
@@ -37,6 +37,9 @@ public static class RlMain
                     if (opts.ContainsKey("horizon")) t.horizon = long.Parse(opts["horizon"]);
                     return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")));
                 }
+                case "deaths":
+                    return Deaths.run(dir, int.Parse(O("seeds", "200")), long.Parse(O("first", "0")),
+                        long.Parse(O("cap", "54000")), threads, O("out", ""));
                 case "calibrate":
                     return Tiers.calibrate(dir, int.Parse(O("seeds", "200")), long.Parse(O("cap", "36000")), threads,
                         double.Parse(O("expert", "0")));
@@ -64,7 +67,7 @@ public static class RlMain
             Console.Error.WriteLine("rlbot: " + e.Message);
             return 2;
         }
-        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, teach, calibrate, measure, speed)");
+        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, teach, deaths, calibrate, measure, speed)");
         return 2;
     }
 }
