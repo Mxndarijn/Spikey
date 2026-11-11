@@ -81,7 +81,9 @@ Results).
     powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode train -Minutes 45 -Resume
     powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode teach -Minutes 45          # teacher, from policy.json
 
-- At most 4 threads (`-Threads`, default 4, BelowNormal priority).
+- Up to 8 threads (`-Threads`, default 4, BelowNormal priority). Power
+  throttling (Windows efficiency mode) is turned off for the process, and
+  teach runs with the server garbage collector.
 - `-Minutes` stops cleanly after the iteration that passes the limit, so a
   long training is done in chunks under an hour. The state is saved to
   `tools/rlbot/train_state.json` (PPO) or `teach_state.json` (teacher) after

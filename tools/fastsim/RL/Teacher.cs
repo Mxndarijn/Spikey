@@ -70,4 +70,45 @@ public static class Teacher
         b.step(false);
         return (survives(a, horizon), survives(b, horizon));
     }
+
+    /// Slack: how many height/speed buckets are still alive after `horizon`
+    /// ticks (0 if none). More means more room for error.
+    public static long width(GameSim sim, long horizon)
+    {
+        if (sim.is_over()) return 0;
+        var frontier = new List<GameSim> { sim.clone_deep() };
+        var slots = new Dictionary<long, int>();
+        var next = new List<GameSim>();
+        for (long t = 0; t < horizon; t++)
+        {
+            slots.Clear();
+            next.Clear();
+            foreach (var s in frontier)
+            {
+                long g = s.room.gravity;
+                if (s.state.vy * g > TAP_BELOW_VY || !s.state.started)
+                {
+                    var c = s.clone_deep();
+                    c.step(true);
+                    keep(slots, next, c);
+                }
+                if (!s.state.started) continue;
+                s.step(false);
+                keep(slots, next, s);
+            }
+            if (next.Count == 0) return 0;
+            (frontier, next) = (new List<GameSim>(next), frontier);
+        }
+        return frontier.Count;
+    }
+
+    /// The slack after a tap and after a wait at `sim`.
+    public static (long tap, long wait) slack_moves(GameSim sim, long horizon)
+    {
+        var a = sim.clone_deep();
+        a.step(true);
+        var b = sim.clone_deep();
+        b.step(false);
+        return (width(a, horizon), width(b, horizon));
+    }
 }

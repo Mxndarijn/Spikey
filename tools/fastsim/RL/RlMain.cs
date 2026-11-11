@@ -12,8 +12,9 @@ public static class RlMain
     {
         string what = pos.Count > 1 ? pos[1] : "measure";
         string dir = Path.GetFullPath(opts.GetValueOrDefault("dir", default_dir()));
-        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 4);
+        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 8);
         string O(string k, string d) => opts.GetValueOrDefault(k, d);
+        if (!opts.ContainsKey("throttle")) Power.full_speed();
         try
         {
             switch (what)
