@@ -98,7 +98,7 @@ func wall_shift(_sim: GameSim, _side: int) -> int:
 	return 0
 
 
-## True while this hazard keeps the open exit shut (Locked Exit): flying into
+## True while this hazard keeps the open exit shut (Locked Out): flying into
 ## it is a bounce, as if it weren't there. No RNG draws.
 func locks_exit(_sim: GameSim) -> bool:
 	return false
