@@ -141,8 +141,8 @@ func test_older_version_runs_cant_be_watched() -> void:
 	r.run.replay.gameplay_version = SimConfig.GAMEPLAY_VERSION - 1
 	assert_false(r.watchable(), "older version")
 	var row := RunRow.new(r, 2000)
-	assert_true(row.watch_button().disabled, "Watch is off")
-	assert_true(row.detail_line().ends_with(RunRow.OLD_VERSION), row.detail_line())
+	assert_false(row.watch_button().visible, "no Watch button")
+	assert_eq(row.detail_line(), RunRow.NO_REPLAY, "says the replay is gone")
 	row.free()
 	var main := _make_main()
 	main.watch_run(r)

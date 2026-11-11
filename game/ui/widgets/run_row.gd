@@ -4,7 +4,7 @@ extends PanelContainer
 ## in the world's colour, when it was played (and a gold Best tag), what
 ## happened ("Sunset, 4 rooms, revived at 12"), the round ink Watch button and
 ## the bookmark that saves it. A run from an older gameplay version can't be
-## watched: its Watch button is off and the line says so.
+## watched: it has no Watch button and its line says the replay is gone.
 
 signal watch_pressed(record: RunRecord)
 signal save_pressed(record: RunRecord)
@@ -16,7 +16,7 @@ const HEIGHT := 56.0
 const SCORE_W := 52.0
 const DOT := 10.0
 const BUTTON := 44.0
-const OLD_VERSION := "older version, can't be watched"
+const NO_REPLAY := "Replay no longer available (older version)"
 
 var record: RunRecord
 var _watch: Button
@@ -45,9 +45,7 @@ func _init(p_record: RunRecord, now: int, bias_minutes: int = 0) -> void:
 	row.add_child(_text_column(now, bias_minutes))
 	_watch = _round_button(PLAY_ICON, "Watch")
 	_watch.name = "Watch"
-	_watch.disabled = not record.watchable()
-	if _watch.disabled:
-		_watch.tooltip_text = "Played in an older version: can't be watched"
+	_watch.visible = record.watchable()
 	_watch.pressed.connect(func() -> void: watch_pressed.emit(record))
 	row.add_child(_watch)
 	_save = UiKit.icon_button(BOOKMARK_ICON, "", &"InkButton", BUTTON)
@@ -110,22 +108,19 @@ static func _best_tag() -> Control:
 	return tag
 
 
-## A 44px round ink button with a white icon; off, it fades to the soft edge.
+## A 44px round ink button with a white icon.
 static func _round_button(icon: Texture2D, tip: String) -> Button:
 	var b := UiKit.icon_button(icon, tip, &"InkButton", BUTTON)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.add_theme_constant_override("icon_max_width", 18)
 	var on := UiTheme.flat(UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0)
 	var down := UiTheme.flat(UiTokens.PRIMARY.lightened(0.15), UiTokens.RADIUS_PILL, 0)
-	var off := UiTheme.flat(UiTokens.EDGE, UiTokens.RADIUS_PILL, 0)
 	for state in ["normal", "hover"]:
 		b.add_theme_stylebox_override(state, on)
 	for state in ["pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(state, down)
-	b.add_theme_stylebox_override("disabled", off)
 	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
 		b.add_theme_color_override(state, UiTokens.ON_PRIMARY)
-	b.add_theme_color_override("icon_disabled_color", Color(UiTokens.ON_PANEL, 0.45))
 	return b
 
 
@@ -151,14 +146,14 @@ func detail_line() -> String:
 	return _detail.text
 
 
-## "Sunset, 4 rooms, revived at 12"; an older run says it can't be watched.
+## "Sunset, 4 rooms, revived at 12"; an older run says its replay is gone.
 static func detail_text(r: RunRecord) -> String:
+	if not r.watchable():
+		return NO_REPLAY
 	var parts: Array[String] = [world_name(r.world)]
 	parts.append("1 room" if r.rooms == 1 else "%d rooms" % r.rooms)
 	if r.revived():
 		parts.append("revived at %d" % r.revived_at)
-	if not r.watchable():
-		parts.append(OLD_VERSION)
 	return ", ".join(parts)
 
 
