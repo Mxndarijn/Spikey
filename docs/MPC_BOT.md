@@ -39,25 +39,31 @@ Every tick, for each live hazard:
    sightings of the last 10 steps. A shape that slides moves all four edges
    alike. A shape that grows (a gate half, a piston) moves one edge. An edge
    at the screen border counts as off screen, not as standing still.
-4. **Three things learned while watching**, each from sightings only:
+4. **Two things learned while watching**, each from sightings only:
    - *It follows me.* A shape that moved toward the bird's height in at least
      85% of 30 samples is a follower (the stalker), with the speed it showed.
    - *It goes away.* When a hazard's last two shapes each stayed the same
      number of steps (a beam's on time, a piston's stroke), the next one is
      expected to stay that long too.
-   - *It lifts me.* When the bird's speed differs from its own movement by a
-     small steady amount, that lift is remembered per column of the room (an
-     updraft).
 5. **Warnings.** The glow of a piston and the charging line of a beam are on
    screen before they strike. The bot reads them as a box that will be deadly
-   from a number of steps on, for a number of steps. This is the only place
-   with per-hazard code (two hazards), and it reads only what is drawn.
+   from a number of steps on, for a number of steps.
+6. **Air.** An updraft's column and lift and the wind's bands and push are
+   read from the hazard as it is now (they are drawn on screen). An updraft's
+   drift is its movement since the last look, carried on in a straight line.
+   A gusting updraft shows when it is about to blow.
+
+Points 1 to 4 have no code per hazard kind (apart from the touch test for the
+two bodies). Points 5 and 6 are the only per-hazard code: four hazards, and
+only what is on screen now.
 
 ## How it plans (`Planner.cs`)
 
 - **The bird is exact:** gravity, flap, the room's speed (fast and slow
-  rooms), flipped gravity, the wall bounce and the exit. The bird's x does
-  not depend on taps, so it is worked out once per plan.
+  rooms), flipped gravity, updraft lift, the wall bounce and the exit. The
+  bird's x does not depend on taps, so it is worked out once per plan (the
+  wind's push is the one guess in it: the push the bird is in now is taken
+  to last 15 steps).
 - **The wall ahead is exact for now:** the sim's own spike triangle test on
   the mask, depth and shift as they are this tick. The wall after the bounce
   is not known yet, so nothing is assumed about it.
@@ -86,7 +92,8 @@ After Isaksen, Gopstein and Nealen (2015), measured on Flappy Bird players:
 | `-MinGap` | fewest ticks between taps | 8 ticks (7.5 taps a second) |
 
 The hand commits to a planned tap a few ticks ahead and lands it with the
-timing error, whatever the plan says in between.
+timing error, whatever the plan says in between. During the reaction time
+the plan treats a new wall as unknown and leaves a new shape out.
 
 ## Using it
 
@@ -95,6 +102,7 @@ timing error, whatever the plan says in between.
     powershell -ExecutionPolicy Bypass -File tools/mpcbot.ps1 -Room stalker -Seeds 24 -Cap 3600
     powershell -ExecutionPolicy Bypass -File tools/mpcbot.ps1 -Set "grow=0.2,soft=10"   # planner knobs
     tools/fastsim/bin/Release/net9.0/FastSim mpc trace --room beams --seed 3 --last 60  # the last ticks before a death
+    tools/fastsim/bin/Release/net9.0/FastSim mpc runfile --seed 223 --out run.json      # a run file for tools/render_run.ps1
 
 Runs use the same seeds (1..n) and tick cap as `tools/rlbot.ps1 -Mode measure`,
 so the numbers compare.

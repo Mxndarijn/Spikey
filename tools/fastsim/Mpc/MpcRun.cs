@@ -56,8 +56,27 @@ public static class MpcRun
                 return 0;
             }
         }
+        if (what == "runfile")
+        {
+            // The bot's run on one seed as a run file for the renderer (docs/RENDERING.md).
+            long seed = long.Parse(O("seed", "1"));
+            var sim = new GameSim(seed);
+            var bot = new MpcBot(knobs(), motor, seed);
+            var taps = new List<long>();
+            long cap = long.Parse(O("cap", SimConfig.MAX_TICKS.ToString()));
+            while (!sim.is_over() && sim.state.tick < cap)
+            {
+                bool tap = bot.decide(sim);
+                if (tap) taps.Add(sim.state.tick);
+                sim.step(tap);
+            }
+            string path = O("out", "mpc_run.json");
+            RunFile.write(path, sim, taps, name: "mpc bot");
+            Console.WriteLine($"mpc runfile: seed {seed}, score {sim.state.score}, {sim.state.tick} ticks -> {path}");
+            return 0;
+        }
         if (what == "trace") return trace(knobs(), motor, long.Parse(O("seed", "1")), O("room", ""), long.Parse(O("cap", "3600")), int.Parse(O("last", "60")));
-        Console.Error.WriteLine("mpc: unknown mode " + what + " (measure, speed, trace)");
+        Console.Error.WriteLine("mpc: unknown mode " + what + " (measure, speed, trace, runfile)");
         return 2;
     }
 
@@ -162,6 +181,17 @@ public static class MpcRun
         Console.WriteLine($"  median {pct(pts, 0.5):F1}  p90 {pct(pts, 0.9):F1}  p25 {pct(pts, 0.25):F1}  mean {pts.Average():F1}  max {pts.Max()}" +
             $"  taps/s {runs.Average(r => r.taps_per_s):F2}" + (capped > 0 ? $"  ({capped} reached the cap)" : ""));
         var dead = runs.Where(r => r.dead).ToList();
+        // Deaths per 100 points by score band: deaths that ended in the band over the points played in it.
+        long[] edges = { 0, 10, 20, 40, 80, 160, long.MaxValue };
+        var bands = new List<string>();
+        for (int i = 0; i + 1 < edges.Length; i++)
+        {
+            long lo = edges[i], hi = edges[i + 1];
+            long played = runs.Sum(r => Math.Max(0, Math.Min(r.points, hi) - lo));
+            int died = runs.Count(r => r.dead && r.points >= lo && r.points < hi);
+            if (played > 0) bands.Add($"{lo}{(hi == long.MaxValue ? "+" : ".." + hi)}: {100.0 * died / played:F2}");
+        }
+        Console.WriteLine($"  deaths per 100 points: {100.0 * dead.Count / Math.Max(pts.Sum(), 1):F2} overall; by score {string.Join(", ", bands)}; {capped} of {seeds} runs reached the cap; no sim copies");
         if (dead.Count > 0)
         {
             Console.WriteLine("  causes: " + string.Join(", ", dead.GroupBy(r => r.cause).OrderByDescending(g => g.Count())

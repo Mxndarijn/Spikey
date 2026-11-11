@@ -30,7 +30,7 @@ public sealed class MpcBot
     {
         motor = m ?? new Motor();
         p.min_gap = Math.Max(p.min_gap, motor.min_gap);
-        planner = new Planner(p) { react = motor.react };
+        planner = new Planner(p) { react = motor.react, sigma = (float)motor.sigma };
         _dice = new Random(unchecked((int)(seed * 2654435761L) ^ 0x2545f491));
     }
 

@@ -28,6 +28,9 @@ public sealed class MpcParams
     /// Extra distance that costs but does not kill.
     public float soft = 14f, w_soft = 3f;
     public float w_tap = 1f;
+    /// With shaky hands (timing error sigma, in ticks): land this much further from spikes per
+    /// tick of sigma, and pay for taps that change the speed a lot (a late tap moves the bird far).
+    public float land_sigma = 5f, w_sens = 0.03f;
     public float edge = 40f, w_edge = 0.5f;
     public float land = 14f, w_land = 30f;
     public float w_mid = 0.02f;
@@ -93,6 +96,8 @@ public sealed class Planner
     /// Reaction time (ticks): a new wall layout or a new shape is not acted on before it
     /// has been on screen this long (Isaksen et al.: about 288 ms, 17 ticks).
     public int react = 0;
+    /// The hand's timing error (ticks), so plans can leave room for it.
+    public float sigma = 0f;
     long _wall_side = -1, _wall_room = -1, _wall_since;
 
     /// The tick of the first tap of the last plan (-1: none), and how it ended.
@@ -232,7 +237,9 @@ public sealed class Planner
                     int snc = _since[i] + 1;
                     if (tap == 1)
                     {
-                        vy = SimConfig.FLAP_VY * _grav[done + 1];
+                        long flap = SimConfig.FLAP_VY * _grav[done + 1];
+                        if (sigma > 0f) c += p.w_sens * sigma * Math.Abs(vy - flap) / SUB;
+                        vy = flap;
                         c += p.w_tap;
                         if (first < 0) first = k;
                         snc = 1;
@@ -392,7 +399,8 @@ public sealed class Planner
                 if (d < clear) clear = d;
             }
             float cl = (float)clear / SUB;
-            if (cl < p.land) c += p.w_land * (1f - Math.Max(cl, 0f) / p.land);
+            float land = p.land + p.land_sigma * sigma;
+            if (cl < land) c += p.w_land * (1f - Math.Max(cl, 0f) / land);
         }
         if (y - R <= SimConfig.KILL_TOP || y + R >= SimConfig.KILL_BOTTOM) return 1;
         float top = (float)(y - R - SimConfig.KILL_TOP) / SUB, bottom = (float)(SimConfig.KILL_BOTTOM - y - R) / SUB;

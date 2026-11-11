@@ -88,7 +88,7 @@ public sealed class Sight
     public readonly record struct Draft(float x0, float x1, long lift, float v, int from, int to);
     public readonly List<Draft> drafts = new();
     readonly List<(long y0, long y1, long push)> _winds = new();
-    readonly Dictionary<Hazard, (long t, float x0, float v)> _draft_seen = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<int, (long t, float x0, float v)> _draft_seen = new();
 
     /// The sideways push (sub-units per step) on a bird at height `y` now.
     public long push_at(long y)
@@ -98,7 +98,9 @@ public sealed class Sight
         return 0;
     }
     public bool read_warnings = true, learn_chase = true, learn_life = true;
-    readonly Dictionary<Hazard, Seen> _by = new(ReferenceEqualityComparer.Instance);
+    // Memory per hazard, by its place in the room's list (not by object: the
+    // same room may be handed over as another copy of the sim).
+    readonly Dictionary<int, Seen> _by = new();
     readonly Stack<Blob> _pool = new();
     readonly byte[] _coarse = new byte[CELLS];
     readonly byte[] _hit = new byte[CELLS];
@@ -134,10 +136,10 @@ public sealed class Sight
         {
             var h = hz[i];
             if (!h.alive) continue;
-            if (!_by.TryGetValue(h, out var seen))
+            if (!_by.TryGetValue(i, out var seen))
             {
                 seen = new Seen();
-                _by[h] = seen;
+                _by[i] = seen;
             }
             long t_before = seen.blobs.Count == 1 ? seen.blobs[0].h_t[seen.blobs[0].h_at] : -1;
             scan(sim, h, seen, room.t);
@@ -186,20 +188,22 @@ public sealed class Sight
         drafts.Clear();
         _winds.Clear();
         long t = sim.room.t;
-        foreach (var h in sim.room.hazards)
+        var hz = sim.room.hazards;
+        for (int i = 0; i < hz.Count; i++)
         {
+            var h = hz[i];
             if (!h.alive) continue;
             if (h is Updraft u)
             {
                 float x0 = (float)u.x0 / SimConfig.SUB;
                 float v = 0;
-                if (_draft_seen.TryGetValue(h, out var was))
+                if (_draft_seen.TryGetValue(i, out var was))
                 {
                     v = was.v;
                     if (t > was.t) v = 0.5f * was.v + 0.5f * (x0 - was.x0) / (t - was.t);
                     else x0 = was.x0;
                 }
-                _draft_seen[h] = (t, (float)u.x0 / SimConfig.SUB, v);
+                _draft_seen[i] = (t, (float)u.x0 / SimConfig.SUB, v);
                 // A gusting updraft shows when it is about to blow; it blows from `from` to `to` steps on.
                 int from = 0, to = int.MaxValue;
                 if (u.gust != Updraft.Gust.NONE)
@@ -410,6 +414,7 @@ public sealed class Sight
                     b.reset(h, body);
                 }
                 b.matched = true;
+                b.owner = h;
                 b.c0 = c0;
                 b.c1 = c1;
                 b.r0 = r0;
