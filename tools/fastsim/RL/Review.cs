@@ -26,6 +26,10 @@ public static class Review
             case "honest":
                 honest(opts, seeds, cap, threads);
                 return 0;
+            case "atlas":
+                return atlas(opts, seeds, cap, threads);
+            case "blindcheck":
+                return blindcheck(seeds);
             case "sens":
                 return sens(dir, seeds, threads);
             case "shape":
@@ -82,6 +86,165 @@ public static class Review
         Console.WriteLine($"horizon {h,3} ticks{(cut ? ", cut at the bounce" : "")}: {deaths} deaths in {pts} points ({ticks} ticks, {seeds} runs) -> median about {med}  [{string.Join(", ", rooms)}]  {clock.Elapsed.TotalSeconds:F0} s");
     }
 
+    /// Sets the planner's knobs from the command line; returns them as text.
+    static string configure(BlindPlanner bot, Dictionary<string, string> opts)
+    {
+        long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
+        bot.horizon = L("h", bot.horizon);
+        bot.past = L("past", bot.past);
+        bot.replan = (int)L("k", bot.replan);
+        bot.replan_danger = (int)L("kd", bot.replan_danger);
+        bot.copies = (int)L("n", bot.copies);
+        bot.lines = (int)L("lines", bot.lines);
+        bot.wobble = (int)L("wobble", bot.wobble);
+        bot.part = (int)L("part", bot.part);
+        bot.mid_cost = L("mid", bot.mid_cost);
+        bot.tap_cost = L("tap", bot.tap_cost);
+        bot.margin = L("margin", bot.margin);
+        bot.margin_cost = L("margincost", bot.margin_cost);
+        bot.bucket_px = L("bpx", bot.bucket_px);
+        bot.speed_buckets = L("speeds", bot.speed_buckets);
+        bot.fine_px = L("fine", bot.fine_px);
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+    }
+
+    /// `rl review atlas`: every death of the BlindPlanner with a verdict.
+    ///   last-chance: ticks before the death at which a search that sees the
+    ///     true future could last still save the run (binary search, at most
+    ///     BACK ticks; "never" = not even BACK ticks before: no player could).
+    ///   rescue: of RESCUES fresh planners (other guesses) started LEAD ticks
+    ///     before that last chance, how many live past the death.
+    ///   verdict: unfair (never), mistake (half or more rescues live: the
+    ///     planner could have known), hidden (savable only with luck or
+    ///     knowledge the screen does not give).
+    public const long BACK = 900, AFTER = 240, LEAD = 45;
+    public const int RESCUES = 8;
+
+    static int atlas(Dictionary<string, string> opts, int seeds, long cap, int threads)
+    {
+        long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
+        long first = L("first", 0);
+        string out_path = opts.GetValueOrDefault("out", "");
+        var clock = Stopwatch.StartNew();
+        var rows = new string[seeds];
+        var res = new (long points, long ticks, bool dead, string room, string verdict, long chance, int rescued, string cause)[seeds];
+        string setup = "";
+        Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
+        {
+            long seed = first + i + 1;
+            var sim = new GameSim(seed);
+            var bot = new BlindPlanner(seed);
+            string cfg = configure(bot, opts);
+            if (i == 0) setup = cfg;
+            var taps = new List<bool>();
+            var look = new List<byte>();
+            while (!sim.is_over() && taps.Count < cap)
+            {
+                bool tap = bot.decide(sim);
+                taps.Add(tap);
+                look.Add((byte)(bot.last_look * 10 + Math.Min(9, bot.last_agree)));
+                sim.step(tap);
+            }
+            string room = sim.room.def.id + "/" + sim.room.variant_id();
+            if (!sim.is_over())
+            {
+                res[i] = (sim.state.score, taps.Count, false, room, "", 0, 0, "");
+                return;
+            }
+            long died = taps.Count;
+            string cause = DeathCause.NAMES[sim.state.death_cause];
+            // The state `back` ticks before the death.
+            GameSim at(long back)
+            {
+                var c = new GameSim(seed);
+                for (int t = 0; t < died - back; t++) c.step(taps[t]);
+                return c;
+            }
+            bool savable(long back) => new SurvivalSearch().run_quick(at(back), back + AFTER);
+            long max_back = Math.Min(BACK, died - 1);
+            long chance = -1;
+            if (savable(max_back))
+            {
+                // Savable at lo, not at hi (the death tick itself is not).
+                long hi = 0, lo = max_back;
+                while (lo - hi > 1)
+                {
+                    long mid = (lo + hi) / 2;
+                    if (savable(mid)) lo = mid;
+                    else hi = mid;
+                }
+                chance = lo;
+            }
+            int rescued = 0;
+            byte seen = 0;
+            if (chance >= 0)
+            {
+                long from = Math.Min(max_back, chance + LEAD);
+                seen = look[(int)(died - chance)];
+                for (int r = 0; r < RESCUES; r++)
+                {
+                    var c = at(from);
+                    var b2 = new BlindPlanner(seed * 1000 + r + 7);
+                    configure(b2, opts);
+                    for (long t = 0; t < from + AFTER && !c.is_over(); t++) c.step(b2.decide(c));
+                    if (!c.is_over()) rescued++;
+                }
+            }
+            string verdict = chance < 0 ? "unfair" : rescued * 2 >= RESCUES ? "mistake" : "hidden";
+            res[i] = (sim.state.score, died, true, room, verdict, chance, rescued, cause);
+            rows[i] = $"{seed}\t{sim.state.score}\t{died}\t{room}\t{cause}\t{verdict}\t{chance}\t{rescued}/{RESCUES}\t{seen / 10}\t{seen % 10}\t{sim.state.x / SimConfig.SUB}\t{sim.state.y / SimConfig.SUB}";
+        });
+        long pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"death atlas, blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}, gameplay {SimConfig.GAMEPLAY_VERSION}");
+        sb.AppendLine($"{deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; {res.Count(r => !r.dead)} of {seeds} alive at the cap; median {Tiers.pct(res.Select(r => r.points), 0.5)}; {clock.Elapsed.TotalSeconds:F0} s");
+        sb.AppendLine("verdicts: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.verdict).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}")));
+        sb.AppendLine("by room (deaths: mistake / hidden / unfair; median last chance in ticks before the death):");
+        foreach (var g in res.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()))
+        {
+            var ch = g.Where(r => r.chance >= 0).Select(r => r.chance).ToList();
+            sb.AppendLine($"  {g.Key,-26} {g.Count(),3}: {g.Count(r => r.verdict == "mistake")} / {g.Count(r => r.verdict == "hidden")} / {g.Count(r => r.verdict == "unfair")}   last chance {(ch.Count > 0 ? Tiers.pct(ch, 0.5).ToString("F0") : "-")}   causes {string.Join(" ", g.GroupBy(r => r.cause).Select(c => $"{c.Key} {c.Count()}"))}");
+        }
+        sb.AppendLine("seed\tscore\ttick\troom\tcause\tverdict\tlast_chance\trescued\tlook\tagree\tx\ty");
+        foreach (string r in rows.Where(r => r != null)) sb.AppendLine(r);
+        string text = sb.ToString();
+        if (out_path != "") File.WriteAllText(out_path, text);
+        Console.Write(out_path != "" ? string.Join("\n", text.Split('\n').TakeWhile(l => !l.StartsWith("seed\t"))) + "\n" : text);
+        return 0;
+    }
+
+    /// `rl review blindcheck`: blind_copy must wipe what it scrambles. For
+    /// many states in every room: a copy scrambled with seed A must equal a
+    /// copy that was first scrambled with seed B and then with A (same
+    /// checksum). If not, some scrambled value still depends on the hidden
+    /// truth. It can't find a hidden field nobody scrambles: that list is
+    /// kept by hand (bot-review.md).
+    static int blindcheck(int seeds)
+    {
+        long states = 0, bad = 0;
+        var where = new Dictionary<string, int>();
+        foreach (long room in Ppo.rooms().Append(-1))
+            for (int i = 0; i < seeds; i++)
+            {
+                var sim = new GameSim(31 * i + 3, Seasons.NONE, room);
+                var rng = new SimRng(i + 1);
+                for (int t = 0; t < 900 && !sim.is_over(); t++)
+                {
+                    sim.step(SimBots.gap_seeker(sim, rng));
+                    if (t % 15 != 0 || sim.is_over()) continue;
+                    states++;
+                    long a = BlindPlanner.blind_copy(sim, new SimRng(111)).checksum();
+                    long b = BlindPlanner.blind_copy(BlindPlanner.blind_copy(sim, new SimRng(222)), new SimRng(111)).checksum();
+                    if (a == b) continue;
+                    bad++;
+                    string id = sim.room.def.id + "/" + sim.room.variant_id();
+                    where[id] = where.GetValueOrDefault(id) + 1;
+                }
+            }
+        Console.WriteLine($"blindcheck: {states} states, {bad} where a second scramble changed the copy" + (bad > 0 ? ": " + string.Join(", ", where.Select(kv => $"{kv.Key} {kv.Value}")) : ""));
+        return bad == 0 ? 0 : 1;
+    }
+
     /// The BlindPlanner (Bots/BlindPlanner.cs) on full runs: deaths per 100
     /// points by score band, and how the last look before each death ended.
     static void honest(Dictionary<string, string> opts, int seeds, long cap, int threads)
@@ -96,17 +259,8 @@ public static class Review
         {
             var sim = new GameSim(first + i + 1);
             var bot = new BlindPlanner(first + i + 1);
-            bot.horizon = L("h", bot.horizon);
-            bot.past = L("past", bot.past);
-            bot.replan = (int)L("k", bot.replan);
-            bot.mid_cost = L("mid", bot.mid_cost);
-            bot.tap_cost = L("tap", bot.tap_cost);
-            bot.margin = L("margin", bot.margin);
-            bot.margin_cost = L("margincost", bot.margin_cost);
-            bot.bucket_px = L("bpx", bot.bucket_px);
-            bot.speed_buckets = L("speeds", bot.speed_buckets);
-            bot.fine_px = L("fine", bot.fine_px);
-            if (i == 0) setup = $"h {bot.horizon} past {bot.past} k {bot.replan} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+            string cfg = configure(bot, opts);
+            if (i == 0) setup = cfg;
             long ticks = 0;
             while (!sim.is_over() && ticks < cap)
             {
