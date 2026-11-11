@@ -20,7 +20,7 @@ public sealed class MpcBot
 {
     public readonly Planner planner;
     public readonly Motor motor;
-    readonly Random _rng;
+    readonly Random _dice;
     int _since = 1000;
     // Motor noise: the tap being carried out (ticks until it lands), or -1.
     int _pending = -1;
@@ -35,12 +35,12 @@ public sealed class MpcBot
         motor = m ?? new Motor();
         p.min_gap = Math.Max(p.min_gap, motor.min_gap);
         planner = new Planner(p);
-        _rng = new Random(unchecked((int)(seed * 2654435761L) ^ 0x2545f491));
+        _dice = new Random(unchecked((int)(seed * 2654435761L) ^ 0x2545f491));
     }
 
     double gauss()
     {
-        double u = 1.0 - _rng.NextDouble(), v = _rng.NextDouble();
+        double u = 1.0 - _dice.NextDouble(), v = _dice.NextDouble();
         return Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * v);
     }
 
@@ -64,6 +64,7 @@ public sealed class MpcBot
         if (planner.doomed) doomed_ticks++;
         if (motor.sigma > 0 || motor.react > 0) tap = hands(sim, tap);
         if (tap && _since < motor.min_gap) tap = false;
+        planner.expect(sim, tap);
         _since = tap ? 1 : Math.Min(_since + 1, 1000);
         if (tap) taps++;
         return tap;
@@ -77,7 +78,7 @@ public sealed class MpcBot
         var s = sim.state;
         long side = s.vx > 0 ? 1 : 0;
         long mask = sim.wall_mask(side);
-        int hazards = planner.sight.tracks.Count;
+        int hazards = planner.sight.blobs.Count;
         bool fresh = s.room_index != _seen_room || side != _seen_side || mask != _seen_mask || hazards > _seen_hazards;
         if (fresh && (_seen_room != s.room_index || side != _seen_side || hazards > _seen_hazards)) _blind = motor.react;
         _seen_room = s.room_index;

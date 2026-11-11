@@ -56,7 +56,8 @@ public static class MpcRun
                 return 0;
             }
         }
-        Console.Error.WriteLine("mpc: unknown mode " + what + " (measure, speed)");
+        if (what == "trace") return trace(knobs(), motor, long.Parse(O("seed", "1")), O("room", ""), long.Parse(O("cap", "3600")), int.Parse(O("last", "60")));
+        Console.Error.WriteLine("mpc: unknown mode " + what + " (measure, speed, trace)");
         return 2;
     }
 
@@ -89,6 +90,42 @@ public static class MpcRun
         }
         return new Result(sim.seed_value, sim.state.score - start, n, sim.is_over(), room, cause, killer, doomed,
             bot.taps * 60.0 / Math.Max(n, 1), band);
+    }
+
+    static (long, string) find_room(string room)
+    {
+        if (room == "") return (-1, "");
+        var parts = room.Split('/');
+        var all = RoomCatalog.all();
+        for (int i = 0; i < all.Count; i++)
+            if (all[i].id == parts[0]) return (i, parts.Length > 1 ? parts[1] : "");
+        throw new ArgumentException("no room " + parts[0]);
+    }
+
+    /// Prints the last ticks before a death: the bird, the tap, and each shape's edges and speeds.
+    static int trace(MpcParams p, Motor motor, long seed, string room, long cap, int last)
+    {
+        var (practice, variant) = find_room(room);
+        var sim = new GameSim(seed, Seasons.NONE, practice, variant);
+        var bot = new MpcBot(p, motor, seed);
+        var lines = new Queue<string>();
+        long n = 0;
+        while (n < cap && !sim.is_over())
+        {
+            bool tap = bot.decide(sim);
+            var s = sim.state;
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"t{s.tick} x{s.x / 64} y{s.y / 64} vy{s.vy / 64.0:F1} vx{s.vx / 64} {(tap ? "TAP" : "   ")} first{bot.planner.first_tap} {(bot.planner.doomed ? "DOOM@" + bot.planner.doom_tick : "")} mask{Convert.ToString(sim.wall_mask(s.vx > 0 ? 1 : 0), 2).PadLeft(13, '0')}");
+            foreach (var b in bot.planner.sight.blobs)
+                sb.Append($" | {b.owner.kind}{(b.body ? "*" : "")} x[{b.e[0]:F0},{b.e[1]:F0}] y[{b.e[2]:F0},{b.e[3]:F0}] v({b.v[0]:F1},{b.v[1]:F1},{b.v[2]:F1},{b.v[3]:F1}) w{b.wobble:F2} ch{b.chase:F1}");
+            lines.Enqueue(sb.ToString());
+            if (lines.Count > last) lines.Dequeue();
+            sim.step(tap);
+            n++;
+        }
+        foreach (var l in lines) Console.WriteLine(l);
+        Console.WriteLine($"end: score {sim.state.score} dead {sim.is_over()} {DeathCause.NAMES[sim.state.death_cause]} at x{sim.state.x / 64} y{sim.state.y / 64} room {sim.room.def.id}/{sim.room.variant_id()}");
+        return 0;
     }
 
     static double pct(IEnumerable<long> xs, double p) => FastSim.Rl.Tiers.pct(xs, p);
