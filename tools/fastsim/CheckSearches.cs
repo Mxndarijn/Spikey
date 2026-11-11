@@ -9,7 +9,17 @@ static partial class Checks
     /// start from. Parity records runs from each, so they must stay equal.
     public static class Setups
     {
-        public static GameSim revived(int index, long seed_value, string exit, long side)
+        public static readonly long[] ENTRY_YS = { 140 * SimConfig.SUB, 300 * SimConfig.SUB, 480 * SimConfig.SUB };
+
+        public static void came_in(GameSim sim, long index, long toward, long y)
+        {
+            sim.state.y = y;
+            long skip = sim._arrival_retries(toward, index);
+            for (long i = 0; i < skip; i++) sim._rng.next_u32();
+            sim._arrive_in(toward, index);
+        }
+
+        public static GameSim revived(int index, long seed_value, string exit, long side, long toward, long y)
         {
             var def = RoomCatalog.all()[index];
             var sim = new GameSim(seed_value, def.season);
@@ -17,8 +27,7 @@ static partial class Checks
             long every = SimConfig.POINTS_PER_ROOM;
             long base_ = G.maxi(every, (def.from_score + every - 1) / every * every);
             sim.state.score = base_ + 3;
-            sim._enter_room(index);
-            sim.state.vx = side == 1 ? SimConfig.SPEED_X : -SimConfig.SPEED_X;
+            came_in(sim, index, toward, y);
             switch (exit)
             {
                 case "open":
@@ -45,7 +54,7 @@ static partial class Checks
             // Not a fork score, so there is one exit.
             long base_ = 60;
             sim.state.score = base_ + 3;
-            sim._enter_room(index);
+            came_in(sim, index, seed_value % 2, sim.state.y);
             if (exit == "open")
             {
                 sim.state.score = base_;
@@ -73,7 +82,7 @@ static partial class Checks
             var sim = new GameSim(seed_value, def.season, -1, variant);
             sim.step(true);
             sim.state.score = open ? base_ : base_ + every - 1;
-            sim._enter_room(index);
+            came_in(sim, index, seed_value % 2, sim.state.y);
             ExitPlanner.plan(sim, sim._rng, side, open ? base_ : base_ + every);
             sim.state.exit_a_y = exit_y;
             sim.state.exit_open = open;
@@ -97,18 +106,17 @@ static partial class Checks
             sim.step(true);
             long every = SimConfig.POINTS_PER_ROOM;
             long base_ = G.maxi(every, (def.from_score + every - 1) / every * every);
-            sim.state.vx = side == 1 ? SimConfig.SPEED_X : -SimConfig.SPEED_X;
             if (exit == "open")
             {
                 sim.state.score = base_;
-                sim._enter_room(index);
+                came_in(sim, index, seed_value % 2, sim.state.y);
                 ExitPlanner.plan(sim, sim._rng, side, base_);
                 sim.state.exit_open = true;
             }
             else
             {
                 sim.state.score = base_ + every - 1;
-                sim._enter_room(index);
+                came_in(sim, index, seed_value % 2, sim.state.y);
                 ExitPlanner.plan(sim, sim._rng, side, base_ + every);
                 sim.state.exit_preview = true;
             }
@@ -237,7 +245,8 @@ static partial class Checks
                             bool open = n % 2 == 0;
                             n += 1;
                             long seed = 100 + n + round * 1000, y = SimConfig.slot_center_y(slot), sd = side;
-                            long ticks = SimConfig.ARRIVAL_HOLD + crossing * (open ? 1 : 2) + 20;
+                            // Open or a ghost, the exit is behind the revived bird: two crossings.
+                            long ticks = SimConfig.ARRIVAL_HOLD + crossing * 2 + 20;
                             string v = variant;
                             out_.Add(new S($"{variant} seed {seed}: {(open ? "open" : "ghost")} exit at slot {slot} on wall {side}",
                                 () => Setups.gates_revived(seed, open, sd, y, v), ticks, Through.PastStart));
@@ -260,7 +269,8 @@ static partial class Checks
         public static readonly long[] REVIVE_SEEDS = { 15, 127, 183 };
         public const long NEAR_EXIT = 28;
         public const long PORTAL_TICKS = 450;
-        public static readonly long REVIVE_TICKS = SimConfig.ARRIVAL_HOLD + 110;
+        /// The open exit is behind the revived bird: two crossings, and a bit.
+        public static readonly long REVIVE_TICKS = SimConfig.ARRIVAL_HOLD + 2 * (SimConfig.WORLD_W / SimConfig.SPEED_X) + 30;
         public static readonly string[] ISLES_VARIANTS = { "classic", "drifting", "one-big" };
         public static readonly string[] EGGS_VARIANTS = { "classic", "drifting", "golden" };
         /// More seeds for every room variant and the revive.

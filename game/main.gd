@@ -21,12 +21,20 @@ extends Node2D
 ## Leaderboards -> a run -> Replay plays that run back in the live room with
 ## the recorded player's look; it never touches the save or the leaderboards,
 ## and Back returns to the leaderboards.
+## Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
+## (RunStore, on this phone). Watch plays one back the same way, in the look
+## it was played in; Back returns to Your runs (or Home, from Home's card).
 
 enum Mode { MENU, RUN, PRACTICE, REPLAY }
 
 const RESTART_DELAY_MS := 450
 ## Resume counts 3, 2, 1 before the run plays on.
 const RESUME_COUNTDOWN := 3.0
+## After a revive: 5, 4, 3, 2, 1 over the room, then the bird flies on by
+## itself at 0. The last SimConfig.ARRIVAL_HOLD ticks of it are the sim's own
+## frozen wait after a revive (taps ignored there too), so the run is paused
+## only for the time before that.
+const REVIVE_COUNTDOWN := 5
 ## Settings > Haptics: a short buzz on flap, a longer one on a crash.
 const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
@@ -35,6 +43,8 @@ const BACK_TO_LOOK := "look"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
+## Where Your runs keeps the player's runs; tests point this somewhere else.
+var runs_path := RunStore.PATH
 ## The Supabase config that turns on the online boards and wallet; tests that
 ## need the offline ones clear it, so a config on the PC changes nothing.
 var board_config_path := SupabaseClient.CONFIG_PATH
@@ -51,6 +61,7 @@ var ads: AdsService
 var profile_sync: ProfileSync
 
 var _profile: Profile
+var _runs: RunStore
 ## The save changed from the server's copy during a run: Home puts it on.
 var _look_stale := false
 var _services: AppServices
@@ -77,10 +88,13 @@ var _rooms_cleared := 0
 ## Replay: the run's driver and the board to go back to.
 var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
+## Where Back goes from a replay of the player's own run (show_runs or
+## show_home); empty for a leaderboard run.
+var _replay_back := Callable()
 ## The room group the Rooms screen last showed ("" for the group cards).
 var _rooms_group := ""
-## Just revived: the run waits, paused, for the player's tap.
-var _revive_wait := false
+## Counting down after a revive (REVIVE_COUNTDOWN): taps do nothing.
+var _revive_count := false
 ## Seconds left in the 3, 2, 1 before a resumed run plays on (0: none).
 var _countdown := 0.0
 
@@ -100,6 +114,10 @@ func _ready() -> void:
 	add_child(_audio)
 	_profile = Profile.load_or_new(profile_path)
 	Catalog.repair(_profile)
+	# A test's own save keeps its runs next to it, never in the player's file.
+	if runs_path == RunStore.PATH and profile_path != Profile.PATH:
+		runs_path = profile_path.get_basename() + "_runs.json"
+	_runs = RunStore.new(runs_path)
 	_make_services()
 	_look = RunLook.new(_profile, _room, _hazards, _trail, _bird, _crash, _menus, _hud, _audio)
 	_look.use_equipped()
@@ -215,7 +233,7 @@ func show_home() -> void:
 	# Home draws the flyer itself, bigger, so the live one hides.
 	_look.show_flyer(false)
 	var home := HomeScreen.new(
-		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY)
+		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY), _runs.history.last()
 	)
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
@@ -224,6 +242,8 @@ func show_home() -> void:
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
+	home.runs_pressed.connect(show_runs)
+	home.watch_last_pressed.connect(watch_run.bind(show_home))
 	home.settings_changed.connect(_on_settings_changed)
 	home.practice_requested.connect(start_picker_practice)
 	home.seed_requested.connect(start_seed_practice)
@@ -250,6 +270,39 @@ func show_leaderboard(board_id: String = LeaderboardService.DAILY) -> void:
 
 func _on_replay_requested(run: Dictionary, screen: LeaderboardScreen) -> void:
 	_replay_board = screen.board_id()
+	_replay_back = Callable()
+	play_replay(run)
+
+
+## Your runs: Latest (the last 100 runs) or Saved.
+func show_runs(tab: String = RunsScreen.LATEST) -> void:
+	_drop_replay()
+	mode = Mode.MENU
+	_hud.show_menu()
+	_look.show_flyer(false)
+	var screen := RunsScreen.new(_runs, tab)
+	screen.closed.connect(show_home)
+	screen.watch_requested.connect(
+		func(r: RunRecord) -> void: watch_run(r, show_runs.bind(screen.tab()))
+	)
+	_menus.show_screen(screen)
+
+
+func runs() -> RunStore:
+	return _runs
+
+
+## Plays one of the player's own runs back, in the look it was played in;
+## Back calls `back`. A run from an older version shows why it can't play.
+func watch_run(record: RunRecord, back: Callable = Callable()) -> void:
+	if record == null:
+		return
+	_replay_back = back if back.is_valid() else show_runs
+	var run := record.run.to_dict()
+	run["name"] = "You"
+	if not record.watchable():
+		# ReplayDriver.problem() turns it down with the older-version message.
+		run = {"seed": record.run.replay.seed_value, "gameplay_version": -1}
 	play_replay(run)
 
 
@@ -288,6 +341,11 @@ func _replay_again() -> void:
 ## Back (or the exit icon): the leaderboards, on the board the run came from.
 func _leave_replay() -> void:
 	_audio.menu()
+	if _replay_back.is_valid():
+		var back := _replay_back
+		_replay_back = Callable()
+		back.call()
+		return
 	show_leaderboard(_replay_board)
 
 
@@ -650,7 +708,7 @@ func _new_run() -> void:
 	_rooms_cleared = 0
 	_game_over_at_ms = -1
 	_revive.reset()
-	_revive_wait = false
+	_revive_count = false
 	_countdown = 0.0
 
 
@@ -685,6 +743,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# A tap during the countdown does nothing; it is not a flap.
 		if _countdown <= 0.0:
 			_resume()
+	elif _revive_count:
+		# The end of the revive countdown: not a flap either.
+		pass
 	elif _run.sim.is_over():
 		_try_restart()
 	else:
@@ -721,12 +782,8 @@ func _toggle_pause() -> void:
 
 
 ## Resume from the pause screen: the scrim goes and a 3, 2, 1 counts down over
-## the frozen room, so the player can find the bird before it moves. The tap
-## after a revive plays on at once (the bird is already in view).
+## the frozen room, so the player can find the bird before it moves.
 func _resume() -> void:
-	if _revive_wait:
-		_set_paused(false)
-		return
 	_hud.show_paused(false, _profile.settings.music_on, _profile.settings.sfx_on)
 	_countdown = RESUME_COUNTDOWN
 	_hud.countdown.show_count(ceili(_countdown))
@@ -738,24 +795,46 @@ func _process(delta: float) -> void:
 
 func _tick_countdown(delta: float) -> void:
 	if _countdown <= 0.0:
+		_tick_revive_hold()
 		return
 	_countdown -= delta
 	if _countdown > 0.0:
-		_hud.countdown.show_count(ceili(_countdown))
+		_hud.countdown.show_count(ceili(_countdown + _revive_hold_seconds()))
+	elif _revive_count:
+		# The sim's frozen wait counts the rest down.
+		_set_paused(false)
+		_revive_count = true
+		_tick_revive_hold()
 	else:
 		_set_paused(false)
+
+
+## The last part of the revive countdown: the run plays, the sim holds the
+## bird (SimState.arrival_hold) and the count follows it down to 0.
+func _tick_revive_hold() -> void:
+	if not _revive_count:
+		return
+	var hold := _run.sim.state.arrival_hold
+	_hud.countdown.show_count(ceili(hold / float(SimConfig.TICKS_PER_SECOND)))
+	if hold <= 0:
+		_revive_count = false
+
+
+## Seconds of the revive countdown the sim's own hold takes (0 when not
+## counting down after a revive).
+func _revive_hold_seconds() -> float:
+	if not _revive_count:
+		return 0.0
+	return SimConfig.ARRIVAL_HOLD / float(SimConfig.TICKS_PER_SECOND)
 
 
 ## Pauses or plays on at once (no countdown).
 func _set_paused(value: bool) -> void:
 	_countdown = 0.0
+	_revive_count = false
 	_hud.countdown.show_count(0)
 	_run.set_paused(value)
 	_hud.show_paused(value, _profile.settings.music_on, _profile.settings.sfx_on)
-	if not value and _revive_wait:
-		# The tap after a revive: "Tap to flap" goes, the run plays on.
-		_revive_wait = false
-		_hud.show_running()
 
 
 ## The coin flies from where it was in the room into the counter.
@@ -801,11 +880,15 @@ func _on_died(replay: Replay) -> void:
 		_revive.on_crash(replay)
 
 
-## Revived from the offer: the bird is back and waits, paused, for a tap.
+## Revived from the offer: the bird is back and a 5, 4, 3, 2, 1 counts down
+## over the frozen room (the player may have looked away for an ad); at 0 it
+## flies on by itself.
 func _on_revive() -> void:
-	_revive_wait = true
 	_run.set_paused(true)
-	_hud.show_running(true)
+	_hud.show_running()
+	_revive_count = true
+	_countdown = REVIVE_COUNTDOWN - _revive_hold_seconds()
+	_hud.countdown.show_count(REVIVE_COUNTDOWN)
 
 
 ## The sim revived the bird (also in a replay of a revived run).
@@ -822,6 +905,17 @@ func _finish_run(replay: Replay) -> void:
 	var previous_best := _profile.best_score
 	var is_new_best := replay.score > previous_best
 	var earned := _profile.record_run(replay.score, replay.coins)
+	# Your runs keeps it on the phone, in the look it was played in.
+	_runs.add(
+		RunRecord.make(
+			replay,
+			LeaderboardService.loadout_of(_profile),
+			int(Time.get_unix_time_from_system()),
+			_rooms_cleared + 1,
+			_revive.revived_at,
+			is_new_best
+		)
+	)
 	# Seed and taps go along, so a verification server can check the run later.
 	leaderboard.submit_run(replay.score, replay.to_dict())
 	_save_profile()

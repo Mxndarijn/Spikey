@@ -21,7 +21,8 @@ https://claude.ai/artifact/BbTtTcBhVminhmBNc2fceH
   restarts with one tap.
 - Closing the ad early counts as Skip: the run ends. An ad that fails to show
   after the player asked for it revives anyway.
-- After a revive the run waits, paused, for a tap.
+- After a revive a 5, 4, 3, 2, 1 counts down over the frozen room, then the
+  run plays on by itself. No tap needed; taps during it do nothing.
 
 ## Revive Pass
 
@@ -62,50 +63,62 @@ builds pays at once). When Google Play Billing and StoreKit come, the
 purchase receipt must be checked on the server before the pass is granted,
 and restore must come from the store's purchase history.
 
-## The rule: a revive restarts the current room
+## The rule: a revive restarts the room as the bird came into it
 
-After a revive the bird arrives in the **same room again, as if it had just come
-through a portal**:
+After a revive the room is **exactly as it was when the bird came in**, and the
+bird is back at the portal it came through:
 
 1. Score, coins, flaps, room index, route and the RNG carry on. Nothing is
    rolled back.
-2. The room is started fresh (`RoomRuntime.start` with the same `RoomDef`), so
-   its hazards are rebuilt from the RNG and its tide, blink and point counters
-   reset.
-3. The bird is placed at a side wall, at mid height (`SimConfig.BIRD_START_Y`),
-   flying level (`vy = 0`), and waits `SimConfig.ARRIVAL_HOLD` ticks with the
-   room frozen.
-4. Both walls are cleared, then the wall the bird faces gets spikes through the
-   normal `_new_wall(side)`.
+2. The room is the copy `GameSim` kept when the bird came out of the portal
+   (`_entry_room`, taken by `_keep_entry` at the run start and after every
+   portal arrival, not in practice or inside an arrival check): the same
+   variant, the same hazards where they were then, the same wall spikes, the
+   tide, blink and point counters as they were.
+3. The bird is where it came in (`_entry_state`): that wall, that height, flying
+   the same way, level (`vy = 0`). It waits `SimConfig.ARRIVAL_HOLD` ticks with
+   the room frozen. In the first room that is where the run started.
+4. The exit always ends up on the wall the bird came in by, so a crossing and a
+   bounce come before it:
 
-Which wall it starts from depends on the exit, so the exit can never be lost:
+| At death | After the revive |
+|---|---|
+| No exit | no exit; nothing is drawn from the RNG |
+| Exit open, either wall | still open, moved to the portal the bird comes out of: the wall it came in by, at the spike slot nearest its height (`ExitPlanner.at_bird`; at a fork the exit on the bird's side of the split moves, the other stays). Where a hazard blocks that height (Shutter Gates), it is planned again on that wall (`ExitPlanner.plan`) and the bird comes out just clear of the spike tips |
+| Ghost exit, either wall | still a ghost, planned again on the wall it came in by (`ExitPlanner.plan`, the same score), among the hazards as they are after the revive |
 
-| At death | Bird starts at | Flies toward |
-|---|---|---|
-| Exit open on wall S | the wall opposite S | S (the exit) |
-| Ghost exit on wall S | wall S | the far wall, to score the point that opens it |
-| No exit | the wall behind it (from `vx` at death) | the way it was going |
+Why this:
 
-`exit_open`, `exit_preview`, `exit_side` and the exit heights are kept as they
-were.
-
-Why this and not "continue in place with a few safe ticks":
-
-- Portal arrival already exists and is already checked for fairness
-  (`_go_through`, `ARRIVAL_HOLD`, `tools/arrival_test.gd`,
-  the `rescued` FastSim check). Hazards already keep clear of an
-  arriving bird through `entry_y()`. A revive reuses that path instead of adding
-  a second one.
-- Continuing in place would need every hazard (19 kinds) to honour an
-  invulnerable bird, and the bird can be inside a spike or below the floor when
-  it dies.
+- It looks like a real restart. The first version rebuilt the room from the
+  RNG, so the variant (and with it the number of spikes) could change and the
+  spikes ahead were rolled again: players saw the room change under the
+  countdown and took it for a glitch.
+- The arrival was already checked for fairness when the bird first came in
+  (`_go_through` retries the layout until `ArrivalCheck` passes). The revive
+  replays that same arrival, with the room frozen for the hold first.
+- Why the exit moves: ahead of the bird, an open exit leaves one flight to line
+  up with it (from a low portal to a high exit is too far), and a ghost would
+  open under the bird as it bounced off that wall. Behind, an open exit is the
+  only spike-free spot on a wall that is spiked everywhere else, so the bird
+  comes out of it. A ghost is planned again even when it was already behind:
+  its old spot was picked among the hazards as they were then, and the room
+  as it came in can block it (a crawler back at its start, a gate's gap).
+- Continuing in place at the moment of death was ruled out from the start: the
+  hazard that killed the bird is still there, every hazard (19 kinds) would
+  have to honour an invulnerable bird, and the bird can be inside a spike or
+  below the floor when it dies.
 
 Known side effects, accepted:
 
-- Rooms that place coins at room start place them again, so a revive can be
-  worth a few extra coins. It is capped by one revive per run.
-- `room.points` resets, so rooms whose walls get busier with points in the room
-  start a little calmer.
+- Coins and keys the room had when the bird came in are back, so a revive can
+  be worth a few extra coins. It is capped by one revive per run.
+- `room.points` is back to what it was at the portal (0), so rooms whose walls
+  get busier with points in the room start a little calmer.
+- The hazards' own revive code (Crawler `REVIVE_SHIFT`, Gate `REVIVE_REACH`,
+  Block's islands around an exit already there) ran when a revived room was
+  rebuilt with an exit planned. A room is never built with an exit planned
+  now, so that code never ran and has been removed (no RNG draw or checksum
+  changed).
 
 ## Sim changes (`sim/`)
 
@@ -114,6 +127,9 @@ Known side effects, accepted:
 - `GAMEPLAY_VERSION` 14 -> 15. Runs without a revive play exactly as before,
   but the bump is still required: the checksum gains a field, and a version 14
   checker must leave revived runs pending instead of rejecting them.
+- The revive that restarts the room as the bird came in (this rule) needs a
+  `GAMEPLAY_VERSION` bump; the coordinator bumps it once everything for
+  `next-features-2` is merged. Runs without a revive play exactly as before.
 
 `SimState`
 - `var revives := 0`, added to `copy()` and at the end of `checksum()`.
@@ -121,23 +137,22 @@ Known side effects, accepted:
 `GameSim`
 - `Event.REVIVE`, appended at the end of the enum.
 - `func can_revive() -> bool`: dead, not practice, `state.revives < MAX_REVIVES`.
+- `_entry_room` and `_entry_state`: the room (`SimCopy.copy_room`) and the
+  state copy kept by `_keep_entry()` at the run start and at the end of
+  `_arrive_in`. Never changed after; a revive copies the room again.
 - `func revive() -> bool`: returns false and changes nothing when
   `can_revive()` is false. Otherwise, in this order (the order is part of the
-  rules, like `_new_wall`):
+  rules):
   1. `events.clear()`; `state.alive = true`; `death_cause = NONE`;
      `state.revives += 1`.
-  2. Pick the facing side from the table above. Put the bird where it will
-     arrive (`state.x`, `state.y`, `state.vx`, `state.vy = 0`) **before** the
-     room starts, because hazards read the bird in `setup()`. A portal arrival
-     differs here: its room starts while the bird is still at the exit wall it
-     flew into, so the Bramble Ball ("start in the half away from the bird")
-     starts in the half the bird arrives in. With that position a revive in
-     Pumpkin Bounce was unsurvivable; with the real position every room passes.
-  3. `_enter_room(room.index)`.
-  4. Set `state.x` from `room.wall_left()` / `wall_right()`, clear both spike
-     masks, `state.arrival_hold = ARRIVAL_HOLD`.
-  5. `_new_wall(facing side)`.
-  6. `events.append(Event.REVIVE)`.
+  2. `room` = a copy of `_entry_room`; `state.room_kind` from it.
+  3. `state.x`, `y`, `vx`, `left_spikes`, `right_spikes` from `_entry_state`;
+     `vy = 0`.
+  4. The exit, by the table above: `ExitPlanner.at_bird(behind)` for an open
+     exit (if it returns false, `ExitPlanner.plan(behind, score)` and the bird
+     moves `max_spike_depth() + 1` sub-unit off the wall),
+     `ExitPlanner.plan(behind, score + 1)` for a ghost.
+  5. `state.arrival_hold = ARRIVAL_HOLD`; `events.append(Event.REVIVE)`.
 - `revive()` does not advance `state.tick`. It is called between steps, while
   the sim is dead, so the time spent on the offer or in the ad is not part of
   the run.
@@ -208,9 +223,14 @@ per-player daily counter.
   `DISMISSED` ends the run;
 - Skip, a second crash, or no offer: `_finish_run(replay)` (coins, best score,
   `submit_run`, Game over with "Revived at N").
-- After a revive the run is paused with "Tap to flap"; the tap resumes it. That
-  tap falls in the arrival hold and is ignored by the sim, as on a portal
-  arrival.
+- After a revive `Main.REVIVE_COUNTDOWN` (5 s) counts 5, 4, 3, 2, 1 with the
+  big `ResumeCountdown` and the bird flies on by itself at 0. The run is
+  paused for the first 4 s; the last second is the sim's own revive hold
+  (`SimConfig.ARRIVAL_HOLD`, 60 ticks), where the count follows
+  `SimState.arrival_hold`. So nothing in `sim/` changed: the resume tick is
+  always the revive tick + `ARRIVAL_HOLD`, as before. Main drops taps during
+  the whole countdown (none are recorded), and the sim would ignore any in its
+  hold anyway. Pause during it stops it; Resume then counts the usual 3, 2, 1.
 
 `services/ads_service.gd` (`AdsService`): `is_ready()`, `preload_rewarded()`,
 `show_rewarded()` and `rewarded_closed(result)`. The base class is "no ads".
@@ -245,16 +265,23 @@ Open points:
   - revive keeps score, coins and RNG state, bumps `revives`, emits `REVIVE`;
   - a second revive, a revive while alive and a revive in practice return
     false and change nothing (same checksum);
-  - the three exit cases from the table put the bird on the right wall facing
-    the right way, with the exit still open or still a ghost.
+  - the room, the bird and the walls are as the bird came in; no RNG draw
+    without an exit; the first room starts where the run did;
+  - the exit cases from the table: an open exit or a ghost ends up behind the
+    bird, an open exit is the portal the bird comes out of (no spike in it,
+    the bird lives through the hold).
 - `tests/unit/test_replay.gd` additions: a revived run verifies; the same run
   with the revive tick removed, moved by one, or doubled is rejected; the
   dictionary round trip keeps `revives`.
 - The `revive` FastSim check (`tools/fastsim/Checks.cs`, was
   `tests/sim/test_revive_survivable.gd`): for every room kind, all three exit
-  cases and both walls, kill the bird, revive, and let `SurvivalSearch` show
-  that a survivor exists. Mid height is good enough.
-- Two golden replays with a revive (`g15_revived_seed_*.json`); the others
+  cases, both exit walls, both ways in and three portal heights (140, 300 and
+  480 px; 1764 cases), the bird comes in through a portal laid out as in a
+  real run (`BotSetups.came_in`), dies, is revived, and `SurvivalSearch` shows
+  that a survivor exists. The `crawl`, `gates` and `isles` revive searches
+  come in the same way (toward wall `seed % 2`).
+- Two golden replays with a revive (`g*_revived_seed_*.json`, regenerated with
+  the next version bump); the others
   were regenerated after the version bump and kept their taps, score and end
   tick.
 - `RunChecker` tests: `revives` missing, valid, and not a list.
@@ -264,7 +291,8 @@ Open points:
   crash, buying it in the Shop ("Owned"), the save round trip, the server
   merge after a reinstall, and restore (kept products only).
 - `tests/unit/test_revive_flow.gd`: the app side. Free revives per day, the
-  offer's two states, revive then tap then a second crash, Skip, no offer for
+  offer's two states, revive then the 5 to 1 countdown (taps ignored, the
+  resume tick, the replay) then a second crash, Skip, no offer for
   low scores and practice, the ad watched, closed early and broken, a revived
   run played back from the boards, what is sent, and the heart on the boards.
 

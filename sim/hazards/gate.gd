@@ -26,9 +26,6 @@ const ARRIVAL_HOVER := 30 * SimConfig.SUB
 ## its wall will be when the bird comes through it (about 27 steps from the
 ## wall: one hop up, or a short drop).
 const EXIT_REACH := 80 * SimConfig.SUB
-## A revived bird (the exit stayed where it was): the gap of the first gate it
-## meets is at most this far from the bird's height, toward the exit.
-const REVIVE_REACH := 80 * SimConfig.SUB
 ## A small gate plans no exit below this: a revived bird (at BIRD_START_Y)
 ## can't drop through its window to an open exit lower down in one crossing.
 const SMALL_EXIT_MAX_Y := 490 * SimConfig.SUB
@@ -58,8 +55,7 @@ func _init(p_x: int = 0, p_period: int = 400, p_follows: bool = false, p_gap: in
 
 
 ## The gap starts at the bird's height (it just came in at a wall and can't
-## slow down), moving up or down at random. If an exit is already open or
-## planned (a revive), the gaps lead from the bird to it instead.
+## slow down), moving up or down at random.
 func setup(sim: GameSim, rng: SimRng) -> void:
 	partner = null
 	# Hazards are set up in order, so the follower finds the leader (already
@@ -70,12 +66,9 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			h.partner = self
 	if follows and partner != null:
 		period = partner.period
-		# The leader now knows both gates, so it can aim the last one.
-		if sim.state.exit_open or sim.state.exit_preview:
-			partner.aim_at_exit(sim)
 		# Out of a portal the leader timed its own gap for the bird; when this
 		# gate is the nearer one, shift the pair so this gap is the one there.
-		elif sim.state.started and absi(x - sim.state.x) < absi(partner.x - sim.state.x):
+		if sim.state.started and absi(x - sim.state.x) < absi(partner.x - sim.state.x):
 			var shift: int = _lead(sim, partner.x) - (_lead(sim, x) - LAG)
 			partner.phase = posmod(partner.phase + shift, period)
 			partner._place()
@@ -101,8 +94,6 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			aim = through[0]
 			lead = through[1]
 	phase = _phase_for(aim, lead, down)
-	if sim.state.exit_open or sim.state.exit_preview:
-		aim_at_exit(sim)
 	_place()
 
 
@@ -176,29 +167,6 @@ func _steps_to_pass(sim: GameSim, gate: Hazard, side: int) -> int:
 	var r := SimConfig.BIRD_RADIUS
 	var wall_x := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
 	return maxi(sim.steps_to_wall(side) - absi(wall_x - gate.x) / SimConfig.SPEED_X, 0)
-
-
-## Leader only, at setup with an exit already open or planned (the bird was
-## revived; the exit stayed where it was): sets the cycle so the gaps move from
-## the bird toward the exit. The first gate the bird meets has its gap within
-## REVIVE_REACH of the bird, and the last gate before the exit's wall has its
-## gap at the exit's height when the bird comes through on its way there, or
-## as near as the gap gets by then. No RNG.
-func aim_at_exit(sim: GameSim) -> void:
-	var s := sim.state
-	var last := _last_before(s.exit_side)
-	var first := _last_before(0 if s.vx > 0 else 1)
-	# Where in the leader's cycle each of the two moments is (the follower runs
-	# LAG steps behind it).
-	var first_at := absi(first.x - s.x) / SimConfig.SPEED_X - (0 if first == self else LAG)
-	var last_at := _steps_to_pass(sim, last, s.exit_side) - (0 if last == self else LAG)
-	# How far the gap slides between the two.
-	var slide := (GAP_MAX_Y - GAP_MIN_Y) * (last_at - first_at) / (period / 2)
-	var reach := maxi(REVIVE_REACH + slide, 0)
-	var from := FairLanes.entry_y(sim)
-	var target := clampi(clampi(s.exit_a_y, GAP_MIN_Y, GAP_MAX_Y), from - reach, from + reach)
-	phase = _phase_for(target, t + last_at, target > from)
-	_place()
 
 
 ## The leader keeps the wall ahead open where the gate next to it will have

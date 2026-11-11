@@ -39,8 +39,8 @@ flowchart TD
 | Folder | Owns | May depend on | Must never |
 |---|---|---|---|
 | `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data or skins |
-| `meta/` | The save and the rules about money: `Profile` (gold, diamonds, owned and equipped ids, rooms met, per-room reached, cleared and death counts, the leaderboard name) with its parts `PlayerSettings` (the Settings sheet) and `DailyRevives`; `ItemKind` (the kinds and the free starters); `PlayerName` + `NameFilter` (leaderboard name rules); `SafeFile` (crash-proof JSON saves with a backup); `Economy` (1 diamond = 100 gold, one way; daily top-10 prizes), `DiamondPacks`, `SeasonCalendar` | `sim/` | Change gameplay; know how anything looks |
-| `services/` | `LeaderboardService`, `WalletService`, `StoreService`, `AdsService`, `PushService`: each base class is the offline stand-in, with `Sample*`/`Fake*` and the real ones beside it. `SupabaseClient` is the one Supabase connection (session, device key, database calls) that `SupabaseLeaderboard`, `SupabaseWallet`, `ProfileSync` and push share | `sim/`, `meta/` | Hold game rules; grant diamonds without the store's confirmation |
+| `meta/` | The save and the rules about money: `Profile` (gold, diamonds, owned and equipped ids, rooms met, per-room reached, cleared and death counts, the leaderboard name) with its parts `PlayerSettings` (the Settings sheet) and `DailyRevives`; `ItemKind` (the kinds and the free starters); `PlayerName` + `NameFilter` (leaderboard name rules); `SafeFile` (crash-proof JSON saves with a backup); `RunRecord` + `RunHistory` (Your runs: the last 100 runs and up to 20 saved, never dropped); `Economy` (1 diamond = 100 gold, one way; daily top-10 prizes), `DiamondPacks`, `SeasonCalendar` | `sim/` | Change gameplay; know how anything looks |
+| `services/` | `LeaderboardService`, `WalletService`, `StoreService`, `AdsService`, `PushService`: each base class is the offline stand-in, with `Sample*`/`Fake*` and the real ones beside it. `SupabaseClient` is the one Supabase connection (session, device key, database calls) that `SupabaseLeaderboard`, `SupabaseWallet`, `ProfileSync` and push share. `RunStore` keeps Your runs in `user://runs.json` | `sim/`, `meta/` | Hold game rules; grant diamonds without the store's confirmation |
 | `game/` | Scenes, drawing, input, audio, haptics, UI. `game/cosmetics/`: `Catalog` (every look by kind), `Shop` (prices), `Checkout` (buying and converting through the wallet), the style + painter pairs. `game/app/`: `AppServices`, `RunLook`, `ReviveFlow`, `BoardAlerts` | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | — | — |
@@ -158,7 +158,7 @@ start and never comes back.
   returns the mask from `adjust_wall`; it never writes the wall spikes itself.
   `wall_shift` slides a wall's spikes along it (Spike Belt: collision and the
   view both read `GameSim.wall_shift`); `locks_exit` turns an open exit into a
-  bounce (Locked Exit). A hazard in a room with variants may read
+  bounce (Locked Out). A hazard in a room with variants may read
   `room.variant_id()` in `setup()` instead of each variant adding its own.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
@@ -275,6 +275,7 @@ Attest / Play Integrity to confirm a real device.
 | Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |
 | Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
 | Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only), the Revive Pass in `meta/diamond_packs.gd` (ad-free revives, still one per run: [REVIVE.md](REVIVE.md)) |
+| Your runs | `meta/run_history.gd` + `run_record.gd` (limits, version check), `services/run_store.gd` (the file), `game/ui/screens/runs_screen.gd`, Home's card; Watch uses the leaderboard replay path (`main.watch_run` -> `play_replay`) |
 | Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/supabase_*.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`

@@ -4,6 +4,7 @@ extends TestCase
 ## get. The sim's own revive rules are in test_revive.gd.
 
 const TEST_PATH := "user://test_revive_flow_profile.json"
+const MainScript := preload("res://game/main.gd")
 const HUD_SCENE := "res://game/ui/hud.tscn"
 
 
@@ -155,15 +156,12 @@ func test_a_crash_offers_a_free_revive_and_the_run_plays_on() -> void:
 		DailyRevives.PER_DAY - 1,
 		"the spent revive is saved"
 	)
-	assert_true(main._run.paused, "it waits for a tap")
-	assert_true(main._hud._hint.visible, "Tap to flap")
+	assert_true(main._run.paused, "it counts down first")
+	assert_false(main._hud._hint.visible, "no Tap to flap")
 	assert_true("revive" in main._audio.played, "the revive sound")
-	var tick: int = main._run.sim.state.tick
-	main._run._physics_process(1.0 / 60.0)
-	assert_eq(main._run.sim.state.tick, tick, "nothing moves until the tap")
-	_tap(main)
-	assert_false(main._run.paused, "the tap flies on")
-	assert_false(main._hud._hint.visible)
+	_count_down(main)
+	assert_false(main._run.paused, "it flies on by itself")
+	assert_false(main._hud.countdown.visible)
 	assert_true(main._hud._score.visible)
 	# The second crash ends the run: no second offer.
 	_fall(main)
@@ -176,6 +174,114 @@ func test_a_crash_offers_a_free_revive_and_the_run_plays_on() -> void:
 	var sent := Replay.from_dict(board.runs[0])
 	assert_eq(sent.revive_ticks.size(), 1, "with its revive tick")
 	assert_eq(sent.end_tick, main._run.sim.state.tick)
+	_free(main)
+
+
+## A real run with no cheats (so its replay can be checked): the gap seeker
+## plays seed 5160 until it has `score` points, then stops tapping and falls.
+static func _play_and_crash(main: Node, score: int) -> void:
+	main.start_run()
+	main._run.new_run(5160)
+	var rng := SimRng.new(4)
+	while not main._run.sim.is_over() and main._run.sim.state.score < score:
+		if SimBots.gap_seeker(main._run.sim, rng):
+			main._run.request_tap()
+		main._run.advance()
+	_fall(main)
+
+
+## Runs the whole revive countdown: the paused part, then the sim's hold.
+static func _count_down(main: Node) -> void:
+	for i in MainScript.REVIVE_COUNTDOWN:
+		main._tick_countdown(1.0)
+	while main._revive_count:
+		main._run._physics_process(1.0 / 60.0)
+		main._tick_countdown(1.0 / 60.0)
+
+
+## After a revive 5, 4, 3, 2, 1 counts down over the frozen room; taps neither
+## flap nor cut it short, and at 0 the bird flies on by itself, exactly
+## ARRIVAL_HOLD ticks after the revive (as the sim and its replay have it).
+func test_a_revive_counts_down_from_five_then_plays_on() -> void:
+	var board := SpyBoard.new()
+	var main := _make_main(board)
+	_play_and_crash(main, ReviveFlow.MIN_SCORE)
+	assert_true(main._hud.revive_offer.visible, "the bot scored enough for the offer")
+	main._hud.revive_offer.revive_button().pressed.emit()
+	var hud: Hud = main._hud
+	var s: SimState = main._run.sim.state
+	var revive_tick := s.tick
+	var taps: int = main._run._taps.size()
+	var x := s.x
+	var y := s.y
+	var flaps := s.flaps
+	assert_eq(MainScript.REVIVE_COUNTDOWN, 5, "five seconds")
+	assert_true(main._run.paused)
+	assert_true(hud.countdown.visible)
+	assert_eq(hud.countdown.text, "5")
+	# The paused part: four seconds, nothing moves, taps do nothing.
+	for n in [4, 3, 2]:
+		_tap(main)
+		main._run.request_tap()
+		main._run._physics_process(1.0 / 60.0)
+		assert_eq(s.tick, revive_tick, "nothing moves during the countdown")
+		main._tick_countdown(1.0)
+		assert_true(main._run.paused, "a tap does not skip it")
+		assert_eq(hud.countdown.text, str(n))
+	main._tick_countdown(1.0)
+	# The last second is the sim's own hold: the run plays, the bird waits.
+	assert_false(main._run.paused)
+	assert_true(hud.countdown.visible)
+	assert_eq(hud.countdown.text, "1")
+	assert_eq(s.arrival_hold, SimConfig.ARRIVAL_HOLD)
+	for i in SimConfig.ARRIVAL_HOLD - 1:
+		_tap(main)
+		main._run._physics_process(1.0 / 60.0)
+		main._tick_countdown(1.0 / 60.0)
+		assert_eq(hud.countdown.text, "1")
+		assert_true(hud.countdown.visible, "no resume before 0")
+	assert_eq(s.x, x, "the bird has not moved")
+	assert_eq(s.y, y)
+	assert_eq(main._run._taps.size(), taps, "no tap was recorded")
+	assert_eq(s.flaps, flaps, "no flap")
+	main._run._physics_process(1.0 / 60.0)
+	main._tick_countdown(1.0 / 60.0)
+	assert_false(hud.countdown.visible, "0: the count goes")
+	assert_false(main._revive_count)
+	assert_eq(s.tick, revive_tick + SimConfig.ARRIVAL_HOLD)
+	# Now it flies: the bird moves and a tap is a flap.
+	main._run._physics_process(1.0 / 60.0)
+	assert_ne(s.x, x, "the bird flies on by itself")
+	_tap(main)
+	main._run._physics_process(1.0 / 60.0)
+	assert_eq(s.flaps, flaps + 1, "taps flap again")
+	# The run that is sent replays to the same result.
+	_fall(main)
+	assert_eq(board.runs.size(), 1)
+	var sent := Replay.from_dict(board.runs[0])
+	assert_eq(sent.revive_ticks, PackedInt32Array([revive_tick]))
+	var check := sent.verify()
+	assert_true(check.ok, str(check.reason))
+	assert_eq(check.end_tick, s.tick)
+	assert_eq(check.checksum, main._run.sim.checksum())
+	_free(main)
+
+
+## Pause during the revive countdown stops it; Resume counts the usual 3, 2, 1.
+func test_pause_during_the_revive_countdown() -> void:
+	var main := _make_main(SpyBoard.new())
+	_crash(main, 12)
+	main._hud.revive_offer.revive_button().pressed.emit()
+	var hud: Hud = main._hud
+	main._tick_countdown(1.0)
+	main._toggle_pause()
+	assert_true(hud.pause_screen.visible)
+	assert_false(hud.countdown.visible)
+	main._toggle_pause()
+	assert_eq(hud.countdown.text, "3")
+	for i in 3:
+		main._tick_countdown(1.0)
+	assert_false(main._run.paused, "plays on after the 3, 2, 1")
 	_free(main)
 
 
