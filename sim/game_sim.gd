@@ -25,6 +25,12 @@ const BUMP_VY := -SimConfig.FLAP_VY * 6 / 5
 const ARRIVAL_WALL_SPARE := 30
 ## Practice starts this far from the left wall.
 const PRACTICE_START_GAP := 40 * SimConfig.SUB
+## Bounces before an exit when the anchor and the walls steer toward it
+## (_anchor_target, _wall_target).
+const EXIT_STEER := 3
+## Bird heights (from the exit's) a portal arrival is checked at: anywhere a
+## bird can come through the exit (see _arrival_retries).
+const ARRIVAL_HEIGHTS: Array[int] = [0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT]
 ## As the practice room: a blank sim with no room built yet, for SimCopy to fill.
 const FOR_COPY := -2
 
@@ -46,9 +52,19 @@ var room := RoomRuntime.new()
 ## Events produced by the last step(). Read them, don't keep the array.
 var events: Array[int] = []
 
+## The room's RNG: its layout, walls, coins and exits (GameSim._new_wall
+## reseeds it for every wall after the first).
 var _rng: SimRng
+## Draws only each room's kind and seed, a fixed number per portal, so nothing
+## a player does in a room changes the rooms after it: two players of one seed
+## who take the same portals get the same rooms, variants, spikes and hazards.
+var _spine: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
+## The free part of the wall just bounced off, top and bottom (-1 = none
+## known): set by _anchor_at_wall for the _new_wall right after it.
+var _free_lo := -1
+var _free_hi := -1
 ## The room as the bird came into it, and the bird as it came in (position,
 ## speed, wall spikes): a revive restarts the room from here. Taken at the run
 ## start and after each portal arrival (not in practice or checks); never
@@ -63,9 +79,11 @@ func _init(
 	seed_value = p_seed
 	season = p_season
 	forced_variant = p_variant
-	_rng = SimRng.new(p_seed)
+	_spine = SimRng.new(p_seed)
+	_rng = SimRng.new(0)
 	if p_practice_room == FOR_COPY:
 		return
+	_seed_room()
 	if p_practice_room >= 0 and p_practice_room < RoomCatalog.all().size():
 		practice_room = p_practice_room
 		state.score = RoomCatalog.all()[practice_room].from_score
@@ -73,8 +91,10 @@ func _init(
 		# so the bird never starts inside a hazard in the middle of the room.
 		state.x = PRACTICE_START_GAP
 		_enter_room(practice_room)
+		ExitPlanner.plan_room(self, next_exit_score())
 	else:
 		_enter_room(RoomCatalog.first_index())
+		ExitPlanner.plan_room(self, next_exit_score())
 		_keep_entry()
 
 
@@ -151,6 +171,7 @@ func revive() -> bool:
 	state.y = _entry_state.y
 	state.vx = _entry_state.vx
 	state.vy = 0
+	state.anchor_y = _entry_state.anchor_y
 	state.left_spikes = _entry_state.left_spikes
 	state.right_spikes = _entry_state.right_spikes
 	# An exit always ends up on the wall the bird came in by, so a crossing and
@@ -207,7 +228,9 @@ func exit_locked() -> bool:
 
 ## Full checksum of state, room and RNG, for golden replays and desync detection.
 func checksum() -> int:
-	return SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum())
+	return SimHash.mix(
+		SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum()), _spine.state_checksum()
+	)
 
 
 # --- Helpers for hazards ------------------------------------------------------
@@ -329,6 +352,7 @@ func _check_walls() -> void:
 	if state.vx > 0 and state.x + r >= right:
 		if _take_exit(1):
 			return
+		_anchor_at_wall(1)
 		state.x = 2 * (right - r) - state.x
 		state.vx = -SimConfig.SPEED_X
 		room.on_wall_bounce()
@@ -339,6 +363,7 @@ func _check_walls() -> void:
 	elif state.vx < 0 and state.x - r <= left:
 		if _take_exit(0):
 			return
+		_anchor_at_wall(0)
 		state.x = 2 * (left + r) - state.x
 		state.vx = SimConfig.SPEED_X
 		room.on_wall_bounce()
@@ -361,13 +386,16 @@ func _take_exit(side: int) -> bool:
 	# center is level with a spike base and _check_spikes has already killed it.
 	var fit := SimConfig.EXIT_FIT
 	var kind := -1
+	var through := 0
 	if absi(state.y - state.exit_a_y) <= fit:
 		kind = state.exit_a_kind
+		through = state.exit_a_y
 	elif state.exit_b_kind != SimState.ExitKind.NORMAL and absi(state.y - state.exit_b_y) <= fit:
 		kind = state.exit_b_kind
+		through = state.exit_b_y
 	if kind < 0:
 		return false
-	_go_through(side, kind)
+	_go_through(side, kind, through)
 	return true
 
 
@@ -391,13 +419,47 @@ func _maybe_open_exit(side: int) -> void:
 			events.append(Event.EXIT_OPEN)
 		return
 	if (state.score + 1) % every == 0:
-		ExitPlanner.plan(self, _rng, 1 - side, state.score + 1)
 		state.exit_preview = true
+		ExitPlanner.use_plan(self, 1 - side, state.score + 1)
 		events.append(Event.EXIT_PREVIEW)
 	elif state.score % every == 0:
-		ExitPlanner.plan(self, _rng, side, state.score)
 		state.exit_open = true
+		ExitPlanner.use_plan(self, side, state.score)
 		events.append(Event.EXIT_OPEN)
+
+
+## The score the next exit opens at: now if one is open, else the next
+## multiple of POINTS_PER_ROOM.
+func next_exit_score() -> int:
+	if state.exit_open:
+		return state.score
+	var every := SimConfig.POINTS_PER_ROOM
+	return (state.score / every + 1) * every
+
+
+## Bounces still to score before the next exit opens.
+func points_to_exit() -> int:
+	return next_exit_score() - state.score
+
+
+## Sim steps until the bird, flying straight on and bouncing, gets to wall
+## `side` with the next exit open: the points still to score first, then the
+## first time it reaches that wall. One bounce before the exit (a ghost) this
+## is steps_to_wall(side). Hazards that move use it to keep the way to an exit
+## open (Hazard.blocks_exit), also when the exit is picked at room start.
+func steps_to_exit(side: int) -> int:
+	var r := SimConfig.BIRD_RADIUS
+	var left := room.wall_left() + r
+	var right := room.wall_right() - r
+	var heading := 1 if state.vx > 0 else 0
+	var ahead := right - state.x if heading == 1 else state.x - left
+	# Wall touches from now: the first is on the wall ahead, then they take
+	# turns. The exit can be taken on the touch after its points are in.
+	var touch := points_to_exit() + 1
+	var on := heading if touch % 2 == 1 else 1 - heading
+	if on != side:
+		touch += 1
+	return maxi(ahead, 0) / SimConfig.SPEED_X + (touch - 1) * ((right - left) / SimConfig.SPEED_X)
 
 
 ## Sim steps until the bird, flying straight on, reaches wall `side` (0 = left,
@@ -421,8 +483,9 @@ func steps_to_wall(side: int) -> int:
 ## way, so it never stops or turns. The room is laid out so a player who is
 ## slow to react still lives (ArrivalCheck). The
 ## wall it now faces (`side` again) gets spikes as after a bounce. No point is
-## scored for this.
-func _go_through(side: int, kind: int) -> void:
+## scored for this. `through_y` is the height of the exit taken: the room is
+## picked and laid out for it, never for the bird's own height.
+func _go_through(side: int, kind: int, through_y: int) -> void:
 	state.exit_open = false
 	if kind != SimState.ExitKind.NORMAL:
 		state.route = kind
@@ -432,14 +495,14 @@ func _go_through(side: int, kind: int) -> void:
 	state.room_index += 1
 	# Far enough from the ceiling and floor to hop while reading the room (the
 	# bird jumps walls here anyway, so the view shows no slide).
-	state.y = clampi(
-		state.y,
-		SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE,
-		SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE
-	)
+	state.y = _arrival_y(state.y)
+	state.anchor_y = _arrival_y(through_y)
 	var next := practice_room
 	if not is_practice():
-		next = RoomCatalog.pick_next(_rng, room.index, state.score, season, state.route, state.y)
+		next = RoomCatalog.pick_next(
+			_spine, room.index, state.score, season, state.route, state.anchor_y
+		)
+	_seed_room()
 	# Lay the room out so a player who needs a moment to look can live: the
 	# check plays it on copies, and each retry skips one RNG draw.
 	for i in _arrival_retries(side, next):
@@ -447,9 +510,27 @@ func _go_through(side: int, kind: int) -> void:
 	_arrive_in(side, next)
 
 
+## Far enough from the ceiling and floor to hop while reading the room.
+static func _arrival_y(y: int) -> int:
+	return clampi(
+		y,
+		SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE,
+		SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE
+	)
+
+
+## Draws the next room's seed from the spine and starts the room's RNG on it.
+func _seed_room() -> void:
+	room.rng_seed = _spine.next_u32()
+	_rng.reseed(room.rng_seed)
+
+
 ## How many RNG draws to skip before laying out room `next`: the first layout
-## (of ARRIVAL_TRIES) that ArrivalCheck finds fair, else the one that lived
-## longest. 0 inside a check, so checks never nest.
+## (of ARRIVAL_TRIES) that ArrivalCheck finds fair for a bird anywhere in the
+## exit it came through (its height and EXIT_FIT above and below,
+## ARRIVAL_HEIGHTS), so the layout never depends on the bird's own height.
+## If none is, the one that lives longest at the exit's height, then at its
+## worst height. 0 inside a check, so checks never nest.
 func _arrival_retries(side: int, next: int) -> int:
 	if _checking or SimConfig.ARRIVAL_BLIND == 0:
 		return 0
@@ -457,16 +538,24 @@ func _arrival_retries(side: int, next: int) -> int:
 	var best := 0
 	var best_score := -1
 	for k in SimConfig.ARRIVAL_TRIES:
-		var c := SimCopy.copy(self)
-		c._checking = true
-		for i in k:
-			c._rng.next_u32()
-		c._arrive_in(side, next)
-		var lived := ArrivalCheck.score(c)
-		if lived >= fair:
+		var centre := 0
+		var worst := fair
+		for dy: int in ARRIVAL_HEIGHTS:
+			var c := SimCopy.copy(self)
+			c._checking = true
+			c.state.y = _arrival_y(state.anchor_y + dy)
+			for i in k:
+				c._rng.next_u32()
+			c._arrive_in(side, next)
+			var lived := mini(ArrivalCheck.score(c), fair)
+			if dy == 0:
+				centre = lived
+			worst = mini(worst, lived)
+		if worst >= fair:
 			return k
-		if lived > best_score:
-			best_score = lived
+		var score := centre * (fair + 1) + worst
+		if score > best_score:
+			best_score = score
 			best = k
 	return best
 
@@ -481,6 +570,8 @@ func _arrive_in(side: int, next: int) -> void:
 	state.x = r if side == 1 else SimConfig.WORLD_W - r
 	_enter_room(next)
 	_arrive(side, Event.ROOM_CHANGE)
+	ExitPlanner.plan_room(self, next_exit_score())
+	state.arrival_hold = SimConfig.PORTAL_HOLD
 	_keep_entry()
 
 
@@ -517,7 +608,8 @@ func _arrive(side: int, event: Event) -> void:
 ## Out of a portal, if the bird gets to the wall ahead within the reading
 ## time and ARRIVAL_WALL_SPARE ticks more (a fast or narrow room), that wall
 ## has no spikes where a player holding height hops: one hop over its height,
-## the bird under it.
+## the bird under it, for a bird anywhere in the exit it came through
+## (anchor_y and EXIT_FIT either way).
 func _keep_hold_band_open(side: int) -> void:
 	var steps := steps_to_wall(side)
 	var ticks := 0
@@ -529,8 +621,9 @@ func _keep_hold_band_open(side: int) -> void:
 		return
 	var g := room.gravity
 	var edge := SimConfig.BIRD_RADIUS + 4 * SimConfig.SUB
-	var up := state.y - (FairLanes.FIRST_HOP + edge) * g
-	var down := state.y + edge * g
+	var spread := SimConfig.EXIT_FIT
+	var up := state.anchor_y - (FairLanes.FIRST_HOP + edge + spread) * g
+	var down := state.anchor_y + (edge + spread) * g
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
 	var mask := state.right_spikes if side == 1 else state.left_spikes
@@ -545,10 +638,24 @@ func _keep_hold_band_open(side: int) -> void:
 
 
 ## Spikes for the wall the bird is now heading to, then the room's per-bounce
-## extras, then the coin. This order is part of the rules.
+## extras, then the coin. This order is part of the rules. Every wall after
+## the arrival's draws from an RNG seeded from the room's seed and the wall's
+## number, so a coin taken or not, or anything else a player did before, never
+## changes it.
 func _new_wall(side: int) -> void:
+	if room.walls > 0:
+		_rng.reseed(SimHash.mix(room.rng_seed, room.walls))
+	room.walls += 1
+	var reach := -1
+	var target := _wall_target(side)
+	if target < 0:
+		# Every free spot of the last wall can reach the new free run.
+		reach = RoomRules.gap_reach(room.def) - (_free_hi - _free_lo) / 2
+		target = (_free_lo + _free_hi) / 2
+	_free_lo = -1
+	_free_hi = -1
 	var mask := RoomRules.generate_wall(
-		_rng, state.score, room.def, state.y, room.spike_bonus(side)
+		_rng, state.score, room.def, target, room.spike_bonus(side), reach
 	)
 	for h in room.hazards:
 		if h.alive:
@@ -564,6 +671,84 @@ func _new_wall(side: int) -> void:
 	# Practice runs pay nothing, so no coin appears on a bounce there.
 	if room.def.bounce_coin and not is_practice():
 		_spawn_coin()
+
+
+## Where the free run of a new wall on `side` stays near (RoomRules.gap_reach):
+## the anchor. In a room with a short reach (Narrow), and in any room the last
+## EXIT_STEER bounces before an exit, it steps, by half the reach a wall,
+## toward the room's planned exit, so the anchor is near the exit when it
+## opens. Otherwise, when every free spot of the wall just bounced off is
+## close enough together, -1: the new run is then kept within reach of all of
+## them (_new_wall), so a bird that came through any of them has a way on.
+func _wall_target(side: int) -> int:
+	var reach := RoomRules.gap_reach(room.def)
+	if reach <= 0 or state.exit_open:
+		return state.anchor_y
+	if room.def.reach <= 0 and points_to_exit() > EXIT_STEER:
+		if _free_lo >= 0 and reach - (_free_hi - _free_lo) / 2 >= SimConfig.SLOT_SIZE:
+			return -1
+		return state.anchor_y
+	var touch := points_to_exit() + 1
+	var exit_side := side if touch % 2 == 1 else 1 - side
+	var to := ExitPlanner.planned_y(self, exit_side, state.anchor_y)
+	return state.anchor_y + clampi(to - state.anchor_y, -reach / 2, reach / 2)
+
+
+## Wall `side`'s spikes as drawn for it, with the exit's openings: what the
+## anchor follows. Not wall_mask(), whose tide, blink and belt change with
+## time, so a bird that got there sooner or later sees the same anchor.
+func _drawn_mask(side: int) -> int:
+	if state.exit_open and state.exit_side == side:
+		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state)
+	var mask := state.left_spikes if side == 0 else state.right_spikes
+	if state.exit_preview and state.exit_side == side:
+		mask &= ~ExitPlanner.slots(state)
+	return mask
+
+
+## The last EXIT_STEER bounces before an exit: the room's planned exit on
+## the wall it will open on; before that, the anchor.
+func _anchor_target(side: int) -> int:
+	if state.exit_open or points_to_exit() > EXIT_STEER:
+		return state.anchor_y
+	# The bounce that leaves two points to score is on the exit's wall.
+	var exit_side := side if points_to_exit() % 2 == 0 else 1 - side
+	return ExitPlanner.planned_y(self, exit_side, state.anchor_y)
+
+
+## At a bounce on wall `side` (before its spikes go): the anchor moves to the
+## point of that wall's free run nearest it (near an exit, nearest the exit,
+## _anchor_target). The bird got through a free run, and each new wall keeps
+## its run near the anchor, so a bird that follows the anchors always has a
+## fair way on. A wall with no free slot keeps it. Also keeps the wall's free
+## part, top and bottom, for the next wall (_free_lo, _free_hi).
+func _anchor_at_wall(side: int) -> void:
+	var mask := _drawn_mask(side)
+	var target := _anchor_target(side)
+	var best := state.anchor_y
+	var best_d := -1
+	_free_lo = -1
+	_free_hi = -1
+	var slot := 0
+	while slot < SimConfig.SLOT_COUNT:
+		if RoomRules.has_slot(mask, slot):
+			slot += 1
+			continue
+		var lo := slot
+		while slot + 1 < SimConfig.SLOT_COUNT and not RoomRules.has_slot(mask, slot + 1):
+			slot += 1
+		var top := SimConfig.slot_center_y(lo)
+		var bottom := SimConfig.slot_center_y(slot)
+		if _free_lo < 0:
+			_free_lo = top
+		_free_hi = bottom
+		var y := clampi(target, top, bottom)
+		var d := absi(y - target)
+		if best_d < 0 or d < best_d:
+			best = y
+			best_d = d
+		slot += 1
+	state.anchor_y = best
 
 
 ## A wall bounce scores a point, except while an exit is open: then the only

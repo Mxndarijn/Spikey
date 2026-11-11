@@ -44,6 +44,14 @@ public sealed class SimState
     public long pickup_y = 0;
     public long arrival_hold = 0;
     public long revives = 0;
+    public long anchor_y = SimConfig.BIRD_START_Y;
+    public long plan_a_y_left = 0;
+    public long plan_a_kind_left = 0;
+    public long plan_b_y_left = 0;
+    public long plan_a_y_right = 0;
+    public long plan_a_kind_right = 0;
+    public long plan_b_y_right = 0;
+    public long plan_at = 0;
 
     public SimState copy() => (SimState)MemberwiseClone();
 
@@ -78,6 +86,14 @@ public sealed class SimState
         h = SimHash.mix(h, arrival_hold);
         h = SimHash.mix(h, G.B(exit_preview));
         h = SimHash.mix(h, revives);
+        h = SimHash.mix(h, anchor_y);
+        h = SimHash.mix(h, plan_a_y_left);
+        h = SimHash.mix(h, plan_a_kind_left);
+        h = SimHash.mix(h, plan_b_y_left);
+        h = SimHash.mix(h, plan_a_y_right);
+        h = SimHash.mix(h, plan_a_kind_right);
+        h = SimHash.mix(h, plan_b_y_right);
+        h = SimHash.mix(h, plan_at);
         return h;
     }
 }

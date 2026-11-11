@@ -166,7 +166,7 @@ func _last_before(side: int) -> Hazard:
 func _steps_to_pass(sim: GameSim, gate: Hazard, side: int) -> int:
 	var r := SimConfig.BIRD_RADIUS
 	var wall_x := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
-	return maxi(sim.steps_to_wall(side) - absi(wall_x - gate.x) / SimConfig.SPEED_X, 0)
+	return maxi(sim.steps_to_exit(side) - absi(wall_x - gate.x) / SimConfig.SPEED_X, 0)
 
 
 ## The leader keeps the wall ahead open where the gate next to it will have

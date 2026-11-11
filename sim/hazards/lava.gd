@@ -104,7 +104,7 @@ func adjust_wall(sim: GameSim, _side: int, mask: int) -> int:
 	if first_ok < 0 or last_ok - first_ok + 1 < RUN:
 		return mask
 	var c0 := SimConfig.slot_center_y(0)
-	var near := (sim.state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE
+	var near := (sim.state.anchor_y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE
 	var mid := clampi(near, first_ok + 1, last_ok - 1)
 	for slot in range(mid - 1, mid + 2):
 		mask &= ~(1 << slot)
@@ -129,7 +129,7 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 ## The exit opens one point after it is planned, so the line may rise once
 ## more before the bird gets there.
 func blocks_exit(sim: GameSim, _side: int, y: int) -> bool:
-	var worst := line_at(mini(rises_due(sim) + 1, MAX_RISES))
+	var worst := line_at(mini(rises_due(sim) + sim.points_to_exit(), MAX_RISES))
 	return y > worst - EXIT_CLEAR
 
 

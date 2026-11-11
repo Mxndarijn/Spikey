@@ -158,7 +158,7 @@ public class Crawler : Hazard
 
     public override bool blocks_exit(GameSim sim, long side, long y)
     {
-        var span = _in_the_way(sim, start, side, t + sim.steps_to_wall(side), 0);
+        var span = _in_the_way(sim, start, side, t + sim.steps_to_exit(side), 0);
         return y > span[0] - exit_clear() && y < span[1] + exit_clear();
     }
 
@@ -187,7 +187,7 @@ public class Crawler : Hazard
             }
         }
         if (covered == 0) return mask;
-        return mask & ~_best_run(mask, covered, s.y);
+        return mask & ~_best_run(mask, covered, s.anchor_y);
     }
 
     public long _best_run(long mask, long covered, long bird_y)

@@ -81,7 +81,7 @@ public class Stalactite : Hazard
             far = this;
         }
         if (t == 0) near.target_y = near.gap_y;
-        else near.target_y = _around(rng, sim.state.y, REACH);
+        else near.target_y = _around(rng, sim.state.anchor_y, REACH);
         if (far != null) far.target_y = _around(rng, near.target_y, MAX_STEP);
         _clear_wall_ahead(sim, far != null ? far : near);
     }

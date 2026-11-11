@@ -121,6 +121,7 @@ static func _arrived(id: String, seed_value: int, variant: String = "classic") -
 	var rng := SimRng.new(seed_value + 7919)
 	sim.state.started = true
 	sim.state.y = (60 + rng.next_below(520)) * SimConfig.SUB
+	sim.state.anchor_y = sim.state.y
 	var side := rng.next_below(2)
 	sim.state.vx = SimConfig.SPEED_X if side == 1 else -SimConfig.SPEED_X
 	sim._enter_room(sim.practice_room)

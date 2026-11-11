@@ -4,6 +4,15 @@ extends RefCounted
 ## the hazards that would block the way, Hazard.blocks_exit), and at a fork a
 ## Calm and a Wild exit in a random order. GameSim decides when; this decides
 ## where. Gameplay: the RNG draws here are part of the rules.
+##
+## The exits are picked once, when the room starts (plan_room), from the
+## room's own RNG: one for each wall, for the next exit score. The ghost and
+## the open exit then only show them (use_plan), so every player of a seed
+## meets the same exits, however and whenever they fly, and hazards keep out
+## of their zone (reserved) for the whole room.
+
+## Salt for the RNG plan_room draws from (seeded from the room's seed).
+const PLAN_SALT := 0x45584954
 
 ## Height step of the bird circles in_mouth() tries.
 const MOUTH_STEP := 4 * SimConfig.SUB
@@ -45,6 +54,104 @@ static func plan(sim: GameSim, rng: SimRng, side: int, at: int) -> void:
 		sim.state.exit_b_kind = SimState.ExitKind.NORMAL
 
 
+## Picks the room's exits for both walls (see the top): wall 0 first, then
+## wall 1, each as plan() would for exit score `at`. The live exit
+## (SimState.exit_*) is left as it was.
+static func plan_room(sim: GameSim, at: int) -> void:
+	var s := sim.state
+	var rng := SimRng.new(SimHash.mix(sim.room.rng_seed, PLAN_SALT))
+	var keep := [s.exit_side, s.exit_a_y, s.exit_a_kind, s.exit_b_y, s.exit_b_kind]
+	s.plan_at = at
+	# No boxes while planning: hazards asked here (ExitZone) must not see the
+	# last room's.
+	s.plan_a_y_left = 0
+	s.plan_b_y_left = 0
+	s.plan_a_y_right = 0
+	s.plan_b_y_right = 0
+	for side in 2:
+		plan(sim, rng, side, at)
+		if side == 0:
+			s.plan_a_y_left = s.exit_a_y
+			s.plan_a_kind_left = s.exit_a_kind
+			s.plan_b_y_left = s.exit_b_y
+		else:
+			s.plan_a_y_right = s.exit_a_y
+			s.plan_a_kind_right = s.exit_a_kind
+			s.plan_b_y_right = s.exit_b_y
+	s.exit_side = keep[0]
+	s.exit_a_y = keep[1]
+	s.exit_a_kind = keep[2]
+	s.exit_b_y = keep[3]
+	s.exit_b_kind = keep[4]
+
+
+## Puts the room's planned exit(s) for wall `side` (plan_room) on that wall,
+## as the ghost or the open exit for score `at`. A plan for another score
+## (only when a test or tool set the score by hand) is made again first.
+static func use_plan(sim: GameSim, side: int, at: int) -> void:
+	var s := sim.state
+	if s.plan_at != at:
+		plan_room(sim, at)
+	s.exit_side = side
+	s.exit_a_y = s.plan_a_y_left if side == 0 else s.plan_a_y_right
+	s.exit_a_kind = s.plan_a_kind_left if side == 0 else s.plan_a_kind_right
+	s.exit_b_y = s.plan_b_y_left if side == 0 else s.plan_b_y_right
+	s.exit_b_kind = _other_kind(s.exit_a_kind)
+
+
+## The planned exit height on wall `side` nearest `y` (at a fork, of the two).
+static func planned_y(sim: GameSim, side: int, y: int) -> int:
+	var s := sim.state
+	var a := s.plan_a_y_left if side == 0 else s.plan_a_y_right
+	var kind := s.plan_a_kind_left if side == 0 else s.plan_a_kind_right
+	var b := s.plan_b_y_left if side == 0 else s.plan_b_y_right
+	if kind != SimState.ExitKind.NORMAL and absi(b - y) < absi(a - y):
+		return b
+	return a
+
+
+## Whether height `y` on wall `side` is in one of the room's planned exits (a
+## spike slot's reach around its portal): hazards keep out of it all room.
+static func reserved(sim: GameSim, side: int, y: int) -> bool:
+	var s := sim.state
+	var reach := SimConfig.EXIT_HALF + SimConfig.SPIKE_HALF_BASE
+	var a := s.plan_a_y_left if side == 0 else s.plan_a_y_right
+	var kind := s.plan_a_kind_left if side == 0 else s.plan_a_kind_right
+	var b := s.plan_b_y_left if side == 0 else s.plan_b_y_right
+	if absi(y - a) < reach:
+		return true
+	return kind != SimState.ExitKind.NORMAL and absi(y - b) < reach
+
+
+## The slot from `first` to `last` nearest one an exit could take anywhere
+## on the wall (not blocked): when hazards block a whole half at a fork, its
+## exit still goes as near the way through as it can. `fallback` if no slot
+## on the wall is free.
+static func _nearest_free(sim: GameSim, first: int, last: int, fallback: int) -> int:
+	var c0 := SimConfig.slot_center_y(0)
+	var lo := (SimConfig.EXIT_MIN_Y - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
+	var hi := (SimConfig.EXIT_MAX_Y - c0) / SimConfig.SLOT_SIZE
+	var best := fallback
+	var best_d := -1
+	for slot in range(lo, hi + 1):
+		if blocked(sim, SimConfig.slot_center_y(slot)):
+			continue
+		var near := clampi(slot, first, last)
+		var d := absi(slot - near)
+		if best_d < 0 or d < best_d:
+			best = near
+			best_d = d
+	return best
+
+
+static func _other_kind(kind: int) -> int:
+	if kind == SimState.ExitKind.CALM:
+		return SimState.ExitKind.WILD
+	if kind == SimState.ExitKind.WILD:
+		return SimState.ExitKind.CALM
+	return SimState.ExitKind.NORMAL
+
+
 ## A random exit height between lo and hi, on a spike slot's center. The
 ## opening is then always that slot and one either side, with the portal in
 ## the middle of it, so the gap is the same everywhere.
@@ -60,12 +167,16 @@ static func random_y(sim: GameSim, rng: SimRng, lo: int, hi: int) -> int:
 			open.append(slot)
 	if open.is_empty():
 		var any := first + rng.next_below(last - first + 1)
-		# A room with a short reach (Narrow) takes the slot nearest the bird (a
-		# fork's far half has none within reach); the draw is still made.
+		# A room with a short reach (Narrow) takes the slot nearest the anchor
+		# (a fork's far half has none within reach); the draw is still made.
 		if sim.room.def.reach > 0:
 			any = clampi(
-				(sim.state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, first, last
+				(sim.state.anchor_y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE,
+				first,
+				last
 			)
+		else:
+			any = _nearest_free(sim, first, last, any)
 		return SimConfig.slot_center_y(any)
 	return SimConfig.slot_center_y(open[rng.next_below(open.size())])
 
@@ -93,8 +204,9 @@ static func at_bird(sim: GameSim, side: int) -> bool:
 
 
 static func blocked(sim: GameSim, y: int) -> bool:
-	# A room with a short reach (Narrow) keeps the exit near the bird's height.
-	if sim.room.def.reach > 0 and absi(y - sim.state.y) > sim.room.def.reach:
+	# A room with a short reach (Narrow) keeps the exit near the anchor (where
+	# generation puts the bird, SimState.anchor_y).
+	if sim.room.def.reach > 0 and absi(y - sim.state.anchor_y) > sim.room.def.reach:
 		return true
 	for h in sim.room.hazards:
 		if h.alive and h.blocks_exit(sim, sim.state.exit_side, y):

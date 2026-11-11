@@ -40,6 +40,7 @@ public static class SimConfig
     public const long FORK_EVERY = 50;
     public const long WILD_COINS = 3;
     public const long ARRIVAL_HOLD = 60;
+    public const long PORTAL_HOLD = 30;
     public const long ARRIVAL_BLIND = 60;
     public const long ARRIVAL_FOLLOW = 120;
     public const long ARRIVAL_TRIES = 16;

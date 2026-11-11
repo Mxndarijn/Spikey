@@ -174,6 +174,13 @@ func falling() -> bool:
 	return col >= 0 and warn_left == 0
 
 
+## No exit level with where the tallest stack can reach (a slot over its top):
+## the columns run close to both walls, so a bird can't dip under a stack
+## into a low exit.
+func blocks_exit(_sim: GameSim, _side: int, y: int) -> bool:
+	return y > FLOOR - max_height * crate_h - SimConfig.SLOT_SIZE
+
+
 func col_left(c: int) -> int:
 	return col_x0 + c * col_w + (col_w - crate_w) / 2
 

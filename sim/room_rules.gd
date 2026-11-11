@@ -33,9 +33,10 @@ static func gap_reach(def: RoomDef) -> int:
 
 ## Returns a bitmask of spiked slots for one wall.
 ## A run of `def.gap` consecutive slots is always left free. With a known bird
-## height `bird_y`, that run is within gap_reach(def) of it.
+## height `bird_y`, that run is within gap_reach(def) of it (or `p_reach`,
+## when that is 0 or more).
 static func generate_wall(
-	rng: SimRng, score: int, def: RoomDef, bird_y: int = -1, bonus: int = 0
+	rng: SimRng, score: int, def: RoomDef, bird_y: int = -1, bonus: int = 0, p_reach: int = -1
 ) -> int:
 	var n := spike_count(score, def, bonus)
 	if n == 0:
@@ -43,7 +44,7 @@ static func generate_wall(
 	var gap := def.gap
 	var lo := 0
 	var hi := SimConfig.SLOT_COUNT - gap
-	var reach := gap_reach(def)
+	var reach := gap_reach(def) if p_reach < 0 else p_reach
 	if bird_y >= 0 and reach > 0:
 		var first := hi
 		var last := lo

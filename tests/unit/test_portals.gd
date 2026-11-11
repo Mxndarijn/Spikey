@@ -20,6 +20,7 @@ static func _sim_at(score: int, seed_value: int = 3) -> GameSim:
 static func _hit_wall(sim: GameSim, side: int, y: int) -> void:
 	var r := SimConfig.BIRD_RADIUS
 	sim.state.y = y
+	sim.state.anchor_y = sim.state.y
 	sim.state.vy = 0
 	if side == 1:
 		sim.state.vx = SimConfig.SPEED_X
@@ -61,6 +62,7 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	# Four slots away: level with a spike's tip.
 	var away := SimConfig.SLOT_SIZE * 4
 	missed.state.y = y + away if y < 320 * SimConfig.SUB else y - away
+	missed.state.anchor_y = missed.state.y
 	missed.state.vy = 0
 	missed.state.vx = -SimConfig.SPEED_X
 	missed.state.x = missed.room.wall_left() + SimConfig.BIRD_RADIUS + SimConfig.SPIKE_DEPTH / 2
@@ -85,10 +87,16 @@ func test_flying_through_moves_to_the_next_room() -> void:
 	assert_eq(sim.state.x, sim.room.wall_right() - r, "out of the opposite (right) wall")
 	assert_eq(sim.state.right_spikes, 0, "no spikes on the wall it came out of")
 	assert_true(sim.state.left_spikes != 0, "the wall ahead has spikes again")
+	# Half a second to look: the bird and the room wait, taps do nothing.
 	var t := sim.room.t
+	assert_eq(sim.state.arrival_hold, SimConfig.PORTAL_HOLD, "a short wait out of the portal")
+	for i in SimConfig.PORTAL_HOLD:
+		sim.step(true)
+		assert_false(GameSim.Event.FLAP in sim.events, "taps do nothing while it waits")
+	assert_eq(sim.room.t, t, "the room waits too")
 	sim.step(true)
-	assert_true(GameSim.Event.FLAP in sim.events, "taps work from the first tick")
-	assert_eq(sim.room.t, t + 1, "no wait and no slow motion")
+	assert_true(GameSim.Event.FLAP in sim.events, "then taps work")
+	assert_eq(sim.room.t, t + 1, "and no slow motion")
 
 
 ## Out of a portal, Floating Isles keeps its islands out of the lane in front
@@ -102,6 +110,7 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 		var y := (150 + (i * 53) % 340) * SimConfig.SUB
 		var sim := _sim_at(20, 100 + i)
 		sim.state.y = y
+		sim.state.anchor_y = sim.state.y
 		sim._arrive_in(i % 2, isles)
 		var clear := true
 		for h in sim.room.hazards:
@@ -111,6 +120,7 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 			lane_ok += 1
 		var g := _sim_at(20, 100 + i)
 		g.state.y = y
+		g.state.anchor_y = g.state.y
 		g._arrive_in(i % 2, gates)
 		var near: Hazard = g.room.hazards[0]
 		for h in g.room.hazards:
@@ -130,6 +140,7 @@ func test_the_bird_comes_out_flying_level() -> void:
 		var room_before := sim.state.room_index
 		var r := SimConfig.BIRD_RADIUS
 		sim.state.y = sim.state.exit_a_y
+		sim.state.anchor_y = sim.state.y
 		sim.state.vy = vy
 		sim.state.vx = -SimConfig.SPEED_X
 		sim.state.x = sim.room.wall_left() + r - 1
@@ -236,6 +247,7 @@ func test_no_safe_bounce_between_portal_and_spike() -> void:
 			_hit_wall(sim, 1, 300 * SimConfig.SUB)
 			var r := SimConfig.BIRD_RADIUS
 			sim.state.y = y
+			sim.state.anchor_y = sim.state.y
 			sim.state.vy = 0
 			sim.state.vx = -SimConfig.SPEED_X
 			sim.state.x = sim.room.wall_left() + r - 1
@@ -274,6 +286,7 @@ func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
 			var sim := RoomsTest.sim_in_room("stalac", 50 + seed_value, Seasons.NONE, "classic")
 			sim.state.started = true
 			sim.state.y = y
+			sim.state.anchor_y = sim.state.y
 			sim.state.vx = SimConfig.SPEED_X if heading_right else -SimConfig.SPEED_X
 			var rocks: Array[Hazard] = []
 			for h in sim.room.hazards:

@@ -160,6 +160,8 @@ public sealed class CrateDrop : Hazard
 
     public bool falling() => col >= 0 && warn_left == 0;
 
+    public override bool blocks_exit(GameSim sim, long side, long y) => y > FLOOR - max_height * crate_h - SimConfig.SLOT_SIZE;
+
     public long col_left(long c) => col_x0 + c * col_w + (col_w - crate_w) / 2;
 
     public long col_center(long c) => col_x0 + c * col_w + col_w / 2;

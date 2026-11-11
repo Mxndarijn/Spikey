@@ -14,6 +14,7 @@ const ENTRY_YS: Array[int] = [140 * SimConfig.SUB, 300 * SimConfig.SUB, 480 * Si
 ## arrival check's retries). A revive restarts the room from here.
 static func came_in(sim: GameSim, index: int, toward: int, y: int) -> void:
 	sim.state.y = y
+	sim.state.anchor_y = y
 	for i in sim._arrival_retries(toward, index):
 		sim._rng.next_u32()
 	sim._arrive_in(toward, index)

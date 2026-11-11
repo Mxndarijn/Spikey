@@ -40,6 +40,7 @@ static class Reaction
             y = 130 + (y - 130 + 53) % 380;
         }
         sim.state.y = y * SimConfig.SUB;
+        sim.state.anchor_y = sim.state.y;
         long side = i % 2;
         long skip = sim._arrival_retries(side, index);
         for (long k = 0; k < skip; k++) sim._rng.next_u32();
@@ -106,6 +107,7 @@ static class Reaction
                     sim.step(true);
                     sim.state.score = G.maxi(def.from_score, 10) + (k % 3) * 10;
                     sim.state.y = y * SimConfig.SUB;
+                    sim.state.anchor_y = sim.state.y;
                     long skip = sim._arrival_retries(side, index);
                     for (long j = 0; j < skip; j++) sim._rng.next_u32();
                     sim._arrive_in(side, index);
