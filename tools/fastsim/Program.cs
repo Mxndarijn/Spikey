@@ -64,6 +64,7 @@ if (mode == "check") return Checks.run(pos, opts, jobs, priority);
 if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
 if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
+if (mode == "mpc") return FastSim.Mpc.MpcRun.run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
