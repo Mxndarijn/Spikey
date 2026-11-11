@@ -17,20 +17,29 @@ extends SceneTree
 ##     A sim built by <setup>, then played as <actions> (as in `run`):
 ##       p:<seed>:<season>:<practice>:<variant>  GameSim.new with a forced variant
 ##       a:<room>:<variant>:<i>                   ArrivalBench.arrival (out of a portal)
-##       r:<room>:<seed>:<exit>:<side>            test_revive_survivable.gd revived()
+##       r:<room>:<seed>:<exit>:<side>            BotSetups.revived
+##       cr:<room>:<seed>:<exit>:<side>:<y>       BotSetups.crawl_revived
+##       gr:<seed>:<open>:<side>:<y>:<variant>    BotSetups.gates_revived
+##       ir:<room id>:<seed>:<exit>:<side>:<variant>  BotSetups.isles_revived
+##       n:<room id>:<seed>:<variant>:<points>    BotSetups.practice, score += points
 ##     (variant "-" for none). <driver> is who chose the taps: "replay" (C#
 ##     only replays them), "gap" (SimBots.gap_seeker, SimRng 7, revives when it
-##     can) or "planner:<seed>:<horizon>:<rollouts>:<hold>:<after>" (holds
-##     its height <hold> ticks as ArrivalBench, then PlannerBot for <after>
-##     ticks): for a bot, the C# bot must choose the same taps.
+##     can), "tap:<seed>" (SimBots.random_tapper, until the run ends) or
+##     "planner:<seed>:<horizon>:<rollouts>:<hold>:<after>" (holds its height
+##     <hold> ticks as ArrivalBench, then PlannerBot for <after> ticks): for a
+##     bot, the C# bot must choose the same taps.
 ##   csearch <name> <setup> <ticks> <ok> <survived> <taps>
 ##     SurvivalSearch from a <setup> sim, as `search`.
+##   qsearch <name> <setup> <ticks> <ok> <survived> <taps>
+##     The same with QuickSearch (C# run_quick).
 ## Coverage: every room in practice (a gap-seeking bot and a SurvivalSearch
 ## line, so the bird lives long enough to see exits and portals), and full runs
 ## through the portals in every season, with a revive. For the bot checks on
 ## FastSim (`fastsim check`, Checks.cs): every room variant forced in practice,
-## a portal arrival into every room variant, a revive in every room, and the
-## bots and searches those checks use.
+## a portal arrival into every room variant, a revive in every room, every
+## other sim those checks start from (BotSetups), and the bots and searches
+## they use. No GDScript test plays a bot any more, so this is what ties the
+## checks to the real game code.
 
 const AIM_TICKS := 600
 const ROOM_SEARCH_TICKS := 700
@@ -41,7 +50,6 @@ const VARIANT_TICKS := 300
 const ARRIVAL_TICKS := 200
 const REVIVE_TICKS := 240
 const EXITS: Array[String] = ["none", "open", "ghost"]
-const RevivedTest := preload("res://tests/sim/test_revive_survivable.gd")
 
 var _lines := PackedStringArray()
 var _part := 0
@@ -122,6 +130,38 @@ func _check_cases(quick: bool) -> void:
 	_gap_case("gap_run", "p:4242:%d:-1:-" % Seasons.NONE)
 	var r := "r:%d:9001:open:1" % RoomCatalog.first_index()
 	_csearch_case("csearch_revive", r, SimConfig.ARRIVAL_HOLD + 180)
+	_room_check_cases(quick)
+
+
+## The setups of the crawl, gates, isles and runs checks (Checks.cs).
+func _room_check_cases(quick: bool) -> void:
+	var crawl := RoomCatalog.index_of("crawl")
+	var top := SimConfig.slot_center_y(1)
+	var bottom := SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 2)
+	var hard := [["ghost", 1, top], ["ghost", 0, bottom], ["open", 1, top], ["open", 0, bottom]]
+	for k in hard.size():
+		var c: Array = hard[k]
+		var cr := "cr:%d:%d:%s:%d:%d" % [crawl, 7 + k, c[0], c[1], c[2]]
+		_setup_case("crawl_revive_%d" % k, cr, REVIVE_TICKS, 0)
+	for k in 8:
+		var variant := "classic" if k < 4 else "single-small"
+		var gr := (
+			"gr:%d:%d:%d:%d:%s"
+			% [101 + k, k % 2, (k / 2) % 2, SimConfig.slot_center_y(1 + k), variant]
+		)
+		_setup_case("gates_revive_%d" % k, gr, REVIVE_TICKS, 0)
+		var n := "n:gates:%d:%s:%d" % [500 + k * 37, variant, SimConfig.POINTS_PER_ROOM - 1 - k % 2]
+		_setup_case("gates_near_%d" % k, n, VARIANT_TICKS, 0)
+	for v: String in ["classic", "drifting", "one-big"]:
+		var ir := "ir:isles:%d:open:%d:%s" % [15 + v.length(), v.length() % 2, v]
+		_setup_case("isles_revive_" + v, ir, REVIVE_TICKS, 0)
+		_setup_case("isles_near_" + v, "n:isles:%d:%s:28" % [7 + v.length(), v], VARIANT_TICKS, 0)
+	for v: String in ["classic", "drifting", "golden"]:
+		_setup_case("eggs_near_" + v, "n:eggs:%d:%s:28" % [3 + v.length(), v], VARIANT_TICKS, 0)
+	for k in 2 if quick else 8:
+		_tap_case("tap_%d" % k, "p:%d:%d:-1:-" % [1001 + k * 7, Seasons.NONE], k + 1)
+	_qsearch_case("qsearch_isles", "n:isles:322:drifting:28", 200)
+	_qsearch_case("qsearch_revive", "ir:isles:127:open:1:one-big", SimConfig.ARRIVAL_HOLD + 60)
 
 
 ## Whether this process records the next case (see `part parts`).
@@ -140,7 +180,17 @@ static func setup(text: String) -> GameSim:
 		"a":
 			return ArrivalBench.arrival(int(f[1]), int(f[3]), "" if f[2] == "-" else f[2])
 		"r":
-			return RevivedTest.revived(int(f[1]), int(f[2]), f[3], int(f[4]))
+			return BotSetups.revived(int(f[1]), int(f[2]), f[3], int(f[4]))
+		"cr":
+			return BotSetups.crawl_revived(int(f[1]), int(f[2]), f[3], int(f[4]), int(f[5]))
+		"gr":
+			return BotSetups.gates_revived(int(f[1]), f[2] == "1", int(f[3]), int(f[4]), f[5])
+		"ir":
+			return BotSetups.isles_revived(f[1], int(f[2]), f[3], int(f[4]), f[5])
+		"n":
+			var sim := BotSetups.practice(f[1], int(f[2]), "" if f[3] == "-" else f[3])
+			sim.state.score += int(f[4])
+			return sim
 	return null
 
 
@@ -172,7 +222,7 @@ func _setup_case(name: String, text: String, ticks: int, hold: int) -> void:
 	_lines.append("case %s %s replay %s %s" % [name, text, actions, ",".join(sums)])
 
 
-## SimBots.gap_seeker as test_room_points_cap.gd plays it (revives included).
+## SimBots.gap_seeker as the points check plays it (revives included).
 func _gap_case(name: String, text: String) -> void:
 	if not _mine():
 		return
@@ -220,18 +270,46 @@ func _planner_case(
 	_lines.append("case %s %s %s %s %s" % [name, text, driver, actions, ",".join(sums)])
 
 
-func _csearch_case(name: String, text: String, ticks: int) -> void:
+## SimBots.random_tapper (as Checks.cs Runs plays it) until the run ends.
+func _tap_case(name: String, text: String, bot_seed: int) -> void:
 	if not _mine():
 		return
-	var search := SurvivalSearch.new()
+	var sim := setup(text)
+	var bot := SimRng.new(bot_seed)
+	var actions := ""
+	var sums := PackedStringArray()
+	while not sim.is_over() and sim.state.tick < 20000:
+		var tap := SimBots.random_tapper(sim, bot)
+		sim.step(tap)
+		actions += "1" if tap else "0"
+		sums.append(str(sim.checksum()))
+	_lines.append("case %s %s tap:%d %s %s" % [name, text, bot_seed, actions, ",".join(sums)])
+
+
+func _qsearch_case(name: String, text: String, ticks: int) -> void:
+	_csearch_case(name, text, ticks, true)
+
+
+func _csearch_case(name: String, text: String, ticks: int, quick := false) -> void:
+	if not _mine():
+		return
+	var search: SurvivalSearch = QuickSearch.new() if quick else SurvivalSearch.new()
 	var ok := search.run(setup(text), ticks)
 	var taps := ""
 	for b in search.best_inputs:
 		taps += str(b)
 	_lines.append(
 		(
-			"csearch %s %s %d %d %d %s"
-			% [name, text, ticks, int(ok), search.ticks_survived, taps if ok else "-"]
+			"%s %s %s %d %d %d %s"
+			% [
+				"qsearch" if quick else "csearch",
+				name,
+				text,
+				ticks,
+				int(ok),
+				search.ticks_survived,
+				taps if ok else "-"
+			]
 		)
 	)
 

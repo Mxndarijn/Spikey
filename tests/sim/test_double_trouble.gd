@@ -1,8 +1,8 @@
 extends TestCase
 ## Double Trouble's combo rules (sim/rooms/catalog_combo.gd): every pair keeps
-## a way through. The full measurement is `tools/fastsim.ps1 -Mode combos`;
-## the search over every pair runs on more seeds there too (`tools/fastsim.ps1
-## -Mode check -Check pairs`, part of tools/check.ps1).
+## a way through. The searches run on FastSim: `tools/fastsim.ps1 -Mode check
+## -Check pairs` (part of tools/check.ps1), and the full measurement is
+## `tools/fastsim.ps1 -Mode combos`.
 
 const Piston := preload("res://sim/hazards/piston.gd")
 const Beam := preload("res://sim/hazards/beam.gd")
@@ -10,13 +10,8 @@ const Bouncer := preload("res://sim/hazards/bouncer.gd")
 const Drop := preload("res://sim/hazards/drop.gd")
 
 const PARALLEL := true
-const PARTS := 4
 ## Hazards that follow the bird add pressure to anything they share a room with.
 const CHASERS: Array[String] = ["stalker"]
-## Seeds searched per pair (FastSim: Checks.cs SEARCH_SEEDS), and how long
-## the search must last.
-const SEARCH_SEEDS := 1
-const SEARCH_TICKS := 600
 
 
 ## A sim in Double Trouble playing pair `pair` (the first seed that draws it).
@@ -114,23 +109,3 @@ func test_a_live_beam_never_shares_a_row_with_the_ball() -> void:
 						)
 		if skipped >= 0:
 			assert_true(skipped > 0, "the beams sat out at least one turn")
-
-
-func test_every_pair_has_a_way_through(part: int, parts: int) -> void:
-	var index := RoomCatalog.index_of("double")
-	var def: RoomDef = RoomCatalog.all()[index]
-	var n := pairs().size()
-	for i in range(part, n * SEARCH_SEEDS, parts):
-		var p := i % n
-		var found := 0
-		# Practice seeds whose pair is `p`, by the hazards the room built.
-		for s in range(1000 + i * 7, 3000):
-			var sim := GameSim.new(s, def.season, index)
-			if sim.room.variant != p:
-				continue
-			var search := SurvivalSearch.new()
-			var ok := search.run(sim, SEARCH_TICKS)
-			assert_true(ok, "pair %d seed %d: all died at tick %d" % [p, s, search.ticks_survived])
-			found += 1
-			break
-		assert_eq(found, 1, "a seed for pair %d" % p)

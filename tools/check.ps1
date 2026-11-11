@@ -6,20 +6,21 @@
   1. Lint + format check (gdtoolkit; missing gdtoolkit fails the check)
   2. Godot headless import (builds the class cache)
   3. Load every script and scene
-  4. Tests: unit, sim purity, golden replays, bot simulations, run side by side
-     in -Jobs headless Godot processes (default: one per core, at most 24;
-     -Jobs 1 runs them all in one process)
+  4. Tests: unit, sim purity, golden replays, room rule checks, run side by
+     side in -Jobs headless Godot processes (default: one per core, at most 24;
+     -Jobs 1 runs them all in one process). No bot plays here (step 6).
   5. FastSim parity: tools/fastsim (the C# copy of sim/) still matches sim/,
-     tick for tick, in every room and variant, out of portals and after
-     revives, and its bots and searches choose what the GDScript ones do
-  6. FastSim checks: the bot-heavy tests (every variant passable, the portal
-     reaction benchmark, the points cap, revives, Double Trouble pairs) on
-     FastSim, in -FastSimJobs worker processes (default: -Jobs). Their
-     GDScript tests in step 4 keep a small sample (tools/fastsim/Checks.cs)
+     tick for tick, in every room and variant, out of portals, after revives
+     and from every sim the checks start from, and its bots and searches
+     choose what the GDScript ones do
+  6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
+     seeker, random tapper: tools/fastsim/Checks.cs), in -FastSimJobs worker
+     processes (default: -Jobs)
 
   -TestFilter limits step 4 to tests whose "path:method" contains it, and
-  step 6 to checks named so or porting such a test (for example "arrival",
-  "variants_passable"); step 5 runs only with no filter or "fastsim".
+  step 6 to checks named so or replacing such a test (for example
+  "arrival", "variants_passable"); step 5 runs only with no filter or
+  "fastsim".
 
   Godot is found via $env:GODOT, then tools/godot_path.txt, then `godot` on PATH.
   On Windows point it at the *_console.exe build so output shows up.

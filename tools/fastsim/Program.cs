@@ -430,7 +430,7 @@ static class Parity
         {
             var f = line.Split(' ');
             string name = f[1];
-            if (f[0] == "case" || f[0] == "csearch")
+            if (f[0] == "case" || f[0] == "csearch" || f[0] == "qsearch")
             {
                 string fail = f[0] == "case" ? play_case(f) : search_case(f);
                 if (fail != null) fails.Add($"{f[0]} {name} ({f[2]}): {fail}");
@@ -490,9 +490,20 @@ static class Parity
         {
             "p" => new GameSim(long.Parse(f[1]), long.Parse(f[2]), long.Parse(f[3]), variant),
             "a" => Reaction.arrival(int.Parse(f[1]), long.Parse(f[3]), f[2] == "-" ? "" : f[2]),
-            "r" => Checks.Revive.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4])),
+            "r" => Checks.Setups.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4])),
+            "cr" => Checks.Setups.crawl_revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4]), long.Parse(f[5])),
+            "gr" => Checks.Setups.gates_revived(long.Parse(f[1]), f[2] == "1", long.Parse(f[3]), long.Parse(f[4]), f[5]),
+            "ir" => Checks.Setups.isles_revived(f[1], long.Parse(f[2]), f[3], long.Parse(f[4]), f[5]),
+            "n" => near(f),
             _ => throw new Exception("unknown setup " + text),
         };
+    }
+
+    static GameSim near(string[] f)
+    {
+        var sim = Checks.Setups.practice(f[1], long.Parse(f[2]), f[3] == "-" ? "" : f[3]);
+        sim.state.score += long.Parse(f[4]);
+        return sim;
     }
 
     /// Replays a `case` line; with a bot driver the C# bot must also choose
@@ -504,6 +515,7 @@ static class Parity
         var sums = f.Length > 5 && f[5].Length > 0 ? f[5].Split(',') : Array.Empty<string>();
         var d = driver.Split(':');
         var gap = new SimRng(7);
+        var tapper = d[0] == "tap" ? new SimRng(long.Parse(d[1])) : null;
         PlannerBot planner = d[0] == "planner" ? new PlannerBot(long.Parse(d[1]), long.Parse(d[2]), long.Parse(d[3])) : null;
         long hold = d[0] == "planner" ? long.Parse(d[4]) : 0;
         long y0 = sim.state.y;
@@ -515,6 +527,7 @@ static class Parity
             {
                 char want;
                 if (d[0] == "gap") want = sim.is_over() ? 'r' : SimBots.gap_seeker(sim, gap) ? '1' : '0';
+                else if (d[0] == "tap") want = SimBots.random_tapper(sim, tapper) ? '1' : '0';
                 else if (n < hold)
                 {
                     long g = sim.room.gravity;
@@ -535,6 +548,7 @@ static class Parity
         // The bot must also stop where the GDScript one stopped.
         if (d[0] == "gap" && (sim.is_over() ? sim.can_revive() : sim.state.tick < 1500)) return "the gap run ended early";
         if (d[0] == "planner" && !sim.is_over() && n < hold + long.Parse(d[5])) return "the planner run ended early";
+        if (d[0] == "tap" && !sim.is_over() && sim.state.tick < 20000) return "the tapper run ended early";
         return null;
     }
 
@@ -545,7 +559,7 @@ static class Parity
         long survived = long.Parse(f[5]);
         string taps = f[6];
         var search = new SurvivalSearch();
-        bool got_ok = search.run(setup(f[2]), n);
+        bool got_ok = f[0] == "qsearch" ? search.run_quick(setup(f[2]), n) : search.run(setup(f[2]), n);
         string got_taps = got_ok ? string.Concat(search.best_inputs.Select(b => b == 1 ? '1' : '0')) : "-";
         if (got_ok == ok && search.ticks_survived == survived && got_taps == taps) return null;
         int at = 0;
