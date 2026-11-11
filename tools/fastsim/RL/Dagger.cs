@@ -94,8 +94,10 @@ public sealed class Dagger
             if (!start.net.sizes.SequenceEqual(Policy.SIZES)) throw new InvalidDataException("policy.json has other network sizes");
             w = (float[])start.w.Clone();
             opt = new Adam(w.Length, lr);
-            var meta = JsonNode.Parse(File.ReadAllText(policy_path)).AsObject();
-            best = meta["eval_median"] != null ? (double)meta["eval_median"] + (double)meta["eval_mean"] / 1000.0 : -1;
+            // The bar to beat: the start policy on today's eval seeds (an
+            // eval_median in the file may come from other seeds).
+            var (m0, a0) = evaluate(new ParallelOptions { MaxDegreeOfParallelism = threads });
+            best = m0 + a0 / 1000.0;
         }
         opt.lr = lr;
         Console.WriteLine($"rlbot teach: {w.Length} weights, {runs} runs per iteration (cap {cap}), horizon {horizon}, from iteration {iter}, best so far {best:F1}");

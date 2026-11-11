@@ -27,11 +27,18 @@ public static class RlMain
                     if (opts.ContainsKey("envs")) t.envs = int.Parse(opts["envs"]);
                     if (opts.ContainsKey("entropy")) t.entropy = float.Parse(opts["entropy"]);
                     if (opts.ContainsKey("practice")) t.practice = double.Parse(opts["practice"]);
+                    if (opts.ContainsKey("every")) t.every = int.Parse(opts["every"]);
+                    if (opts.ContainsKey("tapcost")) t.tap_cost = float.Parse(opts["tapcost"]);
+                    if (opts.ContainsKey("shape")) t.shape = float.Parse(opts["shape"]);
+                    if (opts.ContainsKey("expert")) t.expert = double.Parse(opts["expert"]);
+                    if (opts.ContainsKey("from")) t.from_policy = true;
+                    if (opts.ContainsKey("delay")) t.delay = int.Parse(opts["delay"]);
                     return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")), int.Parse(O("init", "1")));
                 }
                 case "teach":
                 {
                     var t = new Dagger(dir) { threads = threads };
+                    Teacher.blind = opts.ContainsKey("blind");
                     if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
                     if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
                     if (opts.ContainsKey("runs")) t.runs = int.Parse(opts["runs"]);
