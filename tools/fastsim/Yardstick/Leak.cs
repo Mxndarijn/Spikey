@@ -82,6 +82,9 @@ public static class Leak
         }
         if (sa.is_over() || !bounced) return new Fork(seed, at, "dead", -1, -1);
         at = sa.state.tick;
+        // Both sims are swapped for copies, so a bot that remembers hazards by
+        // object sees new objects in both runs alike; only B's hidden draws change.
+        sa = sa.clone_deep();
         sb = BlindPlanner.blind_copy(sb, new SimRng(seed * 7919 + at));
         long visible_from = -1, first_diff = -1;
         while (sa.state.tick < at + WINDOW && !sa.is_over() && !sb.is_over())
