@@ -268,6 +268,9 @@ public static class YardstickMain
         sb.AppendLine();
         sb.AppendLine("| bot | set | taps/s | interval median | taps <8 ticks apart | timing sd | timing mean | critical taps | react (new) median | react <10 | react (bounce) median | bottom quarter | height bands (top→bottom, %) | humanlike | classifier acc |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        // Published human numbers (Isaksen et al. FDG 2015), until real runs exist.
+        if (!rows.Any(o => (string)o["bot"] == "human"))
+            sb.AppendLine("| *human reference* | Isaksen 2015 | ≤ 7.7 | ≥ 8 | ~0% | 2.2-3.7 (36-61 ms) | ~0 | - | ~17 (288 ms) | rare | - | - | - | - | - |");
         foreach (var o in rows)
         {
             var h = o["human"];
