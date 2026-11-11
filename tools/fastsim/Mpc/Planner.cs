@@ -19,6 +19,8 @@ public sealed class MpcParams
     public float lead = 0f;
     /// Read on-screen warnings (glowing pistons, charging beams); learn which shapes follow the bird.
     public int warnings = 1, chase = 1;
+    /// Learn how long a hazard's shapes stay (a beam's on time) and plan on them going.
+    public int life = 1;
     public float warn_pad = 3f, w_warn = 4f;
     public float min_accel = 0.04f;
     /// No shape is taken to move faster than this (px per step).
@@ -37,8 +39,8 @@ public sealed class MpcParams
     /// Fewest ticks between two taps.
     public int min_gap = 1;
     public int window = 10;
-    /// Steps a lift felt just now (an updraft) is taken to last where it has not been felt before.
-    public int persist = 8;
+    /// Steps the sideways wind the bird is in now is taken to last.
+    public int persist = 15;
 
     public void set(string key, string value)
     {
@@ -66,13 +68,7 @@ public sealed class Planner
     readonly bool[] _near = new bool[402];
     readonly long[] _grav = new long[402];
     readonly long[] _lift = new long[402];
-    // Lift felt per column of the room (an updraft), and the step it was felt at.
-    readonly long[] _lift_at = new long[Sight.COLS];
-    readonly long[] _lift_t = new long[Sight.COLS];
-    long _felt_room = -1, _lift_now;
-    // The bird as the last plan expected it one tick on.
-    bool _have_prev;
-    long _prev_vy, _prev_y, _prev_x, _prev_room, _prev_tick;
+
     int _bounce;
     // Frontier nodes.
     long[] _y = new long[CAP], _vy = new long[CAP], _y2 = new long[CAP], _vy2 = new long[CAP];
@@ -94,6 +90,11 @@ public sealed class Planner
     bool _exit_two;
     float _target;
 
+    /// Reaction time (ticks): a new wall layout or a new shape is not acted on before it
+    /// has been on screen this long (Isaksen et al.: about 288 ms, 17 ticks).
+    public int react = 0;
+    long _wall_side = -1, _wall_room = -1, _wall_since;
+
     /// The tick of the first tap of the last plan (-1: none), and how it ended.
     public int first_tap;
     public bool doomed;
@@ -112,6 +113,7 @@ public sealed class Planner
         sight.min_accel = p.min_accel;
         sight.read_warnings = p.warnings != 0;
         sight.learn_chase = p.chase != 0;
+        sight.learn_life = p.life != 0;
     }
 
     /// Looks at the present sim and plans. Returns whether the plan taps now.
@@ -121,7 +123,6 @@ public sealed class Planner
         sight.look(sim);
         var s = sim.state;
         var room = sim.room;
-        feel(sim);
         _side = s.vx > 0 ? 1 : 0;
         _left = room.wall_left();
         _right = room.wall_right();
@@ -131,6 +132,19 @@ public sealed class Planner
         _shift = sim.wall_shift(_side);
         for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++) _depth[slot] = room.slot_depth(_side, slot);
         _exit = s.exit_open && s.exit_side == _side && !sim.exit_locked();
+        if (_side != _wall_side || s.room_index != _wall_room)
+        {
+            _wall_side = _side;
+            _wall_room = s.room_index;
+            _wall_since = s.tick;
+        }
+        // Still taking the new wall in: plan as if nothing were known of it.
+        bool wall_unseen = s.tick - _wall_since < react;
+        if (wall_unseen)
+        {
+            _mask = 0;
+            _exit = false;
+        }
         _exit_a = s.exit_a_y;
         _exit_b = s.exit_b_y;
         _exit_two = s.exit_b_kind != ExitKind.NORMAL;
@@ -151,9 +165,18 @@ public sealed class Planner
         for (int j = 1; j <= p.max_steps; j++)
         {
             x += vx;
+            // Wind: a sideways push in a band of heights. The bird's height later is not
+            // known here, so the push it is in now is taken to last `persist` steps.
+            if (j <= p.persist) x += sight.push_at(s.y);
             _x[j] = x;
-            int lc = (int)Math.Clamp(x / Sight.CELL, 0, Sight.COLS - 1);
-            _lift[j] = _lift_t[lc] >= 0 && room.t - _lift_t[lc] < 1500 ? _lift_at[lc] : (j <= p.persist ? _lift_now : 0);
+            // Updrafts: a column of air, where it will be if it keeps drifting as seen.
+            long lift = 0;
+            foreach (var d in sight.drafts)
+            {
+                float xpx = (float)x / SUB, shift = d.v * j;
+                if (j > d.from && j <= d.to && xpx >= d.x0 + shift && xpx <= d.x1 + shift) lift += d.lift;
+            }
+            _lift[j] = lift;
             _near[j] = _bounce < 0 && (vx < 0 ? x - R <= _left + _reach : x + R >= _right - _reach);
             _grav[j] = g;
             bool wall = vx > 0 ? x + R >= _right : x - R <= _left;
@@ -288,55 +311,14 @@ public sealed class Planner
         return best_first == 0;
     }
 
-    /// Tells the planner the tap that was really made this tick, so the next
-    /// look can compare where the bird is with where its own movement puts it.
-    public void expect(GameSim sim, bool tap)
-    {
-        var s = sim.state;
-        var room = sim.room;
-        _have_prev = room.steps_at(room.ticks) == 1 && s.arrival_hold == 0;
-        long vy = tap ? SimConfig.FLAP_VY * room.gravity : s.vy;
-        vy = G.clampi(vy + SimConfig.GRAVITY * room.gravity, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
-        _prev_vy = vy;
-        _prev_y = s.y + vy;
-        _prev_x = s.x + s.vx;
-        _prev_room = s.room_index;
-        _prev_tick = s.tick + 1;
-    }
-
-    /// What pushed the bird beyond its own movement since the last tick: a
-    /// steady lift (an updraft) is remembered per column of the room.
-    void feel(GameSim sim)
-    {
-        var s = sim.state;
-        if (s.room_index != _felt_room)
-        {
-            _felt_room = s.room_index;
-            Array.Fill(_lift_t, -1);
-            _lift_now = 0;
-            _have_prev = false;
-        }
-        if (!_have_prev || s.room_index != _prev_room || s.tick != _prev_tick) return;
-        _have_prev = false;
-        // Past a wall bounce the x differs: nothing to learn that tick.
-        if (s.x != _prev_x) return;
-        long lift = s.vy - _prev_vy;
-        // A bump or a carry is not a steady push.
-        if (Math.Abs(lift) > 2 * SimConfig.GRAVITY || s.y != _prev_y + lift) lift = 0;
-        _lift_now = lift;
-        int c = (int)Math.Clamp(s.x / Sight.CELL, 0, Sight.COLS - 1);
-        _lift_at[c] = lift;
-        _lift_t[c] = sim.room.t;
-    }
-
     /// One sim step of the bird at step `j` ahead. 0: alive, 1: dead, 2: left through the exit.
     int move(int j, ref long y, ref long vy, ref float c, ref float f)
     {
         // The follower steps toward where the bird was, then the bird moves.
         if (_chaser != null) f += Math.Clamp((float)y / SUB - f, -_chaser.chase, _chaser.chase);
         vy = G.clampi(vy + SimConfig.GRAVITY * _grav[j], -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
-        if (_lift[j] != 0) vy = G.clampi(vy + _lift[j], -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
         y += vy;
+        if (_lift[j] != 0) vy = G.clampi(vy + _lift[j], -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
         long x = _x[j];
         if (_near[j] && hits_wall(x, y)) return 1;
         // Shapes, where they will be if their edges keep moving as seen.
@@ -345,6 +327,8 @@ public sealed class Planner
         for (int t = 0; t < blobs.Count; t++)
         {
             var b = blobs[t];
+            if (b.age < react) continue;
+            if (b.life > 0 && b.age + j > b.life + 3) continue;
             float jj = 0.5f * j * j;
             float x0 = ahead(b, 0, j), x1 = ahead(b, 1, j), y0, y1;
             if (b == _chaser)

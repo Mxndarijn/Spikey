@@ -22,19 +22,15 @@ public sealed class MpcBot
     public readonly Motor motor;
     readonly Random _dice;
     int _since = 1000;
-    // Motor noise: the tap being carried out (ticks until it lands), or -1.
+    // Motor noise: ticks until the tap being carried out lands, or -1.
     int _pending = -1;
-    int _hold = 0;
-    long _seen_room = -1, _seen_mask = -1, _seen_side = -1;
-    int _seen_hazards = -1;
-    int _blind = 0;
     public long ticks, taps, doomed_ticks;
 
     public MpcBot(MpcParams p, Motor m = null, long seed = 1)
     {
         motor = m ?? new Motor();
         p.min_gap = Math.Max(p.min_gap, motor.min_gap);
-        planner = new Planner(p);
+        planner = new Planner(p) { react = motor.react };
         _dice = new Random(unchecked((int)(seed * 2654435761L) ^ 0x2545f491));
     }
 
@@ -62,48 +58,31 @@ public sealed class MpcBot
         }
         bool tap = planner.plan(sim, _since);
         if (planner.doomed) doomed_ticks++;
-        if (motor.sigma > 0 || motor.react > 0) tap = hands(sim, tap);
+        if (motor.sigma > 0) tap = hand(tap);
         if (tap && _since < motor.min_gap) tap = false;
-        planner.expect(sim, tap);
         _since = tap ? 1 : Math.Min(_since + 1, 1000);
         if (tap) taps++;
         return tap;
     }
 
-    /// Reaction time and timing error. The plan gives the ideal tick of the
-    /// next tap; the hand commits to it a few ticks ahead and lands it with a
-    /// Gaussian error. While something new is being taken in, no new tap starts.
-    bool hands(GameSim sim, bool tap_now)
+    /// Timing error: the hand commits to the planned tap a few ticks before
+    /// it is due and lands it a Gaussian number of ticks early or late. A tap
+    /// the plan wants at once (nothing was planned) can only come late.
+    bool hand(bool tap_now)
     {
-        var s = sim.state;
-        long side = s.vx > 0 ? 1 : 0;
-        long mask = sim.wall_mask(side);
-        int hazards = planner.sight.blobs.Count;
-        bool fresh = s.room_index != _seen_room || side != _seen_side || mask != _seen_mask || hazards > _seen_hazards;
-        if (fresh && (_seen_room != s.room_index || side != _seen_side || hazards > _seen_hazards)) _blind = motor.react;
-        _seen_room = s.room_index;
-        _seen_side = side;
-        _seen_mask = mask;
-        _seen_hazards = hazards;
         if (_pending >= 0)
         {
-            if (_pending == 0)
+            if (_pending > 0)
             {
-                _pending = -1;
-                return true;
+                _pending--;
+                return false;
             }
-            _pending--;
-            return false;
+            _pending = -1;
+            return true;
         }
-        if (_blind > 0)
-        {
-            _blind--;
-            return false;
-        }
-        // Commit to the planned tap when it is `LEAD` ticks away (or due now).
-        const int LEAD = 6;
+        int lead = (int)Math.Ceiling(2.5 * motor.sigma);
         int first = planner.first_tap;
-        if (first < 0 || first > LEAD) return false;
+        if (first < 0 || first > lead) return false;
         int land = (int)Math.Round(first + gauss() * motor.sigma);
         if (land <= 0) return true;
         _pending = land - 1;

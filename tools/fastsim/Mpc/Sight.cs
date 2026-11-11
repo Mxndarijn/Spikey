@@ -19,6 +19,9 @@ public sealed class Blob
     public int age;
     /// Px per step this shape moves up or down toward the bird's height (0: it does not follow).
     public float chase;
+    /// Steps a shape of this hazard stays, when its last two stayed equally long (a beam,
+    /// a piston stroke); 0: not known.
+    public int life;
     /// Per edge: at the screen border (its real place is off screen), the
     /// step it was first really seen, and how many sightings its motion rests on.
     public readonly bool[] pin = new bool[4];
@@ -41,6 +44,7 @@ public sealed class Blob
         age = 0;
         wobble = 1f;
         chase = 0f;
+        life = 0;
         Array.Clear(v);
         Array.Clear(a);
         Array.Clear(pin);
@@ -67,6 +71,8 @@ public sealed class Sight
         // steps it moved at all while the bird was clearly above or below it.
         public int chase_yes, chase_all;
         public float chase_speed;
+        // How many steps the hazard's last two shapes stayed before they went.
+        public int life_a, life_b;
         public long last_full = -1;
         public int c0 = 0, c1 = -1, r0 = 0, r1 = -1;
         public List<Blob> blobs = new(), old = new();
@@ -77,7 +83,21 @@ public sealed class Sight
     /// box a bird must be out of, from `eta` steps on for `dur` steps.
     public readonly record struct Warn(float x0, float y0, float x1, float y1, int eta, int dur);
     public readonly List<Warn> warns = new();
-    public bool read_warnings = true, learn_chase = true;
+    /// Moving air drawn on screen: an updraft column (x range in px, lift in sub-units per
+    /// step, drift in px per step) and wind bands (heights in sub-units, push per step).
+    public readonly record struct Draft(float x0, float x1, long lift, float v, int from, int to);
+    public readonly List<Draft> drafts = new();
+    readonly List<(long y0, long y1, long push)> _winds = new();
+    readonly Dictionary<Hazard, (long t, float x0, float v)> _draft_seen = new(ReferenceEqualityComparer.Instance);
+
+    /// The sideways push (sub-units per step) on a bird at height `y` now.
+    public long push_at(long y)
+    {
+        foreach (var w in _winds)
+            if (y >= w.y0 && y <= w.y1) return w.push;
+        return 0;
+    }
+    public bool read_warnings = true, learn_chase = true, learn_life = true;
     readonly Dictionary<Hazard, Seen> _by = new(ReferenceEqualityComparer.Instance);
     readonly Stack<Blob> _pool = new();
     readonly byte[] _coarse = new byte[CELLS];
@@ -103,6 +123,7 @@ public sealed class Sight
                 foreach (var b in s.blobs) _pool.Push(b);
             }
             _by.Clear();
+            _draft_seen.Clear();
             _room_index = sim.state.room_index;
         }
         _room_t = room.t;
@@ -125,6 +146,7 @@ public sealed class Sight
         }
         sim.state.x = x0;
         sim.state.y = y0;
+        air(sim);
         warns.Clear();
         if (read_warnings)
             for (int i = 0; i < hz.Count; i++)
@@ -155,6 +177,46 @@ public sealed class Sight
             }
         }
         b.chase = seen.chase_all >= 30 && seen.chase_yes >= 0.85f * seen.chase_all ? Math.Min(seen.chase_speed, 4f) : 0f;
+    }
+
+    /// Updrafts and wind as they are now. An updraft's drift is its column's
+    /// movement since the last look.
+    void air(GameSim sim)
+    {
+        drafts.Clear();
+        _winds.Clear();
+        long t = sim.room.t;
+        foreach (var h in sim.room.hazards)
+        {
+            if (!h.alive) continue;
+            if (h is Updraft u)
+            {
+                float x0 = (float)u.x0 / SimConfig.SUB;
+                float v = 0;
+                if (_draft_seen.TryGetValue(h, out var was))
+                {
+                    v = was.v;
+                    if (t > was.t) v = 0.5f * was.v + 0.5f * (x0 - was.x0) / (t - was.t);
+                    else x0 = was.x0;
+                }
+                _draft_seen[h] = (t, (float)u.x0 / SimConfig.SUB, v);
+                // A gusting updraft shows when it is about to blow; it blows from `from` to `to` steps on.
+                int from = 0, to = int.MaxValue;
+                if (u.gust != Updraft.Gust.NONE)
+                {
+                    int m = (int)u.gust_step(), on = (int)(Updraft.GUST_OFF + Updraft.GUST_WARN);
+                    if (u.gust == Updraft.Gust.OFF) continue;
+                    from = Math.Max(on - m, 0);
+                    to = (int)Updraft.GUST_PERIOD - m;
+                }
+                drafts.Add(new Draft((float)u.x0 / SimConfig.SUB, (float)u.x1 / SimConfig.SUB, -u.lift, v, from, to));
+            }
+            else if (h is Wind w && w.blowing())
+            {
+                _winds.Add((w.a_y0, w.a_y1, w.a_dir * Wind.PUSH));
+                if (w.b_dir != 0) _winds.Add((w.b_y0, w.b_y1, w.b_dir * Wind.PUSH));
+            }
+        }
     }
 
     /// The warnings the game draws before a hazard strikes, as boxes of bird
@@ -275,8 +337,19 @@ public sealed class Sight
         }
         else if (!full) seen.last_full = -1;
         foreach (var o in seen.old)
-            if (!o.matched) _pool.Push(o);
+            if (!o.matched)
+            {
+                // Gone (not just out of a partial scan's box): remember how long it stayed.
+                if (full || bc1 < bc0)
+                {
+                    seen.life_b = seen.life_a;
+                    seen.life_a = o.age;
+                }
+                _pool.Push(o);
+            }
         seen.old.Clear();
+        int life = learn_life && seen.life_a >= 8 && Math.Abs(seen.life_a - seen.life_b) <= 2 ? Math.Max(seen.life_a, seen.life_b) : 0;
+        foreach (var b in seen.blobs) b.life = life;
     }
 
     /// Splits the touched cells into connected shapes and follows each one.
