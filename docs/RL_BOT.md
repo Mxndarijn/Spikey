@@ -236,6 +236,34 @@ collapse onto beast or below beginner.
   checkpoints. Windows' per-process CPU time under-reports on this PC: judge
   by throughput.
 
+## Reusable for the planner lines
+
+- **`RL/Observer.cs` (layout 3)**: what a player sees as numbers, with no
+  per-hazard code. The danger grid asks every hazard's `kills()` at points
+  around the bird. Asking `guards_edge` changes the hazard
+  (`EdgePad`), so the guard check uses a copy and the bird's state is
+  restored (`fastsim check rlbot` holds the sim unchanged in every room
+  variant). The wall strip and the bird's height at the wall (wait / tap)
+  are cheap perception features for a planner's end-of-line score.
+- **Arc inputs** (partner, `RL/Arc.cs` on its branch): the bird's own wait
+  and tap arcs probed against the hazards where they are now: a visible-only
+  look-ahead that uses no copies.
+- **`Teacher.copy` with `Teacher.blind`**: a scrambled copy (sim RNG, hazard
+  RNGs, crate and dart salts). `Teacher.width` counts surviving buckets: a
+  "slack" score for a line.
+- **`-Mode deaths`** (`RL/Deaths.cs`): was each death avoidable? Full
+  SurvivalSearch from room entry. Works for any bot's runs.
+- **`-Mode heights`** (`RL/Heights.cs`): time per height band against
+  SurvivalSearch, deaths per band, gap above or below at death, taps per
+  second.
+- **`measure`'s band report** (`Tiers.band_line`): deaths per 100 points by
+  score band, alive at the cap.
+- **`RL/Power.cs`**: turns Windows power throttling (efficiency mode) off for
+  a process; use it in any long FastSim tool. The server garbage collector
+  (`DOTNET_gcServer=1`) helps tools that copy many sims.
+- **`Player` handicaps** (delay, jitter, missed taps) and `Tiers.calibrate`
+  (bisection to a target median): reusable for a planner's tiers.
+
 If a learned bot is wanted later: distil a planner that sees only what a
 player sees (no imitation gap), decide every 6 to 8 ticks, and train with the
 reaction delay in the loop (the review's step 5).
