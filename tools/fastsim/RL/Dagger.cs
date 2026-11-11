@@ -30,7 +30,7 @@ public sealed class Dagger
     public int batch = 512;
     public float lr = 3e-4f;
     public int eval_every = 5;
-    public int eval_seeds = 64;
+    public int eval_seeds = 200;
     public long eval_cap = 54000;
     public const long TRAIN_SEED = 30_000_000;
 
