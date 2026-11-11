@@ -282,10 +282,17 @@ collapse onto beast or below beginner.
 
 ## Lessons
 
-- **No room is impossible.** The full SurvivalSearch survives all 64 full runs
-  of 48,000 ticks (median 543 points), and all 200 checked deaths of the
-  policy could have been avoided from where the bird entered that room
-  (`-Mode deaths`). The limit was the learner, not the game.
+- **No room is impossible for a player who knows what comes next.** The full
+  SurvivalSearch survives all 64 full runs of 48,000 ticks (median 543
+  points), and all 200 checked deaths of the policy could have been avoided
+  from where the bird entered that room (`-Mode deaths`). But SurvivalSearch
+  runs on real copies: it sees the next wall's spikes before they are drawn
+  (at the bounce), which no player can. Without that foresight a planner dies
+  about twice as often, and in one check 9 of 23 deaths were already
+  unavoidable at the bounce (humanlike-bot, `humanlike-bot.md` in the shared
+  notes). So some deaths are forced for a player, and teacher labels taken
+  long before a bounce can expect knowledge the student can't have. A fair
+  deaths check would search on scrambled copies (`Teacher.blind`).
 - **The policy is a 1-tick feedback controller.** It reacts to the bird's
   exact state every tick with bursts of small taps (3.6 taps per second,
   SurvivalSearch 2.0) and hovers low (62% of its time in the bottom quarter
