@@ -68,6 +68,41 @@ public static partial class WorldCheck
                 foreach (var l in log.Skip(Math.Max(0, log.Count - int.Parse(O("last", "70"))))) Console.WriteLine("  " + l);
                 return 0;
             }
+            case "practice":
+            {
+                // world practice <room id or *> [seeds] [ticks]: practice runs in every variant of the room(s).
+                string room = pos.Count > 2 ? pos[2] : "*";
+                int seeds = int.Parse(pos.Count > 3 ? pos[3] : "24");
+                long ticks = long.Parse(pos.Count > 4 ? pos[4] : "3600");
+                var sk = Skill(opts);
+                var list = Variants().Where(v => room == "*" || v.def.id == room || room.Split(',').Contains(v.def.id)).ToList();
+                var rows = new System.Collections.Concurrent.ConcurrentBag<(string label, double median, double mean, int deaths)>();
+                Parallel.ForEach(list, new ParallelOptions { MaxDegreeOfParallelism = threads }, v =>
+                {
+                    var pts = new List<long>();
+                    int deaths = 0;
+                    for (int i = 0; i < seeds; i++)
+                    {
+                        long seed = 7000 + 31 * i;
+                        var sim = new GameSim(seed, v.def.season, v.index, v.variant);
+                        var bot = new WorldPlanner(sk, seed);
+                        var mem = new Memory();
+                        long start = sim.state.score;
+                        while (!sim.is_over() && sim.state.tick < ticks) sim.step(bot.Decide(sim, mem));
+                        pts.Add(sim.state.score - start);
+                        if (sim.is_over()) deaths++;
+                    }
+                    rows.Add((v.variant == "" ? v.def.id : v.def.id + "/" + v.variant, Pct(pts, 0.5), pts.Average(), deaths));
+                });
+                var sorted = rows.OrderBy(r => r.median).ThenBy(r => r.mean).ToList();
+                var sb = new StringBuilder();
+                sb.AppendLine($"world practice ({sk.name}): {list.Count} variants x {seeds} seeds x {ticks} ticks; median / mean points, runs that died");
+                foreach (var r in sorted) sb.AppendLine($"  {r.label,-28} {r.median,5} {r.mean,6:F1}  died {r.deaths}/{seeds}");
+                sb.AppendLine($"  all: mean of medians {sorted.Average(r => r.median):F1}, deaths {sorted.Sum(r => r.deaths)}/{sorted.Count * seeds}");
+                Console.Write(sb.ToString());
+                if (O("out", "") != "") File.WriteAllText(O("out", ""), sb.ToString());
+                return 0;
+            }
             case "calibrate":
                 return Calibrate(int.Parse(pos.Count > 2 ? pos[2] : "40"), first, cap, threads, minutes, O("only", ""), O("out", ""));
             case "describe":
@@ -101,13 +136,14 @@ public static partial class WorldCheck
         var sk = WorldPlanner.Skill.Named(opts.GetValueOrDefault("skill", "beast"));
         if (opts.ContainsKey("k"))
             sk = WorldPlanner.Skill.At(sk.name, double.Parse(opts["k"], System.Globalization.CultureInfo.InvariantCulture));
-        // Overrides for tuning: --delay 8 --jitter 3 ...
+        // Overrides for tuning: --delay 8 --sigma 3 ...
         int I(string k, int d) => opts.ContainsKey(k) ? int.Parse(opts[k]) : d;
         double D(string k, double d) => opts.ContainsKey(k) ? double.Parse(opts[k], System.Globalization.CultureInfo.InvariantCulture) : d;
         return sk with
         {
             delay = I("delay", sk.delay),
-            jitter = I("jitter", sk.jitter),
+            sigma = D("sigma", sk.sigma),
+            min_gap = I("min_gap", sk.min_gap),
             miss = D("miss", sk.miss),
             horizon = I("horizon", sk.horizon),
             margin_px = I("margin", (int)sk.margin_px),
