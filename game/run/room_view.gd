@@ -211,8 +211,15 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	var s := _run.sim.state
-	_animate_wall(_left_reveal, _run.sim.wall_mask(0), delta)
-	_animate_wall(_right_reveal, _run.sim.wall_mask(1), delta)
+	if _walls_moving_in():
+		# Narrow: the walls slide in as the room starts. Their spikes wait
+		# until the walls stand still, then slide out as usual, instead of
+		# riding in from the screen edge. The bird is far from them till then.
+		_left_reveal.fill(0.0)
+		_right_reveal.fill(0.0)
+	else:
+		_animate_wall(_left_reveal, _run.sim.wall_mask(0), delta)
+		_animate_wall(_right_reveal, _run.sim.wall_mask(1), delta)
 	_fade = minf(_fade + delta * FADE_SPEED, 1.0)
 	_flash = maxf(_flash - delta * FADE_SPEED, 0.0)
 	# Exits fade in over EXIT_FADE_TIME when they open.
@@ -228,6 +235,12 @@ func _process(delta: float) -> void:
 		_ghost_fade = 0.0
 	_arrival = maxf(_arrival - delta / ARRIVAL_CLOSE_TIME, 0.0)
 	queue_redraw()
+
+
+## True while a room's walls are still sliding in to where they stand (Narrow).
+func _walls_moving_in() -> bool:
+	var room := _run.sim.room
+	return room.def.inset > 0 and room.inset(0) < room.def.inset
 
 
 func _animate_wall(reveal: PackedFloat32Array, mask: int, delta: float) -> void:
