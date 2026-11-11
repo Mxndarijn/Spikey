@@ -27,6 +27,24 @@ public sealed class Ppo
     /// Longest training run (ticks); then it starts over (the value is bootstrapped).
     public long cap = 30000;
     public int threads = 4;
+    /// Research recommendation #4: decide every `every` ticks (hold still in
+    /// between), pay `tap_cost` per tap, and potential shaping toward the safe
+    /// height on the wall ahead (`shape`; 0 = off). Shaping by a potential
+    /// leaves the best policy unchanged.
+    public int every = 1;
+    /// Reaction delay in the loop: the policy sees what was there `delay`
+    /// ticks ago while it trains (and is measured that way).
+    public int delay = 0;
+    public float tap_cost = 0f;
+    public float shape = 0f;
+    /// Research recommendation #3: share of runs that start from a state on a
+    /// SurvivalSearch run (any room, any height it flew), so the policy
+    /// practises where a good player goes, late rooms included.
+    public double expert = 0;
+    public int expert_runs = 64;
+    public long expert_ticks = 24000;
+    /// Start from the weights in policy.json instead of random ones.
+    public bool from_policy = false;
     public int eval_every = 10;
     public int eval_seeds = 200;
     public long eval_cap = 54000;
@@ -70,19 +88,95 @@ public sealed class Ppo
         public Random rng;
         public long ticks;
         public long points;
+        public long start_score;
+    }
+
+    /// A SurvivalSearch run: its taps and copies of its sim every EXPERT_CHECK ticks.
+    sealed class ExpertRun
+    {
+        public long seed;
+        public byte[] taps;
+        public List<GameSim> checks = new();
+    }
+
+    public const long EXPERT_CHECK = 500;
+    List<ExpertRun> experts = new();
+
+    void build_experts(ParallelOptions par)
+    {
+        var clock = Stopwatch.StartNew();
+        var found = new ExpertRun[expert_runs];
+        Parallel.For(0, expert_runs, par, i =>
+        {
+            long seed = 7_000_000 + i * 131;
+            var search = new SurvivalSearch();
+            if (!search.run(new GameSim(seed), expert_ticks)) return;
+            var run = new ExpertRun { seed = seed, taps = search.best_inputs };
+            var sim = new GameSim(seed);
+            for (long t = 0; t < run.taps.Length; t++)
+            {
+                if (t % EXPERT_CHECK == 0) run.checks.Add(sim.clone_deep());
+                sim.step(run.taps[t] != 0);
+            }
+            found[i] = run;
+        });
+        experts = found.Where(r => r != null).ToList();
+        Console.WriteLine($"rlbot train: {experts.Count} SurvivalSearch runs of {expert_ticks} ticks as start states ({clock.Elapsed.TotalSeconds:F0} s)");
+    }
+
+    /// The potential: closer to the safe height on the wall ahead is higher.
+    float phi(GameSim sim)
+    {
+        if (shape == 0 || sim.is_over()) return 0;
+        var s = sim.state;
+        long side = s.vx > 0 ? 1 : 0;
+        long target;
+        if (s.exit_open && s.exit_side == side) target = s.exit_b_kind == ExitKind.WILD ? s.exit_b_y : s.exit_a_y;
+        else
+        {
+            long shift = sim.wall_shift(side);
+            target = Observer.nearest_gap(sim.wall_mask(side), s.y - shift).y + shift;
+        }
+        return -shape * Math.Abs(s.y - target) / (float)(SimConfig.WORLD_H / 2);
     }
 
     void reset(Env e)
     {
         long seed;
         lock (this) seed = next_seed++;
+        e.ticks = 0;
+        if (experts.Count > 0 && e.rng.NextDouble() < expert)
+        {
+            // A state on a SurvivalSearch run, at least a few seconds in.
+            var run = experts[e.rng.Next(experts.Count)];
+            long t = 120 + e.rng.NextInt64(Math.Max(1, run.taps.Length - 400));
+            long from = Math.Max(0, t - Observer.MOTION);
+            int c = (int)(from / EXPERT_CHECK);
+            var sim = run.checks[c].clone_deep();
+            for (long i = c * EXPERT_CHECK; i < from; i++) sim.step(run.taps[i] != 0);
+            e.eyes = new Player(null, new Handicap(delay, 0, 0), seed);
+            for (long i = from; i < t; i++)
+            {
+                e.eyes.observe(sim);
+                sim.step(run.taps[i] != 0);
+            }
+            e.sim = sim;
+            e.start_score = sim.state.score;
+            return;
+        }
         long room = e.rng.NextDouble() < practice ? rooms()[e.rng.Next(rooms().Count)] : -1;
         e.sim = new GameSim(seed, Seasons.NONE, room);
-        e.eyes = new Player(null, Handicap.NONE, seed);
-        e.ticks = 0;
-        // The run starts on the first tap; no sample for it.
+        e.eyes = new Player(null, new Handicap(delay, 0, 0), seed);
+        e.start_score = e.sim.state.score;
+        // The run starts on the first tap; no sample for it. With decisions
+        // every k ticks the next one comes k ticks later (as Player.decide).
         e.eyes.observe(e.sim);
         e.sim.step(true);
+        for (int i = 1; i < every && !e.sim.is_over(); i++)
+        {
+            e.eyes.observe(e.sim);
+            e.sim.step(false);
+        }
     }
 
     public int run(bool resume, double minutes, int init_seed)
@@ -102,8 +196,16 @@ public sealed class Ppo
             iter = 0;
             next_seed = TRAIN_SEED;
         }
+        if (from_policy && !(resume && File.Exists(state_path)))
+        {
+            var start = Policy.load(policy_path);
+            if (!start.net.sizes.SequenceEqual(Policy.SIZES)) throw new InvalidDataException("policy.json has other network sizes");
+            pw = (float[])start.w.Clone();
+            Console.WriteLine("rlbot train: starting from the weights in policy.json");
+        }
         popt.lr = lr;
         vopt.lr = vlr;
+        if (expert > 0) build_experts(new ParallelOptions { MaxDegreeOfParallelism = threads });
         env = new Env[envs];
         for (int i = 0; i < envs; i++)
         {
@@ -147,9 +249,21 @@ public sealed class Ppo
                     logp[k] = tap ? log_sig(z) : log_sig(-z);
                     val[k] = vnet.forward(vw, x, va);
                     long before = e.sim.state.score;
-                    e.sim.step(tap);
-                    e.ticks++;
-                    float r = e.sim.state.score - before;
+                    float p0 = phi(e.sim);
+                    float r = tap ? -tap_cost : 0f;
+                    float disc = 1f;
+                    // The move, then (every - 1) ticks holding still.
+                    for (int j = 0; j < every; j++)
+                    {
+                        if (j > 0) e.eyes.observe(e.sim);
+                        e.sim.step(j == 0 && tap);
+                        e.ticks++;
+                        if (e.sim.is_over()) break;
+                        if (j + 1 < every) disc *= gamma;
+                    }
+                    r += e.sim.state.score - before;
+                    // Potential shaping: gamma^k * phi(next) - phi(now).
+                    r += disc * gamma * phi(e.sim) - p0;
                     done[k] = 0;
                     if (e.sim.is_over())
                     {
@@ -167,7 +281,7 @@ public sealed class Ppo
                         }
                         eps++;
                         deaths += done[k] == 1 ? 1 : 0;
-                        pts += e.sim.state.score - (e.sim.is_practice() ? RoomCatalog.all()[(int)e.sim.practice_room].from_score : 0);
+                        pts += e.sim.state.score - e.start_score;
                         reset(e);
                     }
                 }
@@ -178,7 +292,8 @@ public sealed class Ppo
                 Interlocked.Add(ref dead_count, deaths);
             });
             double play_s = it_clock.Elapsed.TotalSeconds;
-            // 2. Advantages (GAE), per run, backwards.
+            // 2. Advantages (GAE), per run, backwards; one step is `every` ticks.
+            float g = MathF.Pow(gamma, every);
             for (int i = 0; i < envs; i++)
             {
                 float next_v = last_v[i], gae = 0;
@@ -187,8 +302,8 @@ public sealed class Ppo
                     int k = t * envs + i;
                     float nv = done[k] == 1 ? 0 : done[k] == 2 ? boot[k] : next_v;
                     float cont = done[k] != 0 ? 0 : 1;
-                    float delta = rew[k] + gamma * nv - val[k];
-                    gae = delta + gamma * lambda * cont * gae;
+                    float delta = rew[k] + g * nv - val[k];
+                    gae = delta + g * lambda * cont * gae;
                     adv[k] = gae;
                     ret[k] = gae + val[k];
                     next_v = val[k];
@@ -278,7 +393,7 @@ public sealed class Ppo
                 if (score > best)
                 {
                     best = score;
-                    var extra = new JsonObject { ["algorithm"] = "ppo", ["iteration"] = iter, ["eval_median"] = median, ["eval_mean"] = Math.Round(avg, 2) };
+                    var extra = new JsonObject { ["algorithm"] = "ppo", ["iteration"] = iter, ["eval_median"] = median, ["eval_mean"] = Math.Round(avg, 2), ["decide_every"] = every, ["trained_delay"] = delay };
                     File.WriteAllText(policy_path, Policy.to_json(pw, Policy.SIZES, extra).ToJsonString(Policy.PRETTY));
                     line += "  (saved)";
                 }
@@ -304,10 +419,10 @@ public sealed class Ppo
 
     (long median, double mean) evaluate(ParallelOptions par)
     {
-        var pol = new Policy((float[])pw.Clone(), Policy.SIZES);
+        var pol = new Policy((float[])pw.Clone(), Policy.SIZES) { decide_every = every };
         var pts = new long[eval_seeds];
         Parallel.For(0, eval_seeds, par, i =>
-            pts[i] = Player.play(pol, Handicap.NONE, new GameSim(EVAL_SEED + i), eval_cap).points);
+            pts[i] = Player.play(pol, new Handicap(delay, 0, 0), new GameSim(EVAL_SEED + i), eval_cap).points);
         var sorted = pts.OrderBy(x => x).ToArray();
         return (sorted[sorted.Length / 2], pts.Average());
     }

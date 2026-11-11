@@ -9,6 +9,7 @@ using FastSim;
 //   fastsim searchruns [seeds] [ticks]              full runs through the portals
 //   fastsim rooms [seeds] [room]                    PlannerBot per room
 //   fastsim runs [seeds]                            PlannerBot full runs
+//   fastsim world errors|nopeek|runs|tiers|...     the world model and its planner (World/, docs/WORLD_MODEL.md)
 //   fastsim bench
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction

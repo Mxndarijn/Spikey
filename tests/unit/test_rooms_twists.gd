@@ -11,7 +11,7 @@ const SUB := SimConfig.SUB
 const TWISTS := {
 	"crosswind": ["wind", ["steady", "split", "gusty"]],
 	"belt": ["belt", ["up", "counter", "switchback"]],
-	"lava": ["lava", ["lava", "crusher"]],
+	"lava": ["lava", ["lava"]],
 	"echo": ["echo", ["echo", "mirror"]],
 }
 
@@ -131,7 +131,6 @@ func test_belt_stops_on_an_open_exit() -> void:
 func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 	var sim := _started("lava", 10)
 	var l: Lava = sim.room.hazards[0]
-	l.mode = Lava.Mode.FLOOR
 	l.line = l.rest()
 	for p in Lava.STONE_AFTER:
 		sim.room.points += 1
@@ -157,33 +156,30 @@ func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 
 
 func test_lava_stops_rising_and_keeps_a_free_run() -> void:
-	for mode in [Lava.Mode.FLOOR, Lava.Mode.CEILING]:
-		var sim := _started("lava", 11)
-		var l: Lava = sim.room.hazards[0]
-		l.mode = mode
-		l.line = l.rest()
-		sim.room.points = 20
-		l.on_bounce(sim, SimRng.new(1))
-		assert_eq(l.rises, Lava.MAX_RISES, "it stops rising")
-		var edge := l.line_at(Lava.MAX_RISES)
-		var all := (1 << SimConfig.SLOT_COUNT) - 1
-		sim.state.y = 320 * SUB
-		var mask: int = l.adjust_wall(sim, 1, all)
-		var run := 0
-		var best := 0
-		for slot in SimConfig.SLOT_COUNT:
-			if l._slot_clear(slot, edge) and not RoomRules.has_slot(mask, slot):
-				run += 1
-				best = maxi(best, run)
-			else:
-				run = 0
-		assert_true(best >= Lava.RUN, "a free run clear of the line (mode %d)" % mode)
+	var sim := _started("lava", 11)
+	var l: Lava = sim.room.hazards[0]
+	l.line = l.rest()
+	sim.room.points = 20
+	l.on_bounce(sim, SimRng.new(1))
+	assert_eq(l.rises, Lava.MAX_RISES, "it stops rising")
+	var edge := l.line_at(Lava.MAX_RISES)
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	sim.state.y = 320 * SUB
+	var mask: int = l.adjust_wall(sim, 1, all)
+	var run := 0
+	var best := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if l._slot_clear(slot, edge) and not RoomRules.has_slot(mask, slot):
+			run += 1
+			best = maxi(best, run)
+		else:
+			run = 0
+	assert_true(best >= Lava.RUN, "a free run clear of the line")
 
 
 func test_lava_keeps_exits_out_of_its_reach() -> void:
 	var sim := _started("lava", 12)
 	var l: Lava = sim.room.hazards[0]
-	l.mode = Lava.Mode.FLOOR
 	l.rises = 4
 	var worst := l.line_at(5)
 	assert_true(l.blocks_exit(sim, 1, worst), "no exit in the lava")
