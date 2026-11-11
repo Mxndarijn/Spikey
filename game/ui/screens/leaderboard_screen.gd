@@ -4,7 +4,9 @@ extends Control
 ## for the boards (LeaderboardService.BOARDS: Daily and All-time), one plain line
 ## about the board (time to reset, players), the top 3 on a podium, the rest as
 ## paper pill rows in a scrolling list, and the player's own gold row pinned at
-## the bottom with a pencil to change their name. Also shows loading, offline,
+## the bottom with a pencil to change their name. The daily board also shows
+## what the top 10 win: a PrizeStrip, a "+N ◆" chip on every prize place and a
+## line under 10th. Also shows loading, offline,
 ## signed-out and empty boards.
 ## The first visit asks for a leaderboard name. Boards come from a
 ## LeaderboardService; this screen never decides who is where.
@@ -26,6 +28,7 @@ const SIDE := 14
 const BOTTOM := 40
 const LIST_MIN := 140.0
 const PINNED_FLYER := 32.0
+const PRIZE_LINE := "No diamonds below here"
 
 var view := View.LOADING
 
@@ -159,7 +162,10 @@ func show_board(board: LeaderboardBoard) -> void:
 			)
 			return
 	_set_caption(caption_left(board), caption_right(board))
-	_podium = Podium.new(board.entries)
+	var daily := board.id == LeaderboardService.DAILY
+	if daily:
+		_body.add_child(PrizeStrip.new())
+	_podium = Podium.new(board.entries, daily)
 	_body.add_child(_podium)
 	var spots := _podium.spots()
 	for i in spots.size():
@@ -167,7 +173,7 @@ func show_board(board: LeaderboardBoard) -> void:
 			_tappable(_podium.get_child(i) as Control, spots[i])
 	if board.is_empty():
 		view = View.EMPTY
-		_body.add_child(_empty_card(board.id == LeaderboardService.DAILY))
+		_body.add_child(_empty_card(daily))
 		return
 	view = View.BOARD
 	_body.add_child(_list(board))
@@ -220,15 +226,45 @@ func _list(board: LeaderboardBoard) -> Control:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	scroll.add_child(rows)
+	var daily := board.id == LeaderboardService.DAILY
 	for i in range(3, board.entries.size()):
 		# The daily top 10 win diamonds (Economy); the podium holds places 1 to 3.
-		var prize := Economy.daily_prize(i + 1) if board.id == LeaderboardService.DAILY else 0
-		var row := LeaderboardRow.new(board.entries[i], prize)
-		_tappable(row, board.entries[i])
+		var e := board.entries[i]
+		if daily and e.rank > Economy.DAILY_PRIZES.size() and rows.get_child_count() > 0:
+			if rows.get_child(-1).name != "PrizeLine":
+				rows.add_child(_prize_line())
+		var prize := Economy.daily_prize(e.rank) if daily else 0
+		var row := LeaderboardRow.new(e, prize)
+		_tappable(row, e)
 		_rows.append(row)
 		rows.add_child(row)
 	rows.add_child(UiKit.spacer(FadeMask.FADE))
 	return FadeMask.new(scroll)
+
+
+## The cut-off under the last prize place: a dashed ink line either side of
+## "No diamonds below here".
+func _prize_line() -> Control:
+	var line := HBoxContainer.new()
+	line.name = "PrizeLine"
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	line.add_child(_dash())
+	var l := Label.new()
+	l.theme_type_variation = &"SkyCaption"
+	l.add_theme_font_size_override("font_size", 12)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.text = PRIZE_LINE
+	line.add_child(l)
+	line.add_child(_dash())
+	return line
+
+
+func _dash() -> Control:
+	var dash := DashLine.new()
+	dash.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dash.custom_minimum_size = Vector2(0, 14)
+	return dash
 
 
 ## The player's own row, a gold pill: rank, flyer, "You (name)" over what the
@@ -541,6 +577,12 @@ static func pinned_note(board: LeaderboardBoard) -> String:
 		return "No run today yet" if board.id == LeaderboardService.DAILY else "No runs yet"
 	match board.id:
 		LeaderboardService.DAILY:
+			var prize := Economy.daily_prize(me.rank)
+			if prize > 0:
+				return "Winning %s" % SpotAlert.diamonds(prize)
+			var last := _last_prize_score(board)
+			if last >= 0:
+				return "Beat %s to win a diamond" % thousands(last)
 			return "of %s today" % thousands(board.players)
 		LeaderboardService.TIER:
 			return "of %d in %s tier" % [board.players, board.tier_name]
@@ -550,6 +592,14 @@ static func pinned_note(board: LeaderboardBoard) -> String:
 		LeaderboardService.FRIENDS:
 			return "of %d friends" % board.players
 	return ""
+
+
+## The score on the last prize place (10th), or -1 when nobody holds it.
+static func _last_prize_score(board: LeaderboardBoard) -> int:
+	for e in board.entries:
+		if e.rank == Economy.DAILY_PRIZES.size():
+			return e.score
+	return -1
 
 
 ## "9h 12m" for an hour or more, else "23m 41s".

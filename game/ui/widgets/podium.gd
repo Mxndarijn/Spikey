@@ -3,7 +3,8 @@ extends HBoxContainer
 ## The top 3 of a board (minimal kit): second, first, third from left to right.
 ## Each spot is the flyer on the room, the name, and a flat paper block (round
 ## top corners) with a medal disc holding the place and the score. First
-## stands tallest. An empty board shows "?" where players will stand.
+## stands tallest. An empty board shows "?" where players will stand. On the
+## daily board each place shows its diamond prize ("+3 ◆") above its block.
 
 const GOLD := Color("#FFC93C")
 const SILVER := Color("#D9DDE8")
@@ -22,9 +23,12 @@ const SCORE_SIZE := 20
 const NAME_SIZE := 13
 
 var _spots := []
+## Show each place's daily prize (Economy.daily_prize).
+var _prizes := false
 
 
-func _init(entries: Array[LeaderboardBoard.Entry]) -> void:
+func _init(entries: Array[LeaderboardBoard.Entry], prizes: bool = false) -> void:
+	_prizes = prizes
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	alignment = BoxContainer.ALIGNMENT_CENTER
 	add_theme_constant_override("separation", 14)
@@ -40,12 +44,15 @@ func _column(place: int, e: LeaderboardBoard.Entry) -> Control:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.custom_minimum_size = Vector2(SPOT_WIDTH, 0)
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
-	col.add_theme_constant_override("separation", 4)
+	col.add_theme_constant_override("separation", 3)
 	if e != null:
 		col.add_child(_flyer(e))
 		col.add_child(_name(e.player_name))
 	else:
 		col.add_child(_waiting())
+	var prize := Economy.daily_prize(place) if _prizes else 0
+	if prize > 0:
+		col.add_child(LeaderboardRow.prize_chip(prize, place == 1))
 	var revived := e != null and e.revived
 	col.add_child(_block(look, str(e.score) if e != null else "", place, revived))
 	return col
@@ -144,6 +151,21 @@ func _medal(color: Color, place: int) -> Control:
 	n.text = str(place)
 	medal.add_child(n)
 	return medal
+
+
+## The prize chips' amounts for 2nd, 1st and 3rd ("" where none), for tests.
+func prize_texts() -> Array[String]:
+	var out: Array[String] = []
+	for col in get_children():
+		var chip := col.find_child("Prize", false, false)
+		out.append(
+			(
+				((chip.get_child(0) as HBoxContainer).get_child(0) as Label).text
+				if chip != null
+				else ""
+			)
+		)
+	return out
 
 
 ## Who stands on 2nd, 1st and 3rd (null where nobody does yet), for tests.

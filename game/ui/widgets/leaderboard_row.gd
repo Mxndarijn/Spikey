@@ -45,17 +45,7 @@ func _init(e: LeaderboardBoard.Entry, p_prize: int = 0) -> void:
 	if e.revived:
 		row.add_child(revive_mark())
 	if prize > 0:
-		var won := HBoxContainer.new()
-		won.name = "Prize"
-		won.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		won.tooltip_text = "Wins %d a day" % prize
-		won.add_theme_constant_override("separation", 3)
-		won.add_child(icon(DIAMOND_ICON, 16))
-		var amount := rank_label(str(prize))
-		amount.custom_minimum_size = Vector2.ZERO
-		labels.append(amount)
-		won.add_child(amount)
-		row.add_child(won)
+		row.add_child(prize_chip(prize))
 	row.add_child(labels[2])
 	if plate != null:
 		for l in labels:
@@ -114,6 +104,48 @@ static func score_label(score: int) -> Label:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.text = str(score)
 	return l
+
+
+## "+3 ◆": the diamonds a daily place wins, white on an ink pill (gold with an
+## ink ring for 1st). Its own colours, so it reads the same on any name plate.
+static func prize_chip(amount: int, gold: bool = false) -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.name = "Prize"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var box := UiTheme.flat(UiTokens.ACTION if gold else UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0)
+	if gold:
+		box.set_border_width_all(2)
+		box.border_color = UiTokens.ON_ACTION
+	box.content_margin_left = 7
+	box.content_margin_right = 6
+	box.content_margin_top = 1
+	box.content_margin_bottom = 1
+	chip.add_theme_stylebox_override("panel", box)
+	var line := HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_theme_constant_override("separation", 3)
+	chip.add_child(line)
+	var l := Label.new()
+	l.theme_type_variation = &"InkLabel"
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", UiTokens.ON_ACTION if gold else UiTokens.ON_PRIMARY)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.text = "+%d" % amount
+	line.add_child(l)
+	line.add_child(icon(DIAMOND_ICON, 14))
+	chip.tooltip_text = "Wins %s today" % SpotAlert.diamonds(amount)
+	return chip
+
+
+## The amount on a prize chip ("+3"), for tests; "" without one.
+func prize_text() -> String:
+	var chip := find_child("Prize", true, false)
+	if chip == null:
+		return ""
+	return ((chip.get_child(0) as HBoxContainer).get_child(0) as Label).text
 
 
 ## The small ink heart next to the score of a run that used its revive.
