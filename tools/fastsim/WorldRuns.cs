@@ -61,13 +61,15 @@ public static partial class WorldCheck
                 {
                     bool tap = bot.Decide(sim, mem);
                     var st = sim.state;
-                    log.Add($"t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} mask {Convert.ToString(sim.wall_mask(st.vx > 0 ? 1 : 0), 2).PadLeft(13, '0')}");
+                    log.Add($"t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} causes {string.Join("/", bot.last_causes)} postb {bot.last_bounced_deaths} L {Convert.ToString(sim.wall_mask(0), 2).PadLeft(13, (char)48)} R {Convert.ToString(sim.wall_mask(1), 2).PadLeft(13, (char)48)} vx {st.vx}");
                     sim.step(tap);
                 }
                 Console.WriteLine($"seed {seed}: score {sim.state.score} died {DeathCause.NAMES[sim.state.death_cause]} in {sim.room.def.id}/{sim.room.variant_id()} at tick {sim.state.tick}");
                 foreach (var l in log.Skip(Math.Max(0, log.Count - int.Parse(O("last", "70"))))) Console.WriteLine("  " + l);
                 return 0;
             }
+            case "calibrate":
+                return Calibrate(int.Parse(pos.Count > 2 ? pos[2] : "40"), first, cap, threads, minutes, O("only", ""), O("out", ""));
             case "describe":
                 return Describe(long.Parse(pos.Count > 2 ? pos[2] : "1"), long.Parse(pos.Count > 3 ? pos[3] : "300"));
             case "runfile":
@@ -97,6 +99,8 @@ public static partial class WorldCheck
     static WorldPlanner.Skill Skill(Dictionary<string, string> opts)
     {
         var sk = WorldPlanner.Skill.Named(opts.GetValueOrDefault("skill", "beast"));
+        if (opts.ContainsKey("k"))
+            sk = WorldPlanner.Skill.At(sk.name, double.Parse(opts["k"], System.Globalization.CultureInfo.InvariantCulture));
         // Overrides for tuning: --delay 8 --jitter 3 ...
         int I(string k, int d) => opts.ContainsKey(k) ? int.Parse(opts[k]) : d;
         double D(string k, double d) => opts.ContainsKey(k) ? double.Parse(opts[k], System.Globalization.CultureInfo.InvariantCulture) : d;
@@ -164,6 +168,36 @@ public static partial class WorldCheck
         Console.Write(sb.ToString());
         if (out_path != "") File.WriteAllText(out_path, sb.ToString());
         return sb.ToString();
+    }
+
+    /// Finds each tier's skill k for its target median by bisection (the median
+    /// rises with k), `seeds` full runs per try. Beast is k = 1 (no limits).
+    static int Calibrate(int seeds, long first, long cap, int threads, double minutes, string only, string out_path)
+    {
+        var sb = new StringBuilder();
+        var clock = Stopwatch.StartNew();
+        foreach (var (name, target) in TARGETS)
+        {
+            if (name == "beast" || (only != "" && only != name)) continue;
+            double lo = 0, hi = 1;
+            (double k, double med, RunResult[] runs) best = (-1, 0, null);
+            for (int it = 0; it < 7; it++)
+            {
+                double k = (lo + hi) / 2;
+                var sk = WorldPlanner.Skill.At(name, k);
+                var runs = Play(sk, first, seeds, cap, threads, minutes);
+                double med = Pct(runs.Select(r => r.points), 0.5);
+                Console.WriteLine($"  calibrate {name}: k {k:F4} median {med} (target {target}) [{clock.Elapsed.TotalMinutes:F1} min]");
+                if (best.runs == null || Math.Abs(Math.Log(Math.Max(med, 1) / target)) < Math.Abs(Math.Log(Math.Max(best.med, 1) / target)))
+                    best = (k, med, runs);
+                if (med < target) lo = k; else hi = k;
+                if (Math.Abs(med - target) <= target * 0.05) break;
+            }
+            sb.AppendLine($"{name}: k {best.k:F4} median {best.med} target {target}  ({WorldPlanner.Skill.At(name, best.k)})");
+        }
+        Console.Write(sb.ToString());
+        if (out_path != "") File.WriteAllText(out_path, sb.ToString());
+        return 0;
     }
 
     /// Prints the structured world the bot reads at one tick of a run.
