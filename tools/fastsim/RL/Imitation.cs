@@ -59,7 +59,10 @@ public sealed class Imitation
     /// arc_past also the arcs against the hazards of 6 and 12 ticks ago.
     public static bool arc = false, arc_past = false;
     public static readonly int[] PAST = { 6, 12 };
-    public static int inputs => Observer.INPUTS + (arc ? Arc.SIZE : 0) + (arc && arc_past ? Arc.SIZE * PAST.Length : 0);
+    /// Adds world-model-bot's structured observation (WorldObs, visible only).
+    public static bool wobs = false;
+    public static int inputs => Observer.INPUTS + (arc ? Arc.SIZE : 0) + (arc && arc_past ? Arc.SIZE * PAST.Length : 0)
+        + (wobs ? FastSim.Model.WorldObs.SIZE : 0);
 
     /// The student's eyes: the observation, the arcs and a short history of
     /// room copies for the past arcs (one per run).
@@ -68,13 +71,26 @@ public sealed class Imitation
         public readonly Player player;
         readonly RoomRuntime[] hist = new RoomRuntime[13];
         long n;
+        readonly FastSim.Model.Memory mem = new();
+        readonly float[] wbuf = new float[FastSim.Model.WorldObs.SIZE];
         public Eyes(long seed) => player = new Player(null, Handicap.NONE, seed);
 
         public float[] see(GameSim sim, float[] buf)
         {
             var x = player.observe(sim);
-            if (!arc) return x;
+            if (!arc && !wobs) return x;
             Array.Copy(x, buf, Observer.INPUTS);
+            if (wobs)
+            {
+                if (sim.state.started && mem.last_tick != sim.state.tick) mem.Observe(sim);
+                FastSim.Model.WorldObs.Fill(FastSim.Model.WorldModel.Read(sim, mem), wbuf);
+                Array.Copy(wbuf, 0, buf, inputs - wbuf.Length, wbuf.Length);
+            }
+            if (!arc)
+            {
+                n++;
+                return buf;
+            }
             Arc.fill(sim, buf, Observer.INPUTS);
             if (arc_past)
             {
@@ -109,6 +125,39 @@ public sealed class Imitation
             sim.step(t);
         }
         return (sim.state.score - start, sim.is_over(), taps);
+    }
+
+    /// Expert style "world": world-model-bot's WorldPlanner (tools/fastsim/World),
+    /// which sees only the present and plans on models of the hazards' visible
+    /// motion, so its labels depend only on what a player can know.
+    public static bool by_world = false;
+    public static FastSim.Model.WorldPlanner.Skill world_skill = FastSim.Model.WorldPlanner.Skill.BEAST;
+
+    /// One run's world-model teacher: its Memory sees every tick in order.
+    public sealed class WorldTeacher
+    {
+        readonly FastSim.Model.Memory mem = new();
+        readonly FastSim.Model.WorldPlanner pl;
+        public WorldTeacher(long seed) => pl = new FastSim.Model.WorldPlanner(world_skill, seed);
+
+        /// Call once per tick, before label().
+        public void see(GameSim sim)
+        {
+            if (sim.state.started && mem.last_tick != sim.state.tick) mem.Observe(sim);
+        }
+
+        /// The planner's move; forced when only one first move has a path
+        /// that lives the whole look-ahead.
+        public (bool tap, float wt, bool forced) label(GameSim sim, float forced_weight)
+        {
+            if (!sim.state.started) return (true, 0f, false);
+            see(sim);
+            bool tap = pl.Plan(FastSim.Model.WorldModel.Read(sim, mem));
+            long h = pl.skill.horizon;
+            bool wait_lives = pl.last_deep_wait >= h, tap_lives = pl.last_deep_tap >= h;
+            bool forced = wait_lives != tap_lives;
+            return (tap, forced ? forced_weight : 1f, forced);
+        }
     }
 
     /// Expert style: false = aim when both moves are safe; true = the move
@@ -321,6 +370,7 @@ public sealed class Imitation
                 var rng = new Random((int)(seed % int.MaxValue));
                 long room = rng.NextDouble() < practice ? Ppo.rooms()[rng.Next(Ppo.rooms().Count)] : -1;
                 var sim = new GameSim(seed, Seasons.NONE, room);
+                var wt_ = by_world ? new WorldTeacher(seed) : null;
                 long start = sim.state.score;
                 var eyes = new Eyes(seed);
                 var buf = new float[inputs];
@@ -337,12 +387,13 @@ public sealed class Imitation
                     var x = eyes.see(sim, buf);
                     bool student = !sim.state.started || pol.act(x, acts) > 0f;
                     bool move = student;
+                    wt_?.see(sim);
                     if (sim.state.started && n % label_every == 0)
                     {
-                        var (tap, wt, frc) = expert(sim, horizon, free_weight);
+                        var (tap, wt, frc) = by_world ? wt_.label(sim, forced_weight) : expert(sim, horizon, free_weight);
                         if (wt > 0)
                         {
-                            mine.Add((Dagger_pack(x), tap ? (byte)1 : (byte)0, frc ? forced_weight : wt));
+                            mine.Add((Dagger_pack(x), tap ? (byte)1 : (byte)0, by_world ? wt : frc ? forced_weight : wt));
                             asked[r]++;
                             if (frc) forced[r]++;
                             if (frc) forced_own[r]++;
@@ -351,7 +402,7 @@ public sealed class Imitation
                         }
                         if (expert_turn) move = tap;
                     }
-                    else if (sim.state.started && expert_turn) move = expert_move(sim, horizon);
+                    else if (sim.state.started && expert_turn) move = by_world ? wt_.label(sim, 1f).tap : expert_move(sim, horizon);
                     taps.Add(move);
                     sim.step(move);
                     n++;
@@ -361,6 +412,7 @@ public sealed class Imitation
                     // Replay the run and label every tick of its last `back`.
                     long T = taps.Count, from = Math.Max(0, T - back);
                     var re = new GameSim(seed, Seasons.NONE, room);
+                    var re_wt = by_world ? new WorldTeacher(seed) : null;
                     var re_eyes = new Eyes(seed);
                     var re_buf = new float[inputs];
                     for (long t = 0; t < T; t++)
@@ -370,15 +422,16 @@ public sealed class Imitation
                             var x = re_eyes.see(re, re_buf);
                             if (t >= from && t % label_every != 0 && re.state.started)
                             {
-                                var (tap, wt, frc) = expert(re, horizon, free_weight);
+                                var (tap, wt, frc) = by_world ? re_wt.label(re, forced_weight) : expert(re, horizon, free_weight);
                                 if (wt > 0)
                                 {
-                                    mine.Add((Dagger_pack(x), tap ? (byte)1 : (byte)0, frc ? forced_weight : wt));
+                                    mine.Add((Dagger_pack(x), tap ? (byte)1 : (byte)0, by_world ? wt : frc ? forced_weight : wt));
                                     asked[r]++;
                                     if (frc) forced[r]++;
                                 }
                             }
                         }
+                        re_wt?.see(re);
                         re.step(taps[(int)t]);
                     }
                 }
@@ -568,8 +621,11 @@ public sealed class Imitation
     {
         var o = JsonNode.Parse(File.ReadAllText(path)).AsObject();
         var sz = o["sizes"].AsArray().Select(n => (int)n).ToArray();
-        arc = sz[0] > Observer.INPUTS;
-        arc_past = sz[0] > Observer.INPUTS + Arc.SIZE;
+        int extra = sz[0] - Observer.INPUTS;
+        wobs = extra % Arc.SIZE != 0 && extra >= FastSim.Model.WorldObs.SIZE;
+        if (wobs) extra -= FastSim.Model.WorldObs.SIZE;
+        arc = extra > 0;
+        arc_past = extra > Arc.SIZE;
         if (sz[0] != inputs) throw new InvalidDataException($"{path}: {sz[0]} inputs");
         return new Policy(floats(o["weights"]), sz);
     }
@@ -580,9 +636,31 @@ public sealed class Imitation
         var pol = load(Path.Combine(dir, "policy.json"));
         var clock = Stopwatch.StartNew();
         var pts = new long[seeds];
+        var dead = new bool[seeds];
         Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
-            pts[i] = play_student(pol, new GameSim(first + 1 + i), cap).points);
-        Console.WriteLine($"imitation measure: {seeds} seeds, median {Tiers.pct(pts, 0.5)}, p90 {Tiers.pct(pts, 0.9)}, mean {pts.Average():F1}  ({clock.Elapsed.TotalSeconds:F0} s)");
+        {
+            var r = play_student(pol, new GameSim(first + 1 + i), cap);
+            pts[i] = r.points;
+            dead[i] = r.dead;
+        });
+        Console.WriteLine($"imitation measure: {seeds} seeds, median {Tiers.pct(pts, 0.5)}, p90 {Tiers.pct(pts, 0.9)}, mean {pts.Average():F1}, {dead.Count(d => !d)} runs hit the cap ({cap} ticks)  ({clock.Elapsed.TotalSeconds:F0} s)");
+        // Deaths per 100 points by score band: deaths in the band / points scored inside it.
+        long[] bands = { 0, 25, 50, 100, 200, 400, long.MaxValue };
+        var parts = new List<string>();
+        for (int b = 0; b + 1 < bands.Length; b++)
+        {
+            long lo = bands[b], hi = bands[b + 1];
+            double inside = 0;
+            int died = 0;
+            for (int i = 0; i < seeds; i++)
+            {
+                inside += Math.Max(0, Math.Min(pts[i], hi) - lo);
+                if (dead[i] && pts[i] >= lo && pts[i] < hi) died++;
+            }
+            string name = hi == long.MaxValue ? $"{lo}+" : $"{lo}-{hi}";
+            parts.Add(inside > 0 ? $"{name}: {100.0 * died / inside:F2}" : $"{name}: -");
+        }
+        Console.WriteLine("  deaths per 100 points by band: " + string.Join(", ", parts));
         return 0;
     }
 

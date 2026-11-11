@@ -59,6 +59,10 @@ public static class RlMain
                     if (opts.ContainsKey("horizon")) t.horizon = long.Parse(opts["horizon"]);
                     if (opts.ContainsKey("every")) t.label_every = int.Parse(opts["every"]);
                     Imitation.by_width = O("style", "aim") == "width";
+                    Imitation.by_world = O("style", "aim") == "world";
+                    if (opts.ContainsKey("wbeam") || opts.ContainsKey("whorizon"))
+                        Imitation.world_skill = Imitation.world_skill with { beam = int.Parse(O("wbeam", "64")), horizon = int.Parse(O("whorizon", "150")) };
+                    Imitation.wobs = O("wobs", "0") == "1";
                     Imitation.arc = O("arc", "0") != "0";
                     Imitation.arc_past = O("arc", "0") == "2";
                     t.sizes[0] = Imitation.inputs;
