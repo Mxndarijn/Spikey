@@ -138,12 +138,24 @@ public static class Review
             if (i == 0) setup = cfg;
             var taps = new List<bool>();
             var look = new List<byte>();
+            long bounce_tick = 0, entry_tick = 0, drops = -1, drop_tick = 0;
             while (!sim.is_over() && taps.Count < cap)
             {
                 bool tap = bot.decide(sim);
                 taps.Add(tap);
                 look.Add((byte)(bot.last_look * 10 + Math.Min(9, bot.last_agree)));
+                long vx = sim.state.vx, ri = sim.state.room_index;
                 sim.step(tap);
+                if (sim.state.vx != vx) bounce_tick = taps.Count;
+                if (sim.state.room_index != ri) entry_tick = taps.Count;
+                // The tick a crate's column was last marked (its warning began).
+                var cd = sim.room.hazards.OfType<CrateDrop>().FirstOrDefault();
+                long dn = cd == null ? -1 : cd.drops;
+                if (dn != drops)
+                {
+                    drops = dn;
+                    drop_tick = taps.Count;
+                }
             }
             string room = sim.room.def.id + "/" + sim.room.variant_id();
             if (!sim.is_over())
@@ -190,22 +202,25 @@ public static class Review
                     if (!c.is_over()) rescued++;
                 }
             }
-            string verdict = chance < 0 ? "unfair" : rescued * 2 >= RESCUES ? "mistake" : "hidden";
+            // Crates: `shown` = ticks before the death the last crate's column was marked.
+            // A last chance before that means the run was lost before the player could see why.
+            long shown = sim.room.hazards.OfType<CrateDrop>().Any() ? died - drop_tick : -1;
+            string verdict = chance < 0 ? "unfair" : rescued * 2 >= RESCUES ? "mistake" : shown >= 0 && chance > shown ? "unseen" : "hidden";
             res[i] = (sim.state.score, died, true, room, verdict, chance, rescued, cause);
-            rows[i] = $"{seed}\t{sim.state.score}\t{died}\t{room}\t{cause}\t{verdict}\t{chance}\t{rescued}/{RESCUES}\t{seen / 10}\t{seen % 10}\t{sim.state.x / SimConfig.SUB}\t{sim.state.y / SimConfig.SUB}";
+            rows[i] = $"{seed}\t{sim.state.score}\t{died}\t{room}\t{cause}\t{verdict}\t{chance}\t{rescued}/{RESCUES}\t{seen / 10}\t{seen % 10}\t{sim.state.x / SimConfig.SUB}\t{sim.state.y / SimConfig.SUB}\t{died - bounce_tick}\t{died - entry_tick}\t{shown}";
         });
         long pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead);
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"death atlas, blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}, gameplay {SimConfig.GAMEPLAY_VERSION}");
         sb.AppendLine($"{deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; {res.Count(r => !r.dead)} of {seeds} alive at the cap; median {Tiers.pct(res.Select(r => r.points), 0.5)}; {clock.Elapsed.TotalSeconds:F0} s");
         sb.AppendLine("verdicts: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.verdict).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}")));
-        sb.AppendLine("by room (deaths: mistake / hidden / unfair; median last chance in ticks before the death):");
+        sb.AppendLine("by room (deaths: mistake / hidden / unfair / unseen; median last chance in ticks before the death):");
         foreach (var g in res.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()))
         {
             var ch = g.Where(r => r.chance >= 0).Select(r => r.chance).ToList();
-            sb.AppendLine($"  {g.Key,-26} {g.Count(),3}: {g.Count(r => r.verdict == "mistake")} / {g.Count(r => r.verdict == "hidden")} / {g.Count(r => r.verdict == "unfair")}   last chance {(ch.Count > 0 ? Tiers.pct(ch, 0.5).ToString("F0") : "-")}   causes {string.Join(" ", g.GroupBy(r => r.cause).Select(c => $"{c.Key} {c.Count()}"))}");
+            sb.AppendLine($"  {g.Key,-26} {g.Count(),3}: {g.Count(r => r.verdict == "mistake")} / {g.Count(r => r.verdict == "hidden")} / {g.Count(r => r.verdict == "unfair")} / {g.Count(r => r.verdict == "unseen")}   last chance {(ch.Count > 0 ? Tiers.pct(ch, 0.5).ToString("F0") : "-")}   causes {string.Join(" ", g.GroupBy(r => r.cause).Select(c => $"{c.Key} {c.Count()}"))}");
         }
-        sb.AppendLine("seed\tscore\ttick\troom\tcause\tverdict\tlast_chance\trescued\tlook\tagree\tx\ty");
+        sb.AppendLine("seed\tscore\ttick\troom\tcause\tverdict\tlast_chance\trescued\tlook\tagree\tx\ty\tsince_bounce\tsince_entry\tcrate_shown");
         foreach (string r in rows.Where(r => r != null)) sb.AppendLine(r);
         string text = sb.ToString();
         if (out_path != "") File.WriteAllText(out_path, text);
