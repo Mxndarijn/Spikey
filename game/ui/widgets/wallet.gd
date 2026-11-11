@@ -1,7 +1,7 @@
 class_name Wallet
 extends HBoxContainer
 ## The player's gold and diamonds side by side, straight on the room (two
-## CoinPills, no box). Tapping it opens the Shop; a wallet made with
+## CoinPills, no box). Tapping it opens Earn diamonds; a wallet made with
 ## `tappable` off only shows the amounts (the Shop's own header).
 
 signal pressed
@@ -18,7 +18,7 @@ func _init(tappable: bool = true) -> void:
 	custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
 	mouse_filter = Control.MOUSE_FILTER_STOP if tappable else Control.MOUSE_FILTER_IGNORE
 	if tappable:
-		tooltip_text = "Shop"
+		tooltip_text = "Earn diamonds"
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for pill: CoinPill in [_gold, _diamonds]:
 		pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER

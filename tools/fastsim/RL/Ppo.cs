@@ -28,7 +28,7 @@ public sealed class Ppo
     public long cap = 30000;
     public int threads = 4;
     public int eval_every = 10;
-    public int eval_seeds = 64;
+    public int eval_seeds = 200;
     public long eval_cap = 54000;
     /// Seeds: training 10,000,000+, evaluation 2,000,000+ (measure uses 1+, calibrate 500,000+).
     public const long TRAIN_SEED = 10_000_000, EVAL_SEED = 2_000_000;

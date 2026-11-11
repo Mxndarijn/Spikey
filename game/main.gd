@@ -40,6 +40,8 @@ const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
 ## show_store(): go back to "Your look" instead of a Customize list.
 const BACK_TO_LOOK := "look"
+## show_store(): go back to Earn diamonds.
+const BACK_TO_EARN := "earn"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
@@ -91,6 +93,8 @@ var _replay_board := LeaderboardService.DAILY
 ## Where Back goes from a replay of the player's own run (show_runs or
 ## show_home); empty for a leaderboard run.
 var _replay_back := Callable()
+## Where Back goes from Earn diamonds (show_home unless set).
+var _earn_back := Callable()
 ## The room group the Rooms screen last showed ("" for the group cards).
 var _rooms_group := ""
 ## Counting down after a revive (REVIVE_COUNTDOWN): taps do nothing.
@@ -242,6 +246,7 @@ func show_home() -> void:
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
+	home.earn_pressed.connect(_show_earn)
 	home.runs_pressed.connect(show_runs)
 	home.watch_last_pressed.connect(watch_run.bind(show_home))
 	home.settings_changed.connect(_on_settings_changed)
@@ -509,7 +514,7 @@ func show_look() -> void:
 	var look := LookScreen.new(_profile)
 	look.closed.connect(show_home)
 	look.kind_pressed.connect(show_shop)
-	look.store_pressed.connect(show_store.bind(BACK_TO_LOOK))
+	look.earn_pressed.connect(_show_earn.bind(show_look))
 	_menus.show_screen(look)
 
 
@@ -524,12 +529,13 @@ func show_shop(tab: String = ItemKind.FLYER) -> void:
 	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
-	shop.store_pressed.connect(func() -> void: show_store(shop.kind))
+	shop.earn_pressed.connect(func() -> void: _show_earn(show_shop.bind(shop.kind)))
 	_menus.show_screen(shop)
 
 
 ## The Shop: diamond packs and turning diamonds into gold. `back_tab`: the
-## Customize list to go back to, BACK_TO_LOOK for "Your look", or "" for Home.
+## Customize list to go back to, BACK_TO_LOOK for "Your look", BACK_TO_EARN for
+## Earn diamonds, or "" for Home.
 func show_store(back_tab: String = "") -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
@@ -539,9 +545,31 @@ func show_store(back_tab: String = "") -> void:
 		screen.closed.connect(show_home)
 	elif back_tab == BACK_TO_LOOK:
 		screen.closed.connect(show_look)
+	elif back_tab == BACK_TO_EARN:
+		screen.closed.connect(_show_earn.bind(_earn_back))
 	else:
 		screen.closed.connect(show_shop.bind(back_tab))
 	_menus.show_screen(screen)
+
+
+## Earn diamonds: every way to win diamonds and how far the player is. The
+## cards fill in as the player's status (wallet) and the Daily board arrive.
+## `back`: where its Back goes (Home when empty).
+func _show_earn(back: Callable = Callable()) -> void:
+	_earn_back = back if back.is_valid() else Callable(show_home)
+	mode = Mode.MENU
+	_hud.show_menu()
+	_look.show_flyer(false)
+	var screen := EarnScreen.new(_profile)
+	screen.closed.connect(_earn_back)
+	screen.store_pressed.connect(show_store.bind(BACK_TO_EARN))
+	leaderboard.board_loaded.connect(screen.show_board)
+	_menus.show_screen(screen)
+	leaderboard.request_board(LeaderboardService.DAILY)
+	@warning_ignore("redundant_await")
+	var status: EarnStatus = await wallet.earn_status()
+	if is_instance_valid(screen):
+		screen.show_status(status)
 
 
 ## The wallet answered: keep the copy in the save, show it on Home, and offer
@@ -556,6 +584,11 @@ func _on_wallet_synced(_diamonds: int, prizes: Array) -> void:
 		return
 	var popup := home.show_prizes(prizes)
 	popup.claim_pressed.connect(_claim_prizes.bind(popup))
+	popup.earn_pressed.connect(
+		func() -> void:
+			home.close_prizes()
+			_show_earn()
+	)
 
 
 func _claim_prizes(popup: DailyPrizePopup) -> void:

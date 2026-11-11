@@ -276,6 +276,7 @@ Attest / Play Integrity to confirm a real device.
 | Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
 | Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only), the Revive Pass in `meta/diamond_packs.gd` (ad-free revives, still one per run: [REVIVE.md](REVIVE.md)) |
 | Your runs | `meta/run_history.gd` + `run_record.gd` (limits, version check), `services/run_store.gd` (the file), `game/ui/screens/runs_screen.gd`, Home's card; Watch uses the leaderboard replay path (`main.watch_run` -> `play_replay`) |
+| Earn diamonds | `meta/earn_rules.gd` (milestones, streak; the daily tiers stay in `Economy`), `services/earn_status.gd` (`WalletService.earn_status()`, from `get_earn_status` in migration `20261111100000_earn_status.sql`, the last answer or a guess from the save offline), `game/ui/screens/earn_screen.gd`; opens from the wallet on Home, Your look and Customize lists, and from the prize popup's link |
 | Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/supabase_*.gd`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
@@ -286,7 +287,11 @@ hidden debug page: [DEBUG.md](DEBUG.md).
 
 ## Quality gate
 
-`tools/check.ps1` must pass before any change counts as done:
+`tools/check.ps1` must pass before any change counts as done. Its steps run
+side by side where they can: lint, format and the FastSim checks start at
+once (they need no Godot), and after the import the tests, the load step and
+the parity recording run together; each step's output is shown under its own
+heading. About 20 s at `-Jobs 8`.
 
 1. **Lint and format**: `gdlint` and `gdformat --check` (gdtoolkit). Without
    gdtoolkit the check fails.
@@ -298,7 +303,7 @@ hidden debug page: [DEBUG.md](DEBUG.md).
    FastSim (step 6). (A few unit tests use the cheap gap seeker only to make
    a run for replay, run checker and UI code that only GDScript has.)
    The check runs them side by side in headless worker processes
-   (`--jobs N`, one per core): each worker claims the next piece of work, a
+   (`--jobs N`; `check.ps1` uses one per core, at most 8): each worker claims the next piece of work, a
    whole test file by default, so tests sharing a save file stay together.
    Bot test files mark `const PARALLEL := true` (each method a piece), and the
    slowest methods take `(part, parts)` with `const PARTS := n`, each part

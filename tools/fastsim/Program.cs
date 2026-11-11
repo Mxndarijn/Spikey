@@ -15,6 +15,7 @@ using FastSim;
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
 //   fastsim rl train|calibrate|measure|speed       the RL bot tiers (RL/, docs/RL_BOT.md)
 //   fastsim world errors|nopeek|runs|tiers|...     the world model and its planner (World/, docs/WORLD_MODEL.md)
+//   fastsim yardstick run|compare|list|humans      one measure for every bot (Yardstick/, docs/YARDSTICK.md)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
 //   fastsim runfile <seed> [bot_seed] --out <file>  a gap_seeker run as a run file
@@ -61,6 +62,7 @@ Targets.variant = opts.GetValueOrDefault("variant", "");
 if (mode == "check") return Checks.run(pos, opts, jobs, priority);
 if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
+if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
