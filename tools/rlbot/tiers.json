@@ -1,5 +1,5 @@
 {
-  "gameplay_version": 19,
+  "gameplay_version": 21,
   "layout": 3,
   "note": "Beast only: handicaps on this policy don't separate tiers (a 2-tick delay drops it to a median of 1). See docs/RL_BOT.md.",
   "tiers": [
@@ -11,7 +11,7 @@
       "jitter": 0,
       "miss": 0,
       "measured_median": 42,
-      "measured_p90": 76
+      "measured_p90": 78
     }
   ]
 }

@@ -870,13 +870,12 @@ public sealed class StalactiteM : HazardModel
 /// moving 80/substep toward its level; touching the stone lowers it again.
 public sealed class LavaM : HazardModel
 {
-    long mode, line, rises, counted, stone_x, stone_y;
+    long line, rises, counted, stone_x, stone_y;
     bool stone_on, stone_guess;
 
     public LavaM(Lava h)
     {
         kind = h.kind;
-        mode = h.mode;
         line = h.line;
         rises = h.rises;
         counted = h.counted;
@@ -889,7 +888,8 @@ public sealed class LavaM : HazardModel
         Place();
     }
 
-    long LineAt(long n) => mode == Lava.Mode.CEILING ? SimConfig.KILL_TOP + n * Lava.STEP : SimConfig.KILL_BOTTOM - n * Lava.STEP;
+    // Lava only rises from the floor (the ceiling crusher variant was removed).
+    long LineAt(long n) => SimConfig.KILL_BOTTOM - n * Lava.STEP;
 
     public override void Step(WorldModel w)
     {
@@ -900,9 +900,7 @@ public sealed class LavaM : HazardModel
     void Place()
     {
         const long FAR = 1L << 28;
-        if (mode == Lava.Mode.CEILING)
-            bodies[0] = Body.Kill(Shape.Rect(-FAR, -FAR, FAR, line), line > SimConfig.KILL_TOP);
-        else bodies[0] = Body.Kill(Shape.Rect(-FAR, line, FAR, FAR), line < SimConfig.KILL_BOTTOM);
+        bodies[0] = Body.Kill(Shape.Rect(-FAR, line, FAR, FAR), line < SimConfig.KILL_BOTTOM);
         bodies[1] = Body.Soft(Shape.Circle(stone_x, stone_y, Lava.STONE_RADIUS), stone_on);
         bodies[1].guess = stone_guess;
     }
@@ -937,7 +935,6 @@ public sealed class LavaM : HazardModel
         p["target"] = Px(LineAt(rises));
         p["step"] = Px(Lava.STEP);
         p["speed"] = Px(Lava.SPEED);
-        p["ceiling"] = mode == Lava.Mode.CEILING ? 1 : 0;
     }
 }
 

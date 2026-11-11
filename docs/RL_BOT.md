@@ -184,7 +184,11 @@ spend in each height band, and where the policy dies.
 ## Results
 
 All numbers: full runs on seeds 1..400, cap `SimConfig.MAX_TICKS`, no revives,
-gameplay version 19 (the median-42 policy also measures 42 on version 20).
+measured on gameplay version 19. The two kept policies were measured again on
+version 21 (after the Lava Rise crusher removal): `policy.json` median 42, p90
+78, deaths per 100 points 0.05 / 0.67 / 2.25 / 4.91 / 8.90;
+`policy_delay12.json` at a 12-tick delay median 20, p90 36, 1.10 / 5.72 /
+10.37 / 19.88 / -.
 No run reached the cap. Copies: none (the policy reads only the
 observation). Eval medians on held-out seeds (64 at first, 200 later) read
 high because training keeps the best of many; the 400-seed numbers are the
