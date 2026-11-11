@@ -53,10 +53,12 @@ public sealed class Ppo
     public static List<long> rooms()
     {
         if (_rooms != null) return _rooms;
+        // Filled first, then published: worker threads may call this at once.
         var all = RoomCatalog.all();
-        _rooms = new List<long>();
+        var list = new List<long>();
         for (int i = 0; i < all.Count; i++)
-            if (i != RoomCatalog.first_index()) _rooms.Add(i);
+            if (i != RoomCatalog.first_index()) list.Add(i);
+        _rooms = list;
         return _rooms;
     }
 
