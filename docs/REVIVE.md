@@ -21,7 +21,8 @@ https://claude.ai/artifact/BbTtTcBhVminhmBNc2fceH
   restarts with one tap.
 - Closing the ad early counts as Skip: the run ends. An ad that fails to show
   after the player asked for it revives anyway.
-- After a revive the run waits, paused, for a tap.
+- After a revive a 5, 4, 3, 2, 1 counts down over the frozen room, then the
+  run plays on by itself. No tap needed; taps during it do nothing.
 
 ## Revive Pass
 
@@ -208,9 +209,14 @@ per-player daily counter.
   `DISMISSED` ends the run;
 - Skip, a second crash, or no offer: `_finish_run(replay)` (coins, best score,
   `submit_run`, Game over with "Revived at N").
-- After a revive the run is paused with "Tap to flap"; the tap resumes it. That
-  tap falls in the arrival hold and is ignored by the sim, as on a portal
-  arrival.
+- After a revive `Main.REVIVE_COUNTDOWN` (5 s) counts 5, 4, 3, 2, 1 with the
+  big `ResumeCountdown` and the bird flies on by itself at 0. The run is
+  paused for the first 4 s; the last second is the sim's own revive hold
+  (`SimConfig.ARRIVAL_HOLD`, 60 ticks), where the count follows
+  `SimState.arrival_hold`. So nothing in `sim/` changed: the resume tick is
+  always the revive tick + `ARRIVAL_HOLD`, as before. Main drops taps during
+  the whole countdown (none are recorded), and the sim would ignore any in its
+  hold anyway. Pause during it stops it; Resume then counts the usual 3, 2, 1.
 
 `services/ads_service.gd` (`AdsService`): `is_ready()`, `preload_rewarded()`,
 `show_rewarded()` and `rewarded_closed(result)`. The base class is "no ads".
@@ -264,7 +270,8 @@ Open points:
   crash, buying it in the Shop ("Owned"), the save round trip, the server
   merge after a reinstall, and restore (kept products only).
 - `tests/unit/test_revive_flow.gd`: the app side. Free revives per day, the
-  offer's two states, revive then tap then a second crash, Skip, no offer for
+  offer's two states, revive then the 5 to 1 countdown (taps ignored, the
+  resume tick, the replay) then a second crash, Skip, no offer for
   low scores and practice, the ad watched, closed early and broken, a revived
   run played back from the boards, what is sent, and the heart on the boards.
 

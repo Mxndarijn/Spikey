@@ -391,11 +391,9 @@ func show_ready() -> void:
 		_replay.show_playing()
 
 
-## `waiting`: a revived bird waits for a tap (the player may have looked away
-## for an ad), so "Tap to flap" shows until it comes.
-func show_running(waiting: bool = false) -> void:
+func show_running() -> void:
 	revive_offer.visible = false
-	_hint.visible = waiting
+	_hint.visible = false
 	_back_button.visible = false
 	# A replay has no pause; its exit sits where pause would be.
 	_pause_button.visible = not _replaying

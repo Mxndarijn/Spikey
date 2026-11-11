@@ -27,6 +27,11 @@ enum Mode { MENU, RUN, PRACTICE, REPLAY }
 const RESTART_DELAY_MS := 450
 ## Resume counts 3, 2, 1 before the run plays on.
 const RESUME_COUNTDOWN := 3.0
+## After a revive: 5, 4, 3, 2, 1 over the room, then the bird flies on by
+## itself at 0. The last SimConfig.ARRIVAL_HOLD ticks of it are the sim's own
+## frozen wait after a revive (taps ignored there too), so the run is paused
+## only for the time before that.
+const REVIVE_COUNTDOWN := 5
 ## Settings > Haptics: a short buzz on flap, a longer one on a crash.
 const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
@@ -79,8 +84,8 @@ var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
 ## The room group the Rooms screen last showed ("" for the group cards).
 var _rooms_group := ""
-## Just revived: the run waits, paused, for the player's tap.
-var _revive_wait := false
+## Counting down after a revive (REVIVE_COUNTDOWN): taps do nothing.
+var _revive_count := false
 ## Seconds left in the 3, 2, 1 before a resumed run plays on (0: none).
 var _countdown := 0.0
 
@@ -650,7 +655,7 @@ func _new_run() -> void:
 	_rooms_cleared = 0
 	_game_over_at_ms = -1
 	_revive.reset()
-	_revive_wait = false
+	_revive_count = false
 	_countdown = 0.0
 
 
@@ -685,6 +690,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# A tap during the countdown does nothing; it is not a flap.
 		if _countdown <= 0.0:
 			_resume()
+	elif _revive_count:
+		# The end of the revive countdown: not a flap either.
+		pass
 	elif _run.sim.is_over():
 		_try_restart()
 	else:
@@ -721,12 +729,8 @@ func _toggle_pause() -> void:
 
 
 ## Resume from the pause screen: the scrim goes and a 3, 2, 1 counts down over
-## the frozen room, so the player can find the bird before it moves. The tap
-## after a revive plays on at once (the bird is already in view).
+## the frozen room, so the player can find the bird before it moves.
 func _resume() -> void:
-	if _revive_wait:
-		_set_paused(false)
-		return
 	_hud.show_paused(false, _profile.settings.music_on, _profile.settings.sfx_on)
 	_countdown = RESUME_COUNTDOWN
 	_hud.countdown.show_count(ceili(_countdown))
@@ -738,24 +742,46 @@ func _process(delta: float) -> void:
 
 func _tick_countdown(delta: float) -> void:
 	if _countdown <= 0.0:
+		_tick_revive_hold()
 		return
 	_countdown -= delta
 	if _countdown > 0.0:
-		_hud.countdown.show_count(ceili(_countdown))
+		_hud.countdown.show_count(ceili(_countdown + _revive_hold_seconds()))
+	elif _revive_count:
+		# The sim's frozen wait counts the rest down.
+		_set_paused(false)
+		_revive_count = true
+		_tick_revive_hold()
 	else:
 		_set_paused(false)
+
+
+## The last part of the revive countdown: the run plays, the sim holds the
+## bird (SimState.arrival_hold) and the count follows it down to 0.
+func _tick_revive_hold() -> void:
+	if not _revive_count:
+		return
+	var hold := _run.sim.state.arrival_hold
+	_hud.countdown.show_count(ceili(hold / float(SimConfig.TICKS_PER_SECOND)))
+	if hold <= 0:
+		_revive_count = false
+
+
+## Seconds of the revive countdown the sim's own hold takes (0 when not
+## counting down after a revive).
+func _revive_hold_seconds() -> float:
+	if not _revive_count:
+		return 0.0
+	return SimConfig.ARRIVAL_HOLD / float(SimConfig.TICKS_PER_SECOND)
 
 
 ## Pauses or plays on at once (no countdown).
 func _set_paused(value: bool) -> void:
 	_countdown = 0.0
+	_revive_count = false
 	_hud.countdown.show_count(0)
 	_run.set_paused(value)
 	_hud.show_paused(value, _profile.settings.music_on, _profile.settings.sfx_on)
-	if not value and _revive_wait:
-		# The tap after a revive: "Tap to flap" goes, the run plays on.
-		_revive_wait = false
-		_hud.show_running()
 
 
 ## The coin flies from where it was in the room into the counter.
@@ -801,11 +827,15 @@ func _on_died(replay: Replay) -> void:
 		_revive.on_crash(replay)
 
 
-## Revived from the offer: the bird is back and waits, paused, for a tap.
+## Revived from the offer: the bird is back and a 5, 4, 3, 2, 1 counts down
+## over the frozen room (the player may have looked away for an ad); at 0 it
+## flies on by itself.
 func _on_revive() -> void:
-	_revive_wait = true
 	_run.set_paused(true)
-	_hud.show_running(true)
+	_hud.show_running()
+	_revive_count = true
+	_countdown = REVIVE_COUNTDOWN - _revive_hold_seconds()
+	_hud.countdown.show_count(REVIVE_COUNTDOWN)
 
 
 ## The sim revived the bird (also in a replay of a revived run).
