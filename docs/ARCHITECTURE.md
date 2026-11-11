@@ -285,7 +285,11 @@ hidden debug page: [DEBUG.md](DEBUG.md).
 
 ## Quality gate
 
-`tools/check.ps1` must pass before any change counts as done:
+`tools/check.ps1` must pass before any change counts as done. Its steps run
+side by side where they can: lint, format and the FastSim checks start at
+once (they need no Godot), and after the import the tests, the load step and
+the parity recording run together; each step's output is shown under its own
+heading. About 20 s at `-Jobs 8`.
 
 1. **Lint and format**: `gdlint` and `gdformat --check` (gdtoolkit). Without
    gdtoolkit the check fails.
