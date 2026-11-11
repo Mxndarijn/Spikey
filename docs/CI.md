@@ -1,31 +1,36 @@
 # CI: phone builds on GitHub Actions
 
-Three workflows in `.github/workflows/` build Flapjaw for phones. The repo has **no GitHub
-remote yet**, so none of this has run on GitHub. Create the repo, push, add the secrets below,
-then start the workflows from the Actions tab.
+Two workflows in `.github/workflows/` test and build Flapjaw for phones.
 
 | Workflow | File | Runs when | Runner | Output |
 | --- | --- | --- | --- | --- |
-| Check | `check.yml` | push to `main`, pull requests, manual, and as step 1 of the two below | Linux | pass / fail |
-| Android Build | `android.yml` | manual (`workflow_dispatch`), tags `v*` | Linux | APK, plus AAB on tags or when "Build AAB" is ticked |
-| iOS TestFlight | `ios-testflight.yml` | manual, tags `v*` | Linux, then macOS | build in TestFlight, IPA artifact |
+| Check | `check.yml` | push to `main` (not for docs-only pushes), pull requests, manual, and from Phone builds | Linux | pass / fail |
+| Phone builds | `build.yml` | manual (`workflow_dispatch`, tick Android and/or iOS), tags `v*` (both) | Linux, macOS for the TestFlight job | APK (plus AAB on tags or when "Build AAB" is ticked), build in TestFlight, IPA artifact |
 
 Release flow: bump `config/version` in `project.godot`, commit, then
-`git tag v0.1.0 && git push origin v0.1.0`. That runs both phone workflows.
+`git tag v0.1.0 && git push origin v0.1.0`. That runs Phone builds for both platforms.
+A test build: Actions tab, Phone builds, Run workflow (both platforms are ticked by default).
 
 ## What each workflow does
 
 **Check** is the Linux version of `tools/check.ps1`: gdlint and gdformat, headless import, load
 every script and scene (`tools/ci/load_all.gd`), then `tests/run_tests.gd`, one worker per
-core. Both phone workflows run it next to the build, so the build doesn't wait for the
-tests; the steps that ship (GitHub Release, Discord post, TestFlight) wait for it to pass.
+core, then the FastSim parity check and the bot-heavy FastSim checks. Phone builds runs the
+tests once for both platforms, next to the builds, so the builds don't wait for them; the
+steps that ship (GitHub Release, Discord post, TestFlight) wait for them to pass. When the
+commit already has a Check run from its push to `main`, Phone builds uses that run instead of
+testing the same code again (job `check_reuse`): a passed run counts, a running one is waited
+for. Only push and manual Check runs count (a pull request run tests a merge with the base
+branch, not the commit). With no such run, or a failed one, Phone builds runs the tests itself.
+A newer push to a pull request cancels the older Check run of it.
 
-**Android Build**
+**Phone builds, Android** (jobs `android_*`)
 
 1. Version code = number of commits (`git rev-list --count HEAD`), version name =
    `config/version` from `project.godot`. Both are written into `export_presets.cfg` on the
    runner only.
-2. Installs JDK 17, the Android SDK and Godot plus export templates (cached after the first run).
+2. Installs JDK 17, the Android SDK and Godot plus export templates (cached after the first
+   run, as are Gradle and the libraries its build downloads).
 3. With the keystore secrets: exports a release-signed APK and, for `v*` tags or the "Build AAB"
    option, a release-signed AAB. Both go through Godot's Gradle build, which the AdMob plugin
    (`addons/admob`, the rewarded ad for the revive) needs; the first export installs the build
@@ -35,24 +40,24 @@ tests; the steps that ship (GitHub Release, Discord post, TestFlight) wait for i
    Before the export, CI turns on R8 code shrinking (`tools/ci/patch_android_shrink.sh`) and
    puts the small engine in the template (`tools/ci/swap_android_engine.sh`, see below).
 4. Uploads the APK/AAB as artifacts (kept 90 days, need a GitHub login).
-5. A separate job, once the build is done and Check has passed, publishes the APK as a
+5. A separate job, once the build is done and the tests have passed, publishes the APK as a
    GitHub Release, a direct public download because the repo is
    public: `v*` tags become a release named after the version, other runs a pre-release
    tagged `build-<n>`. Old test pre-releases pile up; delete them on the Releases page
    (also delete the tag) when the list gets long.
 6. Posts a Discord embed whose button downloads that APK (when `DISCORD_WEBHOOK_URL` is set).
 
-**iOS TestFlight**
+**Phone builds, iOS** (jobs `ios_*` and `testflight`)
 
 1. Linux job: stamps the build number (commit count), version, team id and bundle id into the
    iOS preset, then runs Godot's iOS export with "Export Project Only", which writes a complete
    Xcode project. It removes transparency from the app icons (App Store Connect rejects icons
    with alpha) and uploads the project as an artifact (about 100 MB).
-2. macOS job, once the export is done and Check has passed: fastlane (`.github/ios/fastlane/Fastfile`) imports the certificate and profile,
+2. macOS job, once the export is done and the tests have passed: fastlane (`.github/ios/fastlane/Fastfile`) imports the certificate and profile,
    switches the project to manual signing, builds a Release archive, uploads it to TestFlight,
    and keeps the IPA as an artifact for 7 days. Capped at 25 minutes.
 
-**Engine** (`engine.yml`, called by both phone workflows) builds the small engine: Godot from
+**Engine** (`engine.yml`, called by Phone builds for each platform) builds the small engine: Godot from
 source at the exact `GODOT_VERSION`, 2D only, without the modules the game doesn't use
 (`tools/engine/flapjaw.py`). The stock engine is about 90% of each build. Android builds on
 Linux, iOS on macOS. The result is cached, so only a change to `tools/engine/`, `engine.yml`
@@ -65,7 +70,7 @@ The iOS engine also gets Flapjaw's own modules from `tools/engine/modules` (`cus
 and `#import <Security/Security.h>` with clang modules links Security.framework, so the Xcode
 project needs no change. The build fails if the module is missing from the library.
 
-The iOS workflow uses Godot's stock engine unless a manual run turns on "small_engine":
+The iOS build uses Godot's stock engine unless a manual run turns on "small_engine":
 build 127, the first one tested with the small engine, crashed at launch on iOS 27 inside the
 engine's own Swift startup code (`SwiftUIApp.body`), and the stock engine (build 58) starts
 fine. Until that is solved, iOS builds are larger and have no `FlapjawKeychain`, so the device
@@ -139,7 +144,7 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
 
 **Android**
 
-1. Testing: run Android Build, download the APK artifact, install it (allow installs from
+1. Testing: run Phone builds (untick iOS if you only want Android), download the APK artifact, install it (allow installs from
    unknown sources). Debug builds use a new key each run, so uninstall the previous one first.
 2. Play Console (only when you want Play testing): pay the one-time developer fee, create the
    app with package name `com.mxndarijn.spikey`, enable Play App Signing, and upload the
@@ -162,9 +167,10 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
 
 - **App id / bundle id**: `package/unique_name` (presets "Android" and "Android AAB") and
   `application/bundle_identifier` (preset "iOS") in `export_presets.cfg`, plus `IOS_BUNDLE_ID`
-  in `ios-testflight.yml`. Android ids can never change after the first Play upload.
-- **Godot version**: `GODOT_VERSION` in all three workflow files, plus `godot_version` in the
-  `engine` jobs of `android.yml` and `ios-testflight.yml` (the builds fail if they differ). It must name a release on
+  in `build.yml`. Android ids can never change after the first Play upload.
+- **Godot version**: `GODOT_VERSION` in `check.yml`, `build.yml` and `verify-runs.yml`, plus
+  `godot_version` in the `android_engine` and `ios_engine` jobs of `build.yml` (the builds fail
+  if they differ). It must name a release on
   github.com/godotengine/godot-builds (e.g. `4.7.2-stable`). CI downloads the matching export
   templates, so keep it equal to the editor you use locally (`tools/godot_path.txt`, now
   4.7.2-stable). The iOS AdMob libraries are built per Godot version (see `docs/REVIVE.md`).
@@ -173,7 +179,7 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
   `launcher_icons/*` options (Android adaptive icon) in `export_presets.cfg`.
 - **Devices**: iOS is iPhone-only (`application/targeted_device_family=0`); set 2 for iPhone and
   iPad. Android ships arm64 only.
-- **macOS image**: `ios-testflight.yml` uses `macos-15` with the newest stable Xcode. Apple needs
+- **macOS image**: the `testflight` job in `build.yml` uses `macos-15` with the newest stable Xcode. Apple needs
   the iOS 26 SDK for uploads; if that build step reports an old SDK, switch to a newer image.
 
 ## Project setting changed for exports
