@@ -22,6 +22,8 @@ signal leaderboard_pressed
 signal settings_changed
 ## The debug page's room picker: practise `id` with `variant`.
 signal practice_requested(id: String, variant: String)
+## The debug page's seed picker: play seed `seed_value` as practice.
+signal seed_requested(seed_value: int)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
@@ -150,6 +152,7 @@ func open_settings() -> SettingsSheet:
 		_settings = SettingsSheet.new(_profile, _services)
 		_settings.changed.connect(settings_changed.emit)
 		_settings.practice_requested.connect(practice_requested.emit)
+		_settings.seed_requested.connect(seed_requested.emit)
 		_settings.closed.connect(func() -> void: _settings = null)
 		add_child(_settings)
 	return _settings

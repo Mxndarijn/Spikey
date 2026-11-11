@@ -8,7 +8,8 @@ extends Node2D
 ## Flow: Home -> Play. A first start goes straight to Home with the first free
 ## flyer and the default world; players change them in Customize.
 ## Home -> Rooms -> a room -> Practice repeats that room; practice never touches
-## coins, best score, room stats or leaderboards.
+## coins, best score, room stats or leaderboards. The debug page's pickers
+## practise any room and variant, or a whole run from a typed seed.
 ## Room stats (Profile: reached, cleared, deaths per room id; a variant counts
 ## under its room) come from real runs only: practice, replays and the bots
 ## (which run the sim without this app) never count. A run left from the pause
@@ -65,6 +66,9 @@ var _practice_id := ""
 ## Practice from the debug page's room picker: the variant id it plays ("" =
 ## drawn as usual). Real runs never set it.
 var _practice_variant := ""
+## Practice from the debug page's seed picker: the seed every try plays (-1 =
+## a new random seed each try). Real runs never set it.
+var _practice_seed := -1
 var _room_id := ""
 ## Rooms cleared in the current real run, for the game-over stats.
 var _rooms_cleared := 0
@@ -188,6 +192,7 @@ func set_room_rect(rect: Rect2) -> void:
 func start_run() -> void:
 	_drop_replay()
 	mode = Mode.RUN
+	_practice_seed = -1
 	_menus.clear()
 	_look.show_flyer(true)
 	_new_run()
@@ -219,6 +224,7 @@ func show_home() -> void:
 	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
 	home.practice_requested.connect(start_picker_practice)
+	home.seed_requested.connect(start_seed_practice)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
 	# The balance and any daily prize waiting to be claimed.
@@ -332,6 +338,7 @@ func show_rooms(group: String = "") -> void:
 	mode = Mode.MENU
 	_practice_id = ""
 	_practice_variant = ""
+	_practice_seed = -1
 	_rooms_group = group
 	_new_run()
 	_hud.show_menu()
@@ -377,14 +384,26 @@ func start_picker_practice(id: String, variant: String = "") -> void:
 	_practise(id, variant)
 
 
-func _practise(id: String, variant: String) -> void:
+## A practice run from the debug page's seed picker, in every build: the whole
+## run of seed `seed_value` from its first room, again on every try. As
+## practice it never changes the save or the leaderboards.
+func start_seed_practice(seed_value: int) -> void:
+	if seed_value < 0 or seed_value > SeedPicker.MAX_SEED:
+		return
+	_practise("", "", seed_value)
+
+
+func _practise(id: String, variant: String, seed_value: int = -1) -> void:
 	mode = Mode.PRACTICE
 	_practice_id = id
 	_practice_variant = variant
+	_practice_seed = seed_value
 	_menus.clear()
 	_look.show_flyer(true)
 	var shown := RoomInfo.name_of(id)
-	if not variant.is_empty():
+	if seed_value >= 0:
+		shown = "Seed %d" % seed_value
+	elif not variant.is_empty():
 		shown = RoomPicker.choice_text(id, variant)
 	_hud.set_practice(shown)
 	_new_run()
@@ -590,7 +609,10 @@ func _new_run() -> void:
 		_run.new_replay(_replay_driver)
 	else:
 		var variant := _practice_variant if practice >= 0 else ""
-		_run.new_run(randi(), run_season, practice, variant)
+		var seed_value := randi()
+		if mode == Mode.PRACTICE and _practice_seed >= 0:
+			seed_value = _practice_seed
+		_run.new_run(seed_value, run_season, practice, variant)
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
 	_room.bind(_run, _look.theme)
 	_hazards.bind(_run, _look.theme)

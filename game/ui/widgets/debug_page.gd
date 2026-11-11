@@ -2,8 +2,9 @@ class_name DebugPage
 extends VBoxContainer
 ## The debug screen inside the settings sheet: what the app, the ads and the
 ## notifications are doing right now, with buttons to try each of them on a
-## real phone. It opens from the Debug row in the settings, or by tapping the
-## "Settings" title TAPS_TO_OPEN times (both in any build).
+## real phone, plus pickers that practise one room or replay a seed. It opens
+## from the Debug row in the settings, or by tapping the "Settings" title
+## TAPS_TO_OPEN times (both in any build).
 ##
 ## Everything here is safe in a release build: nothing gives coins, points or
 ## revives. Only developer mode shows "Give free revives back" and "Revive
@@ -15,11 +16,14 @@ extends VBoxContainer
 signal changed
 ## The room picker: practise room `id` with `variant` ("" = random).
 signal practice_requested(id: String, variant: String)
+## The seed picker: play the run with seed `seed_value` again, as practice.
+signal seed_requested(seed_value: int)
 
 const APP := "App"
 const ADS := "Ads"
 const PUSH := "Notifications"
 const ROOMS := "Rooms"
+const SEED := "Play a seed"
 const SECTIONS: Array[String] = [APP, ADS, PUSH]
 ## Taps on the settings title that open this page.
 const TAPS_TO_OPEN := 7
@@ -37,6 +41,7 @@ var _notes := {}
 var _test_ads := SettingSwitch.new("Google test ads", "Asks for test ads, not real ones")
 ## Developer mode only (null otherwise).
 var _picker: RoomPicker
+var _seed_picker: SeedPicker
 
 
 func _init(profile: Profile, services: AppServices) -> void:
@@ -55,6 +60,11 @@ func _init(profile: Profile, services: AppServices) -> void:
 	_picker.name = "RoomPicker"
 	_picker.play_pressed.connect(practice_requested.emit)
 	list.add_child(_picker)
+	list.add_child(_section(SEED))
+	_seed_picker = SeedPicker.new()
+	_seed_picker.name = "SeedPicker"
+	_seed_picker.play_pressed.connect(seed_requested.emit)
+	list.add_child(_seed_picker)
 	for section in SECTIONS:
 		list.add_child(_section(section))
 		var box := VBoxContainer.new()
@@ -129,6 +139,11 @@ func note(section: String) -> String:
 ## The room picker.
 func room_picker() -> RoomPicker:
 	return _picker
+
+
+## The seed picker.
+func seed_picker() -> SeedPicker:
+	return _seed_picker
 
 
 ## For tests: taps the button with this node name.
