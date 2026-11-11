@@ -69,6 +69,13 @@ public sealed class BlindPlanner
     {
         var c = sim.clone_deep();
         c._rng = new SimRng(own.next_u32());
+        // Seed-only generation: each wall reseeds from the room's seed, the
+        // spine picks the next rooms, and the exits are planned from the room's
+        // seed at room start. All three are hidden: replace them and plan again
+        // (plan_room keeps an exit already on screen as it is).
+        c.room.rng_seed = own.next_u32();
+        c._spine = new SimRng(own.next_u32());
+        if (c.state.plan_at != 0) ExitPlanner.plan_room(c, c.state.plan_at);
         // Values the sim has already drawn but not yet shown. A value that is
         // on screen (a warning, a marked column, a moving thing) stays.
         foreach (var hz in c.room.hazards)

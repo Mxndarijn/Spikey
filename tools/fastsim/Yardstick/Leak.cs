@@ -6,7 +6,7 @@ namespace FastSim.Yard;
 /// played twice by two fresh copies of the bot. At a fork tick T (just after
 /// a wall bounce, so the screens stay the same for a whole flight) the second
 /// sim gets every hidden draw replaced (BlindPlanner.blind_copy: the sim's
-/// RNG, so the next walls, the portal, the next room, plus the hazards'
+/// RNG, the room's wall seed, the room spine and the planned exits, plus the hazards'
 /// hidden salts, private RNGs and drawn-but-unshown values). Both bots have
 /// seen the same screen so far, so until the first tick where something
 /// visible differs between the two sims, an honest bot taps the same. A tap
@@ -23,6 +23,10 @@ public static class Leak
     public static long visible(GameSim sim)
     {
         var c = sim.clone_deep();
+        c.room.rng_seed = 0;
+        var st0 = c.state;
+        st0.plan_a_y_left = st0.plan_a_kind_left = st0.plan_b_y_left = 0;
+        st0.plan_a_y_right = st0.plan_a_kind_right = st0.plan_b_y_right = 0;
         foreach (var hz in c.room.hazards)
         {
             switch (hz)
