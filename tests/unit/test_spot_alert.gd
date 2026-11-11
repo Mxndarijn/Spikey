@@ -148,7 +148,7 @@ func test_daily_rows_show_their_prize() -> void:
 	plain.free()
 
 
-func test_your_look_shows_the_wallet_and_opens_the_shop() -> void:
+func test_your_look_shows_the_wallet_and_opens_earn_diamonds() -> void:
 	var main := _make_main()
 	main._profile.diamonds = 6
 	main._profile.coins = 120
@@ -156,9 +156,9 @@ func test_your_look_shows_the_wallet_and_opens_the_shop() -> void:
 	var look := main._menus.current() as LookScreen
 	assert_eq([look._coins.gold_text(), look._coins.diamonds_text()], ["120", "6"])
 	look._coins.pressed.emit()
-	var shop := main._menus.current() as StoreScreen
-	assert_true(shop != null, "the wallet opens the Shop")
-	shop.closed.emit()
+	var earn := main._menus.current() as EarnScreen
+	assert_true(earn != null, "the wallet opens Earn diamonds")
+	earn.closed.emit()
 	assert_true(main._menus.current() is LookScreen, "back returns to Your look")
 	main.free()
 	SafeFile.remove(TEST_PATH)

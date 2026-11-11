@@ -15,8 +15,10 @@ signal shop_pressed(tab: String)
 ## Style (the dock): opens Customize on "Your look".
 signal customize_pressed
 signal rooms_pressed
-## The wallet (gold and diamonds, top right) and the Shop pill: open the Shop.
+## The Shop pill (top left): opens the Shop.
 signal store_pressed
+## The wallet (gold and diamonds, top right): opens Earn diamonds.
+signal earn_pressed
 ## The Your runs card.
 signal runs_pressed
 ## The card's replay button: watch the last run.
@@ -91,7 +93,7 @@ func _ready() -> void:
 	_wallet = Wallet.new()
 	_wallet.show_balance(_profile)
 	_wallet.name = "Coins"
-	_wallet.pressed.connect(store_pressed.emit)
+	_wallet.pressed.connect(earn_pressed.emit)
 	add_child(_wallet)
 	_wallet.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
 	_wallet.grow_horizontal = Control.GROW_DIRECTION_BEGIN

@@ -4,12 +4,15 @@ extends Control
 ## start: a daily top-10 finish, a best-score milestone or a 7-day streak
 ## (WalletService kinds). A flat paper card over the dimmed room with the
 ## headline (the place, "Best 50" or "7 days"), what it is, the diamonds won
-## and one Claim button; "Later" keeps the prizes for the next start. With
+## and one Claim button; "Later" keeps the prizes for the next start. Under
+## them a link opens Earn diamonds (the prizes stay unclaimed). With
 ## several unclaimed prizes it shows the latest daily place (else the latest
 ## bonus) and claims them all at once.
 
 signal claim_pressed
 signal closed
+## "More ways to earn diamonds".
+signal earn_pressed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const SIDE := 28
@@ -34,12 +37,15 @@ const MONTHS: Array[String] = [
 	"December",
 ]
 const FAILED := "Couldn't claim right now. Try again later."
+const EARN_LINK := "More ways to earn diamonds"
+const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
 
 var _prizes: Array = []
 var _claim := Button.new()
 var _note := Label.new()
 var _rank := Label.new()
 var _line := Label.new()
+var _earn := Button.new()
 
 
 ## prizes: WalletService.synced's list, oldest first. Must not be empty.
@@ -104,10 +110,23 @@ func _init(prizes: Array) -> void:
 	_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.custom_minimum_size = Vector2(200, 0)
-	_note.text = "The top 10 of each day win diamonds."
-	if not is_daily(latest()):
-		_note.text = "Milestones and streaks win diamonds."
+	# Only a failed claim says something here.
+	_note.visible = false
 	col.add_child(_note)
+	_earn.theme_type_variation = &"InkButton"
+	_earn.text = EARN_LINK
+	_earn.icon = CHEVRON_ICON
+	_earn.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_earn.add_theme_constant_override("icon_max_width", UiTokens.SIZE_ICON_S)
+	_earn.add_theme_font_size_override("font_size", 13)
+	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+		_earn.add_theme_color_override(state, UiTokens.ON_PANEL_MUTED)
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		_earn.add_theme_color_override(state, UiTokens.ON_PANEL_MUTED)
+	_earn.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	_earn.focus_mode = Control.FOCUS_NONE
+	_earn.pressed.connect(earn_pressed.emit)
+	col.add_child(_earn)
 
 
 ## The prize in the headline: the most recent daily one, else the last bonus.
@@ -189,6 +208,7 @@ func _on_claim() -> void:
 func show_failed() -> void:
 	_claim.disabled = false
 	_note.text = FAILED
+	_note.visible = true
 	_note.add_theme_color_override("font_color", UiTokens.DANGER)
 
 
@@ -201,7 +221,11 @@ func claim_text() -> String:
 
 
 func note_text() -> String:
-	return _note.text
+	return _note.text if _note.visible else ""
+
+
+func earn_button() -> Button:
+	return _earn
 
 
 func is_claiming() -> bool:
