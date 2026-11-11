@@ -11,6 +11,9 @@ extends RefCounted
 ## meets the same exits, however and whenever they fly, and hazards keep out
 ## of their zone (reserved) for the whole room.
 
+## A fork's two exits stay this far apart (centre to centre): both portals and
+## the spike-free gaps around them fit.
+const FORK_APART := 3 * SimConfig.SLOT_SIZE
 ## Salt for the RNG plan_room draws from (seeded from the room's seed).
 const PLAN_SALT := 0x45584954
 
@@ -43,6 +46,12 @@ static func plan(sim: GameSim, rng: SimRng, side: int, at: int) -> void:
 			sim, rng, SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF, SimConfig.EXIT_MAX_Y
 		)
 		var calm_on_top := rng.next_below(2) == 0
+		# A half its hazards block all of (Lava Rise near its top) gets the
+		# free slot nearest it anywhere on the wall, clear of the other exit.
+		if blocked(sim, bottom):
+			bottom = _free_apart(sim, bottom, top)
+		if blocked(sim, top):
+			top = _free_apart(sim, top, bottom)
 		sim.state.exit_a_y = top
 		sim.state.exit_b_y = bottom
 		sim.state.exit_a_kind = SimState.ExitKind.CALM if calm_on_top else SimState.ExitKind.WILD
@@ -140,6 +149,25 @@ static func _nearest_free(sim: GameSim, first: int, last: int, fallback: int) ->
 		var d := absi(slot - near)
 		if best_d < 0 or d < best_d:
 			best = near
+			best_d = d
+	return best
+
+
+## The free exit height nearest `y` on the whole wall at least FORK_APART from
+## `other` (the fork's other exit), or `y` if there is none.
+static func _free_apart(sim: GameSim, y: int, other: int) -> int:
+	var c0 := SimConfig.slot_center_y(0)
+	var lo := (SimConfig.EXIT_MIN_Y - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
+	var hi := (SimConfig.EXIT_MAX_Y - c0) / SimConfig.SLOT_SIZE
+	var best := y
+	var best_d := -1
+	for slot in range(lo, hi + 1):
+		var cy := SimConfig.slot_center_y(slot)
+		if absi(cy - other) < FORK_APART or blocked(sim, cy):
+			continue
+		var d := absi(cy - y)
+		if best_d < 0 or d < best_d:
+			best = cy
 			best_d = d
 	return best
 

@@ -26,6 +26,8 @@ public static class ExitPlanner
             long top = random_y(sim, rng, SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF);
             long bottom = random_y(sim, rng, SimConfig.FORK_SPLIT_Y + SimConfig.EXIT_HALF, SimConfig.EXIT_MAX_Y);
             bool calm_on_top = rng.next_below(2) == 0;
+            if (blocked(sim, bottom)) bottom = _free_apart(sim, bottom, top);
+            if (blocked(sim, top)) top = _free_apart(sim, top, bottom);
             sim.state.exit_a_y = top;
             sim.state.exit_b_y = bottom;
             sim.state.exit_a_kind = calm_on_top ? ExitKind.CALM : ExitKind.WILD;
@@ -122,6 +124,29 @@ public static class ExitPlanner
             if (best_d < 0 || d < best_d)
             {
                 best = near;
+                best_d = d;
+            }
+        }
+        return best;
+    }
+
+    public const long FORK_APART = 3 * SimConfig.SLOT_SIZE;
+
+    static long _free_apart(GameSim sim, long y, long other)
+    {
+        long c0 = SimConfig.slot_center_y(0);
+        long lo = (SimConfig.EXIT_MIN_Y - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE;
+        long hi = (SimConfig.EXIT_MAX_Y - c0) / SimConfig.SLOT_SIZE;
+        long best = y;
+        long best_d = -1;
+        for (long slot = lo; slot < hi + 1; slot++)
+        {
+            long cy = SimConfig.slot_center_y(slot);
+            if (G.absi(cy - other) < FORK_APART || blocked(sim, cy)) continue;
+            long d = G.absi(cy - y);
+            if (best_d < 0 || d < best_d)
+            {
+                best = cy;
                 best_d = d;
             }
         }

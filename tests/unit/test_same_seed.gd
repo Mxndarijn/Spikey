@@ -12,8 +12,9 @@ const FOLLOWS_BIRD: Array[String] = ["echo"]
 
 
 ## What generation made in one run, keyed so two runs can be compared:
-## "room N" -> the room, "wall N:W" -> wall W's spikes, "exit N:S" -> the exit
-## planned at score S. Also the bird's height out of each portal.
+## "room N" -> the room, "wall N:W at T D" -> wall W's spikes (reached at room
+## step T flying D), "exit N:S" -> the exit planned at score S. Also the bird's
+## height out of each portal.
 func _record(seed_value: int, bot_seed: int, wait: int) -> Dictionary:
 	var sim := GameSim.new(seed_value)
 	var rng := SimRng.new(bot_seed)
@@ -31,8 +32,10 @@ func _record(seed_value: int, bot_seed: int, wait: int) -> Dictionary:
 			out["room %d" % n] = [s.room_kind, sim.room.variant, sim.room.rng_seed, _hazards(sim)]
 			heights.append(s.y)
 		if sim.events.has(GameSim.Event.ROOM_CHANGE) or sim.events.has(GameSim.Event.BOUNCE):
+			# Keyed by when the bird got there and which way it flies: a hazard
+			# the bird hit (Bumper Cloud turns it round) is a real difference.
 			var mask := s.right_spikes if s.vx > 0 else s.left_spikes
-			out["wall %d:%d" % [n, sim.room.walls]] = mask
+			out["wall %d:%d at %d %d" % [n, sim.room.walls, sim.room.t, signi(s.vx)]] = mask
 		if sim.events.has(GameSim.Event.EXIT_PREVIEW) or sim.events.has(GameSim.Event.EXIT_OPEN):
 			out["exit %d:%d" % [n, s.score]] = [s.exit_side, s.exit_a_y, s.exit_b_y]
 	return {"made": out, "heights": heights, "taps": taps}
@@ -48,6 +51,7 @@ func _hazards(sim: GameSim) -> Array[int]:
 
 func test_two_players_of_one_seed_get_the_same_rooms_spikes_and_exits() -> void:
 	var rooms_compared := 0
+	var walls_compared := 0
 	var heights_differed := false
 	for seed_value in SEEDS:
 		var a := _record(seed_value, 1, 0)
@@ -61,6 +65,8 @@ func test_two_players_of_one_seed_get_the_same_rooms_spikes_and_exits() -> void:
 			assert_eq(made_b[key], made_a[key], "seed %d: %s" % [seed_value, key])
 			if key.begins_with("room ") and key != "room 0":
 				rooms_compared += 1
+			if key.begins_with("wall "):
+				walls_compared += 1
 		var ha: Array[int] = a.heights
 		var hb: Array[int] = b.heights
 		for i in mini(ha.size(), hb.size()):
@@ -68,6 +74,7 @@ func test_two_players_of_one_seed_get_the_same_rooms_spikes_and_exits() -> void:
 				heights_differed = true
 	assert_true(rooms_compared >= 3, "both players got through portals (%d rooms)" % rooms_compared)
 	assert_true(heights_differed, "at least one portal at different heights")
+	assert_true(walls_compared >= 40, "%d walls compared" % walls_compared)
 
 
 ## A revive restarts the room as the bird came in, so the walls after it are
@@ -86,7 +93,9 @@ func test_walls_after_a_revive_are_the_rooms_own() -> void:
 			break
 		sim.step(SimBots.gap_seeker(sim, rng))
 		if sim.events.has(GameSim.Event.BOUNCE) and sim.state.room_index == 1:
-			walls[sim.room.walls] = sim.state.right_spikes if sim.state.vx > 0 else sim.state.left_spikes
+			walls[sim.room.walls] = (
+				sim.state.right_spikes if sim.state.vx > 0 else sim.state.left_spikes
+			)
 	while not copy.is_over():
 		copy.step(false)
 	assert_true(copy.revive(), "revived")
