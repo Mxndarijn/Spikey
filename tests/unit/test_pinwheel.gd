@@ -26,6 +26,7 @@ static func advance(sim: GameSim, steps: int) -> void:
 static func put_bird(sim: GameSim, x: int, y: int) -> void:
 	sim.state.x = x
 	sim.state.y = y
+	sim.state.anchor_y = sim.state.y
 
 
 func test_every_variant_is_drawn() -> void:
@@ -183,6 +184,7 @@ func test_every_variant_moves_off_the_arriving_bird() -> void:
 		sim.step(true)
 		sim.state.score = 40
 		sim.state.y = (120 + (i * 37) % 400) * SUB
+		sim.state.anchor_y = sim.state.y
 		sim._arrive_in(i % 2, index)
 		var r: Hazard = sim.room.hazards[0]
 		seen[sim.room.variant_id()] = true

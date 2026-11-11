@@ -917,20 +917,28 @@ func _on_died(replay: Replay) -> void:
 ## over the frozen room (the player may have looked away for an ad); at 0 it
 ## flies on by itself.
 func _on_revive() -> void:
-	_run.set_paused(true)
 	_hud.show_running()
+	_start_revive_countdown()
+
+
+func _start_revive_countdown() -> void:
+	_run.set_paused(true)
 	_revive_count = true
 	_countdown = REVIVE_COUNTDOWN - _revive_hold_seconds()
 	_hud.countdown.show_count(REVIVE_COUNTDOWN)
 
 
-## The sim revived the bird (also in a replay of a revived run).
+## The sim revived the bird (also in a replay of a revived run): it comes out
+## of the portal it came into the room by, as at a portal arrival.
 func _on_revived() -> void:
 	_room.on_revived()
 	# The crash effect may have turned the flyer into pieces: bring it back.
 	_crash.clear()
 	_bird.on_revived()
 	_trail.start()
+	# A replay shows the revive as the run had it: the same 5, 4, 3, 2, 1.
+	if mode == Mode.REPLAY:
+		_start_revive_countdown()
 
 
 ## A real run is over for good: coins, best score, the boards and Game over.

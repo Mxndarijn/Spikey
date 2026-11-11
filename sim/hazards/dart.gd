@@ -13,6 +13,9 @@ extends Hazard
 ## Cupid variants set the lanes fields after new(): fewer lanes, slower arrows
 ## with a longer warning, or `pair`: every shot is two arrows on two different
 ## lanes, from the same wall.
+##
+## A shot breaks on an open or ghost exit's mouth (ExitZone), the way it would
+## on the far wall; one that would leave from inside it is not fired.
 
 enum State { IDLE, GLOW, FLY }
 
@@ -106,14 +109,29 @@ func step(sim: GameSim) -> void:
 				state = State.FLY
 				since = t
 				x = _base_x()
+				if _in_exit(sim):
+					_land()
 		State.FLY:
 			x += _dir() * (lanes_speed if lanes else SPEED)
-			if x < -LENGTH or x > SimConfig.WORLD_W + LENGTH:
-				state = State.IDLE
-				since = t
-				wait = LANES_IDLE if lanes else IDLE_TICKS
-				shots += 1
-				x = _base_x()
+			if x < -LENGTH or x > SimConfig.WORLD_W + LENGTH or _in_exit(sim):
+				_land()
+
+
+## The shot is over (out of the room, or broken on an exit's mouth).
+func _land() -> void:
+	state = State.IDLE
+	since = t
+	wait = LANES_IDLE if lanes else IDLE_TICKS
+	shots += 1
+	x = _base_x()
+
+
+## True if a dart of this shot touches an open or ghost exit's mouth (ExitZone).
+func _in_exit(sim: GameSim) -> bool:
+	for ly: int in shot_lanes():
+		if ExitZone.hits_rect(sim, tail_x(), ly - HALF_H, x, ly + HALF_H):
+			return true
+	return false
 
 
 ## Picks the lane and wall for the next shot.

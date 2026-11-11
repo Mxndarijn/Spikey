@@ -114,15 +114,33 @@ public class Beam : Hazard
         return n;
     }
 
-    public override bool kills(GameSim sim)
+    public long beam_left(GameSim sim, long i)
     {
         long left = sim.room.wall_left();
+        if (ExitZone.side(sim) == 0 && _crosses_exit(sim, i)) return ExitZone.right(sim) + 1;
+        return left;
+    }
+
+    public long beam_right(GameSim sim, long i)
+    {
         long right = sim.room.wall_right();
+        if (ExitZone.side(sim) == 1 && _crosses_exit(sim, i)) return ExitZone.left(sim) - 1;
+        return right;
+    }
+
+    bool _crosses_exit(GameSim sim, long i) =>
+        ExitZone.hits_rect(sim, sim.room.wall_left(), rows[(int)i] - HALF_H, sim.room.wall_right(), rows[(int)i] + HALF_H);
+
+    public override bool kills(GameSim sim)
+    {
         for (long i = 0; i < rows.Count; i++)
         {
             if (state(i) == State.ON)
-                if (sim.bird_touches_rect(left, rows[(int)i] - HALF_H, right, rows[(int)i] + HALF_H))
-                    return true;
+            {
+                long y0 = rows[(int)i] - HALF_H;
+                long y1 = rows[(int)i] + HALF_H;
+                if (sim.bird_touches_rect(beam_left(sim, i), y0, beam_right(sim, i), y1)) return true;
+            }
         }
         return false;
     }

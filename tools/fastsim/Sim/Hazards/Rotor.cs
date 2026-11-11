@@ -58,7 +58,7 @@ public class Rotor : Hazard
     {
         center_x = CENTER_X;
         center_y = CENTER_Y;
-        long y = sim.state.y;
+        long y = sim.state.anchor_y;
         long top = hubs == 2 ? -spread_y : 0;
         long bottom = hubs == 2 ? spread_y : 0;
         long clear = hub_clear();

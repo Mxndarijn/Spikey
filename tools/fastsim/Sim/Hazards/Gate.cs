@@ -146,7 +146,7 @@ public class Gate : Hazard
     {
         long r = SimConfig.BIRD_RADIUS;
         long wall_x = side == 1 ? sim.room.wall_right() - r : sim.room.wall_left() + r;
-        return G.maxi(sim.steps_to_wall(side) - G.absi(wall_x - gate.x) / SimConfig.SPEED_X, 0);
+        return G.maxi(sim.steps_to_exit(side) - G.absi(wall_x - gate.x) / SimConfig.SPEED_X, 0);
     }
 
     public override long adjust_wall(GameSim sim, long side, long mask)

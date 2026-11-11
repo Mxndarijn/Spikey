@@ -201,7 +201,7 @@ func kills(sim: GameSim) -> bool:
 
 ## No exit where this crawler will be in the bird's way as it flies in.
 func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
-	var span := _in_the_way(sim, start, side, t + sim.steps_to_wall(side), 0)
+	var span := _in_the_way(sim, start, side, t + sim.steps_to_exit(side), 0)
 	return y > span[0] - exit_clear() and y < span[1] + exit_clear()
 
 
@@ -232,7 +232,7 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 				covered |= 1 << slot
 	if covered == 0:
 		return mask
-	return mask & ~_best_run(mask, covered, s.y)
+	return mask & ~_best_run(mask, covered, s.anchor_y)
 
 
 ## The run of FREE_RUN slots (as a mask) the crawlers leave alone that is best

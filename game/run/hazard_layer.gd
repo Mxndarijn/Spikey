@@ -60,7 +60,9 @@ func look() -> HazardLook:
 	var skin := ""
 	if _run != null and _run.sim != null and _run.sim.room.def != null:
 		skin = RoomSkins.of(_run.sim.room.def.id)
-	return HazardLook.new(drawn_theme(), _time, skin, color_blind_spikes)
+	var out := HazardLook.new(drawn_theme(), _time, skin, color_blind_spikes)
+	out.sim = _run.sim if _run != null else null
+	return out
 
 
 static func painter_path(kind: String) -> String:

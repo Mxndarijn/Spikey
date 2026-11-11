@@ -72,6 +72,7 @@ public static class RlMain
                     if (opts.ContainsKey("wbeam") || opts.ContainsKey("whorizon"))
                         Imitation.world_skill = Imitation.world_skill with { beam = int.Parse(O("wbeam", "64")), horizon = int.Parse(O("whorizon", "150")) };
                     Imitation.wobs = O("wobs", "0") == "1";
+                    if (opts.ContainsKey("margin")) Imitation.MARGIN = double.Parse(opts["margin"]);
                     Imitation.arc = O("arc", "0") != "0";
                     Imitation.arc_past = O("arc", "0") == "2";
                     t.sizes[0] = Imitation.inputs;

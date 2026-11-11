@@ -90,7 +90,13 @@ public sealed class Drop : Hazard
     public override void step(GameSim sim)
     {
         if (shard_t > 0)
+        {
             _step_shards();
+            long sx = shard_x - shard_dx;
+            long sx2 = shard_x + shard_dx;
+            if (ExitZone.hits_circle(sim, sx, shard_y, SHARD_RADIUS) || ExitZone.hits_circle(sim, sx2, shard_y, SHARD_RADIUS))
+                shard_t = 0;
+        }
         switch (phase)
         {
             case Phase.WAIT:
@@ -134,7 +140,7 @@ public sealed class Drop : Hazard
                     phase = Phase.STAKE;
                     timer = STAKE_STEPS;
                 }
-                else if (y - radius > SimConfig.WORLD_H)
+                else if (y - radius > SimConfig.WORLD_H || ExitZone.hits_circle(sim, x, y, radius))
                 {
                     phase = Phase.WAIT;
                     timer = gap;

@@ -71,14 +71,14 @@ public sealed class CrateDrop : Hazard
     public override void setup(GameSim sim, SimRng rng)
     {
         salt = rng.next_u32();
-        _next_drop(START_DELAY + WARN_TICKS);
+        _next_drop(sim, START_DELAY + WARN_TICKS);
     }
 
-    public void _next_drop(long warn)
+    public void _next_drop(GameSim sim, long warn)
     {
-        col = _free_col(G.posmod(SimHash.mix(salt, drops), cols), -1);
+        col = _free_col(sim, G.posmod(SimHash.mix(salt, drops), cols), -1);
         col_b = -1;
-        if (pair && col >= 0) col_b = _free_col((col + cols / 2) % cols, col);
+        if (pair && col >= 0) col_b = _free_col(sim, (col + cols / 2) % cols, col);
         drops += 1;
         y = -crate_h;
         vy = 0;
@@ -89,24 +89,42 @@ public sealed class CrateDrop : Hazard
         warn_left = warn;
     }
 
-    public long _free_col(long start, long skip)
+    public long _free_col(GameSim sim, long start, long skip)
     {
         for (long i = 0; i < cols; i++)
         {
             long c = (start + i) % cols;
-            if (c != skip && heights[(int)c] < max_height) return c;
+            if (c != skip && heights[(int)c] < max_height && !_col_in_exit(sim, c)) return c;
         }
         return -1;
     }
 
+    bool _col_in_exit(GameSim sim, long c)
+    {
+        long x = col_left(c);
+        return ExitZone.hits_rect(sim, x, -crate_h, x + crate_w, FLOOR);
+    }
+
+    bool _crate_in_exit(GameSim sim, long c, long top)
+    {
+        long x = col_left(c);
+        return ExitZone.hits_rect(sim, x, top, x + crate_w, top + crate_h);
+    }
+
     public override void step(GameSim sim)
     {
-        if (col < 0) return;
+        if (col < 0)
+        {
+            if (ExitZone.count(sim) == 0 && _free_col(sim, 0, -1) >= 0) _next_drop(sim, WARN_TICKS);
+            return;
+        }
         if (warn_left > 0)
         {
             warn_left -= 1;
             return;
         }
+        if (!done && _crate_in_exit(sim, col, y)) done = true;
+        if (col_b >= 0 && !done_b && _crate_in_exit(sim, col_b, y_b)) done_b = true;
         if (!done)
         {
             vy = G.mini(vy + FALL_ACCEL, MAX_FALL);
@@ -131,7 +149,7 @@ public sealed class CrateDrop : Hazard
                 done_b = true;
             }
         }
-        if (done && (col_b < 0 || done_b)) _next_drop(WARN_TICKS);
+        if (done && (col_b < 0 || done_b)) _next_drop(sim, WARN_TICKS);
     }
 
     public void _land(long c)
@@ -141,6 +159,8 @@ public sealed class CrateDrop : Hazard
     }
 
     public bool falling() => col >= 0 && warn_left == 0;
+
+    public override bool blocks_exit(GameSim sim, long side, long y) => y > FLOOR - max_height * crate_h - SimConfig.SLOT_SIZE;
 
     public long col_left(long c) => col_x0 + c * col_w + (col_w - crate_w) / 2;
 

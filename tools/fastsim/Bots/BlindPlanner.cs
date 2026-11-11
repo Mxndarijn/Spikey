@@ -138,9 +138,19 @@ public sealed class BlindPlanner
     {
         var c = sim.clone_deep();
         c._rng = new SimRng(own.next_u32());
+        // Seed-only generation: each wall reseeds from the room's seed, the
+        // spine picks the next rooms, and the exits are planned from the room's
+        // seed at room start. All three are hidden: replace them and plan again
+        // (plan_room keeps an exit already on screen as it is).
+        c.room.rng_seed = own.next_u32();
+        c._spine = new SimRng(own.next_u32());
+        if (c.state.plan_at != 0) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
         // MAX_STEP of that (the room's rule, which a player learns).
+        // On seed-only generation the room slides them to state.anchor_y (the
+        // exit taken or the open run on the last wall: on screen), so that is used.
+        bounce_y = c.state.anchor_y;
         if (bounce_y >= 0)
         {
             var cols = c.room.hazards.OfType<Stalactite>().Where(st => st.fixed_lo < 0).ToList();

@@ -69,7 +69,10 @@ After a revive the room is **exactly as it was when the bird came in**, and the
 bird is back at the portal it came through:
 
 1. Score, coins, flaps, room index, route and the RNG carry on. Nothing is
-   rolled back.
+   rolled back. Since every wall reseeds from the room's seed and its number
+   (next gameplay version, docs/ARCHITECTURE.md "Same seed, same run"), the walls
+   after a revive are the room's own again, and so are the room's planned exits
+   (`SimState.plan_*`, kept in `_entry_state`).
 2. The room is the copy `GameSim` kept when the bird came out of the portal
    (`_entry_room`, taken by `_keep_entry` at the run start and after every
    portal arrival, not in practice or inside an arrival check): the same
@@ -210,7 +213,8 @@ per-player daily counter.
 - `revive()` calls `sim.revive()`, records the tick, refreshes `prev_state` and
   emits `revived`. `can_revive()` is false for practice and replays.
 - Watching a replay: a crash at a recorded revive tick (`ReplayDriver.revive_at`)
-  revives at once instead of emitting `died`.
+  revives at once instead of emitting `died`, and Main shows the same 5, 4, 3,
+  2, 1 over the frozen room as the live revive did (`Main._start_revive_countdown`).
 
 `main.gd` on `died` in a real run:
 - the run has its revive left, the score is at least `REVIVE_MIN_SCORE`, and

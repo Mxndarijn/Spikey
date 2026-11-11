@@ -164,6 +164,45 @@ public class Pendulum : Hazard
         }
     }
 
+    public const long SWING_STEP = 4 * SimConfig.SUB;
+
+    public override bool blocks_exit(GameSim sim, long side, long p_y)
+    {
+        long widest = amplitude + G.absi(gust);
+        long longest = length + G.absi(winch);
+        if (!_may_reach(sim, side, pivot_x, longest))
+            if (!has_twin() || !_may_reach(sim, side, twin_x, twin_length)) return false;
+        long a = -widest;
+        while (a <= widest)
+        {
+            long s = SimTrig.sin_t(a);
+            long c = SimTrig.cos_t(a);
+            long chain_len = length - G.absi(winch);
+            while (chain_len <= longest)
+            {
+                long lx = pivot_x + chain_len * s / SimTrig.ONE;
+                long ly = pivot_y + chain_len * c / SimTrig.ONE;
+                if (ExitZone.circle_in_box(sim, side, p_y, lx, ly, radius)) return true;
+                chain_len += winch != 0 ? SWING_STEP : longest + 1;
+            }
+            if (has_twin())
+            {
+                long tx = twin_x - twin_length * s / SimTrig.ONE;
+                long ty = pivot_y + twin_length * c / SimTrig.ONE;
+                if (ExitZone.circle_in_box(sim, side, p_y, tx, ty, radius)) return true;
+            }
+            a += 1;
+        }
+        return false;
+    }
+
+    bool _may_reach(GameSim sim, long side, long px, long chain_len)
+    {
+        long far = chain_len + radius;
+        if (side == 0) return px - far <= ExitZone.right_on(sim, 0);
+        return px + far >= ExitZone.left_on(sim, 1);
+    }
+
     public override bool kills(GameSim sim)
     {
         if (has_twin() && sim.bird_touches_circle(x2, y2, radius)) return true;

@@ -24,6 +24,7 @@ func test_a_slow_reaction_out_of_a_portal_is_fair() -> void:
 			while not RoomCatalog.all()[index].fits_arrival(y * SimConfig.SUB):
 				y = 160 + (y - 160 + 53) % 320
 			sim.state.y = y * SimConfig.SUB
+			sim.state.anchor_y = sim.state.y
 			var side := i % 2
 			for k in sim._arrival_retries(side, index):
 				sim._rng.next_u32()
@@ -79,6 +80,7 @@ func test_moving_hazards_keep_off_a_bird_holding_height() -> void:
 			for side in 2:
 				var sim := _sim_at(40, 900 + y_px + side)
 				sim.state.y = y_px * SimConfig.SUB
+				sim.state.anchor_y = sim.state.y
 				sim._arrive_in(side, index)
 				var h: Hazard = sim.room.hazards[0]
 				var clear: int = h._arrival_clear(FairLanes.arrival_path(sim))
@@ -102,6 +104,7 @@ func test_swing_lanterns_keep_off_a_bird_holding_height() -> void:
 			for side in 2:
 				var sim := _sim_at(40, 900 + y_px + side)
 				sim.state.y = y_px * SimConfig.SUB
+				sim.state.anchor_y = sim.state.y
 				sim._arrive_in(side, index)
 				# Set this variant's lanterns up as the room would.
 				var rng := SimRng.new(y_px * 3 + side)
@@ -131,6 +134,7 @@ func test_portal_draws_only_variants_that_fit() -> void:
 		for i in 6:
 			var sim := _sim_at(40, 3000 + y_px * 7 + i)
 			sim.state.y = y
+			sim.state.anchor_y = sim.state.y
 			sim._arrive_in(i % 2, index)
 			var v: RoomVariant = def.variants[sim.room.variant]
 			assert_true(v.fits_arrival(y), "%s drawn at %d px" % [v.id, y_px])
@@ -147,7 +151,9 @@ func test_the_portal_keeps_the_bird_off_the_ceiling_and_floor() -> void:
 	for y_px: int in [56, 100, 300, 590]:
 		var sim := _sim_at(20, 40 + y_px)
 		sim.state.y = y_px * SimConfig.SUB
-		sim._go_through(1, SimState.ExitKind.NORMAL)
+		sim.state.anchor_y = sim.state.y
+		sim._go_through(1, SimState.ExitKind.NORMAL, sim.state.y)
+		assert_between(sim.state.anchor_y, top, bottom, "the anchor too")
 		assert_between(sim.state.y, top, bottom)
 		if y_px == 300:
 			assert_eq(sim.state.y, 300 * SimConfig.SUB, "a height in between is kept")

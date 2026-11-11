@@ -124,3 +124,23 @@ func test_seed_practice_never_touches_the_save() -> void:
 	assert_eq(main.mode, main.Mode.MENU)
 	_free_main(main)
 	_reset()
+
+
+## Seed 3392377610 (a real v21 run) is above 2^31: the picker and seed
+## practice must keep it whole, and practice plays exactly like that run.
+func test_a_seed_above_two_to_the_31_plays_the_same_run() -> void:
+	_reset()
+	const BIG := 3392377610
+	assert_eq(SeedPicker.parse(str(BIG)), BIG)
+	assert_eq(SeedPicker.parse(GameOverScreen.seed_text(BIG)), BIG, "the game over line")
+	var main := _make_main()
+	main.start_seed_practice(BIG)
+	assert_eq(main._run.sim.seed_value, BIG)
+	var plain := GameSim.new(BIG, main.season)
+	assert_eq(main._run.sim.checksum(), plain.checksum(), "same first room")
+	for t in 900:
+		main._run.sim.step(t % 17 == 0)
+		plain.step(t % 17 == 0)
+	assert_eq(main._run.sim.checksum(), plain.checksum(), "same run, same taps")
+	_free_main(main)
+	_reset()

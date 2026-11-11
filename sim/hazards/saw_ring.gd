@@ -66,7 +66,7 @@ func _init() -> void:
 
 func setup(sim: GameSim, rng: SimRng) -> void:
 	center_y = CENTER_Y
-	var y := sim.state.y
+	var y := sim.state.anchor_y
 	var clear := arrival_clear()
 	if sim.state.started and y - CENTER_Y > -clear and y - CENTER_Y < clear + HOP:
 		# Below the bird if the ring still fits above the floor, else above it.

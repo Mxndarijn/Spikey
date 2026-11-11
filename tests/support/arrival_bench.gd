@@ -66,6 +66,7 @@ static func arrival(index: int, i: int, variant := "") -> GameSim:
 		y = 130 + (y - 130 + 53) % 380
 		tries += 1
 	sim.state.y = y * SimConfig.SUB
+	sim.state.anchor_y = sim.state.y
 	var side := i % 2
 	for k in sim._arrival_retries(side, index):
 		sim._rng.next_u32()

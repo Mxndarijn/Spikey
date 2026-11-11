@@ -14,6 +14,7 @@ static partial class Checks
         public static void came_in(GameSim sim, long index, long toward, long y)
         {
             sim.state.y = y;
+            sim.state.anchor_y = y;
             long skip = sim._arrival_retries(toward, index);
             for (long i = 0; i < skip; i++) sim._rng.next_u32();
             sim._arrive_in(toward, index);

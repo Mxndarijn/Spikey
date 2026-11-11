@@ -85,20 +85,29 @@ public class Dart : Hazard
                 state = State.FLY;
                 since = t;
                 x = _base_x();
+                if (_in_exit(sim)) _land();
             }
         }
         else if (state == State.FLY)
         {
             x += _dir() * (lanes ? lanes_speed : SPEED);
-            if (x < -LENGTH || x > SimConfig.WORLD_W + LENGTH)
-            {
-                state = State.IDLE;
-                since = t;
-                wait = lanes ? LANES_IDLE : IDLE_TICKS;
-                shots += 1;
-                x = _base_x();
-            }
+            if (x < -LENGTH || x > SimConfig.WORLD_W + LENGTH || _in_exit(sim)) _land();
         }
+    }
+
+    void _land()
+    {
+        state = State.IDLE;
+        since = t;
+        wait = lanes ? LANES_IDLE : IDLE_TICKS;
+        shots += 1;
+        x = _base_x();
+    }
+
+    bool _in_exit(GameSim sim)
+    {
+        if (ExitZone.hits_rect(sim, tail_x(), lane_y - HALF_H, x, lane_y + HALF_H)) return true;
+        return pair && ExitZone.hits_rect(sim, tail_x(), lane2_y - HALF_H, x, lane2_y + HALF_H);
     }
 
     public void _aim(GameSim sim)
