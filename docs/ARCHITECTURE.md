@@ -111,9 +111,10 @@ measure how often a player who reacts late dies right after a portal.
 The reaction benchmark: a player who needs 0.75 s is never killed by a
 portal (every death there still had a way to live: `SurvivalSearch` finds
 one), and a 1 s reaction may cost at most 2% of portal arrivals over an
-instant one (`ArrivalBench`, checked by
-`tests/sim/test_arrival_reaction.gd`; run the full version on FastSim after
-changing a room: `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
+instant one (`ArrivalBench`, checked over every room and variant by
+`tools/fastsim.ps1 -Mode check -Check arrival`, part of the check, with
+`tests/sim/test_arrival_reaction.gd` playing a sample on the real sim; the
+full benchmark with the full bot's death rate on FastSim after changing a room: `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
 survival by reaction time in real runs; `-Variant <id>|all` plays one room
 variant, or each in turn, instead of the drawn one: see
 `tools/fastsim/PORTING.md`). Every 50 points a
@@ -299,10 +300,26 @@ hidden debug page: [DEBUG.md](DEBUG.md).
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
    doing its share of the rooms or seeds; a `combine_` function then checks
    totals over all parts. Pieces start longest first, from the last run's times.
+   The bot-heavy tests keep only a sample here: their full versions run in
+   step 6.
 5. **FastSim parity**: `tools/fastsim` (the C# copy of `sim/` for fast bots)
-   replays recorded runs in every room and season and must match tick for
-   tick. Without the .NET SDK the check fails. CI runs it too
-   (`.github/workflows/check.yml`).
+   replays runs recorded by `tools/fastsim_parity.gd` and must match tick for
+   tick: every room in practice and in full runs in every season, every room
+   variant forced, a portal arrival into every room variant, a revive in every
+   room; and its bots and searches (gap seeker, the light PlannerBot,
+   SurvivalSearch) must choose the same taps. Without the .NET SDK the check
+   fails.
+6. **FastSim checks** (`tools/fastsim.ps1 -Mode check`, `tools/fastsim/Checks.cs`):
+   the bot-heavy tests, ported from their GDScript tests with the same rules
+   and thresholds and more seeds: every variant passable
+   (`test_variants_passable.gd`), the portal reaction benchmark
+   (`test_arrival_reaction.gd`), the points cap (`test_room_points_cap.gd`),
+   revives in every room and exit case (`test_revive_survivable.gd`) and the
+   Double Trouble pairs (`test_double_trouble.gd`). Each GDScript test keeps a
+   small sample on the real sim; `tests/unit/test_fastsim_checks.gd` pins the
+   C# cases and thresholds to the GDScript ones. `-TestFilter` picks the
+   checks it names or whose test it matches; `-FastSimJobs` sets the workers
+   (default `-Jobs`). CI runs steps 5 and 6 too (`.github/workflows/check.yml`).
 
 The database has its own tests (`tools/db_test.ps1`, needs Docker; CI runs
 them in `.github/workflows/supabase-db.yml`).

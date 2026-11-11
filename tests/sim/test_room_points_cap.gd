@@ -2,12 +2,17 @@ extends TestCase
 ## No room pays more than POINTS_PER_ROOM points: once the exit opens, bounces
 ## stop scoring until the bird leaves. Checked in every room and every variant,
 ## and across a revive (it restarts the room but keeps the open exit).
+##
+## The full check runs on FastSim (`tools/fastsim.ps1 -Mode check -Check
+## points`, part of tools/check.ps1) with more seeds and revive runs
+## (Checks.cs SEEDS_PER_VARIANT, REVIVE_RUNS). Here the real sim plays the
+## first of them.
 
 const PARALLEL := true
 
-const SEEDS_PER_VARIANT := 3
+const SEEDS_PER_VARIANT := 1
 const MAX_TICKS := 6000
-const REVIVE_RUNS := 40
+const REVIVE_RUNS := 10
 
 ## Room stays that reached the full POINTS_PER_ROOM (so the cap was really hit).
 var _full_stays := 0

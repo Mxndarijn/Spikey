@@ -9,6 +9,17 @@
   4. Tests: unit, sim purity, golden replays, bot simulations, run side by side
      in -Jobs headless Godot processes (default: one per core, at most 24;
      -Jobs 1 runs them all in one process)
+  5. FastSim parity: tools/fastsim (the C# copy of sim/) still matches sim/,
+     tick for tick, in every room and variant, out of portals and after
+     revives, and its bots and searches choose what the GDScript ones do
+  6. FastSim checks: the bot-heavy tests (every variant passable, the portal
+     reaction benchmark, the points cap, revives, Double Trouble pairs) on
+     FastSim, in -FastSimJobs worker processes (default: -Jobs). Their
+     GDScript tests in step 4 keep a small sample (tools/fastsim/Checks.cs)
+
+  -TestFilter limits step 4 to tests whose "path:method" contains it, and
+  step 6 to checks named so or porting such a test (for example "arrival",
+  "variants_passable"); step 5 runs only with no filter or "fastsim".
 
   Godot is found via $env:GODOT, then tools/godot_path.txt, then `godot` on PATH.
   On Windows point it at the *_console.exe build so output shows up.
@@ -17,10 +28,12 @@
   powershell -ExecutionPolicy Bypass -File tools/check.ps1
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -TestFilter replay
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Jobs 1
+  powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Jobs 8 -FastSimJobs 4
 #>
 param(
     [string]$TestFilter = "",
-    [int]$Jobs = 0
+    [int]$Jobs = 0,
+    [int]$FastSimJobs = 0
 )
 
 $ErrorActionPreference = "Continue"
@@ -97,15 +110,31 @@ if ($LASTEXITCODE -ne 0) { $failed += "tests" }
 
 # 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/. Skipped
 # with a -TestFilter unless the filter is "fastsim".
+$hasDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
+$fastsim = Join-Path $root "tools/fastsim.ps1"
+if ($FastSimJobs -le 0) { $FastSimJobs = $Jobs }
 if (-not $TestFilter -or $TestFilter -eq "fastsim") {
     Write-Step "FastSim parity"
-    if (Get-Command dotnet -ErrorAction SilentlyContinue) {
-        & powershell -ExecutionPolicy Bypass -File (Join-Path $root "tools/fastsim.ps1") -Mode parity -Quick -Jobs 4
+    if ($hasDotnet) {
+        & powershell -ExecutionPolicy Bypass -File $fastsim -Mode parity -Quick -Jobs $FastSimJobs
         if ($LASTEXITCODE -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
     } else {
         Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
         $failed += "fastsim parity (dotnet not installed)"
     }
+}
+
+# 6. The bot-heavy tests on FastSim (tools/fastsim/Checks.cs). With a
+# -TestFilter only the checks it names or whose GD test it matches.
+Write-Step "FastSim checks"
+if ($hasDotnet) {
+    $fa = @("-Mode", "check", "-Jobs", $FastSimJobs)
+    if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
+    & powershell -ExecutionPolicy Bypass -File $fastsim @fa
+    if ($LASTEXITCODE -ne 0) { $failed += "fastsim checks" }
+} else {
+    Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
+    $failed += "fastsim checks (dotnet not installed)"
 }
 
 Write-Host ""
