@@ -16,8 +16,8 @@ signal closed
 signal equipped(kind: String, id: String)
 ## A world was tapped: the room behind the menu shows it until the screen closes.
 signal previewed(kind: String, id: String)
-## The wallet in the header was tapped: main opens the Shop.
-signal store_pressed
+## The wallet in the header was tapped: main opens Earn diamonds.
+signal earn_pressed
 
 ## Only the shop is left (the first-start pickers were removed).
 enum Mode { SHOP }
@@ -86,7 +86,7 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
 	_wallet = Wallet.new()
-	_wallet.pressed.connect(store_pressed.emit)
+	_wallet.pressed.connect(earn_pressed.emit)
 	_header = UiKit.header(title_for(kind), closed.emit, _wallet)
 	col.add_child(_header)
 	_look = LookPreview.new()

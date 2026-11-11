@@ -18,6 +18,9 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   (check script, tests, tools). On Windows, rendering always shows a window,
   even off-screen, so `tools/screenshot.ps1` runs only when the user asks for
   screenshots in that conversation.
+- To render a run (a bot's or a player's) as video or frames: write a run file
+  and call `tools/render_run.ps1` (`docs/RENDERING.md`). `-Check` is headless
+  and always fine; rendering only when the user asks in that conversation.
 - Working in a git worktree and merging it into `main`: once the merge is
   pushed, remove that worktree (`git worktree remove <path>`). Its branch stays
   unless the user says otherwise.

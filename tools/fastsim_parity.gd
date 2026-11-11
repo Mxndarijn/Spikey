@@ -17,7 +17,7 @@ extends SceneTree
 ##     A sim built by <setup>, then played as <actions> (as in `run`):
 ##       p:<seed>:<season>:<practice>:<variant>  GameSim.new with a forced variant
 ##       a:<room>:<variant>:<i>                   ArrivalBench.arrival (out of a portal)
-##       r:<room>:<seed>:<exit>:<side>            BotSetups.revived
+##       r:<room>:<seed>:<exit>:<side>:<toward>:<y>  BotSetups.revived
 ##       cr:<room>:<seed>:<exit>:<side>:<y>       BotSetups.crawl_revived
 ##       gr:<seed>:<open>:<side>:<y>:<variant>    BotSetups.gates_revived
 ##       ir:<room id>:<seed>:<exit>:<side>:<variant>  BotSetups.isles_revived
@@ -114,7 +114,18 @@ func _check_cases(quick: bool) -> void:
 		_setup_case("arrival_" + label, a, ARRIVAL_TICKS, ArrivalBench.EARLY_DELAY)
 	for index in rooms.size():
 		var exit := EXITS[index % EXITS.size()]
-		var r := "r:%d:%d:%s:%d" % [index, 9000 + index, exit, (index / EXITS.size()) % 2]
+		var ys := BotSetups.ENTRY_YS
+		var r := (
+			"r:%d:%d:%s:%d:%d:%d"
+			% [
+				index,
+				9000 + index,
+				exit,
+				(index / EXITS.size()) % 2,
+				index % 2,
+				ys[(index / 2) % ys.size()]
+			]
+		)
 		_setup_case("revive_" + rooms[index].id, r, REVIVE_TICKS, 0)
 	# The bots and searches of the checks, on a few cases.
 	var step := 1 if not quick else maxi(1, cases.size() / 6)
@@ -128,7 +139,7 @@ func _check_cases(quick: bool) -> void:
 		_planner_case("planner_" + label, a, c + 1, 45, 2, ArrivalBench.EARLY_DELAY, 120)
 		_csearch_case("csearch_" + label, p, 300)
 	_gap_case("gap_run", "p:4242:%d:-1:-" % Seasons.NONE)
-	var r := "r:%d:9001:open:1" % RoomCatalog.first_index()
+	var r := "r:%d:9001:open:1:0:%d" % [RoomCatalog.first_index(), SimConfig.BIRD_START_Y]
 	_csearch_case("csearch_revive", r, SimConfig.ARRIVAL_HOLD + 180)
 	_room_check_cases(quick)
 
@@ -180,7 +191,7 @@ static func setup(text: String) -> GameSim:
 		"a":
 			return ArrivalBench.arrival(int(f[1]), int(f[3]), "" if f[2] == "-" else f[2])
 		"r":
-			return BotSetups.revived(int(f[1]), int(f[2]), f[3], int(f[4]))
+			return BotSetups.revived(int(f[1]), int(f[2]), f[3], int(f[4]), int(f[5]), int(f[6]))
 		"cr":
 			return BotSetups.crawl_revived(int(f[1]), int(f[2]), f[3], int(f[4]), int(f[5]))
 		"gr":

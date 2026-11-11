@@ -16,6 +16,8 @@ using FastSim;
 //   fastsim rl train|calibrate|measure|speed       the RL bot tiers (RL/, docs/RL_BOT.md)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
+//   fastsim runfile <seed> [bot_seed] --out <file>  a gap_seeker run as a run file
+//                                                   (Bots/RunFile.cs, docs/RENDERING.md)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal),
 //   --variant <id>|all (search, rooms, reaction; scan: one id: play that room variant
@@ -57,6 +59,8 @@ RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
 if (mode == "check") return Checks.run(pos, opts, jobs, priority);
 if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
+if (mode == "runfile")
+    return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
 {
     if (mode != "search" && mode != "rooms" && mode != "reaction" && mode != "scan")
@@ -492,7 +496,7 @@ static class Parity
         {
             "p" => new GameSim(long.Parse(f[1]), long.Parse(f[2]), long.Parse(f[3]), variant),
             "a" => Reaction.arrival(int.Parse(f[1]), long.Parse(f[3]), f[2] == "-" ? "" : f[2]),
-            "r" => Checks.Setups.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4])),
+            "r" => Checks.Setups.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4]), long.Parse(f[5]), long.Parse(f[6])),
             "cr" => Checks.Setups.crawl_revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4]), long.Parse(f[5])),
             "gr" => Checks.Setups.gates_revived(long.Parse(f[1]), f[2] == "1", long.Parse(f[3]), long.Parse(f[4]), f[5]),
             "ir" => Checks.Setups.isles_revived(f[1], long.Parse(f[2]), f[3], long.Parse(f[4]), f[5]),

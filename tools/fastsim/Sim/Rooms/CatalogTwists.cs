@@ -29,7 +29,11 @@ public static class CatalogTwists
         lock_.hazards.Add(() => new ExitKey());
         lock_.variants = new List<RoomVariant>
         {
-            new RoomVariant("still"), new RoomVariant("orbit"), new RoomVariant("two"),
+            new RoomVariant("classic").sized(1, 1, 1),
+            new RoomVariant("orbit").sized(1, 1, 1),
+            new RoomVariant("trio").sized(1, 1, 1),
+            new RoomVariant("quad").sized(1, 1, 1),
+            new RoomVariant("chain").sized(1, 1, 1),
         };
         out_.Add(lock_);
 

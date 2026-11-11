@@ -240,9 +240,9 @@ const ROOMS := {
 	["Spike Belt", "The wall spikes ride a belt. The gap travels with them.", 2, "star", "extra"],
 	"lockexit":
 	[
-		"Locked Exit",
-		"The exit is locked. Grab the key first, or keep bouncing.",
-		3,
+		"Locked Out",
+		"The exit is locked. Get every key, or the walls close in.",
+		4,
 		"jungle",
 		"coins"
 	],

@@ -53,3 +53,10 @@ func spend(amount: int, _reason: String, _ref: String = "") -> bool:
 ## the server can't be reached).
 func claim() -> int:
 	return 0
+
+
+## The player's best score, milestones and streak for the Earn diamonds
+## screen. Without a server it is a guess from the save (EarnStatus.known off).
+## May wait for the server: call it with `await`.
+func earn_status() -> EarnStatus:
+	return EarnStatus.from_profile(_profile)

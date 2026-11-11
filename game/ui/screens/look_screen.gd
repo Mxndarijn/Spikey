@@ -10,8 +10,8 @@ extends Control
 signal closed
 ## A card was tapped: open that kind's list.
 signal kind_pressed(kind: String)
-## The wallet in the header was tapped: main opens the Shop.
-signal store_pressed
+## The wallet in the header was tapped: main opens Earn diamonds.
+signal earn_pressed
 
 ## The cards in the two-column grid, in order; the name plate is the wide card.
 const GRID_KINDS: Array[String] = [
@@ -49,7 +49,7 @@ func _ready() -> void:
 	margin.add_child(col)
 	_coins = Wallet.new()
 	_coins.show_balance(_profile)
-	_coins.pressed.connect(store_pressed.emit)
+	_coins.pressed.connect(earn_pressed.emit)
 	col.add_child(UiKit.header(TITLE, closed.emit, _coins))
 
 	var world := Catalog.world(_profile.equipped_id(ItemKind.WORLD))
