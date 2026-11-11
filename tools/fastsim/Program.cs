@@ -494,7 +494,7 @@ static class Parity
         {
             "p" => new GameSim(long.Parse(f[1]), long.Parse(f[2]), long.Parse(f[3]), variant),
             "a" => Reaction.arrival(int.Parse(f[1]), long.Parse(f[3]), f[2] == "-" ? "" : f[2]),
-            "r" => Checks.Setups.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4])),
+            "r" => Checks.Setups.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4]), long.Parse(f[5]), long.Parse(f[6])),
             "cr" => Checks.Setups.crawl_revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4]), long.Parse(f[5])),
             "gr" => Checks.Setups.gates_revived(long.Parse(f[1]), f[2] == "1", long.Parse(f[3]), long.Parse(f[4]), f[5]),
             "ir" => Checks.Setups.isles_revived(f[1], long.Parse(f[2]), f[3], long.Parse(f[4]), f[5]),

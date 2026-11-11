@@ -49,6 +49,12 @@ var events: Array[int] = []
 var _rng: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
+## The room as the bird came into it, and the bird as it came in (position,
+## speed, wall spikes): a revive restarts the room from here. Taken at the run
+## start and after each portal arrival (not in practice or checks); never
+## changed afterwards.
+var _entry_room: RoomRuntime = null
+var _entry_state: SimState = null
 
 
 func _init(
@@ -69,6 +75,7 @@ func _init(
 		_enter_room(practice_room)
 	else:
 		_enter_room(RoomCatalog.first_index())
+		_keep_entry()
 
 
 func is_practice() -> bool:
@@ -123,12 +130,13 @@ func can_revive() -> bool:
 	return not state.alive and not is_practice() and state.revives < SimConfig.MAX_REVIVES
 
 
-## Brings a dead bird back: it arrives in the same room again as if it had
-## just come through a portal (the room starts fresh, the bird waits
-## ARRIVAL_HOLD ticks at a side wall, at mid height). Score, coins and the RNG
-## carry on, and an open or planned exit stays where it was: the bird starts
-## facing an open exit, and with its back to a ghost (it still needs the point
-## that opens it). Called between steps, like a tap: the tick does not move.
+## Brings a dead bird back: the room restarts exactly as the bird came into
+## it (the same variant, hazards and wall spikes), with the bird at the
+## portal it came through, at the same height, flying the same way, after
+## ARRIVAL_HOLD ticks with the room frozen. Score, coins and the RNG carry
+## on. An open exit stays open as the portal the bird comes out of; a ghost
+## stays a ghost, planned again on the wall the bird came in by. Called
+## between steps, like a tap: the tick does not move.
 ## Returns false, changing nothing, when can_revive() is false.
 func revive() -> bool:
 	if not can_revive():
@@ -137,21 +145,32 @@ func revive() -> bool:
 	state.alive = true
 	state.death_cause = SimState.DeathCause.NONE
 	state.revives += 1
-	# The wall the bird will fly toward.
-	var side := 1 if state.vx > 0 else 0
-	if state.exit_open:
-		side = state.exit_side
-	elif state.exit_preview:
-		side = 1 - state.exit_side
-	# The bird is in place before the room starts, so hazards that keep clear
-	# of it (or aim at it) see where it really is. A fresh room has no inset.
-	var r := SimConfig.BIRD_RADIUS
-	state.vx = SimConfig.SPEED_X if side == 1 else -SimConfig.SPEED_X
-	state.x = r if side == 1 else SimConfig.WORLD_W - r
-	state.y = SimConfig.BIRD_START_Y
+	room = SimCopy.copy_room(_entry_room)
+	state.room_kind = room.index
+	state.x = _entry_state.x
+	state.y = _entry_state.y
+	state.vx = _entry_state.vx
 	state.vy = 0
-	_enter_room(room.index)
-	_arrive(side, Event.REVIVE)
+	state.left_spikes = _entry_state.left_spikes
+	state.right_spikes = _entry_state.right_spikes
+	# An exit always ends up on the wall the bird came in by, so a crossing and
+	# a bounce come before it. Ahead, an open one would leave a single flight to
+	# line up with it and a ghost would open under the bird as it bounced there.
+	# An open exit is the portal the bird comes out of (that wall is spiked
+	# everywhere but the exit). Where a hazard blocks that height (Shutter
+	# Gates), it is planned again on that wall and the bird comes out just
+	# clear of the spike tips. A ghost is planned again behind the bird, among
+	# the hazards as they are now (where it was, one could block it).
+	var behind := 0 if state.vx > 0 else 1
+	if state.exit_open:
+		if not ExitPlanner.at_bird(self, behind):
+			ExitPlanner.plan(self, _rng, behind, state.score)
+			var clear := room.max_spike_depth() + SimConfig.SUB
+			state.x += clear if behind == 0 else -clear
+	elif state.exit_preview:
+		ExitPlanner.plan(self, _rng, behind, state.score + 1)
+	state.arrival_hold = SimConfig.ARRIVAL_HOLD
+	events.append(Event.REVIVE)
 	return true
 
 
@@ -462,12 +481,19 @@ func _arrive_in(side: int, next: int) -> void:
 	state.x = r if side == 1 else SimConfig.WORLD_W - r
 	_enter_room(next)
 	_arrive(side, Event.ROOM_CHANGE)
+	_keep_entry()
+
+
+## Keeps the room and the bird as they are now, for a revive (_entry_room).
+func _keep_entry() -> void:
+	if is_practice() or _checking:
+		return
+	_entry_room = SimCopy.copy_room(room)
+	_entry_state = state.copy()
 
 
 ## Puts the bird in the room just started, out of a portal in the wall
-## opposite `side`, flying toward `side`. `event` tells the view why. A
-## revived bird waits ARRIVAL_HOLD ticks first (it has just died, the player
-## needs a moment); out of a portal it flies straight on.
+## opposite `side`, flying toward `side`. It flies straight on.
 func _arrive(side: int, event: Event) -> void:
 	var r := SimConfig.BIRD_RADIUS
 	if side == 1:
@@ -480,8 +506,6 @@ func _arrive(side: int, event: Event) -> void:
 	# exit doesn't drop straight into the new room's floor (or, rising, into
 	# its ceiling).
 	state.vy = 0
-	if event == Event.REVIVE:
-		state.arrival_hold = SimConfig.ARRIVAL_HOLD
 	state.left_spikes = 0
 	state.right_spikes = 0
 	events.append(event)

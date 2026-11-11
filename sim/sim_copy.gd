@@ -25,6 +25,11 @@ static func copy(sim: GameSim) -> GameSim:
 	return out
 
 
+## Deep copies a room (its hazards too), for a revive (GameSim._entry_room).
+static func copy_room(room: RoomRuntime) -> RoomRuntime:
+	return _copy_object(room, {}) as RoomRuntime
+
+
 static func _copy_fields(src: Object, dst: Object, memo: Dictionary) -> void:
 	for field: Array in _plan(src.get_script()):
 		var name: StringName = field[0]
