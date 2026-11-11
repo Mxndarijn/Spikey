@@ -51,7 +51,10 @@ param(
     [ValidateSet("Idle", "BelowNormal", "Normal")]
     [string]$Priority = "BelowNormal",
     [string]$Out = "",
-    [switch]$Quick
+    [switch]$Quick,
+    # Use the FastSim already built (tools/check.ps1 builds once, then runs
+    # parity and the checks side by side).
+    [switch]$NoBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,11 +67,13 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host "dotnet not found: install the .NET 9 SDK to use FastSim." -ForegroundColor Red
     exit 2
 }
-& dotnet build $proj -c Release -nologo -v q | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    & dotnet build $proj -c Release -nologo -v q
-    Write-Host "FastSim build failed." -ForegroundColor Red
-    exit 2
+if (-not $NoBuild) {
+    & dotnet build $proj -c Release -nologo -v q | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        & dotnet build $proj -c Release -nologo -v q
+        Write-Host "FastSim build failed." -ForegroundColor Red
+        exit 2
+    }
 }
 if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
 

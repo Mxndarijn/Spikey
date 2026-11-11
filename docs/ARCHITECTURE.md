@@ -285,7 +285,11 @@ hidden debug page: [DEBUG.md](DEBUG.md).
 
 ## Quality gate
 
-`tools/check.ps1` must pass before any change counts as done:
+`tools/check.ps1` must pass before any change counts as done. Its steps run
+side by side where they can: lint, format and the FastSim checks start at
+once (they need no Godot), and after the import the tests, the load step and
+the parity recording run together; each step's output is shown under its own
+heading. About 20 s at `-Jobs 8`.
 
 1. **Lint and format**: `gdlint` and `gdformat --check` (gdtoolkit). Without
    gdtoolkit the check fails.
@@ -297,7 +301,7 @@ hidden debug page: [DEBUG.md](DEBUG.md).
    FastSim (step 6). (A few unit tests use the cheap gap seeker only to make
    a run for replay, run checker and UI code that only GDScript has.)
    The check runs them side by side in headless worker processes
-   (`--jobs N`, one per core): each worker claims the next piece of work, a
+   (`--jobs N`; `check.ps1` uses one per core, at most 8): each worker claims the next piece of work, a
    whole test file by default, so tests sharing a save file stay together.
    Bot test files mark `const PARALLEL := true` (each method a piece), and the
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
