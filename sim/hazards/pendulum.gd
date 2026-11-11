@@ -17,6 +17,8 @@ const PERIOD := 180
 ## Out of a portal: evenly spaced swings tried, to keep the lantern off the
 ## arrival path (FairLanes.arrival_path).
 const ARRIVAL_TRIES := 32
+## Chain lengths blocks_exit() tries apart, for a winch.
+const SWING_STEP := 4 * SimConfig.SUB
 
 var pivot_x := PIVOT_X
 var pivot_y := PIVOT_Y
@@ -170,6 +172,43 @@ func _place() -> void:
 	if has_twin():
 		x2 = twin_x - twin_length * SimTrig.sin_t(angle) / SimTrig.ONE
 		y2 = pivot_y + twin_length * SimTrig.cos_t(angle) / SimTrig.ONE
+
+
+## A swinging lantern can't keep out of an exit's mouth (ExitZone), so an exit
+## goes nowhere its swing could ever reach: every angle of the widest swing,
+## every chain length of the winch, for both lanterns.
+func blocks_exit(sim: GameSim, side: int, p_y: int) -> bool:
+	var widest := amplitude + absi(gust)
+	var longest := length + absi(winch)
+	if not _may_reach(sim, side, pivot_x, longest):
+		if not has_twin() or not _may_reach(sim, side, twin_x, twin_length):
+			return false
+	var a := -widest
+	while a <= widest:
+		var s := SimTrig.sin_t(a)
+		var c := SimTrig.cos_t(a)
+		var chain_len := length - absi(winch)
+		while chain_len <= longest:
+			var lx := pivot_x + chain_len * s / SimTrig.ONE
+			var ly := pivot_y + chain_len * c / SimTrig.ONE
+			if ExitZone.circle_in_box(sim, side, p_y, lx, ly, radius):
+				return true
+			chain_len += SWING_STEP if winch != 0 else longest + 1
+		if has_twin():
+			var tx := twin_x - twin_length * s / SimTrig.ONE
+			var ty := pivot_y + twin_length * c / SimTrig.ONE
+			if ExitZone.circle_in_box(sim, side, p_y, tx, ty, radius):
+				return true
+		a += 1
+	return false
+
+
+## True if a lantern on a `chain_len` chain from `px` could get near wall `side`.
+func _may_reach(sim: GameSim, side: int, px: int, chain_len: int) -> bool:
+	var far := chain_len + radius
+	if side == 0:
+		return px - far <= ExitZone.right_on(sim, 0)
+	return px + far >= ExitZone.left_on(sim, 1)
 
 
 func kills(sim: GameSim) -> bool:

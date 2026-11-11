@@ -81,6 +81,42 @@ public static class ExitPlanner
             var h = sim.room.hazards[i];
             if (h.alive && h.blocks_exit(sim, sim.state.exit_side, y)) return true;
         }
-        return false;
+        return in_mouth(sim, sim.state.exit_side, y);
+    }
+
+    public const long MOUTH_STEP = 4 * SimConfig.SUB;
+
+    public static bool in_mouth(GameSim sim, long side, long y)
+    {
+        var s = sim.state;
+        long r = SimConfig.BIRD_RADIUS;
+        long keep_x = s.x;
+        long keep_y = s.y;
+        long wall = side == 0 ? sim.room.wall_left() + r : sim.room.wall_right() - r;
+        long dir = side == 0 ? 1 : -1;
+        bool out_ = false;
+        foreach (long dx in new[] { 0, r / 2, r })
+        {
+            long dy = -SimConfig.EXIT_HALF;
+            while (dy <= SimConfig.EXIT_HALF && !out_)
+            {
+                s.x = wall + dir * dx;
+                s.y = y + dy;
+                for (int i = 0; i < sim.room.hazards.Count; i++)
+                {
+                    var h = sim.room.hazards[i];
+                    if (h.alive && h.kills(sim))
+                    {
+                        out_ = true;
+                        break;
+                    }
+                }
+                dy += MOUTH_STEP;
+            }
+            if (out_) break;
+        }
+        s.x = keep_x;
+        s.y = keep_y;
+        return out_;
     }
 }

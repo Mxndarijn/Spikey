@@ -5,6 +5,9 @@ extends RefCounted
 ## Calm and a Wild exit in a random order. GameSim decides when; this decides
 ## where. Gameplay: the RNG draws here are part of the rules.
 
+## Height step of the bird circles in_mouth() tries.
+const MOUTH_STEP := 4 * SimConfig.SUB
+
 
 ## Wall slots that overlap the open (or ghost) exit(s), so no spike sits in one.
 static func slots(state: SimState) -> int:
@@ -96,4 +99,34 @@ static func blocked(sim: GameSim, y: int) -> bool:
 	for h in sim.room.hazards:
 		if h.alive and h.blocks_exit(sim, sim.state.exit_side, y):
 			return true
-	return false
+	return in_mouth(sim, sim.state.exit_side, y)
+
+
+## True if a hazard kills a bird anywhere in the mouth of an exit at height `y`
+## on wall `side` right now: touching the wall within EXIT_HALF of `y`, or up
+## to a bird radius in front of that (ExitZone's box). Hazards keep out of an
+## open exit's box once it is there; this keeps an exit from being put where
+## one already is. No RNG draws.
+static func in_mouth(sim: GameSim, side: int, y: int) -> bool:
+	var s := sim.state
+	var r := SimConfig.BIRD_RADIUS
+	var keep_x := s.x
+	var keep_y := s.y
+	var wall := sim.room.wall_left() + r if side == 0 else sim.room.wall_right() - r
+	var dir := 1 if side == 0 else -1
+	var out := false
+	for dx: int in [0, r / 2, r]:
+		var dy := -SimConfig.EXIT_HALF
+		while dy <= SimConfig.EXIT_HALF and not out:
+			s.x = wall + dir * dx
+			s.y = y + dy
+			for h in sim.room.hazards:
+				if h.alive and h.kills(sim):
+					out = true
+					break
+			dy += MOUTH_STEP
+		if out:
+			break
+	s.x = keep_x
+	s.y = keep_y
+	return out

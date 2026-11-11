@@ -19,6 +19,7 @@ using FastSim;
 ///   rescued   was tests/sim/test_rooms_survivable.gd
 ///   runs      was tests/sim/test_bot_runs.gd
 ///   rlbot     the RL bot only reads the sim (RL/RlCheck.cs)
+///   exits     nothing in an open or ghost exit's mouth (ExitChecks.cs; tests/sim/test_exit_clear.gd)
 /// (CheckSearches.cs has the last five.) ArrivalBench's thresholds are pinned
 /// by tests/unit/test_fastsim_checks.gd.
 ///
@@ -29,7 +30,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)

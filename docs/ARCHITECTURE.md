@@ -163,6 +163,16 @@ start and never comes back.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
+  It never puts an exit where a hazard kills in its mouth already
+  (`ExitPlanner.in_mouth`) or says it would (`Hazard.blocks_exit`).
+- `sim/exit_zone.gd` (ExitZone): the mouth of an open or ghost exit (the
+  opening plus a bird radius around it, three bird radii deep). Hazards treat
+  it as part of the wall: balls bounce off it, the Stalker and the Echo stop
+  at its edge, darts, drops, crates and sparks break on it, pistons sit the
+  cycle out and beams stop short; a swinging lantern can't, so an exit never
+  goes where its swing reaches. `tools/fastsim.ps1 -Mode check -Check exits`
+  (every variant, and full runs in every season) and `tests/sim/test_exit_clear.gd`
+  check that nothing ever kills in, or turns the bird back from, a mouth.
 - `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
   `HazardPainter` per hazard kind, which casts the hazard to its own class and
   gets a `HazardLook` (world, clock, the room's skin, color-blind mode).

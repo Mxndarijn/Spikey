@@ -33,6 +33,7 @@ public sealed class Firework : Hazard
     public long spread = 0;
     public long delay = 0;
     public long style = Style.RING;
+    public long spent = 0;
     public SimRng _rng = new SimRng();
 
     public Firework(long p_delay = 0, long p_style = Style.RING)
@@ -61,6 +62,7 @@ public sealed class Firework : Hazard
         phase = Phase.PAD;
         timer = PAD;
         spread = 0;
+        spent = 0;
         x = MIN_X + _rng.next_below(MAX_X - MIN_X + 1);
         burst_y = MIN_BURST_Y + _rng.next_below(MAX_BURST_Y - MIN_BURST_Y + 1);
         y = PAD_Y;
@@ -87,6 +89,9 @@ public sealed class Firework : Hazard
             case Phase.BURST:
                 timer += 1;
                 spread += SPARK_SPEED;
+                for (long i = 0; i < spark_count(); i++)
+                    if (spark_live(i) && ExitZone.hits_circle(sim, spark_x(i), spark_y(i), SPARK_RADIUS))
+                        spent |= 1L << (int)i;
                 if (timer >= burst_steps())
                 {
                     phase = Phase.REST;
@@ -121,7 +126,7 @@ public sealed class Firework : Hazard
     public long spark_alpha_of(long i)
     {
         long age = spark_age(i);
-        if (phase != Phase.BURST || age < 0) return 0;
+        if (phase != Phase.BURST || age < 0 || (spent & (1L << (int)i)) != 0) return 0;
         if (age < SPARK_DEADLY) return SimTrig.ONE;
         return G.maxi(0, SimTrig.ONE * (BURST - age) / (BURST - SPARK_DEADLY));
     }
@@ -129,7 +134,7 @@ public sealed class Firework : Hazard
     public bool spark_live(long i)
     {
         long age = spark_age(i);
-        return phase == Phase.BURST && age >= 0 && age < SPARK_DEADLY;
+        return phase == Phase.BURST && age >= 0 && age < SPARK_DEADLY && (spent & (1L << (int)i)) == 0;
     }
 
     public long spark_angle(long i)
@@ -175,7 +180,7 @@ public sealed class Firework : Hazard
 
     public override long checksum(long h)
     {
-        long out_ = mix_all(h, x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum());
+        long out_ = mix_all(h, x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum(), spent);
         if (style != Style.RING) out_ = mix_all(out_, style);
         return out_;
     }

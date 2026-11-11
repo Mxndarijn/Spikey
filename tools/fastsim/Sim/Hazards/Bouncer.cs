@@ -73,19 +73,29 @@ public class Bouncer : Hazard
     {
         long left = sim.room.wall_left() + radius;
         long right = sim.room.wall_right() - radius;
+        bool out_ = false;
         if (x < left)
         {
             x = 2 * left - x;
             vx = G.absi(vx);
-            return true;
+            out_ = true;
         }
-        if (x > right)
+        else if (x > right)
         {
             x = 2 * right - x;
             vx = -G.absi(vx);
-            return true;
+            out_ = true;
         }
-        return false;
+        var b = ExitZone.bounce(sim, x, y, vx, vy, radius);
+        if (b != null)
+        {
+            x = b[0];
+            y = b[1];
+            vx = b[2];
+            vy = b[3];
+            out_ = true;
+        }
+        return out_;
     }
 
     public bool bounce_top()
