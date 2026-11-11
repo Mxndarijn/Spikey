@@ -7,14 +7,16 @@ namespace FastSim.Rl;
 public static class Observer
 {
     /// Bump when the layout below changes: old policy files stop loading.
-    public const int LAYOUT = 1;
-    public const int COLS = 7, ROWS = 9;
+    public const int LAYOUT = 3;
+    public const int COLS = 10, ROWS = 15;
     public const long COL_STEP = 24 * SimConfig.SUB;
-    public const long ROW_STEP = 32 * SimConfig.SUB;
+    public const long ROW_STEP = 24 * SimConfig.SUB;
     public const int GRID = COLS * ROWS;
     /// Ticks between the grid now and the motion grid.
     public const int MOTION = 6;
-    public const int BASE = 28;
+    public const int STRIP = 21;
+    public const long STRIP_STEP = 16 * SimConfig.SUB;
+    public const int BASE = 28 + STRIP + 6;
     /// One tick's frame: the base features and that tick's grid.
     public const int FRAME = BASE + GRID;
     /// The policy's input: a frame plus the grid MOTION ticks before it.
@@ -48,8 +50,58 @@ public static class Observer
         bool two = ahead && s.exit_b_kind != ExitKind.NORMAL;
         f[i++] = two ? Math.Clamp((float)(s.exit_b_y - s.y) / (SimConfig.WORLD_H / 2), -1f, 1f) : 0f;
         f[i++] = two ? 1f : 0f;
+        // The wall ahead around the bird's height: 1 where a bird at that
+        // height would hit a spike (or the ceiling or floor) at the wall.
+        long hb = sim.room.spike_half_base();
+        for (int k = 0; k < STRIP; k++) f[i++] = wall_hits(mask, shift, hb, s.y + (k - STRIP / 2) * STRIP_STEP) ? 1f : -1f;
+        // Where the bird reaches the wall if it waits, and if it taps now
+        // (its own fall only: what a player judges by eye).
+        long steps = sim.steps_to_wall(side);
+        foreach (bool tap in new[] { false, true })
+        {
+            long y = fall(sim, steps, tap);
+            f[i++] = Math.Clamp((float)(y - s.y) / (SimConfig.WORLD_H / 2), -1f, 1f);
+            f[i++] = wall_hits(mask, shift, hb, y) ? 1f : -1f;
+            f[i++] = Math.Clamp((float)(safe_near(mask, shift, hb, y) - y) / (SimConfig.WORLD_H / 4), -1f, 1f);
+        }
         // i == BASE
         grid(sim, f, BASE);
+    }
+
+    /// Whether a bird at height `y` touching the wall hits a spike there, the ceiling or the floor.
+    public static bool wall_hits(long mask, long shift, long hb, long y)
+    {
+        long r = SimConfig.BIRD_RADIUS;
+        if (y - r <= SimConfig.KILL_TOP || y + r >= SimConfig.KILL_BOTTOM) return true;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+            if (RoomRules.has_slot(mask, slot) && Math.Abs(y - SimConfig.slot_center_y(slot) - shift) <= hb + r) return true;
+        return false;
+    }
+
+    /// The height nearest `y` where the wall is safe (or `y` if none is).
+    public static long safe_near(long mask, long shift, long hb, long y)
+    {
+        const long STEP = 4 * SimConfig.SUB;
+        for (long d = 0; d <= SimConfig.WORLD_H; d += STEP)
+        {
+            if (!wall_hits(mask, shift, hb, y - d)) return y - d;
+            if (!wall_hits(mask, shift, hb, y + d)) return y + d;
+        }
+        return y;
+    }
+
+    /// The bird's height after `steps` moves with no tap (or one tap now).
+    public static long fall(GameSim sim, long steps, bool tap)
+    {
+        long g = SimConfig.GRAVITY * sim.room.gravity;
+        long vy = tap ? SimConfig.FLAP_VY * sim.room.gravity : sim.state.vy;
+        long y = sim.state.y;
+        for (long n = 0; n < steps; n++)
+        {
+            vy = Math.Clamp(vy + g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
+            y += vy;
+        }
+        return y;
     }
 
     /// Centre y and length (slots) of the free run on `mask` closest to `y`.

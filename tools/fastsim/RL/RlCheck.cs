@@ -51,6 +51,8 @@ static partial class Checks
 
         static JsonObject policy_plays(List<string> fails)
         {
+            double err = Mlp.gradient_error();
+            if (err > 0.02) fails.Add($"Mlp.backward differs from a finite difference by {err:P1}: training would learn the wrong thing");
             string path = Path.Combine(RlMain.default_dir(), "policy.json");
             if (!File.Exists(path)) return result(fails, new JsonObject { ["points"] = -1 });
             Policy pol;

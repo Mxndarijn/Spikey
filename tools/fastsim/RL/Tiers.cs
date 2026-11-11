@@ -9,8 +9,10 @@ namespace FastSim.Rl;
 public static class Tiers
 {
     public static readonly string[] NAMES = { "beginner", "normal", "good", "expert", "beast" };
-    /// Target medians of the tiers below expert (expert: see calibrate).
-    public static readonly Dictionary<string, double> TARGETS = new() { ["beginner"] = 4, ["normal"] = 12, ["good"] = 30 };
+    /// Target medians of the handicapped tiers (set by the user; expert can be overridden).
+    public static readonly Dictionary<string, double> TARGETS = new() { ["beginner"] = 30, ["normal"] = 60, ["good"] = 120, ["expert"] = 250 };
+    /// Beast is the policy with no handicap; its median should reach this.
+    public const double BEAST_TARGET = 500;
     public const long CALIBRATE_SEED = 500_000;
     public const int BISECT_STEPS = 11;
 
@@ -42,8 +44,8 @@ public static class Tiers
         double beast_median = pct(beast.Select(r => r.points), 0.5);
         Console.WriteLine($"rlbot calibrate: beast median {beast_median} over {seeds} seeds (cap {cap} ticks)");
         var targets = new Dictionary<string, double>(TARGETS);
-        // Expert halfway between good and beast on a log scale, unless given.
-        targets["expert"] = expert_target > 0 ? expert_target : Math.Round(Math.Sqrt(TARGETS["good"] * beast_median));
+        if (expert_target > 0) targets["expert"] = expert_target;
+        if (beast_median < BEAST_TARGET) Console.WriteLine($"  beast median {beast_median} is under its target {BEAST_TARGET}: train more");
         var tiers = new JsonArray();
         foreach (var name in NAMES)
         {
@@ -129,12 +131,14 @@ public static class Tiers
             int capped = runs.Count(r => !r.dead);
             var deaths = runs.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()).Take(3)
                 .Select(g => $"{g.Key} {100.0 * g.Count() / runs.Length:F0}%");
-            string note = capped > 0 ? $"  ({capped} reached the cap)" : "";
+            var causes = runs.Where(r => r.dead).GroupBy(r => r.cause).OrderByDescending(g => g.Count())
+                .Select(g => $"{g.Key.ToLower()} {100.0 * g.Count() / runs.Length:F0}%");
+            string note = $"  [{string.Join(", ", causes)}]" + (capped > 0 ? $"  ({capped} reached the cap)" : "");
             Console.WriteLine($"  {t.name,-9} {med,7:F1} {p90,7:F1} {p25,6:F1} {pts.Average(),7:F1} {out_first,7:F0}%  {t.hc,-34} {string.Join(", ", deaths)}{note}");
             rows.Add((t.name, med, p25));
             var runs_json = new JsonArray(runs.Select(r => (JsonNode)new JsonObject
             {
-                ["seed"] = r.seed, ["points"] = r.points, ["ticks"] = r.ticks, ["dead"] = r.dead, ["room"] = r.room,
+                ["seed"] = r.seed, ["points"] = r.points, ["ticks"] = r.ticks, ["dead"] = r.dead, ["room"] = r.room, ["cause"] = r.cause,
             }).ToArray());
             report.Add(new JsonObject
             {

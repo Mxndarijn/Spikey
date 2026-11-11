@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace FastSim.Rl;
 
-/// `fastsim rl <train|calibrate|measure|speed> [options]` (tools/rlbot.ps1, docs/RL_BOT.md).
+/// `fastsim rl <train|teach|calibrate|measure|speed> [options]` (tools/rlbot.ps1, docs/RL_BOT.md).
 public static class RlMain
 {
     /// tools/rlbot, next to the build (bin/Release/net9.0).
@@ -20,14 +20,22 @@ public static class RlMain
             {
                 case "train":
                 {
-                    var t = new Trainer(dir) { threads = threads };
-                    if (opts.ContainsKey("pairs")) t.pairs = int.Parse(opts["pairs"]);
-                    if (opts.ContainsKey("sigma")) t.sigma = float.Parse(opts["sigma"]);
+                    var t = new Ppo(dir) { threads = threads };
                     if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
                     if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
-                    if (opts.ContainsKey("full")) t.full_runs = int.Parse(opts["full"]);
-                    if (opts.ContainsKey("practice")) t.practice_runs = int.Parse(opts["practice"]);
+                    if (opts.ContainsKey("envs")) t.envs = int.Parse(opts["envs"]);
+                    if (opts.ContainsKey("entropy")) t.entropy = float.Parse(opts["entropy"]);
+                    if (opts.ContainsKey("practice")) t.practice = double.Parse(opts["practice"]);
                     return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")), int.Parse(O("init", "1")));
+                }
+                case "teach":
+                {
+                    var t = new Dagger(dir) { threads = threads };
+                    if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
+                    if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
+                    if (opts.ContainsKey("runs")) t.runs = int.Parse(opts["runs"]);
+                    if (opts.ContainsKey("horizon")) t.horizon = long.Parse(opts["horizon"]);
+                    return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")));
                 }
                 case "calibrate":
                     return Tiers.calibrate(dir, int.Parse(O("seeds", "200")), long.Parse(O("cap", "36000")), threads,
@@ -43,7 +51,7 @@ public static class RlMain
                     long ticks = 0;
                     for (int i = 0; i < 40; i++)
                     {
-                        long room = i % 2 == 0 ? -1 : Trainer.rooms()[i % Trainer.rooms().Count];
+                        long room = i % 2 == 0 ? -1 : Ppo.rooms()[i % Ppo.rooms().Count];
                         ticks += Player.play(pol, Handicap.NONE, new GameSim(i + 1, Seasons.NONE, room), 3600).ticks;
                     }
                     Console.WriteLine($"rlbot speed: {ticks} ticks in {clock.Elapsed.TotalSeconds:F2} s = {ticks / clock.Elapsed.TotalSeconds:F0} ticks/s per thread");
@@ -56,7 +64,7 @@ public static class RlMain
             Console.Error.WriteLine("rlbot: " + e.Message);
             return 2;
         }
-        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, calibrate, measure, speed)");
+        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, teach, calibrate, measure, speed)");
         return 2;
     }
 }

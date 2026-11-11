@@ -19,6 +19,8 @@ are scaled to about -1..1.
 | bird | y, vy, direction, gravity sign, distance to the wall ahead (ticks), wall insets |
 | wall ahead | 13 slots: spike or free (`sim.wall_mask`), the wall shift |
 | exit | open on the wall ahead, preview, the exit heights relative to the bird, Wild/Calm |
+| wall strip | 21 heights around the bird (every 16 px, -160..+160): 1 where a bird there would hit a spike on the wall ahead, the ceiling or the floor |
+| at the wall | the bird's height when it reaches the wall if it waits and if it taps now (its own fall only, no sim copies), whether that height hits, and the nearest safe height |
 | hazards | a danger grid in front of the bird: 7 columns (0..168 px ahead) x 9 rows (-128..+128 px), 1 where some hazard's `kills()` is true for a bird at that point |
 | motion | the same danger grid 6 ticks earlier, so the policy sees which way hazards move |
 
@@ -45,7 +47,7 @@ don't count.
 
 ## Algorithm: evolution strategies on a small MLP
 
-- Policy: MLP 140 -> 32 -> 16 -> 1, tanh, about 5,000 weights, plain C#
+- Policy: MLP 181 -> 32 -> 16 -> 1, tanh, about 6,400 weights, plain C#
   (`RL/Policy.cs`). No framework, no GPU.
 - Training: OpenAI-style evolution strategies (`RL/Trainer.cs`). Each
   generation draws N noise vectors, plays the weights +noise and -noise
@@ -86,18 +88,19 @@ s in 0..1 (delay, jitter and miss all grow as s drops) and bisects s until the
 measured median over the calibration seeds hits the tier's target. Beast is
 the policy with no handicap.
 
-Targets (median score per run; 10 points = one room):
+Targets (median score per run; 10 points = one room), set by the user: beast
+is "basically unlimited" (500 or more), the lowest tier at least 30, and each
+tier about double the one below:
 
-| tier | target median | meaning |
-|---|---|---|
-| beginner | about 4 | dies in the first room |
-| normal | about 12 | gets out of the first room |
-| good | about 30 | third room |
-| expert | about 2.5 x good | |
-| beast | the policy, no handicap | |
+| tier | target median |
+|---|---|
+| beginner | 30 |
+| normal | 60 |
+| good | 120 |
+| expert | 250 |
+| beast | 500 or more (the policy, no handicap) |
 
-The expert and beast numbers are set once the trained policy's level is known
-(the table in the results section). Tiers count as separated when each tier's
+Tiers count as separated when each tier's
 median is at least 1.5 times the one below and the p25 of each tier is above
 the median of the tier below it.
 

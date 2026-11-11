@@ -35,3 +35,6 @@ Thumbs.db
 /tools/rlbot/train_state.json
 /tools/rlbot/train_state.json.tmp
 /tools/rlbot/*.log
+/tools/rlbot/teach_state.json
+/tools/rlbot/teach_state.json.tmp
+/tools/rlbot/old1/

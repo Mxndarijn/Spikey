@@ -6,13 +6,14 @@
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode measure -Tier good -Seeds 1000 -Out good.json
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode train -Minutes 45         # fresh training
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode train -Minutes 45 -Resume # go on
+#   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode teach -Minutes 45 [-Resume]  # then learn from the teacher
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode calibrate                # refit the tier handicaps
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode speed                    # ticks per second
 #
 # -Threads: at most 4 (default 4). Training saves after every generation and
 # stops after -Minutes, so split long training into chunks with -Resume.
 param(
-    [ValidateSet("train", "calibrate", "measure", "speed")]
+    [ValidateSet("train", "teach", "calibrate", "measure", "speed")]
     [string]$Mode = "measure",
     [string]$Tier = "all",
     [int]$Seeds = 0,
@@ -22,6 +23,10 @@ param(
     [switch]$Resume,
     [int]$Threads = 4,
     [double]$Expert = 0,
+    # train: PPO settings (defaults in tools/fastsim/RL/Ppo.cs).
+    [double]$Lr = 0,
+    [int]$Envs = 0,
+    [double]$Entropy = -1,
     [string]$Out = "",
     [ValidateSet("Idle", "BelowNormal", "Normal")]
     [string]$Priority = "BelowNormal"
@@ -51,6 +56,15 @@ switch ($Mode) {
         $a += @("--minutes", $Minutes)
         if ($Resume) { $a += @("--resume", "1") }
         if ($Cap) { $a += @("--cap", $Cap) }
+        if ($Lr) { $a += @("--lr", $Lr) }
+        if ($Envs) { $a += @("--envs", $Envs) }
+        if ($Entropy -ge 0) { $a += @("--entropy", $Entropy) }
+    }
+    "teach" {
+        $a += @("--minutes", $Minutes)
+        if ($Resume) { $a += @("--resume", "1") }
+        if ($Cap) { $a += @("--cap", $Cap) }
+        if ($Lr) { $a += @("--lr", $Lr) }
     }
     "calibrate" {
         if ($Seeds) { $a += @("--seeds", $Seeds) }

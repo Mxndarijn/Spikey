@@ -20,7 +20,7 @@ public readonly record struct Handicap(int delay, int jitter, double miss)
 }
 
 /// One played run: the score gained, the ticks played and where it ended.
-public readonly record struct RunResult(long seed, long points, long ticks, bool dead, string room);
+public readonly record struct RunResult(long seed, long points, long ticks, bool dead, string room, string cause = "");
 
 /// Plays the policy on a sim, one tick at a time, through a handicap.
 public sealed class Player
@@ -29,8 +29,7 @@ public sealed class Player
     readonly Handicap _hc;
     readonly float[][] _frames;
     readonly float[] _x = new float[Observer.INPUTS];
-    readonly float[] _h1 = new float[Policy.SIZES[1]];
-    readonly float[] _h2 = new float[Policy.SIZES[2]];
+    readonly float[][] _acts;
     readonly bool[] _pending = new bool[Handicap.MAX_JITTER + 1];
     readonly Random _rng;
     long _n;
@@ -38,6 +37,7 @@ public sealed class Player
     public Player(Policy policy, Handicap hc, long seed)
     {
         _policy = policy;
+        _acts = policy?.net.scratch();
         _hc = hc with { delay = Math.Min(hc.delay, Handicap.MAX_DELAY), jitter = Math.Min(hc.jitter, Handicap.MAX_JITTER) };
         _frames = new float[_hc.delay + Observer.MOTION + 1][];
         for (int i = 0; i < _frames.Length; i++) _frames[i] = new float[Observer.FRAME];
@@ -57,10 +57,18 @@ public sealed class Player
         }
         string room = sim.room.def.id;
         if (sim.room.variant_id() != "") room += "/" + sim.room.variant_id();
-        return new RunResult(sim.seed_value, sim.state.score - start, n, sim.is_over(), room);
+        return new RunResult(sim.seed_value, sim.state.score - start, n, sim.is_over(), room,
+            sim.is_over() ? DeathCause.NAMES[sim.state.death_cause] : "");
     }
 
     public bool decide(GameSim sim)
+    {
+        var x = observe(sim);
+        return apply(sim, !sim.state.started || _policy.act(x, _acts) > 0f);
+    }
+
+    /// What the bird sees this tick (through the reaction delay). Call once per tick.
+    public float[] observe(GameSim sim)
     {
         int len = _frames.Length;
         var now = _frames[_n % len];
@@ -71,8 +79,13 @@ public sealed class Player
         long before = Math.Max(0, seen - Observer.MOTION);
         Array.Copy(_frames[seen % len], _x, Observer.FRAME);
         Array.Copy(_frames[before % len], Observer.BASE, _x, Observer.FRAME, Observer.GRID);
-        bool want = !sim.state.started || _policy.act(_x, _h1, _h2) > 0f;
         _n++;
+        return _x;
+    }
+
+    /// The tap that lands this tick when the player wants to tap (jitter, missed taps).
+    public bool apply(GameSim sim, bool want)
+    {
         if (_hc.jitter == 0 && _hc.miss == 0) return want;
         // Taps wait in a small queue: slot 0 fires this tick.
         if (want && (_hc.miss == 0 || _rng.NextDouble() >= _hc.miss || !sim.state.started))
