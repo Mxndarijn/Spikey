@@ -6,8 +6,8 @@
 # across every JSON in -Out. FastSim only: no Godot run, no window.
 #
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode list
-#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all             # quick set, 200 seeds
-#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot planner,gap -Set full   # 1000 seeds
+#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all             # quick set, seeds 1..100
+#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot planner,gap -Set full   # seeds 1..400
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot search -Seeds 32
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <runs.json or folder>
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode compare           # rebuild the table
