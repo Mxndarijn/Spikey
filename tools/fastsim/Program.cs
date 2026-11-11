@@ -13,6 +13,8 @@ using FastSim;
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
+//   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
+//                                                   --filter x as tools/check.ps1 -TestFilter
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal),
 //   --variant <id>|all (search, rooms, reaction; scan: one id: play that room variant
@@ -52,6 +54,7 @@ bool worker = opts.ContainsKey("worker");
 RoomCatalog.all();
 RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
+if (mode == "check") return Checks.run(pos, opts, jobs, priority);
 if (Targets.variant != "")
 {
     if (mode != "search" && mode != "rooms" && mode != "reaction" && mode != "scan")
@@ -427,6 +430,14 @@ static class Parity
         {
             var f = line.Split(' ');
             string name = f[1];
+            if (f[0] == "case" || f[0] == "csearch")
+            {
+                string fail = f[0] == "case" ? play_case(f) : search_case(f);
+                if (fail != null) fails.Add($"{f[0]} {name} ({f[2]}): {fail}");
+                long n = f[0] == "case" ? f[4].Length : long.Parse(f[3]);
+                Interlocked.Add(ref ticks, n);
+                return;
+            }
             long seed = long.Parse(f[2]), season = long.Parse(f[3]), practice = long.Parse(f[4]);
             string tag = $"{f[0]} {name} seed {seed} season {season}";
             if (f[0] == "run")
@@ -468,6 +479,78 @@ static class Parity
         foreach (var m in fails.OrderBy(x => x)) Console.WriteLine("  DIFF " + m);
         Console.WriteLine($"parity: {lines.Length - fails.Count} of {lines.Length} cases match ({ticks} ticks replayed)");
         return fails.IsEmpty ? 0 : 1;
+    }
+
+    /// A sim from a `case` setup (tools/fastsim_parity.gd setup()).
+    static GameSim setup(string text)
+    {
+        var f = text.Split(':');
+        string variant = f[^1] == "-" ? "" : f[^1];
+        return f[0] switch
+        {
+            "p" => new GameSim(long.Parse(f[1]), long.Parse(f[2]), long.Parse(f[3]), variant),
+            "a" => Reaction.arrival(int.Parse(f[1]), long.Parse(f[3]), f[2] == "-" ? "" : f[2]),
+            "r" => Checks.Revive.revived(int.Parse(f[1]), long.Parse(f[2]), f[3], long.Parse(f[4])),
+            _ => throw new Exception("unknown setup " + text),
+        };
+    }
+
+    /// Replays a `case` line; with a bot driver the C# bot must also choose
+    /// every tap itself. Null when it matches, else where it differs.
+    static string play_case(string[] f)
+    {
+        var sim = setup(f[2]);
+        string driver = f[3], actions = f[4];
+        var sums = f.Length > 5 && f[5].Length > 0 ? f[5].Split(',') : Array.Empty<string>();
+        var d = driver.Split(':');
+        var gap = new SimRng(7);
+        PlannerBot planner = d[0] == "planner" ? new PlannerBot(long.Parse(d[1]), long.Parse(d[2]), long.Parse(d[3])) : null;
+        long hold = d[0] == "planner" ? long.Parse(d[4]) : 0;
+        long y0 = sim.state.y;
+        long n = 0;
+        for (int i = 0; i < actions.Length; i++)
+        {
+            char a = actions[i];
+            if (driver != "replay")
+            {
+                char want;
+                if (d[0] == "gap") want = sim.is_over() ? 'r' : SimBots.gap_seeker(sim, gap) ? '1' : '0';
+                else if (n < hold)
+                {
+                    long g = sim.room.gravity;
+                    want = (sim.state.y - y0) * g > 0 && sim.state.vy * g >= 0 ? '1' : '0';
+                }
+                else want = planner.decide(sim) ? '1' : '0';
+                if (want != a) return $"the {d[0]} bot chose '{want}', not '{a}', at action {i} (tick {sim.state.tick})";
+            }
+            if (a == 'r') sim.revive();
+            else
+            {
+                sim.step(a == '1');
+                n++;
+            }
+            if (sim.checksum() != long.Parse(sums[i]))
+                return $"differs at action {i} ('{a}'), tick {sim.state.tick}, room {RoomCatalog.all()[(int)sim.state.room_kind].id}";
+        }
+        // The bot must also stop where the GDScript one stopped.
+        if (d[0] == "gap" && (sim.is_over() ? sim.can_revive() : sim.state.tick < 1500)) return "the gap run ended early";
+        if (d[0] == "planner" && !sim.is_over() && n < hold + long.Parse(d[5])) return "the planner run ended early";
+        return null;
+    }
+
+    static string search_case(string[] f)
+    {
+        long n = long.Parse(f[3]);
+        bool ok = f[4] == "1";
+        long survived = long.Parse(f[5]);
+        string taps = f[6];
+        var search = new SurvivalSearch();
+        bool got_ok = search.run(setup(f[2]), n);
+        string got_taps = got_ok ? string.Concat(search.best_inputs.Select(b => b == 1 ? '1' : '0')) : "-";
+        if (got_ok == ok && search.ticks_survived == survived && got_taps == taps) return null;
+        int at = 0;
+        while (at < Math.Min(got_taps.Length, taps.Length) && got_taps[at] == taps[at]) at++;
+        return $"search ok {got_ok}/{ok}, survived {search.ticks_survived}/{survived}, taps differ from {at}";
     }
 }
 

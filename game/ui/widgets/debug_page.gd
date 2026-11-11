@@ -2,8 +2,8 @@ class_name DebugPage
 extends VBoxContainer
 ## The debug screen inside the settings sheet: what the app, the ads and the
 ## notifications are doing right now, with buttons to try each of them on a
-## real phone. It opens by tapping the "Settings" title TAPS_TO_OPEN times
-## (any build), or from the Debug row in developer mode.
+## real phone. It opens from the Debug row in the settings, or by tapping the
+## "Settings" title TAPS_TO_OPEN times (both in any build).
 ##
 ## Everything here is safe in a release build: nothing gives coins, points or
 ## revives. Only developer mode shows "Give free revives back" and "Revive
@@ -13,7 +13,7 @@ extends VBoxContainer
 
 ## A profile field changed (main saves).
 signal changed
-## Developer mode's room picker: practise room `id` with `variant` ("" = random).
+## The room picker: practise room `id` with `variant` ("" = random).
 signal practice_requested(id: String, variant: String)
 
 const APP := "App"
@@ -49,13 +49,12 @@ func _init(profile: Profile, services: AppServices) -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	scroll.add_child(list)
-	# Developer mode puts the room picker first: it's what playtests use most.
-	if DevMode.enabled():
-		list.add_child(_section(ROOMS))
-		_picker = RoomPicker.new()
-		_picker.name = "RoomPicker"
-		_picker.play_pressed.connect(practice_requested.emit)
-		list.add_child(_picker)
+	# The room picker comes first, in every build: it's what playtests use most.
+	list.add_child(_section(ROOMS))
+	_picker = RoomPicker.new()
+	_picker.name = "RoomPicker"
+	_picker.play_pressed.connect(practice_requested.emit)
+	list.add_child(_picker)
 	for section in SECTIONS:
 		list.add_child(_section(section))
 		var box := VBoxContainer.new()
@@ -127,7 +126,7 @@ func note(section: String) -> String:
 	return (_notes[section] as Label).text
 
 
-## The room picker (developer mode), or null.
+## The room picker.
 func room_picker() -> RoomPicker:
 	return _picker
 

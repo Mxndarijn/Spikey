@@ -41,7 +41,6 @@ func _sheet(profile: Profile) -> SettingsSheet:
 func test_seven_taps_on_the_title_open_it() -> void:
 	_reset(0)
 	var sheet := _sheet(Profile.new())
-	assert_true(sheet.find_child("Debug", true, false) == null, "no Debug row for players")
 	for i in DebugPage.TAPS_TO_OPEN - 1:
 		sheet.tap_title()
 	assert_true(sheet.debug_page() == null, "six taps are not enough")
@@ -50,6 +49,19 @@ func test_seven_taps_on_the_title_open_it() -> void:
 	sheet.show_debug(false)
 	assert_true(sheet.debug_page() == null, "Back returns to the settings")
 	assert_false(sheet.is_showing_credits())
+	sheet.free()
+	_reset()
+
+
+func test_every_build_has_a_debug_row() -> void:
+	_reset(0)
+	var sheet := _sheet(Profile.new())
+	var row := sheet.find_child("Debug", true, false) as Button
+	assert_true(row != null, "players see the row too")
+	row.pressed.emit()
+	var page := sheet.debug_page()
+	assert_true(page != null, "and it opens the page")
+	assert_true(page.find_child("GiveRevives", true, false) == null, "without the developer tools")
 	sheet.free()
 	_reset()
 

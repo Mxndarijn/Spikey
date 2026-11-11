@@ -2,7 +2,8 @@ name: Check
 
 # The Linux version of tools/check.ps1: lint + format, headless import, load every script
 # and scene, the full test suite (unit, sim purity, golden replays, bot runs), then the
-# FastSim parity check (the C# copy of sim/ in tools/fastsim must match it tick for tick).
+# FastSim parity check (the C# copy of sim/ in tools/fastsim must match it tick for tick)
+# and the bot-heavy tests on FastSim (tools/fastsim/Checks.cs).
 # Runs on its own for pushes and pull requests, and next to the builds in the Android and
 # iOS workflows: they build while this runs, and nothing is released, uploaded to
 # TestFlight or announced unless it passes.
@@ -22,7 +23,7 @@ jobs:
   check:
     name: Lint and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,4 +70,12 @@ jobs:
         run: |
           $env:GODOT = (Get-Command godot).Source
           ./tools/fastsim.ps1 -Mode parity -Quick -Jobs 4 -Priority Normal
+          exit $LASTEXITCODE
+
+      - name: FastSim checks
+        # Every variant passable, the portal reaction benchmark, the points cap,
+        # revives and Double Trouble pairs (their GD tests above keep a sample).
+        shell: pwsh
+        run: |
+          ./tools/fastsim.ps1 -Mode check -Jobs "$(nproc)" -Priority Normal
           exit $LASTEXITCODE

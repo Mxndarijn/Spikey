@@ -6,9 +6,10 @@ notifications are doing on this phone, with buttons to try them. Code:
 
 ## Opening it
 
-- Any build, also TestFlight and release: Home > Settings, then tap the word
-  **Settings** seven times.
-- Developer mode (editor and debug builds): a **Debug** row under Credits.
+Any build, also TestFlight and release: Home > Settings, then either
+
+- tap the **Debug** link next to Credits, or
+- tap the word **Settings** seven times.
 
 Nothing on it gives coins, points or revives, so it is safe in a release
 build. Only developer mode shows "Give free revives back" and "Revive Pass on

@@ -17,6 +17,8 @@ const ONCE_IMPOSSIBLE := [[141, 960], [144, 960]]
 const SEEDS := 14
 ## Ticks for a quick run: up to three crossings and some of the portal wait.
 const QUICK_TICKS := 290
+## The quick runs are shared out over this many parts, which can run side by side.
+const PARTS := 4
 
 
 static func practice(seed_value: int, variant: String = "classic") -> GameSim:
@@ -33,9 +35,9 @@ func test_once_unreachable_portals_are_reachable() -> void:
 ## point early (two crossings later the bird flies into it), and with no ghost
 ## (it opens on the wall ahead at once). Both variants: two gates, and the
 ## single small gate.
-func test_the_portal_is_reachable() -> void:
+func test_the_portal_is_reachable(part: int, parts: int) -> void:
 	var every := SimConfig.POINTS_PER_ROOM
-	for i in SEEDS * 2:
+	for i in range(part, SEEDS * 2, parts):
 		var seed_value := 500 + i * 37
 		var variant := "classic" if i < SEEDS else "single-small"
 		var sim := practice(seed_value, variant)

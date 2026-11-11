@@ -7,8 +7,16 @@ public sealed class PlannerBot
     public const long ROLLOUTS = 4;
 
     SimRng _rng;
+    /// This bot's look-ahead and rollouts (lighter for fast checks).
+    long _horizon = HORIZON;
+    long _rollouts = ROLLOUTS;
 
-    public PlannerBot(long seed_value = 1) { _rng = new SimRng(seed_value); }
+    public PlannerBot(long seed_value = 1, long horizon = HORIZON, long rollouts = ROLLOUTS)
+    {
+        _rng = new SimRng(seed_value);
+        _horizon = horizon;
+        _rollouts = rollouts;
+    }
 
     public bool decide(GameSim sim)
     {
@@ -21,13 +29,13 @@ public sealed class PlannerBot
     long _value(GameSim sim, bool first)
     {
         long best = -1;
-        for (long r = 0; r < ROLLOUTS; r++)
+        for (long r = 0; r < _rollouts; r++)
         {
             var c = sim.clone_deep();
             c.step(first);
             var prng = new SimRng(_rng.next_u32());
             long n = 0;
-            while (n < HORIZON && !c.is_over())
+            while (n < _horizon && !c.is_over())
             {
                 c.step(_policy(c, prng, r));
                 n += 1;
@@ -36,7 +44,7 @@ public sealed class PlannerBot
             long gain = (c.state.score - sim.state.score) * 3 + room_gain * 40 + c.state.coins;
             long value = n * 100 + gain;
             best = G.maxi(best, value);
-            if (n >= HORIZON && r > 0) break;
+            if (n >= _horizon && r > 0) break;
         }
         return best;
     }

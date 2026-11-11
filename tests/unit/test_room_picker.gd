@@ -1,7 +1,7 @@
 extends TestCase
-## Developer mode's room picker on the debug page: it lists every catalog room
-## and variant, Play starts a practice run that really plays the picked
-## variant, it's hidden for players, and real runs never force a variant.
+## The room picker on the debug page, in every build: it lists every catalog
+## room and variant, Play starts a practice run that really plays the picked
+## variant (any room, players too), and real runs never force a variant.
 
 const TEST_PATH := "user://test_room_picker_profile.json"
 
@@ -89,7 +89,7 @@ func test_forced_variant_practice_plays_that_variant() -> void:
 	var main := _make_main()
 	for def in RoomCatalog.all():
 		for v in def.variants:
-			main.start_practice(def.id, v.id)
+			main.start_picker_practice(def.id, v.id)
 			assert_eq(main.mode, main.Mode.PRACTICE, def.id)
 			assert_eq(main._run.sim.state.room_kind, RoomCatalog.index_of(def.id), def.id)
 			assert_eq(main._run.sim.room.variant_id(), v.id, "%s plays %s" % [def.id, v.id])
@@ -108,7 +108,7 @@ func test_play_from_the_debug_page_starts_the_practice_run() -> void:
 	var sheet := home.open_settings()
 	sheet.show_debug(true)
 	var picker := sheet.debug_page().room_picker()
-	assert_true(picker != null, "developer mode shows the picker")
+	assert_true(picker != null, "the page has the picker")
 	var v := RoomCatalog.find("tide").variants[1].id
 	picker.pick("tide", v)
 	picker.play()
@@ -124,18 +124,55 @@ func test_play_from_the_debug_page_starts_the_practice_run() -> void:
 	_reset()
 
 
-func test_hidden_when_developer_mode_is_off() -> void:
+func test_leaving_debug_practice_goes_back_to_the_debug_page() -> void:
+	_reset(1)
+	var main := _make_main()
+	var sheet := (main._menus.current() as HomeScreen).open_settings()
+	sheet.show_debug(true)
+	var picker := sheet.debug_page().room_picker()
+	picker.pick("tide", RoomCatalog.find("tide").variants[1].id)
+	picker.play()
+	assert_eq(main.mode, main.Mode.PRACTICE)
+	# Rooms on the practice-over screen (and pause / back arrow) emit this.
+	main._hud.rooms_pressed.emit()
+	var home := main._menus.current() as HomeScreen
+	assert_true(home != null, "back on Home, not Rooms")
+	assert_true(home.settings() != null, "settings sheet open")
+	assert_true(home.settings().debug_page() != null, "on the debug page")
+	assert_eq(home.settings().debug_page().room_picker().room_id, "tide", "keeps the pick")
+	# Practice from a room's own page still goes back to Rooms.
+	main._profile.record_room_met("tide")
+	main.start_practice("tide")
+	main._hud.rooms_pressed.emit()
+	assert_true(main._menus.current() is RoomsScreen, "room practice -> Rooms")
+	_free_main(main)
+	_reset()
+
+
+func test_players_have_the_picker_too() -> void:
 	_reset(0)
 	var page := DebugPage.new(Profile.new(), AppServices.offline(Profile.new()))
-	assert_true(page.room_picker() == null, "no picker for players")
-	assert_true(page.find_child("RoomPicker", true, false) == null)
+	assert_true(page.room_picker() != null, "release builds show the picker")
+	assert_true(page.find_child("RoomPicker", true, false) != null)
 	page.free()
-	# And main never forces a variant for players, even in a room they met.
+	# It plays any room and variant, even one the player never met.
 	var main := _make_main()
-	main._profile.record_room_met("tide")
-	main.start_practice("tide", RoomCatalog.find("tide").variants[1].id)
-	assert_eq(main.mode, main.Mode.MENU, "no forced practice for players")
+	var v := RoomCatalog.find("tide").variants[1].id
+	main.start_picker_practice("tide", v)
+	assert_eq(main.mode, main.Mode.PRACTICE, "the picker plays an unmet room")
+	assert_eq(main._run.sim.forced_variant, v)
+	# An unknown room or variant does nothing.
+	main.show_home()
+	main.start_picker_practice("tide", "no_such_variant")
+	assert_eq(main.mode, main.Mode.MENU, "unknown variant")
+	main.start_picker_practice("no_such_room")
+	assert_eq(main.mode, main.Mode.MENU, "unknown room")
+	# The Rooms screen keeps its rules: open rooms only, the variant drawn.
 	main.start_practice("tide")
+	assert_eq(main.mode, main.Mode.MENU, "Rooms screen: unmet rooms stay closed")
+	main._profile.record_room_met("tide")
+	main.start_practice("tide")
+	assert_eq(main.mode, main.Mode.PRACTICE)
 	assert_eq(main._run.sim.forced_variant, "", "normal practice draws")
 	_free_main(main)
 	_reset()
@@ -144,7 +181,7 @@ func test_hidden_when_developer_mode_is_off() -> void:
 func test_real_runs_never_force_a_variant() -> void:
 	_reset(1)
 	var main := _make_main()
-	main.start_practice("tide", RoomCatalog.find("tide").variants[1].id)
+	main.start_picker_practice("tide", RoomCatalog.find("tide").variants[1].id)
 	main.show_home()
 	main.start_run()
 	assert_eq(main.mode, main.Mode.RUN)
