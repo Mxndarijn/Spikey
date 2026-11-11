@@ -43,6 +43,8 @@ public static class RlMain
                 case "measure":
                     return Tiers.measure(dir, O("tier", "all"), int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
                         long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads, O("out", ""));
+                case "bench":
+                    return Bench.run(dir, int.Parse(O("seeds", "40")), long.Parse(O("cap", "20000")), int.Parse(O("teach", "16")));
                 case "speed":
                 {
                     // Ticks per second of one thread with a random policy (sizing training).

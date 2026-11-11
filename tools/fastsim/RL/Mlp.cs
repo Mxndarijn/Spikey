@@ -1,4 +1,6 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace FastSim.Rl;
 
@@ -67,7 +69,24 @@ public sealed class Mlp
             var inp = acts[l];
             var outp = acts[l + 1];
             int bias = k + n * m;
-            for (int j = 0; j < m; j++)
+            int j0 = 0;
+            // Four rows at a time share the input loads; each row's sum keeps
+            // dot()'s exact order, so the outputs are bit for bit the same.
+            if (Vector.IsHardwareAccelerated && n >= Vector<float>.Count)
+                for (; j0 + 4 <= m; j0 += 4)
+                {
+                    dot4(p, k + j0 * n, n, inp, out float a0, out float a1, out float a2, out float a3);
+                    a0 += p[bias + j0];
+                    a1 += p[bias + j0 + 1];
+                    a2 += p[bias + j0 + 2];
+                    a3 += p[bias + j0 + 3];
+                    bool hidden = l + 1 < L;
+                    outp[j0] = hidden ? MathF.Tanh(a0) : a0;
+                    outp[j0 + 1] = hidden ? MathF.Tanh(a1) : a1;
+                    outp[j0 + 2] = hidden ? MathF.Tanh(a2) : a2;
+                    outp[j0 + 3] = hidden ? MathF.Tanh(a3) : a3;
+                }
+            for (int j = j0; j < m; j++)
             {
                 float a = dot(p.AsSpan(k + j * n, n), inp) + p[bias + j];
                 outp[j] = l + 1 < L ? MathF.Tanh(a) : a;
@@ -162,16 +181,54 @@ public sealed class Mlp
         return s;
     }
 
+    /// dot() of four consecutive rows (row length n, from p[at]) with x, same arithmetic.
+    static void dot4(float[] p, int at, int n, float[] x, out float s0, out float s1, out float s2, out float s3)
+    {
+        if (at < 0 || at + 4 * n > p.Length || n > x.Length) throw new ArgumentOutOfRangeException(nameof(at));
+        int w = Vector<float>.Count;
+        ref float r0 = ref p[at];
+        ref float r1 = ref Unsafe.Add(ref r0, n);
+        ref float r2 = ref Unsafe.Add(ref r0, 2 * n);
+        ref float r3 = ref Unsafe.Add(ref r0, 3 * n);
+        ref float xs = ref MemoryMarshal.GetArrayDataReference(x);
+        Vector<float> c0 = Vector<float>.Zero, c1 = c0, c2 = c0, c3 = c0;
+        int i = 0;
+        for (; i <= n - w; i += w)
+        {
+            var xv = Vector.LoadUnsafe(ref xs, (nuint)i);
+            c0 += Vector.LoadUnsafe(ref r0, (nuint)i) * xv;
+            c1 += Vector.LoadUnsafe(ref r1, (nuint)i) * xv;
+            c2 += Vector.LoadUnsafe(ref r2, (nuint)i) * xv;
+            c3 += Vector.LoadUnsafe(ref r3, (nuint)i) * xv;
+        }
+        s0 = Vector.Dot(c0, Vector<float>.One);
+        s1 = Vector.Dot(c1, Vector<float>.One);
+        s2 = Vector.Dot(c2, Vector<float>.One);
+        s3 = Vector.Dot(c3, Vector<float>.One);
+        for (; i < n; i++)
+        {
+            float xi = Unsafe.Add(ref xs, i);
+            s0 += Unsafe.Add(ref r0, i) * xi;
+            s1 += Unsafe.Add(ref r1, i) * xi;
+            s2 += Unsafe.Add(ref r2, i) * xi;
+            s3 += Unsafe.Add(ref r3, i) * xi;
+        }
+    }
+
     static void axpy(float k, ReadOnlySpan<float> x, Span<float> y)
     {
         int n = x.Length, i = 0;
+        if (y.Length < n) throw new ArgumentOutOfRangeException(nameof(y));
+        ref float xr = ref MemoryMarshal.GetReference(x);
+        ref float yr = ref MemoryMarshal.GetReference(y);
         if (Vector.IsHardwareAccelerated && n >= Vector<float>.Count)
         {
             var kv = new Vector<float>(k);
             int w = Vector<float>.Count;
-            for (; i <= n - w; i += w) (new Vector<float>(y.Slice(i)) + kv * new Vector<float>(x.Slice(i))).CopyTo(y.Slice(i));
+            for (; i <= n - w; i += w)
+                (Vector.LoadUnsafe(ref yr, (nuint)i) + kv * Vector.LoadUnsafe(ref xr, (nuint)i)).StoreUnsafe(ref yr, (nuint)i);
         }
-        for (; i < n; i++) y[i] += k * x[i];
+        for (; i < n; i++) Unsafe.Add(ref yr, i) += k * Unsafe.Add(ref xr, i);
     }
 }
 
