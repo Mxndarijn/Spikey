@@ -104,6 +104,34 @@ public static class Stats
         return TIERS.Any(t => t.name == last) ? last : "";
     }
 
+    /// Score bands for deaths per 100 points (bot-review.md): the rate rises
+    /// steeply through the first rooms, then levels off.
+    public static readonly long[] SCORE_BANDS = { 0, 10, 20, 40, 80, 160, 320 };
+
+    /// Deaths per 100 points scored inside each band: a run that ends at p
+    /// spent min(p, hi) - lo points in a band it reached, and died in the
+    /// band holding p. Capped runs count their points and no death.
+    public static JsonArray band_rates(IList<Run> runs)
+    {
+        var out_ = new JsonArray();
+        for (int i = 0; i < SCORE_BANDS.Length; i++)
+        {
+            long lo = SCORE_BANDS[i], hi = i + 1 < SCORE_BANDS.Length ? SCORE_BANDS[i + 1] : long.MaxValue;
+            long pts = runs.Where(r => r.points > lo).Sum(r => Math.Min(r.points, hi) - lo);
+            int deaths = runs.Count(r => r.dead && r.points >= lo && r.points < hi);
+            int reached = runs.Count(r => r.points >= lo);
+            out_.Add(new JsonObject
+            {
+                ["band"] = hi == long.MaxValue ? $"{lo}+" : $"{lo}..{hi}",
+                ["reached"] = reached,
+                ["points"] = pts,
+                ["deaths"] = deaths,
+                ["per_100"] = pts == 0 ? null : Math.Round(100.0 * deaths / pts, 3),
+            });
+        }
+        return out_;
+    }
+
     public static JsonObject strength(IList<Run> runs)
     {
         var pts = runs.Select(r => (double)r.points).ToList();
@@ -154,6 +182,7 @@ public static class Stats
             ["tier_by_median"] = tier_of(median),
             ["tier_by_rate"] = double.IsInfinity(exp_median) ? "beast" : tier_of(exp_median),
             ["exp_fit_ks"] = num(exp_fit(runs, h), 4),
+            ["deaths_per_100_by_band"] = band_rates(runs),
             ["mean_ticks"] = Math.Round(runs.Count == 0 ? 0 : runs.Average(r => (double)r.ticks), 0),
             ["killers"] = killers,
             ["deadliest_per_visit"] = deadly,
@@ -190,6 +219,7 @@ public static class Stats
                 ["hist"] = arr(hist(ints, INTERVAL_BINS)),
             },
             ["height_bands"] = arr(band_shares(runs)),
+            ["bottom_quarter"] = num(band_shares(runs).Skip(Run.BANDS * 3 / 4).Sum(), 4),
             ["react_bounce"] = new JsonObject
             {
                 ["median"] = num(pct(rb, 0.5)), ["p10"] = num(pct(rb, 0.1)), ["n"] = rb.Count,

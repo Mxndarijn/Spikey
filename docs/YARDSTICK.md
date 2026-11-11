@@ -33,7 +33,7 @@ static class MyBotYardstick
             FastSim.Yard.Bots.add(new(
                 $"mybot:{level}",              // family:level; "mybot:all" runs them in tier order
                 "what it is, its knobs",        // shown in the JSON and by -Mode list
-                peeks: false,                   // true if it reads the future (see below)
+                FastSim.Yard.Copies.NONE,       // what it steps to look ahead (see below)
                 seed => new MyBot(level, seed).decide));
     }
 }
@@ -43,24 +43,34 @@ static class MyBotYardstick
 instance is made per run, so per-run state is fine. Name levels after the tiers
 (`beginner normal good expert beast`): the table then checks the claimed tier.
 
-`peeks: true` marks a bot that reads anything a player can't see: rollouts on a copy
-of the real sim, RNG, rooms not yet shown. PlannerBot and the SurvivalSearch oracle
-do. Their numbers are ceilings, not players.
+Every bot states what it reads (the *copies* column):
 
-Built in: `gap` (gap seeker), `planner` (PlannerBot), `search` (SurvivalSearch
-replanned every 30 ticks, an oracle; slow, use `-Seeds 32` to 200), `rl:<tier>` (the
-policy and tiers in `tools/rlbot`).
+- `Copies.REAL`: it steps copies of the real sim, so it knows hidden random draws (RNG,
+  rooms not yet shown). PlannerBot and the SurvivalSearch oracle do. A ceiling, not a player.
+- `Copies.SCRAMBLED`: it steps copies whose RNG and hidden salts are replaced by its own
+  random numbers. It knows the rules and visible motion (swings, saws, pistons), not the
+  draws. The user allows predicting visible motion, not RNG outcomes.
+- `Copies.NONE`: it plays from what it sees.
+
+Built in: `gap` (gap seeker, none), `planner` (PlannerBot, real), `search`
+(SurvivalSearch re-planned every 30 ticks, real, an oracle; slow), `honest` (the bot
+review's planner: a beam on 3 scrambled copies to 40 ticks past the next bounce,
+re-planned every 4 ticks; `Bubble.next_x` and `Stalactite.target_y` are not scrambled
+yet), `rl:<tier>` (the policy and tiers in `tools/rlbot`, none).
 
 ## Seeds and cap
 
+The shared protocol from the bot review (`SpikeCage-coord/research/bot-review.md`):
+
 | set | seeds | cap |
 |---|---|---|
-| quick | 7 000 001 .. 7 000 200 | 72 000 ticks (20 min) |
-| full | 7 000 001 .. 7 001 000 | 72 000 ticks |
+| quick | 1 .. 100 | `SimConfig.MAX_TICKS` (108 000 ticks, 30 min, about 1 200 points) |
+| full | 1 .. 400 | `SimConfig.MAX_TICKS` |
 
-The quick set is the first fifth of the full set. These seeds are apart from the RL
-calibration seeds (500 001..) and the usual 1..n sweeps. A run ends at its first death:
-no revives. 72 000 ticks is about 800 points, well past a beast median of 500.
+A run ends at its first death: no revives. Every JSON states `gameplay_version`. A
+median over 64 seeds moves between 39 and 51 by chance, over 400 between 41 and 46:
+don't call a gain on fewer than 400. `capped` counts runs alive at the cap; when there
+are any, their median is a floor, not a score.
 
 ## Strength
 
@@ -76,6 +86,12 @@ no revives. 72 000 ticks is about 800 points, well past a beast median of 500.
 - `exp_fit_ks`: the Kolmogorov-Smirnov distance between the scores and the
   exponential fit. Small (~0.1) means the bot dies at a steady rate, like a human
   population; large means it dies in the same few places.
+- `deaths_per_100_by_band`: deaths per 100 points scored inside each score band
+  (0..10, 10..20, 20..40, 40..80, 80..160, 160..320, 320+). A run ending at p scored
+  min(p, hi) − lo points in each band it reached and died in the band holding p; capped
+  runs count their points and no death. It works on capped runs and needs fewer seeds.
+  The review found the rate rises about 250 times from the first room to score 40, then
+  stays flat: low tiers are about the ramp, high tiers about the plateau rate.
 - `killers`: the rooms (room/variant) it dies in most, with deaths per visit, and
   `deadliest_per_visit` (rooms visited 20+ times).
 
@@ -85,7 +101,7 @@ no revives. 72 000 ticks is about 800 points, well past a beast median of 500.
   7.7 times a second (Isaksen 2015), so `under_8_ticks` should be about 0. A bot that
   taps on many ticks in a row shows up here.
 - `height_bands`: share of ticks in 8 bands from the ceiling kill line (band 0) to
-  the floor kill line (band 7).
+  the floor kill line (band 7); `bottom_quarter` is the last two.
 - `timing`: tap timing against the ideal moment. A *press* is a tap or a burst of
   taps no more than 3 ticks apart. Each press is moved by −12..+12 ticks with the run's
   other taps kept; the shifts the bird survives (40 ticks past) form its window, and

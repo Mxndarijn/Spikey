@@ -13,12 +13,13 @@ namespace FastSim.Yard;
 public static class YardstickMain
 {
     public const int FORMAT = 1;
-    /// Seeds FIRST+1.. : apart from the RL calibration (500 001..) and the
-    /// usual 1..n sweeps, so no bot is measured on seeds it was tuned on.
-    public const long FIRST = 7_000_000;
-    public const int QUICK = 200, FULL = 1000;
-    /// 20 minutes of play: past a beast median of 500 points (~80 ticks a point).
-    public const long CAP = 60 * 60 * 20;
+    /// The shared protocol (bot-review.md): seeds 1..400, the game's own cap
+    /// (SimConfig.MAX_TICKS, 30 minutes, about 1200 points), no revives. A
+    /// median over 64 seeds moves by about 25% by chance; over 400 by about 10%.
+    /// The quick set is the first 100 of them.
+    public const long FIRST = 0;
+    public const int QUICK = 100, FULL = 400;
+    public const long CAP = SimConfig.MAX_TICKS;
     public static readonly JsonSerializerOptions PRETTY = new() { WriteIndented = true };
 
     public static int run(List<string> pos, Dictionary<string, string> opts)
@@ -31,7 +32,7 @@ public static class YardstickMain
             switch (what)
             {
                 case "list":
-                    foreach (var b in Bots.all()) Console.WriteLine($"  {b.name,-16} {(b.peeks ? "peeks" : "fair "),-6} {b.about}");
+                    foreach (var b in Bots.all()) Console.WriteLine($"  {b.name,-16} {b.copies,-10} {b.about}");
                     return 0;
                 case "compare":
                     return write_table(out_dir);
@@ -61,7 +62,7 @@ public static class YardstickMain
                     Directory.CreateDirectory(out_dir);
                     int t_runs = int.Parse(O("timing-runs", "40")), t_taps = int.Parse(O("timing-taps", "20"));
                     var timing = judge(human, t_runs, t_taps, int.Parse(O("threads", "16")));
-                    var o = report("human", "human run files: " + O("human", ""), false, "human", 0, human.Count, cap, human, timing, null, 0);
+                    var o = report("human", "human run files: " + O("human", ""), Copies.NONE, "human", 0, human.Count, cap, human, timing, null, 0);
                     save(o, out_dir);
                     write_table(out_dir);
                     return 0;
@@ -93,12 +94,12 @@ public static class YardstickMain
         });
         double play_s = clock.Elapsed.TotalSeconds;
         var timing = judge(runs, t_runs, t_taps, threads);
-        var o = report(bot.name, bot.about, bot.peeks, set, first, seeds, cap, runs, timing, human, clock.Elapsed.TotalSeconds);
+        var o = report(bot.name, bot.about, bot.copies, set, first, seeds, cap, runs, timing, human, clock.Elapsed.TotalSeconds);
         o["play_seconds"] = Math.Round(play_s, 1);
         var s = o["strength"];
         string claimed = Stats.claimed_tier(bot.name);
         Console.WriteLine($"yardstick {bot.name} ({set}, {seeds} runs, cap {cap}): median {s["median"]}, p25 {s["p25"]}, " +
-            $"p75 {s["p75"]}, p90 {s["p90"]}, rate median {s["rate_median"]} -> {s["tier_by_rate"]}" +
+            $"p75 {s["p75"]}, p90 {s["p90"]}, {s["capped"]} alive at the cap, rate median {s["rate_median"]} -> {s["tier_by_rate"]}" +
             (claimed != "" ? $" (claims {claimed})" : "") + $"  [{clock.Elapsed.TotalSeconds:F0} s]");
         save(o, out_dir);
         return 0;
@@ -120,7 +121,7 @@ public static class YardstickMain
         return all;
     }
 
-    static JsonObject report(string name, string about, bool peeks, string set, long first, int seeds, long cap,
+    static JsonObject report(string name, string about, string copies, string set, long first, int seeds, long cap,
         IList<Run> runs, Timing.Result timing, List<Run> human, double seconds)
     {
         var o = new JsonObject
@@ -128,7 +129,8 @@ public static class YardstickMain
             ["yardstick"] = FORMAT,
             ["bot"] = name,
             ["about"] = about,
-            ["peeks"] = peeks,
+            ["copies"] = copies,
+            ["peeks"] = copies == Copies.REAL,
             ["claimed_tier"] = Stats.claimed_tier(name),
             ["set"] = set,
             ["first_seed"] = first + 1,
@@ -219,11 +221,13 @@ public static class YardstickMain
         sb.AppendLine("Made by `tools/yardstick.ps1` (docs/YARDSTICK.md). Every bot plays the same seeds with the same tick cap;");
         sb.AppendLine("runs end at the first death (no revive). *Rate median* is ln 0.5 / ln(1 - h), h = deaths per point:");
         sb.AppendLine("scores are roughly exponential, so it is the steadier number for tiers. Tier edges are the geometric middles");
-        sb.AppendLine("of the targets 30 / 60 / 120 / 250 / 500 (42, 85, 173, 354). *Peeks* bots read the future: a ceiling, not a player.");
+        sb.AppendLine("of the targets 30 / 60 / 120 / 250 / 500 (42, 85, 173, 354). *Copies*: what a bot steps to look ahead: *real* copies");
+        sb.AppendLine("know the hidden random draws (a ceiling, not a player), *scrambled* copies have their RNG and salts replaced (rules and");
+        sb.AppendLine("visible motion only, which the user allows), *none* plays from what it sees. When runs reach the cap, their median is a floor.");
         sb.AppendLine();
         sb.AppendLine("## Strength");
         sb.AppendLine();
-        sb.AppendLine("| bot | set | peeks | runs | median | p25 | p75 | p90 | deaths/pt | rate median | tier (rate) | claims | fits | exp KS | capped | top killer | deadliest per visit |");
+        sb.AppendLine("| bot | set | copies | runs | median | p25 | p75 | p90 | deaths/pt | rate median | tier (rate) | claims | fits | exp KS | alive at cap | top killer | deadliest per visit |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var o in rows)
         {
@@ -233,11 +237,26 @@ public static class YardstickMain
             string fits = claim == "" ? "" : tier == claim ? "yes" : "**no**";
             var k = s["killers"].AsArray().FirstOrDefault();
             var dv = s["deadliest_per_visit"].AsArray().FirstOrDefault();
-            sb.AppendLine($"| {o["bot"]} | {o["set"]} | {((bool)o["peeks"] ? "yes" : "")} | {s["runs"]} | {f(s["median"])} | {f(s["p25"])} | " +
+            sb.AppendLine($"| {o["bot"]} | {o["set"]} | {(string)o["copies"] ?? ((bool)o["peeks"] ? "real" : "none")} | {s["runs"]} | {f(s["median"])} | {f(s["p25"])} | " +
                 $"{f(s["p75"])} | {f(s["p90"])} | {f(s["death_rate_per_point"], "0.0000")} | {f(s["rate_median"])} | {tier} | {claim} | {fits} | " +
                 $"{f(s["exp_fit_ks"], "0.00")} | {s["capped"]} | " +
                 (k == null ? "-" : $"{k["room"]} {f((double)k["share"] * 100, "0")}%") + " | " +
                 (dv == null ? "-" : $"{dv["room"]} {f((double)dv["per_visit"] * 100, "0.0")}%") + " |");
+        }
+        sb.AppendLine();
+        sb.AppendLine("## Deaths per 100 points by score band");
+        sb.AppendLine();
+        sb.AppendLine("Points scored inside each band and the deaths there, in brackets (capped runs count their points, no death). It works");
+        sb.AppendLine("on capped runs and shows where a bot is weak: the first bands are the ramp through the first rooms, the later ones the plateau.");
+        sb.AppendLine();
+        var bnames = Stats.SCORE_BANDS.Select((lo, i) => i + 1 < Stats.SCORE_BANDS.Length ? $"{lo}..{Stats.SCORE_BANDS[i + 1]}" : $"{lo}+").ToList();
+        sb.AppendLine("| bot | set | " + string.Join(" | ", bnames) + " |");
+        sb.AppendLine("|---|---|" + string.Concat(bnames.Select(_ => "---|")));
+        foreach (var o in rows)
+        {
+            var br = o["strength"]["deaths_per_100_by_band"]?.AsArray();
+            if (br == null) continue;
+            sb.AppendLine($"| {o["bot"]} | {o["set"]} | " + string.Join(" | ", br.Select(b => b["per_100"] == null ? "-" : $"{f(b["per_100"], "0.00")} ({b["deaths"]})")) + " |");
         }
         sb.AppendLine();
         sb.AppendLine("## Human-likeness");
@@ -247,8 +266,8 @@ public static class YardstickMain
         sb.AppendLine("*Timing sd* is the spread of timing-critical taps around the middle of their survivable window (Timing.cs).");
         sb.AppendLine("*React* is the first tap after a new room or hazard (a proxy: a tap can be planned before the new thing shows).");
         sb.AppendLine();
-        sb.AppendLine("| bot | set | taps/s | interval median | taps <8 ticks apart | timing sd | timing mean | critical taps | react (new) median | react <10 | react (bounce) median | height bands (top→bottom, %) | humanlike | classifier acc |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        sb.AppendLine("| bot | set | taps/s | interval median | taps <8 ticks apart | timing sd | timing mean | critical taps | react (new) median | react <10 | react (bounce) median | bottom quarter | height bands (top→bottom, %) | humanlike | classifier acc |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var o in rows)
         {
             var h = o["human"];
@@ -258,7 +277,7 @@ public static class YardstickMain
             string critical = t == null ? "-" : $"{t["critical"]}/{t["taps_judged"]}";
             sb.AppendLine($"| {o["bot"]} | {o["set"]} | {f(h["taps_per_s"]["median"], "0.00")} | {f(h["interval"]["median"])} | " +
                 $"{f((double?)h["interval"]["under_8_ticks"] * 100, "0.0")}% | {f(t?["error_sd"], "0.00")} | {f(t?["error_mean"], "0.00")} | {critical} | " +
-                $"{f(h["react_new"]["median"])} | {f((double?)h["react_new"]["under_10_ticks"] * 100, "0")}% | {f(h["react_bounce"]["median"])} | {bands} | " +
+                $"{f(h["react_new"]["median"])} | {f((double?)h["react_new"]["under_10_ticks"] * 100, "0")}% | {f(h["react_bounce"]["median"])} | {f((double?)h["bottom_quarter"] * 100, "0")}% | {bands} | " +
                 $"{f(vs?["likeness"], "0.00")} | {f(vs?["classifier"]?["balanced_accuracy"], "0.00")} |");
         }
         sb.AppendLine();

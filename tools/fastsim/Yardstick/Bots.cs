@@ -6,9 +6,21 @@ namespace FastSim.Yard;
 /// a fresh decide function for one run: called once per tick, before
 /// sim.step(), it returns whether to tap. The yardstick always calls it on the
 /// live sim; a bot must not step or change that sim (clone it to look ahead).
-/// `peeks` is true for bots that read the future (rollouts on a copy of the
-/// real sim, RNG, unspawned rooms): their numbers are a ceiling, not a player.
-public sealed record BotSpec(string name, string about, bool peeks, Func<long, Func<GameSim, bool>> make);
+/// `copies` says what the bot reads besides the screen: Copies.REAL (it
+/// steps copies of the real sim, so it knows hidden random draws: a ceiling,
+/// not a player), Copies.SCRAMBLED (copies whose RNG and hidden salts are
+/// replaced: it knows the rules and visible motion, not the draws) or
+/// Copies.NONE (only what it sees). The user allows predicting visible
+/// motion, not RNG outcomes.
+public sealed record BotSpec(string name, string about, string copies, Func<long, Func<GameSim, bool>> make)
+{
+    public bool peeks => copies == Copies.REAL;
+}
+
+public static class Copies
+{
+    public const string REAL = "real", SCRAMBLED = "scrambled", NONE = "none";
+}
 
 /// The bots the yardstick knows. A new bot plugs in from its own file, so no
 /// one edits this one:
@@ -17,7 +29,7 @@ public sealed record BotSpec(string name, string about, bool peeks, Func<long, F
 ///     {
 ///         [System.Runtime.CompilerServices.ModuleInitializer]
 ///         internal static void Init() => FastSim.Yard.Bots.add(new("mybot",
-///             "what it is", peeks: false, seed => new MyBot(seed).decide));
+///             "what it is", FastSim.Yard.Copies.NONE, seed => new MyBot(seed).decide));
 ///     }
 ///
 /// A family with levels adds one name per level ("human:good").
@@ -78,12 +90,14 @@ public static class Bots
             if (_builtins) return;
             _builtins = true;
         }
-        add(new("gap", "SimBots.gap_seeker: aims at the biggest gap of the wall ahead, no look-ahead", false,
+        add(new("gap", "SimBots.gap_seeker: aims at the biggest gap of the wall ahead, no look-ahead", Copies.NONE,
             seed => { var rng = new SimRng(seed); return sim => SimBots.gap_seeker(sim, rng); }));
-        add(new("planner", "PlannerBot: 4 random rollouts of 120 ticks on a copy of the real sim", true,
+        add(new("planner", "PlannerBot: 4 random rollouts of 120 ticks on a copy of the real sim", Copies.REAL,
             seed => new PlannerBot(seed).decide));
-        add(new("search", "SurvivalSearch every 30 ticks, 240 ticks ahead on a copy of the real sim (an oracle)", true,
+        add(new("search", "SurvivalSearch every 30 ticks, 240 ticks ahead on a copy of the real sim (an oracle)", Copies.REAL,
             seed => new SearchBot().decide));
+        add(new("honest", "review's honest planner: beam on 3 scrambled copies, 40 ticks past the next bounce, re-plan every 4 " +
+            "(Bubble.next_x and Stalactite.target_y not scrambled yet)", Copies.SCRAMBLED, seed => new HonestBot(seed).decide));
         add_rl();
     }
 
@@ -110,7 +124,7 @@ public static class Bots
         foreach (var t in tiers)
         {
             var hc = t.hc;
-            add(new($"rl:{t.name}", $"RL policy, tier {t.name} ({hc})", false,
+            add(new($"rl:{t.name}", $"RL policy, tier {t.name} ({hc})", Copies.NONE,
                 seed => new Player(load(), hc, seed).decide));
         }
     }
