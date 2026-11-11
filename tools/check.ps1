@@ -7,7 +7,8 @@
   2. Godot headless import (builds the class cache)
   3. Load every script and scene
   4. Tests: unit, sim purity, golden replays, room rule checks, run side by
-     side in -Jobs headless Godot processes (default: one per core, at most 24;
+     side in -Jobs headless Godot processes (default: one per core, at most 8:
+     more only adds Godot start-ups now that no bot plays here;
      -Jobs 1 runs them all in one process). No bot plays here (step 6).
   5. FastSim parity: tools/fastsim (the C# copy of sim/) still matches sim/,
      tick for tick, in every room and variant, out of portals, after revives
@@ -120,7 +121,7 @@ if (-not $godot) {
 }
 Write-Host "Godot: $godot"
 $gdDirs = @("sim", "game", "meta", "services", "tests", "tools", "server") | ForEach-Object { Join-Path $root $_ }
-if ($Jobs -le 0) { $Jobs = [Math]::Min([Environment]::ProcessorCount, 24) }
+if ($Jobs -le 0) { $Jobs = [Math]::Min([Environment]::ProcessorCount, 8) }
 if ($FastSimJobs -le 0) { $FastSimJobs = [Math]::Max(2, [int]($Jobs / 2)) }
 $fastsim = Join-Path $root "tools/fastsim.ps1"
 $runParity = -not $TestFilter -or $TestFilter -eq "fastsim"

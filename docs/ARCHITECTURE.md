@@ -301,7 +301,7 @@ heading. About 20 s at `-Jobs 8`.
    FastSim (step 6). (A few unit tests use the cheap gap seeker only to make
    a run for replay, run checker and UI code that only GDScript has.)
    The check runs them side by side in headless worker processes
-   (`--jobs N`, one per core): each worker claims the next piece of work, a
+   (`--jobs N`; `check.ps1` uses one per core, at most 8): each worker claims the next piece of work, a
    whole test file by default, so tests sharing a save file stay together.
    Bot test files mark `const PARALLEL := true` (each method a piece), and the
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
