@@ -62,7 +62,7 @@ var _audio := AudioDirector.new()
 ## Practice: the room id being repeated. Real runs: the room being played, so
 ## the next room change can count it as cleared.
 var _practice_id := ""
-## Practice from developer mode's room picker: the variant id it plays ("" =
+## Practice from the debug page's room picker: the variant id it plays ("" =
 ## drawn as usual). Real runs never set it.
 var _practice_variant := ""
 ## Practice started from the debug page: leaving it goes back there, not to Rooms.
@@ -220,7 +220,7 @@ func show_home() -> void:
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
-	home.practice_requested.connect(_start_debug_practice)
+	home.practice_requested.connect(start_picker_practice)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
 	# The balance and any daily prize waiting to be claimed.
@@ -358,15 +358,29 @@ func show_room(id: String) -> void:
 	_menus.show_screen(detail)
 
 
-## A practice run that repeats one room. Open rooms only (met in a real run).
-## `variant` (developer mode's room picker only) plays that variant every try;
-## "" draws it as usual.
-func start_practice(id: String, variant: String = "") -> void:
+## A practice run that repeats one room, from the Rooms screen. Open rooms
+## only (met in a real run); the variant is drawn as usual.
+func start_practice(id: String) -> void:
 	var def := RoomCatalog.find(id)
 	if def == null or not RoomInfo.is_open(_profile, def):
 		return
-	if not variant.is_empty() and not DevMode.enabled():
+	_practise(id, "")
+
+
+## A practice run from the debug page's room picker, in every build: any room,
+## and `variant` plays that variant every try ("" draws it as usual). Practice
+## never changes the save, so this gives nothing away.
+func start_picker_practice(id: String, variant: String = "") -> void:
+	var def := RoomCatalog.find(id)
+	if def == null:
 		return
+	if not variant.is_empty() and not RoomPicker.variant_ids(def).has(variant):
+		return
+	_practise(id, variant)
+	_practice_from_debug = true
+
+
+func _practise(id: String, variant: String) -> void:
 	mode = Mode.PRACTICE
 	_practice_id = id
 	_practice_variant = variant
@@ -379,13 +393,6 @@ func start_practice(id: String, variant: String = "") -> void:
 	_hud.set_practice(shown)
 	_new_run()
 	_hud.show_ready()
-
-
-## Practice from the debug page's room picker (Home's settings sheet).
-func _start_debug_practice(id: String, variant: String) -> void:
-	start_practice(id, variant)
-	if mode == Mode.PRACTICE:
-		_practice_from_debug = true
 
 
 ## The HUD's Rooms (practice over, pause, Ready's back arrow, game-over dock):
@@ -781,6 +788,9 @@ func _on_revive() -> void:
 ## The sim revived the bird (also in a replay of a revived run).
 func _on_revived() -> void:
 	_room.on_revived()
+	# The crash effect may have turned the flyer into pieces: bring it back.
+	_crash.clear()
+	_bird.on_revived()
 	_trail.start()
 
 

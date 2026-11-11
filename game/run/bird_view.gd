@@ -73,10 +73,19 @@ func on_death() -> void:
 	_shake = 0.3
 
 
-## The flyer fades away (crash effects that turn it into pieces); bind() brings
-## it back for the next run.
+## The flyer fades away (crash effects that turn it into pieces); bind() or
+## on_revived() brings it back.
 func fade_out() -> void:
 	_fading = true
+
+
+## The bird was revived: show the flyer again at once, even if its crash
+## effect had faded it away.
+func on_revived() -> void:
+	_fading = false
+	_shake = 0.0
+	modulate.a = 1.0
+	queue_redraw()
 
 
 ## Target tilt for a vertical speed: nose up while rising, nose down while falling.

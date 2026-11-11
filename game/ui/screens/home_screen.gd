@@ -20,7 +20,7 @@ signal leaderboard_pressed
 ## A setting changed in the settings sheet (already in the profile): main
 ## saves it and applies it.
 signal settings_changed
-## The debug page's room picker (developer mode): practise `id` with `variant`.
+## The debug page's room picker: practise `id` with `variant`.
 signal practice_requested(id: String, variant: String)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")

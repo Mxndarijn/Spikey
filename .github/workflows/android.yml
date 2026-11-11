@@ -24,6 +24,10 @@ on:
         description: 'Post the build on Discord'
         type: boolean
         default: true
+      skip_check:
+        description: 'Skip the check (tests). Publishes an untested build; tags always run it'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -33,6 +37,8 @@ env:
 jobs:
   check:
     name: Check
+    # A manual run can skip it ("skip_check"); a tag never does.
+    if: inputs.skip_check != true
     uses: ./.github/workflows/check.yml
 
   # The small 2D-only engine (tools/engine), cached between runs.
@@ -272,6 +278,10 @@ jobs:
   publish:
     name: Release and announce
     needs: [check, build]
+    # A skipped check ("skip_check") still publishes; a failed one never does.
+    if: >-
+      always() && needs.build.result == 'success'
+      && (needs.check.result == 'success' || needs.check.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # contents: write lets GITHUB_TOKEN create the GitHub Release that hosts the APK.

@@ -1,6 +1,6 @@
 class_name RoomPicker
 extends VBoxContainer
-## Developer mode only, on the debug page: every room kind, read live from
+## On the debug page, in every build: every room kind, read live from
 ## RoomCatalog and grouped like the Rooms screen (seasonal rooms too). Tap a
 ## room, then Random or one of its variants, then Play: a practice run of that
 ## room with that variant (GameSim.forced_variant). Rooms without variants
@@ -84,6 +84,13 @@ func variant_choices() -> Array[String]:
 	if def == null or def.variants.is_empty():
 		return out
 	out.append(RANDOM)
+	out.append_array(variant_ids(def))
+	return out
+
+
+## The variant ids of room `def`, in catalog order.
+static func variant_ids(def: RoomDef) -> Array[String]:
+	var out: Array[String] = []
 	for v in def.variants:
 		out.append(v.id)
 	return out

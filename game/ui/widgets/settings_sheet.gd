@@ -5,11 +5,11 @@ extends Control
 ##   Sound: Music and Sounds, each a round on/off button with its icon, the
 ##          name, a volume slider (0 to 100) and the value.
 ##   Play:  Haptics, Reduced flashing, Color-blind spikes, Large buttons.
-##   Credits and licenses at the bottom (opens the credits in the same card).
+##   Credits at the bottom (opens the credits in the same card).
 ##   Ad choices, only where the player has an ad privacy choice to change
 ##   (Europe), opens Google's form; it shares the Credits row.
-##   Debug (DebugPage), also in the same card: tap the "Settings" title seven
-##   times, or use the Debug link in developer mode, which shares that row too.
+##   Debug (DebugPage), also in the same card: the Debug link in that row
+##   (every build), or tap the "Settings" title seven times.
 ## Every change goes straight into the profile and emits `changed`; main saves
 ## and applies it (audio, RoomView.flash_enabled, button size, spikes).
 
@@ -119,7 +119,7 @@ func _build_main() -> void:
 		_main_page.add_child(s)
 		_switches[key] = s
 	_main_page.add_child(UiKit.spacer(0, true))
-	var credits := _link("Credits", "Credits and licenses")
+	var credits := _link("Credits", "Credits")
 	credits.pressed.connect(show_credits.bind(true))
 	_main_page.add_child(_divider())
 	var ads := _services.ads
@@ -129,15 +129,10 @@ func _build_main() -> void:
 		choices.pressed.connect(ads.show_privacy_options)
 		links.append(choices)
 	links.append(credits)
-	if DevMode.enabled():
-		var debug := _link("Debug", "Debug")
-		debug.pressed.connect(show_debug.bind(true))
-		links.append(debug)
-	if links.size() == 1:
-		_main_page.add_child(credits)
-		return
+	var debug := _link("Debug", "Debug")
+	debug.pressed.connect(show_debug.bind(true))
+	links.append(debug)
 	# Side by side, so the extra links don't push the sheet off the screen.
-	credits.text = "Credits"
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", UiTokens.SPACE_4)
