@@ -45,11 +45,6 @@ const SPRINT_SPEED := 2 * SimConfig.SUB
 ## Every new wall keeps this many slots in a row free of spikes and crawlers
 ## (fewer only if the crawlers leave no such run).
 const FREE_RUN := 3
-## After a revive the exit is already planned: a crawler that would be in
-## front of it starts somewhere else along its path, moved in steps of this,
-## at most this many times.
-const REVIVE_SHIFT := 16 * SimConfig.SUB
-const REVIVE_TRIES := 12
 ## Further than any distance in the cage.
 const FAR := 1 << 30
 
@@ -147,17 +142,6 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 		start = leader.start - trail_offset()
 	else:
 		start = reserve + rng.next_below(start_span()) + lane * (W + H)
-	# Only a revive starts the room with an exit already planned or open.
-	if sim.state.exit_open or sim.state.exit_preview:
-		# Back if the exit is on the wall this crawler walks to first; if it is
-		# on the wall behind it (its tail still near that corner), on.
-		# Quicker crawlers cover more path per step, so they move further.
-		var shift := REVIVE_SHIFT * speed / SPEED
-		var move := -shift if sim.state.exit_side == 1 - lane else shift
-		for i in REVIVE_TRIES:
-			if not _blocks_planned_exit(sim):
-				break
-			start += move
 	xs.resize(segments)
 	ys.resize(segments)
 	_place()
@@ -278,14 +262,6 @@ func _best_run(mask: int, covered: int, bird_y: int) -> int:
 		if best != 0:
 			return best
 	return 0
-
-
-## Whether this crawler would be in front of the exit(s) already planned.
-func _blocks_planned_exit(sim: GameSim) -> bool:
-	var s := sim.state
-	if blocks_exit(sim, s.exit_side, s.exit_a_y):
-		return true
-	return s.exit_b_kind != SimState.ExitKind.NORMAL and blocks_exit(sim, s.exit_side, s.exit_b_y)
 
 
 ## The heights [lowest y, highest y] of the segments of a crawler (tail at path

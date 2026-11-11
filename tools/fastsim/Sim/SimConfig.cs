@@ -3,7 +3,7 @@ namespace FastSim;
 /// Port of sim/sim_config.gd (generated from it; keep in step).
 public static class SimConfig
 {
-    public const long GAMEPLAY_VERSION = 19;
+    public const long GAMEPLAY_VERSION = 21;
     public const long MAX_REVIVES = 1;
     public const long TICKS_PER_SECOND = 60;
     public const long SUB = 64;

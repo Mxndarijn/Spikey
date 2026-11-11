@@ -14,7 +14,6 @@ public class Block : Hazard
     public const long ARRIVAL_DOWN = 45 * SimConfig.SUB;
     public const long EXIT_CLEAR_X = 130 * SimConfig.SUB;
     public const long EXIT_MARGIN = 8 * SimConfig.SUB;
-    public const long EXIT_ROOM = SimConfig.SLOT_SIZE;
     public const long DRIFT = 40 * SimConfig.SUB;
     public const long DRIFT_PERIOD = 300;
     public const long BIG_TOP = 190 * SimConfig.SUB;
@@ -193,17 +192,7 @@ public class Block : Hazard
         return FairLanes.start_path_hits_rect(sim, sx0, by0, sx1, by1, START_MARGIN)
             || FairLanes.blocks_start_lane(sim, sx0, by0, sx1, by1)
             || _blocks_arrival(sim, sx0, by0, sx1, by1)
-            || _crowds_neighbour(sim, bx0, by0, bx1)
-            || _covers_exit(sim, sx0, by0, sx1, by1);
-    }
-
-    public bool _covers_exit(GameSim sim, long bx0, long by0, long bx1, long by1)
-    {
-        var st = sim.state;
-        if (!st.exit_open && !st.exit_preview) return false;
-        if (_fronts_exit(sim, st.exit_side, st.exit_a_y, EXIT_ROOM, bx0, by0, bx1, by1)) return true;
-        return st.exit_b_kind != ExitKind.NORMAL
-            && _fronts_exit(sim, st.exit_side, st.exit_b_y, EXIT_ROOM, bx0, by0, bx1, by1);
+            || _crowds_neighbour(sim, bx0, by0, bx1);
     }
 
     public bool _blocks_arrival(GameSim sim, long bx0, long by0, long bx1, long by1)
@@ -219,15 +208,7 @@ public class Block : Hazard
             if (st.vx > 0 && bx0 < sim.room.wall_left() + ARRIVAL_W) return true;
             if (st.vx < 0 && bx1 > sim.room.wall_right() - ARRIVAL_W) return true;
         }
-        if (!st.exit_open) return false;
-        top = G.mini(top, st.exit_a_y - ARRIVAL_UP);
-        bottom = G.maxi(bottom, st.exit_a_y + ARRIVAL_UP);
-        if (st.exit_b_kind != ExitKind.NORMAL)
-        {
-            top = G.mini(top, st.exit_b_y - ARRIVAL_UP);
-            bottom = G.maxi(bottom, st.exit_b_y + ARRIVAL_UP);
-        }
-        return by1 > top && by0 < bottom;
+        return false;
     }
 
     /// The island of the band above, as [x0, x1, y1]; empty if there is none.

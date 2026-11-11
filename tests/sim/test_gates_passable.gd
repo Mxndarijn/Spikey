@@ -1,8 +1,7 @@
 extends TestCase
 ## Shutter Gates: the portal can always be reached. An exit is only planned
-## where the bird can get to from the gap of the last gate (Gate.blocks_exit),
-## and after a revive the gaps lead from the bird to the exit that stayed
-## (Gate.aim_at_exit). The SurvivalSearch cases (through the portal from many
+## where the bird can get to from the gap of the last gate (Gate.blocks_exit).
+## The SurvivalSearch cases (through the portal from many
 ## seeds, and after a revive) run on FastSim: `tools/fastsim.ps1 -Mode check
 ## -Check gates`, part of tools/check.ps1. Here: the exit planning rule.
 

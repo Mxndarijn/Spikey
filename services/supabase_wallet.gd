@@ -12,6 +12,8 @@ extends WalletService
 const SPEND_TRIES := 3
 
 var _api: SupabaseClient
+## The last status the server sent, shown again while offline.
+var _last_status: EarnStatus
 
 
 func _init(profile: Profile, api: SupabaseClient) -> void:
@@ -32,6 +34,19 @@ func sync() -> void:
 		return
 	_profile.diamonds = wallet.diamonds
 	synced.emit(wallet.diamonds, wallet.prizes)
+
+
+## The server's answer, else the last one it gave (marked not fresh), else a
+## guess from the save.
+func earn_status() -> EarnStatus:
+	var res := await _api.call_db("get_earn_status", {})
+	var status := EarnStatus.parse(res.data) if res.ok else null
+	if status != null:
+		_last_status = status
+		return status
+	if _last_status != null:
+		return _last_status.stale()
+	return EarnStatus.from_profile(_profile)
 
 
 ## Each spend carries a request id; the server answers a repeat of it with the

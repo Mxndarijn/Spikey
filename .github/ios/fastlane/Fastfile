@@ -2,7 +2,7 @@ default_platform(:ios)
 
 # Signs the Xcode project that Godot exported (build/ios/Flapjaw.xcodeproj) and uploads it to
 # TestFlight. Runs on a GitHub-hosted macOS runner; every credential comes from environment
-# variables that .github/workflows/ios-testflight.yml fills from repository secrets.
+# variables that .github/workflows/build.yml (testflight job) fills from repository secrets.
 # The version and build number are already stamped in by Godot's export (see the workflow).
 platform :ios do
   desc "Build the Godot iOS export and upload it to TestFlight"

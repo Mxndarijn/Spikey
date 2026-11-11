@@ -58,6 +58,21 @@ public static class ExitPlanner
         return SimConfig.slot_center_y(open[(int)rng.next_below(open.Count)]);
     }
 
+    public static bool at_bird(GameSim sim, long side)
+    {
+        var s = sim.state;
+        s.exit_side = side;
+        long c0 = SimConfig.slot_center_y(0);
+        long slot = G.clampi((s.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, 0, SimConfig.SLOT_COUNT - 1);
+        long y = SimConfig.slot_center_y(slot);
+        if (blocked(sim, y)) return false;
+        if (s.exit_b_kind != ExitKind.NORMAL && s.y >= SimConfig.FORK_SPLIT_Y)
+            s.exit_b_y = y;
+        else
+            s.exit_a_y = y;
+        return true;
+    }
+
     public static bool blocked(GameSim sim, long y)
     {
         if (sim.room.def.reach > 0 && G.absi(y - sim.state.y) > sim.room.def.reach) return true;

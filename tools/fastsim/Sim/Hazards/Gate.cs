@@ -14,7 +14,6 @@ public class Gate : Hazard
     public const long WALL_CLEAR = 80 * SimConfig.SUB;
     public const long ARRIVAL_HOVER = 30 * SimConfig.SUB;
     public const long EXIT_REACH = 80 * SimConfig.SUB;
-    public const long REVIVE_REACH = 80 * SimConfig.SUB;
     public const long SMALL_EXIT_MAX_Y = 490 * SimConfig.SUB;
 
     public long x = 0;
@@ -57,11 +56,7 @@ public class Gate : Hazard
         if (follows && partner != null)
         {
             period = partner.period;
-            if (sim.state.exit_open || sim.state.exit_preview)
-            {
-                partner.aim_at_exit(sim);
-            }
-            else if (sim.state.started && G.absi(x - sim.state.x) < G.absi(partner.x - sim.state.x))
+            if (sim.state.started && G.absi(x - sim.state.x) < G.absi(partner.x - sim.state.x))
             {
                 long shift = _lead(sim, partner.x) - (_lead(sim, x) - LAG);
                 partner.phase = G.posmod(partner.phase + shift, period);
@@ -89,7 +84,6 @@ public class Gate : Hazard
             }
         }
         phase = _phase_for(aim, lead, down);
-        if (sim.state.exit_open || sim.state.exit_preview) aim_at_exit(sim);
         _place();
     }
 
@@ -153,21 +147,6 @@ public class Gate : Hazard
         long r = SimConfig.BIRD_RADIUS;
         long wall_x = side == 1 ? sim.room.wall_right() - r : sim.room.wall_left() + r;
         return G.maxi(sim.steps_to_wall(side) - G.absi(wall_x - gate.x) / SimConfig.SPEED_X, 0);
-    }
-
-    public void aim_at_exit(GameSim sim)
-    {
-        var s = sim.state;
-        var last = _last_before(s.exit_side);
-        var first = _last_before(s.vx > 0 ? 0 : 1);
-        long first_at = G.absi(first.x - s.x) / SimConfig.SPEED_X - (first == this ? 0 : LAG);
-        long last_at = _steps_to_pass(sim, last, s.exit_side) - (last == this ? 0 : LAG);
-        long slide = (GAP_MAX_Y - GAP_MIN_Y) * (last_at - first_at) / (period / 2);
-        long reach = G.maxi(REVIVE_REACH + slide, 0);
-        long from = FairLanes.entry_y(sim);
-        long target = G.clampi(G.clampi(s.exit_a_y, GAP_MIN_Y, GAP_MAX_Y), from - reach, from + reach);
-        phase = _phase_for(target, t + last_at, target > from);
-        _place();
     }
 
     public override long adjust_wall(GameSim sim, long side, long mask)

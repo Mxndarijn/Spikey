@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json.Nodes;
 using FastSim;
 
@@ -14,6 +14,7 @@ using FastSim;
 ///   points    was tests/sim/test_room_points_cap.gd
 ///   revive    was tests/sim/test_revive_survivable.gd
 ///   pairs     was test_every_pair_has_a_way_through in tests/sim/test_double_trouble.gd
+///   keys      Locked Out: every key of every variant can be taken on the way out
 ///   crawl, gates, isles  were the searches of tests/sim/test_<room>_passable.gd
 ///   rescued   was tests/sim/test_rooms_survivable.gd
 ///   runs      was tests/sim/test_bot_runs.gd
@@ -27,7 +28,7 @@ static partial class Checks
 {
     public static readonly List<Check> ALL = new()
     {
-        new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(),
+        new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
         new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(),
     };
 
@@ -262,6 +263,57 @@ static partial class Checks
             $"{results.Count} searches, {SEEDS_EACH} practice seeds per variant of {CASES.Length} rooms";
     }
 
+    /// Locked Out (sim/hazards/exit_key.gd): on every seed of every variant
+    /// SurvivalSearch takes every key before it goes through the exit. The
+    /// search keeps the sim with more coins in each bucket, so it goes for the
+    /// keys; its best line is replayed to read the keys as the bird leaves.
+    public sealed class Keys : Check
+    {
+        public override string name => "keys";
+        public override string test => "tests/unit/test_locked_out.gd:test_every_key_can_be_taken";
+        public const long SEEDS_EACH = 12;
+        /// 10 points, the locked bounces and the way out.
+        public const long TICKS = 2400;
+
+        public override int count() => cases.Count;
+
+        protected override List<object> make()
+        {
+            var out_ = new List<object>();
+            int index = (int)RoomCatalog.index_of("lockexit");
+            foreach (var v in RoomCatalog.all()[index].variants)
+                for (long s = 0; s < SEEDS_EACH; s++) out_.Add((v.id, 700 + s * 53));
+            return out_;
+        }
+
+        public override JsonObject run(int n)
+        {
+            var (variant, seed_value) = ((string, long))cases[n];
+            int index = (int)RoomCatalog.index_of("lockexit");
+            var sim = new GameSim(seed_value, Seasons.NONE, index, variant);
+            string what = $"lockexit/{variant} seed {seed_value}";
+            var search = new SurvivalSearch();
+            var fails = new List<string>();
+            if (!search.run(sim.clone_deep(), TICKS)) fails.Add($"{what}: all died at tick {search.ticks_survived}");
+            else if (search.best.state.room_index < 1) fails.Add($"{what}: took no portal");
+            else
+            {
+                var key = (ExitKey)sim.room.hazards[0];
+                foreach (byte tap in search.best_inputs)
+                {
+                    if (sim.state.room_index > 0) break;
+                    key = (ExitKey)sim.room.hazards[0];
+                    sim.step(tap == 1);
+                }
+                if (!key.done()) fails.Add($"{what}: left with {key.got} of {key.count} keys");
+            }
+            return result(fails);
+        }
+
+        public override string summary(List<JsonNode> results) =>
+            $"{results.Count} searches, {SEEDS_EACH} seeds per Locked Out variant";
+    }
+
     /// tests/sim/test_arrival_reaction.gd (ArrivalBench): out of a portal a
     /// 0.75 s reaction is never killed by the room, and at 1 s at most
     /// MAX_EXTRA_PCT of arrivals leave no way to live; every room and every
@@ -428,7 +480,8 @@ static partial class Checks
     }
 
     /// tests/sim/test_revive_survivable.gd: after a revive, in every room,
-    /// whatever the exit was doing, SurvivalSearch finds a way to live on.
+    /// whatever the exit was doing and however the bird came in,
+    /// SurvivalSearch finds a way to live on.
     /// The GD test played one exit case and wall per room; this plays all.
     public sealed class Revive : Check
     {
@@ -444,26 +497,28 @@ static partial class Checks
             var out_ = new List<object>();
             for (int index = 0; index < RoomCatalog.all().Count; index++)
                 foreach (var exit in CASES)
-                    for (long side = 0; side < 2; side++) out_.Add((index, exit, side));
+                    for (long side = 0; side < 2; side++)
+                        for (long toward = 0; toward < 2; toward++)
+                            foreach (var y in Setups.ENTRY_YS) out_.Add((index, exit, side, toward, y));
             return out_;
         }
 
         public override JsonObject run(int n)
         {
-            var (index, exit, side) = ((int, string, long))cases[n];
-            var sim = Setups.revived(index, 9000 + index, exit, side);
+            var (index, exit, side, toward, y) = ((int, string, long, long, long))cases[n];
+            var sim = Setups.revived(index, 9000 + index, exit, side, toward, y);
             var search = new SurvivalSearch();
             var fails = new List<string>();
             if (!search.run(sim, TICKS))
             {
                 string deaths = string.Join(", ", search.last_deaths.Select(kv => $"{kv.Key}: {kv.Value}"));
-                fails.Add($"{RoomCatalog.all()[index].id}, exit {exit} on wall {side}: all died {search.ticks_survived} ticks after the revive ({deaths})");
+                fails.Add($"{RoomCatalog.all()[index].id}, exit {exit} on wall {side}, came in toward {toward} at {y / SimConfig.SUB} px: all died {search.ticks_survived} ticks after the revive ({deaths})");
             }
             return result(fails);
         }
 
         public override string summary(List<JsonNode> results) =>
-            $"{results.Count} revives (every room x {CASES.Length} exit cases x both walls)";
+            $"{results.Count} revives (every room x {CASES.Length} exit cases x both walls x both ways in x {Setups.ENTRY_YS.Length} heights)";
     }
 
     /// tests/sim/test_double_trouble.gd test_every_pair_has_a_way_through:
