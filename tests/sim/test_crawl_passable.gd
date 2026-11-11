@@ -15,6 +15,8 @@ const ROOMS: Array[String] = ["crawl", "crabs"]
 ## The sweep: practice seeds per room, and ticks each (two to three portals).
 const SWEEP_SEEDS := 60
 const SWEEP_TICKS := 2400
+## The sweep's runs are shared out over this many parts, which can run side by side.
+const PARTS := 6
 ## The bird can touch a segment on a wall's side of the path only this close
 ## to that wall (the path is 60 px in, the two radii are 24 px).
 const NEAR_WALL := 80 * SUB
@@ -39,42 +41,34 @@ class Harmless:
 ## - every wall keeps MIN_RUN slots in a row with no spike and no crawler in
 ##   front of them while the bird is at that wall, and
 ## - no crawler is in front of any part of an open exit as the bird flies in.
-func test_crawlers_never_cover_the_way_on() -> void:
-	for id in ROOMS:
+func test_crawlers_never_cover_the_way_on(part: int, parts: int) -> void:
+	var counts := {}
+	for i in range(part, ROOMS.size() * SWEEP_SEEDS, parts):
+		var id := ROOMS[i / SWEEP_SEEDS]
+		var s := i % SWEEP_SEEDS + 1
 		var index := RoomCatalog.index_of(id)
 		var def: RoomDef = RoomCatalog.all()[index]
+		var got := _sweep(GameSim.new(s, def.season, index), "%s seed %d" % [id, s])
+		var sum: Array = counts.get(id, [0, 0])
+		counts[id] = [sum[0] + got[0], sum[1] + got[1]]
+	report = counts
+
+
+## Over every part: each room had many walls and exits checked.
+static func combine_test_crawlers_never_cover_the_way_on(reports: Array) -> Array[String]:
+	var out: Array[String] = []
+	for id in ROOMS:
 		var walls := 0
 		var exits := 0
-		for s in range(1, SWEEP_SEEDS + 1):
-			var sim := GameSim.new(s, def.season, index)
-			var counts := _sweep(sim, "%s seed %d" % [id, s])
-			walls += counts[0]
-			exits += counts[1]
-		assert_true(walls > SWEEP_SEEDS * 20, "%s: checked many walls (%d)" % [id, walls])
-		assert_true(exits >= SWEEP_SEEDS * 2, "%s: checked many exits (%d)" % [id, exits])
-
-
-## A revive starts the room again while the exit stays where it was planned,
-## for crawlers that were somewhere else. The fresh crawlers come down the wall
-## sides near the top right and bottom left corners, so exits there are the
-## hard ones: they start further back and still leave the exit clear. (That a
-## bird gets from the revive through them: Checks.cs Crawl, on FastSim.)
-func test_revive_leaves_the_planned_exit_clear() -> void:
-	var index := RoomCatalog.index_of("crawl")
-	var top := SimConfig.slot_center_y(1)
-	var bottom := SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 2)
-	for s in range(1, 31):
-		for exit: String in ["open", "ghost"]:
-			for side in 2:
-				for y: int in [top, bottom]:
-					var sim := BotSetups.crawl_revived(index, s, exit, side, y)
-					var label := (
-						"seed %d (%s), %s exit on wall %d at %d px"
-						% [s, sim.room.variant_id(), exit, side, y / SUB]
-					)
-					for h: Hazard in sim.room.hazards:
-						assert_false(h.blocks_exit(sim, side, y), "%s: clear of the exit" % label)
-						assert_false(h.kills(sim), "%s: clear of the bird" % label)
+		for r: Dictionary in reports:
+			var c: Array = r.get(id, [0, 0])
+			walls += int(c[0])
+			exits += int(c[1])
+		if walls <= SWEEP_SEEDS * 20:
+			out.append("%s: checked many walls (%d)" % [id, walls])
+		if exits < SWEEP_SEEDS * 2:
+			out.append("%s: checked many exits (%d)" % [id, exits])
+	return out
 
 
 ## Returns [walls checked, exits checked].

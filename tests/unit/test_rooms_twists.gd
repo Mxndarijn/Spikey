@@ -1,10 +1,9 @@
 extends TestCase
-## Twist rooms: Crosswind, Spike Belt, Locked Exit, Lava Rise and Echo.
+## Twist rooms: Crosswind, Spike Belt, Lava Rise and Echo (Locked Out: test_locked_out.gd).
 
 const Rooms := preload("res://tests/unit/test_rooms.gd")
 const Wind := preload("res://sim/hazards/wind.gd")
 const Belt := preload("res://sim/hazards/belt.gd")
-const ExitKey := preload("res://sim/hazards/exit_key.gd")
 const Lava := preload("res://sim/hazards/lava.gd")
 const Echo := preload("res://sim/hazards/echo.gd")
 
@@ -12,8 +11,7 @@ const SUB := SimConfig.SUB
 const TWISTS := {
 	"crosswind": ["wind", ["steady", "split", "gusty"]],
 	"belt": ["belt", ["up", "counter", "switchback"]],
-	"lockexit": ["exit_key", ["still", "orbit", "two"]],
-	"lava": ["lava", ["lava", "crusher"]],
+	"lava": ["lava", ["lava"]],
 	"echo": ["echo", ["echo", "mirror"]],
 }
 
@@ -127,60 +125,12 @@ func test_belt_stops_on_an_open_exit() -> void:
 	assert_ne(b.left_shift, 0, "the other wall still runs")
 
 
-# --- Locked Exit -------------------------------------------------------------
-
-
-func test_locked_exit_bounces_until_the_key_is_taken() -> void:
-	var sim := _locked_at_exit(7)
-	var k: ExitKey = sim.room.hazards[0]
-	sim._check_walls()
-	assert_eq(sim.state.room_index, 0, "a locked exit is a bounce")
-	assert_true(sim.state.vx < 0, "turned back")
-	assert_true(sim.state.alive, "and lived")
-	sim = _locked_at_exit(7)
-	k = sim.room.hazards[0]
-	var coins := sim.state.coins
-	sim.state.x = k.x0
-	sim.state.y = k.y0
-	k.touch(sim)
-	assert_true(k.taken, "the key is taken")
-	assert_eq(sim.state.coins - coins, ExitKey.COINS, "and pays")
-	sim.state.x = SimConfig.WORLD_W - SimConfig.BIRD_RADIUS
-	sim.state.y = sim.state.exit_a_y
-	sim._check_walls()
-	assert_eq(sim.state.room_index, 1, "the exit now leads on")
-
-
-func test_locked_exit_opens_by_itself_in_the_end() -> void:
-	var sim := _locked_at_exit(8)
-	var k: ExitKey = sim.room.hazards[0]
-	for i in ExitKey.MAX_LOCKED_BOUNCES:
-		k.on_bounce(sim, SimRng.new(1))
-	assert_false(sim.exit_locked(), "never a trap")
-
-
-func test_orbit_key_moves_and_stays_in_the_room() -> void:
-	var k := ExitKey.new(ExitKey.Mode.ORBIT)
-	var sim := GameSim.new(9)
-	k.setup(sim, SimRng.new(9))
-	var start := Vector2i(k.x0, k.y0)
-	for t in ExitKey.ORBIT_STEPS:
-		k.t = t
-		k.step(sim)
-		assert_true(k.x0 > 60 * SUB and k.x0 < 300 * SUB, "clear of the walls")
-		assert_true(k.y0 > 150 * SUB and k.y0 < 500 * SUB, "clear of the edges")
-	k.t = 100
-	k.step(sim)
-	assert_ne(Vector2i(k.x0, k.y0), start, "it moves")
-
-
 # --- Lava Rise ---------------------------------------------------------------
 
 
 func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 	var sim := _started("lava", 10)
 	var l: Lava = sim.room.hazards[0]
-	l.mode = Lava.Mode.FLOOR
 	l.line = l.rest()
 	for p in Lava.STONE_AFTER:
 		sim.room.points += 1
@@ -206,33 +156,30 @@ func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 
 
 func test_lava_stops_rising_and_keeps_a_free_run() -> void:
-	for mode in [Lava.Mode.FLOOR, Lava.Mode.CEILING]:
-		var sim := _started("lava", 11)
-		var l: Lava = sim.room.hazards[0]
-		l.mode = mode
-		l.line = l.rest()
-		sim.room.points = 20
-		l.on_bounce(sim, SimRng.new(1))
-		assert_eq(l.rises, Lava.MAX_RISES, "it stops rising")
-		var edge := l.line_at(Lava.MAX_RISES)
-		var all := (1 << SimConfig.SLOT_COUNT) - 1
-		sim.state.y = 320 * SUB
-		var mask: int = l.adjust_wall(sim, 1, all)
-		var run := 0
-		var best := 0
-		for slot in SimConfig.SLOT_COUNT:
-			if l._slot_clear(slot, edge) and not RoomRules.has_slot(mask, slot):
-				run += 1
-				best = maxi(best, run)
-			else:
-				run = 0
-		assert_true(best >= Lava.RUN, "a free run clear of the line (mode %d)" % mode)
+	var sim := _started("lava", 11)
+	var l: Lava = sim.room.hazards[0]
+	l.line = l.rest()
+	sim.room.points = 20
+	l.on_bounce(sim, SimRng.new(1))
+	assert_eq(l.rises, Lava.MAX_RISES, "it stops rising")
+	var edge := l.line_at(Lava.MAX_RISES)
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	sim.state.y = 320 * SUB
+	var mask: int = l.adjust_wall(sim, 1, all)
+	var run := 0
+	var best := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if l._slot_clear(slot, edge) and not RoomRules.has_slot(mask, slot):
+			run += 1
+			best = maxi(best, run)
+		else:
+			run = 0
+	assert_true(best >= Lava.RUN, "a free run clear of the line")
 
 
 func test_lava_keeps_exits_out_of_its_reach() -> void:
 	var sim := _started("lava", 12)
 	var l: Lava = sim.room.hazards[0]
-	l.mode = Lava.Mode.FLOOR
 	l.rises = 4
 	var worst := l.line_at(5)
 	assert_true(l.blocks_exit(sim, 1, worst), "no exit in the lava")
@@ -296,17 +243,4 @@ static func _run_room(id: String, seed_value: int) -> int:
 static func _started(id: String, seed_value: int) -> GameSim:
 	var sim := Rooms.sim_in_room(id, seed_value)
 	sim.state.started = true
-	return sim
-
-
-## A Locked Exit room with its exit open on the right, the bird at it.
-static func _locked_at_exit(seed_value: int) -> GameSim:
-	var sim := _started("lockexit", seed_value)
-	sim.state.exit_open = true
-	sim.state.exit_side = 1
-	sim.state.exit_a_y = SimConfig.slot_center_y(6)
-	sim.state.exit_a_kind = SimState.ExitKind.NORMAL
-	sim.state.vx = SimConfig.SPEED_X
-	sim.state.x = SimConfig.WORLD_W - SimConfig.BIRD_RADIUS
-	sim.state.y = sim.state.exit_a_y
 	return sim

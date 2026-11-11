@@ -95,6 +95,25 @@ public static class Tiers
         ["calibrated_p90"] = pct(runs.Select(r => r.points), 0.9),
     };
 
+    /// Score bands for the deaths-per-100-points report.
+    public static readonly long[] BANDS = { 0, 10, 20, 40, 80 };
+
+    /// Deaths per 100 points scored inside each band: points scored in a
+    /// band count for every run that got there, deaths for the runs that ended in it.
+    public static string band_line(RunResult[] runs)
+    {
+        var parts = new List<string>();
+        for (int b = 0; b < BANDS.Length; b++)
+        {
+            long lo = BANDS[b], hi = b + 1 < BANDS.Length ? BANDS[b + 1] : long.MaxValue;
+            long points = runs.Sum(r => Math.Max(0, Math.Min(r.points, hi) - lo));
+            long died = runs.Count(r => r.dead && r.points >= lo && r.points < hi);
+            string name = hi == long.MaxValue ? $"{lo}+" : $"{lo}..{hi}";
+            parts.Add(points == 0 ? $"{name} -" : $"{name} {100.0 * died / points:F2}");
+        }
+        return string.Join(", ", parts);
+    }
+
     public static List<Tier> load(string dir)
     {
         var o = JsonNode.Parse(File.ReadAllText(Path.Combine(dir, "tiers.json"))).AsObject();
@@ -135,6 +154,7 @@ public static class Tiers
                 .Select(g => $"{g.Key.ToLower()} {100.0 * g.Count() / runs.Length:F0}%");
             string note = $"  [{string.Join(", ", causes)}]" + (capped > 0 ? $"  ({capped} reached the cap)" : "");
             Console.WriteLine($"  {t.name,-9} {med,7:F1} {p90,7:F1} {p25,6:F1} {pts.Average(),7:F1} {out_first,7:F0}%  {t.hc,-34} {string.Join(", ", deaths)}{note}");
+            Console.WriteLine($"  {"",-9} deaths per 100 points: {band_line(runs)}; alive at the cap: {capped} of {runs.Length}");
             rows.Add((t.name, med, p25));
             var runs_json = new JsonArray(runs.Select(r => (JsonNode)new JsonObject
             {
@@ -146,6 +166,7 @@ public static class Tiers
                 ["delay"] = t.hc.delay, ["jitter"] = t.hc.jitter, ["miss"] = t.hc.miss, ["runs"] = runs_json,
             });
         }
+        Console.WriteLine($"  gameplay version {SimConfig.GAMEPLAY_VERSION}; copies: none (the policy reads only the observation)");
         int bad = 0;
         for (int i = 1; i < rows.Count; i++)
         {

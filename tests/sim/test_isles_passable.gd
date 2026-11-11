@@ -93,28 +93,6 @@ func test_exits_open_clear_of_islands() -> void:
 	assert_true(blocked > 100, "islands near a wall came up (%d)" % blocked)
 
 
-## A revive puts the islands back around the exit that is already there: none
-## in front of it, and, when it is open, none between the bird and it.
-func test_revive_keeps_the_way_to_the_exit_clear() -> void:
-	for s in 300:
-		var exit := "open" if s % 2 == 0 else "ghost"
-		var v := ISLES_VARIANTS[(s / 4) % ISLES_VARIANTS.size()]
-		var sim := _revived("isles", s, exit, (s / 2) % 2, v)
-		var st := sim.state
-		for b: Block in _islands(sim):
-			assert_false(
-				b.blocks_exit(sim, st.exit_side, st.exit_a_y),
-				"seed %d: island in front of the %s exit %s" % [s, exit, _layout(sim)]
-			)
-			if exit == "open":
-				var top := mini(st.y, st.exit_a_y) - Block.ARRIVAL_UP
-				var bottom := maxi(st.y + Block.ARRIVAL_DOWN, st.exit_a_y + Block.ARRIVAL_UP)
-				assert_false(
-					b.y1 > top and b.y0 < bottom,
-					"seed %d: island between the bird and the exit %s" % [s, _layout(sim)]
-				)
-
-
 ## Ghost Doors blocks stay where the catalog put them and block no exit.
 func test_fading_blocks_are_unchanged() -> void:
 	var sim := _practice("ghostdoors", 5, "classic")
@@ -148,12 +126,6 @@ static func _arrived(id: String, seed_value: int, variant: String = "classic") -
 	sim._enter_room(sim.practice_room)
 	sim._arrive(side, GameSim.Event.ROOM_CHANGE)
 	return sim
-
-
-static func _revived(
-	id: String, seed_value: int, exit: String, side: int, variant: String = "classic"
-) -> GameSim:
-	return BotSetups.isles_revived(id, seed_value, exit, side, variant)
 
 
 ## Left and right edge of an island's whole sway (its box when it is still).

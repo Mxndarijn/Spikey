@@ -1,6 +1,7 @@
 class_name ResumeCountdown
 extends Label
-## The 3, 2, 1 big over the frozen room after Resume.
+## The big count over the frozen room: 3, 2, 1 after Resume, 5 to 1 after a
+## revive.
 
 const SIZE := 120
 
@@ -14,7 +15,7 @@ func _init() -> void:
 	visible = false
 
 
-## Shows `n` (3, 2, 1); 0 hides it.
+## Shows `n`; 0 hides it.
 func show_count(n: int) -> void:
 	visible = n > 0
 	if n > 0:

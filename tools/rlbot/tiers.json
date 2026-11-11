@@ -1,58 +1,17 @@
 {
-  "gameplay_version": 19,
+  "gameplay_version": 21,
   "layout": 3,
-  "calibrate_seeds": 200,
-  "cap": 36000,
+  "note": "Beast only: handicaps on this policy don't separate tiers (a 2-tick delay drops it to a median of 1). See docs/RL_BOT.md.",
   "tiers": [
     {
-      "name": "beginner",
-      "target": 30,
-      "skill": 0.9648,
-      "delay": 1,
-      "jitter": 0,
-      "miss": 0.0123,
-      "calibrated_median": 32.5,
-      "calibrated_p90": 62.099999999999994
-    },
-    {
-      "name": "normal",
-      "target": 60,
-      "skill": 0.9922,
-      "delay": 0,
-      "jitter": 0,
-      "miss": 0.0027,
-      "calibrated_median": 44,
-      "calibrated_p90": 81.19999999999999
-    },
-    {
-      "name": "good",
-      "target": 120,
-      "skill": 0.9922,
-      "delay": 0,
-      "jitter": 0,
-      "miss": 0.0027,
-      "calibrated_median": 44,
-      "calibrated_p90": 81.19999999999999
-    },
-    {
-      "name": "expert",
-      "target": 250,
-      "skill": 0.9922,
-      "delay": 0,
-      "jitter": 0,
-      "miss": 0.0027,
-      "calibrated_median": 44,
-      "calibrated_p90": 81.19999999999999
-    },
-    {
       "name": "beast",
-      "target": 44,
+      "target": 500,
       "skill": 1,
       "delay": 0,
       "jitter": 0,
       "miss": 0,
-      "calibrated_median": 44,
-      "calibrated_p90": 80
+      "measured_median": 42,
+      "measured_p90": 78
     }
   ]
 }

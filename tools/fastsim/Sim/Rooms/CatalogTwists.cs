@@ -29,14 +29,18 @@ public static class CatalogTwists
         lock_.hazards.Add(() => new ExitKey());
         lock_.variants = new List<RoomVariant>
         {
-            new RoomVariant("still"), new RoomVariant("orbit"), new RoomVariant("two"),
+            new RoomVariant("classic").sized(1, 1, 1),
+            new RoomVariant("orbit").sized(1, 1, 1),
+            new RoomVariant("trio").sized(1, 1, 1),
+            new RoomVariant("quad").sized(1, 1, 1),
+            new RoomVariant("chain").sized(1, 1, 1),
         };
         out_.Add(lock_);
 
         var lava = new RoomDef("lava", "mid", 50);
         lava.max_spikes = 6;
         lava.hazards.Add(() => new Lava());
-        lava.variants = new List<RoomVariant> { new RoomVariant("lava"), new RoomVariant("crusher") };
+        lava.variants = new List<RoomVariant> { new RoomVariant("lava") };
         out_.Add(lava);
 
         var echo = new RoomDef("echo", "late", 80);

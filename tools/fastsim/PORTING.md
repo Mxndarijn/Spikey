@@ -19,6 +19,14 @@ room, and the bots and searches the checks below use: for those cases the C#
 bot must choose the same taps as the GDScript one (`case ... gap` /
 `planner:...` and `csearch` lines, see `tools/fastsim_parity.gd`).
 
+## Rendering a bot's run
+
+To render (or check) a run a FastSim bot played, write a run file with
+`Bots/RunFile.cs` (`RunFile.write(path, sim, taps, revives, loadout, name)`)
+and call `tools/render_run.ps1 -Run <file>` (`-Check` headless, `-Out x.mp4`
+only when the user asked). See `docs/RENDERING.md`. `SimConfig.GAMEPLAY_VERSION`
+here must equal the GDScript one (`tests/unit/test_fastsim_checks.gd`).
+
 ## The check's bot tests (`fastsim check`)
 
 `tools/check.ps1` plays bots only on FastSim (`tools/fastsim.ps1 -Mode
@@ -33,8 +41,9 @@ parity proves the sim, the bots and the start sims (`BotSetups` /
 | `passable` | `tests/sim/test_variants_passable.gd` | SurvivalSearch gets through each practice seed of every variant (6 each) and takes the first portal |
 | `arrival` | `tests/sim/test_arrival_reaction.gd` | out of a portal, no 0.75 s reaction is killed with no way to live; at 1 s at most `ArrivalBench.MAX_EXTRA_PCT` of arrivals over every room and variant (32 each) |
 | `points` | `tests/sim/test_room_points_cap.gd` | no room stay pays more than `POINTS_PER_ROOM`, every variant, revives included |
-| `revive` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case and both walls, a way to live on |
+| `revive` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case, both walls, both ways in and three portal heights, a way to live on |
 | `pairs` | `tests/sim/test_double_trouble.gd` | every Double Trouble pair has a way through |
+| `keys` | (new, named `tests/unit/test_locked_out.gd:test_every_key_can_be_taken`) | Locked Out, every variant, 12 seeds each: SurvivalSearch takes every key before it leaves through the exit |
 | `crawl` | searches of `tests/sim/test_crawl_passable.gd` | through the first portal on the seeds a crawler once blocked; from a revive through the hard exits |
 | `gates` | searches of `tests/sim/test_gates_passable.gd` | the portal is reachable: once impossible seeds, quick runs before an exit, after a revive at every height |
 | `isles` | searches of `tests/sim/test_isles_passable.gd` | Floating Isles and Egg Hunt, every variant: through the portal, and from a revive through the exit (QuickSearch) |

@@ -68,9 +68,14 @@ extends RefCounted
 ##     the pinwheel's band, beams skip a turn while the ball is in their row,
 ##     1 s warnings, Saw Ring + Spike Rain replaces Saw Ring + Stalker, only
 ##     pairs that fit the bird's height out of a portal). Five new rooms:
-##     Crosswind, Spike Belt, Locked Exit, Lava Rise, Echo. The free run stays
+##     Crosswind, Spike Belt, Locked Out, Lava Rise, Echo. The free run stays
 ##     near the bird in rooms whose hazards are only in variants.
-const GAMEPLAY_VERSION := 20
+## 21: Locked Out is harder: a lockdown adds wall spikes, the lock gives up after
+##     8 bounces, new Three keys and Four keys variants (keys placed from the
+##     seed, every key reachable) and a key chain; Two keys is retired. A revive
+##     restarts the room as the bird entered it, at its portal, and plans the
+##     exit again, instead of rebuilding the room from the RNG.
+const GAMEPLAY_VERSION := 21
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60

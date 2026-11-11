@@ -7,7 +7,7 @@ extends RefCounted
 
 ## The run is over for good: Main shows Game over.
 signal ended(replay: Replay)
-## The bird is back and the run waits, paused, for the player's tap.
+## The bird is back; Main counts 5, 4, 3, 2, 1 and the run flies on by itself.
 signal revived
 
 ## No offer below this score: a quick crash restarts with one tap.

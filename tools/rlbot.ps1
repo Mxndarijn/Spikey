@@ -12,7 +12,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode calibrate                # refit the tier handicaps
 #   powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode speed                    # ticks per second
 #
-# -Threads: at most 4 (default 4). Training saves after every generation and
+# -Threads: at most 8 (default 4; the coordinator allows up to 8 per run). Training saves after every generation and
 # stops after -Minutes, so split long training into chunks with -Resume.
 param(
     [ValidateSet("train", "teach", "deaths", "heights", "calibrate", "measure", "speed")]
@@ -90,6 +90,13 @@ switch ($Mode) {
         if ($Cap) { $a += @("--cap", $Cap) }
         if ($Out) { $a += @("--out", $Out) }
     }
+}
+# The teacher's searches copy many sims; the multi-threaded (server) garbage
+# collector keeps the threads busy there (+30% iterations). Plain play gains
+# nothing from it, so only teach turns it on.
+if ($Mode -eq "teach") {
+    $env:DOTNET_gcServer = "1"
+    $env:DOTNET_GCHeapCount = [Math]::Max(1, $Threads)
 }
 & $exe @a
 exit $LASTEXITCODE

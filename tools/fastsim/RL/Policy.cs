@@ -11,6 +11,9 @@ public sealed class Policy
     public static readonly int[] SIZES = { Observer.INPUTS, 64, 64, 1 };
     public readonly Mlp net;
     public readonly float[] w;
+    /// The policy decides every this many ticks and holds still in between
+    /// (a human-rate player; 1 = every tick). Saved with the weights.
+    public int decide_every = 1;
 
     public Policy(float[] weights, int[] sizes = null)
     {
@@ -55,7 +58,7 @@ public sealed class Policy
         var sizes = o["sizes"].AsArray().Select(n => (int)n).ToArray();
         if (sizes[0] != Observer.INPUTS || sizes[^1] != 1) throw new InvalidDataException($"{path}: network inputs differ: train again");
         var w = o["weights"].AsArray().Select(n => (float)n).ToArray();
-        return new Policy(w, sizes);
+        return new Policy(w, sizes) { decide_every = o["decide_every"] != null ? (int)o["decide_every"] : 1 };
     }
 
     public static readonly JsonSerializerOptions PRETTY = new() { WriteIndented = true };
