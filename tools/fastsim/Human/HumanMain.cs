@@ -25,6 +25,9 @@ public static class HumanMain
         HumanBot.BEAM = long.Parse(opt("beam", "0"));
         HumanBot.SPEEDS = long.Parse(opt("speeds", "6"));
         HumanBot.WIDTH = long.Parse(opt("width", "0"));
+        HumanBot.ESCALATE = int.Parse(opt("escalate", "2"));
+        HumanBot.GAPMID = opt("gapmid", "0") == "1";
+        HumanBot.BMARGIN = double.Parse(opt("bmargin", "-1"));
         string mode = pos.Count > 1 ? pos[1] : "measure";
         int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 4);
         int seeds = int.Parse(opt("seeds", "100"));
@@ -45,10 +48,11 @@ public static class HumanMain
             case "fit":
             {
                 int fseeds = int.Parse(opt("seeds", "60"));
+                double floor = 0;
                 for (int ti = 0; ti < 4; ti++)
                 {
-                    double lo = 0, hi = 1;
-                    for (int it = 0; it < int.Parse(opt("steps", "7")); it++)
+                    double lo = floor, hi = 1;
+                    for (int it = 0; it < int.Parse(opt("steps", "6")); it++)
                     {
                         double mid = (lo + hi) / 2;
                         var r = play(bot, mid, FIT_SEED, fseeds, cap, threads);
@@ -57,6 +61,7 @@ public static class HumanMain
                         if (m < TARGETS[ti]) lo = mid; else hi = mid;
                     }
                     Console.WriteLine($"{TIERS[ti]} = {(lo + hi) / 2:F3}");
+                    floor = lo;
                 }
                 return 0;
             }
@@ -66,6 +71,34 @@ public static class HumanMain
                 Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
                     runs[i] = Trace.play(new GameSim(first + 1 + i), baseline(bot, first + 1 + i), cap));
                 report($"baseline {bot}", runs, sw);
+                return 0;
+            }
+            case "deaths":
+            {
+                // For each death: from the tick after the last bounce (the new
+                // spikes are up and on screen), could a full SurvivalSearch live
+                // 150 ticks? If not, the height at the bounce already doomed it.
+                double s = skill_of(opt("tier", ""), double.Parse(opt("skill", "1")));
+                var runs = play(bot, s, first, seeds, cap, threads);
+                var rows = new string[runs.Length];
+                Parallel.For(0, runs.Length, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
+                {
+                    var r = runs[i];
+                    if (!r.dead || r.bounces.Count == 0) return;
+                    long from = r.bounces[^1] + 1;
+                    var sim = new GameSim(r.seed);
+                    var taps = new HashSet<long>(r.taps);
+                    sim.step(true);
+                    while (sim.state.tick < from && !sim.is_over()) sim.step(taps.Contains(sim.state.tick));
+                    if (sim.is_over()) return;
+                    var ss = new SurvivalSearch();
+                    bool ok = ss.run(sim, 150);
+                    rows[i] = $"{(ok ? "savable" : "DOOMED")} {r.cause} {r.room} ({r.since_bounce}t after bounce)";
+                });
+                var got = rows.Where(x => x != null).ToList();
+                foreach (var x in got) Console.WriteLine("  " + x);
+                Console.WriteLine($"deaths {got.Count}: savable after the bounce {got.Count(x => x.StartsWith("savable"))}, " +
+                                  $"doomed at the bounce {got.Count(x => x.StartsWith("DOOMED"))}");
                 return 0;
             }
             case "train-reflex":

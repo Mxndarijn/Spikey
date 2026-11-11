@@ -20,17 +20,17 @@ public sealed record Skill(
     {
         double k = Math.Clamp(1.0 - s, 0.0, 1.0);
         return new Skill(
-            lag: 2 + 16 * k,
-            think: 4 + 5 * k,
+            lag: 1 + 10 * k,
+            think: 4 + 4 * k,
             horizon: 70 - 30 * k,
-            jitter: 0.5 + 2.5 * k,
-            perr: 0.5 + 12 * k,
-            lapse: 0.03 * k,
+            jitter: 1.5 * k,
+            perr: 5 * k,
+            lapse: 0.02 * k,
             comfort: 1.0,
             tapcost: 4,
-            margin: 6,
+            margin: 10 * Math.Min(1, 4 * k),
             focus: 0,
-            plan: 120 - 70 * k,
+            plan: 120 - 50 * k,
             width: 32);
     }
 
@@ -57,7 +57,13 @@ public sealed class HumanBot
     public static long BEAM = 0;
     public static long SPEEDS = 6;
     /// Most lines the careful search keeps per tick (0 = all buckets).
-    public static long WIDTH = 0; // ticks: a thumb can't tap faster than ~10 per second
+    public static long WIDTH = 0;
+    /// How many finer searches to try when the coarse one finds no line (0..2).
+    public static int ESCALATE = 2;
+    /// Aim at the gap's point nearest mid screen (else the gap's centre).
+    public static bool GAPMID = false;
+    /// px of margin the careful search wants (-1 = the skill's margin).
+    public static double BMARGIN = -1; // ticks: a thumb can't tap faster than ~10 per second
 
     static readonly long[] OFFSETS = { -90, -60, -30, 0, 30, 60, 90 };
     // First move after the lag: -1 = aim at once, 0 = tap at once, w > 0 = hold w ticks.
@@ -70,7 +76,7 @@ public sealed class HumanBot
     readonly HashSet<long> _fire = new();
     long _next_think;
     long _last_tap = -100;
-    public long thinks, lapses, focuses;
+    public long thinks, lapses, focuses, escalations;
 
     public HumanBot(Skill k, long seed)
     {
@@ -179,6 +185,19 @@ public sealed class HumanBot
     /// a new room ends the look. Returns the taps of the best line, or null.
     List<long> focus(GameSim sim, long perr, long lockt, long ticks)
     {
+        // Coarse first; if no line lives, look harder (finer, wider).
+        var r = focus_at(sim, perr, lockt, ticks, 8 * PX, SPEEDS, WIDTH > 0 ? WIDTH : (long)Math.Round(_k.width));
+        for (int lv = 0; r == null && lv < ESCALATE; lv++)
+        {
+            escalations++;
+            r = lv == 0 ? focus_at(sim, perr, lockt, ticks, 4 * PX, 12, 160) : focus_at(sim, perr, lockt, ticks, 2 * PX, 24, 0);
+        }
+        return r;
+    }
+
+    List<long> focus_at(GameSim sim, long perr, long lockt, long ticks, long BH, long speeds, long width)
+    {
+        long bm = (long)Math.Round((BMARGIN >= 0 ? BMARGIN : _k.margin) * PX);
         var c = sim.clone_deep();
         c.state.y += perr;
         long score0 = c.state.score, room0 = c.state.room_index;
@@ -196,8 +215,7 @@ public sealed class HumanBot
         var slots = new Dictionary<long, int>();
         var next = new List<int>();
         var done = new List<int>();
-        const long BH = 8 * PX;
-        const long BV = SimConfig.FLAP_VY / -2;
+        long BV = Math.Max(1, (-SimConfig.FLAP_VY / 2) * 6 / speeds);
         for (long t = 0; t < ticks && frontier.Count > 0; t++)
         {
             slots.Clear();
@@ -223,6 +241,7 @@ public sealed class HumanBot
                         sim = s2, parent = ni, tap_tick = tap ? u : -1, last = tap ? u : e.last,
                         cost = e.cost + (s2.is_over() ? 0 : comfort_cost(s2, bounced && !FORESIGHT)),
                     };
+                    if (bm > 0 && !s2.is_over() && tight(s2, bm, bounced && !FORESIGHT)) n.cost += TIGHT_COST;
                     nodes.Add(n);
                     int id = nodes.Count - 1;
                     if (s2.is_over() || s2.state.room_index != room0)
@@ -231,7 +250,7 @@ public sealed class HumanBot
                         continue;
                     }
                     long along = s2.state.vy * grav - SimConfig.FLAP_VY;
-                    long key = (s2.state.y / BH) * 64 + G.clampi(along / BV, 0, SPEEDS - 1) + (bounced ? 1L << 40 : 0);
+                    long key = (s2.state.y / BH) * 64 + G.clampi(along / BV, 0, speeds - 1) + (bounced ? 1L << 40 : 0);
                     if (slots.TryGetValue(key, out int at))
                     {
                         if (n.cost < nodes[next[at]].cost) next[at] = id;
@@ -243,7 +262,6 @@ public sealed class HumanBot
                     }
                 }
             }
-            long width = WIDTH > 0 ? WIDTH : (long)Math.Round(_k.width);
             if (width > 0 && next.Count > width)
             {
                 next.Sort((a, b) => nodes[a].cost.CompareTo(nodes[b].cost));
@@ -260,6 +278,39 @@ public sealed class HumanBot
             if (nodes[ni].tap_tick >= 0) taps.Add(nodes[ni].tap_tick);
         taps.Reverse();
         return taps;
+    }
+
+    public const double TIGHT_COST = 400;
+
+    /// Whether the bird `m` above or below where it is would be dead: a
+    /// hazard, the ceiling or floor, or (unless they went up after the last
+    /// look) the spikes of the wall ahead. Puts the bird back.
+    static bool tight(GameSim c, long m, bool unseen)
+    {
+        var saved = c.state.copy();
+        var st = c.state;
+        long r = SimConfig.BIRD_RADIUS;
+        long y0 = st.y;
+        long side = st.vx > 0 ? 1 : 0;
+        long left = c.room.wall_left(), right = c.room.wall_right();
+        long dist = (side == 1 ? right - st.x : st.x - left) - r;
+        bool near_wall = !unseen && dist <= c.room.max_spike_depth();
+        long mask = near_wall ? c.wall_mask(side) : 0;
+        long shift = near_wall ? c.wall_shift(side) : 0;
+        long hb = c.room.spike_half_base();
+        bool bad = false;
+        var hz = c.room.hazards;
+        for (int d = -1; d <= 1 && !bad; d += 2)
+        {
+            long y = y0 + d * m;
+            if (y - r <= SimConfig.KILL_TOP || y + r >= SimConfig.KILL_BOTTOM) { bad = true; break; }
+            if (near_wall && mask != 0 && Rl.Observer.wall_hits(mask, shift, hb, y)) { bad = true; break; }
+            st.y = y;
+            for (int h = 0; h < hz.Count; h++)
+                if (hz[h].alive && hz[h].kills(c)) { bad = true; break; }
+        }
+        c.state = saved;
+        return bad;
     }
 
     /// Value of one imagined way to fly (higher is better). Taps it makes at or
@@ -340,11 +391,40 @@ public sealed class HumanBot
         return cost;
     }
 
+    /// The point of the largest gap nearest mid screen (keeps the bird where
+    /// any next gap is in reach), at least 36 px inside the gap.
+    public static long gap_point(long mask, long shift)
+    {
+        long best_start = 0, best_len = 0, run_start = 0, run_len = 0;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+        {
+            if (RoomRules.has_slot(mask, slot)) run_len = 0;
+            else
+            {
+                if (run_len == 0) run_start = slot;
+                run_len += 1;
+                if (run_len > best_len)
+                {
+                    best_len = run_len;
+                    best_start = run_start;
+                }
+            }
+        }
+        long top = SimConfig.SLOT_TOP + best_start * SimConfig.SLOT_SIZE + shift;
+        long bottom = top + best_len * SimConfig.SLOT_SIZE;
+        // An edge gap is open to the ceiling/floor kill line only in name.
+        top = Math.Max(top, SimConfig.KILL_TOP + 20 * PX);
+        bottom = Math.Min(bottom, SimConfig.KILL_BOTTOM - 20 * PX);
+        long inset = 36 * PX;
+        if (bottom - top <= 2 * inset) return (top + bottom) / 2;
+        return Math.Clamp(MID, top + inset, bottom - inset);
+    }
+
     public static long target(GameSim c)
     {
         var s = c.state;
         long side = s.vx > 0 ? 1 : 0;
-        long y = PlannerBot.gap_center_y(c.wall_mask(side));
+        long y = GAPMID ? gap_point(c.wall_mask(side), c.wall_shift(side)) : PlannerBot.gap_center_y(c.wall_mask(side));
         if (s.exit_open && s.exit_side == side)
         {
             y = s.exit_a_y;
