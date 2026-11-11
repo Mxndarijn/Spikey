@@ -1,13 +1,10 @@
 extends HazardPainter
-## Lava Rise: the lava (or the Crusher's spiked slab) in the spike colour, the
-## one colour that kills, with a lighter crest; and the cool stone in paper
-## with a mint frost mark (safe).
+## Lava Rise: the lava in the spike colour, the one colour that kills, with a
+## lighter crest; and the cool stone in paper with a mint frost mark (safe).
 
 const LavaHazard := preload("res://sim/hazards/lava.gd")
 
 const WAVE := 3.0
-const SPIKE_HALF := 20.0
-const SPIKE_DEPTH := 26.0
 
 
 func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
@@ -15,37 +12,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var theme := look.theme
 	var line := HazardLayer.px(h.line)
 	var w := RoomView.W
-	if h.mode == LavaHazard.Mode.CEILING:
-		if h.line > SimConfig.KILL_TOP:
-			var base := line - SPIKE_DEPTH
-			c.draw_rect(
-				Rect2(
-					-RoomView.SURROUND,
-					-RoomView.SURROUND,
-					w + RoomView.SURROUND * 2.0,
-					base + RoomView.SURROUND
-				),
-				theme.spike
-			)
-			for x in range(12, int(w), 44):
-				c.draw_rect(Rect2(x, base - 16.0, 20.0, 5.0), Color(theme.spike_edge, 0.8))
-			for i in 9:
-				var cx := w / 9.0 * (i + 0.5)
-				var pts := PackedVector2Array(
-					[
-						Vector2(cx - SPIKE_HALF, base),
-						Vector2(cx, line),
-						Vector2(cx + SPIKE_HALF, base)
-					]
-				)
-				c.draw_colored_polygon(pts, theme.spike)
-				c.draw_colored_polygon(
-					PackedVector2Array(
-						[Vector2(cx, base), Vector2(cx, line), Vector2(cx + SPIKE_HALF, base)]
-					),
-					theme.spike_edge
-				)
-	elif h.line < SimConfig.KILL_BOTTOM:
+	if h.line < SimConfig.KILL_BOTTOM:
 		var pts := PackedVector2Array()
 		var x := 0.0
 		while x <= w:
