@@ -63,8 +63,10 @@ public sealed class Player
 
     public bool decide(GameSim sim)
     {
+        bool turn = _n % _policy.decide_every == 0;
         var x = observe(sim);
-        return apply(sim, !sim.state.started || _policy.act(x, _acts) > 0f);
+        if (!sim.state.started) return apply(sim, true);
+        return apply(sim, turn && _policy.act(x, _acts) > 0f);
     }
 
     /// What the bird sees this tick (through the reaction delay). Call once per tick.

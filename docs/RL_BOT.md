@@ -5,6 +5,14 @@ at five measured skill tiers: `beginner`, `normal`, `good`, `expert`,
 `beast`. Use it to see how far players of each level get, which rooms kill
 them, and how a change in a room moves those numbers.
 
+**Status: wound down.** The RL bot reached a median of 42 points, far
+short of the tiers the user set (30 to 500+), and it can't take a human
+reaction delay. The main line for tiered bots is now a planner on
+scrambled sim copies (the humanlike-bot session). What was tried, the
+numbers, and what was learned: see Results and Lessons at the end. The code
+stays as a tool and as the base for the analysis commands (`deaths`,
+`heights`).
+
 It is a tool only (`tools/fastsim/RL/`, run by `tools/rlbot.ps1`). It never
 changes `sim/` or gameplay, and the game does not ship it. It reads the sim
 the same way the other FastSim bots do and only decides tap or no tap.
@@ -67,6 +75,16 @@ Two training stages, both on FastSim:
    the run there and at earlier ticks where only one move is safe. The policy
    learns these labels by cross-entropy, plus some of its own moves as
    anchors. Practice runs start more often in the rooms that kill it.
+
+PPO also has options from the research report (`D:\SoftwareProjects\SpikeCage-coord\research\bot-research.md`):
+start states from SurvivalSearch runs (`--expert 0.5`), potential shaping
+toward the safe height on the wall ahead (`--shape 0.5`), a decision every k
+ticks (`--every 2`) with a tap cost (`--tapcost 0.02`), a reaction delay in
+the loop (`--delay 12`), and a warm start from `policy.json` (`--from 1`).
+The teacher can search on scrambled copies (`--blind 1`): the sim's RNG,
+the hazards' RNGs and the crate and dart salts are reseeded, so it can't
+know future spikes or drops (`Bubble.next_x` and `Stalactite.target_y` are
+still visible to it).
 
 The teacher runs only while training. At play time the policy is alone: it
 sees the observation and nothing else.
@@ -153,31 +171,71 @@ SurvivalSearch whether the bird could have lived on from where it entered
 that room. `heights` compares how much time the policy and SurvivalSearch
 spend in each height band, and where the policy dies.
 
-## Results so far
+## Results
 
-Medians are full runs on the measure seeds 1..400 unless marked "eval" (the
-held-out seeds training picks its best on; 64 of them at first, which read
-high, now 200).
+All numbers: full runs on seeds 1..400, cap `SimConfig.MAX_TICKS`, no revives,
+gameplay version 19 (the median-42 policy also measures 42 on version 20).
+No run reached the cap. Copies: none (the policy reads only the
+observation). Eval medians on held-out seeds (64 at first, 200 later) read
+high because training keeps the best of many; the 400-seed numbers are the
+ones to trust.
 
-| stage | median |
-|---|---|
-| evolution strategies, first observation | 13 |
-| evolution strategies, + wall strip and height at the wall | 31 |
-| PPO, 10 min | 34 (eval 43) |
-| + teacher | 42 (eval 55) |
+| stage | median | p90 |
+|---|---|---|
+| evolution strategies, first observation | 13 | |
+| evolution strategies, + wall strip and height at the wall | 31 | |
+| PPO, 10 min | 34 | |
+| PPO + teacher (`tools/rlbot/policy.json`) | 42 | 76 |
+| + teacher on scrambled copies | 42.5 | 81 |
+| PPO + SurvivalSearch start states + shaping (+ every 2 ticks, tap cost) | 45-46 on 200 eval seeds, not confirmed | |
+| policy.json at a 12-tick reaction delay | 1 | 1 |
+| PPO trained with a 12-tick delay (`tools/rlbot/policy_delay12.json`), at that delay | 20 | 36 |
 
-Findings:
+Deaths per 100 points by score band (0..10 / 10..20 / 20..40 / 40..80 / 80+):
+`policy.json` 0.05 / 0.67 / 2.25 / 5.04 / 6.32; with the 12-tick delay
+trained in, 1.10 / 5.72 / 10.37 / 20.24 / -.
 
-- No room is impossible. The full SurvivalSearch lives through all 64 of 64
-  full runs of 48,000 ticks (median 543 points), and every one of 200 deaths
-  of the policy could have been avoided from where the bird entered that room.
-- The policy flies low: 62% of its time in the bottom quarter of the screen
-  (SurvivalSearch: 8%), with 3.6 taps per second (SurvivalSearch: 2.0). When a
-  gap forces it high it overshoots into the ceiling. The teacher only fixes
-  the last savable moment, so the low habit is never corrected.
-- Fitting the teacher's labels better (97% instead of 86%) did not raise the
-  median, and neither did a longer teacher horizon.
+The partner session (rl-bot-speedup, notes in `rl-bot-speedup.md`) tried
+imitation of whole runs from an aim rule, slack-width labels and Arc inputs
+(the bird's own wait and tap arcs against the hazards where they are now):
+best 30-36, below 42. Its WorldPlanner-teacher trial (a visible-only planner
+as the teacher) was still running when this line was wound down.
 
-Next: label the policy's ordinary moves too (fly toward the gap or exit
-height where both moves are safe), a bigger network, and inputs for every
-free gap and the exit over the whole wall.
+### Tiers
+
+`tools/rlbot/tiers.json` holds beast only. Calibrating handicaps on this
+policy can't separate tiers: a 1-tick delay already brings it from 42 to
+about 32, and a 2-tick delay to about 1, so normal, good and expert all
+collapse onto beast or below beginner.
+
+## Lessons
+
+- **No room is impossible.** The full SurvivalSearch survives all 64 full runs
+  of 48,000 ticks (median 543 points), and all 200 checked deaths of the
+  policy could have been avoided from where the bird entered that room
+  (`-Mode deaths`). The limit was the learner, not the game.
+- **The policy is a 1-tick feedback controller.** It reacts to the bird's
+  exact state every tick with bursts of small taps (3.6 taps per second,
+  SurvivalSearch 2.0) and hovers low (62% of its time in the bottom quarter
+  of the screen, SurvivalSearch 8%; `-Mode heights`). That style can't
+  survive a reaction delay, so human-like handicaps can't be put on top of it
+  afterwards. A delay can be learned (1 -> 20 at 12 ticks), so tiers would
+  each need training at their own delay.
+- **The teacher's labels fit but don't help.** Raising label fit from 86% to
+  97%, a 4 s horizon, slack-width labels and scrambled copies all left the
+  median at about 42. The teacher saves the run at the last moment by moves
+  the policy can't tell apart from what it sees (the imitation gap of a
+  future-seeing teacher), and fixing one death moves the error a little
+  earlier.
+- **Capacity is not the issue.** A 124k-weight network (the partner's) fits
+  98-99% of its labels and plays no better.
+- **Measure on 400 seeds.** A median over 64 seeds moves between about 39 and
+  51 by chance; "55" was such a number.
+- **Speed.** Plain play scales well over threads (8 threads 5.3x faster than
+  one). The teacher stage needed the server garbage collector and replay
+  checkpoints. Windows' per-process CPU time under-reports on this PC: judge
+  by throughput.
+
+If a learned bot is wanted later: distil a planner that sees only what a
+player sees (no imitation gap), decide every 6 to 8 ticks, and train with the
+reaction delay in the loop (the review's step 5).

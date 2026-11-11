@@ -12,7 +12,7 @@ public static class RlMain
     {
         string what = pos.Count > 1 ? pos[1] : "measure";
         string dir = Path.GetFullPath(opts.GetValueOrDefault("dir", default_dir()));
-        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 8);
+        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 16);
         string O(string k, string d) => opts.GetValueOrDefault(k, d);
         if (!opts.ContainsKey("throttle")) Power.full_speed();
         try
@@ -27,11 +27,18 @@ public static class RlMain
                     if (opts.ContainsKey("envs")) t.envs = int.Parse(opts["envs"]);
                     if (opts.ContainsKey("entropy")) t.entropy = float.Parse(opts["entropy"]);
                     if (opts.ContainsKey("practice")) t.practice = double.Parse(opts["practice"]);
+                    if (opts.ContainsKey("every")) t.every = int.Parse(opts["every"]);
+                    if (opts.ContainsKey("tapcost")) t.tap_cost = float.Parse(opts["tapcost"]);
+                    if (opts.ContainsKey("shape")) t.shape = float.Parse(opts["shape"]);
+                    if (opts.ContainsKey("expert")) t.expert = double.Parse(opts["expert"]);
+                    if (opts.ContainsKey("from")) t.from_policy = true;
+                    if (opts.ContainsKey("delay")) t.delay = int.Parse(opts["delay"]);
                     return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")), int.Parse(O("init", "1")));
                 }
                 case "teach":
                 {
                     var t = new Dagger(dir) { threads = threads };
+                    Teacher.blind = opts.ContainsKey("blind");
                     if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
                     if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
                     if (opts.ContainsKey("runs")) t.runs = int.Parse(opts["runs"]);

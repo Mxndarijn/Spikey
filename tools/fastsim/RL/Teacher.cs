@@ -12,6 +12,31 @@ public static class Teacher
     public const long SPEED_BUCKETS = 6;
     public static readonly long TAP_BELOW_VY = SimConfig.FLAP_VY / 2;
 
+    /// Scrambled copies (the user's rule: predicting visible motion is fine,
+    /// knowing RNG outcomes is not). On, every search starts from a copy whose
+    /// RNG, hazard RNGs and crate and dart salts are reseeded, so the teacher
+    /// can't see the next wall's spikes or the next drop. Still visible to it:
+    /// Bubble.next_x and Stalactite.target_y (not scrambled).
+    public static bool blind = false;
+
+    /// A copy of `sim` whose hidden randomness is replaced (when `blind`).
+    public static GameSim copy(GameSim sim)
+    {
+        var c = sim.clone_deep();
+        if (!blind) return c;
+        var own = new SimRng(sim.checksum() ^ 0x5eed);
+        c._rng = new SimRng(own.next_u32());
+        foreach (var hz in c.room.hazards)
+        {
+            if (hz is CrateDrop cd) cd.salt = own.next_u32();
+            if (hz is Dart d) d.salt = own.next_u32();
+            if (hz is Drop dr) dr._rng = new SimRng(own.next_u32());
+            if (hz is Firework fw) fw._rng = new SimRng(own.next_u32());
+            if (hz is OrchardSpawner os) os._rng = new SimRng(own.next_u32());
+        }
+        return c;
+    }
+
     /// Whether `sim` (not changed) survives `horizon` ticks with some taps.
     public static bool survives(GameSim sim, long horizon)
     {
@@ -64,9 +89,9 @@ public static class Teacher
     /// (tap is safe, wait is safe).
     public static (bool tap, bool wait) safe_moves(GameSim sim, long horizon)
     {
-        var a = sim.clone_deep();
+        var a = copy(sim);
         a.step(true);
-        var b = sim.clone_deep();
+        var b = copy(sim);
         b.step(false);
         return (survives(a, horizon), survives(b, horizon));
     }
@@ -105,9 +130,9 @@ public static class Teacher
     /// The slack after a tap and after a wait at `sim`.
     public static (long tap, long wait) slack_moves(GameSim sim, long horizon)
     {
-        var a = sim.clone_deep();
+        var a = copy(sim);
         a.step(true);
-        var b = sim.clone_deep();
+        var b = copy(sim);
         b.step(false);
         return (width(a, horizon), width(b, horizon));
     }
