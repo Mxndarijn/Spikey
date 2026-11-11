@@ -13,24 +13,31 @@ namespace FastSim.Rl;
 public sealed class Dagger
 {
     public int threads = 4;
-    public int runs = 32;
+    public int runs = 64;
     public long cap = 20000;
     public double practice = 0.5;
     /// Ticks a saving move must keep the bird alive.
     public long horizon = 90;
     /// How far back from a death the teacher looks for the deciding tick.
-    public long back = 240;
+    public long back = 480;
     /// Extra ticks labelled before the deciding one (every EXTRA_STEP ticks).
     public int extra = 20;
     public const int EXTRA_STEP = 2;
+    /// Slack labels: over the last `slack_back` ticks before each death, every
+    /// SLACK_STEP ticks, label the move that leaves clearly more room (width
+    /// ratio at least SLACK_RATIO) instead of only the saving move.
+    public bool slack = true;
+    public long slack_back = 180;
+    public const int SLACK_STEP = 3;
+    public const double SLACK_RATIO = 1.5;
     public int anchor_every = 90;
     public float anchor_weight = 0.05f;
     public int max_data = 200_000;
-    public int batches = 60;
+    public int batches = 120;
     public int batch = 512;
     public float lr = 3e-4f;
     public int eval_every = 5;
-    public int eval_seeds = 64;
+    public int eval_seeds = 200;
     public long eval_cap = 54000;
     public const long TRAIN_SEED = 30_000_000;
 
@@ -42,6 +49,9 @@ public sealed class Dagger
     long next_seed = TRAIN_SEED;
     double best = -1;
     readonly List<(sbyte[] x, byte y, float wt)> data = new();
+    /// Recent deaths per room (decaying): practice runs start more often in
+    /// the rooms that kill the policy (each room keeps a floor of 1).
+    readonly Dictionary<long, double> killers = new();
     int data_head;
 
     public Dagger(string dir) => this.dir = dir;
@@ -49,7 +59,21 @@ public sealed class Dagger
     string policy_path => Path.Combine(dir, "policy.json");
     string state_path => Path.Combine(dir, "teach_state.json");
 
-    record struct Run(long seed, long room, byte[] taps, bool dead);
+    record struct Run(long seed, long room, byte[] taps, bool dead, long died_in);
+
+    long pick_room(Random rng)
+    {
+        var rooms = Ppo.rooms();
+        double total = 0;
+        foreach (long r in rooms) total += 1 + killers.GetValueOrDefault(r);
+        double at = rng.NextDouble() * total;
+        foreach (long r in rooms)
+        {
+            at -= 1 + killers.GetValueOrDefault(r);
+            if (at <= 0) return r;
+        }
+        return rooms[^1];
+    }
 
     public int run(bool resume, double minutes)
     {
@@ -87,20 +111,26 @@ public sealed class Dagger
             var pts = new long[runs];
             var deaths = new int[runs];
             var labels = new int[runs];
+            var died_in = new long[runs];
+            for (int r = 0; r < runs; r++) died_in[r] = -1;
             Parallel.For(0, runs, par, r =>
             {
                 long seed = first + r;
                 var rng = new Random((int)(seed % int.MaxValue));
-                long room = rng.NextDouble() < practice ? Ppo.rooms()[rng.Next(Ppo.rooms().Count)] : -1;
+                long room = rng.NextDouble() < practice ? pick_room(rng) : -1;
                 var mine = new List<(sbyte[] x, byte y, float wt)>();
                 var run = play(pol, seed, room, mine, out pts[r]);
                 if (run.dead)
                 {
                     deaths[r] = 1;
                     labels[r] = teach(pol, run, mine);
+                    died_in[r] = run.died_in;
                 }
                 found[r] = mine;
             });
+            foreach (var k in killers.Keys.ToList()) killers[k] *= 0.98;
+            foreach (long room in died_in)
+                if (room >= 0) killers[room] = killers.GetValueOrDefault(room) + 1;
             int added = 0;
             foreach (var list in found)
                 foreach (var d in list)
@@ -109,14 +139,17 @@ public sealed class Dagger
                     added++;
                 }
             double play_s = ic.Elapsed.TotalSeconds;
+            var lc = Stopwatch.StartNew();
             double loss = learn(par);
+            double learn_s = lc.Elapsed.TotalSeconds;
             double acc = teacher_accuracy();
             iter++;
-            string line = $"iter {iter,4}: {runs} runs, {deaths.Sum()} died, points/run {pts.Average(),6:F1}, {labels.Sum()} teacher labels, {added - labels.Sum()} anchors, data {data.Count}, loss {loss:F3}, teacher labels right {acc:P0}  {play_s:F0}+{ic.Elapsed.TotalSeconds - play_s:F0} s";
+            string line = $"iter {iter,4}: {runs} runs, {deaths.Sum()} died, points/run {pts.Average(),6:F1}, {labels.Sum()} teacher labels, {added - labels.Sum()} anchors, data {data.Count}, loss {loss:F3}, teacher labels right {acc:P0}  play+teach {play_s:F2} s, learn {learn_s:F2} s";
             if (iter % eval_every == 0)
             {
+                var ec = Stopwatch.StartNew();
                 var (median, mean) = evaluate(par);
-                line += $"  | eval median {median} mean {mean:F1}";
+                line += $"  | eval median {median} mean {mean:F1} ({ec.Elapsed.TotalSeconds:F1} s)";
                 double score = median + mean / 1000.0;
                 if (score > best)
                 {
@@ -151,15 +184,43 @@ public sealed class Dagger
             sim.step(tap);
         }
         points = sim.state.score - start;
-        return new Run(seed, room, taps.ToArray(), sim.is_over());
+        return new Run(seed, room, taps.ToArray(), sim.is_over(), sim.is_over() ? sim.room.index : -1);
     }
 
     /// The sim before tick `t` of a run and what the bird saw then.
-    static (GameSim sim, float[] x) replay(Run run, long t)
+    /// Copies of a run's sim every CHECK_EVERY ticks over the stretch the
+    /// teacher looks at, so a replay only steps a few ticks.
+    public const long CHECK_EVERY = 30;
+
+    static List<(long tick, GameSim sim)> checkpoints(Run run, long from)
     {
+        var out_ = new List<(long, GameSim)>();
         var sim = new GameSim(run.seed, Seasons.NONE, run.room);
+        long T = run.taps.Length;
+        from = Math.Max(0, from);
+        for (long i = 0; i < T; i++)
+        {
+            if (i >= from && (i - from) % CHECK_EVERY == 0) out_.Add((i, sim.clone_deep()));
+            sim.step(run.taps[i] != 0);
+        }
+        return out_;
+    }
+
+    /// The sim before tick `t` of a run and what the bird saw then.
+    static (GameSim sim, float[] x) replay(Run run, long t, List<(long tick, GameSim sim)> checks)
+    {
         long from = Math.Max(0, t - Observer.MOTION);
-        for (long i = 0; i < from; i++) sim.step(run.taps[i] != 0);
+        GameSim sim = null;
+        long at = 0;
+        for (int k = checks.Count - 1; k >= 0; k--)
+            if (checks[k].tick <= from)
+            {
+                sim = checks[k].sim.clone_deep();
+                at = checks[k].tick;
+                break;
+            }
+        sim ??= new GameSim(run.seed, Seasons.NONE, run.room);
+        for (long i = at; i < from; i++) sim.step(run.taps[i] != 0);
         var eyes = new Player(null, Handicap.NONE, run.seed);
         for (long i = from; i < t; i++)
         {
@@ -175,11 +236,12 @@ public sealed class Dagger
     int teach(Policy pol, Run run, List<(sbyte[] x, byte y, float wt)> out_)
     {
         long T = run.taps.Length;
+        var checks = checkpoints(run, T - back - slack_back - extra * EXTRA_STEP - Observer.MOTION - 1);
         // Savable (some move lives `horizon` more ticks) holds up to some tick
         // and not after it, along the run: find the last savable tick.
         bool savable(long t, out (bool tap, bool wait) moves, out float[] x)
         {
-            var (sim, obs) = replay(run, t);
+            var (sim, obs) = replay(run, t, checks);
             x = obs;
             moves = sim.state.started ? Teacher.safe_moves(sim, horizon) : (true, false);
             return moves.tap || moves.wait;
@@ -200,6 +262,25 @@ public sealed class Dagger
             else hi = mid;
         }
         int n = 0;
+        if (slack)
+        {
+            for (long t = lo; t >= Math.Max(1, lo - slack_back); t -= SLACK_STEP)
+            {
+                var (sim, obs) = replay(run, t, checks);
+                if (!sim.state.started) continue;
+                var (wt, ww) = Teacher.slack_moves(sim, horizon);
+                if (wt == 0 && ww == 0) continue;
+                bool tap;
+                if (ww == 0) tap = true;
+                else if (wt == 0) tap = false;
+                else if (wt >= SLACK_RATIO * ww) tap = true;
+                else if (ww >= SLACK_RATIO * wt) tap = false;
+                else continue;
+                out_.Add((pack(obs), tap ? (byte)1 : (byte)0, 1f));
+                n++;
+            }
+            return n;
+        }
         // At the last savable tick the run's own move was the wrong one.
         if (best_moves.tap != best_moves.wait)
         {
