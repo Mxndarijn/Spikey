@@ -19,6 +19,13 @@ public sealed class BlindPlanner
     public int copies = 1, lines = 1, wobble = 0;
     /// Lines differ when they part within this many ticks.
     public int part = 16;
+    /// Two-stage look (0 = off): the next wall is unknown until the bounce, so
+    /// the bird should reach this wall where most next walls stay reachable.
+    /// Stage one finds lines to just before the bounce, one per `band` px of
+    /// height there (`lines` of them). Stage two gives each of them `copies`
+    /// guessed futures and asks whether some line lives `after` ticks in each
+    /// (a coarse search). The line with the most futures alive is played.
+    public long after = 0, band = 40, coarse_px = 12, coarse_speeds = 4;
     /// Cost per tick of each px away from the middle height, and per tap (px).
     public long mid_cost = 1, tap_cost = 0;
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
@@ -31,7 +38,8 @@ public sealed class BlindPlanner
     int _since = int.MaxValue;
     int _wait = 1;
     long _bounce_y = -1, _vx;
-    readonly List<(byte[] taps, long cost)> _found = new();
+    readonly List<(byte[] taps, long cost, GameSim sim)> _found = new();
+    public long two_stage_looks;
     /// How the last look ended: 0 = a line for the whole look, 1 = only with fine buckets, 2 = only a shorter look, 3 = none.
     public int last_look;
     /// In how many of the guessed futures the played line lived (of `copies`).
@@ -63,6 +71,42 @@ public sealed class BlindPlanner
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
         GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y);
+        long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
+        if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
+        {
+            beam(copy(0), to_wall - 1, bucket_px, speed_buckets, band);
+            if (_found.Count > 0)
+            {
+                two_stage_looks++;
+                var cands = _found.ToList();
+                byte[] pick = null;
+                int pick_ok = -1;
+                long pick_cost = 0;
+                foreach (var (taps, cost, at) in cands)
+                {
+                    int ok = 0;
+                    for (int j = 0; j < n; j++)
+                    {
+                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y), after, coarse_px, coarse_speeds, 0, true);
+                        if (_found.Count > 0) ok++;
+                    }
+                    if (ok > pick_ok || (ok == pick_ok && cost < pick_cost))
+                    {
+                        pick = taps;
+                        pick_ok = ok;
+                        pick_cost = cost;
+                    }
+                    if (ok == n) break;
+                }
+                last_agree = pick_ok;
+                if (pick_ok < n) split_looks++;
+                _wait = pick_ok < n ? replan_danger : replan;
+                _plan.Clear();
+                foreach (byte b in pick) _plan.Enqueue(b != 0);
+                _since = 0;
+                return;
+            }
+        }
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
         beam(copy(0), want, bucket_px, speed_buckets);
         if (_found.Count == 0 && fine_px > 0)
@@ -82,7 +126,7 @@ public sealed class BlindPlanner
         else if (_found.Count > 0)
         {
             long best_cost = 0;
-            foreach (var (taps, cost) in _found)
+            foreach (var (taps, cost, _) in _found.ToList())
             {
                 int ok = 0;
                 for (int j = 0; j < n; j++)
@@ -237,7 +281,9 @@ public sealed class BlindPlanner
 
     /// Fills `_found` with up to `lines` lines that live `ticks` ticks,
     /// cheapest first: the cheapest of each family of lines that share their first `part` ticks.
-    void beam(GameSim root, long ticks, long bpx, long speeds)
+    /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
+    /// With `any`: stops at the first line found (only "is there one").
+    void beam(GameSim root, long ticks, long bpx, long speeds, long by_band = 0, bool any = false)
     {
         _found.Clear();
         var layer = new List<int>();
@@ -289,6 +335,11 @@ public sealed class BlindPlanner
                 frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost });
             }
         }
+        if (any)
+        {
+            _found.Add((Array.Empty<byte>(), 0, null));
+            return;
+        }
         // The family of a line: its node `part` ticks in.
         long depth = Math.Min(part, ticks) - 1;
         int family_end = depth + 1 < layer.Count ? layer[(int)depth + 1] : parents.Count;
@@ -298,7 +349,9 @@ public sealed class BlindPlanner
         {
             if (e.sim.state.room_index != room) continue;
             int f = e.parent;
-            while (f >= family_end) f = parents[f];
+            if (by_band > 0) f = (int)(e.sim.state.y / (by_band * SimConfig.SUB));
+            else
+                while (f >= family_end) f = parents[f];
             if (!best.TryGetValue(f, out var have) || e.cost < have.cost) best[f] = e;
         }
         foreach (var e in best.Values.OrderBy(e => e.cost).Take(Math.Max(1, lines)))
@@ -306,7 +359,7 @@ public sealed class BlindPlanner
             var out_ = new List<byte>();
             for (int nd = e.parent; nd >= 0; nd = parents[nd]) out_.Add(taps[nd]);
             out_.Reverse();
-            _found.Add((out_.ToArray(), e.cost));
+            _found.Add((out_.ToArray(), e.cost, e.sim));
         }
     }
 

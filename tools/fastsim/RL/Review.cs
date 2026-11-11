@@ -98,6 +98,9 @@ public static class Review
         bot.lines = (int)L("lines", bot.lines);
         bot.wobble = (int)L("wobble", bot.wobble);
         bot.part = (int)L("part", bot.part);
+        bot.after = L("after", bot.after);
+        bot.band = L("band", bot.band);
+        bot.coarse_px = L("coarse", bot.coarse_px);
         bot.mid_cost = L("mid", bot.mid_cost);
         bot.tap_cost = L("tap", bot.tap_cost);
         bot.margin = L("margin", bot.margin);
@@ -105,7 +108,7 @@ public static class Review
         bot.bucket_px = L("bpx", bot.bucket_px);
         bot.speed_buckets = L("speeds", bot.speed_buckets);
         bot.fine_px = L("fine", bot.fine_px);
-        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
     }
 
     /// `rl review atlas`: every death of the BlindPlanner with a verdict.
