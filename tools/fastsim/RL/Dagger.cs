@@ -19,14 +19,14 @@ public sealed class Dagger
     /// Ticks a saving move must keep the bird alive.
     public long horizon = 90;
     /// How far back from a death the teacher looks for the deciding tick.
-    public long back = 240;
+    public long back = 480;
     /// Extra ticks labelled before the deciding one (every EXTRA_STEP ticks).
     public int extra = 20;
     public const int EXTRA_STEP = 2;
     public int anchor_every = 90;
     public float anchor_weight = 0.05f;
     public int max_data = 200_000;
-    public int batches = 300;
+    public int batches = 120;
     public int batch = 512;
     public float lr = 3e-4f;
     public int eval_every = 5;
