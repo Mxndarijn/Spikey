@@ -16,7 +16,7 @@ const HEIGHT := 56.0
 const SCORE_W := 52.0
 const DOT := 10.0
 const BUTTON := 44.0
-const NO_REPLAY := "Replay no longer available (older version)"
+const NO_REPLAY := "Replay no longer available"
 
 var record: RunRecord
 var _watch: Button
