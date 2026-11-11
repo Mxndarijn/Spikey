@@ -12,6 +12,38 @@ change:
 
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 parity
 
+Parity covers every room in practice and full runs in every season, every
+room variant forced (`GameSim.forced_variant`), a portal arrival into every
+room variant (`ArrivalBench.arrival` = `Reaction.arrival`), a revive in every
+room, and the bots and searches the checks below use: for those cases the C#
+bot must choose the same taps as the GDScript one (`case ... gap` /
+`planner:...` and `csearch` lines, see `tools/fastsim_parity.gd`).
+
+## The check's bot tests (`fastsim check`)
+
+`tools/check.ps1` runs the bot-heavy tests on FastSim
+(`tools/fastsim.ps1 -Mode check`, `Checks.cs`), after parity. Each is a
+port of a GDScript test, with the same rule and thresholds and more seeds or
+arrivals; the GDScript test keeps a small sample so the real sim still plays
+it:
+
+| check | GDScript test | rule |
+|---|---|---|
+| `passable` | `tests/sim/test_variants_passable.gd` | SurvivalSearch gets through each practice seed of every variant and takes the first portal |
+| `arrival` | `tests/sim/test_arrival_reaction.gd` | out of a portal, no 0.75 s reaction is killed with no way to live; at 1 s at most `ArrivalBench.MAX_EXTRA_PCT` of arrivals over every room and variant |
+| `points` | `tests/sim/test_room_points_cap.gd` | no room stay pays more than `POINTS_PER_ROOM`, every variant, revives included |
+| `revive` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case and both walls, a way to live on |
+| `pairs` | `tests/sim/test_double_trouble.gd` | every Double Trouble pair has a way through |
+
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Check arrival,revive
+    powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Filter variants_passable
+
+When you change one of those GDScript tests (its cases, a threshold),
+change `Checks.cs` the same way: `tests/unit/test_fastsim_checks.gd` fails
+until they agree. A new room or variant needs nothing here: the checks read
+the catalog (and `passable` the `CASES` list of its test).
+
 ## Porting rules (GDScript -> C#)
 
 The port is line by line, so a C# line can be checked against its GDScript

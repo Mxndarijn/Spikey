@@ -1,6 +1,8 @@
 extends TestCase
 ## Double Trouble's combo rules (sim/rooms/catalog_combo.gd): every pair keeps
-## a way through. The full measurement is `tools/fastsim.ps1 -Mode combos`.
+## a way through. The full measurement is `tools/fastsim.ps1 -Mode combos`;
+## the search over every pair runs on more seeds there too (`tools/fastsim.ps1
+## -Mode check -Check pairs`, part of tools/check.ps1).
 
 const Piston := preload("res://sim/hazards/piston.gd")
 const Beam := preload("res://sim/hazards/beam.gd")
@@ -11,8 +13,9 @@ const PARALLEL := true
 const PARTS := 4
 ## Hazards that follow the bird add pressure to anything they share a room with.
 const CHASERS: Array[String] = ["stalker"]
-## Seeds searched per pair, and how long the search must last.
-const SEARCH_SEEDS := 2
+## Seeds searched per pair (FastSim: Checks.cs SEARCH_SEEDS), and how long
+## the search must last.
+const SEARCH_SEEDS := 1
 const SEARCH_TICKS := 600
 
 

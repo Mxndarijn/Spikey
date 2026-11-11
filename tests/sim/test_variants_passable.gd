@@ -9,9 +9,15 @@ extends TestCase
 ## Run, Crate Drop, Gift Stack), every variant of each, can be played:
 ## SurvivalSearch finds a way through each practice seed, long enough to take
 ## the first portal.
+##
+## The full check runs on FastSim (`tools/fastsim.ps1 -Mode check -Check
+## passable`, part of tools/check.ps1): every case below and more seeds per
+## variant. Here the real sim plays every SAMPLE_EVERY-th case of it.
 
-## Practice seeds per room variant.
+## Practice seeds per room variant (FastSim plays more: Checks.cs SEEDS_EACH).
 const SEEDS_EACH := 2
+## The GDScript sample: one search in this many.
+const SAMPLE_EVERY := 16
 ## [room id, ticks]: ten points and a portal (a Narrow crossing is shorter).
 ## Locked Exit: a bot that skips the key waits for the exit to open by itself.
 ## Slow-Mo Breather runs at half speed, so it needs twice the ticks.
@@ -65,7 +71,7 @@ const PARTS := 8
 
 func test_rooms_are_passable_in_every_variant(part: int, parts: int) -> void:
 	var cases := _cases()
-	for i in range(part, cases.size(), parts):
+	for i in range(part * SAMPLE_EVERY, cases.size(), parts * SAMPLE_EVERY):
 		var c: Array = cases[i]
 		var index := RoomCatalog.index_of(c[0])
 		var def: RoomDef = RoomCatalog.all()[index]

@@ -12,6 +12,8 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode combos            # Double Trouble fairness gate, every pair
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check             # the check's bot tests (Checks.cs)
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Check arrival,revive -Filter revive
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
 #
@@ -20,6 +22,13 @@
 #   report line "room/variant" each). The draw still happens, so the rest of
 #   the run's RNG is as in a normal run. Without -Variant nothing changes.
 #
+# -Mode check: the bot-heavy tests of tools/check.ps1, ported from their
+#   GDScript tests (which keep a small sample) with the same rules and more
+#   seeds: passable, arrival, points, revive, pairs (tools/fastsim/Checks.cs).
+#   -Check picks some (comma list, default all); -Filter keeps those whose name
+#   or GD test "path:method" contains it, as tools/check.ps1 -TestFilter.
+#   Exits 1 with the failures listed.
+#
 # -Jobs: worker processes (default: a quarter of the cores, so the PC stays usable).
 #
 # The C# sim must match sim/ exactly. After any change in sim/, run -Mode
@@ -27,11 +36,14 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
     [string]$Variant = "",
+    # check: which checks (comma list) and a -TestFilter style filter.
+    [string]$Check = "all",
+    [string]$Filter = "",
     [int]$Ticks = 0,
     # reaction / odds: reaction times to play, in ticks ("0,60").
     [string]$Delays = "",
@@ -67,17 +79,46 @@ if ($Mode -eq "parity") {
         if (Test-Path $file) { $godot = (Get-Content $file -TotalCount 1).Trim() }
     }
     if (-not $godot -or -not (Test-Path $godot)) { Write-Host "Godot not found (set `$env:GODOT or tools/godot_path.txt)." -ForegroundColor Red; exit 2 }
-    $cases = Join-Path ([IO.Path]::GetTempPath()) "fastsim_parity.txt"
-    $gdArgs = @("--headless", "--path", $root, "-s", "res://tools/fastsim_parity.gd", "--", $cases)
-    if ($Quick) { $gdArgs += "quick" }
-    # Godot prints harmless warnings on stderr at exit; don't stop on them.
+    # Recorded in several headless Godot processes at once (each its share of
+    # the cases), then joined into one file.
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "fastsim_parity_$PID"
+    New-Item -ItemType Directory -Force $tmp | Out-Null
+    $cases = Join-Path $tmp "cases.txt"
+    $parts = if ($Jobs -gt 0) { [Math]::Min($Jobs, 8) } else { 4 }
+    $procs = @()
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    for ($k = 0; $k -lt $parts; $k++) {
+        $gdArgs = @("--headless", "--path", "`"$root`"", "-s", "res://tools/fastsim_parity.gd", "--",
+            "`"$(Join-Path $tmp "part_$k.txt")`"", $(if ($Quick) { "quick" } else { "full" }), $k, $parts)
+        $procs += Start-Process -FilePath $godot -ArgumentList $gdArgs -NoNewWindow -PassThru `
+            -RedirectStandardOutput (Join-Path $tmp "out_$k.txt") -RedirectStandardError (Join-Path $tmp "err_$k.txt")
+    }
+    $procs | Wait-Process
     $ErrorActionPreference = "Continue"
-    & $godot @gdArgs 2>&1 | ForEach-Object { "$_" } |
-        Where-Object { $_ -match "fastsim parity|SCRIPT ERROR|Parse Error" } | ForEach-Object { Write-Host $_ }
-    if (-not (Test-Path $cases)) { Write-Host "Recording the parity cases failed." -ForegroundColor Red; exit 2 }
+    $lines = @()
+    for ($k = 0; $k -lt $parts; $k++) {
+        # Godot prints harmless warnings on stderr at exit; show only what matters.
+        Get-Content (Join-Path $tmp "out_$k.txt"), (Join-Path $tmp "err_$k.txt") -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match "SCRIPT ERROR|Parse Error" } | ForEach-Object { Write-Host $_ }
+        $part = Join-Path $tmp "part_$k.txt"
+        if (-not (Test-Path $part)) { Write-Host "Recording the parity cases failed (part $k)." -ForegroundColor Red; exit 2 }
+        $lines += Get-Content $part | Where-Object { $_ }
+    }
+    [IO.File]::WriteAllLines($cases, [string[]]$lines)
+    Write-Host ("fastsim parity: {0} cases recorded in {1:F0} s ({2} Godot processes)" -f $lines.Count, $clock.Elapsed.TotalSeconds, $parts)
     $pa = @("parity", $cases, "--priority", $Priority.ToLower())
     if ($Jobs -gt 0) { $pa += @("--jobs", $Jobs) }
     & $exe @pa
+    $code = $LASTEXITCODE
+    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+    exit $code
+}
+
+if ($Mode -eq "check") {
+    $ca = @("check", $Check, "--priority", $Priority.ToLower())
+    if ($Jobs -gt 0) { $ca += @("--jobs", $Jobs) }
+    if ($Filter) { $ca += @("--filter", $Filter) }
+    & $exe @ca
     exit $LASTEXITCODE
 }
 

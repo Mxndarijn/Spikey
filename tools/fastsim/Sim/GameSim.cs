@@ -477,7 +477,7 @@ public sealed class GameSim
         events.Add(Event.SCORE);
     }
 
-    void _enter_room(long index)
+    public void _enter_room(long index)
     {
         state.room_kind = index;
         room.start(RoomCatalog.all()[(int)index], index, this, _rng);
