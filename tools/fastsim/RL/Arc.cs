@@ -1,6 +1,7 @@
 namespace FastSim.Rl;
 
-/// Part of the observation (Observer layout 4):
+/// An extra input, tried in Imitation only (not in Observer's layout; on 400
+/// seeds it raised imitation from median 25 to 32, see docs/RL_BOT.md):
 /// the bird's own path if it waits and if it taps now (its fall, its speed
 /// across, the room's step rate, a bounce at the walls), probed against every
 /// live hazard where the hazards are NOW (what a player sees; no hazard is

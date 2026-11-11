@@ -55,11 +55,11 @@ public sealed class Imitation
     /// Marks a forced label (weight scaled by forced_weight when stored).
     const float FORCED = 1f;
 
-    /// Adds the arcs (Arc.cs, in the observation since layout 4) against the
-    /// hazards of 6 and 12 ticks ago after the observation (an experiment).
-    public static bool arc_past = false;
+    /// Adds the Arc input after the observation (an experiment), and with
+    /// arc_past also the arcs against the hazards of 6 and 12 ticks ago.
+    public static bool arc = false, arc_past = false;
     public static readonly int[] PAST = { 6, 12 };
-    public static int inputs => Observer.INPUTS + (arc_past ? Arc.SIZE * PAST.Length : 0);
+    public static int inputs => Observer.INPUTS + (arc ? Arc.SIZE : 0) + (arc && arc_past ? Arc.SIZE * PAST.Length : 0);
 
     /// The student's eyes: the observation, the arcs and a short history of
     /// room copies for the past arcs (one per run).
@@ -73,8 +73,10 @@ public sealed class Imitation
         public float[] see(GameSim sim, float[] buf)
         {
             var x = player.observe(sim);
-            if (!arc_past) return x;
+            if (!arc) return x;
             Array.Copy(x, buf, Observer.INPUTS);
+            Arc.fill(sim, buf, Observer.INPUTS);
+            if (arc_past)
             {
                 hist[n % hist.Length] = sim.room.clone_deep();
                 for (int k = 0; k < PAST.Length; k++)
@@ -83,7 +85,7 @@ public sealed class Imitation
                     var old = hist[(n - back) % hist.Length];
                     // Another room then: use this room's hazards (no motion seen yet).
                     if (old.index != sim.room.index) old = hist[n % hist.Length];
-                    Arc.fill_past(sim, old, buf, Observer.INPUTS + Arc.SIZE * k);
+                    Arc.fill_past(sim, old, buf, Observer.INPUTS + Arc.SIZE * (1 + k));
                 }
             }
             n++;
@@ -310,6 +312,8 @@ public sealed class Imitation
             var pts = new long[runs];
             var forced = new int[runs];
             var agree = new int[runs];
+            var agree_forced = new int[runs];
+            var forced_own = new int[runs];
             var asked = new int[runs];
             Parallel.For(0, runs, par, r =>
             {
@@ -341,7 +345,9 @@ public sealed class Imitation
                             mine.Add((Dagger_pack(x), tap ? (byte)1 : (byte)0, frc ? forced_weight : wt));
                             asked[r]++;
                             if (frc) forced[r]++;
+                            if (frc) forced_own[r]++;
                             if (tap == student) agree[r]++;
+                            if (frc && tap == student) agree_forced[r]++;
                         }
                         if (expert_turn) move = tap;
                     }
@@ -389,7 +395,7 @@ public sealed class Imitation
             double play_s = ic.Elapsed.TotalSeconds;
             var (loss, acc_all, acc_forced) = learn(par);
             iter++;
-            string line = $"iter {iter,4}: beta {beta:F2}, points/run {pts.Average(),6:F1}, labels +{added} ({forced.Sum()} forced), student agrees {(double)agree.Sum() / Math.Max(1, asked.Sum()):P0}, data {data.Count}, loss {loss:F3}, fit {acc_all:P1} forced {acc_forced:P1}  {play_s:F0}+{ic.Elapsed.TotalSeconds - play_s:F0} s";
+            string line = $"iter {iter,4}: beta {beta:F2}, points/run {pts.Average(),6:F1}, labels +{added} ({forced.Sum()} forced), student agrees {(double)agree.Sum() / Math.Max(1, asked.Sum()):P0} (decisive {(double)agree_forced.Sum() / Math.Max(1, forced_own.Sum()):P1}), data {data.Count}, loss {loss:F3}, fit {acc_all:P1} forced {acc_forced:P1}  {play_s:F0}+{ic.Elapsed.TotalSeconds - play_s:F0} s";
             if (iter % eval_every == 0)
             {
                 var (median, mean) = evaluate(par);
@@ -562,7 +568,8 @@ public sealed class Imitation
     {
         var o = JsonNode.Parse(File.ReadAllText(path)).AsObject();
         var sz = o["sizes"].AsArray().Select(n => (int)n).ToArray();
-        arc_past = sz[0] > Observer.INPUTS;
+        arc = sz[0] > Observer.INPUTS;
+        arc_past = sz[0] > Observer.INPUTS + Arc.SIZE;
         if (sz[0] != inputs) throw new InvalidDataException($"{path}: {sz[0]} inputs");
         return new Policy(floats(o["weights"]), sz);
     }

@@ -7,7 +7,7 @@ namespace FastSim.Rl;
 public static class Observer
 {
     /// Bump when the layout below changes: old policy files stop loading.
-    public const int LAYOUT = 4;
+    public const int LAYOUT = 3;
     public const int COLS = 10, ROWS = 15;
     public const long COL_STEP = 24 * SimConfig.SUB;
     public const long ROW_STEP = 24 * SimConfig.SUB;
@@ -16,7 +16,7 @@ public static class Observer
     public const int MOTION = 6;
     public const int STRIP = 21;
     public const long STRIP_STEP = 16 * SimConfig.SUB;
-    public const int BASE = 28 + STRIP + 6 + Arc.SIZE;
+    public const int BASE = 28 + STRIP + 6;
     /// One tick's frame: the base features and that tick's grid.
     public const int FRAME = BASE + GRID;
     /// The policy's input: a frame plus the grid MOTION ticks before it.
@@ -65,9 +65,6 @@ public static class Observer
             f[i++] = wall_hits(mask, shift, hb, y) ? 1f : -1f;
             f[i++] = Math.Clamp((float)(safe_near(mask, shift, hb, y) - y) / (SimConfig.WORLD_H / 4), -1f, 1f);
         }
-        // The bird's own wait and tap paths against the hazards where they are now (Arc.cs).
-        Arc.fill(sim, f, i);
-        i += Arc.SIZE;
         // i == BASE
         grid(sim, f, BASE);
     }
