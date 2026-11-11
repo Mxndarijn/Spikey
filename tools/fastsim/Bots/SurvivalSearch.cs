@@ -46,6 +46,19 @@ public sealed class SurvivalSearch
         return false;
     }
 
+    /// tests/support/quick_search.gd (QuickSearch.run): a coarse (fast) first
+    /// pass; a line it finds is a real way through, and only when it finds
+    /// none does the full search run.
+    public bool run_quick(GameSim sim, long ticks)
+    {
+        level = -1;
+        _bucket_h = 10 * SimConfig.SUB;
+        _bucket_vy = -SimConfig.FLAP_VY / 2;
+        _speed_buckets = 4;
+        if (_run_once(sim, ticks)) return true;
+        return run(sim, ticks);
+    }
+
     bool _run_once(GameSim sim, long ticks)
     {
         _parents = new List<int>();

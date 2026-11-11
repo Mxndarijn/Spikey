@@ -93,7 +93,7 @@ Why this and not "continue in place with a few safe ticks":
 
 - Portal arrival already exists and is already checked for fairness
   (`_go_through`, `ARRIVAL_HOLD`, `tools/arrival_test.gd`,
-  `tests/sim/test_rooms_survivable.gd`). Hazards already keep clear of an
+  the `rescued` FastSim check). Hazards already keep clear of an
   arriving bird through `entry_y()`. A revive reuses that path instead of adding
   a second one.
 - Continuing in place would need every hazard (19 kinds) to honour an
@@ -250,11 +250,10 @@ Open points:
 - `tests/unit/test_replay.gd` additions: a revived run verifies; the same run
   with the revive tick removed, moved by one, or doubled is rejected; the
   dictionary round trip keeps `revives`.
-- `tests/sim/test_revive_survivable.gd`: for every room kind, kill the bird,
-  revive, and let `SurvivalSearch` show that a survivor exists. The search is
-  slow, so the check runs one exit case per room (all three come up across the
-  rooms); all rooms x all three cases passed once when revive was added. Mid
-  height is good enough.
+- The `revive` FastSim check (`tools/fastsim/Checks.cs`, was
+  `tests/sim/test_revive_survivable.gd`): for every room kind, all three exit
+  cases and both walls, kill the bird, revive, and let `SurvivalSearch` show
+  that a survivor exists. Mid height is good enough.
 - Two golden replays with a revive (`g15_revived_seed_*.json`); the others
   were regenerated after the version bump and kept their taps, score and end
   tick.

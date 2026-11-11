@@ -2,77 +2,17 @@ extends TestCase
 ## Floating Isles (and the Egg Hunt, which has the same islands) must always
 ## leave a way through, in every variant (still, drifting, one big rock): off
 ## the start, past the islands to the portal, into the next room, and after a
-## revive. SurvivalSearch plays each case; the layout rules it relies on are
-## checked on many more seeds without it. A drifting island is checked over
-## its whole sway (Block.drift each way of where it starts).
+## revive. SurvivalSearch plays each case on FastSim (`tools/fastsim.ps1 -Mode
+## check -Check isles`, part of tools/check.ps1); here the layout rules it
+## relies on are checked on many seeds without it. A drifting island is checked
+## over its whole sway (Block.drift each way of where it starts).
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true
 
 const Block := preload("res://sim/hazards/block.gd")
 
-## Practice seeds. 1 and 322 used to be impossible off the start (an island in
-## the start lane, end to end with the one above it, 87 px between them).
-const ISLES_SEEDS: Array[int] = [1, 322, 7, 2024, 31337]
-const EGGS_SEEDS: Array[int] = [3, 58]
-## Revive seeds, facing an open exit. One flight to reach it: one in ten used
-## to be impossible (islands put back between the bird and the exit).
-const REVIVE_SEEDS: Array[int] = [15, 127, 183]
-## The practice score the searches start at: the walls are as full as they get
-## (six spikes) and the next exit is planned on the first bounce.
-const NEAR_EXIT := 28
-## Two bounces, the flight into the portal, the wait in the new room and its
-## first two seconds.
-const PORTAL_TICKS := 450
-## The portal wait, one flight across and a little of the next room.
-const REVIVE_TICKS := SimConfig.ARRIVAL_HOLD + 110
 const ISLES_VARIANTS: Array[String] = ["classic", "drifting", "one-big"]
-const EGGS_VARIANTS: Array[String] = ["classic", "drifting", "golden"]
-
-
-## SurvivalSearch with a coarse (fast) first pass. A line it finds is a real
-## way through; only when it finds none does the full search run.
-class QuickSearch:
-	extends SurvivalSearch
-
-	func run(sim: GameSim, ticks: int) -> bool:
-		level = -1
-		_bucket_h = 10 * SimConfig.SUB
-		_bucket_vy = -SimConfig.FLAP_VY / 2
-		_speed_buckets = 4
-		if _run_once(sim, ticks):
-			return true
-		return super.run(sim, ticks)
-
-
-func test_isles_lead_through_the_portal() -> void:
-	for v in ISLES_VARIANTS:
-		for s in ISLES_SEEDS:
-			_must_pass_portal("isles", s, v)
-
-
-func test_egg_hunt_leads_through_the_portal() -> void:
-	for v in EGGS_VARIANTS:
-		for s in EGGS_SEEDS:
-			_must_pass_portal("eggs", s, v)
-
-
-func test_revived_bird_reaches_the_open_exit() -> void:
-	for i in REVIVE_SEEDS.size() * ISLES_VARIANTS.size():
-		var s := REVIVE_SEEDS[i % REVIVE_SEEDS.size()]
-		var v := ISLES_VARIANTS[i / REVIVE_SEEDS.size()]
-		var sim := _revived("isles", s, "open", s % 2, v)
-		var search := QuickSearch.new()
-		var ok := search.run(sim, REVIVE_TICKS)
-		assert_true(
-			ok,
-			(
-				"isles %s seed %d: all died %d ticks after the revive (%s) %s"
-				% [v, s, search.ticks_survived, search.last_deaths, _layout(sim)]
-			)
-		)
-		if ok:
-			assert_true(search.best.state.room_index > sim.state.room_index, "through the exit")
 
 
 ## Islands in neighbouring bands are far enough apart to hover between, or
@@ -192,30 +132,8 @@ func test_fading_blocks_are_unchanged() -> void:
 	assert_true(doors > 0, "the room has doors")
 
 
-## Plays practice room `id` from just before an exit is planned: some line of
-## taps must get through the portal and on into the next room.
-func _must_pass_portal(id: String, seed_value: int, variant: String) -> void:
-	var sim := _practice(id, seed_value, variant)
-	sim.state.score = NEAR_EXIT
-	var search := QuickSearch.new()
-	var ok := search.run(sim, PORTAL_TICKS)
-	assert_true(
-		ok,
-		(
-			"%s %s seed %d: all died at tick %d (%s) %s"
-			% [id, variant, seed_value, search.ticks_survived, search.last_deaths, _layout(sim)]
-		)
-	)
-	if ok:
-		assert_true(
-			search.best.state.room_index >= 1, "%s seed %d: through the portal" % [id, seed_value]
-		)
-
-
 static func _practice(id: String, seed_value: int, variant: String = "classic") -> GameSim:
-	var index := RoomCatalog.index_of(id)
-	var def: RoomDef = RoomCatalog.all()[index]
-	return GameSim.new(seed_value, def.season, index, variant)
+	return BotSetups.practice(id, seed_value, variant)
 
 
 ## A practice room entered again as through a portal: the bird comes out of a
@@ -232,31 +150,10 @@ static func _arrived(id: String, seed_value: int, variant: String = "classic") -
 	return sim
 
 
-## A real run put in room `id` with an exit ("open" or "ghost") on wall
-## `side`, killed there and revived.
 static func _revived(
 	id: String, seed_value: int, exit: String, side: int, variant: String = "classic"
 ) -> GameSim:
-	var index := RoomCatalog.index_of(id)
-	var def: RoomDef = RoomCatalog.all()[index]
-	var sim := GameSim.new(seed_value, def.season, -1, variant)
-	sim.step(true)
-	var every := SimConfig.POINTS_PER_ROOM
-	var base := maxi(every, (def.from_score + every - 1) / every * every)
-	sim.state.vx = SimConfig.SPEED_X if side == 1 else -SimConfig.SPEED_X
-	if exit == "open":
-		sim.state.score = base
-		sim._enter_room(index)
-		ExitPlanner.plan(sim, sim._rng, side, base)
-		sim.state.exit_open = true
-	else:
-		sim.state.score = base + every - 1
-		sim._enter_room(index)
-		ExitPlanner.plan(sim, sim._rng, side, base + every)
-		sim.state.exit_preview = true
-	sim.kill(SimState.DeathCause.HAZARD)
-	sim.revive()
-	return sim
+	return BotSetups.isles_revived(id, seed_value, exit, side, variant)
 
 
 ## Left and right edge of an island's whole sway (its box when it is still).

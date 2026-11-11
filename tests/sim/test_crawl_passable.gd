@@ -1,6 +1,9 @@
 extends TestCase
 ## Caterpillar Crawl (and Summer Crab Walk, the same hazard): a crawler on a
 ## wall side must never stand in front of the only bounce spot or the exit.
+## The SurvivalSearch cases (through the first portal, and from a revive
+## through the hard exits) run on FastSim: `tools/fastsim.ps1 -Mode check
+## -Check crawl`, part of tools/check.ps1.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true
@@ -8,15 +11,6 @@ const PARALLEL := true
 const SUB := SimConfig.SUB
 const Crawler := preload("res://sim/hazards/crawler.gd")
 const ROOMS: Array[String] = ["crawl", "crabs"]
-
-## SurvivalSearch cases: [room id, practice seed]. Long enough for the ten
-## bounces to the first portal and the first bounces after it. On these seeds,
-## before the fix, a crawler covered the whole exit opening (22, 89) or every
-## free wall slot (64) as the bird flew in.
-const SEARCH_TICKS := 1000
-const SEARCH_CASES := [["crawl", 22], ["crawl", 64], ["crabs", 89]]
-## One search case per part, so they can run side by side.
-const PARTS := 3
 
 ## The sweep: practice seeds per room, and ticks each (two to three portals).
 const SWEEP_SEEDS := 60
@@ -38,25 +32,6 @@ class Harmless:
 
 	func kills(_sim: GameSim) -> bool:
 		return false
-
-
-func test_search_gets_past_the_first_portal(part: int, parts: int) -> void:
-	for i in range(part, SEARCH_CASES.size(), parts):
-		var c: Array = SEARCH_CASES[i]
-		var index := RoomCatalog.index_of(c[0])
-		var def: RoomDef = RoomCatalog.all()[index]
-		var sim := GameSim.new(c[1], def.season, index)
-		var search := SurvivalSearch.new()
-		var ok := search.run(sim, SEARCH_TICKS)
-		assert_true(
-			ok,
-			(
-				"%s seed %d: all died at tick %d (%s)"
-				% [c[0], c[1], search.ticks_survived, search.last_deaths]
-			)
-		)
-		if ok:
-			assert_true(search.best.state.room_index >= 1, "%s seed %d: took the portal" % c)
 
 
 ## Flies a bird that cannot die through many practice runs, at a new height
@@ -82,7 +57,8 @@ func test_crawlers_never_cover_the_way_on() -> void:
 ## A revive starts the room again while the exit stays where it was planned,
 ## for crawlers that were somewhere else. The fresh crawlers come down the wall
 ## sides near the top right and bottom left corners, so exits there are the
-## hard ones: they start further back and still leave the exit clear.
+## hard ones: they start further back and still leave the exit clear. (That a
+## bird gets from the revive through them: Checks.cs Crawl, on FastSim.)
 func test_revive_leaves_the_planned_exit_clear() -> void:
 	var index := RoomCatalog.index_of("crawl")
 	var top := SimConfig.slot_center_y(1)
@@ -91,7 +67,7 @@ func test_revive_leaves_the_planned_exit_clear() -> void:
 		for exit: String in ["open", "ghost"]:
 			for side in 2:
 				for y: int in [top, bottom]:
-					var sim := _revived(index, s, exit, side, y)
+					var sim := BotSetups.crawl_revived(index, s, exit, side, y)
 					var label := (
 						"seed %d (%s), %s exit on wall %d at %d px"
 						% [s, sim.room.variant_id(), exit, side, y / SUB]
@@ -99,40 +75,6 @@ func test_revive_leaves_the_planned_exit_clear() -> void:
 					for h: Hazard in sim.room.hazards:
 						assert_false(h.blocks_exit(sim, side, y), "%s: clear of the exit" % label)
 						assert_false(h.kills(sim), "%s: clear of the bird" % label)
-	# And all the way: the search flies from the revive through the hard exits.
-	for c: Array in [
-		["ghost", 1, top], ["ghost", 0, bottom], ["open", 1, top], ["open", 0, bottom]
-	]:
-		var sim := _revived(index, 7, c[0], c[1], c[2])
-		var search := SurvivalSearch.new()
-		var ok := search.run(sim, SimConfig.ARRIVAL_HOLD + 240)
-		assert_true(ok, "%s exit on wall %d: all died after the revive" % [c[0], c[1]])
-		if ok:
-			assert_eq(search.best.state.room_index, 1, "%s exit on wall %d: taken" % [c[0], c[1]])
-
-
-## A real run in room `index` with an exit ("open" or "ghost") on wall `side`
-## at height `y`, killed there and revived.
-static func _revived(index: int, seed_value: int, exit: String, side: int, y: int) -> GameSim:
-	var def: RoomDef = RoomCatalog.all()[index]
-	var sim := GameSim.new(seed_value, def.season)
-	sim.step(true)
-	# Not a fork score, so there is one exit.
-	var base := 60
-	sim.state.score = base + 3
-	sim._enter_room(index)
-	if exit == "open":
-		sim.state.score = base
-		ExitPlanner.plan(sim, sim._rng, side, base)
-		sim.state.exit_open = true
-	else:
-		sim.state.score = base + SimConfig.POINTS_PER_ROOM - 1
-		ExitPlanner.plan(sim, sim._rng, side, base + SimConfig.POINTS_PER_ROOM)
-		sim.state.exit_preview = true
-	sim.state.exit_a_y = y
-	sim.kill(SimState.DeathCause.FLOOR)
-	sim.revive()
-	return sim
 
 
 ## Returns [walls checked, exits checked].

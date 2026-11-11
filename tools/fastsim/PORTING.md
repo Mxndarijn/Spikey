@@ -21,28 +21,38 @@ bot must choose the same taps as the GDScript one (`case ... gap` /
 
 ## The check's bot tests (`fastsim check`)
 
-`tools/check.ps1` runs the bot-heavy tests on FastSim
-(`tools/fastsim.ps1 -Mode check`, `Checks.cs`), after parity. Each is a
-port of a GDScript test, with the same rule and thresholds and more seeds or
-arrivals; the GDScript test keeps a small sample so the real sim still plays
-it:
+`tools/check.ps1` plays bots only on FastSim (`tools/fastsim.ps1 -Mode
+check`, `Checks.cs` and `CheckSearches.cs`), after parity. Each check took
+over a GDScript test (still named so `-TestFilter` finds it), with the same
+rule and thresholds and more seeds or arrivals. No GDScript test plays a bot;
+parity proves the sim, the bots and the start sims (`BotSetups` /
+`Checks.Setups`) match:
 
-| check | GDScript test | rule |
+| check | was | rule |
 |---|---|---|
-| `passable` | `tests/sim/test_variants_passable.gd` | SurvivalSearch gets through each practice seed of every variant and takes the first portal |
-| `arrival` | `tests/sim/test_arrival_reaction.gd` | out of a portal, no 0.75 s reaction is killed with no way to live; at 1 s at most `ArrivalBench.MAX_EXTRA_PCT` of arrivals over every room and variant |
+| `passable` | `tests/sim/test_variants_passable.gd` | SurvivalSearch gets through each practice seed of every variant (6 each) and takes the first portal |
+| `arrival` | `tests/sim/test_arrival_reaction.gd` | out of a portal, no 0.75 s reaction is killed with no way to live; at 1 s at most `ArrivalBench.MAX_EXTRA_PCT` of arrivals over every room and variant (32 each) |
 | `points` | `tests/sim/test_room_points_cap.gd` | no room stay pays more than `POINTS_PER_ROOM`, every variant, revives included |
 | `revive` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case and both walls, a way to live on |
 | `pairs` | `tests/sim/test_double_trouble.gd` | every Double Trouble pair has a way through |
+| `crawl` | searches of `tests/sim/test_crawl_passable.gd` | through the first portal on the seeds a crawler once blocked; from a revive through the hard exits |
+| `gates` | searches of `tests/sim/test_gates_passable.gd` | the portal is reachable: once impossible seeds, quick runs before an exit, after a revive at every height |
+| `isles` | searches of `tests/sim/test_isles_passable.gd` | Floating Isles and Egg Hunt, every variant: through the portal, and from a revive through the exit (QuickSearch) |
+| `rescued` | `tests/sim/test_rooms_survivable.gd` | rooms once proved impossible stay survivable; no way for a dead bird |
+| `runs` | `tests/sim/test_bot_runs.gd` | random tappers keep the invariants and every run ends; gap seekers clear several rooms |
 
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Check arrival,revive
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Filter variants_passable
 
-When you change one of those GDScript tests (its cases, a threshold),
-change `Checks.cs` the same way: `tests/unit/test_fastsim_checks.gd` fails
-until they agree. A new room or variant needs nothing here: the checks read
-the catalog (and `passable` the `CASES` list of its test).
+The checks are the tests now: change their cases and thresholds in
+`Checks.cs` / `CheckSearches.cs`. A new room or variant mostly needs nothing:
+the checks read the catalog. A room with variants goes in `Passable.CASES`
+(with its ticks). A check that starts from a new kind of sim: write the setup
+in `tests/support/bot_setups.gd`, port it to `Checks.Setups`, and add parity
+cases for it (`tools/fastsim_parity.gd` setup(), Program.cs setup()).
+`ArrivalBench`'s thresholds are pinned to `Reaction.cs` by
+`tests/unit/test_fastsim_checks.gd`.
 
 ## Porting rules (GDScript -> C#)
 

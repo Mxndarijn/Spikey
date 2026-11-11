@@ -112,9 +112,9 @@ The reaction benchmark: a player who needs 0.75 s is never killed by a
 portal (every death there still had a way to live: `SurvivalSearch` finds
 one), and a 1 s reaction may cost at most 2% of portal arrivals over an
 instant one (`ArrivalBench`, checked over every room and variant by
-`tools/fastsim.ps1 -Mode check -Check arrival`, part of the check, with
-`tests/sim/test_arrival_reaction.gd` playing a sample on the real sim; the
-full benchmark with the full bot's death rate on FastSim after changing a room: `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
+`tools/fastsim.ps1 -Mode check -Check arrival`, part of the check; the full
+benchmark with the full bot's death rate after changing a room:
+`tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
 survival by reaction time in real runs; `-Variant <id>|all` plays one room
 variant, or each in turn, instead of the drawn one: see
 `tools/fastsim/PORTING.md`). Every 50 points a
@@ -128,7 +128,9 @@ Fairness is checked by `tests/support/survival_search.gd` (SurvivalSearch): it
 runs many copies of the sim side by side, tapping and waiting on each, so if all
 of them die, no player could have lived. `tools/sweep.ps1` runs it (or the
 PlannerBot playtests in `tools/playtest.gd`) over many seeds on every CPU core;
-`tests/sim/test_rooms_survivable.gd` keeps the rooms it once caught fixed.
+the check's `rescued` FastSim check keeps the rooms it once caught fixed.
+In the check, bots only ever play on FastSim (step 6 of the quality gate);
+the GDScript bots stay as the reference that parity holds FastSim's to.
 
 Fairness rules that came out of it (gameplay version 6): in rooms with hazards
 the wall's free run lands within `RoomRules.GAP_REACH` of the bird; hazards
@@ -290,9 +292,10 @@ hidden debug page: [DEBUG.md](DEBUG.md).
 2. **Import**: `godot --headless --import` builds the class cache.
 3. **Load all**: every script and scene under `res://` loads without errors.
 4. **Tests** (`tests/run_tests.gd`, a small in-repo runner with no addon):
-   unit tests, sim purity scan, golden replays, and bot simulations (random
-   tapper for crashes and invariants, plus a heuristic bot that must clear
-   several rooms, as a first solvability check).
+   unit tests, sim purity scan, golden replays, and rule checks on rooms
+   (layouts, exits, hazards). No bot plays here: every bot test runs on
+   FastSim (step 6). (A few unit tests use the cheap gap seeker only to make
+   a run for replay, run checker and UI code that only GDScript has.)
    The check runs them side by side in headless worker processes
    (`--jobs N`, one per core): each worker claims the next piece of work, a
    whole test file by default, so tests sharing a save file stay together.
@@ -300,26 +303,23 @@ hidden debug page: [DEBUG.md](DEBUG.md).
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
    doing its share of the rooms or seeds; a `combine_` function then checks
    totals over all parts. Pieces start longest first, from the last run's times.
-   The bot-heavy tests keep only a sample here: their full versions run in
-   step 6.
 5. **FastSim parity**: `tools/fastsim` (the C# copy of `sim/` for fast bots)
    replays runs recorded by `tools/fastsim_parity.gd` and must match tick for
    tick: every room in practice and in full runs in every season, every room
    variant forced, a portal arrival into every room variant, a revive in every
-   room; and its bots and searches (gap seeker, the light PlannerBot,
-   SurvivalSearch) must choose the same taps. Without the .NET SDK the check
-   fails.
+   room, every other sim the checks start from (`tests/support/bot_setups.gd`);
+   and its bots and searches (gap seeker, random tapper, the light PlannerBot,
+   SurvivalSearch, QuickSearch) must choose the same taps. This is what ties
+   step 6 to the real game code. Without the .NET SDK the check fails.
 6. **FastSim checks** (`tools/fastsim.ps1 -Mode check`, `tools/fastsim/Checks.cs`):
-   the bot-heavy tests, ported from their GDScript tests with the same rules
-   and thresholds and more seeds: every variant passable
-   (`test_variants_passable.gd`), the portal reaction benchmark
-   (`test_arrival_reaction.gd`), the points cap (`test_room_points_cap.gd`),
-   revives in every room and exit case (`test_revive_survivable.gd`) and the
-   Double Trouble pairs (`test_double_trouble.gd`). Each GDScript test keeps a
-   small sample on the real sim; `tests/unit/test_fastsim_checks.gd` pins the
-   C# cases and thresholds to the GDScript ones. `-TestFilter` picks the
-   checks it names or whose test it matches; `-FastSimJobs` sets the workers
-   (default `-Jobs`). CI runs steps 5 and 6 too (`.github/workflows/check.yml`).
+   every test that plays a bot, with the rules and thresholds the GDScript
+   tests they replaced had, on more seeds: every variant passable, the portal
+   reaction benchmark, the points cap, revives in every room and exit case,
+   Double Trouble pairs, the crawl, gates and isles searches, the once
+   impossible rooms, and random-tapper and gap-seeker runs (the list:
+   `tools/fastsim/PORTING.md`). `-TestFilter` picks the checks it names or
+   whose old test path it matches; `-FastSimJobs` sets the workers (default
+   `-Jobs`). CI runs steps 5 and 6 too (`.github/workflows/check.yml`).
 
 The database has its own tests (`tools/db_test.ps1`, needs Docker; CI runs
 them in `.github/workflows/supabase-db.yml`).

@@ -2,26 +2,32 @@ using System.Diagnostics;
 using System.Text.Json.Nodes;
 using FastSim;
 
-/// `fastsim check [names] [--filter x]`: the bot-heavy tests of the check,
-/// on FastSim. Each check is a port of a GDScript test with the same rule and
-/// the same thresholds, on more cases (the GDScript test keeps a small sample
-/// so the real game code still runs them, and parity proves the two sims and
-/// bots match). Exits 1 on any failure, with a message like the GD test's.
-///   passable  tests/sim/test_variants_passable.gd
-///   arrival   tests/sim/test_arrival_reaction.gd
-///   points    tests/sim/test_room_points_cap.gd
-///   revive    tests/sim/test_revive_survivable.gd
-///   pairs     tests/sim/test_double_trouble.gd (test_every_pair_has_a_way_through)
-/// The constants each check copies from its GD test are pinned by
-/// tests/unit/test_fastsim_checks.gd, so the two can't drift apart.
+/// `fastsim check [names] [--filter x]`: every test of tools/check.ps1 that
+/// plays a bot (SurvivalSearch, PlannerBot, the gap seeker, the random
+/// tapper), on FastSim. Bots no longer play in the GDScript tests: parity
+/// (tools/fastsim_parity.gd) proves this sim, these bots and the sims the
+/// checks start from (BotSetups, Setups here) match the GDScript ones. Each
+/// check keeps the rule and thresholds of the GDScript test it replaced, on
+/// more cases. Exits 1 on any failure, with a message like that test's.
+///   passable  was tests/sim/test_variants_passable.gd
+///   arrival   was tests/sim/test_arrival_reaction.gd (ArrivalBench)
+///   points    was tests/sim/test_room_points_cap.gd
+///   revive    was tests/sim/test_revive_survivable.gd
+///   pairs     was test_every_pair_has_a_way_through in tests/sim/test_double_trouble.gd
+///   crawl, gates, isles  were the searches of tests/sim/test_<room>_passable.gd
+///   rescued   was tests/sim/test_rooms_survivable.gd
+///   runs      was tests/sim/test_bot_runs.gd
+/// (CheckSearches.cs has the last five.) ArrivalBench's thresholds are pinned
+/// by tests/unit/test_fastsim_checks.gd.
 ///
 /// The cases of every check picked are shared out over --jobs worker
 /// processes (this program with --worker), a few chunks per job.
-static class Checks
+static partial class Checks
 {
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)
@@ -83,7 +89,7 @@ static class Checks
     }
 
     /// The checks named ("all" or a comma list) that match `filter` (a check
-    /// name, or part of its GD test's "path:method", as tools/check.ps1
+    /// name, or part of the GD test it replaced ("path:method"), as tools/check.ps1
     /// -TestFilter). Null on an unknown name.
     static List<Check> pick(string names, string filter)
     {
@@ -173,7 +179,7 @@ static class Checks
     public abstract class Check
     {
         public abstract string name { get; }
-        /// The GD test it ports ("path:method").
+        /// The GDScript test it replaced ("path:method"), for -TestFilter.
         public abstract string test { get; }
         public abstract int count();
         /// One case: {fails: [...], plus whatever combine needs}.
@@ -191,8 +197,8 @@ static class Checks
     public sealed class Passable : Check
     {
         public override string name => "passable";
-        public override string test => "res://tests/sim/test_variants_passable.gd:test_rooms_are_passable_in_every_variant";
-        /// Practice seeds per room variant (the GD test plays the first 2 of these).
+        public override string test => "tests/sim/test_variants_passable.gd:test_rooms_are_passable_in_every_variant";
+        /// Practice seeds per room variant (the GD test played the first 2 of these).
         public const long SEEDS_EACH = 6;
         /// test_variants_passable.gd CASES: [room id, ticks].
         public static readonly (string id, long ticks)[] CASES =
@@ -262,8 +268,8 @@ static class Checks
     public sealed class Arrival : Check
     {
         public override string name => "arrival";
-        public override string test => "res://tests/sim/test_arrival_reaction.gd:test_a_sample_of_rooms_allows_a_slow_reaction_out_of_a_portal";
-        /// Arrivals per room variant (the GD test plays the first few of these).
+        public override string test => "tests/sim/test_arrival_reaction.gd:test_every_room_allows_a_slow_reaction_out_of_a_portal";
+        /// Arrivals per room variant (the GD test played 8).
         public const long COUNT = 32;
         /// test_arrival_reaction.gd: the lighter PlannerBot. Only its deaths are
         /// searched, and a death with no way to live kills every bot, so the
@@ -341,9 +347,9 @@ static class Checks
     public sealed class Points : Check
     {
         public override string name => "points";
-        public override string test => "res://tests/sim/test_room_points_cap.gd:test_";
-        /// Practice seeds per variant and revive runs (the GD test plays the
-        /// first few of each).
+        public override string test => "tests/sim/test_room_points_cap.gd:test_";
+        /// Practice seeds per variant and revive runs (the GD test played 3
+        /// and 40).
         public const long SEEDS_PER_VARIANT = 12;
         public const long REVIVE_RUNS = 160;
         public const long MAX_TICKS = 6000;
@@ -422,11 +428,11 @@ static class Checks
 
     /// tests/sim/test_revive_survivable.gd: after a revive, in every room,
     /// whatever the exit was doing, SurvivalSearch finds a way to live on.
-    /// The GD test plays one exit case and wall per room; this plays all.
+    /// The GD test played one exit case and wall per room; this plays all.
     public sealed class Revive : Check
     {
         public override string name => "revive";
-        public override string test => "res://tests/sim/test_revive_survivable.gd:test_every_room_is_survivable_after_a_revive";
+        public override string test => "tests/sim/test_revive_survivable.gd:test_every_room_is_survivable_after_a_revive";
         public static readonly long TICKS = SimConfig.ARRIVAL_HOLD + 180;
         public static readonly string[] CASES = { "none", "open", "ghost" };
 
@@ -441,40 +447,10 @@ static class Checks
             return out_;
         }
 
-        /// test_revive_survivable.gd revived(): a real run put in room `index`
-        /// at a score that fits `exit` on wall `side`, killed there and revived.
-        public static GameSim revived(int index, long seed_value, string exit, long side)
-        {
-            var def = RoomCatalog.all()[index];
-            var sim = new GameSim(seed_value, def.season);
-            sim.step(true);
-            long every = SimConfig.POINTS_PER_ROOM;
-            long base_ = G.maxi(every, (def.from_score + every - 1) / every * every);
-            sim.state.score = base_ + 3;
-            sim._enter_room(index);
-            sim.state.vx = side == 1 ? SimConfig.SPEED_X : -SimConfig.SPEED_X;
-            switch (exit)
-            {
-                case "open":
-                    sim.state.score = base_;
-                    ExitPlanner.plan(sim, sim._rng, side, base_);
-                    sim.state.exit_open = true;
-                    break;
-                case "ghost":
-                    sim.state.score = base_ + every - 1;
-                    ExitPlanner.plan(sim, sim._rng, side, base_ + every);
-                    sim.state.exit_preview = true;
-                    break;
-            }
-            sim.kill(DeathCause.FLOOR);
-            sim.revive();
-            return sim;
-        }
-
         public override JsonObject run(int n)
         {
             var (index, exit, side) = ((int, string, long))cases[n];
-            var sim = revived(index, 9000 + index, exit, side);
+            var sim = Setups.revived(index, 9000 + index, exit, side);
             var search = new SurvivalSearch();
             var fails = new List<string>();
             if (!search.run(sim, TICKS))
@@ -494,8 +470,8 @@ static class Checks
     public sealed class Pairs : Check
     {
         public override string name => "pairs";
-        public override string test => "res://tests/sim/test_double_trouble.gd:test_every_pair_has_a_way_through";
-        /// Seeds searched per pair (the GD test plays the first 2) and how long.
+        public override string test => "tests/sim/test_double_trouble.gd:test_every_pair_has_a_way_through";
+        /// Seeds searched per pair (the GD test played the first 2) and how long.
         public const long SEARCH_SEEDS = 8;
         public const long SEARCH_TICKS = 600;
 
