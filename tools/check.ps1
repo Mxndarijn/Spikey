@@ -7,7 +7,8 @@
   2. Godot headless import (builds the class cache)
   3. Load every script and scene
   4. Tests: unit, sim purity, golden replays, room rule checks, run side by
-     side in -Jobs headless Godot processes (default: one per core, at most 24;
+     side in -Jobs headless Godot processes (default: one per core, at most 8:
+     more only adds Godot start-ups now that no bot plays here;
      -Jobs 1 runs them all in one process). No bot plays here (step 6).
   5. FastSim parity: tools/fastsim (the C# copy of sim/) still matches sim/,
      tick for tick, in every room and variant, out of portals, after revives
@@ -15,7 +16,15 @@
      choose what the GDScript ones do
   6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
      seeker, random tapper: tools/fastsim/Checks.cs), in -FastSimJobs worker
-     processes (default: -Jobs)
+     processes
+
+  The steps run side by side where they can: lint, format and the FastSim
+  checks (which need no Godot) start at once; once the import is done, the
+  tests, the load step and the parity recording run together. Each step's
+  output is shown under its own heading, in the order above. The tests get
+  -Jobs Godot processes; the others add a few processes at below-normal
+  priority (-FastSimJobs, default half of -Jobs, for the FastSim checks; two
+  for the parity recording).
 
   -TestFilter limits step 4 to tests whose "path:method" contains it, and
   step 6 to checks named so or replacing such a test (for example
@@ -40,6 +49,7 @@ param(
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $failed = @()
+$clock = [Diagnostics.Stopwatch]::StartNew()
 
 function Write-Step($name) { Write-Host "`n== $name ==" -ForegroundColor Cyan }
 
@@ -55,16 +65,6 @@ function Resolve-Godot {
     return $null
 }
 
-$godot = Resolve-Godot
-if (-not $godot) {
-    Write-Host "Godot not found. Set `$env:GODOT or write its path to tools/godot_path.txt." -ForegroundColor Red
-    exit 2
-}
-Write-Host "Godot: $godot"
-$gdDirs = @("sim", "game", "meta", "services", "tests", "tools", "server") | ForEach-Object { Join-Path $root $_ }
-
-# 1. Lint + format
-Write-Step "Lint and format"
 function Resolve-Tool($name) {
     $cmd = Get-Command $name -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -79,13 +79,95 @@ function Resolve-Tool($name) {
     }
     return $null
 }
+
+# Background steps: each a process whose output goes to files, shown once it
+# is done (Show-Step).
+$logDir = Join-Path ([IO.Path]::GetTempPath()) "flapjaw_check_$PID"
+New-Item -ItemType Directory -Force $logDir | Out-Null
+$steps = @{}
+
+function Start-Step($key, $file, [string[]]$argList) {
+    $quoted = $argList | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }
+    $out = Join-Path $logDir "$key.out.txt"
+    $err = Join-Path $logDir "$key.err.txt"
+    $p = Start-Process -FilePath $file -ArgumentList $quoted -NoNewWindow -PassThru `
+        -RedirectStandardOutput $out -RedirectStandardError $err
+    # Windows PowerShell only keeps the exit code if the handle was read.
+    $null = $p.Handle
+    $steps[$key] = @{ Process = $p; Out = $out; Err = $err; Clock = [Diagnostics.Stopwatch]::StartNew() }
+}
+
+function Set-BelowNormal($key) {
+    try { $steps[$key].Process.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal } catch { }
+}
+
+# Waits for a background step, prints its output and returns its exit code.
+# Its stderr is shown only when it failed (Godot prints harmless leak
+# warnings there at exit).
+function Show-Step($key) {
+    $s = $steps[$key]
+    $s.Process.WaitForExit()
+    $code = $s.Process.ExitCode
+    $lines = @(Get-Content $s.Out -ErrorAction SilentlyContinue)
+    if ($code -ne 0) { $lines += @(Get-Content $s.Err -ErrorAction SilentlyContinue) }
+    foreach ($l in $lines) { Write-Host $l }
+    return $code
+}
+
+$godot = Resolve-Godot
+if (-not $godot) {
+    Write-Host "Godot not found. Set `$env:GODOT or write its path to tools/godot_path.txt." -ForegroundColor Red
+    exit 2
+}
+Write-Host "Godot: $godot"
+$gdDirs = @("sim", "game", "meta", "services", "tests", "tools", "server") | ForEach-Object { Join-Path $root $_ }
+if ($Jobs -le 0) { $Jobs = [Math]::Min([Environment]::ProcessorCount, 8) }
+if ($FastSimJobs -le 0) { $FastSimJobs = [Math]::Max(2, [int]($Jobs / 2)) }
+$fastsim = Join-Path $root "tools/fastsim.ps1"
+$runParity = -not $TestFilter -or $TestFilter -eq "fastsim"
+
+# FastSim is built once, here, so parity and the checks can share it.
+$hasDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
+$fastsimBuilt = $false
+if ($hasDotnet) {
+    & dotnet build (Join-Path $root "tools/fastsim/FastSim.csproj") -c Release -nologo -v q | Out-Null
+    $fastsimBuilt = $LASTEXITCODE -eq 0
+}
+
+# 1 and 6 start now: they need no Godot.
 $gdlint = Resolve-Tool "gdlint"
 $gdformat = Resolve-Tool "gdformat"
 if ($gdlint -and $gdformat) {
-    & $gdlint @gdDirs
-    if ($LASTEXITCODE -ne 0) { $failed += "lint" }
-    & $gdformat --check --line-length 100 @gdDirs
-    if ($LASTEXITCODE -ne 0) { $failed += "format (run: gdformat --line-length 100 sim game meta services tests tools server)" }
+    Start-Step "lint" $gdlint $gdDirs
+    Start-Step "format" $gdformat (@("--check", "--line-length", "100") + $gdDirs)
+}
+if ($fastsimBuilt) {
+    $fa = @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "check", "-NoBuild", "-Jobs", $FastSimJobs)
+    if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
+    Start-Step "checks" "powershell" $fa
+}
+
+# 2. Import (everything below that runs Godot needs it).
+$sw = [Diagnostics.Stopwatch]::StartNew()
+& $godot --headless --path $root --import 2>&1 | Out-Null
+$importOk = $LASTEXITCODE -eq 0
+$importTime = $sw.Elapsed.TotalSeconds
+
+# 3 and 5 run beside the tests.
+if ($importOk) {
+    Start-Step "load" $godot @("--headless", "--path", $root, "-s", "res://tools/ci/load_all.gd")
+    Set-BelowNormal "load"
+    if ($runParity -and $fastsimBuilt) {
+        Start-Step "parity" "powershell" @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "parity", "-Quick", "-NoBuild", "-Jobs", "2")
+        Set-BelowNormal "parity"
+    }
+}
+
+# 1. Lint + format
+Write-Step "Lint and format"
+if ($gdlint -and $gdformat) {
+    if ((Show-Step "lint") -ne 0) { $failed += "lint" }
+    if ((Show-Step "format") -ne 0) { $failed += "format (run: gdformat --line-length 100 sim game meta services tests tools server)" }
 } else {
     Write-Host "gdtoolkit not installed: pip install --user `"gdtoolkit==4.*`"" -ForegroundColor Red
     $failed += "lint and format (gdtoolkit not installed)"
@@ -93,52 +175,59 @@ if ($gdlint -and $gdformat) {
 
 # 2. Import
 Write-Step "Import"
-& $godot --headless --path $root --import 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { $failed += "import" } else { Write-Host "ok" }
+if ($importOk) { Write-Host ("ok ({0:F0} s)" -f $importTime) } else { $failed += "import" }
+
+# 4. Tests, shown as they run.
+Write-Step "Tests"
+if ($importOk) {
+    $testArgs = @("--jobs", $Jobs)
+    if ($TestFilter) { $testArgs += $TestFilter }
+    & $godot --headless --path $root -s res://tests/run_tests.gd -- @testArgs
+    if ($LASTEXITCODE -ne 0) { $failed += "tests" }
+} else {
+    Write-Host "skipped: the import failed" -ForegroundColor Red
+}
 
 # 3. Load everything
 Write-Step "Load all scripts and scenes"
-& $godot --headless --path $root -s res://tools/ci/load_all.gd
-if ($LASTEXITCODE -ne 0) { $failed += "load" }
+if ($importOk) {
+    if ((Show-Step "load") -ne 0) { $failed += "load" }
+} else {
+    Write-Host "skipped: the import failed" -ForegroundColor Red
+}
 
-# 4. Tests
-Write-Step "Tests"
-if ($Jobs -le 0) { $Jobs = [Math]::Min([Environment]::ProcessorCount, 24) }
-$testArgs = @("--jobs", $Jobs)
-if ($TestFilter) { $testArgs += $TestFilter }
-& $godot --headless --path $root -s res://tests/run_tests.gd -- @testArgs
-if ($LASTEXITCODE -ne 0) { $failed += "tests" }
-
-# 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/. Skipped
-# with a -TestFilter unless the filter is "fastsim".
-$hasDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
-$fastsim = Join-Path $root "tools/fastsim.ps1"
-if ($FastSimJobs -le 0) { $FastSimJobs = $Jobs }
-if (-not $TestFilter -or $TestFilter -eq "fastsim") {
+# 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/.
+if ($runParity) {
     Write-Step "FastSim parity"
-    if ($hasDotnet) {
-        & powershell -ExecutionPolicy Bypass -File $fastsim -Mode parity -Quick -Jobs $FastSimJobs
-        if ($LASTEXITCODE -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
-    } else {
+    if (-not $hasDotnet) {
         Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
         $failed += "fastsim parity (dotnet not installed)"
+    } elseif (-not $fastsimBuilt) {
+        & dotnet build (Join-Path $root "tools/fastsim/FastSim.csproj") -c Release -nologo -v q
+        $failed += "fastsim parity (FastSim build failed)"
+    } elseif ($steps.ContainsKey("parity")) {
+        if ((Show-Step "parity") -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
+    } else {
+        Write-Host "skipped: the import failed" -ForegroundColor Red
+        $failed += "fastsim parity (skipped)"
     }
 }
 
-# 6. The bot-heavy tests on FastSim (tools/fastsim/Checks.cs). With a
-# -TestFilter only the checks it names or whose GD test it matches.
+# 6. Every bot test, on FastSim (tools/fastsim/Checks.cs). With a
+# -TestFilter only the checks it names or whose old test it matches.
 Write-Step "FastSim checks"
-if ($hasDotnet) {
-    $fa = @("-Mode", "check", "-Jobs", $FastSimJobs)
-    if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
-    & powershell -ExecutionPolicy Bypass -File $fastsim @fa
-    if ($LASTEXITCODE -ne 0) { $failed += "fastsim checks" }
-} else {
+if (-not $hasDotnet) {
     Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
     $failed += "fastsim checks (dotnet not installed)"
+} elseif (-not $fastsimBuilt) {
+    $failed += "fastsim checks (FastSim build failed)"
+} else {
+    if ((Show-Step "checks") -ne 0) { $failed += "fastsim checks" }
 }
 
+Remove-Item -Recurse -Force $logDir -ErrorAction SilentlyContinue
 Write-Host ""
+Write-Host ("Check took {0:F0} s" -f $clock.Elapsed.TotalSeconds)
 if ($failed.Count -gt 0) {
     Write-Host "CHECK FAILED: $($failed -join ', ')" -ForegroundColor Red
     exit 1
