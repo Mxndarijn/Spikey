@@ -66,7 +66,7 @@ and restore must come from the store's purchase history.
 ## The rule: a revive restarts the room as the bird came into it
 
 After a revive the room is **exactly as it was when the bird came in**, and the
-bird is back at the portal it came through (gameplay version 21):
+bird is back at the portal it came through:
 
 1. Score, coins, flaps, room index, route and the RNG carry on. Nothing is
    rolled back.
@@ -126,8 +126,9 @@ Known side effects, accepted:
 - `GAMEPLAY_VERSION` 14 -> 15. Runs without a revive play exactly as before,
   but the bump is still required: the checksum gains a field, and a version 14
   checker must leave revived runs pending instead of rejecting them.
-- `GAMEPLAY_VERSION` 20 -> 21: the revive restarts the room as the bird came
-  in (this rule). Runs without a revive play exactly as before.
+- The revive that restarts the room as the bird came in (this rule) needs a
+  `GAMEPLAY_VERSION` bump; the coordinator bumps it once everything for
+  `next-features-2` is merged. Runs without a revive play exactly as before.
 
 `SimState`
 - `var revives := 0`, added to `copy()` and at the end of `checksum()`.
@@ -278,7 +279,8 @@ Open points:
   real run (`BotSetups.came_in`), dies, is revived, and `SurvivalSearch` shows
   that a survivor exists. The `crawl`, `gates` and `isles` revive searches
   come in the same way (toward wall `seed % 2`).
-- Two golden replays with a revive (`g21_revived_seed_*.json`); the others
+- Two golden replays with a revive (`g*_revived_seed_*.json`, regenerated with
+  the next version bump); the others
   were regenerated after the version bump and kept their taps, score and end
   tick.
 - `RunChecker` tests: `revives` missing, valid, and not a list.

@@ -70,12 +70,7 @@ extends RefCounted
 ##     pairs that fit the bird's height out of a portal). Five new rooms:
 ##     Crosswind, Spike Belt, Locked Out, Lava Rise, Echo. The free run stays
 ##     near the bird in rooms whose hazards are only in variants.
-## 21: a revive restarts the room as the bird came into it (the same variant,
-##     hazards and wall spikes, kept at each portal arrival and at the run
-##     start), with the bird at that portal, at that height, flying that way.
-##     An open exit moves to that portal; a ghost is planned again on the
-##     wall behind the bird.
-const GAMEPLAY_VERSION := 21
+const GAMEPLAY_VERSION := 20
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
