@@ -124,6 +124,31 @@ func test_play_from_the_debug_page_starts_the_practice_run() -> void:
 	_reset()
 
 
+func test_leaving_debug_practice_goes_back_to_the_debug_page() -> void:
+	_reset(1)
+	var main := _make_main()
+	var sheet := (main._menus.current() as HomeScreen).open_settings()
+	sheet.show_debug(true)
+	var picker := sheet.debug_page().room_picker()
+	picker.pick("tide", RoomCatalog.find("tide").variants[1].id)
+	picker.play()
+	assert_eq(main.mode, main.Mode.PRACTICE)
+	# Rooms on the practice-over screen (and pause / back arrow) emit this.
+	main._hud.rooms_pressed.emit()
+	var home := main._menus.current() as HomeScreen
+	assert_true(home != null, "back on Home, not Rooms")
+	assert_true(home.settings() != null, "settings sheet open")
+	assert_true(home.settings().debug_page() != null, "on the debug page")
+	assert_eq(home.settings().debug_page().room_picker().room_id, "tide", "keeps the pick")
+	# Practice from a room's own page still goes back to Rooms.
+	main._profile.record_room_met("tide")
+	main.start_practice("tide")
+	main._hud.rooms_pressed.emit()
+	assert_true(main._menus.current() is RoomsScreen, "room practice -> Rooms")
+	_free_main(main)
+	_reset()
+
+
 func test_players_have_the_picker_too() -> void:
 	_reset(0)
 	var page := DebugPage.new(Profile.new(), AppServices.offline(Profile.new()))

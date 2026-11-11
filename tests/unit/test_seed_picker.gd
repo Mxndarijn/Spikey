@@ -88,6 +88,10 @@ func test_play_from_the_debug_page_runs_that_seed_as_practice() -> void:
 	# Try again plays the same seed.
 	main._restart_practice()
 	assert_eq(main._run.sim.seed_value, 4242, "every try")
+	# Leaving goes back to the debug page.
+	main._leave_to_rooms()
+	var back := main._menus.current() as HomeScreen
+	assert_true(back != null and back.settings().debug_page() != null, "back on the debug page")
 	# A real run after it draws a new seed (and so does room practice).
 	main.show_home()
 	main.start_run()
