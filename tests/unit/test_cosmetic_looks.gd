@@ -231,6 +231,17 @@ func test_bird_view_shows_flap_pose_after_a_flap() -> void:
 	bird.free()
 
 
+func test_bird_view_comes_back_after_a_revive() -> void:
+	var bird := BirdView.new()
+	bird.set_character(Catalog.flyer("puff"))
+	bird.fade_out()
+	bird.modulate.a = 0.0
+	bird.on_revived()
+	assert_eq(bird.modulate.a, 1.0, "fully visible again")
+	assert_false(bird._fading, "no longer fading")
+	bird.free()
+
+
 func test_bird_view_turns_upside_down_in_gravity_flip() -> void:
 	assert_eq(BirdView.flip_target(1), 1.0, "upright with normal gravity")
 	assert_eq(BirdView.flip_target(-1), -1.0, "upside down when gravity points up")

@@ -766,6 +766,9 @@ func _on_revive() -> void:
 ## The sim revived the bird (also in a replay of a revived run).
 func _on_revived() -> void:
 	_room.on_revived()
+	# The crash effect may have turned the flyer into pieces: bring it back.
+	_crash.clear()
+	_bird.on_revived()
 	_trail.start()
 
 
