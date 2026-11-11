@@ -117,7 +117,8 @@ Known side effects, accepted:
 - The hazards' own revive code (Crawler `REVIVE_SHIFT`, Gate `REVIVE_REACH`,
   Block's islands around an exit already there) ran when a revived room was
   rebuilt with an exit planned. A room is never built with an exit planned
-  now, so that code no longer runs.
+  now, so that code never ran and has been removed (no RNG draw or checksum
+  changed).
 
 ## Sim changes (`sim/`)
 

@@ -23,8 +23,6 @@ public class Crawler : Hazard
     public const long SPRINT_SEGMENTS = 5;
     public const long SPRINT_SPEED = 2 * SimConfig.SUB;
     public const long FREE_RUN = 3;
-    public const long REVIVE_SHIFT = 16 * SimConfig.SUB;
-    public const long REVIVE_TRIES = 12;
     public const long FAR = 1L << 30;
 
     public long lane = 0;
@@ -102,16 +100,6 @@ public class Crawler : Hazard
         var leader = trails ? _leader(sim) : null;
         if (leader != null) start = leader.start - trail_offset();
         else start = reserve + rng.next_below(start_span()) + lane * (W + H);
-        if (sim.state.exit_open || sim.state.exit_preview)
-        {
-            long shift = REVIVE_SHIFT * speed / SPEED;
-            long move = sim.state.exit_side == 1 - lane ? -shift : shift;
-            for (long i = 0; i < REVIVE_TRIES; i++)
-            {
-                if (!_blocks_planned_exit(sim)) break;
-                start += move;
-            }
-        }
         _resize(xs, segments);
         _resize(ys, segments);
         _place();
@@ -230,13 +218,6 @@ public class Crawler : Hazard
             if (best != 0) return best;
         }
         return 0;
-    }
-
-    public bool _blocks_planned_exit(GameSim sim)
-    {
-        var s = sim.state;
-        if (blocks_exit(sim, s.exit_side, s.exit_a_y)) return true;
-        return s.exit_b_kind != ExitKind.NORMAL && blocks_exit(sim, s.exit_side, s.exit_b_y);
     }
 
     /// [lowest y, highest y] of the segments in the bird's way; [FAR, -FAR] when none is.

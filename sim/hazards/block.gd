@@ -16,7 +16,7 @@ const MIN_GAP := 95 * SimConfig.SUB
 ## overlapping: the slot between their ends is too short to change height in.
 const PINCH_X := 48 * SimConfig.SUB
 ## The arrival lane, kept clear in front of a bird that comes out of a wall
-## (portal or revive): this far into the room (about 50 steps of flight, so a
+## (portal): this far into the room (about 50 steps of flight, so a
 ## player still reading the room flies through), and from ARRIVAL_UP above
 ## the bird (one hop) to ARRIVAL_DOWN below it.
 const ARRIVAL_W := 200 * SimConfig.SUB
@@ -26,11 +26,9 @@ const ARRIVAL_DOWN := 45 * SimConfig.SUB
 ## level with the exit's middle, give or take the bird and a margin. Planning
 ## an exit past the islands uses EXIT_MARGIN: small enough that one island
 ## rules out two slots at most, so the four of them never rule out a whole
-## wall. Placing islands around an exit that is already there (revive) uses
-## EXIT_ROOM, a whole slot.
+## wall.
 const EXIT_CLEAR_X := 130 * SimConfig.SUB
 const EXIT_MARGIN := 8 * SimConfig.SUB
-const EXIT_ROOM := SimConfig.SLOT_SIZE
 ## Floating Isles, drifting: every island sways this far each way, all
 ## together, on a loop of DRIFT_PERIOD steps (5 s). Together, so the gaps
 ## between them never change; the placement rules keep the whole sway clear.
@@ -220,8 +218,7 @@ func _time_faders_for_arrival(sim: GameSim) -> void:
 
 ## Whether an island in this box would leave the bird no fair way: on its
 ## first hop or in its start lane (before the first tap), in front of the wall
-## it comes out of (portal or revive), too close under the island above, or in
-## front of an exit that is already there (revive).
+## it comes out of (portal), or too close under the island above.
 ## A drifting island is checked over its whole sway, except against the island
 ## above (they sway together).
 func _in_the_way(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
@@ -232,28 +229,12 @@ func _in_the_way(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
 		or FairLanes.blocks_start_lane(sim, sx0, by0, sx1, by1)
 		or _blocks_arrival(sim, sx0, by0, sx1, by1)
 		or _crowds_neighbour(sim, bx0, by0, bx1)
-		or _covers_exit(sim, sx0, by0, sx1, by1)
-	)
-
-
-## Whether a box is in front of an exit that is open or planned (a ghost).
-func _covers_exit(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
-	var st := sim.state
-	if not st.exit_open and not st.exit_preview:
-		return false
-	if _fronts_exit(sim, st.exit_side, st.exit_a_y, EXIT_ROOM, bx0, by0, bx1, by1):
-		return true
-	return (
-		st.exit_b_kind != SimState.ExitKind.NORMAL
-		and _fronts_exit(sim, st.exit_side, st.exit_b_y, EXIT_ROOM, bx0, by0, bx1, by1)
 	)
 
 
 ## The room starts with the bird already flying only when it comes out of a
-## wall (through a portal or on a revive): at its height, flying level, from
-## the wall behind it. Whether a box is in its arrival lane, or, when the bird
-## is revived facing an open exit (it has one flight to get there), anywhere
-## between its height and the exit's.
+## wall through a portal: at its height, flying level, from the wall behind
+## it. Whether a box is in its arrival lane.
 func _blocks_arrival(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bool:
 	var st := sim.state
 	if not st.started:
@@ -267,14 +248,7 @@ func _blocks_arrival(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bo
 			return true
 		if st.vx < 0 and bx1 > sim.room.wall_right() - ARRIVAL_W:
 			return true
-	if not st.exit_open:
-		return false
-	top = mini(top, st.exit_a_y - ARRIVAL_UP)
-	bottom = maxi(bottom, st.exit_a_y + ARRIVAL_UP)
-	if st.exit_b_kind != SimState.ExitKind.NORMAL:
-		top = mini(top, st.exit_b_y - ARRIVAL_UP)
-		bottom = maxi(bottom, st.exit_b_y + ARRIVAL_UP)
-	return by1 > top and by0 < bottom
+	return false
 
 
 ## The island of the band above, as [x0, x1, y1]; empty if there is none.
