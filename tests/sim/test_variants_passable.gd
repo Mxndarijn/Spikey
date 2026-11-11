@@ -66,7 +66,7 @@ const CASES := [
 
 const PARALLEL := true
 ## The searches are shared out over this many parts, which can run side by side.
-const PARTS := 4
+const PARTS := 8
 
 
 func test_rooms_are_passable_in_every_variant(part: int, parts: int) -> void:
