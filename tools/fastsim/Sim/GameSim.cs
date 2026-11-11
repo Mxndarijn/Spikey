@@ -25,6 +25,10 @@ public sealed class GameSim
     public List<int> events = new List<int>(8);
     public SimRng _rng;
     public bool _checking = false;
+    /// The room and the bird as they came in, for a revive. Never changed after
+    /// it is taken, so clones share it (GDScript's SimCopy copies it).
+    public RoomRuntime _entry_room = null;
+    public SimState _entry_state = null;
 
     GameSim() { }
 
@@ -44,6 +48,7 @@ public sealed class GameSim
         else
         {
             _enter_room(RoomCatalog.first_index());
+            _keep_entry();
         }
     }
 
@@ -60,6 +65,8 @@ public sealed class GameSim
         c.events = new List<int>(events);
         c._rng = _rng.Clone();
         c._checking = _checking;
+        c._entry_room = _entry_room;
+        c._entry_state = _entry_state;
         return c;
     }
 
@@ -112,16 +119,28 @@ public sealed class GameSim
         state.alive = true;
         state.death_cause = DeathCause.NONE;
         state.revives += 1;
-        long side = state.vx > 0 ? 1 : 0;
-        if (state.exit_open) side = state.exit_side;
-        else if (state.exit_preview) side = 1 - state.exit_side;
-        long r = SimConfig.BIRD_RADIUS;
-        state.vx = side == 1 ? SimConfig.SPEED_X : -SimConfig.SPEED_X;
-        state.x = side == 1 ? r : SimConfig.WORLD_W - r;
-        state.y = SimConfig.BIRD_START_Y;
+        room = _entry_room.clone_deep();
+        state.room_kind = room.index;
+        state.x = _entry_state.x;
+        state.y = _entry_state.y;
+        state.vx = _entry_state.vx;
         state.vy = 0;
-        _enter_room(room.index);
-        _arrive(side, Event.REVIVE);
+        state.left_spikes = _entry_state.left_spikes;
+        state.right_spikes = _entry_state.right_spikes;
+        long behind = state.vx > 0 ? 0 : 1;
+        if (state.exit_open)
+        {
+            if (!ExitPlanner.at_bird(this, behind))
+            {
+                ExitPlanner.plan(this, _rng, behind, state.score);
+                long clear = room.max_spike_depth() + SimConfig.SUB;
+                state.x += behind == 0 ? clear : -clear;
+            }
+        }
+        else if (state.exit_preview)
+            ExitPlanner.plan(this, _rng, behind, state.score + 1);
+        state.arrival_hold = SimConfig.ARRIVAL_HOLD;
+        events.Add(Event.REVIVE);
         return true;
     }
 
@@ -395,6 +414,14 @@ public sealed class GameSim
         state.x = side == 1 ? r : SimConfig.WORLD_W - r;
         _enter_room(next);
         _arrive(side, Event.ROOM_CHANGE);
+        _keep_entry();
+    }
+
+    void _keep_entry()
+    {
+        if (is_practice() || _checking) return;
+        _entry_room = room.clone_deep();
+        _entry_state = state.copy();
     }
 
     void _arrive(long side, int ev)
@@ -411,7 +438,6 @@ public sealed class GameSim
             state.vx = -SimConfig.SPEED_X;
         }
         state.vy = 0;
-        if (ev == Event.REVIVE) state.arrival_hold = SimConfig.ARRIVAL_HOLD;
         state.left_spikes = 0;
         state.right_spikes = 0;
         events.Add(ev);

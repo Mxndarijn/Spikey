@@ -54,29 +54,6 @@ func test_crawlers_never_cover_the_way_on() -> void:
 		assert_true(exits >= SWEEP_SEEDS * 2, "%s: checked many exits (%d)" % [id, exits])
 
 
-## A revive starts the room again while the exit stays where it was planned,
-## for crawlers that were somewhere else. The fresh crawlers come down the wall
-## sides near the top right and bottom left corners, so exits there are the
-## hard ones: they start further back and still leave the exit clear. (That a
-## bird gets from the revive through them: Checks.cs Crawl, on FastSim.)
-func test_revive_leaves_the_planned_exit_clear() -> void:
-	var index := RoomCatalog.index_of("crawl")
-	var top := SimConfig.slot_center_y(1)
-	var bottom := SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 2)
-	for s in range(1, 31):
-		for exit: String in ["open", "ghost"]:
-			for side in 2:
-				for y: int in [top, bottom]:
-					var sim := BotSetups.crawl_revived(index, s, exit, side, y)
-					var label := (
-						"seed %d (%s), %s exit on wall %d at %d px"
-						% [s, sim.room.variant_id(), exit, side, y / SUB]
-					)
-					for h: Hazard in sim.room.hazards:
-						assert_false(h.blocks_exit(sim, side, y), "%s: clear of the exit" % label)
-						assert_false(h.kills(sim), "%s: clear of the bird" % label)
-
-
 ## Returns [walls checked, exits checked].
 func _sweep(sim: GameSim, label: String) -> Array[int]:
 	var s := sim.state

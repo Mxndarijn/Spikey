@@ -16,6 +16,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check -Check arrival,revive -Filter revive
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode runfile -Seed 7 -Out run.json  # a bot run as a run file
 #
 # -Variant (search, rooms, reaction): play that room variant id instead of the
 #   one the RNG draws ("all": each variant of each matching room in turn, one
@@ -36,7 +37,7 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check", "runfile")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
@@ -51,6 +52,8 @@ param(
     [ValidateSet("Idle", "BelowNormal", "Normal")]
     [string]$Priority = "BelowNormal",
     [string]$Out = "",
+    # runfile: the run's seed (the bot's seed is -Seeds, default 1).
+    [long]$Seed = 1,
     [switch]$Quick
 )
 
@@ -119,6 +122,12 @@ if ($Mode -eq "check") {
     if ($Jobs -gt 0) { $ca += @("--jobs", $Jobs) }
     if ($Filter) { $ca += @("--filter", $Filter) }
     & $exe @ca
+    exit $LASTEXITCODE
+}
+
+if ($Mode -eq "runfile") {
+    if (-not $Out) { Write-Host "-Mode runfile needs -Out <file.json>" -ForegroundColor Red; exit 2 }
+    & $exe runfile $Seed $(if ($Seeds) { $Seeds } else { 1 }) --out ([IO.Path]::GetFullPath($Out))
     exit $LASTEXITCODE
 }
 

@@ -32,11 +32,19 @@ static func defs() -> Array[RoomDef]:
 	]
 	out.append(belt)
 
-	# Locked Exit: the exit opens locked until the bird takes the key.
-	# Variants: a still key; a key circling the room; two keys.
+	# Locked Out: the exit opens locked until the bird has every key; while it
+	# is locked the walls grow spikes. Every variant has one more spike per wall.
+	# Variants: one key by a wall; one on a wide orbit; three keys; four keys;
+	# three keys one at a time.
 	var lock := RoomDef.new("lockexit", "mid", 40)
 	lock.hazards.append(func() -> Hazard: return ExitKey.new())
-	lock.variants = [RoomVariant.new("still"), RoomVariant.new("orbit"), RoomVariant.new("two")]
+	lock.variants = [
+		RoomVariant.new("classic").sized(1, 1, 1),
+		RoomVariant.new("orbit").sized(1, 1, 1),
+		RoomVariant.new("trio").sized(1, 1, 1),
+		RoomVariant.new("quad").sized(1, 1, 1),
+		RoomVariant.new("chain").sized(1, 1, 1),
+	]
 	out.append(lock)
 
 	# Lava Rise: lava climbs a step for every point; a cool stone sinks it.
