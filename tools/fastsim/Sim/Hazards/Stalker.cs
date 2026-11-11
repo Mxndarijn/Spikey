@@ -30,8 +30,9 @@ public class Stalker : Hazard
     {
         side = sim.state.vx > 0 ? 1 : 0;
         long target = G.clampi(sim.state.y, MIN_Y, MAX_Y);
+        long old = y;
         y += G.clampi(target - y, -MAX_SPEED, MAX_SPEED);
-        y = ExitZone.clear_y(sim, side, y, HALF_H, MIN_Y, MAX_Y);
+        y = ExitZone.stop_y(sim, side, old, y, HALF_H, MIN_Y, MAX_Y);
         x = base_x(sim);
     }
 

@@ -200,14 +200,20 @@ start and never comes back.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
   It never puts an exit where a hazard kills in its mouth already
   (`ExitPlanner.in_mouth`) or says it would (`Hazard.blocks_exit`).
-- `sim/exit_zone.gd` (ExitZone): the mouth of an open or ghost exit (the
-  opening plus a bird radius around it, three bird radii deep). Hazards treat
-  it as part of the wall: balls bounce off it, the Stalker and the Echo stop
-  at its edge, darts, drops, crates and sparks break on it, pistons sit the
-  cycle out and beams stop short; a swinging lantern can't, so an exit never
-  goes where its swing reaches. `tools/fastsim.ps1 -Mode check -Check exits`
-  (every variant, and full runs in every season) and `tests/sim/test_exit_clear.gd`
-  check that nothing ever kills in, or turns the bird back from, a mouth.
+- `sim/exit_zone.gd` (ExitZone): the mouths of a room's exits (the opening
+  plus a bird radius around it, three bird radii deep), on both walls, for the
+  whole room: the exits are planned from the room's seed when it starts
+  (`ExitPlanner.plan_room`), so they never depend on how anyone flies.
+  Hazards treat the mouths as part of the wall: balls bounce off them, the
+  Stalker stops at their edge, the Echo keeps out, darts, drops, crates and
+  sparks break on them, pistons move off their rows or sit the cycle out, and
+  beams stop short; fixed rams and swinging lanterns can't, so an exit never
+  goes where they reach (`blocks_exit`). Wall spikes may cover a mouth until
+  its exit's ghost shows. `tools/fastsim.ps1 -Mode check -Check exits` (every
+  variant, and full runs in every season, each played twice with different
+  taps) checks that both plays meet the same exits, that nothing ever kills in
+  or turns the bird back from a mouth, and that no spike reaches into a shown
+  exit's mouth; `tests/sim/test_exit_clear.gd` keeps a sample.
 - `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
   `HazardPainter` per hazard kind, which casts the hazard to its own class and
   gets a `HazardLook` (world, clock, the room's skin, color-blind mode).

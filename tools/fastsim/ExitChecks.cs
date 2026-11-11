@@ -19,17 +19,17 @@ static partial class Checks
         public static List<string> blockers(GameSim sim)
         {
             var hits = new List<string>();
-            long n = ExitZone.count(sim);
-            if (n == 0) return hits;
+            long n = ExitZone.BOXES;
             var s = sim.state;
             long r = SimConfig.BIRD_RADIUS;
             long keep_x = s.x, keep_y = s.y;
             for (long i = 0; i < n; i++)
             {
                 long side = ExitZone.box_side(sim, i), ey = ExitZone.box_y(sim, i);
+                if (ey == 0) continue;
                 long wall = side == 1 ? sim.room.wall_right() - r : sim.room.wall_left() + r;
                 long dir = side == 1 ? -1 : 1;
-                for (long dx = 0; dx <= r; dx += STEP)
+                for (long dx = 0; dx < r; dx += STEP)
                     for (long dy = -SimConfig.EXIT_HALF; dy <= SimConfig.EXIT_HALF; dy += STEP)
                     {
                         s.x = wall + dir * dx;
@@ -45,6 +45,7 @@ static partial class Checks
             for (long i = 0; i < n; i++)
             {
                 long side = ExitZone.box_side(sim, i), ey = ExitZone.box_y(sim, i);
+                if (ey == 0) continue;
                 long wall = side == 1 ? sim.room.wall_right() - r : sim.room.wall_left() + r;
                 long dir = side == 1 ? -1 : 1;
                 foreach (long dy in new[] { -SimConfig.EXIT_HALF / 2, 0, SimConfig.EXIT_HALF / 2 })
@@ -135,13 +136,10 @@ static partial class Checks
                         play.bad = $"{where}: {(st.exit_open ? "open" : "ghost")} exit {v} px side {st.exit_side}: {sp}";
                 }
                 long now = -1;
-                long n = ExitZone.count(sim);
-                if (n > 0)
-                {
-                    now = SimHash.mix(st.room_index, n);
-                    for (long i = 0; i < n; i++)
-                        now = SimHash.mix(SimHash.mix(now, ExitZone.box_side(sim, i)), ExitZone.box_y(sim, i));
-                }
+                long n = ExitZone.BOXES;
+                now = st.room_index;
+                for (long i = 0; i < n; i++)
+                    now = SimHash.mix(SimHash.mix(now, ExitZone.box_side(sim, i)), ExitZone.box_y(sim, i));
                 if (now != key)
                 {
                     key = now;
@@ -154,7 +152,7 @@ static partial class Checks
                 {
                     var boxes = new List<string>();
                     for (long i = 0; i < n; i++)
-                        boxes.Add($"{ExitZone.box_y(sim, i) / SimConfig.SUB} px side {ExitZone.box_side(sim, i)}");
+                        if (ExitZone.box_y(sim, i) != 0) boxes.Add($"{ExitZone.box_y(sim, i) / SimConfig.SUB} px side {ExitZone.box_side(sim, i)}");
                     play.bad = $"{where}, exit mouth {string.Join(", ", boxes)}: {string.Join(", ", b)}";
                 }
             }

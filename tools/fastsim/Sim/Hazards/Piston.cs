@@ -104,7 +104,15 @@ public class Piston : Hazard
         // Always draw so the RNG order does not depend on the piston state.
         long old = y;
         _pick_y(rng);
+        _clear_row(sim);
         if (_cycle_state() != State.IDLE) y = old;
+    }
+
+    void _clear_row(GameSim sim)
+    {
+        if (fixed_y >= 0 || leader != null) return;
+        long c = ExitZone.clear_y(sim, half != HALF_ALL ? side : -1, y, HALF_H, y_lo, y_hi);
+        if (c >= y_lo && c <= y_hi) y = c;
     }
 
     public void _pick_y(SimRng rng)
@@ -122,6 +130,11 @@ public class Piston : Hazard
 
     public override void step(GameSim sim)
     {
+        if (t == 1)
+        {
+            _clear_row(sim);
+            if (leader != null) y = leader.y;
+        }
         if (_cycle_state() == State.IDLE) skip = false;
         else if (!skip && _reaches_exit(sim)) skip = true;
     }
@@ -132,7 +145,7 @@ public class Piston : Hazard
 
     public override bool blocks_exit(GameSim sim, long p_side, long p_y)
     {
-        if (skip || _cycle_state() == State.IDLE) return false;
+        if (fixed_y < 0 && (skip || _cycle_state() == State.IDLE)) return false;
         return ExitZone.rect_in_box(sim, p_side, p_y, base_x(), y - HALF_H, _far_x(), y + HALF_H);
     }
 

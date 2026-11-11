@@ -217,7 +217,7 @@ public static class ExitPlanner
         long wall = side == 0 ? sim.room.wall_left() + r : sim.room.wall_right() - r;
         long dir = side == 0 ? 1 : -1;
         bool out_ = false;
-        foreach (long dx in new[] { 0, r / 2, r })
+        foreach (long dx in new[] { 0, r / 2, r - 1 })
         {
             long dy = -SimConfig.EXIT_HALF;
             while (dy <= SimConfig.EXIT_HALF && !out_)

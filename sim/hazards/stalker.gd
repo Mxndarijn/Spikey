@@ -36,9 +36,11 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 func step(sim: GameSim) -> void:
 	side = 1 if sim.state.vx > 0 else 0
 	var target := clampi(sim.state.y, MIN_Y, MAX_Y)
+	var old := y
 	y += clampi(target - y, -MAX_SPEED, MAX_SPEED)
 	# It never slides into an exit's mouth (ExitZone): it waits at its edge.
-	y = ExitZone.clear_y(sim, side, y, HALF_H, MIN_Y, MAX_Y)
+	# Put in one by a jump to the other wall, it jumps clear of it.
+	y = ExitZone.stop_y(sim, side, old, y, HALF_H, MIN_Y, MAX_Y)
 	x = base_x(sim)
 
 

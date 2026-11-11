@@ -255,7 +255,7 @@ static func in_mouth(sim: GameSim, side: int, y: int) -> bool:
 	var wall := sim.room.wall_left() + r if side == 0 else sim.room.wall_right() - r
 	var dir := 1 if side == 0 else -1
 	var out := false
-	for dx: int in [0, r / 2, r]:
+	for dx: int in [0, r / 2, r - 1]:
 		var dy := -SimConfig.EXIT_HALF
 		while dy <= SimConfig.EXIT_HALF and not out:
 			s.x = wall + dir * dx

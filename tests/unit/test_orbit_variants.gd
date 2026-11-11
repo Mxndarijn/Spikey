@@ -286,6 +286,7 @@ func test_double_burst_sends_a_second_ring_into_the_gaps() -> void:
 
 func test_cross_burst_throws_four_arms() -> void:
 	var sim := GameSim.new(9)
+	NoExits.clear(sim)
 	var f := _burst(Firework.Style.CROSS, 9)
 	assert_eq(f.spark_count(), Firework.ARMS * Firework.ARM_SPARKS)
 	for step in 20:

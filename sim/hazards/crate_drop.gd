@@ -87,11 +87,12 @@ func _init(
 	coins.fill(0)
 
 
-func setup(sim: GameSim, rng: SimRng) -> void:
+func setup(_sim: GameSim, rng: SimRng) -> void:
 	salt = rng.next_u32()
-	_next_drop(sim, START_DELAY + WARN_TICKS)
+	_next_drop(null, START_DELAY + WARN_TICKS)
 
 
+## `sim` null: before the room's exits are known (setup).
 func _next_drop(sim: GameSim, warn: int) -> void:
 	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1)
 	col_b = -1
@@ -113,7 +114,7 @@ func _next_drop(sim: GameSim, warn: int) -> void:
 func _free_col(sim: GameSim, start: int, skip: int) -> int:
 	for i in cols:
 		var c := (start + i) % cols
-		if c != skip and heights[c] < max_height and not _col_in_exit(sim, c):
+		if c != skip and heights[c] < max_height and (sim == null or not _col_in_exit(sim, c)):
 			return c
 	return -1
 
@@ -126,11 +127,14 @@ func _col_in_exit(sim: GameSim, c: int) -> bool:
 
 func step(sim: GameSim) -> void:
 	if col < 0:
-		# Every column was full or in an exit's way: try again once the exit
-		# has gone (full columns stay full).
-		if ExitZone.count(sim) == 0 and _free_col(sim, 0, -1) >= 0:
-			_next_drop(sim, WARN_TICKS)
 		return
+	# The first crate was marked before the room's exits were known: mark it
+	# again (the same pick, now past the exits) if it would fall through one.
+	if t == 1 and (_col_in_exit(sim, col) or col_b >= 0 and _col_in_exit(sim, col_b)):
+		drops -= 1
+		_next_drop(sim, warn_left)
+		if col < 0:
+			return
 	if warn_left > 0:
 		warn_left -= 1
 		return
