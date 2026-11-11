@@ -51,6 +51,11 @@ static partial class Checks
                     if ((double)apart["balanced_accuracy"] < 0.9)
                         fails.Add($"the classifier cannot tell the gap seeker from the RL bot ({apart["balanced_accuracy"]})");
                 }
+                // The leak check: PlannerBot rolls out real copies, so it must be caught; the gap seeker reads only the screen.
+                var lp = Leak.check(Bots.find("planner"), 2, 1);
+                if ((string)lp["leaks"] != "yes") fails.Add($"the leak check misses PlannerBot's real copies ({lp.ToJsonString()})");
+                var lg = Leak.check(gap, 4, 1);
+                if ((string)lg["leaks"] != "no") fails.Add($"the leak check flags the gap seeker ({lg.ToJsonString()})");
                 var t = Timing.judge(runs[0].input, runs[0], 10);
                 if (t.taps_judged == 0) fails.Add("no tap of a gap seeker run could be timed");
             }

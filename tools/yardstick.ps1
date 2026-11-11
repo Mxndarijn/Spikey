@@ -11,11 +11,12 @@
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot search -Seeds 32
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <runs.json or folder>
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode compare           # rebuild the table
+#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode leak -Bot planner  # does it use what it cannot see?
 #
 # -Human with -Mode run also compares each bot with those human runs
 # (distances and a human-vs-bot classifier). Take a CPU slot for big runs.
 param(
-    [ValidateSet("run", "list", "compare", "humans")]
+    [ValidateSet("run", "list", "compare", "humans", "leak")]
     [string]$Mode = "run",
     [string]$Bot = "",
     [ValidateSet("quick", "full")]
@@ -49,6 +50,7 @@ if ($LASTEXITCODE -ne 0) {
 if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
 
 $a = @("yardstick", $Mode, "--out", $Out, "--threads", $Threads, "--priority", $Priority.ToLower())
+if ($Mode -eq "leak") { $a += @("--bot", $Bot) }
 if ($Mode -eq "run") {
     if ($Bot -eq "") { Write-Host "-Bot is needed (-Mode list shows them)" -ForegroundColor Red; exit 2 }
     $a += @("--bot", $Bot, "--set", $Set)

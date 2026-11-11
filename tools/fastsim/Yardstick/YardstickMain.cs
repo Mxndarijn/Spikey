@@ -36,6 +36,24 @@ public static class YardstickMain
                     return 0;
                 case "compare":
                     return write_table(out_dir);
+                case "leak":
+                {
+                    int threads = Math.Clamp(int.Parse(O("threads", "16")), 1, 64);
+                    // Prints each bot's leak check and adds it to that bot's JSONs in --out.
+                    foreach (var bot in Bots.pick(O("bot", "")))
+                    {
+                        var leak = Leak.check(bot, int.Parse(O("leak-seeds", "24")), threads);
+                        Console.WriteLine($"  {bot.name,-16} {leak.ToJsonString()}");
+                        if (!Directory.Exists(out_dir)) continue;
+                        foreach (var p in Directory.GetFiles(out_dir, "*.json"))
+                        {
+                            if (JsonNode.Parse(File.ReadAllText(p)) is not JsonObject o || (string)o["bot"] != bot.name) continue;
+                            o["leak"] = leak.DeepClone();
+                            File.WriteAllText(p, o.ToJsonString(PRETTY) + "\n");
+                        }
+                    }
+                    return write_table(out_dir);
+                }
                 case "run":
                 {
                     string set = O("set", "quick");
@@ -49,7 +67,7 @@ public static class YardstickMain
                     Directory.CreateDirectory(out_dir);
                     int rc = 0;
                     foreach (var bot in Bots.pick(O("bot", "")))
-                        rc |= measure(bot, set, first, seeds, cap, threads, t_runs, t_taps, human, out_dir);
+                        rc |= measure(bot, set, first, seeds, cap, threads, t_runs, t_taps, human, out_dir, int.Parse(O("leak-seeds", "24")));
                     write_table(out_dir);
                     return rc;
                 }
@@ -79,7 +97,7 @@ public static class YardstickMain
     }
 
     static int measure(BotSpec bot, string set, long first, int seeds, long cap, int threads, int t_runs, int t_taps,
-        List<Run> human, string out_dir)
+        List<Run> human, string out_dir, int leak_seeds)
     {
         var clock = Stopwatch.StartNew();
         var runs = new Run[seeds];
@@ -94,13 +112,16 @@ public static class YardstickMain
         });
         double play_s = clock.Elapsed.TotalSeconds;
         var timing = judge(runs, t_runs, t_taps, threads);
+        var leak = leak_seeds > 0 ? Leak.check(bot, leak_seeds, threads) : null;
         var o = report(bot.name, bot.about, bot.copies, set, first, seeds, cap, runs, timing, human, clock.Elapsed.TotalSeconds);
         o["play_seconds"] = Math.Round(play_s, 1);
+        if (leak != null) o["leak"] = leak;
         var s = o["strength"];
         string claimed = Stats.claimed_tier(bot.name);
         Console.WriteLine($"yardstick {bot.name} ({set}, {seeds} runs, cap {cap}): median {s["median"]}, p25 {s["p25"]}, " +
             $"p75 {s["p75"]}, p90 {s["p90"]}, {s["capped"]} alive at the cap, rate median {s["rate_median"]} -> {s["tier_by_rate"]}" +
-            (claimed != "" ? $" (claims {claimed})" : "") + $"  [{clock.Elapsed.TotalSeconds:F0} s]");
+            (claimed != "" ? $" (claims {claimed})" : "") + (leak != null ? $", leaks: {leak["leaks"]}" : "") +
+            $"  [{clock.Elapsed.TotalSeconds:F0} s]");
         save(o, out_dir);
         return 0;
     }
@@ -201,6 +222,13 @@ public static class YardstickMain
         return n.ToString();
     }
 
+    static string leak_cell(JsonNode l)
+    {
+        if (l == null) return "-";
+        string v = (string)l["leaks"];
+        return v == "yes" ? $"**yes** ({l["forks_leaking"]}/{l["forks_tested"]})" : v == "no" ? $"no (0/{l["forks_tested"]})" : v;
+    }
+
     public static int write_table(string out_dir)
     {
         if (!Directory.Exists(out_dir)) return 0;
@@ -224,11 +252,13 @@ public static class YardstickMain
         sb.AppendLine("of the targets 30 / 60 / 120 / 250 / 500 (42, 85, 173, 354). *Copies*: what a bot steps to look ahead: *real* copies");
         sb.AppendLine("know the hidden random draws (a ceiling, not a player), *scrambled* copies have their RNG and salts replaced (rules and");
         sb.AppendLine("visible motion only, which the user allows), *none* plays from what it sees. When runs reach the cap, their median is a floor.");
+        sb.AppendLine("*Leaks* (Leak.cs): each seed is played twice with every hidden draw replaced at a fork tick (next walls, portal, next room,");
+        sb.AppendLine("hazard salts and timers); a bot whose taps differ before anything on screen differs uses what it can't see (forks leaking / tested).");
         sb.AppendLine();
         sb.AppendLine("## Strength");
         sb.AppendLine();
-        sb.AppendLine("| bot | set | copies | runs | median | p25 | p75 | p90 | deaths/pt | rate median | tier (rate) | claims | fits | exp KS | alive at cap | top killer | deadliest per visit |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        sb.AppendLine("| bot | set | copies | leaks | runs | median | p25 | p75 | p90 | deaths/pt | rate median | tier (rate) | claims | fits | exp KS | alive at cap | top killer | deadliest per visit |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var o in rows)
         {
             var s = o["strength"];
@@ -237,7 +267,7 @@ public static class YardstickMain
             string fits = claim == "" ? "" : tier == claim ? "yes" : "**no**";
             var k = s["killers"].AsArray().FirstOrDefault();
             var dv = s["deadliest_per_visit"].AsArray().FirstOrDefault();
-            sb.AppendLine($"| {o["bot"]} | {o["set"]} | {(string)o["copies"] ?? ((bool)o["peeks"] ? "real" : "none")} | {s["runs"]} | {f(s["median"])} | {f(s["p25"])} | " +
+            sb.AppendLine($"| {o["bot"]} | {o["set"]} | {(string)o["copies"] ?? ((bool)o["peeks"] ? "real" : "none")} | {leak_cell(o["leak"])} | {s["runs"]} | {f(s["median"])} | {f(s["p25"])} | " +
                 $"{f(s["p75"])} | {f(s["p90"])} | {f(s["death_rate_per_point"], "0.0000")} | {f(s["rate_median"])} | {tier} | {claim} | {fits} | " +
                 $"{f(s["exp_fit_ks"], "0.00")} | {s["capped"]} | " +
                 (k == null ? "-" : $"{k["room"]} {f((double)k["share"] * 100, "0")}%") + " | " +

@@ -73,6 +73,29 @@ median over 64 seeds moves between 39 and 51 by chance, over 400 between 41 and 
 don't call a gain on fewer than 400. `capped` counts runs alive at the cap; when there
 are any, their median is a floor, not a score.
 
+## Leak check
+
+The rule: a bot may know only what is on screen: not where the portal will be before it
+is drawn, the next spike walls, the next room or hidden timers. `Leak.cs` tests it.
+Each of 24 seeds is played twice by two fresh copies of the bot, forking just after a
+wall bounce near ticks 200, 700, 1500, 3000, 5000 and 8000. At the fork the second sim
+gets every hidden draw replaced (`BlindPlanner.blind_copy`: the sim's RNG, which draws
+the next walls, the portal and the next room, plus the hazards' salts, private RNGs and
+drawn-but-unshown values). Both bots have seen the same screen, so until something
+visible differs between the two sims (`Leak.visible`: the sim's checksum with those
+hidden values fixed) an honest bot must tap the same. A tap that differs earlier is a
+leak. `leaks: yes (n/m)` gives the forks that leaked out of those tested;
+`same_screen_ticks_median` is how long the screens stayed the same (about one flight,
+83 ticks). Hidden values that blind_copy does not replace are not tested, and a
+hazard's leak shows only when that hazard is in play during a tested flight.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode leak -Bot planner,honest
+```
+
+`-Mode leak` adds the result to the bot's JSONs already in `-Out` and rebuilds the table;
+`-Mode run` runs it for every bot it measures.
+
 ## Strength
 
 - `median`, `p25`, `p75`, `p90` of the score.
