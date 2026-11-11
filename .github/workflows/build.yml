@@ -1,0 +1,838 @@
+name: Phone builds
+
+# Android and iOS in one workflow, so the tests run once for both. Manual trigger (pick the
+# platforms) plus `v*` tags (both platforms).
+#
+#   * check_reuse looks for a Check run of this exact commit (a push to main runs one). If one
+#     passed, or passes while it waits, the tests are not run again here.
+#   * check runs the tests (check.yml) when there was none to reuse. Nothing is released,
+#     uploaded to TestFlight or announced unless the tests passed for this commit.
+#   * Android (Linux): android_engine, android_build, then android_publish once the tests pass.
+#     Builds an installable APK (and, for releases, an AAB for the Play Console).
+#   * iOS: ios_export (Linux) runs Godot's iOS export with "Export Project Only", which writes a
+#     ready Xcode project, and uploads it as an artifact. testflight (macOS) only does what
+#     needs a Mac: signing, xcodebuild and the upload, via fastlane
+#     (.github/ios/fastlane/Fastfile). It waits for the tests, so a failing check never
+#     reaches TestFlight (or spends macOS minutes).
+#
+# Android signing:
+#   * With the ANDROID_KEYSTORE_* secrets set: release-signed APK, plus an AAB on `v*` tags or
+#     when "Build AAB" is ticked. Keep using the same keystore forever; Android refuses to
+#     update an app signed with a different key.
+#   * Without them: a release APK signed with a throwaway key. Fine for sideloading on your own
+#     phone, but every run uses a new key, so uninstall the old build before installing.
+# iOS needs the signing secrets in docs/CI.md.
+on:
+  workflow_dispatch:
+    inputs:
+      android:
+        description: 'Build Android'
+        type: boolean
+        default: true
+      ios:
+        description: 'Build iOS'
+        type: boolean
+        default: true
+      skip_check:
+        description: 'Skip the check (tests). Ships an untested build; tags always run it'
+        type: boolean
+        default: false
+      aab:
+        description: 'Android: also build an AAB for the Play Console (needs the keystore secrets)'
+        type: boolean
+        default: false
+      release:
+        description: 'Android: publish the APK as a GitHub pre-release (a direct download link)'
+        type: boolean
+        default: true
+      announce:
+        description: 'Android: post the build on Discord'
+        type: boolean
+        default: true
+      upload:
+        description: 'iOS: upload to TestFlight and post on Discord (off: only build and sign)'
+        type: boolean
+        default: true
+      small_engine:
+        description: 'iOS: use the small 2D-only engine (crashed at launch in build 127; trial only)'
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  # Keep in sync with application/bundle_identifier in export_presets.cfg.
+  IOS_BUNDLE_ID: com.mxndarijn.spikey
+
+jobs:
+  # Pushes to main run Check (check.yml) on their own. When this commit already has a Check
+  # run, the builds use its result instead of testing the same code again: a passed run counts,
+  # a running one is waited for. Only push and manual Check runs count; a pull request run
+  # tests a merge with the base branch, not this commit. No run found, a failed one, or an
+  # error here: the check job below runs the tests.
+  # Skipped when nothing needs the tests: "skip_check", or only an iOS build without upload.
+  check_reuse:
+    name: Find the tests of this commit
+    if: >-
+      inputs.skip_check != true
+      && (inputs.android != false || (inputs.ios != false && inputs.upload != false))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+    outputs:
+      passed: ${{ steps.find.outputs.passed }}
+    steps:
+      - name: Look for a Check run of this commit
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # "<passed runs> <unfinished runs> <url of a passed run>"
+          query='[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch")]
+            | [.[] | select(.conclusion == "success")] as $ok
+            | "\($ok | length) \([.[] | select(.status != "completed")] | length) \($ok[0].html_url // "-")"'
+          passed=false
+          errors=0
+          # Up to 40 minutes, the check's own limit.
+          for _ in $(seq 1 120); do
+            if ! line="$(gh api "repos/$REPO/actions/workflows/check.yml/runs?head_sha=$SHA&per_page=20" \
+                --jq "$query")"; then
+              # The API fails now and then: try again a few times, then run the tests here.
+              errors=$((errors + 1))
+              if [ "$errors" -ge 5 ]; then
+                echo "::warning::Could not look up the Check runs, the tests run here."
+                break
+              fi
+              sleep 20
+              continue
+            fi
+            read -r ok going url <<< "$line"
+            if [ "$ok" -gt 0 ]; then
+              passed=true
+              echo "::notice::The tests already passed for this commit: $url"
+              break
+            fi
+            if [ "$going" -eq 0 ]; then
+              echo "No passed Check run of $SHA, the tests run here."
+              break
+            fi
+            echo "A Check run of $SHA is still going, waiting for it."
+            sleep 20
+          done
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: Check
+    needs: check_reuse
+    # always(): an error in check_reuse runs the tests here rather than skipping them.
+    if: >-
+      always() && needs.check_reuse.outputs.passed != 'true'
+      && inputs.skip_check != true
+      && (inputs.android != false || (inputs.ios != false && inputs.upload != false))
+    uses: ./.github/workflows/check.yml
+
+  # The small 2D-only engine (tools/engine), cached between runs.
+  android_engine:
+    name: Android engine
+    if: inputs.android != false
+    uses: ./.github/workflows/engine.yml
+    with:
+      platform: android
+      # Keep in sync with GODOT_VERSION above (the build jobs check).
+      godot_version: 4.7.2-stable
+
+  # Builds while the check runs. Its APK and AAB are workflow artifacts; nothing goes out
+  # (release, Discord) until the publish job, which waits for the check to pass.
+  android_build:
+    name: Android build
+    needs: android_engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      build: ${{ steps.version.outputs.build }}
+      version: ${{ steps.version.outputs.version }}
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      WANT_AAB: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.aab == true }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The version code is the commit count; a shallow checkout would make it 1.
+          fetch-depth: 0
+
+      - name: Derive the version
+        id: version
+        run: |
+          echo "build=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp the version into the export presets
+        run: |
+          sed -i \
+            -e 's/^version\/code=.*/version\/code=${{ steps.version.outputs.build }}/' \
+            -e 's/^version\/name=.*/version\/name="${{ steps.version.outputs.version }}"/' \
+            export_presets.cfg
+          grep -E '^version/(code|name)=' export_presets.cfg
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # Godot 4 Android export needs JDK 17.
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools build-tools;35.0.1 platforms;android-35'
+
+      - name: Cache Gradle
+        # Gradle itself and the libraries the export's Gradle build downloads (the Android
+        # Gradle plugin, AdMob, Firebase). Only downloads: never the build cache, which could
+        # hold signed outputs.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+            !~/.gradle/caches/build-cache-*
+          key: gradle-${{ env.GODOT_VERSION }}-${{ hashFiles('tools/ci/patch_android_*.sh', 'addons/**/plugin.cfg') }}
+          restore-keys: gradle-${{ env.GODOT_VERSION }}-
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          templates: 'true'
+
+      - name: Point Godot at the JDK and Android SDK
+        run: |
+          major_minor="$(echo "$GODOT_VERSION" | cut -d- -f1 | cut -d. -f1-2)"
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-${major_minor}.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          EOF
+
+      - name: Create a throwaway debug keystore
+        # Godot signs debug exports with this. Release builds use the secret keystore below.
+        run: |
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          {
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey"
+            echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android"
+          } >> "$GITHUB_ENV"
+
+      - name: Decode the release keystore
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/release.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$ANDROID_KEY_ALIAS"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Sign release builds with the throwaway key (no keystore secrets set)
+        # Still a release build (the small engine, R8), just signed with the key above.
+        if: env.ANDROID_KEYSTORE_BASE64 == ''
+        run: |
+          {
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/debug.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android"
+          } >> "$GITHUB_ENV"
+
+      - name: Write the Supabase config (leaderboards)
+        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
+        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
+              > services/supabase_config.json
+            echo "Leaderboards: Supabase"
+          else
+            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
+          fi
+
+      - name: Write the Firebase config (Board alerts)
+        # Optional: with the GOOGLE_SERVICES_JSON secret set (the whole google-services.json
+        # from Firebase, docs/PUSH_SETUP.md) the build can receive push notifications;
+        # without it the build works, without push.
+        id: firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+            jq -e '.client[0].client_info.android_client_info.package_name' google-services.json > /dev/null \
+              || { echo "::error::GOOGLE_SERVICES_JSON is not a google-services.json file."; exit 1; }
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "Board alerts: Firebase"
+          else
+            echo "::notice::No GOOGLE_SERVICES_JSON secret, so this build gets no push notifications."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import project
+        run: godot --headless --path . --import || godot --headless --path . --import
+
+      - name: Install the Android build template
+        # Godot's Gradle project goes into android/build (ignored by git). Done by hand, the
+        # way Godot's own "Install Android Build Template" does it (unzip android_source.zip
+        # from the export templates and note the version), so the Gradle files can be changed
+        # before the build; --install-android-build-template only works together with a build.
+        run: |
+          version="$(echo "$GODOT_VERSION" | tr '-' '.')"
+          source_zip="$HOME/.local/share/godot/export_templates/$version/android_source.zip"
+          test -f "$source_zip" || { echo "::error::$source_zip is missing."; exit 1; }
+          mkdir -p android/build
+          printf '%s\n' "$version" > android/.build_version
+          printf '\n' > android/build/.gdignore
+          unzip -q -o "$source_zip" -d android/build
+          test -f android/build/build.gradle \
+            || { echo "::error::The Android build template was not installed."; exit 1; }
+
+      - name: Add Firebase to the Gradle build
+        if: steps.firebase.outputs.push == 'true'
+        run: bash tools/ci/patch_android_gradle.sh android/build/build.gradle
+
+      - name: Turn on code shrinking (R8)
+        run: bash tools/ci/patch_android_shrink.sh android/build/build.gradle
+
+      - name: Download the small engine
+        uses: actions/download-artifact@v4
+        with:
+          name: engine-android
+          path: ${{ runner.temp }}/engine
+
+      - name: Put the small engine in the build template
+        # The template's engine comes inside godot-lib.template_release.aar (Java side plus
+        # jni/<abi>/libgodot_android.so). The Java side stays; only the engine is replaced,
+        # built from the same Godot release, so the two match.
+        run: bash tools/ci/swap_android_engine.sh "$RUNNER_TEMP/engine" android/build "$GODOT_VERSION"
+
+      - name: Export release APK
+        # Every Android export goes through Godot's Gradle build (the AdMob and Firebase
+        # plugins need it), using the template installed above. Always a release build: the
+        # small engine and R8 only apply to release. Without the keystore secrets it is
+        # signed with the throwaway key.
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set, signing the APK with a throwaway key."
+          fi
+          mkdir -p build/android
+          # No --install-android-build-template: that would unzip the stock template again over
+          # the patched one installed above (losing the small engine, R8 and google-services).
+          godot --headless --path . --export-release "Android" build/android/Flapjaw.apk
+          unzip -l build/android/Flapjaw.apk 'lib/*/libgodot_android.so'
+          test -f build/android/Flapjaw.apk
+
+      - name: Report the APK size
+        run: |
+          ls -l build/android/Flapjaw.apk
+          unzip -lv build/android/Flapjaw.apk | sort -k3 -n -r | head -n 12
+
+      - name: Export AAB
+        # Same Gradle build as the APK, packed as a bundle for the Play Console.
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        run: |
+          godot --headless --path . --export-release "Android AAB" build/android/Flapjaw.aab
+          test -f build/android/Flapjaw.aab
+
+      - name: Warn about a skipped AAB
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 == ''
+        run: echo "::warning::AAB skipped, the Play Console needs a release-signed AAB. Add the ANDROID_KEYSTORE_* secrets."
+
+      - name: Upload APK
+        id: upload_apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: flapjaw-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-apk
+          path: build/android/Flapjaw.apk
+          if-no-files-found: error
+
+      - name: Upload AAB
+        if: env.WANT_AAB == 'true' && env.ANDROID_KEYSTORE_BASE64 != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: flapjaw-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-aab
+          path: build/android/Flapjaw.aab
+          if-no-files-found: error
+
+      - name: Clean up signing assets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/debug.keystore"
+
+  android_publish:
+    name: Android release and announce
+    needs: [check_reuse, check, android_build]
+    # Publishes only after the tests passed for this commit: here, or in a Check run of the
+    # same commit (check_reuse). A manual run can skip them ("skip_check").
+    if: >-
+      always() && needs.android_build.result == 'success'
+      && (needs.check.result == 'success' || needs.check_reuse.outputs.passed == 'true'
+          || inputs.skip_check == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # contents: write lets GITHUB_TOKEN create the GitHub Release that hosts the APK.
+    permissions:
+      contents: write
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      # Tags always publish and announce; a manual run can switch either off.
+      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != false }}
+      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.release != false && inputs.announce != false) }}
+
+    steps:
+      - name: Checkout repository
+        # For the commit message and the Discord action.
+        uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: flapjaw-${{ needs.android_build.outputs.version }}-${{ needs.android_build.outputs.build }}-apk
+          path: build/android
+
+      - name: Read the commit message
+        id: commit
+        run: |
+          echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the APK as a GitHub Release
+        # The repo is public, so a release asset is a direct download for anyone, no GitHub
+        # account needed (artifacts always need one). `v*` tags become a normal release named
+        # after the version; every other run becomes a pre-release tagged `build-<n>`.
+        # Re-running a build replaces its APK.
+        if: env.WANT_RELEASE == 'true'
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.android_build.outputs.version }}
+          BUILD: ${{ needs.android_build.outputs.build }}
+          SUBJECT: ${{ steps.commit.outputs.subject }}
+          SIGNED: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'release key' || 'throwaway key, uninstall the previous build first' }}
+        run: |
+          apk="build/android/Flapjaw-${VERSION}-${BUILD}.apk"
+          cp build/android/Flapjaw.apk "$apk"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"; title="Flapjaw ${VERSION}"; pre=()
+          else
+            tag="build-${BUILD}"; title="Flapjaw ${VERSION} test build ${BUILD}"; pre=(--prerelease)
+          fi
+          notes="${SUBJECT}"$'\n\n'"Android APK, signed with the ${SIGNED}. Commit ${GITHUB_SHA}."
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "$title" \
+              --notes "$notes" "${pre[@]}"
+          fi
+          name="$(basename "$apk")"
+          echo "apk_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${tag}/${name}" >> "$GITHUB_OUTPUT"
+          echo "page_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${tag}" >> "$GITHUB_OUTPUT"
+          echo "file=${apk}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Announce on Discord
+        # Optional: set the DISCORD_WEBHOOK_URL secret (Discord channel -> Edit -> Integrations
+        # -> Webhooks). The embed links to the APK and to its GitHub Release page. The APK is also
+        # attached when it fits the server's upload limit (repository variable
+        # DISCORD_MAX_UPLOAD_MB, default 10; today's APK is about 52 MB).
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && env.WANT_ANNOUNCE == 'true'
+        uses: ./.github/actions/discord-embed
+        with:
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
+          file: ${{ steps.release.outputs.file }}
+          max_file_mb: ${{ vars.DISCORD_MAX_UPLOAD_MB || '10' }}
+          # Android green.
+          color: '3066993'
+          title: '🤖 Flapjaw ${{ needs.android_build.outputs.version }} (${{ needs.android_build.outputs.build }}) for Android'
+          url: ${{ steps.release.outputs.page_url }}
+          description: |
+            **[⬇️ Download APK](${{ steps.release.outputs.apk_url }})**, tap on your phone to install
+            **[📦 Release page](${{ steps.release.outputs.page_url }})**, if the download link does not open
+            > ${{ steps.commit.outputs.subject }}
+          fields: |
+            Release|[${{ steps.release.outputs.tag }}](${{ steps.release.outputs.page_url }})
+            Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
+            Signing|${{ env.ANDROID_KEYSTORE_BASE64 != '' && 'Release key' || 'Throwaway key, uninstall the old build first' }}
+            Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+  # The small 2D-only engine (tools/engine), cached between runs. Built on macOS; only a cold
+  # build takes long, a cache hit is seconds. It carries the FlapjawKeychain module
+  # (tools/engine/modules/flapjaw_keychain) that keeps the device key across a reinstall.
+  # Off unless a manual run asks for it ("small_engine"): build 127 with this engine crashed at
+  # launch on iOS 27, inside the engine's own Swift startup code (SwiftUIApp.body), where
+  # Godot's stock engine (build 58) starts fine. Tags and plain runs use the stock engine.
+  ios_engine:
+    name: iOS engine
+    if: inputs.ios != false && inputs.small_engine == true
+    uses: ./.github/workflows/engine.yml
+    with:
+      platform: ios
+      # Keep in sync with GODOT_VERSION above (the build jobs check).
+      godot_version: 4.7.2-stable
+
+  ios_export:
+    name: iOS export Xcode project
+    needs: ios_engine
+    # The engine job is skipped for a stock-engine build.
+    if: >-
+      always() && inputs.ios != false
+      && (needs.ios_engine.result == 'success' || needs.ios_engine.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      build: ${{ steps.version.outputs.build }}
+      version: ${{ steps.version.outputs.version }}
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The build number is the commit count, so the full history has to be here.
+          fetch-depth: 0
+
+      - name: Require the Apple team id
+        run: |
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error::The APPLE_TEAM_ID secret is not set (see docs/CI.md)." >&2
+            exit 1
+          fi
+
+      - name: Derive the version
+        id: version
+        run: |
+          echo "build=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp version, team id and bundle id into the export presets
+        # The build number must be unique and increasing for TestFlight; the commit count is.
+        run: |
+          sed -i \
+            -e 's/^application\/version=.*/application\/version="${{ steps.version.outputs.build }}"/' \
+            -e 's/^application\/short_version=.*/application\/short_version="${{ steps.version.outputs.version }}"/' \
+            -e "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$APPLE_TEAM_ID\"/" \
+            -e 's/^application\/bundle_identifier=.*/application\/bundle_identifier="${{ env.IOS_BUNDLE_ID }}"/' \
+            export_presets.cfg
+          grep -E '^application/(version|short_version|bundle_identifier)=' export_presets.cfg
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          templates: 'true'
+
+      - name: Download the small engine
+        if: inputs.small_engine == true
+        uses: actions/download-artifact@v4
+        with:
+          name: engine-ios
+          path: ${{ runner.temp }}/engine
+
+      - name: Use the small engine
+        if: inputs.small_engine == true
+        # Godot's stock iOS template with the small engine in place of the release one, set as
+        # the iOS preset's release template.
+        run: |
+          stock="$HOME/.local/share/godot/export_templates/$(echo "$GODOT_VERSION" | tr '-' '.')/ios.zip"
+          bash tools/ci/make_ios_template.sh "$RUNNER_TEMP/engine" "$stock" "$RUNNER_TEMP/flapjaw_ios.zip" "$GODOT_VERSION"
+          python3 tools/ci/set_ios_template.py export_presets.cfg "$RUNNER_TEMP/flapjaw_ios.zip"
+
+      - name: Write the Supabase config (leaderboards)
+        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
+        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
+              > services/supabase_config.json
+            echo "Leaderboards: Supabase"
+          else
+            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
+          fi
+
+      - name: Write the Firebase config (Board alerts)
+        # Optional: with the GOOGLE_SERVICE_INFO_PLIST secret set (the whole
+        # GoogleService-Info.plist from Firebase, docs/PUSH_SETUP.md) the build can receive
+        # push notifications; without it the build works, without push.
+        id: firebase
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > GoogleService-Info.plist
+            grep -q "GOOGLE_APP_ID" GoogleService-Info.plist \
+              || { echo "::error::GOOGLE_SERVICE_INFO_PLIST is not a GoogleService-Info.plist file."; exit 1; }
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "Board alerts: Firebase"
+          else
+            echo "::notice::No GOOGLE_SERVICE_INFO_PLIST secret, so this build gets no push notifications."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch the Firebase iOS libraries
+        # About 120 MB of prebuilt frameworks: too big for the repository, so they come from
+        # the plugin's release (the same version as addons/godotx_firebase), checked by hash.
+        if: steps.firebase.outputs.push == 'true'
+        env:
+          PLUGIN_URL: https://github.com/godot-x/firebase/releases/download/3.1.0/godotx_firebase.zip
+          PLUGIN_SHA256: da7273def2ff744efacaab70e2ad863d65a4225ec401f5335de40a19df8170c1
+        run: |
+          curl -fsSL --retry 5 -o "$RUNNER_TEMP/godotx_firebase.zip" "$PLUGIN_URL"
+          echo "$PLUGIN_SHA256  $RUNNER_TEMP/godotx_firebase.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/godotx_firebase.zip" \
+            "godotx_firebase/ios/plugins/firebase_core/*" \
+            "godotx_firebase/ios/plugins/firebase_messaging/*" -d "$RUNNER_TEMP/godotx"
+          mkdir -p ios/plugins
+          cp -R "$RUNNER_TEMP/godotx/godotx_firebase/ios/plugins/firebase_core" ios/plugins/
+          cp -R "$RUNNER_TEMP/godotx/godotx_firebase/ios/plugins/firebase_messaging" ios/plugins/
+          ls ios/plugins/firebase_core ios/plugins/firebase_messaging
+
+      - name: Import project
+        run: godot --headless --path . --import || godot --headless --path . --import
+
+      - name: Export Xcode project
+        # Godot warns ".ipa can only be built on macOS" and leaves the Xcode project; that is
+        # what we want here.
+        run: |
+          mkdir -p build/ios
+          godot --headless --path . --export-release "iOS" build/ios/Flapjaw.ipa
+          test -d build/ios/Flapjaw.xcodeproj
+
+      - name: Add the ad SDK's Swift package to the Xcode project
+        # The AdMob plugin adds Google's ad SDK as a Swift package, but only in a deferred
+        # call that a command-line export never reaches; without it the app fails to link.
+        run: |
+          godot --headless --path . -s res://tools/ci/patch_ios_spm.gd -- \
+            res://build/ios/Flapjaw.xcodeproj/project.pbxproj
+          grep -q "admob_spm" build/ios/Flapjaw.xcodeproj/project.pbxproj
+          test -f build/ios/admob_spm/Package.swift
+
+      - name: Remove alpha from the app icons
+        # App Store Connect rejects an app icon with transparency, and Godot renders the
+        # rounded icon.svg with transparent corners. iOS masks the corners anyway, so filling
+        # them with the cage colour is invisible on device.
+        run: |
+          pip install --quiet pillow
+          python3 - <<'EOF'
+          import glob
+          from PIL import Image
+          for path in glob.glob("build/ios/Flapjaw/Images.xcassets/AppIcon.appiconset/*.png"):
+              img = Image.open(path).convert("RGBA")
+              bg = Image.new("RGBA", img.size, (0x2B, 0x1B, 0x5C, 255))
+              bg.alpha_composite(img)
+              bg.convert("RGB").save(path)
+          EOF
+
+      - name: Pack the Xcode project
+        run: tar -czf xcode-project.tar.gz -C build ios
+
+      - name: Upload Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-project
+          path: xcode-project.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  testflight:
+    name: iOS build & upload to TestFlight
+    needs: [check_reuse, check, ios_export]
+    # Uploads only after the tests passed for this commit: here, or in a Check run of the
+    # same commit (check_reuse). A manual run can skip them ("skip_check"), and a
+    # build-only trial ("upload" off) needs none: nothing leaves GitHub.
+    if: >-
+      always() && needs.ios_export.result == 'success'
+      && (needs.check.result == 'success' || needs.check_reuse.outputs.passed == 'true'
+          || inputs.skip_check == true || inputs.upload == false)
+    # macOS is required to build iOS. Apple requires the iOS 26 SDK (Xcode 26) for App Store
+    # Connect uploads since 2026-04-28; bump the image if latest-stable resolves lower.
+    runs-on: macos-15
+    # Hard cap on the expensive macOS runner. Godot links one large static library, so this
+    # is higher than a typical small app; raise it if a clean build needs longer.
+    timeout-minutes: 25
+
+    env:
+      # Read by .github/ios/fastlane/Fastfile.
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+      IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT_BASE64: ${{ secrets.ASC_KEY_CONTENT_BASE64 }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      XCODE_PROJECT: ${{ github.workspace }}/build/ios/Flapjaw.xcodeproj
+      SIGNING_DIR: ${{ github.workspace }}/signing
+
+    steps:
+      - name: Checkout repository
+        # Only for the fastlane files under .github/ios.
+        uses: actions/checkout@v4
+
+      - name: Download Xcode project
+        uses: actions/download-artifact@v4
+        with:
+          name: xcode-project
+
+      - name: Unpack Xcode project
+        run: |
+          mkdir -p build
+          tar -xzf xcode-project.tar.gz -C build
+          rm xcode-project.tar.gz
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up Ruby + fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: .github/ios
+
+      - name: Decode signing assets
+        run: |
+          mkdir -p "$SIGNING_DIR"
+          # A secret set from a terminal can carry line endings; base64 on macOS refuses them.
+          printf '%s' "$IOS_DIST_CERT_P12_BASE64" | tr -d '\r\n ' | base64 --decode > "$SIGNING_DIR/dist_cert.p12"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | tr -d '\r\n ' | base64 --decode > "$SIGNING_DIR/AppStore.mobileprovision"
+        env:
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+
+      # A .p12 made with OpenSSL 3 (e.g. on Windows) uses AES/PBKDF2, which the macOS
+      # keychain can't import ("MAC verification failed"). Re-pack it in the older
+      # 3DES/SHA1 format the keychain reads, with the same password.
+      - name: Check the provisioning profile
+        # Says what is in IOS_PROVISIONING_PROFILE_BASE64 (nothing secret), so a stale or
+        # wrongly pasted profile is obvious: its id, its end date and whether it allows push.
+        run: |
+          plist="$RUNNER_TEMP/profile.plist"
+          if ! security cms -D -i "$SIGNING_DIR/AppStore.mobileprovision" > "$plist" 2>/dev/null; then
+            size="$(wc -c < "$SIGNING_DIR/AppStore.mobileprovision" | tr -d ' ')"
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 doesn't decode to a provisioning profile ($size bytes). Set it again from the base64 of the .mobileprovision file."
+            exit 1
+          fi
+          uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$plist")"
+          expires="$(/usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$plist")"
+          push="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$plist" 2>/dev/null || echo none)"
+          name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$plist")"
+          echo "Profile id starts with ${uuid:0:8}, expires $expires, push: $push"
+          if [ "$name" != "$IOS_PROVISIONING_PROFILE_NAME" ]; then
+            echo "::error::The profile's name is not the one in IOS_PROVISIONING_PROFILE_NAME (${#name} against ${#IOS_PROVISIONING_PROFILE_NAME} characters). Set that secret to the profile's exact name."
+            exit 1
+          fi
+          if [ "$push" = "none" ]; then
+            echo "::error::This provisioning profile has no push permission. Regenerate it after turning on Push Notifications for the app id, and set IOS_PROVISIONING_PROFILE_BASE64 again (docs/PUSH_SETUP.md)."
+            exit 1
+          fi
+          rm -f "$plist"
+
+      - name: Re-pack the certificate for the keychain
+        run: |
+          OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
+          size=$(wc -c < "$SIGNING_DIR/dist_cert.p12")
+          first=$(head -c1 "$SIGNING_DIR/dist_cert.p12" | xxd -p)
+          echo "Decoded .p12: $size bytes, first byte 0x$first (a real .p12 starts with 0x30)"
+          if [ "$size" -lt 500 ] || [ "$first" != "30" ]; then
+            echo "::error::IOS_DIST_CERT_P12_BASE64 doesn't decode to a .p12 file: set it again from the base64 of the .p12 itself."
+            exit 1
+          fi
+          # A secret set from a password file can end in a line break; the .p12's own
+          # password doesn't. Use it without trailing CR/LF (the Fastfile strips it too).
+          export P12_PASS="$(printf '%s' "$IOS_P12_PASSWORD" | tr -d '\r\n')"
+          opened=""
+          for mode in "" "-legacy"; do
+            if "$OPENSSL" pkcs12 $mode -in "$SIGNING_DIR/dist_cert.p12" -nodes -passin env:P12_PASS \
+                -out "$SIGNING_DIR/cert.pem" 2>/dev/null; then
+              opened=yes
+              break
+            fi
+          done
+          if [ -z "$opened" ]; then
+            echo "::error::Can't open IOS_DIST_CERT_P12_BASE64 with IOS_P12_PASSWORD: the password is wrong or the file is damaged."
+            exit 1
+          fi
+          grep -q "PRIVATE KEY" "$SIGNING_DIR/cert.pem" \
+            || { echo "::error::The .p12 has no private key: export the certificate together with its key."; exit 1; }
+          "$OPENSSL" x509 -in "$SIGNING_DIR/cert.pem" -noout -subject
+          "$OPENSSL" pkcs12 -export -legacy -in "$SIGNING_DIR/cert.pem" -out "$SIGNING_DIR/dist_cert.p12" \
+            -passout env:P12_PASS
+          rm -f "$SIGNING_DIR/cert.pem"
+        env:
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+
+      - name: Build & upload to TestFlight
+        run: bundle exec fastlane beta
+        working-directory: .github/ios
+        env:
+          # A manual run with "upload" off stops after building and signing.
+          SKIP_UPLOAD: ${{ inputs.upload == false && 'true' || 'false' }}
+
+      - name: Keep the IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flapjaw-${{ needs.ios_export.outputs.version }}-${{ needs.ios_export.outputs.build }}-ipa
+          path: .github/ios/output/*.ipa
+          retention-days: 7
+
+      - name: Read the commit message
+        id: commit
+        run: |
+          echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Announce on Discord
+        # Optional, same DISCORD_WEBHOOK_URL secret as the Android workflow. No file: an IPA
+        # only installs through TestFlight.
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && inputs.upload != false
+        uses: ./.github/actions/discord-embed
+        with:
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
+          # iOS blue.
+          color: '3447003'
+          title: '🍎 Flapjaw ${{ needs.ios_export.outputs.version }} (${{ needs.ios_export.outputs.build }}) for iOS'
+          url: https://appstoreconnect.apple.com/apps
+          description: |
+            **Uploaded to TestFlight.** It shows up in the TestFlight app once Apple finishes processing (usually 5 to 30 minutes).
+            > ${{ steps.commit.outputs.subject }}
+          fields: |
+            Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
+            Install|TestFlight app on iPhone
+            Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+      - name: Clean up signing assets
+        if: always()
+        run: rm -rf "$SIGNING_DIR"
