@@ -65,6 +65,8 @@ var _practice_id := ""
 ## Practice from developer mode's room picker: the variant id it plays ("" =
 ## drawn as usual). Real runs never set it.
 var _practice_variant := ""
+## Practice started from the debug page: leaving it goes back there, not to Rooms.
+var _practice_from_debug := false
 var _room_id := ""
 ## Rooms cleared in the current real run, for the game-over stats.
 var _rooms_cleared := 0
@@ -117,7 +119,7 @@ func _ready() -> void:
 	_hud.play_again_pressed.connect(_try_restart)
 	_hud.home_pressed.connect(show_home)
 	_hud.restart_pressed.connect(_restart_practice)
-	_hud.rooms_pressed.connect(show_rooms)
+	_hud.rooms_pressed.connect(_leave_to_rooms)
 	_hud.leaderboard_pressed.connect(show_leaderboard)
 	_hud.style_pressed.connect(show_look)
 	_hud.sound_toggled.connect(_on_sound_toggled)
@@ -218,7 +220,7 @@ func show_home() -> void:
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
 	home.settings_changed.connect(_on_settings_changed)
-	home.practice_requested.connect(start_practice)
+	home.practice_requested.connect(_start_debug_practice)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
 	# The balance and any daily prize waiting to be claimed.
@@ -368,6 +370,7 @@ func start_practice(id: String, variant: String = "") -> void:
 	mode = Mode.PRACTICE
 	_practice_id = id
 	_practice_variant = variant
+	_practice_from_debug = false
 	_menus.clear()
 	_look.show_flyer(true)
 	var shown := RoomInfo.name_of(id)
@@ -376,6 +379,31 @@ func start_practice(id: String, variant: String = "") -> void:
 	_hud.set_practice(shown)
 	_new_run()
 	_hud.show_ready()
+
+
+## Practice from the debug page's room picker (Home's settings sheet).
+func _start_debug_practice(id: String, variant: String) -> void:
+	start_practice(id, variant)
+	if mode == Mode.PRACTICE:
+		_practice_from_debug = true
+
+
+## The HUD's Rooms (practice over, pause, Ready's back arrow, game-over dock):
+## practice from the debug page goes back to that page, the rest to Rooms.
+func _leave_to_rooms() -> void:
+	if mode == Mode.PRACTICE and _practice_from_debug:
+		show_debug()
+	else:
+		show_rooms()
+
+
+## Home with the settings sheet open on the debug page.
+func show_debug() -> void:
+	_practice_from_debug = false
+	show_home()
+	var home := _menus.current() as HomeScreen
+	if home != null:
+		home.open_settings().show_debug(true)
 
 
 func _restart_practice() -> void:
