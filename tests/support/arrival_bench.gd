@@ -14,6 +14,12 @@ extends RefCounted
 
 const EARLY_DELAY := 45
 const MAX_EXTRA_PCT := 2
+## At 1 s, arrivals with no way to live (always 0: there is always a way).
+const MAX_NO_WAY := 0
+## Where in the exit the bird came through, px from its centre (arrival i
+## takes OFFSETS[(i / 2) % size]): the room is laid out for the exit, the
+## bird can be anywhere in it.
+const OFFSETS: Array[int] = [0, -65, 65, -32, 32]
 
 
 ## {id, dead, causes, forced} for room `index` over `count` arrivals; `dead_now`
@@ -65,8 +71,10 @@ static func arrival(index: int, i: int, variant := "") -> GameSim:
 	while not _fits(def, variant, y * SimConfig.SUB) and tries < 380:
 		y = 130 + (y - 130 + 53) % 380
 		tries += 1
-	sim.state.y = y * SimConfig.SUB
-	sim.state.anchor_y = sim.state.y
+	sim.state.anchor_y = y * SimConfig.SUB
+	sim.state.y = GameSim._arrival_y(
+		sim.state.anchor_y + OFFSETS[(i / 2) % OFFSETS.size()] * SimConfig.SUB
+	)
 	var side := i % 2
 	for k in sim._arrival_retries(side, index):
 		sim._rng.next_u32()

@@ -86,7 +86,12 @@ flowchart TD
     keep the way open for when the bird gets there (`GameSim.steps_to_exit`).
   - Out of every portal the bird and room wait `SimConfig.PORTAL_HOLD` ticks
     (0.5 s), part of the 1 s `ARRIVAL_BLIND`. Each layout try is checked for a
-    bird anywhere in the exit it came through (`GameSim.ARRIVAL_HEIGHTS`).
+    bird anywhere in the exit it came through (`GameSim.ARRIVAL_HEIGHTS`: the
+    centre, ±EXIT_FIT/2 and ±EXIT_FIT). When no try is fair at every height,
+    the room waits the whole `ARRIVAL_BLIND` instead (about 4% of arrivals,
+    mostly Shutter Gates). The arrival check then allows no arrival with no
+    way to live at 1 s (`ArrivalBench.MAX_NO_WAY = 0`, with the bird anywhere
+    in the exit, `ArrivalBench.OFFSETS`).
   - Behaviour that follows the bird (Stalker, a Dart's aim, Echo) stays: it uses
     no RNG that later generation shares.
   - Tests: `tests/unit/test_same_seed.gd`, `tests/sim/test_exits_reachable.gd`, and

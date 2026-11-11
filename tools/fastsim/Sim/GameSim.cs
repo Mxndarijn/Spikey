@@ -14,7 +14,7 @@ public sealed class GameSim
     public const long BUMP_VY = -SimConfig.FLAP_VY * 6 / 5;
     public const long ARRIVAL_WALL_SPARE = 30;
     public const long PRACTICE_START_GAP = 40 * SimConfig.SUB;
-    public static readonly long[] ARRIVAL_HEIGHTS = { 0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT };
+    public static readonly long[] ARRIVAL_HEIGHTS = { 0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT, -SimConfig.EXIT_FIT / 2, SimConfig.EXIT_FIT / 2 };
 
     public long seed_value;
     public long season;
@@ -29,6 +29,7 @@ public sealed class GameSim
     public bool _checking = false;
     /// The room and the bird as they came in, for a revive. Never changed after
     /// it is taken, so clones share it (GDScript's SimCopy copies it).
+    public long _arrival_wait = SimConfig.PORTAL_HOLD;
     public long _free_lo = -1;
     public long _free_hi = -1;
     public RoomRuntime _entry_room = null;
@@ -73,6 +74,7 @@ public sealed class GameSim
         c.events = new List<int>(events);
         c._rng = _rng.Clone();
         c._spine = _spine.Clone();
+        c._arrival_wait = _arrival_wait;
         c._checking = _checking;
         c._entry_room = _entry_room;
         c._entry_state = _entry_state;
@@ -456,34 +458,51 @@ public sealed class GameSim
 
     public long _arrival_retries(long side, long next)
     {
+        _arrival_wait = SimConfig.PORTAL_HOLD;
         if (_checking || SimConfig.ARRIVAL_BLIND == 0) return 0;
-        long fair = SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW;
         long best = 0;
         long best_score = -1;
-        for (long k = 0; k < SimConfig.ARRIVAL_TRIES; k++)
+        foreach (long wait in new[] { SimConfig.PORTAL_HOLD, SimConfig.ARRIVAL_BLIND })
         {
-            long centre = 0;
-            long worst = fair;
-            foreach (long dy in ARRIVAL_HEIGHTS)
+            for (long k = 0; k < SimConfig.ARRIVAL_TRIES; k++)
             {
-                var c = clone_deep();
-                c._checking = true;
-                c.state.y = _arrival_y(state.anchor_y + dy);
-                for (long i = 0; i < k; i++) c._rng.next_u32();
-                c._arrive_in(side, next);
-                long lived1 = G.mini(ArrivalCheck.score(c), fair);
-                if (dy == 0) centre = lived1;
-                worst = G.mini(worst, lived1);
-            }
-            if (worst >= fair) return k;
-            long lived = centre * (fair + 1) + worst;
-            if (lived > best_score)
-            {
-                best_score = lived;
-                best = k;
+                long score = _arrival_score(side, next, k, wait);
+                if (score < 0)
+                {
+                    _arrival_wait = wait;
+                    return k;
+                }
+                if (wait == SimConfig.PORTAL_HOLD && score > best_score)
+                {
+                    best_score = score;
+                    best = k;
+                }
             }
         }
+        _arrival_wait = SimConfig.ARRIVAL_BLIND;
         return best;
+    }
+
+    long _arrival_score(long side, long next, long k, long wait)
+    {
+        long fair = SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW;
+        long centre = 0;
+        long worst = fair;
+        foreach (long dy in ARRIVAL_HEIGHTS)
+        {
+            var c = clone_deep();
+            c._checking = true;
+            c._arrival_wait = wait;
+            c.state.y = _arrival_y(state.anchor_y + dy);
+            for (long i = 0; i < k; i++) c._rng.next_u32();
+            c._arrive_in(side, next);
+            long lived = G.mini(ArrivalCheck.score(c), fair);
+            if (dy == 0) centre = lived;
+            worst = G.mini(worst, lived);
+            if (worst < fair) break;
+        }
+        if (worst >= fair) return -1;
+        return centre * (fair + 1) + worst;
     }
 
     public void _arrive_in(long side, long next)
@@ -494,7 +513,8 @@ public sealed class GameSim
         _enter_room(next);
         _arrive(side, Event.ROOM_CHANGE);
         ExitPlanner.plan_room(this, next_exit_score());
-        state.arrival_hold = SimConfig.PORTAL_HOLD;
+        state.arrival_hold = _arrival_wait;
+        _arrival_wait = SimConfig.PORTAL_HOLD;
         _keep_entry();
     }
 

@@ -30,7 +30,9 @@ const PRACTICE_START_GAP := 40 * SimConfig.SUB
 const EXIT_STEER := 3
 ## Bird heights (from the exit's) a portal arrival is checked at: anywhere a
 ## bird can come through the exit (see _arrival_retries).
-const ARRIVAL_HEIGHTS: Array[int] = [0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT]
+const ARRIVAL_HEIGHTS: Array[int] = [
+	0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT, -SimConfig.EXIT_FIT / 2, SimConfig.EXIT_FIT / 2
+]
 ## As the practice room: a blank sim with no room built yet, for SimCopy to fill.
 const FOR_COPY := -2
 
@@ -61,6 +63,10 @@ var _rng: SimRng
 var _spine: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
+## The wait the next portal arrival gets (_arrive_in): PORTAL_HOLD, or
+## ARRIVAL_BLIND when no layout was fair for every bird in the exit at the
+## short wait (_arrival_retries). Reset after each arrival.
+var _arrival_wait := SimConfig.PORTAL_HOLD
 ## The free part of the wall just bounced off, top and bottom (-1 = none
 ## known): set by _anchor_at_wall for the _new_wall right after it.
 var _free_lo := -1
@@ -529,35 +535,56 @@ func _seed_room() -> void:
 ## (of ARRIVAL_TRIES) that ArrivalCheck finds fair for a bird anywhere in the
 ## exit it came through (its height and EXIT_FIT above and below,
 ## ARRIVAL_HEIGHTS), so the layout never depends on the bird's own height.
-## If none is, the one that lives longest at the exit's height, then at its
-## worst height. 0 inside a check, so checks never nest.
+## If none is, the room waits the whole reading time (ARRIVAL_BLIND, frozen)
+## and the first layout fair for every height then is taken; failing that,
+## still with that wait, the one that lived longest at the exit's height, then
+## at its worst height (the simple players only hold heights; a player who has
+## read the room can steer). Sets _arrival_wait. 0 inside a check, so checks
+## never nest.
 func _arrival_retries(side: int, next: int) -> int:
+	_arrival_wait = SimConfig.PORTAL_HOLD
 	if _checking or SimConfig.ARRIVAL_BLIND == 0:
 		return 0
-	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
 	var best := 0
 	var best_score := -1
-	for k in SimConfig.ARRIVAL_TRIES:
-		var centre := 0
-		var worst := fair
-		for dy: int in ARRIVAL_HEIGHTS:
-			var c := SimCopy.copy(self)
-			c._checking = true
-			c.state.y = _arrival_y(state.anchor_y + dy)
-			for i in k:
-				c._rng.next_u32()
-			c._arrive_in(side, next)
-			var lived := mini(ArrivalCheck.score(c), fair)
-			if dy == 0:
-				centre = lived
-			worst = mini(worst, lived)
-		if worst >= fair:
-			return k
-		var score := centre * (fair + 1) + worst
-		if score > best_score:
-			best_score = score
-			best = k
+	for wait: int in [SimConfig.PORTAL_HOLD, SimConfig.ARRIVAL_BLIND]:
+		for k in SimConfig.ARRIVAL_TRIES:
+			var score := _arrival_score(side, next, k, wait)
+			if score < 0:
+				_arrival_wait = wait
+				return k
+			if wait == SimConfig.PORTAL_HOLD and score > best_score:
+				best_score = score
+				best = k
+	_arrival_wait = SimConfig.ARRIVAL_BLIND
 	return best
+
+
+## How layout `k` (RNG draws skipped) of room `next` does with a `wait` tick
+## hold: -1 if fair at every ARRIVAL_HEIGHTS height, else a rank (the exit's
+## height first, then the worst one).
+func _arrival_score(side: int, next: int, k: int, wait: int) -> int:
+	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
+	var centre := 0
+	var worst := fair
+	for dy: int in ARRIVAL_HEIGHTS:
+		var c := SimCopy.copy(self)
+		c._checking = true
+		c._arrival_wait = wait
+		c.state.y = _arrival_y(state.anchor_y + dy)
+		for i in k:
+			c._rng.next_u32()
+		c._arrive_in(side, next)
+		var lived := mini(ArrivalCheck.score(c), fair)
+		if dy == 0:
+			centre = lived
+		worst = mini(worst, lived)
+		# One height that fails is enough: the rest are not played.
+		if worst < fair:
+			break
+	if worst >= fair:
+		return -1
+	return centre * (fair + 1) + worst
 
 
 ## Starts room `next` with the bird out of a portal in the wall opposite
@@ -571,7 +598,8 @@ func _arrive_in(side: int, next: int) -> void:
 	_enter_room(next)
 	_arrive(side, Event.ROOM_CHANGE)
 	ExitPlanner.plan_room(self, next_exit_score())
-	state.arrival_hold = SimConfig.PORTAL_HOLD
+	state.arrival_hold = _arrival_wait
+	_arrival_wait = SimConfig.PORTAL_HOLD
 	_keep_entry()
 
 
