@@ -21,6 +21,9 @@ extends Node2D
 ## Leaderboards -> a run -> Replay plays that run back in the live room with
 ## the recorded player's look; it never touches the save or the leaderboards,
 ## and Back returns to the leaderboards.
+## Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
+## (RunStore, on this phone). Watch plays one back the same way, in the look
+## it was played in; Back returns to Your runs (or Home, from Home's card).
 
 enum Mode { MENU, RUN, PRACTICE, REPLAY }
 
@@ -40,6 +43,8 @@ const BACK_TO_LOOK := "look"
 
 ## Where the save lives; tests point this somewhere else.
 var profile_path := Profile.PATH
+## Where Your runs keeps the player's runs; tests point this somewhere else.
+var runs_path := RunStore.PATH
 ## The Supabase config that turns on the online boards and wallet; tests that
 ## need the offline ones clear it, so a config on the PC changes nothing.
 var board_config_path := SupabaseClient.CONFIG_PATH
@@ -56,6 +61,7 @@ var ads: AdsService
 var profile_sync: ProfileSync
 
 var _profile: Profile
+var _runs: RunStore
 ## The save changed from the server's copy during a run: Home puts it on.
 var _look_stale := false
 var _services: AppServices
@@ -82,6 +88,9 @@ var _rooms_cleared := 0
 ## Replay: the run's driver and the board to go back to.
 var _replay_driver: ReplayDriver
 var _replay_board := LeaderboardService.DAILY
+## Where Back goes from a replay of the player's own run (show_runs or
+## show_home); empty for a leaderboard run.
+var _replay_back := Callable()
 ## The room group the Rooms screen last showed ("" for the group cards).
 var _rooms_group := ""
 ## Counting down after a revive (REVIVE_COUNTDOWN): taps do nothing.
@@ -105,6 +114,10 @@ func _ready() -> void:
 	add_child(_audio)
 	_profile = Profile.load_or_new(profile_path)
 	Catalog.repair(_profile)
+	# A test's own save keeps its runs next to it, never in the player's file.
+	if runs_path == RunStore.PATH and profile_path != Profile.PATH:
+		runs_path = profile_path.get_basename() + "_runs.json"
+	_runs = RunStore.new(runs_path)
 	_make_services()
 	_look = RunLook.new(_profile, _room, _hazards, _trail, _bird, _crash, _menus, _hud, _audio)
 	_look.use_equipped()
@@ -220,7 +233,7 @@ func show_home() -> void:
 	# Home draws the flyer itself, bigger, so the live one hides.
 	_look.show_flyer(false)
 	var home := HomeScreen.new(
-		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY)
+		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY), _runs.history.last()
 	)
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
@@ -229,6 +242,8 @@ func show_home() -> void:
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
+	home.runs_pressed.connect(show_runs)
+	home.watch_last_pressed.connect(watch_run.bind(show_home))
 	home.settings_changed.connect(_on_settings_changed)
 	home.practice_requested.connect(start_picker_practice)
 	home.seed_requested.connect(start_seed_practice)
@@ -255,6 +270,39 @@ func show_leaderboard(board_id: String = LeaderboardService.DAILY) -> void:
 
 func _on_replay_requested(run: Dictionary, screen: LeaderboardScreen) -> void:
 	_replay_board = screen.board_id()
+	_replay_back = Callable()
+	play_replay(run)
+
+
+## Your runs: Latest (the last 100 runs) or Saved.
+func show_runs(tab: String = RunsScreen.LATEST) -> void:
+	_drop_replay()
+	mode = Mode.MENU
+	_hud.show_menu()
+	_look.show_flyer(false)
+	var screen := RunsScreen.new(_runs, tab)
+	screen.closed.connect(show_home)
+	screen.watch_requested.connect(
+		func(r: RunRecord) -> void: watch_run(r, show_runs.bind(screen.tab()))
+	)
+	_menus.show_screen(screen)
+
+
+func runs() -> RunStore:
+	return _runs
+
+
+## Plays one of the player's own runs back, in the look it was played in;
+## Back calls `back`. A run from an older version shows why it can't play.
+func watch_run(record: RunRecord, back: Callable = Callable()) -> void:
+	if record == null:
+		return
+	_replay_back = back if back.is_valid() else show_runs
+	var run := record.run.to_dict()
+	run["name"] = "You"
+	if not record.watchable():
+		# ReplayDriver.problem() turns it down with the older-version message.
+		run = {"seed": record.run.replay.seed_value, "gameplay_version": -1}
 	play_replay(run)
 
 
@@ -293,6 +341,11 @@ func _replay_again() -> void:
 ## Back (or the exit icon): the leaderboards, on the board the run came from.
 func _leave_replay() -> void:
 	_audio.menu()
+	if _replay_back.is_valid():
+		var back := _replay_back
+		_replay_back = Callable()
+		back.call()
+		return
 	show_leaderboard(_replay_board)
 
 
@@ -852,6 +905,17 @@ func _finish_run(replay: Replay) -> void:
 	var previous_best := _profile.best_score
 	var is_new_best := replay.score > previous_best
 	var earned := _profile.record_run(replay.score, replay.coins)
+	# Your runs keeps it on the phone, in the look it was played in.
+	_runs.add(
+		RunRecord.make(
+			replay,
+			LeaderboardService.loadout_of(_profile),
+			int(Time.get_unix_time_from_system()),
+			_rooms_cleared + 1,
+			_revive.revived_at,
+			is_new_best
+		)
+	)
 	# Seed and taps go along, so a verification server can check the run later.
 	leaderboard.submit_run(replay.score, replay.to_dict())
 	_save_profile()
