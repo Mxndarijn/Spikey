@@ -13,6 +13,7 @@ using FastSim;
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
+//   fastsim rl train|calibrate|measure|speed       the RL bot tiers (RL/, docs/RL_BOT.md)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
@@ -55,6 +56,7 @@ RoomCatalog.all();
 RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
 if (mode == "check") return Checks.run(pos, opts, jobs, priority);
+if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
 if (Targets.variant != "")
 {
     if (mode != "search" && mode != "rooms" && mode != "reaction" && mode != "scan")

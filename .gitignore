@@ -30,3 +30,8 @@ Thumbs.db
 *.p8
 *.mobileprovision
 *.b64
+
+# RL bot training state (tools/rlbot.ps1 -Mode train)
+/tools/rlbot/train_state.json
+/tools/rlbot/train_state.json.tmp
+/tools/rlbot/*.log
