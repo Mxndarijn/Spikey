@@ -118,25 +118,23 @@ func live_count() -> int:
 
 
 ## Where row i's beam starts (left end); it stops short of an exit's mouth
-## (ExitZone) it would cross.
+## (ExitZone) on the left wall it would cross.
 func beam_left(sim: GameSim, i: int) -> int:
-	var left := sim.room.wall_left()
-	if ExitZone.side(sim) == 0 and _crosses_exit(sim, i):
-		return ExitZone.right(sim) + 1
-	return left
+	if _crosses_exit(sim, i, 0):
+		return ExitZone.right_on(sim, 0) + 1
+	return sim.room.wall_left()
 
 
-## Where row i's beam ends (right end).
+## Where row i's beam ends (right end), short of a mouth on the right wall.
 func beam_right(sim: GameSim, i: int) -> int:
-	var right := sim.room.wall_right()
-	if ExitZone.side(sim) == 1 and _crosses_exit(sim, i):
-		return ExitZone.left(sim) - 1
-	return right
+	if _crosses_exit(sim, i, 1):
+		return ExitZone.left_on(sim, 1) - 1
+	return sim.room.wall_right()
 
 
-func _crosses_exit(sim: GameSim, i: int) -> bool:
-	return ExitZone.hits_rect(
-		sim, sim.room.wall_left(), rows[i] - HALF_H, sim.room.wall_right(), rows[i] + HALF_H
+func _crosses_exit(sim: GameSim, i: int, side: int) -> bool:
+	return ExitZone.hits_rect_on(
+		sim, side, sim.room.wall_left(), rows[i] - HALF_H, sim.room.wall_right(), rows[i] + HALF_H
 	)
 
 

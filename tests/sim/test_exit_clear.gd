@@ -30,14 +30,15 @@ static func blockers(sim: GameSim) -> Array[String]:
 	var r := SimConfig.BIRD_RADIUS
 	var keep_x := s.x
 	var keep_y := s.y
-	var wall := sim.room.wall_left() + r if s.exit_side == 0 else sim.room.wall_right() - r
-	var dir := 1 if s.exit_side == 0 else -1
 	for i in ExitZone.count(sim):
+		var side := ExitZone.box_side(sim, i)
+		var wall := sim.room.wall_left() + r if side == 0 else sim.room.wall_right() - r
+		var dir := 1 if side == 0 else -1
 		for dx: int in [0, r]:
 			var dy := -SimConfig.EXIT_HALF
 			while dy <= SimConfig.EXIT_HALF:
 				s.x = wall + dir * dx
-				s.y = ExitZone.exit_y(sim, i) + dy
+				s.y = ExitZone.box_y(sim, i) + dy
 				for h in sim.room.hazards:
 					if h.alive and h.kills(sim) and not out.has(h.kind):
 						out.append(h.kind)
@@ -97,7 +98,7 @@ func test_a_beam_stops_short_of_the_mouth() -> void:
 	sim.state.exit_side = 1
 	sim.state.exit_open = true
 	sim.state.exit_a_y = beam.rows[0]
-	assert_eq(beam.beam_right(sim, 0), ExitZone.left(sim) - 1)
+	assert_eq(beam.beam_right(sim, 0), ExitZone.left_on(sim, 1) - 1)
 	assert_eq(beam.beam_left(sim, 0), sim.room.wall_left())
 	sim.state.exit_a_y = beam.rows[0] + ExitZone.HALF + Beam.HALF_H + SimConfig.SUB
 	assert_eq(beam.beam_right(sim, 0), sim.room.wall_right(), "a beam clear of the mouth")
@@ -111,14 +112,14 @@ func test_a_ball_bounces_off_the_mouth() -> void:
 	sim.state.exit_open = true
 	sim.state.exit_a_y = 320 * SimConfig.SUB
 	var ball := Bouncer.new()
-	ball.x = ExitZone.left(sim) - ball.radius - 2 * SimConfig.SUB
+	ball.x = ExitZone.left_on(sim, 1) - ball.radius - 2 * SimConfig.SUB
 	ball.y = sim.state.exit_a_y
 	ball.vx = Bouncer.SPEED_X
 	ball.vy = 0
 	for i in 4:
 		ball.move(sim)
 	assert_true(ball.vx < 0, "turned back")
-	assert_true(ball.x + ball.radius < ExitZone.left(sim), "outside the mouth")
+	assert_true(ball.x + ball.radius < ExitZone.left_on(sim, 1), "outside the mouth")
 
 
 ## The Stalker's spikes slide up to the mouth's edge and wait there.
