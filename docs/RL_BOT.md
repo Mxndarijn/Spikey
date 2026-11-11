@@ -229,6 +229,7 @@ death. Same seeds and cap as above, gameplay version 20 for the World rows
 | slack width (the move keeping more beam states alive) | ~20 (64 seeds) | | | labels fit only 84% |
 | WorldPlanner (visible only, world-model-bot), observation | 10 | 21 | 7.08 / 15.19 / - / - | flat from the start |
 | WorldPlanner, + WorldObs (its structured view) | 24 | 40 | 2.44 / 9.40 / 22.67 / - | ~9 min, 8 threads |
+| WorldPlanner (f8902d3) with margin-weighted labels, + WorldObs | 29 | 46 | 1.78 / 7.89 / 22.39 / - | ~25 min, 8 threads |
 | for comparison: PPO + teacher (`policy.json`) | 42 | 78 | 0.62 / 3.22 / 5.16 / 6.82 | |
 
 No run reached the cap. Copies: the aim and slack experts step sim copies
@@ -256,9 +257,13 @@ What it showed:
   of the ticks it visits, and dies at the first exit of "open" (median
   exactly 10). When both moves are fine the planner's tap-now or tap-later is
   a near tie in its cost, so those labels read as noise to a learner. Its
-  own structured view as input (WorldObs) helps (10 -> 24). A label weight
-  from the planner's margin (best cost after a first tap vs after a wait)
-  would be the next thing to try; WorldPlanner doesn't expose it yet.
+  own structured view as input (WorldObs) helps (10 -> 24), and weighting
+  each label by the planner's margin (`last_cost_wait` vs `last_cost_tap`:
+  one infinite = a decisive tick, full weight x3; otherwise
+  min(1, gap / 20 px); near ties under 1 px dropped) helps again (24 -> 29).
+  The student then gets 98-99% of the decisive ticks it meets right and
+  still dies about every 25 points: one miss in a hundred decisive ticks is
+  enough.
 
 Pieces the planner lines can reuse: `RL/Arc.cs` (a cheap visible-only
 "what happens if I wait / tap" probe), `RL/Imitation.cs` (DAgger over whole

@@ -146,19 +146,26 @@ public sealed class Imitation
             if (sim.state.started && mem.last_tick != sim.state.tick) mem.Observe(sim);
         }
 
-        /// The planner's move; forced when only one first move has a path
-        /// that lives the whole look-ahead.
+        /// The planner's move, weighted by its margin: decisive (forced) when
+        /// only one first move has a living path; otherwise min(1, |cost gap|
+        /// / MARGIN px); near ties (under 1 px) carry no label.
         public (bool tap, float wt, bool forced) label(GameSim sim, float forced_weight)
         {
             if (!sim.state.started) return (true, 0f, false);
             see(sim);
             bool tap = pl.Plan(FastSim.Model.WorldModel.Read(sim, mem));
-            long h = pl.skill.horizon;
-            bool wait_lives = pl.last_deep_wait >= h, tap_lives = pl.last_deep_tap >= h;
-            bool forced = wait_lives != tap_lives;
-            return (tap, forced ? forced_weight : 1f, forced);
+            double cw = pl.last_cost_wait, ct = pl.last_cost_tap;
+            bool wi = double.IsInfinity(cw), ti = double.IsInfinity(ct);
+            if (wi && ti) return (tap, 0f, false);
+            if (wi != ti) return (!ti, forced_weight, true);
+            double gap = Math.Abs(cw - ct);
+            if (gap < 1.0) return (tap, 0f, false);
+            return (ct < cw, (float)Math.Min(1.0, gap / MARGIN), false);
         }
     }
+
+    /// Cost gap (planner px units) that earns a full label weight.
+    public static double MARGIN = 20;
 
     /// Expert style: false = aim when both moves are safe; true = the move
     /// that keeps more of the beam alive (more slack), aim only on near ties.

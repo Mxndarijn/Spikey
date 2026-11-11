@@ -199,7 +199,7 @@ public sealed class WorldModel
     /// flies sideways (no fall, no deaths): what the planner's shared timeline
     /// is built from. The ghost still bounces at the walls when the bird would,
     /// so the room's bounce rules (points, flips, lava, belts) land in time.
-    public void GhostSubstep(Action after_hazards = null)
+    public void GhostSubstep(Action after_hazards = null, bool bounce = true)
     {
         room.t += 1;
         sub += 1;
@@ -211,6 +211,7 @@ public sealed class WorldModel
         }
         // The bird checks spikes and hazards before it bounces: snapshot here.
         after_hazards?.Invoke();
+        if (!bounce) return;
         bird.x += bird.vx;
         long r = Physics.R;
         if (bird.vx > 0 && bird.x + r >= room.WallRight)
@@ -255,6 +256,8 @@ public sealed class WorldModel
                 {
                     room.exit_preview = false;
                     room.exit_open = true;
+                    // An exit wall is all spikes but the exit: known from the preview.
+                    if (room.exit_side == other) room.unknown[other] = false;
                 }
             }
             else if ((room.score + 1) % every == 0 || room.score % every == 0)

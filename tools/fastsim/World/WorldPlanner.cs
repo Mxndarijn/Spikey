@@ -25,17 +25,31 @@ public sealed class WorldPlanner
     public sealed record Skill(string name, int delay, int jitter, double miss, int horizon, long margin_px, int beam,
         double misjudge_px, double slip)
     {
-        public static readonly Skill BEAST = new("beast", 0, 0, 0, 150, 6, 64, 0, 0);
-        public static readonly Skill EXPERT = new("expert", 6, 2, 0.01, 110, 5, 48, 6, 0.04);
-        public static readonly Skill GOOD = new("good", 10, 3, 0.02, 90, 4, 40, 10, 0.06);
-        public static readonly Skill NORMAL = new("normal", 14, 4, 0.04, 70, 3, 32, 14, 0.08);
-        public static readonly Skill BEGINNER = new("beginner", 18, 5, 0.06, 50, 2, 24, 18, 0.10);
+        /// Every limit from one number: k = 1 is the planner with no limits (beast),
+        /// k = 0 the most limited player (sees 20 ticks late, taps up to 6 ticks
+        /// late, drops 8% of taps, looks 40 ticks ahead, misreads its height by up
+        /// to 24 px). The tiers are k values calibrated to their target medians
+        /// (`fastsim world calibrate`).
+        public double k { get; init; } = 1;
+
+        public static Skill At(string name, double k)
+        {
+            double u = 1 - Math.Clamp(k, 0, 1);
+            return new Skill(name, (int)Math.Round(20 * u), (int)Math.Round(6 * u), 0.08 * u, (int)Math.Round(150 - 110 * u),
+                (long)Math.Round(6 - 5 * u), (int)Math.Round(16 + 240 * (1 - u) * (1 - u)), 24 * u, 0.15 * u) { k = k };
+        }
+
+        public static readonly Skill BEAST = At("beast", 1);
+        public static readonly Skill EXPERT = At("expert", 0.85);
+        public static readonly Skill GOOD = At("good", 0.65);
+        public static readonly Skill NORMAL = At("normal", 0.45);
+        public static readonly Skill BEGINNER = At("beginner", 0.25);
         public static readonly Skill[] ALL = { BEGINNER, NORMAL, GOOD, EXPERT, BEAST };
 
         public static Skill Named(string n) => ALL.FirstOrDefault(s => s.name == n) ?? BEAST;
 
         public override string ToString() =>
-            $"delay {delay}, jitter {jitter}, miss {miss:F3}, horizon {horizon}, margin {margin_px}px, beam {beam}, misjudge {misjudge_px}px, slip {slip:F3}";
+            $"k {k:F3}: delay {delay}, jitter {jitter}, miss {miss:F3}, horizon {horizon}, margin {margin_px}px, beam {beam}, misjudge {misjudge_px}px, slip {slip:F3}";
     }
 
     // Costs, in "px of distance" units.
@@ -57,9 +71,18 @@ public sealed class WorldPlanner
     long _last_vx;
 
     public long decisions, nodes_expanded;
-    /// The last plan: finished paths, how deep the deaths of wait/tap went, the best cost.
+    /// The last plan: paths that finished alive, the deepest tick (from now) at
+    /// which a dying path that started with wait / tap died (-1: none died),
+    /// paths still flying at the horizon, the best cost.
     public long last_done, last_deep_wait, last_deep_tap, last_left;
     public double last_best;
+    public long[] last_causes = new long[6];
+    /// The last plan's best final cost of the paths that start with wait / with
+    /// a tap (lower is better; +infinity when every such path dies). The
+    /// difference is how sure the choice is: near-equal costs mean both moves
+    /// are fine, one infinite means only the other move lives (a decisive tick).
+    public double last_cost_wait = double.PositiveInfinity, last_cost_tap = double.PositiveInfinity;
+    public long last_bounced_deaths;
 
     public WorldPlanner(Skill skill, long seed)
     {
@@ -123,6 +146,7 @@ public sealed class WorldPlanner
         public long grav;
         public bool bounced, exited;
         public long bounce_d;
+        public bool back;
         public int first;
         public double cost;
         public double h;
@@ -134,10 +158,15 @@ public sealed class WorldPlanner
     sealed class Timeline
     {
         public RoomModel[] room;
+        /// The same room as a path sees it after its bounce off the wall ahead:
+        /// that wall cleared, the next one not drawn yet (or the known exit), one more point.
+        public RoomModel[] after;
+        /// After a bounce off the wall behind (a bumper sent the bird back): that wall cleared, the other one redrawn.
+        public RoomModel[] after_back;
         public HazardModel[][] hz;
     }
 
-    Timeline Build(WorldModel w, long substeps)
+    Timeline Build(WorldModel w, long substeps, long next_exit)
     {
         var ghost = new WorldModel
         {
@@ -147,25 +176,75 @@ public sealed class WorldPlanner
             tick = w.tick,
         };
         Models.Link(ghost);
-        var tl = new Timeline { room = new RoomModel[substeps + 1], hz = new HazardModel[substeps + 1][] };
-        tl.room[0] = ghost.room.Copy();
-        tl.hz[0] = ghost.hz;
+        int ahead = w.bird.vx > 0 ? 1 : 0;
+        var tl = new Timeline
+        {
+            room = new RoomModel[substeps + 1],
+            after = new RoomModel[substeps + 1],
+            after_back = new RoomModel[substeps + 1],
+            hz = new HazardModel[substeps + 1][],
+        };
+        void Keep(long at)
+        {
+            var pre = ghost.room.Copy();
+            tl.room[at] = pre;
+            var post = pre.Copy();
+            post.spikes[ahead] = 0;
+            post.unknown[ahead] = false;
+            if (!post.exit_open)
+            {
+                post.score += 1;
+                post.points += 1;
+            }
+            post.unknown[1 - ahead] = true;
+            if (next_exit >= 0)
+            {
+                post.exit_preview = false;
+                post.exit_open = true;
+                post.unknown[1 - ahead] = false;
+            }
+            tl.after[at] = post;
+            var back = pre.Copy();
+            back.spikes[1 - ahead] = 0;
+            back.unknown[1 - ahead] = false;
+            if (!back.exit_open)
+            {
+                back.score += 1;
+                back.points += 1;
+            }
+            back.unknown[ahead] = true;
+            tl.after_back[at] = back;
+            var snap = new HazardModel[ghost.hz.Length];
+            for (int i = 0; i < snap.Length; i++) snap[i] = ghost.hz[i].Copy();
+            tl.hz[at] = snap;
+        }
+        Keep(0);
+        tl.hz[0] = ghost.hz.Select(h => h.Copy()).ToArray();
         for (long s = 1; s <= substeps; s++)
         {
             long at = s;
-            ghost.GhostSubstep(() =>
-            {
-                tl.room[at] = ghost.room.Copy();
-                var snap = new HazardModel[ghost.hz.Length];
-                for (int i = 0; i < snap.Length; i++) snap[i] = ghost.hz[i].Copy();
-                tl.hz[at] = snap;
-            });
+            ghost.GhostSubstep(() => Keep(at), bounce: false);
         }
         return tl;
     }
 
-    /// The best first move from `w`: true = tap.
+    /// The best first move from `w`: true = tap. Easy ticks are planned with a
+    /// small beam; when that plan is tight (one move dies on every path, or the
+    /// best path passes inside a safety margin) the full beam plans again.
     public bool Plan(WorldModel w)
+    {
+        int small = Math.Max(16, _sk.beam / 8);
+        if (small >= _sk.beam) return PlanBeam(w, _sk.beam);
+        bool quick = PlanBeam(w, small);
+        bool tight = double.IsInfinity(last_cost_wait) || double.IsInfinity(last_cost_tap) || last_best >= NEAR_COST;
+        if (!tight) return quick;
+        replans++;
+        return PlanBeam(w, _sk.beam);
+    }
+
+    public long replans;
+
+    bool PlanBeam(WorldModel w, int beam)
     {
         decisions++;
         var room = w.room;
@@ -174,15 +253,22 @@ public sealed class WorldPlanner
         long horizon = _sk.horizon;
         long substeps = 0;
         for (long d = 0; d < horizon; d++) substeps += room.StepsAt(room.ticks + d);
-        var tl = Build(w, substeps);
+        long ahead = w.bird.vx > 0 ? 1 : 0;
+        // An exit shown as a preview on the wall behind opens at the next bounce: its height is known.
+        long next_exit = -1;
+        if (room.exit_preview && !room.exit_open && room.exit_side == 1 - ahead
+            && (room.score + 1) % SimConfig.POINTS_PER_ROOM == 0)
+            next_exit = room.exit_b_kind == ExitKind.WILD ? room.exit_b_y : room.exit_a_y;
+        var tl = Build(w, substeps, next_exit);
         long margin = _sk.margin_px * SimConfig.SUB;
         var scratch = new WorldModel { room = room, hz = Array.Empty<HazardModel>() };
         var own0 = w.CopyHazards(h => h.reactive);
 
-        long ahead = w.bird.vx > 0 ? 1 : 0;
         var gaps = room.ExitAhead(ahead) && !room.unknown[ahead]
             ? new List<long> { room.exit_a_y, room.exit_b_kind != ExitKind.NORMAL ? room.exit_b_y : room.exit_a_y }
             : WorldDesc.Gaps(room.Mask(ahead), Physics.Shift(w.hz, null, ahead), room.half_base).Select(g => g.mid).ToList();
+        Array.Clear(last_causes);
+        last_bounced_deaths = 0;
         var nodes = new List<Node> { new Node { b = w.bird, grav = room.gravity, first = -1, own = own0 } };
         var done = new List<Node>();
         long[] deepest = { -1, -1 };
@@ -206,7 +292,7 @@ public sealed class WorldPlanner
                         for (int i = 0; i < c.own.Length; i++) c.own[i] = node.own[i].Copy();
                     }
                     scratch.hz = c.own;
-                    scratch.room = tl.room[sbase];
+                    scratch.room = !c.bounced ? tl.room[sbase] : c.back ? tl.after_back[sbase] : tl.after[sbase];
                     if (act == 1)
                     {
                         c.b.vy = SimConfig.FLAP_VY * c.grav;
@@ -218,7 +304,7 @@ public sealed class WorldPlanner
                     for (long j = 1; j <= n_sub; j++)
                     {
                         long s = sbase + j;
-                        scratch.room = tl.room[s];
+                        scratch.room = !c.bounced ? tl.room[s] : c.back ? tl.after_back[s] : tl.after[s];
                         scratch.bird = c.b;
                         foreach (var h in c.own)
                         {
@@ -231,6 +317,8 @@ public sealed class WorldPlanner
                         nodes_expanded++;
                         if (r.dead)
                         {
+                            last_causes[r.cause]++;
+                            if (c.bounced) last_bounced_deaths++;
                             dead = true;
                             break;
                         }
@@ -248,7 +336,8 @@ public sealed class WorldPlanner
                             {
                                 c.bounced = true;
                                 c.bounce_d = d;
-                                c.cost += MIDDLE_COST * Math.Abs(c.b.y - MID_Y) / SimConfig.SUB;
+                                c.back = r.bounced != ahead;
+                                c.cost += next_exit >= 0 ? EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB : MIDDLE_COST * Math.Abs(c.b.y - MID_Y) / SimConfig.SUB;
                             }
                             foreach (var h in c.own)
                                 if (h.alive) h.OnBounce(scratch);
@@ -265,12 +354,12 @@ public sealed class WorldPlanner
                     double bottom = (SimConfig.KILL_BOTTOM - c.b.y) / (double)SimConfig.SUB - 14;
                     double edge = Math.Min(top, bottom);
                     if (edge < EDGE_ZONE) c.cost += EDGE_COST * (EDGE_ZONE - edge) / 10;
-                    if (c.exited || (c.bounced && d - c.bounce_d >= POST_TICKS))
+                    if (c.exited || (c.bounced && next_exit < 0 && d - c.bounce_d >= POST_TICKS))
                     {
                         done.Add(c);
                         continue;
                     }
-                    c.h = c.bounced ? 0 : GAP_PULL * GapDist(gaps, c.b.y) / SimConfig.SUB;
+                    c.h = c.bounced ? (next_exit >= 0 ? EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB : 0) : GAP_PULL * GapDist(gaps, c.b.y) / SimConfig.SUB;
                     long key = ((c.b.y >> 8) * 1024 + ((c.b.vy + 4096) >> 5)) * 8 + (c.bounced ? 4 : 0) + ((c.b.x >> 8) & 3);
                     if (slot.TryGetValue(key, out int at))
                     {
@@ -284,9 +373,9 @@ public sealed class WorldPlanner
                 }
             }
             sbase += n_sub;
-            if (next.Count > _sk.beam)
+            if (next.Count > beam)
             {
-                Prune(next, _sk.beam);
+                Prune(next, beam);
             }
             (nodes, next) = (next, nodes);
         }
@@ -295,17 +384,21 @@ public sealed class WorldPlanner
         {
             var c = n;
             if (!c.bounced) c.cost += WallCost(w, c.b);
+            else if (next_exit >= 0 && !c.exited) c.cost += EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB;
             done.Add(c);
         }
         last_done = done.Count;
         last_deep_wait = deepest[0];
         last_deep_tap = deepest[1];
         last_left = nodes.Count;
+        last_cost_wait = last_cost_tap = double.PositiveInfinity;
         if (done.Count == 0) return deepest[1] > deepest[0];
         double best = double.MaxValue;
         int pick = 0;
         foreach (var n in done)
         {
+            if (n.first == 0) last_cost_wait = Math.Min(last_cost_wait, n.cost);
+            else last_cost_tap = Math.Min(last_cost_tap, n.cost);
             double v = n.cost + (n.bounced || n.exited ? 0 : 0.0);
             if (v < best)
             {
@@ -318,6 +411,7 @@ public sealed class WorldPlanner
     }
 
     public const double GAP_PULL = 0.5;
+    public const double EXIT_PULL = 1.0;
 
     static double GapDist(List<long> gaps, long y)
     {
@@ -335,7 +429,7 @@ public sealed class WorldPlanner
         var used = new bool[list.Count];
         var bands = new HashSet<long>();
         for (int i = 0; i < list.Count && keep.Count < beam / 2; i++)
-            if (bands.Add((list[i].b.y >> 10) * 2 + (list[i].bounced ? 1 : 0)))
+            if (bands.Add((list[i].b.y >> 10) * 4 + (list[i].bounced ? 2 : 0) + (list[i].b.vx > 0 ? 1 : 0)))
             {
                 keep.Add(list[i]);
                 used[i] = true;
