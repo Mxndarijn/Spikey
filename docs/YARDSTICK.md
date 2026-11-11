@@ -54,9 +54,10 @@ Every bot states what it reads (the *copies* column):
 
 Built in: `gap` (gap seeker, none), `planner` (PlannerBot, real), `search`
 (SurvivalSearch re-planned every 30 ticks, real, an oracle; slow), `honest` (the bot
-review's planner: a beam on 3 scrambled copies to 40 ticks past the next bounce,
-re-planned every 4 ticks; `Bubble.next_x` and `Stalactite.target_y` are not scrambled
-yet), `rl:<tier>` (the policy and tiers in `tools/rlbot`, none).
+review's BlindPlanner, `Bots/BlindPlanner.cs` from 651f45d: a beam on one copy with every
+hidden draw replaced, horizon 200, 110 ticks past the next bounce, margin 10, re-planned
+every 4 ticks; scrambled), `honest-v1` (the review's first try, which still leaks some
+hidden draws: "scrambled (leaky)"), `rl:<tier>` (the policy and tiers in `tools/rlbot`, none).
 
 ## Seeds and cap
 

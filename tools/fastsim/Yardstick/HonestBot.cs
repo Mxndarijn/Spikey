@@ -2,14 +2,14 @@ using FastSim.Rl;
 
 namespace FastSim.Yard;
 
-/// The review's honest planner (bot-review.md, `rl review honest` in
+/// The review's first honest planner (bot-review.md, `rl review honest` in
 /// RL/Review.cs on claude/quirky-yonath-3b526e), as a yardstick bot. It knows
 /// the rules but not the hidden draws: it looks ahead on `n` copies of the sim
 /// whose RNG and crate / dart salts are its own random numbers ("scrambled
 /// copies"), never more than `past` ticks past the next bounce, and wants a
 /// line of taps that lives in every copy. Re-plans every `k` ticks.
-/// Known leaks the review lists: Bubble.next_x and Stalactite.target_y are
-/// not scrambled yet.
+/// It still leaks hidden draws (Drop, Firework and Orchard RNGs,
+/// Bubble.next_x, Stalactite.target_y, beam order): yardstick bot honest-v1.
 public sealed class HonestBot
 {
     readonly long _h, _past;
