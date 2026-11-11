@@ -9,6 +9,7 @@ using FastSim;
 //   fastsim searchruns [seeds] [ticks]              full runs through the portals
 //   fastsim rooms [seeds] [room]                    PlannerBot per room
 //   fastsim runs [seeds]                            PlannerBot full runs
+//   fastsim world errors|nopeek|runs|tiers|...     the world model and its planner (World/, docs/WORLD_MODEL.md)
 //   fastsim bench
 //   fastsim reaction [arrivals] [room] [delays]     portal arrivals, slow vs instant reaction
 //   fastsim odds [runs] [delays]                    real runs, every arrival at each reaction
@@ -59,6 +60,7 @@ RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
 if (mode == "check") return Checks.run(pos, opts, jobs, priority);
 if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
+if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")

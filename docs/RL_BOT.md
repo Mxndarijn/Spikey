@@ -163,6 +163,16 @@ A gameplay change can move the tiers: run `-Mode measure` to see, and
     powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode deaths -Seeds 200    # were the deaths avoidable?
     powershell -ExecutionPolicy Bypass -File tools/rlbot.ps1 -Mode heights              # where it flies, vs SurvivalSearch
 
+Imitation and the profiling tools run on the FastSim build directly
+(`tools/fastsim/bin/Release/net9.0/FastSim`, after `tools/rlbot.ps1` built it):
+
+    FastSim rl imitate --dir <dir> --threads 8 --minutes 30 --back 150 --forced 3 --arc 1   # aim expert + Arc
+    FastSim rl imitate --dir <dir> --style world --free 1 --wobs 1                          # WorldPlanner expert
+    FastSim rl imeasure --dir <dir> --seeds 400      # median, p90, cap hits, deaths per 100 points by band
+    FastSim rl diagnose --dir <dir> --seeds 64       # per death: the wrong move on a decisive tick
+    FastSim rl expert --seeds 32 --cap 12000         # the aim expert on its own (--style width)
+    FastSim rl bench --dir tools/rlbot               # time per part + fingerprints (same before/after a speed-up)
+
 `measure` plays full runs (seed `first..first+n`, no revives, capped at
 `SimConfig.MAX_TICKS`) for each tier and prints median, p90, mean, the share
 that leaves the first room, and the rooms that killed most. `-Out file.json`
@@ -195,11 +205,64 @@ Deaths per 100 points by score band (0..10 / 10..20 / 20..40 / 40..80 / 80+):
 `policy.json` 0.05 / 0.67 / 2.25 / 5.04 / 6.32; with the 12-tick delay
 trained in, 1.10 / 5.72 / 10.37 / 20.24 / -.
 
-The partner session (rl-bot-speedup, notes in `rl-bot-speedup.md`) tried
-imitation of whole runs from an aim rule, slack-width labels and Arc inputs
-(the bird's own wait and tap arcs against the hazards where they are now):
-best 30-36, below 42. Its WorldPlanner-teacher trial (a visible-only planner
-as the teacher) was still running when this line was wound down.
+### Imitation of whole runs (`RL/Imitation.cs`)
+
+DAgger over every tick, not only near deaths: the student plays, every third
+tick it visits is labelled by an expert, the labels gather, and a
+355-256-128-1 net (or wider with extra inputs) is fit to them by
+cross-entropy. The expert plays the first iterations (beta 1, then x0.7 per
+iteration). `--back 150` also labels every tick of the last 150 before each
+death. Same seeds and cap as above, gameplay version 20 for the World rows
+(the median-42 policy measures the same there). Deaths per 100 points by band
+0-25 / 25-50 / 50-100 / 100-200.
+
+| expert, inputs | median | p90 | deaths per 100 points | to plateau |
+|---|---|---|---|---|
+| aim rule (Teacher.safe_moves, else steer to the gap or exit), observation | 25 | 44 | 2.41 / 6.64 / 8.63 / 8.33 | ~9 min, 4 threads |
+| aim rule, + Arc input | 32 | 60 | 1.34 / 4.78 / 8.58 / 50 | ~8 min |
+| aim rule, + Arc + arcs against the hazards 6 and 12 ticks ago | 32 | 58 | | ~8 min |
+| aim rule, expert horizon 150 instead of 90 | 30 | 50 | | ~15 min, 8 threads |
+| slack width (the move keeping more beam states alive) | ~20 (64 seeds) | | | labels fit only 84% |
+| WorldPlanner (visible only, world-model-bot), observation | 10 | 21 | 7.08 / 15.19 / - / - | flat from the start |
+| WorldPlanner, + WorldObs (its structured view) | 24 | 40 | 2.44 / 9.40 / 22.67 / - | ~9 min, 8 threads |
+| for comparison: PPO + teacher (`policy.json`) | 42 | 78 | 0.62 / 3.22 / 5.16 / 6.82 | |
+
+No run reached the cap. Copies: the aim and slack experts step sim copies
+(they see hazard futures); WorldPlanner uses none. As players on their own
+the aim expert scores median 121 and the slack expert 133 at a 12,000-tick
+cap (nearly every run reaches the cap), and WorldPlanner 77 points per run
+at that cap.
+
+What it showed:
+- **Labels fit, play doesn't follow.** The aim-rule labels fit 98-99% (the
+  decisive ones 99%+), yet `rl diagnose` finds that about 95% of deaths, for
+  this student and for `policy.json` alike, follow exactly one wrong move on
+  a tick where only one move survives the next 90 ticks. For the imitation
+  student that move is often the very last tick: the aim rule flies up to a
+  hazard and dodges at the last moment, which leaves no room for error.
+- **Arc input** (`RL/Arc.cs`): the bird's own wait and tap paths (its fall,
+  the room's step rate, a bounce at the walls) probed against every live
+  hazard where it is now, at 16 points up to 60 ticks, plus the ticks to the
+  first hit. Visible only: no hazard is stepped. +7 median, +16 p90 for
+  imitation, the only input change that clearly helped. As Observer layout 4
+  under a fresh imitation run it scored 30 / 55, so the observer stays at
+  layout 3 and Arc is an imitation option (`--arc 1`).
+- **A visible-only teacher alone isn't enough.** WorldPlanner's labels are a
+  function of what is visible, but the student agrees with it on only 60-75%
+  of the ticks it visits, and dies at the first exit of "open" (median
+  exactly 10). When both moves are fine the planner's tap-now or tap-later is
+  a near tie in its cost, so those labels read as noise to a learner. Its
+  own structured view as input (WorldObs) helps (10 -> 24). A label weight
+  from the planner's margin (best cost after a first tap vs after a wait)
+  would be the next thing to try; WorldPlanner doesn't expose it yet.
+
+Pieces the planner lines can reuse: `RL/Arc.cs` (a cheap visible-only
+"what happens if I wait / tap" probe), `RL/Imitation.cs` (DAgger over whole
+runs with any expert: `--style aim|width|world`, `--arc 1|2`, `--wobs 1`),
+`rl diagnose` (for each death: was there a tick where only one move lived,
+and did the bot take the other), `rl imeasure` (this table's format) and
+`rl bench` (timing per part and fingerprints that prove a speed-up keeps
+every observation, logit and teacher answer the same).
 
 ### Tiers
 

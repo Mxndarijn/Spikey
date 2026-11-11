@@ -16,8 +16,12 @@ const FORBIDDEN := {
 	"reads a hidden salt": "\\.salt\\b",
 	"reads a hidden target": "\\.(target_y|next_x)\\b",
 	"runs hazard hooks":
-	"\\.(setup|_place|on_bounce|on_flap|on_wall_bounce|adjust_wall|near_row|touch|kills|_next_drop|_pick_y|_aim|_load|pop)\\s*\\(",
-	"runs arrival checks": "\\b(ArrivalCheck|_arrival_retries|_arrive_in|_go_through|_enter_room)\\b",
+	(
+		"\\.(setup|_place|on_bounce|on_flap|on_wall_bounce|adjust_wall|near_row|touch|kills"
+		+ "|_next_drop|_pick_y|_aim|_load|pop)\\s*\\("
+	),
+	"runs arrival checks":
+	"\\b(ArrivalCheck|_arrival_retries|_arrive_in|_go_through|_enter_room)\\b",
 	"changes the sim": "\\bsim\\.(state|room)\\.[a-z_]+\\s*(=[^=]|\\+=|-=|\\+\\+|--)",
 }
 
