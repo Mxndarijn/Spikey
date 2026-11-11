@@ -19,6 +19,14 @@ room, and the bots and searches the checks below use: for those cases the C#
 bot must choose the same taps as the GDScript one (`case ... gap` /
 `planner:...` and `csearch` lines, see `tools/fastsim_parity.gd`).
 
+## Rendering a bot's run
+
+To render (or check) a run a FastSim bot played, write a run file with
+`Bots/RunFile.cs` (`RunFile.write(path, sim, taps, revives, loadout, name)`)
+and call `tools/render_run.ps1 -Run <file>` (`-Check` headless, `-Out x.mp4`
+only when the user asked). See `docs/RENDERING.md`. `SimConfig.GAMEPLAY_VERSION`
+here must equal the GDScript one (`tests/unit/test_fastsim_checks.gd`).
+
 ## The check's bot tests (`fastsim check`)
 
 `tools/check.ps1` plays bots only on FastSim (`tools/fastsim.ps1 -Mode

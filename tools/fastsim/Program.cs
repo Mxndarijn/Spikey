@@ -15,6 +15,8 @@ using FastSim;
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
+//   fastsim runfile <seed> [bot_seed] --out <file>  a gap_seeker run as a run file
+//                                                   (Bots/RunFile.cs, docs/RENDERING.md)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
 //   (skip seeds), --priority idle|belownormal|normal (default belownormal),
 //   --variant <id>|all (search, rooms, reaction; scan: one id: play that room variant
@@ -55,6 +57,8 @@ RoomCatalog.all();
 RoomCatalog.first_index();
 Targets.variant = opts.GetValueOrDefault("variant", "");
 if (mode == "check") return Checks.run(pos, opts, jobs, priority);
+if (mode == "runfile")
+    return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
 {
     if (mode != "search" && mode != "rooms" && mode != "reaction" && mode != "scan")
