@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace FastSim.Rl;
 
@@ -12,8 +12,9 @@ public static class RlMain
     {
         string what = pos.Count > 1 ? pos[1] : "measure";
         string dir = Path.GetFullPath(opts.GetValueOrDefault("dir", default_dir()));
-        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 4);
+        int threads = Math.Clamp(int.Parse(opts.GetValueOrDefault("threads", "4")), 1, 16);
         string O(string k, string d) => opts.GetValueOrDefault(k, d);
+        if (!opts.ContainsKey("throttle")) Power.full_speed();
         try
         {
             switch (what)
@@ -26,11 +27,18 @@ public static class RlMain
                     if (opts.ContainsKey("envs")) t.envs = int.Parse(opts["envs"]);
                     if (opts.ContainsKey("entropy")) t.entropy = float.Parse(opts["entropy"]);
                     if (opts.ContainsKey("practice")) t.practice = double.Parse(opts["practice"]);
+                    if (opts.ContainsKey("every")) t.every = int.Parse(opts["every"]);
+                    if (opts.ContainsKey("tapcost")) t.tap_cost = float.Parse(opts["tapcost"]);
+                    if (opts.ContainsKey("shape")) t.shape = float.Parse(opts["shape"]);
+                    if (opts.ContainsKey("expert")) t.expert = double.Parse(opts["expert"]);
+                    if (opts.ContainsKey("from")) t.from_policy = true;
+                    if (opts.ContainsKey("delay")) t.delay = int.Parse(opts["delay"]);
                     return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")), int.Parse(O("init", "1")));
                 }
                 case "teach":
                 {
                     var t = new Dagger(dir) { threads = threads };
+                    Teacher.blind = opts.ContainsKey("blind");
                     if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
                     if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
                     if (opts.ContainsKey("runs")) t.runs = int.Parse(opts["runs"]);
@@ -49,6 +57,42 @@ public static class RlMain
                 case "measure":
                     return Tiers.measure(dir, O("tier", "all"), int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
                         long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads, O("out", ""));
+                case "review":
+                    return Review.run(pos.Count > 2 ? pos[2] : "", dir, opts);
+                case "imitate":
+                {
+                    var t = new Imitation(dir) { threads = threads };
+                    if (opts.ContainsKey("lr")) t.lr = float.Parse(opts["lr"]);
+                    if (opts.ContainsKey("cap")) t.cap = long.Parse(opts["cap"]);
+                    if (opts.ContainsKey("runs")) t.runs = int.Parse(opts["runs"]);
+                    if (opts.ContainsKey("horizon")) t.horizon = long.Parse(opts["horizon"]);
+                    if (opts.ContainsKey("every")) t.label_every = int.Parse(opts["every"]);
+                    Imitation.by_width = O("style", "aim") == "width";
+                    Imitation.by_world = O("style", "aim") == "world";
+                    if (opts.ContainsKey("wbeam") || opts.ContainsKey("whorizon"))
+                        Imitation.world_skill = Imitation.world_skill with { beam = int.Parse(O("wbeam", "64")), horizon = int.Parse(O("whorizon", "150")) };
+                    Imitation.wobs = O("wobs", "0") == "1";
+                    Imitation.arc = O("arc", "0") != "0";
+                    Imitation.arc_past = O("arc", "0") == "2";
+                    t.sizes[0] = Imitation.inputs;
+                    if (opts.ContainsKey("forced")) t.forced_weight = float.Parse(opts["forced"]);
+                    if (opts.ContainsKey("back")) t.back = int.Parse(opts["back"]);
+                    if (opts.ContainsKey("batches")) t.max_batches = int.Parse(opts["batches"]);
+                    if (opts.ContainsKey("free")) t.free_weight = float.Parse(opts["free"]);
+                    if (opts.ContainsKey("beta")) t.beta0 = double.Parse(opts["beta"]);
+                    if (opts.ContainsKey("sizes")) t.sizes = new[] { Imitation.inputs }.Concat(opts["sizes"].Split('-').Select(int.Parse)).Append(1).ToArray();
+                    return t.run(opts.ContainsKey("resume"), double.Parse(O("minutes", "45")));
+                }
+                case "imeasure":
+                    return Imitation.measure(dir, int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
+                        long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads);
+                case "diagnose":
+                    return Imitation.diagnose(dir, int.Parse(O("seeds", "64")), long.Parse(O("first", "0")), long.Parse(O("cap", "54000")),
+                        long.Parse(O("horizon", "90")), int.Parse(O("back", "240")), threads);
+                case "expert":
+                    Imitation.by_width = O("style", "aim") == "width";
+                    return Imitation.expert_score(int.Parse(O("seeds", "32")), long.Parse(O("first", "0")), long.Parse(O("cap", "20000")),
+                        long.Parse(O("horizon", "90")), threads);
                 case "bench":
                     return Bench.run(dir, int.Parse(O("seeds", "40")), long.Parse(O("cap", "20000")), int.Parse(O("teach", "16")));
                 case "speed":

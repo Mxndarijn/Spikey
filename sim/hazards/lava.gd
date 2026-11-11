@@ -1,6 +1,6 @@
 extends Hazard
-## Lava Rise: a deadly line that creeps in from the floor (or, as the Crusher,
-## down from the ceiling) by STEP for every point scored in the room, up to
+## Lava Rise: a deadly line that creeps up from the floor by STEP for every
+## point scored in the room, up to
 ## MAX_RISES. A cool stone shows up once it has risen STONE_AFTER times;
 ## touching it sends the line back to rest. The line glides at SPEED, so it
 ## never jumps onto the bird.
@@ -8,9 +8,6 @@ extends Hazard
 ## Fair: the wall ahead always keeps a free run clear of where the line will
 ## be (adjust_wall), and an exit never goes where the line could cover it
 ## before the bird gets there (blocks_exit).
-
-## Variants (the room's variant id picks one).
-enum Mode { FLOOR, CEILING }
 
 const SUB := SimConfig.SUB
 const STEP := 30 * SUB
@@ -29,8 +26,7 @@ const EXIT_CLEAR := SimConfig.BIRD_RADIUS + 24 * SUB
 ## A free run on the wall ahead is this many slots, wholly clear of the line.
 const RUN := 3
 
-var mode := Mode.FLOOR
-## The line's height now (the lava's top, or the crusher's spike tips).
+## The line's height now (the lava's top).
 var line := SimConfig.KILL_BOTTOM
 var rises := 0
 ## Room points already counted into `rises`.
@@ -40,28 +36,22 @@ var stone_x := 0
 var stone_y := 0
 
 
-## `p_mode` -1: take it from the room's variant ("lava" or "crusher").
-func _init(p_mode: int = -1) -> void:
+func _init() -> void:
 	kind = "lava"
-	mode = p_mode
 
 
 func setup(sim: GameSim, _rng: SimRng) -> void:
-	if mode < 0:
-		mode = Mode.CEILING if sim.room.variant_id() == "crusher" else Mode.FLOOR
 	line = rest()
 	counted = sim.room.points
 
 
 ## The line at rest (where the plain room's kill line is).
 func rest() -> int:
-	return SimConfig.KILL_TOP if mode == Mode.CEILING else SimConfig.KILL_BOTTOM
+	return SimConfig.KILL_BOTTOM
 
 
 ## Where the line sits after `n` rises.
 func line_at(n: int) -> int:
-	if mode == Mode.CEILING:
-		return SimConfig.KILL_TOP + n * STEP
 	return SimConfig.KILL_BOTTOM - n * STEP
 
 
@@ -76,8 +66,6 @@ func step(_sim: GameSim) -> void:
 
 func kills(sim: GameSim) -> bool:
 	var r := SimConfig.BIRD_RADIUS
-	if mode == Mode.CEILING:
-		return line > SimConfig.KILL_TOP and sim.state.y - r <= line
 	return line < SimConfig.KILL_BOTTOM and sim.state.y + r >= line
 
 
@@ -91,8 +79,6 @@ func touch(sim: GameSim) -> void:
 func _slot_clear(slot: int, edge: int) -> bool:
 	var cy := SimConfig.slot_center_y(slot)
 	var half := SimConfig.SLOT_SIZE / 2
-	if mode == Mode.CEILING:
-		return cy - half >= edge + SimConfig.BIRD_RADIUS
 	return cy + half <= edge - SimConfig.BIRD_RADIUS
 
 
@@ -135,9 +121,6 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	var heading := line_at(rises)
 	var lo := SimConfig.KILL_TOP + STONE_EDGE
 	var hi := heading - STONE_CLEAR
-	if mode == Mode.CEILING:
-		lo = heading + STONE_CLEAR
-		hi = SimConfig.KILL_BOTTOM - STONE_EDGE
 	stone_x = (110 + rng.next_below(141)) * SUB
 	stone_y = lo + rng.next_below(maxi(hi - lo, 0) + 1)
 	stone_on = true
@@ -147,10 +130,8 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 ## more before the bird gets there.
 func blocks_exit(sim: GameSim, _side: int, y: int) -> bool:
 	var worst := line_at(mini(rises_due(sim) + 1, MAX_RISES))
-	if mode == Mode.CEILING:
-		return y < worst + EXIT_CLEAR
 	return y > worst - EXIT_CLEAR
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [mode, line, rises, counted, int(stone_on), stone_x, stone_y])
+	return mix_all(h, [line, rises, counted, int(stone_on), stone_x, stone_y])

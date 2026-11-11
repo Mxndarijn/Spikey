@@ -40,7 +40,7 @@ public static class CatalogTwists
         var lava = new RoomDef("lava", "mid", 50);
         lava.max_spikes = 6;
         lava.hazards.Add(() => new Lava());
-        lava.variants = new List<RoomVariant> { new RoomVariant("lava"), new RoomVariant("crusher") };
+        lava.variants = new List<RoomVariant> { new RoomVariant("lava") };
         out_.Add(lava);
 
         var echo = new RoomDef("echo", "late", 80);

@@ -4,19 +4,30 @@ name: Check
 # and scene, the full test suite (unit, sim purity, golden replays, bot runs), then the
 # FastSim parity check (the C# copy of sim/ in tools/fastsim must match it tick for tick)
 # and the bot-heavy tests on FastSim (tools/fastsim/Checks.cs).
-# Runs on its own for pushes and pull requests, and next to the builds in the Android and
-# iOS workflows: they build while this runs, and nothing is released, uploaded to
-# TestFlight or announced unless it passes.
+# Runs on its own for pushes and pull requests, and is called by the phone builds
+# (build.yml): they build while this runs, and nothing is released, uploaded to TestFlight or
+# announced unless it passes. A build of a commit that already has a passed (or running) push
+# Check uses that one instead of running the tests again.
 on:
   push:
     branches: [main]
+    # Docs alone change no test. A build of such a commit runs the check itself.
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
   pull_request:
   workflow_dispatch:
   workflow_call:
 
+# A new push to a pull request cancels its older, now useless run. Every other run (pushes
+# to main, manual, called by the builds) gets a group of its own and is never cancelled.
+concurrency:
+  group: check-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
-  # Must match the editor used locally (tools/godot_path.txt). Change it in all three
-  # workflow files together.
+  # Must match the editor used locally (tools/godot_path.txt). Change it in check.yml,
+  # build.yml and verify-runs.yml together.
   GODOT_VERSION: 4.7.2-stable
 
 jobs:
