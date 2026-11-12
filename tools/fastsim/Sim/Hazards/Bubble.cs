@@ -154,8 +154,9 @@ public sealed class Bubble : Hazard
 
     public override void warnings(GameSim sim, List<long> out_)
     {
-        if (!spiked || wait <= 0 || wait > 3 * WARN) return;
-        long dur = (SimConfig.WORLD_H + radius - POP_TOP) / -vy + 1;
-        add_warning(out_, x - radius, POP_TOP - radius, x + radius, SimConfig.WORLD_H, wait, dur, WARN_KILL);
+        if (!spiked || wait > 3 * WARN || y - radius < SimConfig.KILL_BOTTOM) return;
+        long eta = wait + (y - radius - SimConfig.KILL_BOTTOM) / -vy;
+        long dur = (SimConfig.KILL_BOTTOM + 2 * radius - POP_TOP) / -vy + 1;
+        add_warning(out_, x - radius, POP_TOP - radius, x + radius, SimConfig.WORLD_H, eta, dur, WARN_KILL);
     }
 }

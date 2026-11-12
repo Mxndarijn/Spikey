@@ -54,7 +54,9 @@ static partial class Checks
         public const int MIN_SAMPLES = 4;
         public const long DEFAULT_TICKS = 1150;
 
-        public static readonly string[] BOTS = { "blind", "world", "worldobs", "mpc", "rl" };
+        public static readonly string[] BOTS = { "blind", "world", "worldobs", "mpc", "rl", "warn" };
+        /// The `warn` column is not a bot: it is the shared warnings layer (Hazard.warnings),
+        /// asked on tells only: does a warning box cover the danger points at the onset tick?
 
         /// Hazard classes that are only a base (never placed themselves).
         public static readonly Dictionary<Type, string> BASES = new()
@@ -309,6 +311,26 @@ static partial class Checks
             return false;
         }
 
+        /// Whether a warning of hazard `h` (Hazard.warnings, read now) covers `cell` `j` sim steps from now.
+        static bool warned(List<long> warns, int cell, int j)
+        {
+            long x = cx(cell % COLS), y = cy(cell / COLS), pad = SimConfig.BIRD_RADIUS + TOL;
+            for (int k = 0; k + Hazard.WARN_SIZE <= warns.Count; k += Hazard.WARN_SIZE)
+            {
+                if (warns[k + 6] != Hazard.WARN_KILL) continue;
+                if (j < warns[k + 4] - 1 || j > warns[k + 4] + warns[k + 5]) continue;
+                if (x >= warns[k] - pad && x <= warns[k + 2] + pad && y >= warns[k + 1] - pad && y <= warns[k + 3] + pad) return true;
+            }
+            return false;
+        }
+
+        static string warn_key(GameSim sim)
+        {
+            var l = new List<long>();
+            sim.warnings(l);
+            return string.Join(",", l);
+        }
+
         /// Whether a grid cell is inside the RL bot's danger grid (ahead of the bird, around its height).
         static bool in_rl_grid(GameSim sim, int cell)
         {
@@ -476,6 +498,13 @@ static partial class Checks
                             s2.room.hazards[i].alive = false;
                             if (cells.Any(c => in_rl_grid(sim, c))) seen[4] = !same(f_all, rl_frame(s2));
                         }
+                        // warn: the shared warnings layer, on pure tells (nothing of the hazard kills yet).
+                        if (tell && pure)
+                        {
+                            var wl = new List<long>();
+                            h.warnings(sim, wl);
+                            seen[5] = half(cells, c => warned(wl, c, j)); if (Environment.GetEnvironmentVariable("WDBG") == "1" && seen[5] == false) Console.Error.WriteLine($"WDBG {label} {key} t {t} j {j} lead {lead} warns [{string.Join(",", wl)}] cells {string.Join(" ", cells.Select(c => cx(c % COLS) / SimConfig.SUB + ":" + cy(c / COLS) / SimConfig.SUB))} h: {string.Join(" ", h.GetType().GetFields().Where(f => f.FieldType == typeof(long) || f.FieldType == typeof(bool)).Select(f => f.Name + "=" + f.GetValue(h)))}");
+                        }
                         for (int b = 0; b < BOTS.Length; b++)
                         {
                             if (seen[b] == null) continue;
@@ -517,6 +546,7 @@ static partial class Checks
                     if (!same(obs(w), obs(wb))) leaks.Add($"worldobs reads a hidden value in {label} (tick {t})");
                     if (models_key(model_ahead(w, line, t, LEAD)) != models_key(model_ahead(wb, line, t, LEAD)))
                         leaks.Add($"world (Models.Read) reads a hidden value in {label} (tick {t})");
+                    if (warn_key(sim) != warn_key(blind_now)) leaks.Add($"warn (Hazard.warnings) reads a hidden value in {label} (tick {t})");
                     if (sight_key(eye) != sight_key(shadow)) leaks.Add($"mpc (Sight) reads a hidden value in {label} (tick {t})");
                 }
                 sim.step(line[t] == 1);

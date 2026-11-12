@@ -202,3 +202,28 @@ func checksum(h: int) -> int:
 	if style != Style.RING:
 		out = mix_all(out, [style])
 	return out
+
+
+## On the pad (fuse lit, a ring where it will burst): the column the rocket
+## climbs, then the burst around the ring as far as live sparks fly. While it
+## climbs, the burst still to come (the ring was shown while it stood).
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if phase != Phase.PAD and phase != Phase.CLIMB:
+		return
+	var climb := (y - burst_y + CLIMB_VY - 1) / CLIMB_VY
+	var eta := climb
+	if phase == Phase.PAD:
+		eta += timer
+		add_warning(
+			out,
+			x - ROCKET_RADIUS,
+			burst_y - ROCKET_RADIUS,
+			x + ROCKET_RADIUS,
+			PAD_Y + ROCKET_RADIUS,
+			timer,
+			climb + 1,
+			WARN_KILL
+		)
+	var far := SPARK_DEADLY * SPARK_SPEED + SPARK_RADIUS
+	var dur := SPARK_DEADLY + (ECHO if style == Style.DOUBLE else 0)
+	add_warning(out, x - far, burst_y - far, x + far, burst_y + far, eta, dur, WARN_KILL)

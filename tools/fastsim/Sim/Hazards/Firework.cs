@@ -184,4 +184,19 @@ public sealed class Firework : Hazard
         if (style != Style.RING) out_ = mix_all(out_, style);
         return out_;
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (phase != Phase.PAD && phase != Phase.CLIMB) return;
+        long climb = (y - burst_y + CLIMB_VY - 1) / CLIMB_VY;
+        long eta = climb;
+        if (phase == Phase.PAD)
+        {
+            eta += timer;
+            add_warning(out_, x - ROCKET_RADIUS, burst_y - ROCKET_RADIUS, x + ROCKET_RADIUS, PAD_Y + ROCKET_RADIUS, timer, climb + 1, WARN_KILL);
+        }
+        long far = SPARK_DEADLY * SPARK_SPEED + SPARK_RADIUS;
+        long dur = SPARK_DEADLY + (style == Style.DOUBLE ? ECHO : 0);
+        add_warning(out_, x - far, burst_y - far, x + far, burst_y + far, eta, dur, WARN_KILL);
+    }
 }
