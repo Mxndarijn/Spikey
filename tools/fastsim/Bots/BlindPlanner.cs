@@ -30,6 +30,16 @@ public sealed class BlindPlanner
     /// Lines never tap twice within `min_gap` ticks (a thumb's limit; 0 = off). `last_press`: the
     /// tick of the player's last real press, set by the caller (the human layer) before decide.
     public long min_gap = 0, last_press = -1000;
+    /// Human layer: `frozen` = no new looks (an attention lapse; the old plan runs out),
+    /// `mid_offset` = px added to the height the cost pulls to (a player's preferred height).
+    public bool frozen;
+    /// Noise-aware line choice: each candidate line is replayed `mc_samples` times with every tap
+    /// moved by its own N(0, mc_sigma) ticks (a person's thumb), instead of all taps shifted by
+    /// `wobble`. The line that lives in most samples is played. 0 = off.
+    public int mc_samples;
+    public double mc_sigma;
+    public long mc_trials;
+    public long mid_offset;
     /// One-sided stalactite fangs re-aim at every bounce. In an imagined bounce
     /// the planner takes the worst case: 1 = the column met first comes out as
     /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
@@ -215,7 +225,7 @@ public sealed class BlindPlanner
 #if PROF
         long p0 = Prof.now();
 #endif
-        if (_since >= _wait || _plan.Count == 0)
+        if (!frozen && (_since >= _wait || _plan.Count == 0))
         {
             bool kept = false;
             if (follow > 0 && _since != int.MaxValue && _calm && _plan.Count >= 24 && _since_look + _since < follow)
@@ -272,7 +282,8 @@ public sealed class BlindPlanner
         }
         byte[] found = null;
         last_agree = 0;
-        int trials = n * (1 + 2 * (wobble > 0 ? 1 : 0));
+        _noise_base = _noise.next_u32();
+        int trials = mc_samples > 0 ? n * mc_samples : n * (1 + 2 * (wobble > 0 ? 1 : 0));
         if (_found.Count > 0 && trials == 1)
         {
             found = _found[0].taps;
@@ -285,11 +296,18 @@ public sealed class BlindPlanner
             {
                 int ok = 0;
                 for (int j = 0; j < n; j++)
-                    for (int w = -1; w <= 1; w++)
-                    {
-                        if (w != 0 && wobble == 0) continue;
-                        if (lives(copy(j), taps, w * wobble)) ok++;
-                    }
+                    if (mc_samples > 0)
+                        for (int k = 0; k < mc_samples; k++)
+                        {
+                            mc_trials++;
+                            if (lives(copy(j), jitter(taps, k), 0)) ok++;
+                        }
+                    else
+                        for (int w = -1; w <= 1; w++)
+                        {
+                            if (w != 0 && wobble == 0) continue;
+                            if (lives(copy(j), taps, w * wobble)) ok++;
+                        }
                 if (found == null || ok > last_agree || (ok == last_agree && cost < best_cost))
                 {
                     found = taps;
@@ -371,6 +389,25 @@ public sealed class BlindPlanner
             spread = Stalactite.MAX_STEP;
         }
     }
+
+    readonly SimRng _noise = new(424242);
+    /// `taps` with every tap after the first few ticks moved by its own N(0, mc_sigma) ticks
+    /// (sample k of a look; the same k gives each candidate the same noise draws).
+    byte[] jitter(byte[] taps, int k)
+    {
+        var r = new SimRng(_noise_base + 7919L * k);
+        var o = new byte[taps.Length];
+        for (int t = 0; t < taps.Length; t++)
+        {
+            if (taps[t] == 0) continue;
+            double u1 = (r.next_u32() + 1.0) / 4294967297.0, u2 = r.next_u32() / 4294967296.0;
+            int d = (int)Math.Round(Math.Sqrt(-2 * Math.Log(u1)) * Math.Cos(2 * Math.PI * u2) * mc_sigma);
+            int at = Math.Clamp(t + d, 0, taps.Length - 1);
+            o[at] = 1;
+        }
+        return o;
+    }
+    long _noise_base;
 
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
     bool lives(GameSim c, byte[] taps, int shift)
@@ -608,6 +645,7 @@ public sealed class BlindPlanner
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
         else if (aim_wall) mid = wall_aim(root);
         else if (aim_anchor) mid = root.state.anchor_y;
+        if (!(aim_exit && exit_shown)) mid += mid_offset * SimConfig.SUB;
         bool re_aim = aim_wall && !(aim_exit && exit_shown);
         var parents = new List<int>();
         var taps = new List<byte>();
@@ -653,7 +691,7 @@ public sealed class BlindPlanner
                     var st = s.state;
                     long aim = e.aim;
                     if (re_aim && (st.vx != vx0 || st.room_index != room0))
-                        aim = aim_exit && (st.exit_open || st.exit_preview) ? st.exit_a_y : wall_aim(s);
+                        aim = aim_exit && (st.exit_open || st.exit_preview) ? st.exit_a_y : wall_aim(s) + mid_offset * SimConfig.SUB;
                     long cost = e.cost + Math.Abs(st.y - aim) / SimConfig.SUB * mid_cost + a * tap_cost;
 #if PROF
                     long q1 = Prof.now();

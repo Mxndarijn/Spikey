@@ -104,6 +104,8 @@ public static class HumanMain
                                   $"doomed at the bounce {got.Count(x => x.StartsWith("DOOMED"))}");
                 return 0;
             }
+            case "tells":
+                return Tells.run(opt, threads);
             case "atlas":
                 return Atlas.run(opt, threads);
             case "reflextrace":
