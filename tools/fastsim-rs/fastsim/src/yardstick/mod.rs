@@ -466,7 +466,9 @@ pub fn fmt_num(x: f64, fmt: &str) -> String {
             Some((_, frac)) => (frac.len(), frac.starts_with('#')),
         }
     };
-    let exact = format!("{:.1100}", x.abs());
+    // .NET: custom formats ("0.00", "0.#") first take the double to 15 significant
+    // digits, then round half away from zero; "F" formats round the exact value.
+    let exact = if fmt.starts_with('F') { format!("{:.1100}", x.abs()) } else { sig15_plain(x.abs(), decimals + 2) };
     let (ip, fp) = exact.split_once('.').unwrap();
     let mut digits: Vec<u8> = ip.bytes().chain(fp.bytes().take(decimals)).map(|b| b - b'0').collect();
     if fp.as_bytes()[decimals] >= b'5' {
@@ -708,4 +710,24 @@ pub fn write_table(out_dir: &Path) -> i32 {
     write_text(&path, &sb);
     println!("yardstick: {} run sets -> {}", rows.len(), path.display());
     0
+}
+
+/// `x` (>= 0) at 15 significant digits as a plain decimal with at least `min_frac` fraction digits.
+fn sig15_plain(x: f64, min_frac: usize) -> String {
+    let sci = format!("{:.14e}", x);
+    let (mant, exp) = sci.split_once('e').unwrap();
+    let exp: i64 = exp.parse().unwrap();
+    let digits: String = mant.chars().filter(|c| c.is_ascii_digit()).collect();
+    let point = exp + 1; // digits before the decimal point
+    let (ip, mut fp) = if point <= 0 {
+        ("0".to_string(), "0".repeat((-point) as usize) + &digits)
+    } else if point as usize >= digits.len() {
+        (digits.clone() + &"0".repeat(point as usize - digits.len()), String::new())
+    } else {
+        (digits[..point as usize].to_string(), digits[point as usize..].to_string())
+    };
+    while fp.len() < min_frac {
+        fp.push('0');
+    }
+    format!("{ip}.{fp}")
 }
