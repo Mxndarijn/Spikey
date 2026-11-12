@@ -30,6 +30,10 @@ public sealed class BlindPlanner
     public long mid_cost = 1, tap_cost = 0;
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
     public long margin = 0, margin_cost = 40;
+    /// The margin also counts the spikes of the wall ahead, the ceiling and the floor.
+    public bool spike_margin = false;
+    /// The taps planned for the next ticks (read only; the human layer lands them with timing noise).
+    public IReadOnlyCollection<bool> plan => _plan;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
@@ -366,12 +370,28 @@ public sealed class BlindPlanner
         }
     }
 
-    /// Whether a bird `margin` px above or below this one would be killed by a hazard now.
+    static bool near_spikes(GameSim s, long y, long m)
+    {
+        var st = s.state;
+        long r = SimConfig.BIRD_RADIUS;
+        if (y - m - r <= SimConfig.KILL_TOP || y + m + r >= SimConfig.KILL_BOTTOM) return true;
+        long side = st.vx > 0 ? 1 : 0;
+        long dist = (side == 1 ? s.room.wall_right() - st.x : st.x - s.room.wall_left()) - r;
+        if (dist > s.room.max_spike_depth()) return false;
+        long mask = s.wall_mask(side);
+        if (mask == 0) return false;
+        long shift = s.wall_shift(side), hb = s.room.spike_half_base();
+        return Rl.Observer.wall_hits(mask, shift, hb, y - m) || Rl.Observer.wall_hits(mask, shift, hb, y + m);
+    }
+
+    /// Whether a bird `margin` px above or below this one would be killed by a hazard now
+    /// (or, with `spike_margin`, by the spikes of the wall ahead, the ceiling or the floor).
     bool near_death(GameSim s)
     {
         var hz = s.room.hazards;
-        if (hz.Count == 0) return false;
         long y = s.state.y;
+        if (spike_margin && near_spikes(s, y, margin * SimConfig.SUB)) return true;
+        if (hz.Count == 0) return false;
         bool bad = false;
         for (int d = -1; d <= 1 && !bad; d += 2)
         {
