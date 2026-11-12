@@ -179,7 +179,7 @@ public sealed class BlindPlanner
         int n = Math.Max(1, copies);
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
-        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1);
+        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
         if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
         {
@@ -196,7 +196,7 @@ public sealed class BlindPlanner
                     int ok = 0;
                     for (int j = 0; j < n; j++)
                     {
-                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y, reveal), after, coarse_px, coarse_speeds, 0, true);
+                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y, reveal, -1, boss_unseen), after, coarse_px, coarse_speeds, 0, true);
                         if (_found.Count > 0) ok++;
                     }
                     if (ok > pick_ok || (ok == pick_ok && cost < pick_cost))
@@ -355,6 +355,10 @@ public sealed class BlindPlanner
     /// Measuring only (Human/Atlas.cs): bits of `Reveal` that leave one kind of
     /// hidden value as it truly is in the copy. 0 = everything hidden (play).
     public int reveal = 0;
+    /// Boss rooms (research/planner-review/07-bosses.md): `boss_unseen`: the
+    /// tell now on screen has not been taken in yet (set by the human layer
+    /// for a reaction time), so it is a guess as well (with `boss_blind`).
+    public bool boss_unseen = false;
 
     public static class Reveal
     {
@@ -368,16 +372,17 @@ public sealed class BlindPlanner
     }
 
     /// `own_anchor`: the planner's own room anchor, tracked from walls it saw (-1 = keep the copy's).
-    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0, long own_anchor = -1)
+    /// `boss_unseen`: the boss tell on screen is not taken in yet (a guess too).
+    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0, long own_anchor = -1, bool boss_unseen = false)
     {
 #if PROF
         long p0 = Prof.now();
-        var c = blind_copy_(sim, own, bounce_y, reveal, own_anchor);
+        var c = blind_copy_(sim, own, bounce_y, reveal, own_anchor, boss_unseen);
         Prof.add(Prof.BLIND, p0);
         return c;
     }
 
-    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y, int reveal, long own_anchor)
+    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y, int reveal, long own_anchor, bool boss_unseen)
     {
 #endif
         var c = sim.clone_deep();
@@ -439,7 +444,7 @@ public sealed class BlindPlanner
                 Beam => Reveal.BEAM, Updraft => Reveal.UPDRAFT, Boss => Reveal.BOSS, _ => 0,
             };
             if (kind != 0 && R(kind)) continue;
-            if (hz is Boss bs && boss_blind) BossBlind.scramble(bs, own, false);
+            if (hz is Boss bs && boss_blind) BossBlind.scramble(bs, own, boss_unseen);
             switch (hz)
             {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
