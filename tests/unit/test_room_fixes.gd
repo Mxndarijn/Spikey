@@ -318,3 +318,38 @@ func test_a_gust_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
 		else:
 			assert_eq(out, mask, "step %d: no gust on the way" % k)
 	assert_true(blown > 3)
+
+
+## The Crusher's jaw keeps last cycle's lane until TELL and then slides to the
+## new one: the wall the bird flies to is judged by where the jaw really is.
+func test_the_crusher_jaw_is_judged_where_it_is() -> void:
+	const Crusher := preload("res://sim/hazards/boss_crusher.gd")
+	var sim := RoomsTest.sim_in_room("boss_crusher", 2)
+	var boss := _hazard(sim, "boss_crusher")
+	boss.phase = 2
+	boss.jaw = true
+	boss.phase_start = 0
+	boss._k = 3
+	boss.lane_from = 337 * SUB
+	boss.lane_to = 403 * SUB
+	boss.press_y = Crusher.PRESS_REST
+	boss.plate_y = Crusher.PLATE_REST
+	boss.t = 3 * Crusher.CYCLE + 10
+	# Before TELL: the old lane (centre 337) is the jaw, not the shown one (403).
+	assert_true(boss.safe_y(300 * SUB, 0), "in the old lane")
+	assert_false(boss.safe_y(470 * SUB, 0), "only in the new lane: the plate is still there")
+	# 10 steps into the slide: the press is 30 px lower, nowhere near the new lane's top yet.
+	var lt: int = Crusher.TELL + 10
+	assert_true(boss.safe_y(300 * SUB, lt - 10), "the press slides, it doesn't jump")
+	assert_false(boss.safe_y(250 * SUB, lt - 10), "but it did move down")
+
+
+## The Watcher's gaze dart flies from the wall the bird heads to: its mark
+## covers a 1 s reaction and the hop out of its lane, and a dart is across
+## before the next mark even at tier 3.
+func test_the_gaze_dart_mark_covers_a_reaction() -> void:
+	const Watcher := preload("res://sim/hazards/boss_watcher.gd")
+	assert_true(Watcher.GAZE_TELL >= SimConfig.ARRIVAL_BLIND + 15)
+	var across: int = (SimConfig.WORLD_W + Watcher.DART_LEN) / Watcher.DART_SPEED
+	assert_true(Watcher.GAZE_TELL + across <= Watcher.GAZE_FAST)
+	assert_true(Watcher.GAZE_AT + Watcher.GAZE_TELL < Watcher.CYCLE)

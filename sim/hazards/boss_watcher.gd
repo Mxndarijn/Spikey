@@ -22,16 +22,18 @@ const ROWS: Array[int] = [
 const CYCLE := 240
 ## Beams warn as long as every tell (SimConfig.WARN_TICKS).
 const BEAM_TELL := SimConfig.WARN_TICKS
-## The gaze dart is not a beam: it keeps its 1 s mark (phase 3 marks at GAZE_AT
-## and must fly before the cycle ends).
-const GAZE_TELL := 60
+## The gaze dart is not a beam: its mark is a 1 s reaction plus the hop out of
+## its lane, since it flies from the wall the bird is heading to (phase 3 marks
+## at GAZE_AT and must fly before the cycle ends).
+const GAZE_TELL := 75
 const BEAM_ON := 70
 ## Half the thickness of a live beam's deadly core.
 const HALF_H := 6 * SimConfig.SUB
 const MAX_RUN := 3
-## Phase 2: a gaze every GAZE steps (GAZE_FAST from tier 3).
+## Phase 2: a gaze every GAZE steps (GAZE_FAST from tier 3); a dart is across
+## (40 steps) before the next mark.
 const GAZE := 120
-const GAZE_FAST := 100
+const GAZE_FAST := 115
 ## Phase 3: when in its cycle the gaze marks.
 const GAZE_AT := 130
 const DART_SPEED := 10 * SimConfig.SUB

@@ -226,8 +226,20 @@ func safe_y(y: int, steps: int) -> bool:
 		var spread := 0
 		if k > _k and jaw and lt >= TELL:
 			spread = mini((lt - TELL) * JAW_SPEED, LANE_STEP_MAX[tier - 1])
-		top = maxi(top, lane - lane_half() - TEETH + spread)
-		bottom = mini(bottom, lane + lane_half() + TEETH - spread)
+		if jaw and k == _k and lane_from >= 0:
+			# This cycle the jaw keeps the last lane until TELL, then slides to
+			# the new one as boss_step moves it.
+			var moved := maxi(lt - TELL, 0)
+			var half := lane_half() + TEETH
+			var press := _toward(lane_from - half, lane - half, moved * JAW_SPEED, moved * LIFT)
+			var plate := _toward(
+				lane_from + half, lane + half, moved * JAW_SPEED, moved * JAW_SPEED
+			)
+			top = maxi(top, press)
+			bottom = mini(bottom, plate)
+		else:
+			top = maxi(top, lane - lane_half() - TEETH + spread)
+			bottom = mini(bottom, lane + lane_half() + TEETH - spread)
 	var r := SimConfig.BIRD_RADIUS + MARGIN
 	return y - r > top + BITE and y + r < bottom - BITE
 
