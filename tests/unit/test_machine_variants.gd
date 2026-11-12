@@ -259,13 +259,15 @@ func test_pairs_drop_two_crates_at_once_in_different_columns() -> void:
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
 		var pairs := 0
 		for _r in 6:
-			var a: int = cd.col
-			var b: int = cd.col_b
-			if a < 0:
+			if cd.col < 0:
 				break
-			assert_true(b >= 0 and b != a, "a second crate in another column")
+			# The columns are final once the warning is over (the first pair can be
+			# marked again on the room's first step: exits, fairness).
 			while cd.warn_left > 0:
 				sim.room.step(sim)
+			var a: int = cd.col
+			var b: int = cd.col_b
+			assert_true(b >= 0 and b != a, "a second crate in another column")
 			_advance(sim, 5)
 			assert_true(cd.falling(), "both fall")
 			_bird(sim, cd.col_center(a), cd.y + cd.crate_h / 2)
