@@ -32,6 +32,8 @@ public static class Review
                 return blindcheck(seeds);
             case "trace":
                 return trace(opts, cap);
+            case "speed":
+                return speed(opts, seeds, cap, threads);
             case "sens":
                 return sens(dir, seeds, threads);
             case "shape":
@@ -275,6 +277,89 @@ public static class Review
             }
         Console.WriteLine($"blindcheck: {states} states, {bad} where a second scramble changed the copy" + (bad > 0 ? ": " + string.Join(", ", where.Select(kv => $"{kv.Key} {kv.Value}")) : ""));
         return bad == 0 ? 0 : 1;
+    }
+
+    /// `rl review speed [--bot blind|world] [--skill beast] [planner options]`: ticks per second
+    /// of the planner on full runs (cap `cap`), the garbage collector's share, and with a
+    /// PROF build (`-p:DefineConstants=PROF`) where the time goes. Tool only.
+    static int speed(Dictionary<string, string> opts, int seeds, long cap, int threads)
+    {
+        long first = long.Parse(opts.GetValueOrDefault("first", "0"));
+        bool world = opts.GetValueOrDefault("bot", "blind") == "world";
+        var res = new (long points, long ticks, bool dead, ulong taps)[seeds];
+        string setup = "";
+        long looks = 0, nodes = 0;
+        ArrivalMemo.on = opts.GetValueOrDefault("memo", "1") != "0";
+        ArrivalMemo.verify = opts.GetValueOrDefault("memo", "1") == "2";
+        // Warm up the JIT (tiered PGO) so the first seeds do not count the compile.
+        {
+            var sim = new GameSim(999);
+            var bot = new BlindPlanner(999);
+            for (int t = 0; t < 600 && !sim.is_over(); t++) sim.step(bot.decide(sim));
+        }
+        Prof.flush();
+        Array.Clear(Prof.total);
+        Array.Clear(Prof.count);
+        ArrivalMemo.hits = ArrivalMemo.misses = 0;
+        long a0 = GC.GetTotalAllocatedBytes(true);
+        int g0 = GC.CollectionCount(0), g1 = GC.CollectionCount(1), g2 = GC.CollectionCount(2);
+        var pause0 = GC.GetTotalPauseDuration();
+        var clock = Stopwatch.StartNew();
+        Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
+        {
+            long seed = first + i + 1;
+            var sim = new GameSim(seed);
+            long ticks = 0;
+            ulong fp = 14695981039346656037UL;
+            bool Mark(bool tap)
+            {
+                fp = (fp ^ (tap ? 1UL : 0UL) ^ (ulong)ticks << 1) * 1099511628211UL;
+                return tap;
+            }
+            if (world)
+            {
+                var sk = FastSim.Model.WorldPlanner.Skill.Named(opts.GetValueOrDefault("skill", "beast"));
+                var bot = new FastSim.Model.WorldPlanner(sk, seed);
+                var mem = new FastSim.Model.Memory();
+                if (i == 0) setup = sk.ToString();
+                while (!sim.is_over() && ticks < cap)
+                {
+                    sim.step(Mark(bot.Decide(sim, mem)));
+                    ticks++;
+                }
+                Interlocked.Add(ref looks, bot.decisions);
+                Interlocked.Add(ref nodes, bot.nodes_expanded);
+            }
+            else
+            {
+                var bot = new BlindPlanner(seed);
+                string cfg = configure(bot, opts);
+                if (i == 0) setup = cfg;
+                while (!sim.is_over() && ticks < cap)
+                {
+                    sim.step(Mark(bot.decide(sim)));
+                    ticks++;
+                }
+                Interlocked.Add(ref looks, bot.looks);
+            }
+            Prof.flush();
+            res[i] = (sim.state.score, ticks, sim.is_over(), fp);
+        });
+        double sec = clock.Elapsed.TotalSeconds;
+        long alloc = GC.GetTotalAllocatedBytes(true) - a0;
+        double pause = (GC.GetTotalPauseDuration() - pause0).TotalSeconds;
+        long all = res.Sum(r => r.ticks), pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead);
+        Console.WriteLine($"speed {(world ? "world" : "blind")} [{setup}] seeds {first + 1}..{first + seeds} cap {cap} threads {threads}");
+        Console.WriteLine($"  {all} ticks in {sec:F1} s = {all / sec:F0} ticks/s, {all / sec / threads:F0} per thread; {deaths} deaths in {pts} points; looks {looks} ({1000.0 * sec * threads / Math.Max(1, looks):F3} ms each)" + (world ? $", nodes {nodes} ({nodes / sec / threads / 1e6:F2} M/s/thread)" : ""));
+        ulong all_fp = 0;
+        foreach (var r in res) all_fp = (all_fp ^ r.taps) * 1099511628211UL;
+        Console.WriteLine($"  taps fingerprint {all_fp:x16} (same = same play); arrival memo {(ArrivalMemo.on ? "on" : "off")}: {ArrivalMemo.hits} hits, {ArrivalMemo.misses} misses{(ArrivalMemo.verify ? $", {ArrivalMemo.wrong} wrong" : "")}");
+        Console.WriteLine($"  GC: {alloc / 1e9:F1} GB allocated ({alloc / Math.Max(1, all) / 1024.0:F0} KB/tick), gen0 {GC.CollectionCount(0) - g0} gen1 {GC.CollectionCount(1) - g1} gen2 {GC.CollectionCount(2) - g2}, pauses {pause:F1} s = {100 * pause / sec:F1}% of wall time");
+        double busy = sec * threads * 1000;
+        for (int k = 0; k < Prof.N; k++)
+            if (Prof.count[k] > 0)
+                Console.WriteLine($"  {Prof.NAMES[k],-24} {Prof.ms(k) / 1000,8:F2} s {100 * Prof.ms(k) / busy,5:F1}%  {Prof.count[k],12} calls {Prof.ms(k) * 1e6 / Prof.count[k],8:F0} ns each");
+        return 0;
     }
 
     /// `rl review trace --seed n [--last 150] [--every 10]`: the planner's last

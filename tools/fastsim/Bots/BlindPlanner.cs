@@ -90,7 +90,13 @@ public sealed class BlindPlanner
             if (_vx != 0 && bounce_look) _since = int.MaxValue;
             _vx = sim.state.vx;
         }
+#if PROF
+        long p0 = Prof.now();
         if (_since >= _wait || _plan.Count == 0) look(sim);
+        Prof.add(Prof.LOOK, p0);
+#else
+        if (_since >= _wait || _plan.Count == 0) look(sim);
+#endif
         _since++;
         bool tap = _plan.Count > 0 && _plan.Dequeue();
         // The sim ignores taps during the wait out of a portal: don't make them.
@@ -249,6 +255,14 @@ public sealed class BlindPlanner
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
     static bool lives(GameSim c, byte[] taps, int shift)
     {
+#if PROF
+        long p0 = Prof.now();
+        try { return lives_(c, taps, shift); } finally { Prof.add(Prof.LIVES, p0); }
+    }
+
+    static bool lives_(GameSim c, byte[] taps, int shift)
+    {
+#endif
         for (int t = 0; t < taps.Length; t++)
         {
             int from = t - shift;
@@ -264,6 +278,11 @@ public sealed class BlindPlanner
     /// they are drawn). True = the planner knows where the exits will be.
     public static bool know_exits = false;
 
+    /// Boss rooms: every attack is drawn from the boss's hidden seed, so the
+    /// copy gets its own seed too (the attack being told stays: BossBlind).
+    /// False = the planner knows every future attack (a leak; measuring only).
+    public static bool boss_blind = true;
+
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
     /// Measuring only (Human/Atlas.cs): bits of `Reveal` that leave one kind of
     /// hidden value as it truly is in the copy. 0 = everything hidden (play).
@@ -272,17 +291,28 @@ public sealed class BlindPlanner
     public static class Reveal
     {
         public const int RNG = 1, WALLSEED = 2, SPINE = 4, EXITS = 8, STALAC = 16, SALTS = 32, PRIVRNG = 64,
-            BUBBLE = 128, KEEPY = 256, BEAM = 512, UPDRAFT = 1024, ALL = 2047;
+            BUBBLE = 128, KEEPY = 256, BEAM = 512, UPDRAFT = 1024, BOSS = 2048, ALL = 4095;
         public static readonly (string name, int bit)[] KINDS =
         {
             ("rng", RNG), ("wallseed", WALLSEED), ("spine", SPINE), ("exits", EXITS), ("stalac", STALAC), ("salts", SALTS),
-            ("privrng", PRIVRNG), ("bubble", BUBBLE), ("keepy", KEEPY), ("beam", BEAM), ("updraft", UPDRAFT),
+            ("privrng", PRIVRNG), ("bubble", BUBBLE), ("keepy", KEEPY), ("beam", BEAM), ("updraft", UPDRAFT), ("boss", BOSS),
         };
     }
 
     public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0)
     {
+#if PROF
+        long p0 = Prof.now();
+        var c = blind_copy_(sim, own, bounce_y);
+        Prof.add(Prof.BLIND, p0);
+        return c;
+    }
+
+    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y)
+    {
+#endif
         var c = sim.clone_deep();
+        c.memo_arrivals = true;
         bool R(int bit) => (reveal & bit) != 0;
         { var x = own.next_u32(); if (!R(Reveal.RNG)) c._rng = new SimRng(x); }
         // Seed-only generation: each wall reseeds from the room's seed, the
@@ -329,9 +359,10 @@ public sealed class BlindPlanner
             {
                 CrateDrop or Dart => Reveal.SALTS, Drop or Firework or OrchardSpawner => Reveal.PRIVRNG,
                 Bubble => Reveal.BUBBLE, Stalactite => Reveal.STALAC, KeepyBall => Reveal.KEEPY,
-                Beam => Reveal.BEAM, Updraft => Reveal.UPDRAFT, _ => 0,
+                Beam => Reveal.BEAM, Updraft => Reveal.UPDRAFT, Boss => Reveal.BOSS, _ => 0,
             };
             if (kind != 0 && R(kind)) continue;
+            if (hz is Boss bs && boss_blind) BossBlind.scramble(bs, own, false);
             switch (hz)
             {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
@@ -399,6 +430,14 @@ public sealed class BlindPlanner
     /// With `any`: stops at the first line found (only "is there one").
     void beam(GameSim root, long ticks, long bpx, long speeds, long by_band = 0, bool any = false)
     {
+#if PROF
+        long p0 = Prof.now();
+        try { beam_(root, ticks, bpx, speeds, by_band, any); } finally { Prof.add(Prof.BEAM, p0); }
+    }
+
+    void beam_(GameSim root, long ticks, long bpx, long speeds, long by_band, bool any)
+    {
+#endif
         _found.Clear();
         var layer = new List<int>();
         long bh = bpx * SimConfig.SUB;
@@ -424,15 +463,30 @@ public sealed class BlindPlanner
                 bool e_open = e.sim.state.exit_open;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
                 {
+#if PROF
+                    long q0 = Prof.now();
+                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    if (a == 1) Prof.add(Prof.CLONE, q0);
+                    q0 = Prof.now();
+                    s.step(a == 1);
+                    Prof.add(Prof.STEP, q0);
+#else
                     var s = a == 1 ? e.sim.clone_deep() : e.sim;
                     s.step(a == 1);
+#endif
                     if (s.is_over()) continue;
                     // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
                     if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
+#if PROF
+                    long q1 = Prof.now();
                     if (margin > 0 && near_death(s)) cost += margin_cost;
+                    Prof.add(Prof.NEAR, q1);
+#else
+                    if (margin > 0 && near_death(s)) cost += margin_cost;
+#endif
                     long along = st.vy * s.room.gravity - SimConfig.FLAP_VY;
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;

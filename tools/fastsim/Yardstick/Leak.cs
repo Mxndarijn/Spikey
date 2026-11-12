@@ -31,6 +31,7 @@ public static class Leak
         {
             switch (hz)
             {
+                case Boss bs: bs.seed = 0; break;
                 case CrateDrop cd: cd.salt = 0; break;
                 case Dart d: d.salt = 0; break;
                 case Drop dr: dr._rng.reseed(0); break;

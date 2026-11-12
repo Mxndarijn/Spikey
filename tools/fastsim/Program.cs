@@ -34,6 +34,24 @@ using FastSim;
 // searches keep many sims alive, and with one shared heap the garbage
 // collector stalls every thread. Separate processes each have a small heap.
 
+// A larger first GC generation (64 MB): the planners allocate about 1 MB of sim
+// copies per tick, and with the default budget a run with several threads in one
+// process spends 15-20% of its time in GC pauses (5% with this). The GC reads
+// this setting only from the environment, so FastSim starts itself again once
+// with it set (workers inherit it). Results do not depend on it. Set
+// DOTNET_GCgen0size yourself to choose another size.
+const string GEN0 = "DOTNET_GCgen0size";
+if (Environment.GetEnvironmentVariable(GEN0) == null && Environment.ProcessPath is string self
+    && !Path.GetFileNameWithoutExtension(self).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+{
+    var again = new ProcessStartInfo(self) { UseShellExecute = false };
+    foreach (string a in args) again.ArgumentList.Add(a);
+    again.Environment[GEN0] = "0x4000000";
+    using var child = Process.Start(again);
+    child.WaitForExit();
+    return child.ExitCode;
+}
+
 var opts = new Dictionary<string, string>();
 var pos = new List<string>();
 for (int i = 0; i < args.Length; i++)
