@@ -78,19 +78,10 @@ public sealed class MotorPlayer
     readonly List<long> _warn_buf = new();
     long _tell_until = -1;
     public long tell_reactions, tell_ticks;
-    /// Which attempt at a seed this is: the player's own randomness (thumb, reaction,
-    /// lapses, the planner's guesses) comes from the game seed and this number, so two
-    /// attempts at one seed differ like a person's do. `fastsim ... --attempt n`.
-    public static long attempt = 0;
-
-    /// The bot's own seed for a game seed (never the game seed itself).
-    public static long bot_seed(long seed) => SimHash.mix(SimHash.mix(SimHash.SEED, seed), 7919 + attempt);
 
     public MotorPlayer(Motor m, long seed, BlindPlanner planner = null)
     {
         _m = m;
-        // The player's own randomness: never the game's seed (bot_seed).
-        seed = bot_seed(seed);
         _rng = new Random(unchecked((int)(seed * 2246822519L) ^ 0x3c6ef372));
         this.planner = planner ?? make_planner(seed, m);
         _p = m.p ?? Persona.NONE;
@@ -360,14 +351,16 @@ public static class MotorTiers
     /// The tiers with human habits (06-humanlike.md): human tap sd and reaction, plus a Persona.
     /// Human behaviour, not human timing (the user's ruling): taps may be precise, but a
     /// tier reacts to new things no faster than a person (good and expert about 11 ticks),
-    /// its thumb gap varies (no 8-tick metronome), it has rare lapses and hesitations and
-    /// its own preferred height each run. First values; fitted on the KM median later.
+    /// its thumb gap varies (no 8-tick metronome), it hesitates a little and has its own
+    /// loosely varying preferred height each run. No lapses and no missed taps on purpose
+    /// (the user's ruling); the tiers differ by reaction, tap scatter and search fineness.
+    /// First values; fitted on the KM median later.
     public static readonly Dictionary<string, Motor> HUMAN = new()
     {
-        ["beginner"] = Motor.at(1.4) with { p = new Persona(lapse_min: 2, lapse_len: 20, hes_p: 0.08, hes_tau: 6, pref_sd: 30, gap_sd: 2) },
-        ["normal"] = Motor.at(0.6) with { p = new Persona(lapse_min: 1, lapse_len: 15, hes_p: 0.05, hes_tau: 5, pref_sd: 25, gap_sd: 2) },
-        ["good"] = Motor.at(0.3) with { react_mu = 7, p = new Persona(lapse_min: 0.5, lapse_len: 12, hes_p: 0.03, hes_tau: 4, pref_sd: 20, gap_sd: 1.5) },
-        ["expert"] = Motor.at(0.1) with { react_mu = 7, fine = true, p = new Persona(lapse_min: 0.2, lapse_len: 10, hes_p: 0.01, hes_tau: 3, pref_sd: 15, gap_sd: 1.5) },
+        ["beginner"] = Motor.at(1.4) with { p = new Persona(hes_p: 0.08, hes_tau: 6, pref_sd: 30, gap_sd: 2) },
+        ["normal"] = Motor.at(0.6) with { p = new Persona(hes_p: 0.05, hes_tau: 5, pref_sd: 25, gap_sd: 2) },
+        ["good"] = Motor.at(0.3) with { react_mu = 7, p = new Persona(hes_p: 0.03, hes_tau: 4, pref_sd: 20, gap_sd: 1.5) },
+        ["expert"] = Motor.at(0.1) with { react_mu = 7, fine = true, p = new Persona(hes_p: 0.01, hes_tau: 3, pref_sd: 15, gap_sd: 1.5) },
     };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 
