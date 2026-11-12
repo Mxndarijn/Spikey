@@ -14,6 +14,8 @@ pub mod boss_watcher;
 pub mod bouncer;
 pub mod bubble;
 pub mod bumper;
+pub mod cave_drip;
+pub mod cave_rock;
 pub mod coin_pickup;
 pub mod crate_drop;
 pub mod crawler;
@@ -32,6 +34,7 @@ pub mod mover;
 pub mod orbit_coin;
 pub mod orchard_spawner;
 pub mod pad_coin;
+pub mod peg;
 pub mod pendulum;
 pub mod piston;
 pub mod revving_bouncer;
@@ -78,6 +81,9 @@ pub use revving_bouncer::RevvingBouncer;
 pub use rotor::Rotor;
 pub use saw_ring::SawRing;
 pub use spike_ball::SpikeBall;
+pub use cave_drip::CaveDrip;
+pub use cave_rock::CaveRock;
+pub use peg::Peg;
 pub use splitting_bouncer::SplittingBouncer;
 pub use stalactite::Stalactite;
 pub use stalker::Stalker;
@@ -188,6 +194,8 @@ hazard_enum!(
     Bouncer,
     Bubble,
     Bumper,
+    CaveDrip,
+    CaveRock,
     CoinPickup,
     CrateDrop,
     Crawler,
@@ -206,6 +214,7 @@ hazard_enum!(
     OrbitCoin,
     OrchardSpawner,
     PadCoin,
+    Peg,
     Pendulum,
     Piston,
     RevvingBouncer,
@@ -315,6 +324,7 @@ impl Hz {
                 | Hz::BossSaw(_)
                 | Hz::BossWatcher(_)
                 | Hz::Bouncer(_)
+                | Hz::CaveRock(_)
                 | Hz::Crawler(_)
                 | Hz::ExitKey(_)
                 | Hz::Gate(_)

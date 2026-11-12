@@ -3,8 +3,8 @@ extends TestCase
 ## fangs went to the bird's height at every bounce and the exit could open
 ## anywhere, so a bird that was high when a low exit showed had no way in.
 ## Now a room's exits are picked when it starts (ExitPlanner.plan_room), the
-## same for every player, and near an exit the anchor, the fangs and the
-## walls steer to it. The search side of this test is the FastSim check
+## same for every player, and the far fang parks on the exit's lane (drawn when
+## the room starts) before the exit opens. The search side of this test is the FastSim check
 ## `reach` (tools/fastsim-rs/fastsim/src/checks/reach.rs); this one checks the rules it relies on.
 
 const Stalactite := preload("res://sim/hazards/stalactite.gd")
@@ -44,22 +44,20 @@ func test_every_exit_can_be_reached_when_it_opens() -> void:
 			var st := sim.state
 			var planned := planned_left if st.exit_side == 0 else planned_right
 			assert_eq(st.exit_a_y, planned, "seed %d: the exit the room planned" % s)
-			# The ghost's bounce moved the anchor toward the exit, and the
-			# fangs were set around the anchor, never the bird.
-			var near_exit := absi(st.anchor_y - st.exit_a_y)
+			# The far fang's last height is the exit's lane: the exit is in
+			# reach of the gap there, whoever flies.
 			for h in sim.room.hazards:
 				var f := h as Stalactite
-				if f == null:
+				if f == null or not f.scheduled:
 					continue
-				var off := absi(f.target_y - st.anchor_y)
+				var lane: int = f.schedule[f.schedule.size() - 1]
 				assert_true(
-					off <= Stalactite.REACH + Stalactite.MAX_STEP,
-					"seed %d: a fang is set %d px off the anchor" % [s, off / SimConfig.SUB]
+					absi(st.exit_a_y - lane) <= f.gap / 2 - SimConfig.BIRD_RADIUS,
+					(
+						"seed %d: the exit is %d px off the lane"
+						% [s, absi(st.exit_a_y - lane) / SimConfig.SUB]
+					)
 				)
-			assert_true(
-				near_exit <= absi(st.y - st.exit_a_y) or near_exit <= RoomRules.GAP_REACH,
-				"seed %d: the anchor is near the exit" % s
-			)
 	assert_true(shown >= SEEDS, "the bots reached the ghost (%d)" % shown)
 
 

@@ -11,6 +11,8 @@ const Rotor := preload("res://sim/hazards/rotor.gd")
 const SawRing := preload("res://sim/hazards/saw_ring.gd")
 
 const SUB := SimConfig.SUB
+## Shutter Gates, single: steps per up-and-down cycle (twice the pair's pace).
+const SINGLE_PERIOD := 380
 ## Pinwheel variants, in draw order.
 const PINWHEELS: Array[String] = ["trim", "three", "twin", "rock", "lean", "breathe"]
 ## Saw Ring variants, in draw order.
@@ -34,14 +36,15 @@ static func defs() -> Array[RoomDef]:
 	# second a moment behind the first, like one moving tunnel.
 	var gates := RoomDef.new("gates", "starter", 20)
 	gates.max_spikes = 6
-	# Variants: the two columns; one gate in the middle with a small window.
-	# Both are GENERATED round the planned entry height: out of a portal each
-	# gap opens round the band a bird holding its height anywhere in the exit
-	# sweeps, for as long as it flies past (Gate.open_for_arrival), so they
-	# fit every arrival height.
+	# Variants: the two columns; one faster gate in the middle. Both are
+	# GENERATED and keep one fixed layout all room: the window is wide enough
+	# for the band a bird holding its height anywhere in the exit sweeps
+	# (Gate.wide), and out of a portal the gates are timed once, at the start,
+	# so every window is on that band while the bird flies past
+	# (Gate.fit_arrival). Nothing opens or closes.
 	gates.variants = [
 		RoomVariant.new("classic").generated(_gen_gates.bind(false)),
-		RoomVariant.new("single-small").generated(_gen_gates.bind(true)),
+		RoomVariant.new("single").generated(_gen_gates.bind(true)),
 	]
 	out.append(gates)
 
@@ -184,10 +187,6 @@ static func _saw_ring(shape: String) -> Hazard:
 	return ring
 
 
-static func _gate(x: int, period: int, follows: bool) -> Hazard:
-	return Gate.new(x, period, follows)
-
-
 ## Caterpillar Crawl's variants (Summer Crab Walk has the same): two crawlers,
 ## one starting on the ceiling and one on the floor; a swarm of four small ones,
 ## two on each; two short ones at double speed.
@@ -228,22 +227,20 @@ static func _gen_crawl(p: VariantParams, shape: String) -> void:
 			h._place()
 
 
-## Generated Shutter Gates: the classic pair (the second a moment behind the
-## first) or the single small gate, each gap opened for the arrival once both
-## are set up. Every try is the same: the opening is what makes it fit.
-static func _gen_gates(p: VariantParams, small: bool) -> void:
+## Generated Shutter Gates: the classic pair (the second GEN_LAG behind the
+## first, the first on the side the bird comes in) or one faster gate in the
+## middle, all wide (Gate.wide), timed for the arrival once they are set up
+## (Gate.fit_arrival). A try only differs in the leader's drawn direction; the
+## timing search covers every phase.
+static func _gen_gates(p: VariantParams, single: bool) -> void:
 	var made: Array[Hazard] = []
-	if small:
-		made.append(p.add(_small_gate()))
+	if single:
+		made.append(p.add(Gate.new(180 * SUB, SINGLE_PERIOD, false).wide()))
 	else:
-		made.append(p.add(_gate(130 * SUB, 760, false)))
-		made.append(p.add(_gate(230 * SUB, 760, true)))
-	for g in made:
-		g.open_for_arrival(p.sim, p)
-
-
-static func _small_gate() -> Hazard:
-	return Gate.new(180 * SUB, 760, false, Gate.SMALL_GAP)
+		var flip := p.arriving and p.sim.state.vx < 0
+		made.append(p.add(Gate.new((230 if flip else 130) * SUB, 760, false).wide()))
+		made.append(p.add(Gate.new((130 if flip else 230) * SUB, 760, true).wide()))
+	Gate.fit_arrival(p.sim, p, made)
 
 
 static func _crawler(lane: int) -> Hazard:

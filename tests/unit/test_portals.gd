@@ -102,7 +102,7 @@ func test_flying_through_moves_to_the_next_room() -> void:
 
 
 ## Out of a portal, Floating Isles keeps its islands out of the lane in front
-## of the portal, and Shutter Gates has the gap at the bird when
+## of the portal, and Shutter Gates has the window round the bird's hop when
 ## it reaches the nearer gate.
 func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 	var isles := RoomCatalog.index_of("isles")
@@ -129,9 +129,11 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 			if absi(h.x - g.state.x) < absi(near.x - g.state.x):
 				near = h
 		var steps := absi(near.x - g.state.x) / SimConfig.SPEED_X
-		# The gate's own range and hover: the room rework moved them (a taller gap).
-		var want := clampi(y - Gate.ARRIVAL_HOVER, Gate.GAP_MIN_Y, Gate.GAP_MAX_Y)
-		assert_true(absi(near.gap_at(steps) - want) <= 2 * SimConfig.SUB, "gate gap at the bird")
+		# The window holds the bird's hop when it gets there.
+		var mid: int = near.gap_at(steps)
+		var r := SimConfig.BIRD_RADIUS
+		assert_true(mid - near.gap_size / 2 <= y - FairLanes.FIRST_HOP - r, "gate gap at the bird")
+		assert_true(mid + near.gap_size / 2 >= y + r, "gate gap at the bird")
 	assert_eq(lane_ok, 40, "isles lane clear in every arrival")
 
 
@@ -345,34 +347,6 @@ func test_exits_sit_on_slot_centers_with_the_portal_in_the_middle() -> void:
 			assert_eq(SimConfig.slot_center_y(slot), ey, "on a slot center")
 			var three := 0b111 << (slot - 1)
 			assert_eq(ExitPlanner.slots(sim.state) & three, three, "that slot and one either side")
-
-
-## Coming out of a portal, the player hasn't seen the room yet: the gap ahead
-## stays at the bird's height, and the other one stays reachable from it.
-func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
-	for seed_value in 12:
-		for heading_right in [true, false]:
-			var y := (130 + seed_value * 35) * SimConfig.SUB
-			var sim := RoomsTest.sim_in_room("stalac", 50 + seed_value, Seasons.NONE, "classic")
-			sim.state.started = true
-			sim.state.y = y
-			sim.state.anchor_y = sim.state.y
-			sim.state.vx = SimConfig.SPEED_X if heading_right else -SimConfig.SPEED_X
-			var rocks: Array[Hazard] = []
-			for h in sim.room.hazards:
-				if h.kind == "stalactite":
-					rocks.append(h)
-			for h in rocks:
-				h.setup(sim, SimRng.new(seed_value))
-			for h in rocks:
-				h.on_bounce(sim, SimRng.new(200 + seed_value))
-			var near: Hazard = rocks[0] if heading_right == (rocks[0].x < rocks[1].x) else rocks[1]
-			var far: Hazard = rocks[1] if near == rocks[0] else rocks[0]
-			var want := clampi(y, 150 * SimConfig.SUB, 490 * SimConfig.SUB)
-			assert_eq(near.target_y, want, "gap ahead at the bird's height")
-			assert_eq(near.gap_y, want, "and already there")
-			var step := absi(far.target_y - near.target_y)
-			assert_true(step <= 60 * SimConfig.SUB, "next gap reachable")
 
 
 ## Turning back from an open exit (here off the Bumper Cloud) and bouncing off

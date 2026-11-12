@@ -19,6 +19,7 @@ const SKINS: Dictionary[String, String] = {
 	"bees": "bee",
 	"beachball": "beachball",
 	"crabs": "crab",
+	"cave": "bat",
 }
 
 

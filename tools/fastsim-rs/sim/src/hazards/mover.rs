@@ -11,6 +11,7 @@ pub struct Mover {
     pub loop_period: i64,
     pub chase: bool,
     pub center_y: i64,
+    pub center_x: i64,
     pub phase: i64,
     pub xs: Vec<i64>,
     pub ys: Vec<i64>,
@@ -53,6 +54,7 @@ impl Mover {
             loop_period: Self::LOOP_PERIOD,
             chase: false,
             center_y: Self::CENTER_Y,
+            center_x: Self::CENTER_X,
             phase: 0,
             xs: Vec::new(),
             ys: Vec::new(),
@@ -142,8 +144,8 @@ impl Mover {
                     k = self.chase_tenths(t) + self.phase * Self::CHASE_DEN;
                 }
                 let a = k * SimTrig::TURN / (self.loop_period * Self::CHASE_DEN) + i * SimTrig::TURN / self.count;
-                nx = Self::CENTER_X + self.loop_w * SimTrig::sin_t(a) / SimTrig::ONE;
-                ny = Self::CENTER_Y + self.loop_h * SimTrig::sin_t(2 * a) / SimTrig::ONE;
+                nx = self.center_x + self.loop_w * SimTrig::sin_t(a) / SimTrig::ONE;
+                ny = self.center_y + self.loop_h * SimTrig::sin_t(2 * a) / SimTrig::ONE;
             } else {
                 let k = t + self.phase - i * Self::WAVE_SPACING;
                 nx = Self::WAVE_MIN_X + SimTrig::ping_pong(k, Self::WAVE_PERIOD, Self::WAVE_MAX_X - Self::WAVE_MIN_X);
@@ -213,6 +215,9 @@ impl Hazard for Mover {
         }
         if self.center_y != Self::CENTER_Y {
             out_ = mix_all(out_, &[self.center_y]);
+        }
+        if self.center_x != Self::CENTER_X {
+            out_ = mix_all(out_, &[self.center_x]);
         }
         for i in 0..self.count {
             let iu = i as usize;

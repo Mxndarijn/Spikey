@@ -276,6 +276,22 @@ const ROOMS := {
 	["The Crusher", "Boss. A press slams down, then a jaw leaves a lane.", 5, "lava", "blocks"],
 	"boss_saw":
 	["Saw King", "Boss. A huge saw hops between heights, then spins blades.", 5, "sunset", "ball"],
+	"cave":
+	[
+		"Cave Tunnel",
+		"A fanged rock tunnel. Pick a branch, dodge drips or bats.",
+		3,
+		"jungle",
+		"cols"
+	],
+	"pegs":
+	[
+		"Peg Field",
+		"Spiked pegs dot the room, a hop apart. Thread your way between them.",
+		2,
+		"sunset",
+		"ball"
+	],
 }
 
 

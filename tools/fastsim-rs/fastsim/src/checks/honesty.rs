@@ -610,6 +610,36 @@ impl Honesty {
                 s.n("half_w", x.half_w);
                 s.n("fixed_lo", x.fixed_lo);
                 s.n("fixed_hi", x.fixed_hi);
+                s.list("schedule", &x.schedule);
+                s.n("slides", x.slides);
+                Self::base_fields(s, &x.base);
+            }
+            Hz::CaveRock(x) => {
+                s.list("top_x", &x.top_x);
+                s.list("top_y", &x.top_y);
+                s.list("bot_x", &x.bot_x);
+                s.list("bot_y", &x.bot_y);
+                s.list("isle_x", &x.isle_x);
+                s.list("isle_top", &x.isle_top);
+                s.list("isle_bot", &x.isle_bot);
+                Self::base_fields(s, &x.base);
+            }
+            Hz::CaveDrip(x) => {
+                s.n("x", x.x);
+                s.n("tip_y", x.tip_y);
+                s.n("floor_y", x.floor_y);
+                s.n("first", x.first);
+                s.n("every", x.every);
+                s.n("y", x.y);
+                s.n("eta", x.eta);
+                Self::base_fields(s, &x.base);
+            }
+            Hz::Peg(x) => {
+                s.n("x", x.x);
+                s.n("base_y", x.base_y);
+                s.n("bob", x.bob);
+                s.n("phase", x.phase);
+                s.n("y", x.y);
                 Self::base_fields(s, &x.base);
             }
             Hz::Stalker(x) => {
@@ -811,6 +841,8 @@ pub fn hz_name(h: &Hz) -> &'static str {
         Hz::Bouncer(_) => "Bouncer",
         Hz::Bubble(_) => "Bubble",
         Hz::Bumper(_) => "Bumper",
+        Hz::CaveDrip(_) => "CaveDrip",
+        Hz::CaveRock(_) => "CaveRock",
         Hz::CoinPickup(_) => "CoinPickup",
         Hz::CrateDrop(_) => "CrateDrop",
         Hz::Crawler(_) => "Crawler",
@@ -829,6 +861,7 @@ pub fn hz_name(h: &Hz) -> &'static str {
         Hz::OrbitCoin(_) => "OrbitCoin",
         Hz::OrchardSpawner(_) => "OrchardSpawner",
         Hz::PadCoin(_) => "PadCoin",
+        Hz::Peg(_) => "Peg",
         Hz::Pendulum(_) => "Pendulum",
         Hz::Piston(_) => "Piston",
         Hz::RevvingBouncer(_) => "RevvingBouncer",

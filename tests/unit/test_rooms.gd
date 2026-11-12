@@ -242,6 +242,8 @@ func test_all_picked_rooms_exist() -> void:
 		"crabs",
 		"fireworks",
 		"countdown",
+		"cave",
+		"pegs",
 	]:
 		assert_true(id in ids, "room %s exists" % id)
 

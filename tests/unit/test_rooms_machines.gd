@@ -345,42 +345,48 @@ func test_stalactites_kill_and_leave_a_gap() -> void:
 func test_stalactites_move_on_bounce() -> void:
 	var sim := _classic("stalac", 11)
 	var rocks := _hazards(sim, "stalactite")
-	# Past the room's first step: a bounce at step 0 is a portal entry.
+	var still: Hazard = rocks[0]
+	var far: Hazard = rocks[1]
+	assert_true(far.scheduled, "the far column is scheduled")
 	_advance(sim, 1)
-	var moved := false
-	# The column met first keeps its gap; the other one moves (Stalactite.on_bounce).
-	for n in 8:
-		var before: Array[int] = [rocks[0].target_y, rocks[1].target_y]
-		var rng := SimRng.new(100 + n)
-		for h in rocks:
-			h.on_bounce(sim, rng)
-		if rocks[0].target_y != before[0] or rocks[1].target_y != before[1]:
-			moved = true
-		for h in rocks:
-			assert_between(h.target_y, 150 * SUB, 490 * SUB, "gap stays in the room")
-		assert_true(absi(rocks[1].target_y - rocks[0].target_y) <= 120 * SUB, "gaps stay reachable")
-	assert_true(moved, "gaps get new heights after bounces")
+	var rng := SimRng.new(100)
+	for n in 6:
+		# Bouncing off the wall by the far column (heading away): it stays.
+		sim.state.vx = -SimConfig.SPEED_X
+		var before: int = far.target_y
+		far.on_bounce(sim, rng)
+		still.on_bounce(sim, rng)
+		assert_eq(far.target_y, before, "no slide while the bird heads away")
+		# Off the far wall (heading its way): to the next drawn height.
+		sim.state.vx = SimConfig.SPEED_X
+		far.on_bounce(sim, rng)
+		still.on_bounce(sim, rng)
+		var want: int = far.schedule[mini(n, far.schedule.size() - 1)]
+		assert_eq(far.target_y, want, "slides to its next drawn height")
+		assert_between(far.target_y, 150 * SUB, 490 * SUB, "gap stays in the room")
+		assert_eq(still.gap_y, still.target_y, "the entry column stays")
 	# The gap slides to its new height rather than jumping.
-	var r: Hazard = rocks[0] if rocks[0].gap_y != rocks[0].target_y else rocks[1]
-	var start: int = r.gap_y
+	far.target_y = far.gap_y + 60 * SUB
+	var start: int = far.gap_y
 	sim.room.step(sim)
-	assert_true(absi(r.gap_y - start) <= 3 * SUB, "slides smoothly")
+	assert_true(absi(far.gap_y - start) <= 3 * SUB, "slides smoothly")
 	_advance(sim, 200)
-	assert_eq(r.gap_y, r.target_y, "arrives")
+	assert_eq(far.gap_y, far.target_y, "arrives")
 
 
 func test_stalactites_shift_after_a_real_wall_bounce() -> void:
 	var changes := 0
 	for seed_value in 10:
 		var sim := _classic("stalac", 30 + seed_value)
-		var rock: Hazard = _hazards(sim, "stalactite")[0]
+		var rock: Hazard = _hazards(sim, "stalactite")[1]
 		var before: int = rock.target_y
 		sim.state.started = true
-		_bird(sim, SimConfig.WORLD_W - SimConfig.BIRD_RADIUS - 2 * SUB, 300 * SUB)
-		sim.state.vx = SimConfig.SPEED_X
+		_bird(sim, SimConfig.BIRD_RADIUS + 2 * SUB, 300 * SUB)
+		sim.state.vx = -SimConfig.SPEED_X
 		sim.state.vy = 0
 		sim.step(false)
-		assert_eq(sim.state.score, 1, "the bird bounced off the wall")
+		assert_eq(sim.state.score, 1, "the bird bounced off the far wall")
+		assert_eq(rock.target_y, rock.schedule[0], "to its first drawn height")
 		if rock.target_y != before:
 			changes += 1
 	assert_true(changes >= 8, "a wall bounce moves the gap")

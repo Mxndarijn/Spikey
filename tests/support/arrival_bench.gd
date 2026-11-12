@@ -74,9 +74,12 @@ static func arrival(index: int, i: int, variant := "") -> GameSim:
 		y = 130 + (y - 130 + 53) % 380
 		tries += 1
 	sim.state.anchor_y = y * SimConfig.SUB
-	sim.state.y = GameSim._arrival_y(
-		sim.state.anchor_y + OFFSETS[(i / 2) % OFFSETS.size()] * SimConfig.SUB
-	)
+	var off := OFFSETS[(i / 2) % OFFSETS.size()] * SimConfig.SUB
+	# A variant checked within a narrower band (RoomVariant.arrival_spread).
+	for v: RoomVariant in def.variants:
+		if v.id == variant and v.arrival_spread > 0:
+			off = off * v.arrival_spread / SimConfig.EXIT_FIT
+	sim.state.y = GameSim._arrival_y(sim.state.anchor_y + off)
 	var side := i % 2
 	for k in sim._arrival_retries(side, index):
 		sim._rng.next_u32()

@@ -630,6 +630,10 @@ func _arrival_score(side: int, next: int, k: int, wait: int) -> int:
 		for i in k:
 			c._rng.next_u32()
 		c._arrive_in(side, next)
+		# A room checked within a narrower band (RoomVariant.arrival_spread): the
+		# bird there. The layout never reads the bird's height.
+		if VariantCheck.arrival_dy(c, dy) != dy:
+			c.state.y = _arrival_y(state.anchor_y + VariantCheck.arrival_dy(c, dy))
 		var lived := mini(ArrivalCheck.score(c), fair)
 		if dy == 0:
 			centre = lived

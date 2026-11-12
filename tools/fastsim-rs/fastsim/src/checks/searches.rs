@@ -161,9 +161,9 @@ impl Gates {
             ));
         };
         for i in 0..Self::SEEDS * 2 {
-            quick(&mut out_, 500 + i * 37, if i < Self::SEEDS { "classic" } else { "single-small" }, i % 4 != 3);
+            quick(&mut out_, 500 + i * 37, if i < Self::SEEDS { "classic" } else { "single" }, i % 4 != 3);
         }
-        for variant in ["classic", "single-small"] {
+        for variant in ["classic", "single"] {
             for k in 0..Self::MORE_SEEDS {
                 quick(&mut out_, 3000 + k * 41, variant, k % 4 != 3);
             }

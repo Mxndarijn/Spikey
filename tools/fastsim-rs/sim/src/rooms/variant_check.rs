@@ -14,11 +14,20 @@ impl VariantCheck {
         }
         let n = if steps > 0 { steps } else { Self::HOLD_STEPS };
         for dy in GameSim::ARRIVAL_HEIGHTS {
-            if !Self::_holds_at(sim, GameSim::_arrival_y(sim.state.anchor_y + dy), avoid_touch, n) {
+            let at = GameSim::_arrival_y(sim.state.anchor_y + Self::arrival_dy(sim, dy));
+            if !Self::_holds_at(sim, at, avoid_touch, n) {
                 return false;
             }
         }
         true
+    }
+
+    pub fn arrival_dy(sim: &GameSim, dy: i64) -> i64 {
+        let def = sim.room.def();
+        if def.variants.is_empty() || def.variants[sim.room.variant as usize].arrival_spread == 0 {
+            return dy;
+        }
+        dy * def.variants[sim.room.variant as usize].arrival_spread / SimConfig::EXIT_FIT
     }
 
     fn _holds_at(sim: &GameSim, hold: i64, avoid_touch: bool, steps: i64) -> bool {

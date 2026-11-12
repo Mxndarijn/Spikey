@@ -277,10 +277,12 @@ through `RoomRuntime._generate`:
    number and `fallback`.
 2. **Generate**: the recipe builds its hazards into the room with `p.add()`
    (each set up from the room RNG, in order) and may shape them round the
-   entry (Shutter Gates and Stalactite Run open their gaps round the hold
-   band until the bird is past: `open_for_arrival`, closing at a slide the
-   painter draws as it kills; Echo's mirror draws the height it turns round
-   away from the band; Bee Line draws its wave's height).
+   entry, once (Shutter Gates' windows are wide enough for the hold band and
+   timed so they are on it while the bird flies past, `Gate.fit_arrival`;
+   Stalactite Run's entry column keeps a still gap round the band and its far
+   column, met after the hold, slides on a list drawn now; Echo's mirror draws
+   the height it turns round away from the band; Bee Line draws its wave's
+   height; Cave Tunnel keeps a gallery round the band over the hold).
 3. **Check** (`sim/rooms/variant_check.gd`, `VariantCheck.holds`): on
    copies, a bird at each `GameSim.ARRIVAL_HEIGHTS` height of the exit only
    holds its height for `HOLD_STEPS` moving steps (`ARRIVAL_BLIND`; longer
@@ -300,6 +302,15 @@ through `RoomRuntime._generate`:
    twin pair drawn closer; Lantern Swing: each chain moved to clear the band,
    its pivot moved in to stay inside the room, the winch wound less; Bramble
    Ball: start heights x headings).
+
+Nothing opens or closes for the arrival, and what is drawn is what kills
+(a gate's window slides on its fixed timetable, a scheduled stalactite gap
+slides to its next drawn height, drips, bats and a bob move as drawn).
+`test_fixed_rooms_never_change_shape_after_they_start` checks the rooms built
+for it the other way round: every hazard field but its declared moving ones
+(`MOVING`) at every step of a surviving line, bounces included. A variant may be checked within a narrower band than the whole exit
+(`RoomVariant.arrival_spread`, `checked_within`): Cave Tunnel is checked within
+`EXIT_HALF`, a little tighter than the whole exit, by design.
 
 **Hard rule: a generated room is always the same for a seed.** A recipe (and
 its check and fallback) may only use the room's RNG, which is seeded from the
@@ -321,22 +332,22 @@ hazards' own visible, predictable motion, as hand-made variants have (a swing,
 a turning wheel, a falling drop, a gap that slides on each bounce), and the
 usual wall spikes per bounce. `test_generated_layouts_stay_fixed_while_the_bird_is_in_the_room`
 checks it: per hazard kind it declares the fields that make the layout
-(`LAYOUT_FIELDS`); they must not change at any later tick. Shutter Gates and
-Stalactite Run are still being reworked to a fixed layout (their arrival
-opening closes after the bird is past; `PENDING_FIXED`).
+(`LAYOUT_FIELDS`); they must not change at any later tick.
 
 The rest of the fairness contract is the same for every room: the way on
 after the hold is ArrivalCheck's (`GameSim._arrival_retries`, which may still
 lay the room out again: a generated variant drawn by the room seed's first
 draw stays then, so its share is what the variant list says, and only its
 layout is drawn again), the planned exits stay reachable and clear
-(`ExitPlanner`, `blocks_exit`: an arrival opening is left out there, it
-closes), and every hazard keeps its own warnings. A generated variant needs
+(`ExitPlanner`, `blocks_exit`: Stalactite Run's far column keeps the exit in
+the lane it parks in, Cave Tunnel's rock in its mouths), and every hazard keeps
+its own warnings. A generated variant needs
 no `arrival_skip`. Floating Isles is the reference recipe
 (`catalog_core.gd`, `_gen_isles`). Generated today: Floating Isles, Shutter
 Gates, Caterpillar Crawl and Crab Walk, Stalactite Run (every variant),
 Bubble Lift, Echo (mirror), Gift Stack, Bee Line, Updraft, Pinwheel, Lantern
-Swing, Crate Drop, Bramble Ball and Spike Rain (every variant). Hand made on
+Swing, Crate Drop, Bramble Ball and Spike Rain (every variant), and the
+recipe-only rooms Cave Tunnel and Peg Field (`catalog_caves.gd`). Hand made on
 purpose: Saw Ring, Piston Press, Beam Gates and the rest.
 `tests/unit/test_generated_variants.gd` checks the contract at every height;
 `fastsim-rs variants [arrivals] [rooms]` measures each variant's real share

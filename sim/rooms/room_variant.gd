@@ -34,6 +34,11 @@ var avoid_touch := false
 ## VariantCheck.HOLD_STEPS). Longer for a hazard whose first danger comes
 ## after the reading time (the first gift in Gift Stack).
 var hold_steps := 0
+## GENERATED: how far from the planned height the arrival checks put the bird
+## (0 = SimConfig.EXIT_FIT, the whole exit). A room allowed to be a little
+## tighter than the whole exit (Cave Tunnel) checks a narrower band; a bird
+## coming through the exit's very edge then has to react in its first second.
+var arrival_spread := 0
 ## Wall spike size (depth and base) as a fraction of a normal spike.
 var spike_num := 1
 var spike_den := 1
@@ -79,6 +84,12 @@ func generated(
 	recipe = p_recipe
 	avoid_touch = p_avoid_touch
 	hold_steps = p_hold_steps
+	return self
+
+
+## Checks arrivals within `p_spread` of the planned height (arrival_spread).
+func checked_within(p_spread: int) -> RoomVariant:
+	arrival_spread = p_spread
 	return self
 
 

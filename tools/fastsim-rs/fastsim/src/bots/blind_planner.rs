@@ -532,19 +532,17 @@ impl BlindPlanner {
             _ => unreachable!(),
         };
         cols.sort_by(|&p, &q| if right { x_of(c, p).cmp(&x_of(c, q)) } else { x_of(c, q).cmp(&x_of(c, p)) });
-        let mut center = c.state.anchor_y;
-        let mut spread = Stalactite::REACH;
+        // A scheduled gap's next height is within MAX_STEP of its last one.
         for (i, &idx) in cols.iter().enumerate() {
             if let Hz::Stalactite(st) = &mut c.room.hazards[idx] {
                 if i == 0 || both {
+                    let center = st.target_y;
                     st.target_y = if st.bottom {
-                        Stalactite::GAP_MIN.max(center - spread)
+                        Stalactite::GAP_MIN.max(center - Stalactite::MAX_STEP)
                     } else {
-                        Stalactite::GAP_MAX.min(center + spread)
+                        Stalactite::GAP_MAX.min(center + Stalactite::MAX_STEP)
                     };
                 }
-                center = st.target_y;
-                spread = Stalactite::MAX_STEP;
             }
         }
     }
@@ -643,8 +641,8 @@ impl BlindPlanner {
             let at = c.state.plan_at;
             ExitPlanner::plan_room(&mut c, at);
         }
-        // Sliding stalactite gaps (the room's rule, which a player learns). The
-        // room slides them to state.anchor_y on seed-only generation, so that is used.
+        // Sliding stalactite gaps (the room's rule, which a player learns): a
+        // scheduled gap slides at most MAX_STEP from where it was.
         let _ = bounce_y;
         let bounce_y = c.state.anchor_y;
         if bounce_y >= 0 && !r(Reveal::STALAC) {
@@ -662,13 +660,12 @@ impl BlindPlanner {
                 _ => unreachable!(),
             };
             cols.sort_by(|&p, &q| if right { x_of(&c, p).cmp(&x_of(&c, q)) } else { x_of(&c, q).cmp(&x_of(&c, p)) });
-            let mut center = bounce_y;
-            let mut spread = Stalactite::REACH;
             for &idx in &cols {
                 if let Hz::Stalactite(st) = &mut c.room.hazards[idx] {
                     if st.gap_y != st.target_y {
-                        let mut lo = Stalactite::GAP_MIN.max(center - spread);
-                        let mut hi = Stalactite::GAP_MAX.min(center + spread);
+                        // A scheduled gap slides at most MAX_STEP from where it was.
+                        let mut lo = Stalactite::GAP_MIN.max(st.gap_y - Stalactite::MAX_STEP);
+                        let mut hi = Stalactite::GAP_MAX.min(st.gap_y + Stalactite::MAX_STEP);
                         // Only the side it is seen sliding to.
                         if st.target_y > st.gap_y {
                             lo = lo.max(st.gap_y + 1);
@@ -688,8 +685,6 @@ impl BlindPlanner {
                             st.target_y = lo + own.next_below(hi - lo + 1);
                         }
                     }
-                    center = st.target_y;
-                    spread = Stalactite::MAX_STEP;
                 }
             }
         }
@@ -733,9 +728,15 @@ impl BlindPlanner {
                 }
                 // Where a sliding gap stops: the side it slides to is visible, how far is not.
                 Hz::Stalactite(st) if st.gap_y != st.target_y && (bounce_y < 0 || st.fixed_lo >= 0) => {
-                    let far = own.next_below(Stalactite::REACH + Stalactite::MAX_STEP + 1);
+                    let far = own.next_below(Stalactite::MAX_STEP + 1);
                     let to = st.gap_y + if st.target_y > st.gap_y { far } else { -far };
                     st.target_y = G::clampi(to, Stalactite::GAP_MIN, Stalactite::GAP_MAX);
+                }
+                // A scheduled gap's later heights are drawn at the room's start and never shown.
+                Hz::Stalactite(st) if st.scheduled => {
+                    for y in st.schedule.iter_mut() {
+                        *y = Stalactite::GAP_MIN + own.next_below(Stalactite::GAP_MAX - Stalactite::GAP_MIN + 1);
+                    }
                 }
                 // A key chain: where each later key appears is drawn at the room's start.
                 Hz::ExitKey(ek) if hide_keys && ek.mode == sim::hazards::exit_key::Mode::CHAIN => {

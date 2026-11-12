@@ -868,6 +868,9 @@ impl GameSim {
                 c._rng.next_u32();
             }
             c._arrive_in(side, next);
+            if VariantCheck::arrival_dy(&c, dy) != dy {
+                c.state.y = Self::_arrival_y(self.state.anchor_y + VariantCheck::arrival_dy(&c, dy));
+            }
             let lived = G::mini(ArrivalCheck::score(&mut c), fair);
             if dy == 0 {
                 centre = lived;

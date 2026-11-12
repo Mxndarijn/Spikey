@@ -49,8 +49,11 @@ var loop_h := LOOP_H
 var loop_period := LOOP_PERIOD
 ## The last creature speeds up every lap (Bat Loop, chasing pair).
 var chase := false
-## Wave: the height it runs round (CENTER_Y, or drawn by the generated Bee Line).
+## The height it runs round: the wave's (CENTER_Y, or drawn by the generated
+## Bee Line) and the figure-eight's (CENTER_Y, or Cave Tunnel's gallery).
 var center_y := CENTER_Y
+## The figure-eight's middle (CENTER_X, or a Cave Tunnel bat's spot).
+var center_x := CENTER_X
 var phase := 0
 var xs: Array[int] = []
 var ys: Array[int] = []
@@ -165,8 +168,8 @@ func _place() -> void:
 			if chase and i == count - 1:
 				k = chase_tenths(t) + phase * CHASE_DEN
 			var a := k * SimTrig.TURN / (loop_period * CHASE_DEN) + i * SimTrig.TURN / count
-			nx = CENTER_X + loop_w * SimTrig.sin_t(a) / SimTrig.ONE
-			ny = CENTER_Y + loop_h * SimTrig.sin_t(2 * a) / SimTrig.ONE
+			nx = center_x + loop_w * SimTrig.sin_t(a) / SimTrig.ONE
+			ny = center_y + loop_h * SimTrig.sin_t(2 * a) / SimTrig.ONE
 		else:
 			var k := t + phase - i * WAVE_SPACING
 			nx = WAVE_MIN_X + SimTrig.ping_pong(k, WAVE_PERIOD, WAVE_MAX_X - WAVE_MIN_X)
@@ -191,6 +194,8 @@ func checksum(h: int) -> int:
 		out = mix_all(out, [int(chase), loop_w, loop_h, loop_period])
 	if center_y != CENTER_Y:
 		out = mix_all(out, [center_y])
+	if center_x != CENTER_X:
+		out = mix_all(out, [center_x])
 	for i in count:
 		out = mix_all(out, [xs[i], ys[i], facing[i]])
 	return out

@@ -1,4 +1,6 @@
 extends TestCase
+
+const Machines := preload("res://sim/rooms/catalog_machines.gd")
 ## Variants of Piston Press (double slam, ladder), Stalactite Run (floor fangs,
 ## ceiling only, alternating, short fangs), Crate Drop and Gift Stack (wide,
 ## pairs), and the landing look of crate stacks (floor spikes sink).
@@ -160,18 +162,15 @@ func test_floor_fangs_and_ceiling_only_have_one_rock() -> void:
 
 
 func test_alternating_fingers_hang_stand_hang_around_a_still_middle() -> void:
-	for y_px: int in [240, 320, 400]:
-		var sim := RoomsTest.sim_in_room("stalac", 7, Seasons.NONE, "alternating")
-		sim.state.y = y_px * SUB
-		for h in sim.room.hazards:
-			h.setup(sim, SimRng.new(1))
+	for s in 3:
+		var sim := _sim("stalac", "alternating", 7 + s)
 		var rocks := _hazards(sim, "stalactite")
 		assert_eq(rocks.size(), 3, "three columns")
 		for i in 3:
 			assert_eq(rocks[i].top, i % 2 == 0, "column %d hangs" % i)
 			assert_eq(rocks[i].bottom, i % 2 == 1, "column %d stands" % i)
+		assert_eq(rocks[2].x, Machines.FAR_X, "the last finger past the arrival sweep")
 		var middle: int = rocks[0].gap_y
-		assert_between(middle, (y_px - 80) * SUB, (y_px + 80) * SUB, "starts near the bird")
 		_advance(sim, 1)
 		for n in 6:
 			_bounce(sim, n)
@@ -182,20 +181,16 @@ func test_alternating_fingers_hang_stand_hang_around_a_still_middle() -> void:
 		for st in rocks:
 			_bird(sim, st.x, middle)
 			assert_false(st.kills(sim), "the open middle is safe")
-		assert_true(rocks[0].bottom_tip() - rocks[0].top_tip() >= 140 * SUB, "a big middle")
-		# The fingers are long: they reach a quarter of the way into the room
-		# wherever the middle follows the entry (Machines.ALT_GEN_LO..HI).
-		assert_true(rocks[0].top_tip() >= 145 * SUB, "long hanging finger")
-		assert_true(rocks[1].bottom_tip() <= 495 * SUB, "long standing finger")
+		assert_true(rocks[2].bottom_tip() - rocks[2].top_tip() >= 140 * SUB, "a big middle")
 
 
 func test_short_fangs_leave_a_300_px_corridor_that_never_moves() -> void:
 	var sim := _sim("stalac", "short-fangs", 3)
 	var rocks := _hazards(sim, "stalactite")
 	assert_eq(rocks.size(), 3, "three columns")
-	# Generated: the corridor's middle follows the entry, then never moves.
+	# Generated: the corridor's middle is on the arrival band, then never moves.
 	var middle: int = rocks[0].gap_y
-	assert_between(middle, 250 * SUB, 390 * SUB, "round the entry")
+	assert_between(middle, 150 * SUB, 490 * SUB, "in the room")
 	_advance(sim, 1)
 	for n in 6:
 		_bounce(sim, n)
@@ -359,7 +354,7 @@ static func _fly(sim: GameSim, steps: int) -> void:
 
 
 ## A still column next to a wall keeps that wall's exit inside its gap; a
-## moving one never blocks (its gap follows the bird).
+## scheduled one keeps it in reach of its last height (it parks there).
 func test_still_columns_keep_the_exit_in_reach() -> void:
 	for v: String in ["alternating", "short-fangs", "classic"]:
 		var sim := _sim("stalac", v, 9)
@@ -375,9 +370,10 @@ func test_still_columns_keep_the_exit_in_reach() -> void:
 					var wall := 0 if side == 0 else SimConfig.WORLD_W
 					if absi(st.x - wall) > 120 * SUB:
 						continue
+					if st.scheduled:
+						var lane: int = st.schedule[st.schedule.size() - 1]
+						assert_true(absi(y - lane) <= st.gap / 2 - R, "%s: exit in the lane" % v)
+						continue
 					_bird(sim, st.x, y)
 					assert_false(st.kills(sim), "%s: exit at %d px past the column" % [v, y / SUB])
-			if v == "classic":
-				assert_eq(open, SimConfig.SLOT_COUNT, "a moving gap blocks no exit")
-			else:
-				assert_true(open >= 3, "%s: the exit still has room" % v)
+			assert_true(open >= 2, "%s: the exit still has room" % v)

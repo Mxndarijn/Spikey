@@ -7,6 +7,7 @@ pub struct CatalogMotion;
 impl CatalogMotion {
     pub const SUB: i64 = SimConfig::SUB;
     pub const PINWHEELS: [&'static str; 6] = ["trim", "three", "twin", "rock", "lean", "breathe"];
+    pub const SINGLE_PERIOD: i64 = 380;
     pub const SAW_RINGS: [&'static str; 5] = ["classic", "two-rings", "off-centre", "oval", "pair"];
 
     pub fn defs() -> Vec<RoomDef> {
@@ -26,7 +27,7 @@ impl CatalogMotion {
         gates.max_spikes = 6;
         gates.variants = vec![
             RoomVariant::new("classic").generated(recipe(|sim, p| Self::_gen_gates(sim, p, false)), false, 0),
-            RoomVariant::new("single-small").generated(recipe(|sim, p| Self::_gen_gates(sim, p, true)), false, 0),
+            RoomVariant::new("single").generated(recipe(|sim, p| Self::_gen_gates(sim, p, true)), false, 0),
         ];
         out_.push(gates);
 
@@ -201,11 +202,6 @@ impl CatalogMotion {
         r.into()
     }
 
-    /// Gate(x, period, follows): C# default p_gap = Gate.GAP.
-    fn _gate(x: i64, period: i64, follows: bool) -> Hz {
-        Gate::new(x, period, follows, Gate::GAP).into()
-    }
-
     pub fn crawl_variants() -> Vec<RoomVariant> {
         vec![
             RoomVariant::new("classic").generated(recipe(|sim, p| Self::_gen_crawl(sim, p, "classic")), false, 0),
@@ -246,25 +242,16 @@ impl CatalogMotion {
         }
     }
 
-    fn _gen_gates(sim: &mut GameSim, p: &VariantParams, small: bool) {
+    fn _gen_gates(sim: &mut GameSim, p: &VariantParams, single: bool) {
         let mut made = Vec::new();
-        if small {
-            made.push(p.add(sim, Self::_small_gate()));
+        if single {
+            made.push(p.add(sim, Gate::new(180 * Self::SUB, Self::SINGLE_PERIOD, false, Gate::GAP).wide().into()));
         } else {
-            made.push(p.add(sim, Self::_gate(130 * Self::SUB, 760, false)));
-            made.push(p.add(sim, Self::_gate(230 * Self::SUB, 760, true)));
+            let flip = sim.state.started && sim.state.vx < 0;
+            made.push(p.add(sim, Gate::new((if flip { 230 } else { 130 }) * Self::SUB, 760, false, Gate::GAP).wide().into()));
+            made.push(p.add(sim, Gate::new((if flip { 130 } else { 230 }) * Self::SUB, 760, true, Gate::GAP).wide().into()));
         }
-        for i in made {
-            VariantParams::edit(sim, i, |h, sim| {
-                if let Hz::Gate(g) = h {
-                    g.open_for_arrival(sim, p);
-                }
-            });
-        }
-    }
-
-    fn _small_gate() -> Hz {
-        Gate::new(180 * Self::SUB, 760, false, Gate::SMALL_GAP).into()
+        Gate::fit_arrival(sim, p, &made);
     }
 
     fn _crawler(lane: i64) -> Hz {

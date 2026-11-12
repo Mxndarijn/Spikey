@@ -126,7 +126,7 @@ fn stalactite_target(sim: &GameSim, _: &BlindPlanner, own: &mut SimRng) -> Optio
         }
         let dir = if st.target_y > st.gap_y { 1 } else { -1 };
         let to = G::clampi(
-            st.gap_y + dir * (1 + own.next_below(Stalactite::REACH + Stalactite::MAX_STEP)),
+            st.gap_y + dir * (1 + own.next_below(Stalactite::MAX_STEP)),
             Stalactite::GAP_MIN,
             Stalactite::GAP_MAX,
         );

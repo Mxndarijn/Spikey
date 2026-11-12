@@ -289,6 +289,31 @@ pub const BUMPER: &[F] = &[
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
 ];
+pub const CAVEDRIP: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "tip_y", ty: Ty::Long, readonly: false },
+    F { name: "floor_y", ty: Ty::Long, readonly: false },
+    F { name: "first", ty: Ty::Long, readonly: false },
+    F { name: "every", ty: Ty::Long, readonly: false },
+    F { name: "falling", ty: Ty::Bool, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "eta", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const CAVEROCK: &[F] = &[
+    F { name: "top_x", ty: Ty::ListLong, readonly: false },
+    F { name: "top_y", ty: Ty::ListLong, readonly: false },
+    F { name: "bot_x", ty: Ty::ListLong, readonly: false },
+    F { name: "bot_y", ty: Ty::ListLong, readonly: false },
+    F { name: "isle_x", ty: Ty::ListLong, readonly: false },
+    F { name: "isle_top", ty: Ty::ListLong, readonly: false },
+    F { name: "isle_bot", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
 pub const COINPICKUP: &[F] = &[
     F { name: "x", ty: Ty::Long, readonly: false },
     F { name: "y", ty: Ty::Long, readonly: false },
@@ -406,6 +431,7 @@ pub const DROP: &[F] = &[
 ];
 pub const ECHO: &[F] = &[
     F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "pivot_y", ty: Ty::Long, readonly: false },
     F { name: "x", ty: Ty::Long, readonly: false },
     F { name: "y", ty: Ty::Long, readonly: false },
     F { name: "shown", ty: Ty::Bool, readonly: false },
@@ -471,6 +497,9 @@ pub const GATE: &[F] = &[
     F { name: "phase", ty: Ty::Long, readonly: false },
     F { name: "gap_y", ty: Ty::Long, readonly: false },
     F { name: "gap_size", ty: Ty::Long, readonly: false },
+    F { name: "lo_y", ty: Ty::Long, readonly: false },
+    F { name: "hi_y", ty: Ty::Long, readonly: false },
+    F { name: "lag", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -529,6 +558,8 @@ pub const MOVER: &[F] = &[
     F { name: "loop_h", ty: Ty::Long, readonly: false },
     F { name: "loop_period", ty: Ty::Long, readonly: false },
     F { name: "chase", ty: Ty::Bool, readonly: false },
+    F { name: "center_y", ty: Ty::Long, readonly: false },
+    F { name: "center_x", ty: Ty::Long, readonly: false },
     F { name: "phase", ty: Ty::Long, readonly: false },
     F { name: "xs", ty: Ty::ListLong, readonly: false },
     F { name: "ys", ty: Ty::ListLong, readonly: false },
@@ -576,6 +607,16 @@ pub const PADCOIN: &[F] = &[
     F { name: "behind", ty: Ty::Bool, readonly: false },
     F { name: "drift", ty: Ty::Long, readonly: false },
     F { name: "home_x", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const PEG: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "base_y", ty: Ty::Long, readonly: false },
+    F { name: "bob", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -708,13 +749,15 @@ pub const STALACTITE: &[F] = &[
     F { name: "gap_y", ty: Ty::Long, readonly: false },
     F { name: "target_y", ty: Ty::Long, readonly: false },
     F { name: "follows", ty: Ty::Bool, readonly: false },
-    F { name: "partner", ty: Ty::Ref, readonly: false },
     F { name: "top", ty: Ty::Bool, readonly: false },
     F { name: "bottom", ty: Ty::Bool, readonly: false },
     F { name: "gap", ty: Ty::Long, readonly: false },
     F { name: "half_w", ty: Ty::Long, readonly: false },
     F { name: "fixed_lo", ty: Ty::Long, readonly: false },
     F { name: "fixed_hi", ty: Ty::Long, readonly: false },
+    F { name: "scheduled", ty: Ty::Bool, readonly: false },
+    F { name: "schedule", ty: Ty::ListLong, readonly: false },
+    F { name: "slides", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -730,6 +773,8 @@ pub const STALKER: &[F] = &[
 pub const UPDRAFT: &[F] = &[
     F { name: "x0", ty: Ty::Long, readonly: false },
     F { name: "x1", ty: Ty::Long, readonly: false },
+    F { name: "y0", ty: Ty::Long, readonly: false },
+    F { name: "y1", ty: Ty::Long, readonly: false },
     F { name: "half_w", ty: Ty::Long, readonly: false },
     F { name: "lift", ty: Ty::Long, readonly: false },
     F { name: "drift_min", ty: Ty::Long, readonly: false },
@@ -766,6 +811,8 @@ pub fn hz_class(h: &Hz) -> &'static str {
         Hz::Bouncer(_) => "Bouncer",
         Hz::Bubble(_) => "Bubble",
         Hz::Bumper(_) => "Bumper",
+        Hz::CaveDrip(_) => "CaveDrip",
+        Hz::CaveRock(_) => "CaveRock",
         Hz::CoinPickup(_) => "CoinPickup",
         Hz::CrateDrop(_) => "CrateDrop",
         Hz::Crawler(_) => "Crawler",
@@ -784,6 +831,7 @@ pub fn hz_class(h: &Hz) -> &'static str {
         Hz::OrbitCoin(_) => "OrbitCoin",
         Hz::OrchardSpawner(_) => "OrchardSpawner",
         Hz::PadCoin(_) => "PadCoin",
+        Hz::Peg(_) => "Peg",
         Hz::Pendulum(_) => "Pendulum",
         Hz::Piston(_) => "Piston",
         Hz::RevvingBouncer(_) => "RevvingBouncer",
@@ -810,6 +858,8 @@ pub fn hz_get(h: &Hz, i: usize) -> V {
         Hz::Bouncer(x) => bouncer_get(x, i),
         Hz::Bubble(x) => bubble_get(x, i),
         Hz::Bumper(x) => bumper_get(x, i),
+        Hz::CaveDrip(x) => cavedrip_get(x, i),
+        Hz::CaveRock(x) => caverock_get(x, i),
         Hz::CoinPickup(x) => coinpickup_get(x, i),
         Hz::CrateDrop(x) => cratedrop_get(x, i),
         Hz::Crawler(x) => crawler_get(x, i),
@@ -828,6 +878,7 @@ pub fn hz_get(h: &Hz, i: usize) -> V {
         Hz::OrbitCoin(x) => orbitcoin_get(x, i),
         Hz::OrchardSpawner(x) => orchardspawner_get(x, i),
         Hz::PadCoin(x) => padcoin_get(x, i),
+        Hz::Peg(x) => peg_get(x, i),
         Hz::Pendulum(x) => pendulum_get(x, i),
         Hz::Piston(x) => piston_get(x, i),
         Hz::RevvingBouncer(x) => revvingbouncer_get(x, i),
@@ -854,6 +905,8 @@ pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
         Hz::Bouncer(x) => bouncer_set(x, i, v),
         Hz::Bubble(x) => bubble_set(x, i, v),
         Hz::Bumper(x) => bumper_set(x, i, v),
+        Hz::CaveDrip(x) => cavedrip_set(x, i, v),
+        Hz::CaveRock(x) => caverock_set(x, i, v),
         Hz::CoinPickup(x) => coinpickup_set(x, i, v),
         Hz::CrateDrop(x) => cratedrop_set(x, i, v),
         Hz::Crawler(x) => crawler_set(x, i, v),
@@ -872,6 +925,7 @@ pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
         Hz::OrbitCoin(x) => orbitcoin_set(x, i, v),
         Hz::OrchardSpawner(x) => orchardspawner_set(x, i, v),
         Hz::PadCoin(x) => padcoin_set(x, i, v),
+        Hz::Peg(x) => peg_set(x, i, v),
         Hz::Pendulum(x) => pendulum_set(x, i, v),
         Hz::Piston(x) => piston_set(x, i, v),
         Hz::RevvingBouncer(x) => revvingbouncer_set(x, i, v),
@@ -898,6 +952,8 @@ pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
         Hz::Bouncer(x) => bouncer_method(x, name),
         Hz::Bubble(x) => bubble_method(x, name),
         Hz::Bumper(x) => bumper_method(x, name),
+        Hz::CaveDrip(x) => cavedrip_method(x, name),
+        Hz::CaveRock(x) => caverock_method(x, name),
         Hz::CoinPickup(x) => coinpickup_method(x, name),
         Hz::CrateDrop(x) => cratedrop_method(x, name),
         Hz::Crawler(x) => crawler_method(x, name),
@@ -916,6 +972,7 @@ pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
         Hz::OrbitCoin(x) => orbitcoin_method(x, name),
         Hz::OrchardSpawner(x) => orchardspawner_method(x, name),
         Hz::PadCoin(x) => padcoin_method(x, name),
+        Hz::Peg(x) => peg_method(x, name),
         Hz::Pendulum(x) => pendulum_method(x, name),
         Hz::Piston(x) => piston_method(x, name),
         Hz::RevvingBouncer(x) => revvingbouncer_method(x, name),
@@ -945,6 +1002,8 @@ pub fn class_fields(c: &str) -> &'static [F] {
         "Bouncer" => BOUNCER,
         "Bubble" => BUBBLE,
         "Bumper" => BUMPER,
+        "CaveDrip" => CAVEDRIP,
+        "CaveRock" => CAVEROCK,
         "CoinPickup" => COINPICKUP,
         "CrateDrop" => CRATEDROP,
         "Crawler" => CRAWLER,
@@ -963,6 +1022,7 @@ pub fn class_fields(c: &str) -> &'static [F] {
         "OrbitCoin" => ORBITCOIN,
         "OrchardSpawner" => ORCHARDSPAWNER,
         "PadCoin" => PADCOIN,
+        "Peg" => PEG,
         "Pendulum" => PENDULUM,
         "Piston" => PISTON,
         "RevvingBouncer" => REVVINGBOUNCER,
@@ -1589,6 +1649,84 @@ fn bumper_method(x: &Bumper, name: &str) -> Option<V> {
     }
 }
 
+fn cavedrip_get(x: &CaveDrip, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.tip_y),
+        2 => V::I(x.floor_y),
+        3 => V::I(x.first),
+        4 => V::I(x.every),
+        5 => V::B(x.falling),
+        6 => V::I(x.y),
+        7 => V::I(x.eta),
+        8 => V::S(x.base.kind),
+        9 => V::B(x.base.alive),
+        10 => V::I(x.base.t),
+        _ => panic!("CaveDrip: no field {}", i),
+    }
+}
+
+fn cavedrip_set(x: &mut CaveDrip, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.tip_y = v.i(),
+        2 => x.floor_y = v.i(),
+        3 => x.first = v.i(),
+        4 => x.every = v.i(),
+        5 => x.falling = v.b(),
+        6 => x.y = v.i(),
+        7 => x.eta = v.i(),
+        9 => x.base.alive = v.b(),
+        10 => x.base.t = v.i(),
+        _ => panic!("CaveDrip: field {} is not a transplant candidate", i),
+    }
+}
+
+fn cavedrip_method(x: &CaveDrip, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn caverock_get(x: &CaveRock, i: usize) -> V {
+    match i {
+        0 => V::L(x.top_x.clone()),
+        1 => V::L(x.top_y.clone()),
+        2 => V::L(x.bot_x.clone()),
+        3 => V::L(x.bot_y.clone()),
+        4 => V::L(x.isle_x.clone()),
+        5 => V::L(x.isle_top.clone()),
+        6 => V::L(x.isle_bot.clone()),
+        7 => V::S(x.base.kind),
+        8 => V::B(x.base.alive),
+        9 => V::I(x.base.t),
+        _ => panic!("CaveRock: no field {}", i),
+    }
+}
+
+fn caverock_set(x: &mut CaveRock, i: usize, v: &V) {
+    match i {
+        0 => x.top_x = v.l().clone(),
+        1 => x.top_y = v.l().clone(),
+        2 => x.bot_x = v.l().clone(),
+        3 => x.bot_y = v.l().clone(),
+        4 => x.isle_x = v.l().clone(),
+        5 => x.isle_top = v.l().clone(),
+        6 => x.isle_bot = v.l().clone(),
+        8 => x.base.alive = v.b(),
+        9 => x.base.t = v.i(),
+        _ => panic!("CaveRock: field {} is not a transplant candidate", i),
+    }
+}
+
+fn caverock_method(x: &CaveRock, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
 fn coinpickup_get(x: &CoinPickup, i: usize) -> V {
     match i {
         0 => V::I(x.x),
@@ -1912,16 +2050,17 @@ fn drop_method(x: &Drop, name: &str) -> Option<V> {
 fn echo_get(x: &Echo, i: usize) -> V {
     match i {
         0 => V::I(x.mode),
-        1 => V::I(x.x),
-        2 => V::I(x.y),
-        3 => V::B(x.shown),
-        4 => V::I(x.facing),
-        5 => V::L(x.xs.clone()),
-        6 => V::L(x.ys.clone()),
-        7 => V::I(x.head),
-        8 => V::S(x.base.kind),
-        9 => V::B(x.base.alive),
-        10 => V::I(x.base.t),
+        1 => V::I(x.pivot_y),
+        2 => V::I(x.x),
+        3 => V::I(x.y),
+        4 => V::B(x.shown),
+        5 => V::I(x.facing),
+        6 => V::L(x.xs.clone()),
+        7 => V::L(x.ys.clone()),
+        8 => V::I(x.head),
+        9 => V::S(x.base.kind),
+        10 => V::B(x.base.alive),
+        11 => V::I(x.base.t),
         _ => panic!("Echo: no field {}", i),
     }
 }
@@ -1929,15 +2068,16 @@ fn echo_get(x: &Echo, i: usize) -> V {
 fn echo_set(x: &mut Echo, i: usize, v: &V) {
     match i {
         0 => x.mode = v.i(),
-        1 => x.x = v.i(),
-        2 => x.y = v.i(),
-        3 => x.shown = v.b(),
-        4 => x.facing = v.i(),
-        5 => x.xs = v.l().clone(),
-        6 => x.ys = v.l().clone(),
-        7 => x.head = v.i(),
-        9 => x.base.alive = v.b(),
-        10 => x.base.t = v.i(),
+        1 => x.pivot_y = v.i(),
+        2 => x.x = v.i(),
+        3 => x.y = v.i(),
+        4 => x.shown = v.b(),
+        5 => x.facing = v.i(),
+        6 => x.xs = v.l().clone(),
+        7 => x.ys = v.l().clone(),
+        8 => x.head = v.i(),
+        10 => x.base.alive = v.b(),
+        11 => x.base.t = v.i(),
         _ => panic!("Echo: field {} is not a transplant candidate", i),
     }
 }
@@ -2096,9 +2236,12 @@ fn gate_get(x: &Gate, i: usize) -> V {
         4 => V::I(x.phase),
         5 => V::I(x.gap_y),
         6 => V::I(x.gap_size),
-        7 => V::S(x.base.kind),
-        8 => V::B(x.base.alive),
-        9 => V::I(x.base.t),
+        7 => V::I(x.lo_y),
+        8 => V::I(x.hi_y),
+        9 => V::I(x.lag),
+        10 => V::S(x.base.kind),
+        11 => V::B(x.base.alive),
+        12 => V::I(x.base.t),
         _ => panic!("Gate: no field {}", i),
     }
 }
@@ -2111,8 +2254,11 @@ fn gate_set(x: &mut Gate, i: usize, v: &V) {
         4 => x.phase = v.i(),
         5 => x.gap_y = v.i(),
         6 => x.gap_size = v.i(),
-        8 => x.base.alive = v.b(),
-        9 => x.base.t = v.i(),
+        7 => x.lo_y = v.i(),
+        8 => x.hi_y = v.i(),
+        9 => x.lag = v.i(),
+        11 => x.base.alive = v.b(),
+        12 => x.base.t = v.i(),
         _ => panic!("Gate: field {} is not a transplant candidate", i),
     }
 }
@@ -2268,13 +2414,15 @@ fn mover_get(x: &Mover, i: usize) -> V {
         3 => V::I(x.loop_h),
         4 => V::I(x.loop_period),
         5 => V::B(x.chase),
-        6 => V::I(x.phase),
-        7 => V::L(x.xs.clone()),
-        8 => V::L(x.ys.clone()),
-        9 => V::L(x.facing.clone()),
-        10 => V::S(x.base.kind),
-        11 => V::B(x.base.alive),
-        12 => V::I(x.base.t),
+        6 => V::I(x.center_y),
+        7 => V::I(x.center_x),
+        8 => V::I(x.phase),
+        9 => V::L(x.xs.clone()),
+        10 => V::L(x.ys.clone()),
+        11 => V::L(x.facing.clone()),
+        12 => V::S(x.base.kind),
+        13 => V::B(x.base.alive),
+        14 => V::I(x.base.t),
         _ => panic!("Mover: no field {}", i),
     }
 }
@@ -2286,12 +2434,14 @@ fn mover_set(x: &mut Mover, i: usize, v: &V) {
         3 => x.loop_h = v.i(),
         4 => x.loop_period = v.i(),
         5 => x.chase = v.b(),
-        6 => x.phase = v.i(),
-        7 => x.xs = v.l().clone(),
-        8 => x.ys = v.l().clone(),
-        9 => x.facing = v.l().clone(),
-        11 => x.base.alive = v.b(),
-        12 => x.base.t = v.i(),
+        6 => x.center_y = v.i(),
+        7 => x.center_x = v.i(),
+        8 => x.phase = v.i(),
+        9 => x.xs = v.l().clone(),
+        10 => x.ys = v.l().clone(),
+        11 => x.facing = v.l().clone(),
+        13 => x.base.alive = v.b(),
+        14 => x.base.t = v.i(),
         _ => panic!("Mover: field {} is not a transplant candidate", i),
     }
 }
@@ -2424,6 +2574,40 @@ fn padcoin_set(x: &mut PadCoin, i: usize, v: &V) {
 }
 
 fn padcoin_method(x: &PadCoin, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn peg_get(x: &Peg, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.base_y),
+        2 => V::I(x.bob),
+        3 => V::I(x.phase),
+        4 => V::I(x.y),
+        5 => V::S(x.base.kind),
+        6 => V::B(x.base.alive),
+        7 => V::I(x.base.t),
+        _ => panic!("Peg: no field {}", i),
+    }
+}
+
+fn peg_set(x: &mut Peg, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.base_y = v.i(),
+        2 => x.bob = v.i(),
+        3 => x.phase = v.i(),
+        4 => x.y = v.i(),
+        6 => x.base.alive = v.b(),
+        7 => x.base.t = v.i(),
+        _ => panic!("Peg: field {} is not a transplant candidate", i),
+    }
+}
+
+fn peg_method(x: &Peg, name: &str) -> Option<V> {
     let _ = x;
     match name {
         _ => None,
@@ -2780,16 +2964,18 @@ fn stalactite_get(x: &Stalactite, i: usize) -> V {
         1 => V::I(x.gap_y),
         2 => V::I(x.target_y),
         3 => V::B(x.follows),
-        4 => opt(x.partner.is_some()),
-        5 => V::B(x.top),
-        6 => V::B(x.bottom),
-        7 => V::I(x.gap),
-        8 => V::I(x.half_w),
-        9 => V::I(x.fixed_lo),
-        10 => V::I(x.fixed_hi),
-        11 => V::S(x.base.kind),
-        12 => V::B(x.base.alive),
-        13 => V::I(x.base.t),
+        4 => V::B(x.top),
+        5 => V::B(x.bottom),
+        6 => V::I(x.gap),
+        7 => V::I(x.half_w),
+        8 => V::I(x.fixed_lo),
+        9 => V::I(x.fixed_hi),
+        10 => V::B(x.scheduled),
+        11 => V::L(x.schedule.clone()),
+        12 => V::I(x.slides),
+        13 => V::S(x.base.kind),
+        14 => V::B(x.base.alive),
+        15 => V::I(x.base.t),
         _ => panic!("Stalactite: no field {}", i),
     }
 }
@@ -2800,14 +2986,17 @@ fn stalactite_set(x: &mut Stalactite, i: usize, v: &V) {
         1 => x.gap_y = v.i(),
         2 => x.target_y = v.i(),
         3 => x.follows = v.b(),
-        5 => x.top = v.b(),
-        6 => x.bottom = v.b(),
-        7 => x.gap = v.i(),
-        8 => x.half_w = v.i(),
-        9 => x.fixed_lo = v.i(),
-        10 => x.fixed_hi = v.i(),
-        12 => x.base.alive = v.b(),
-        13 => x.base.t = v.i(),
+        4 => x.top = v.b(),
+        5 => x.bottom = v.b(),
+        6 => x.gap = v.i(),
+        7 => x.half_w = v.i(),
+        8 => x.fixed_lo = v.i(),
+        9 => x.fixed_hi = v.i(),
+        10 => x.scheduled = v.b(),
+        11 => x.schedule = v.l().clone(),
+        12 => x.slides = v.i(),
+        14 => x.base.alive = v.b(),
+        15 => x.base.t = v.i(),
         _ => panic!("Stalactite: field {} is not a transplant candidate", i),
     }
 }
@@ -2854,16 +3043,18 @@ fn updraft_get(x: &Updraft, i: usize) -> V {
     match i {
         0 => V::I(x.x0),
         1 => V::I(x.x1),
-        2 => V::I(x.half_w),
-        3 => V::I(x.lift),
-        4 => V::I(x.drift_min),
-        5 => V::I(x.drift_span),
-        6 => V::I(x.gust),
-        7 => V::I(x.phase),
-        8 => V::I(x.last_low),
-        9 => V::S(x.base.kind),
-        10 => V::B(x.base.alive),
-        11 => V::I(x.base.t),
+        2 => V::I(x.y0),
+        3 => V::I(x.y1),
+        4 => V::I(x.half_w),
+        5 => V::I(x.lift),
+        6 => V::I(x.drift_min),
+        7 => V::I(x.drift_span),
+        8 => V::I(x.gust),
+        9 => V::I(x.phase),
+        10 => V::I(x.last_low),
+        11 => V::S(x.base.kind),
+        12 => V::B(x.base.alive),
+        13 => V::I(x.base.t),
         _ => panic!("Updraft: no field {}", i),
     }
 }
@@ -2872,15 +3063,17 @@ fn updraft_set(x: &mut Updraft, i: usize, v: &V) {
     match i {
         0 => x.x0 = v.i(),
         1 => x.x1 = v.i(),
-        2 => x.half_w = v.i(),
-        3 => x.lift = v.i(),
-        4 => x.drift_min = v.i(),
-        5 => x.drift_span = v.i(),
-        6 => x.gust = v.i(),
-        7 => x.phase = v.i(),
-        8 => x.last_low = v.i(),
-        10 => x.base.alive = v.b(),
-        11 => x.base.t = v.i(),
+        2 => x.y0 = v.i(),
+        3 => x.y1 = v.i(),
+        4 => x.half_w = v.i(),
+        5 => x.lift = v.i(),
+        6 => x.drift_min = v.i(),
+        7 => x.drift_span = v.i(),
+        8 => x.gust = v.i(),
+        9 => x.phase = v.i(),
+        10 => x.last_low = v.i(),
+        12 => x.base.alive = v.b(),
+        13 => x.base.t = v.i(),
         _ => panic!("Updraft: field {} is not a transplant candidate", i),
     }
 }

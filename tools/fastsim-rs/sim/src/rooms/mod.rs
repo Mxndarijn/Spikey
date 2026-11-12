@@ -1,5 +1,6 @@
 //! sim/rooms (Sim/Rooms).
 pub mod catalog_boss;
+pub mod catalog_caves;
 pub mod catalog_core;
 pub mod catalog_machines;
 pub mod catalog_motion;

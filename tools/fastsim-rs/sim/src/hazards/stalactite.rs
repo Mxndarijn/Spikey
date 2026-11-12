@@ -1,4 +1,4 @@
-//! Port of sim/hazards/stalactite.gd (Sim/Hazards/Stalactite.cs).
+//! Port of sim/hazards/stalactite.gd.
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -8,17 +8,15 @@ pub struct Stalactite {
     pub gap_y: i64,
     pub target_y: i64,
     pub follows: bool,
-    /// Index of the partner Stalactite in `room.hazards` (C# `Stalactite partner`).
-    pub partner: Option<usize>,
     pub top: bool,
     pub bottom: bool,
     pub gap: i64,
     pub half_w: i64,
     pub fixed_lo: i64,
     pub fixed_hi: i64,
-    pub open_top: i64,
-    pub open_bottom: i64,
-    pub open_until: i64,
+    pub scheduled: bool,
+    pub schedule: Vec<i64>,
+    pub slides: i64,
 }
 
 impl Stalactite {
@@ -26,15 +24,14 @@ impl Stalactite {
     pub const HALF_W: i64 = 22 * SimConfig::SUB;
     pub const GAP_MIN: i64 = 150 * SimConfig::SUB;
     pub const GAP_MAX: i64 = 490 * SimConfig::SUB;
-    pub const REACH: i64 = 40 * SimConfig::SUB;
     pub const MAX_STEP: i64 = 60 * SimConfig::SUB;
+    pub const SCHED_REACH: i64 = 100 * SimConfig::SUB;
     pub const WALL_CLEAR: i64 = 70 * SimConfig::SUB;
     pub const SLIDE: i64 = 3 * SimConfig::SUB;
     pub const HOP_MID: i64 = 30 * SimConfig::SUB;
     pub const EXIT_NEAR: i64 = 120 * SimConfig::SUB;
-    pub const CLOSE: i64 = 2 * SimConfig::SUB;
 
-    /// C# defaults: p_x = 0, p_follows = false.
+    /// GDScript defaults: p_x = 0, p_follows = false.
     pub fn new(p_x: i64, p_follows: bool) -> Stalactite {
         Stalactite {
             base: Base::new("stalactite"),
@@ -42,35 +39,33 @@ impl Stalactite {
             gap_y: 0,
             target_y: 0,
             follows: p_follows,
-            partner: None,
             top: true,
             bottom: true,
             gap: Self::GAP,
             half_w: Self::HALF_W,
             fixed_lo: -1,
             fixed_hi: -1,
-            open_top: 0,
-            open_bottom: 0,
-            open_until: 0,
+            scheduled: false,
+            schedule: Vec::new(),
+            slides: 0,
         }
     }
 
-    fn _partner(sim: &GameSim, i: usize) -> &Stalactite {
-        match &sim.room.hazards[i] {
-            Hz::Stalactite(s) => s,
-            _ => panic!("Stalactite.partner is not a Stalactite"),
+    pub fn _draw_schedule(&mut self, sim: &GameSim, rng: &mut SimRng) {
+        self.schedule = Vec::new();
+        self.slides = 0;
+        let to_ghost = G::maxi(sim.next_exit_score() - 1 - sim.state.score, 0);
+        let park = G::maxi((to_ghost + 1) / 2 - 1, 0);
+        let mut y = self.gap_y;
+        let lo = G::maxi(Self::GAP_MIN, self.gap_y - Self::SCHED_REACH);
+        let hi = G::mini(Self::GAP_MAX, self.gap_y + Self::SCHED_REACH);
+        for _i in 0..park + 1 {
+            y = Self::_within(rng, y, Self::MAX_STEP, lo, hi);
+            self.schedule.push(y);
         }
     }
 
-    fn _partner_mut(sim: &mut GameSim, i: usize) -> &mut Stalactite {
-        match &mut sim.room.hazards[i] {
-            Hz::Stalactite(s) => s,
-            _ => panic!("Stalactite.partner is not a Stalactite"),
-        }
-    }
-
-    /// C# `_clear_wall_ahead(sim, column)` reads only `column.target_y`, so
-    /// that is what is passed here (the column may be another hazard).
+    /// GDScript `_clear_wall_ahead(sim, column)` reads only `column.target_y`.
     pub fn _clear_wall_ahead(sim: &mut GameSim, column_target_y: i64) {
         let s = &mut sim.state;
         let mut mask = if s.vx > 0 { s.right_spikes } else { s.left_spikes };
@@ -86,73 +81,49 @@ impl Stalactite {
         }
     }
 
-    pub fn _around(rng: &mut SimRng, center: i64, spread: i64) -> i64 {
-        let lo = G::maxi(Self::GAP_MIN, center - spread);
-        let hi = G::mini(Self::GAP_MAX, center + spread);
-        if lo > hi {
-            return G::clampi(center, Self::GAP_MIN, Self::GAP_MAX);
+    pub fn _within(rng: &mut SimRng, center: i64, spread: i64, lo: i64, hi: i64) -> i64 {
+        let a = G::maxi(lo, center - spread);
+        let b = G::mini(hi, center + spread);
+        if a > b {
+            return G::clampi(center, lo, hi);
         }
-        lo + rng.next_below(hi - lo + 1)
+        a + rng.next_below(b - a + 1)
     }
 
-    pub fn open_for_arrival(&mut self, sim: &GameSim, p: &VariantParams) {
-        if !p.arriving {
-            return;
-        }
-        let reach = self.half_w + SimConfig::BIRD_RADIUS;
-        let mut last: i64 = -1;
-        for k in 0..FairLanes::OPEN_PATH_TICKS {
-            if G::absi(FairLanes::arrival_x(sim, k + 1) - self.x) < reach {
-                last = k + 1;
-            }
-        }
-        if last < 0 {
-            return;
-        }
-        self.open_until = last;
-        if self.top {
-            self.open_top = G::maxi(self.gap_y - self.gap / 2 - p.hold_top(sim), 0);
-        }
-        if self.bottom {
-            self.open_bottom = G::maxi(p.hold_bottom(sim) - (self.gap_y + self.gap / 2), 0);
+    pub fn _near_wall(&self) -> i64 {
+        if self.x > SimConfig::WORLD_W / 2 {
+            1
+        } else {
+            0
         }
     }
 
     pub fn top_tip(&self) -> i64 {
-        self.gap_y - self.gap / 2 - self.open_top
+        self.gap_y - self.gap / 2
     }
 
     pub fn bottom_tip(&self) -> i64 {
-        self.gap_y + self.gap / 2 + self.open_bottom
+        self.gap_y + self.gap / 2
     }
 }
 
 impl Hazard for Stalactite {
     impl_base!();
 
-    fn setup(&mut self, sim: &mut GameSim, _rng: &mut SimRng) {
-        self.partner = None;
+    fn setup(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
         if self.fixed_lo >= 0 {
             self.gap_y = G::clampi(FairLanes::entry_y(sim) - Self::HOP_MID, self.fixed_lo, self.fixed_hi);
             self.target_y = self.gap_y;
             return;
         }
-        if self.follows {
-            for i in 0..sim.room.hazards.len() {
-                // C# `h != this`: own slot is Hz::Taken, skip it.
-                if i != self.base.idx && sim.room.hazards[i].kind() == self.base.kind {
-                    let me = self.base.idx;
-                    let s = Self::_partner_mut(sim, i);
-                    self.partner = Some(i);
-                    s.partner = Some(me);
-                }
-            }
-        }
-        self.gap_y = G::clampi(FairLanes::entry_y(sim), Self::GAP_MIN, Self::GAP_MAX);
+        self.gap_y = G::clampi(FairLanes::entry_y(sim) - Self::HOP_MID, Self::GAP_MIN, Self::GAP_MAX);
         self.target_y = self.gap_y;
+        if self.scheduled {
+            self._draw_schedule(sim, rng);
+        }
     }
 
-    fn on_bounce(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
+    fn on_bounce(&mut self, sim: &mut GameSim, _rng: &mut SimRng) {
         if self.follows {
             return;
         }
@@ -160,70 +131,23 @@ impl Hazard for Stalactite {
             Self::_clear_wall_ahead(sim, self.target_y);
             return;
         }
-        // near = this, far = partner; swapped: near = partner, far = this.
-        let mut swapped = false;
-        if let Some(p) = self.partner {
-            if (Self::_partner(sim, p).x > self.x) == (sim.state.vx < 0) {
-                swapped = true;
-            }
+        if !self.scheduled || (sim.state.vx > 0) != (self._near_wall() == 1) {
+            return;
         }
-        let t = self.base.t;
-        let far_exists = swapped || self.partner.is_some();
-        if self.base.t == 0 {
-            // Just came out of a portal into this room: the gap ahead stays at
-            // the bird's height (set in setup).
-            if swapped {
-                let p = Self::_partner_mut(sim, self.partner.unwrap());
-                p.target_y = p.gap_y;
-            } else {
-                self.target_y = self.gap_y;
-            }
-        } else {
-            // With a partner the near column keeps its gap, except once the exit
-            // (or its ghost) shows; the draw stays, so the RNG order does too.
-            let drawn = Self::_around(rng, sim.state.anchor_y, Self::REACH);
-            if !far_exists || sim.state.exit_open || sim.state.exit_preview {
-                if swapped {
-                    Self::_partner_mut(sim, self.partner.unwrap()).target_y = drawn;
-                } else {
-                    self.target_y = drawn;
-                }
-            }
-            // An arrival opening (generated variants): the gap stays put while open.
-            if swapped {
-                let n = Self::_partner_mut(sim, self.partner.unwrap());
-                if n.open_until > t {
-                    n.target_y = n.gap_y;
-                }
-            } else if self.open_until > t {
-                self.target_y = self.gap_y;
-            }
-        }
-        let near_target = if swapped { Self::_partner(sim, self.partner.unwrap()).target_y } else { self.target_y };
-        let mut column_target_y = near_target;
-        if far_exists {
-            // The far column walks toward the anchor, within MAX_STEP of the near one.
-            let n = near_target;
-            let mut far_target =
-                G::clampi(Self::_around(rng, sim.state.anchor_y, Self::MAX_STEP), n - Self::MAX_STEP, n + Self::MAX_STEP);
-            if swapped {
-                if self.open_until > t {
-                    far_target = self.gap_y;
-                }
-                self.target_y = far_target;
-            } else {
-                let far = Self::_partner_mut(sim, self.partner.unwrap());
-                if far.open_until > t {
-                    far_target = far.gap_y;
-                }
-                far.target_y = far_target;
-            }
-            column_target_y = far_target;
-        }
-        Self::_clear_wall_ahead(sim, column_target_y);
+        self.target_y = self.schedule[G::mini(self.slides, self.schedule.len() as i64 - 1) as usize];
+        self.slides += 1;
+        Self::_clear_wall_ahead(sim, self.target_y);
     }
 
     fn blocks_exit(&self, _sim: &GameSim, side: i64, y: i64) -> bool {
+        let r = SimConfig::BIRD_RADIUS;
+        if self.scheduled {
+            if side != self._near_wall() || self.schedule.is_empty() {
+                return false;
+            }
+            let lane = self.schedule[self.schedule.len() - 1];
+            return G::absi(y - lane) > self.gap / 2 - r;
+        }
         if self.fixed_lo < 0 {
             return false;
         }
@@ -231,7 +155,6 @@ impl Hazard for Stalactite {
         if G::absi(self.x - wall) > Self::EXIT_NEAR {
             return false;
         }
-        let r = SimConfig::BIRD_RADIUS;
         if self.top && y < self.gap_y - self.gap / 2 + r {
             return true;
         }
@@ -244,10 +167,6 @@ impl Hazard for Stalactite {
         } else if self.gap_y > self.target_y {
             self.gap_y = G::maxi(self.gap_y - Self::SLIDE, self.target_y);
         }
-        if self.base.t > self.open_until {
-            self.open_top = G::maxi(self.open_top - Self::CLOSE, 0);
-            self.open_bottom = G::maxi(self.open_bottom - Self::CLOSE, 0);
-        }
     }
 
     fn kills(&self, sim: &GameSim) -> bool {
@@ -257,7 +176,7 @@ impl Hazard for Stalactite {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        let out_ = mix_all(
+        let mut out_ = mix_all(
             h,
             &[
                 self.x,
@@ -271,8 +190,10 @@ impl Hazard for Stalactite {
                 self.fixed_lo,
             ],
         );
-        if self.open_top != 0 || self.open_bottom != 0 || self.open_until != 0 {
-            return mix_all(out_, &[self.open_top, self.open_bottom, self.open_until]);
+        if self.scheduled {
+            let mut xs = vec![self.slides];
+            xs.extend_from_slice(&self.schedule);
+            out_ = mix_all(out_, &xs);
         }
         out_
     }

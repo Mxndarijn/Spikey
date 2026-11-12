@@ -41,18 +41,25 @@ const TRIO_X: Array[int] = [75, 180, 285]
 const ALT_GAP := 150 * SUB
 const ALT_LO := 260 * SUB
 const ALT_HI := 380 * SUB
-## Generated alternating: where the open middle can be (it follows the entry).
-const ALT_GEN_LO := 220 * SUB
-const ALT_GEN_HI := 420 * SUB
 ## Short fangs: a 300 px corridor round the middle, thinner rocks; out of a
 ## portal only where a bird holding its height stays inside it.
 const SHORT_GAP := 300 * SUB
 const SHORT_Y := 320 * SUB
 const SHORT_HALF_W := 18 * SUB
-## Generated short fangs: where the corridor's middle can be (it follows the
-## entry; the hand-made one is always at SHORT_Y).
-const SHORT_GEN_LO := 250 * SUB
-const SHORT_GEN_HI := 390 * SUB
+## Generated Stalactite Run: the entry column stands here, its gap still and
+## wide enough for the band a bird holding its height anywhere in the exit
+## sweeps (GEN_SLACK more each side); the far column, scheduled, stands past
+## that band's reach (the bird gets to it just after its 1 s hold) and out of
+## the exit's mouth (ExitZone.DEPTH from the wall).
+const ENTRY_X := 110 * SUB
+const FAR_X := 292 * SUB
+const GEN_SLACK := 4 * SUB
+const ENTRY_GAP := (
+	2 * SimConfig.EXIT_FIT
+	+ FairLanes.FIRST_HOP
+	+ 2 * (SimConfig.BIRD_RADIUS + VariantParams.MARGIN)
+	+ 2 * GEN_SLACK
+)
 
 
 static func defs() -> Array[RoomDef]:
@@ -100,15 +107,16 @@ static func defs() -> Array[RoomDef]:
 	beams.hazards.append(func() -> Hazard: return Beam.new())
 	out.append(beams)
 
-	# Stalactite Run: rock columns with a gap. Classic: two columns whose gaps
-	# move on every bounce. Floor fangs / ceiling only: the same, with only
-	# the rocks from the floor / the ceiling. Alternating: three long fingers,
-	# hanging, standing, hanging, around an open middle that stays put. Short
-	# fangs: three short columns around a 300 px corridor that never moves.
-	# Every variant is GENERATED round the planned
-	# entry height: out of a portal their gaps open round the band a bird
-	# holding its height anywhere in the exit sweeps, until it is past
-	# (Stalactite.open_for_arrival), so they fit every arrival height.
+	# Stalactite Run: rock columns with a gap. Every variant is GENERATED and
+	# keeps one layout all room, never reading the bird. Classic: a wide still
+	# column near the entry round the band a bird holding its height anywhere in
+	# the exit sweeps, then a far column whose 150 px gap slides to a new
+	# height each time the bird bounces off the left wall, on a list drawn when
+	# the room starts (it parks on the exit's lane before the exit opens).
+	# Floor fangs / ceiling only: the same, with only the rocks from the floor /
+	# the ceiling. Alternating: three still fingers, hanging, standing,
+	# hanging; the first two clear of that band, the last one past it. Short
+	# fangs: three short columns round a 300 px corridor on that band.
 	var stalac := RoomDef.new("stalac", "mid", 30)
 	stalac.max_spikes = 4
 	stalac.variants = [
@@ -207,17 +215,6 @@ static func _stalactite(x: int, follows: bool) -> Hazard:
 	return Stalactite.new(x, follows)
 
 
-## Floor fangs (ceiling false) or ceiling only (ceiling true): one rock.
-static func _fang(x_px: int, follows: bool, ceiling: bool) -> Hazard:
-	var s := Stalactite.new(x_px * SUB, follows)
-	s.top = ceiling
-	s.bottom = not ceiling
-	# A hanging rock keeps the classic 75 px over the gap: a bird holding its
-	# height hops that high.
-	s.gap = Stalactite.GAP if ceiling else FANG_GAP
-	return s
-
-
 ## Alternating: column i hangs (even) or stands (odd); the first one leads.
 static func _finger(i: int) -> Hazard:
 	var s := Stalactite.new(TRIO_X[i] * SUB, i > 0)
@@ -230,37 +227,59 @@ static func _finger(i: int) -> Hazard:
 
 
 ## Generated Stalactite Run, classic (BOTH rocks), floor fangs or ceiling
-## only: two columns, the second following the first, their gaps opened for
-## the arrival. Nothing is drawn beyond the columns' own draws, so every try is
-## the same and the opening is what makes it fit (the fallback is that layout
-## too).
+## only: a wide still entry column round the hold band (_still), then a far
+## column with the variant's own gap that slides on a schedule drawn now
+## (Stalactite.scheduled). The layout never reads the bird.
 static func _gen_columns(p: VariantParams, rocks: int) -> void:
-	var a: Hazard
-	var b: Hazard
-	if rocks != BOTH:
-		a = p.add(_fang(130, false, rocks == CEILING))
-		b = p.add(_fang(230, true, rocks == CEILING))
-	else:
-		a = p.add(_stalactite(130 * SUB, false))
-		b = p.add(_stalactite(230 * SUB, true))
-	a.open_for_arrival(p.sim, p)
-	b.open_for_arrival(p.sim, p)
+	var entry := _from_entry(p, ENTRY_X)
+	var far := _from_entry(p, FAR_X)
+	var a: Hazard = _stalactite(entry, false) if rocks == BOTH else _fang_at(entry, rocks)
+	p.add(_still(a, p, ENTRY_GAP))
+	var b: Hazard = _stalactite(far, false) if rocks == BOTH else _fang_at(far, rocks)
+	b.scheduled = true
+	p.add(b)
 
 
-## Generated Stalactite Run, alternating or short fangs: three columns round an
-## open middle that stays put. The middle sits round the bird's hop where it
-## came in (alternating within ALT_GEN_LO..ALT_GEN_HI, wider than the hand-made
-## ALT_LO..ALT_HI; short fangs within SHORT_GEN_LO..SHORT_GEN_HI, where it was
-## always SHORT_Y), and opens further for the arrival.
+## `x` (sub-units, from the left wall) measured from the wall a bird out of a
+## portal comes in at instead.
+static func _from_entry(p: VariantParams, x: int) -> int:
+	return SimConfig.WORLD_W - x if p.arriving and p.sim.state.vx < 0 else x
+
+
+## A floor fang or ceiling rock at x (sub-units), leading.
+static func _fang_at(x: int, rocks: int) -> Hazard:
+	var s := Stalactite.new(x, false)
+	s.top = rocks == CEILING
+	s.bottom = rocks != CEILING
+	s.gap = Stalactite.GAP if rocks == CEILING else FANG_GAP
+	return s
+
+
+## Makes `s` a still column whose gap (`gap` tall) is centred on the band a bird
+## holding its height anywhere in the exit sweeps. Before setup.
+static func _still(s: Hazard, p: VariantParams, gap: int) -> Hazard:
+	var mid := (p.hold_top() + p.hold_bottom()) / 2
+	s.gap = gap
+	s.fixed_lo = mid
+	s.fixed_hi = mid
+	return s
+
+
+## Generated Stalactite Run, alternating or short fangs: three still columns.
+## Alternating: the first two fingers keep the hold band clear (ENTRY_GAP) and
+## the last one, moved out to FAR_X, hangs ALT_GAP / 2 over the band's middle.
+## Short fangs: the 300 px corridor holds the band, centred on it.
 static func _gen_fixed(p: VariantParams, short: bool) -> void:
-	var fingers: Array[Hazard] = []
 	for i in 3:
 		var f := _short(i) if short else _finger(i)
-		f.fixed_lo = SHORT_GEN_LO if short else ALT_GEN_LO
-		f.fixed_hi = SHORT_GEN_HI if short else ALT_GEN_HI
-		fingers.append(p.add(f))
-	for f in fingers:
-		f.open_for_arrival(p.sim, p)
+		f.x = _from_entry(p, f.x if i < 2 or short else FAR_X)
+		if short:
+			_still(f, p, SHORT_GAP)
+		elif i < 2:
+			_still(f, p, ENTRY_GAP)
+		else:
+			_still(f, p, ALT_GAP)
+		p.add(f)
 
 
 ## Short fangs: column i of three, both rocks short.

@@ -161,7 +161,7 @@ func _room_check_cases(quick: bool) -> void:
 		var cr := "cr:%d:%d:%s:%d:%d" % [crawl, 7 + k, c[0], c[1], c[2]]
 		_setup_case("crawl_revive_%d" % k, cr, REVIVE_TICKS, 0)
 	for k in 8:
-		var variant := "classic" if k < 4 else "single-small"
+		var variant := "classic" if k < 4 else "single"
 		var gr := (
 			"gr:%d:%d:%d:%d:%s"
 			% [101 + k, k % 2, (k / 2) % 2, SimConfig.slot_center_y(1 + k), variant]

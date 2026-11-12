@@ -133,25 +133,23 @@ func test_the_golden_egg_pays_more_and_hides_behind_its_isle() -> void:
 		assert_eq(golden, 1, "one golden egg")
 
 
-# --- Shutter Gates: single small gate ------------------------------------------
+# --- Shutter Gates: single gate ------------------------------------------------
 
 
-func test_single_small_gate_has_a_small_window_in_the_middle() -> void:
-	var sim := practice("gates", 4, "single-small")
+func test_single_gate_is_one_wide_fast_gate_in_the_middle() -> void:
+	var sim := practice("gates", 4, "single")
 	var gates := of_kind(sim, "gate")
 	assert_eq(gates.size(), 1, "one gate")
 	var g: Hazard = gates[0]
 	assert_eq(g.x, SimConfig.WORLD_W / 2, "in the middle")
-	assert_eq(g.gap_bottom() - g.gap_top(), Gate.SMALL_GAP, "a small window")
+	assert_eq(g.gap_bottom() - g.gap_top(), Gate.GEN_GAP, "the generated window")
 	sim.state.x = g.x
 	sim.state.y = g.gap_y
 	assert_false(g.kills(sim), "the window's middle is safe")
 	sim.state.y = g.gap_top() - 4 * SUB
-	assert_true(g.kills(sim), "above it kills")
+	assert_true(g.kills(sim) or g.gap_top() - 4 * SUB < SimConfig.KILL_TOP, "above it kills")
 	sim.state.y = g.gap_bottom() + 4 * SUB
-	assert_true(g.kills(sim), "below it kills")
-	for side in 2:
-		assert_true(g.blocks_exit(sim, side, Gate.SMALL_EXIT_MAX_Y + SUB), "no exit that low")
+	assert_true(g.kills(sim) or g.gap_bottom() + 4 * SUB > SimConfig.KILL_BOTTOM, "below it kills")
 
 
 # --- Ghost Doors ----------------------------------------------------------------

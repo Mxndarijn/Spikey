@@ -150,8 +150,13 @@ impl Reaction {
             y = 130 + (y - 130 + 53) % 380;
         }
         sim.state.anchor_y = y * SimConfig::SUB;
-        sim.state.y =
-            GameSim::_arrival_y(sim.state.anchor_y + Self::OFFSETS[(i / 2 % Self::OFFSETS.len() as i64) as usize] * SimConfig::SUB);
+        let mut off = Self::OFFSETS[(i / 2 % Self::OFFSETS.len() as i64) as usize] * SimConfig::SUB;
+        if let Some(f) = forced {
+            if f.arrival_spread > 0 {
+                off = off * f.arrival_spread / SimConfig::EXIT_FIT;
+            }
+        }
+        sim.state.y = GameSim::_arrival_y(sim.state.anchor_y + off);
         let side = i % 2;
         let skip = sim._arrival_retries(side, index);
         for _ in 0..skip {

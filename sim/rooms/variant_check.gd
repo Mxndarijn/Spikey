@@ -26,9 +26,19 @@ static func holds(sim: GameSim, avoid_touch: bool = false, steps: int = 0) -> bo
 		return true
 	var n := steps if steps > 0 else HOLD_STEPS
 	for dy: int in GameSim.ARRIVAL_HEIGHTS:
-		if not _holds_at(sim, GameSim._arrival_y(sim.state.anchor_y + dy), avoid_touch, n):
+		var at := GameSim._arrival_y(sim.state.anchor_y + arrival_dy(sim, dy))
+		if not _holds_at(sim, at, avoid_touch, n):
 			return false
 	return true
+
+
+## Arrival height `dy` (one of GameSim.ARRIVAL_HEIGHTS) scaled to the room
+## variant's arrival_spread: where the arrival checks put the bird in it.
+static func arrival_dy(sim: GameSim, dy: int) -> int:
+	var room := sim.room
+	if room.def.variants.is_empty() or room.def.variants[room.variant].arrival_spread == 0:
+		return dy
+	return dy * room.def.variants[room.variant].arrival_spread / SimConfig.EXIT_FIT
 
 
 ## One bird holding height `hold`, as FairLanes.arrival_path flies it.

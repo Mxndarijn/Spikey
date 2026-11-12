@@ -3,6 +3,7 @@ extends TestCase
 ## built round the planned entry height, they fit every arrival height.
 
 const Gate := preload("res://sim/hazards/gate.gd")
+const Stalactite := preload("res://sim/hazards/stalactite.gd")
 const Echo := preload("res://sim/hazards/echo.gd")
 const SUB := SimConfig.SUB
 ## Rooms whose variants are generated so that no height is skipped.
@@ -22,13 +23,13 @@ const ROOMS: Array[String] = [
 	"crates",
 	"bramble",
 	"rain",
+	"cave",
+	"pegs",
 ]
 ## The hard rule: a generated layout is built once, at room start, and stays
 ## as it is while the bird is in the room. Per hazard kind, the fields that
 ## make its layout (its declared moving parts, like a swing's angle, a wheel's
-## turn or a falling drop, are left out). Gates and Stalactite are being made
-## fixed by the new-rooms-design session (their arrival opening still closes
-## after the bird is past): until then they are PENDING_FIXED here.
+## turn or a falling drop, are left out).
 const LAYOUT_FIELDS := {
 	"updraft": ["half_w", "lift", "y0", "y1", "drift_min", "drift_span"],
 	"rotor":
@@ -69,12 +70,27 @@ const LAYOUT_FIELDS := {
 	"crawler": ["lane", "start", "segments", "seg_radius", "spacing", "speed"],
 	"bubble": ["lane", "radius", "spiked", "coin_bubble"],
 	"echo": ["mode", "pivot_y"],
-	"mover": ["mode", "count", "loop_w", "loop_h", "loop_period", "center_y"],
-	"gate": ["x", "period", "gap_size", "open_top", "open_bottom"],
+	"mover": ["mode", "count", "loop_w", "loop_h", "loop_period", "center_y", "center_x", "phase"],
+	"gate": ["x", "period", "phase", "gap_size", "lo_y", "hi_y", "lag"],
 	"stalactite":
-	["x", "gap", "half_w", "top", "bottom", "fixed_lo", "fixed_hi", "open_top", "open_bottom"],
+	["x", "gap", "half_w", "top", "bottom", "fixed_lo", "fixed_hi", "scheduled", "schedule"],
+	"cave_rock": ["top_x", "top_y", "bot_x", "bot_y", "isle_x", "isle_top", "isle_bot"],
+	"cave_drip": ["x", "tip_y", "floor_y", "first", "every"],
+	"peg": ["x", "base_y", "bob", "phase"],
 }
-const PENDING_FIXED: Array[String] = ["gates", "stalac"]
+## Rooms built once when they start and never reshaped: only the declared
+## moving parts (MOVING) of their hazards change after that.
+const FIXED_ROOMS: Array[String] = ["gates", "stalac", "cave", "pegs"]
+## Declared moving parts, per hazard kind: the fields a fixed room's hazard may
+## change after the room starts (visible motion on a timetable fixed then).
+const MOVING := {
+	"gate": ["gap_y"],
+	"stalactite": ["gap_y", "target_y", "slides"],
+	"cave_rock": [],
+	"cave_drip": ["falling", "y", "eta"],
+	"mover": ["xs", "ys", "facing"],
+	"peg": ["y"],
+}
 
 
 static func _arrived(index: int, variant: String, anchor_px: int, dy_px: int, side: int) -> GameSim:
@@ -151,28 +167,100 @@ static func _layout(sim: GameSim) -> int:
 	return h
 
 
-## The columns open round the arrival and close again once the bird is past.
-func test_columns_open_for_the_arrival_and_close_again() -> void:
+## The generator contract: the layout at room start equals the layout at every
+## later step, apart from each hazard's declared moving parts, however the
+## room is flown (a surviving line, bounces included).
+func test_fixed_rooms_never_change_shape_after_they_start() -> void:
+	for id in FIXED_ROOMS:
+		var index := RoomCatalog.index_of(id)
+		for v in RoomCatalog.all()[index].variants:
+			for y_px: int in [150, 450]:
+				var sim := _arrived(index, v.id, y_px, 0, 1)
+				var start := _shapes(sim)
+				var search := SurvivalSearch.new()
+				search.run(SimCopy.copy(sim), 700)
+				var last := sim.room.t
+				var steps := 0
+				for tap in search.best_inputs:
+					sim.step(tap == 1)
+					if sim.is_over() or sim.room.t < last or sim.room.def.id != id:
+						break
+					last = sim.room.t
+					steps += 1
+					assert_eq(
+						_shapes(sim), start, "%s/%s at %d px, step %d" % [id, v.id, y_px, steps]
+					)
+					if _shapes(sim) != start:
+						break
+				assert_true(steps > 200, "%s/%s at %d px: flew %d steps" % [id, v.id, y_px, steps])
+
+
+## Every field of every hazard, but `t` and its kind's MOVING ones.
+static func _shapes(sim: GameSim) -> String:
+	var out := ""
+	for h in sim.room.hazards:
+		var skip: Array = MOVING.get(h.kind, [])
+		out += h.kind
+		for prop in h.get_property_list():
+			if not (prop.usage & PROPERTY_USAGE_SCRIPT_VARIABLE):
+				continue
+			var field: String = prop.name
+			if field == "t" or field in skip:
+				continue
+			var value: Variant = h.get(field)
+			if value is Object:
+				continue
+			out += "|%s=%s" % [field, str(value)]
+		out += ";"
+	return out
+
+
+## Fixed rooms fit every planned height out of a portal, 10 px apart, with no
+## opening that closes later.
+func test_fixed_rooms_fit_every_arrival_height() -> void:
+	for id in FIXED_ROOMS:
+		var index := RoomCatalog.index_of(id)
+		for v in RoomCatalog.all()[index].variants:
+			for y_px in range(110, 531, 10):
+				var sim := _arrived(index, v.id, y_px, 0, 1)
+				assert_true(VariantCheck.holds(sim), "%s/%s at %d px" % [id, v.id, y_px])
+
+
+## A generated gate keeps its wide window all room, and out of a portal every
+## window is round the hold band while the bird flies past it.
+func test_gates_keep_one_window_size_timed_for_the_arrival() -> void:
+	var index := RoomCatalog.index_of("gates")
+	for y_px: int in [110, 300, 530]:
+		var sim := _arrived(index, "classic", y_px, 0, 1)
+		var gates: Array[Hazard] = []
+		for h in sim.room.hazards:
+			if h.kind == "gate":
+				gates.append(h)
+		assert_eq(gates.size(), 2)
+		var p := VariantParams.make(sim, SimRng.new(1))
+		assert_true(Gate._fits(sim, p, gates, gates[0].phase), "timed at %d px" % y_px)
+		for i in 800:
+			sim.room.step(sim)
+			for g in gates:
+				assert_eq(g.gap_bottom() - g.gap_top(), Gate.GEN_GAP, "one size")
+
+
+## Stalactite classic: the entry column's gap never moves; the far column's
+## slides only to its drawn heights, each within MAX_STEP of the last.
+func test_stalactite_far_column_follows_its_schedule() -> void:
 	var index := RoomCatalog.index_of("stalac")
-	var sim := _arrived(index, "classic", 140, 0, 1)
-	var rocks: Array[Hazard] = []
+	var sim := _arrived(index, "classic", 300, 0, 1)
+	var cols: Array[Hazard] = []
 	for h in sim.room.hazards:
 		if h.kind == "stalactite":
-			rocks.append(h)
-	assert_eq(rocks.size(), 2)
-	assert_true(rocks[0].open_top > 0, "the first gap opens up for a high arrival")
-	for i in 400:
-		sim.room.step(sim)
-	for st in rocks:
-		assert_eq(st.open_top, 0, "closed again")
-		assert_eq(st.open_bottom, 0)
-	index = RoomCatalog.index_of("gates")
-	sim = _arrived(index, "single-small", 320, 0, 0)
-	var g: Hazard = sim.room.hazards[0]
-	assert_true(g.gap_bottom() - g.gap_top() > Gate.SMALL_GAP, "the small window opens wide")
-	for i in 400:
-		sim.room.step(sim)
-	assert_eq(g.gap_bottom() - g.gap_top(), Gate.SMALL_GAP, "and closes to its size")
+			cols.append(h)
+	assert_eq(cols.size(), 2)
+	assert_true(cols[0].fixed_lo >= 0 and not cols[0].scheduled, "entry column still")
+	assert_true(cols[1].scheduled and cols[1].x > cols[0].x, "far column scheduled")
+	var prev: int = cols[1].gap_y
+	for y: int in cols[1].schedule:
+		assert_true(absi(y - prev) <= Stalactite.MAX_STEP, "a step within reach")
+		prev = y
 
 
 ## The mirror's turning height keeps off a bird holding its height.
@@ -271,8 +359,6 @@ static func _named_layout(sim: GameSim) -> String:
 
 func test_generated_layouts_stay_fixed_while_the_bird_is_in_the_room() -> void:
 	for id in ROOMS:
-		if id in PENDING_FIXED:
-			continue
 		var index := RoomCatalog.index_of(id)
 		for v in RoomCatalog.all()[index].variants:
 			if v.kind != RoomVariant.Kind.GENERATED:

@@ -21,13 +21,16 @@ impl CatalogMachines {
     pub const ALT_GAP: i64 = 150 * Self::SUB;
     pub const ALT_LO: i64 = 260 * Self::SUB;
     pub const ALT_HI: i64 = 380 * Self::SUB;
-    pub const ALT_GEN_LO: i64 = 220 * Self::SUB;
-    pub const ALT_GEN_HI: i64 = 420 * Self::SUB;
     pub const SHORT_GAP: i64 = 300 * Self::SUB;
     pub const SHORT_Y: i64 = 320 * Self::SUB;
     pub const SHORT_HALF_W: i64 = 18 * Self::SUB;
-    pub const SHORT_GEN_LO: i64 = 250 * Self::SUB;
-    pub const SHORT_GEN_HI: i64 = 390 * Self::SUB;
+    pub const ENTRY_X: i64 = 110 * Self::SUB;
+    pub const FAR_X: i64 = 292 * Self::SUB;
+    pub const GEN_SLACK: i64 = 4 * Self::SUB;
+    pub const ENTRY_GAP: i64 = 2 * SimConfig::EXIT_FIT
+        + FairLanes::FIRST_HOP
+        + 2 * (SimConfig::BIRD_RADIUS + VariantParams::MARGIN)
+        + 2 * Self::GEN_SLACK;
 
     pub fn defs() -> Vec<RoomDef> {
         const SUB: i64 = CatalogMachines::SUB;
@@ -126,39 +129,51 @@ impl CatalogMachines {
     pub const CEILING: i64 = 2;
 
     fn _gen_columns(sim: &mut GameSim, p: &VariantParams, rocks: i64) {
-        let (a, b) = if rocks != Self::BOTH {
-            (
-                p.add(sim, Self::_fang(130, false, rocks == Self::CEILING)),
-                p.add(sim, Self::_fang(230, true, rocks == Self::CEILING)),
-            )
+        let entry = Self::_from_entry(sim, Self::ENTRY_X);
+        let far = Self::_from_entry(sim, Self::FAR_X);
+        let a = if rocks == Self::BOTH { Stalactite::new(entry, false) } else { Self::_fang_at(entry, rocks) };
+        p.add(sim, Self::_still(a, sim, p, Self::ENTRY_GAP).into());
+        let mut b = if rocks == Self::BOTH { Stalactite::new(far, false) } else { Self::_fang_at(far, rocks) };
+        b.scheduled = true;
+        p.add(sim, b.into());
+    }
+
+    fn _from_entry(sim: &GameSim, x: i64) -> i64 {
+        if sim.state.started && sim.state.vx < 0 {
+            SimConfig::WORLD_W - x
         } else {
-            (p.add(sim, Self::_stalactite(130 * Self::SUB, false)), p.add(sim, Self::_stalactite(230 * Self::SUB, true)))
-        };
-        for i in [a, b] {
-            VariantParams::edit(sim, i, |h, sim| {
-                if let Hz::Stalactite(s) = h {
-                    s.open_for_arrival(sim, p);
-                }
-            });
+            x
         }
     }
 
+    fn _fang_at(x: i64, rocks: i64) -> Stalactite {
+        let mut s = Stalactite::new(x, false);
+        s.top = rocks == Self::CEILING;
+        s.bottom = rocks != Self::CEILING;
+        s.gap = if rocks == Self::CEILING { Stalactite::GAP } else { Self::FANG_GAP };
+        s
+    }
+
+    fn _still(mut s: Stalactite, sim: &GameSim, p: &VariantParams, gap: i64) -> Stalactite {
+        let mid = (p.hold_top(sim) + p.hold_bottom(sim)) / 2;
+        s.gap = gap;
+        s.fixed_lo = mid;
+        s.fixed_hi = mid;
+        s
+    }
+
     fn _gen_fixed(sim: &mut GameSim, p: &VariantParams, short: bool) {
-        let mut fingers = Vec::new();
         for i in 0..3 {
             let mut f = if short { Self::_short(i) } else { Self::_finger(i) };
-            if let Hz::Stalactite(s) = &mut f {
-                s.fixed_lo = if short { Self::SHORT_GEN_LO } else { Self::ALT_GEN_LO };
-                s.fixed_hi = if short { Self::SHORT_GEN_HI } else { Self::ALT_GEN_HI };
+            f.x = Self::_from_entry(sim, if i < 2 || short { f.x } else { Self::FAR_X });
+            if short {
+                f = Self::_still(f, sim, p, Self::SHORT_GAP);
+            } else if i < 2 {
+                f = Self::_still(f, sim, p, Self::ENTRY_GAP);
+            } else {
+                f = Self::_still(f, sim, p, Self::ALT_GAP);
             }
-            fingers.push(p.add(sim, f));
-        }
-        for i in fingers {
-            VariantParams::edit(sim, i, |h, sim| {
-                if let Hz::Stalactite(s) = h {
-                    s.open_for_arrival(sim, p);
-                }
-            });
+            p.add(sim, f.into());
         }
     }
 
@@ -214,34 +229,22 @@ impl CatalogMachines {
         EdgePad::new(top, period).into()
     }
 
-    fn _stalactite(x: i64, follows: bool) -> Hz {
-        Stalactite::new(x, follows).into()
-    }
-
-    fn _fang(x_px: i64, follows: bool, ceiling: bool) -> Hz {
-        let mut s = Stalactite::new(x_px * Self::SUB, follows);
-        s.top = ceiling;
-        s.bottom = !ceiling;
-        s.gap = if ceiling { Stalactite::GAP } else { Self::FANG_GAP };
-        s.into()
-    }
-
-    fn _finger(i: i64) -> Hz {
+    fn _finger(i: i64) -> Stalactite {
         let mut s = Stalactite::new(Self::TRIO_X[i as usize] * Self::SUB, i > 0);
         s.top = i % 2 == 0;
         s.bottom = i % 2 == 1;
         s.gap = Self::ALT_GAP;
         s.fixed_lo = Self::ALT_LO;
         s.fixed_hi = Self::ALT_HI;
-        s.into()
+        s
     }
 
-    fn _short(i: i64) -> Hz {
+    fn _short(i: i64) -> Stalactite {
         let mut s = Stalactite::new(Self::TRIO_X[i as usize] * Self::SUB, i > 0);
         s.gap = Self::SHORT_GAP;
         s.half_w = Self::SHORT_HALF_W;
         s.fixed_lo = Self::SHORT_Y;
         s.fixed_hi = Self::SHORT_Y;
-        s.into()
+        s
     }
 }

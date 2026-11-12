@@ -20,7 +20,7 @@ static func practice(seed_value: int, variant: String = "classic") -> GameSim:
 ## A planned exit is never further from the last gate's gap than Gate.EXIT_REACH.
 func test_exits_are_planned_near_the_gap() -> void:
 	for seed_value in range(1, 60):
-		var sim := practice(seed_value, "classic" if seed_value % 2 == 0 else "single-small")
+		var sim := practice(seed_value, "classic" if seed_value % 2 == 0 else "single")
 		# Some time into the room, the bird has just bounced off wall `side`:
 		# the ghost goes there, and the bird is back in two crossings.
 		for i in 1 + seed_value * 7 % 400:

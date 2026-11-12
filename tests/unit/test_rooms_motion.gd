@@ -194,8 +194,8 @@ func test_gate_gaps_slide() -> void:
 		sim.room.step(sim)
 		low = mini(low, g.gap_y)
 		high = maxi(high, g.gap_y)
-		assert_true(g.gap_top() - SimConfig.KILL_TOP >= 40 * SUB, "gap clear of the ceiling")
-		assert_true(SimConfig.KILL_BOTTOM - g.gap_bottom() >= 40 * SUB, "gap clear of the floor")
+		assert_between(g.gap_y, g.lo_y, g.hi_y, "the window's middle stays in its range")
+		assert_eq(g.gap_bottom() - g.gap_top(), g.gap_size, "one window size")
 	assert_true(high - low > 300 * SUB, "the gap travels up and down")
 
 

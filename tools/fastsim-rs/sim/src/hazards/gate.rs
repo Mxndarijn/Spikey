@@ -12,9 +12,9 @@ pub struct Gate {
     pub phase: i64,
     pub gap_y: i64,
     pub gap_size: i64,
-    pub open_top: i64,
-    pub open_bottom: i64,
-    pub open_until: i64,
+    pub lo_y: i64,
+    pub hi_y: i64,
+    pub lag: i64,
 }
 
 #[inline]
@@ -46,7 +46,14 @@ impl Gate {
     pub const ARRIVAL_HOVER: i64 = 30 * SimConfig::SUB;
     pub const EXIT_REACH: i64 = 80 * SimConfig::SUB;
     pub const SMALL_EXIT_MAX_Y: i64 = 490 * SimConfig::SUB;
-    pub const CLOSE: i64 = SimConfig::SUB;
+    pub const GEN_SLACK: i64 = 8 * SimConfig::SUB;
+    pub const GEN_LO_Y: i64 = 96 * SimConfig::SUB;
+    pub const GEN_HI_Y: i64 = 500 * SimConfig::SUB;
+    pub const GEN_GAP: i64 = 2 * SimConfig::EXIT_FIT
+        + FairLanes::FIRST_HOP
+        + 2 * (SimConfig::BIRD_RADIUS + VariantParams::MARGIN)
+        + 2 * Self::GEN_SLACK;
+    pub const GEN_LAG: i64 = 25;
 
     /// C# defaults: p_x = 0, p_period = 400, p_follows = false, p_gap = GAP.
     pub fn new(p_x: i64, p_period: i64, p_follows: bool, p_gap: i64) -> Gate {
@@ -59,9 +66,9 @@ impl Gate {
             phase: 0,
             gap_y: 0,
             gap_size: p_gap,
-            open_top: 0,
-            open_bottom: 0,
-            open_until: 0,
+            lo_y: Self::GAP_MIN_Y,
+            hi_y: Self::GAP_MAX_Y,
+            lag: Self::LAG,
         }
     }
 
@@ -104,12 +111,12 @@ impl Gate {
     }
 
     pub fn gap_at(&self, tick: i64) -> i64 {
-        Self::GAP_MIN_Y + SimTrig::ping_pong(tick + self.phase, self.period, Self::GAP_MAX_Y - Self::GAP_MIN_Y)
+        self.lo_y + SimTrig::ping_pong(tick + self.phase, self.period, self.hi_y - self.lo_y)
     }
 
     pub fn _phase_for(&self, y: i64, tick: i64, down: bool) -> i64 {
-        let span = Self::GAP_MAX_Y - Self::GAP_MIN_Y;
-        let at = G::clampi(y - Self::GAP_MIN_Y, 0, span);
+        let span = self.hi_y - self.lo_y;
+        let at = G::clampi(y - self.lo_y, 0, span);
         let half = self.period / 2;
         let rising_phase = at * half / span;
         G::posmod((if down { rising_phase } else { self.period - rising_phase }) - tick, self.period)
@@ -131,37 +138,62 @@ impl Gate {
         G::maxi(sim.steps_to_exit(side) - G::absi(wall_x - gate.x) / SimConfig::SPEED_X, 0)
     }
 
-    pub fn open_for_arrival(&mut self, sim: &GameSim, p: &VariantParams) {
+    /// Makes this a generated gate (see gate.gd `wide`). Before setup.
+    pub fn wide(mut self) -> Gate {
+        self.gap_size = Self::GEN_GAP;
+        self.lo_y = Self::GEN_LO_Y;
+        self.hi_y = Self::GEN_HI_Y;
+        self.lag = Self::GEN_LAG;
+        self
+    }
+
+    /// gate.gd `fit_arrival`: `gates` are indexes into `sim.room.hazards`, the leader first.
+    pub fn fit_arrival(sim: &mut GameSim, p: &VariantParams, gates: &[usize]) -> bool {
         if !p.arriving {
-            return;
+            return true;
         }
-        let reach = Self::HALF_W + SimConfig::BIRD_RADIUS;
-        let mut last: i64 = -1;
-        let mut up = 0;
-        let mut down = 0;
-        for k in 0..FairLanes::OPEN_PATH_TICKS {
-            if G::absi(FairLanes::arrival_x(sim, k + 1) - self.x) >= reach {
-                continue;
+        let (lead_phase, lead_period) = {
+            let lead = gate_ref(&sim.room.hazards[gates[0]]);
+            (lead.phase, lead.period)
+        };
+        for d in 0..lead_period {
+            let ph = G::posmod(lead_phase + d, lead_period);
+            if Self::_fits(sim, p, gates, ph) {
+                for &i in gates {
+                    let g = gate_mut(&mut sim.room.hazards[i]);
+                    g.phase = G::posmod(ph - (if g.follows { g.lag } else { 0 }), g.period);
+                    g._place();
+                }
+                return true;
             }
-            last = k + 1;
-            let mid = self.gap_at(last);
-            up = G::maxi(up, mid - self.gap_size / 2 - p.hold_top(sim));
-            down = G::maxi(down, p.hold_bottom(sim) - (mid + self.gap_size / 2));
         }
-        if last < 0 {
-            return;
+        false
+    }
+
+    pub fn _fits(sim: &GameSim, p: &VariantParams, gates: &[usize], ph: i64) -> bool {
+        let reach = Self::HALF_W + SimConfig::BIRD_RADIUS;
+        for &i in gates {
+            let g = gate_ref(&sim.room.hazards[i]);
+            let gph = G::posmod(ph - (if g.follows { g.lag } else { 0 }), g.period);
+            for k in 1..VariantCheck::HOLD_STEPS + 1 {
+                if G::absi(FairLanes::arrival_x(sim, k) - g.x) >= reach {
+                    continue;
+                }
+                let mid = g.lo_y + SimTrig::ping_pong(k + gph, g.period, g.hi_y - g.lo_y);
+                if mid - g.gap_size / 2 > p.hold_top(sim) || mid + g.gap_size / 2 < p.hold_bottom(sim) {
+                    return false;
+                }
+            }
         }
-        self.open_until = last;
-        self.open_top = up;
-        self.open_bottom = down;
+        true
     }
 
     pub fn gap_top(&self) -> i64 {
-        self.gap_y - self.gap_size / 2 - self.open_top
+        self.gap_y - self.gap_size / 2
     }
 
     pub fn gap_bottom(&self) -> i64 {
-        self.gap_y + self.gap_size / 2 + self.open_bottom
+        self.gap_y + self.gap_size / 2
     }
 }
 
@@ -183,20 +215,21 @@ impl Hazard for Gate {
         }
         if self.follows {
             if let Some(pi) = self.partner {
-                let (p_x, p_period) = {
+                let (p_x, p_period, p_lag) = {
                     let p = gate_ref(&sim.room.hazards[pi]);
-                    (p.x, p.period)
+                    (p.x, p.period, p.lag)
                 };
                 self.period = p_period;
                 if sim.state.started && G::absi(self.x - sim.state.x) < G::absi(p_x - sim.state.x) {
-                    let shift = Self::_lead(sim, p_x) - (Self::_lead(sim, self.x) - Self::LAG);
+                    let shift = Self::_lead(sim, p_x) - (Self::_lead(sim, self.x) - p_lag);
                     let period = self.period;
                     let p = gate_mut(&mut sim.room.hazards[pi]);
                     p.phase = G::posmod(p.phase + shift, period);
                     p._place();
                 }
                 let p_phase = gate_ref(&sim.room.hazards[pi]).phase;
-                self.phase = G::posmod(p_phase - Self::LAG, self.period);
+                self.lag = p_lag;
+                self.phase = G::posmod(p_phase - self.lag, self.period);
                 self._place();
                 return;
             }
@@ -221,10 +254,6 @@ impl Hazard for Gate {
 
     fn step(&mut self, _sim: &mut GameSim) {
         self._place();
-        if self.base.t > self.open_until {
-            self.open_top = G::maxi(self.open_top - Self::CLOSE, 0);
-            self.open_bottom = G::maxi(self.open_bottom - Self::CLOSE, 0);
-        }
     }
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
@@ -266,8 +295,8 @@ impl Hazard for Gate {
 
     fn checksum(&self, h: i64) -> i64 {
         let out_ = mix_all(h, &[self.x, self.period, self.phase, self.gap_y, G::b(self.follows), self.gap_size]);
-        if self.open_top != 0 || self.open_bottom != 0 || self.open_until != 0 {
-            return mix_all(out_, &[self.open_top, self.open_bottom, self.open_until]);
+        if self.lo_y != Self::GAP_MIN_Y || self.hi_y != Self::GAP_MAX_Y || self.lag != Self::LAG {
+            return mix_all(out_, &[self.lo_y, self.hi_y, self.lag]);
         }
         out_
     }
