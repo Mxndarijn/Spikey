@@ -103,6 +103,8 @@ var _rooms_group := ""
 var _revive_count := false
 ## Seconds left in the 3, 2, 1 before a resumed run plays on (0: none).
 var _countdown := 0.0
+## Game over empties the room behind its text and shows the flyer big.
+var _stage := GameOverStage.new()
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -127,6 +129,8 @@ func _ready() -> void:
 	_make_services()
 	_look = RunLook.new(_profile, _room, _hazards, _trail, _bird, _crash, _menus, _hud, _audio)
 	_look.use_equipped()
+	add_child(_stage)
+	_stage.setup(_room, _bird, [_hazards, _coin, _trail, _crash, _night])
 	_revive = ReviveFlow.new(_profile, _run, ads, _hud.revive_offer, _save_profile)
 	_revive.ended.connect(_finish_run)
 	_revive.revived.connect(_on_revive)
@@ -735,6 +739,7 @@ func _new_run() -> void:
 			run_season = _practice_season
 		_run.new_run(seed_value, run_season, practice, variant)
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
+	_stage.reset()
 	_room.bind(_run, _look.theme)
 	_hazards.bind(_run, _look.theme)
 	_bird.bind(_run, _look.character)
@@ -772,11 +777,11 @@ func _try_restart() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _in_play():
 		return
-	if event.is_action_pressed("ui_cancel") or _is_key(event, KEY_P):
+	if event.is_action_pressed("ui_cancel") or TapInput.is_key(event, KEY_P):
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
 		return
-	if not _is_tap(event):
+	if not TapInput.is_tap(event):
 		return
 	get_viewport().set_input_as_handled()
 	if _run.paused:
@@ -983,17 +988,4 @@ func _finish_run(replay: Replay) -> void:
 		_revive.revived_at,
 		replay.season
 	)
-
-
-static func _is_tap(event: InputEvent) -> bool:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		return mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
-	return _is_key(event, KEY_SPACE)
-
-
-static func _is_key(event: InputEvent, key: Key) -> bool:
-	if event is InputEventKey:
-		var k := event as InputEventKey
-		return k.pressed and not k.echo and k.keycode == key
-	return false
+	_stage.show_empty(is_new_best, _hud.reduced_motion)

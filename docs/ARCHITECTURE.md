@@ -268,7 +268,10 @@ _process           views draw, interpolating between previous and current tick
   globals), `RunLook` (the flyer, world, trail, crash, portal and music in the
   live room; borrowed during a replay), `ReviveFlow` (the revive offer, free
   or for an ad), `BoardAlerts` (the daily prize spot and push alerts), and
-  the HUD with its `PauseScreen` and `GameOverScreen`.
+  the HUD with its `PauseScreen` and `GameOverScreen`. At game over
+  `GameOverStage` empties the room behind that screen (hazards, coins, trail,
+  crash effect and cage spikes fade; the sky and landscape stay) and floats
+  the flyer to the middle, big and dazed; a new run brings it all back.
 - Each world's look beyond its colours is one file,
   `game/run/scenes/worlds/<id>.gd` (a `WorldScene`): its landscape, what falls
   through its sky and its touch on a Match my world portal. A world without one

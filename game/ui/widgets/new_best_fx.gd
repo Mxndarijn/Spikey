@@ -12,7 +12,7 @@ const FOLD := Color("#B8861E")
 const CONFETTI_COLORS: Array[Color] = [
 	UiTokens.ACTION, Color.WHITE, UiTokens.INK_LINE, Color("#FF8A6A"), Color("#7FD3FF")
 ]
-const RIBBON_TOP := 86.0
+const RIBBON_TOP := 60.0
 const RIBBON_W := 150.0
 const RIBBON_H := 38.0
 ## x, y, radius on the 360 x 640 screen.

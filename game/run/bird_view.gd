@@ -22,6 +22,17 @@ const DEAD_TINT := Color(0.8, 0.8, 0.85)
 const FADE_OUT_TIME := 0.15
 ## Seconds the flyer takes to turn upside down (or back) when gravity flips.
 const FLIP_TIME := 0.2
+## Game over (GameOverStage): the flyer leaves the wall and floats to a spot in
+## the middle, SHOW_SCALE times its size, tilted and dazed with stars circling
+## its head; on a new best it bobs instead.
+const SHOW_SCALE := 2.3
+const SHOW_TILT := 0.26
+const SHOW_BOB := 4.0
+const STAR_COUNT := 3
+const STAR_ORBIT := Vector2(15.0, 3.0)
+const STAR_Y := -20.0
+const STAR_R := 3.2
+const STAR_SPIN := 2.2
 
 var _run: RunController
 var _character: CharacterDef
@@ -35,6 +46,16 @@ var _fading := false
 ## Flip progress: 1 = upright, -1 = upside down (Gravity Flip). Moves linearly;
 ## flip_scale() eases it for drawing.
 var _flip := 1.0
+## Game over showcase: on, where it flies from and to, progress 0..1, the
+## flight's length (0: at once), dazed (stars) or happy (bob), still (reduced
+## motion: no bob, the stars stand still).
+var _show := false
+var _show_from := Vector2.ZERO
+var _show_to := Vector2.ZERO
+var _show_t := 1.0
+var _show_time := 0.0
+var _dazed := true
+var _still := false
 
 
 func _ready() -> void:
@@ -49,6 +70,7 @@ func bind(run: RunController, character: CharacterDef) -> void:
 	_stretch = 0.0
 	_tilt = 0.0
 	_fading = false
+	_show = false
 	# A new run starts in its room's gravity at once, no flip animation.
 	_flip = flip_target(_gravity_sign())
 	modulate.a = 1.0
@@ -79,10 +101,46 @@ func fade_out() -> void:
 	_fading = true
 
 
+## Game over: float to `spot` and grow (see SHOW_SCALE) over `time` seconds,
+## dazed or, on a new best, happy. A flyer its crash effect hid fades back in
+## at the spot.
+func showcase(spot: Vector2, dazed: bool, still: bool, time: float) -> void:
+	_show = true
+	_show_from = position
+	_show_to = spot
+	_show_time = time
+	_show_t = 0.0 if time > 0.0 else 1.0
+	_dazed = dazed
+	_still = still
+	_shake = 0.0
+	if _fading:
+		_fading = false
+		_show_from = spot
+		modulate.a = 0.0 if time > 0.0 else 1.0
+	queue_redraw()
+
+
+func is_showcased() -> bool:
+	return _show
+
+
+## The flyer's size, place and tilt in the showcase at progress `t` (0..1,
+## eased), facing +1 right or -1 left.
+static func showcase_pose(from: Vector2, to: Vector2, t: float, facing: float) -> Dictionary:
+	var e := 1.0 - pow(1.0 - clampf(t, 0.0, 1.0), 3.0)
+	var k := lerpf(1.0, SHOW_SCALE, e)
+	return {
+		"position": from.lerp(to, e),
+		"scale": Vector2(facing * k, k),
+		"rotation": SHOW_TILT * facing * e,
+	}
+
+
 ## The bird was revived: show the flyer again at once, even if its crash
 ## effect had faded it away.
 func on_revived() -> void:
 	_fading = false
+	_show = false
 	_shake = 0.0
 	modulate.a = 1.0
 	queue_redraw()
@@ -131,6 +189,9 @@ static func blend_fraction(run: RunController, physics_fraction: float) -> float
 func _process(delta: float) -> void:
 	if _run == null or _run.sim == null:
 		return
+	if _show:
+		_process_showcase(delta)
+		return
 	if _fading:
 		modulate.a = move_toward(modulate.a, 0.0, delta / FADE_OUT_TIME)
 	_flap_timer = maxf(_flap_timer - delta, 0.0)
@@ -168,6 +229,21 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+func _process_showcase(delta: float) -> void:
+	_bob_time += delta
+	if _show_time > 0.0:
+		_show_t = minf(_show_t + delta / _show_time, 1.0)
+		modulate.a = minf(modulate.a + delta / _show_time, 1.0)
+	var facing := 1.0 if _run.sim.state.vx > 0 else -1.0
+	var pose := showcase_pose(_show_from, _show_to, _show_t, facing)
+	position = pose.position
+	scale = pose.scale
+	rotation = pose.rotation
+	if not _dazed and not _still and _show_t >= 1.0:
+		position.y += sin(_bob_time * 3.0) * SHOW_BOB
+	queue_redraw()
+
+
 ## The current room's gravity: 1 down, -1 up (Gravity Flip).
 func _gravity_sign() -> int:
 	if _run == null or _run.sim == null or _run.sim.room == null:
@@ -182,7 +258,24 @@ func _draw() -> void:
 	if tex == null:
 		return
 	var size := ART_CANVAS * ART_SCALE
-	var dead := _run != null and _run.sim != null and _run.sim.is_over()
+	var dead := _run != null and _run.sim != null and _run.sim.is_over() and not _show
 	draw_texture_rect(
 		tex, Rect2(-size / 2.0, -size / 2.0, size, size), false, DEAD_TINT if dead else Color.WHITE
 	)
+	if _show and _dazed and _show_t >= 1.0:
+		_draw_stars()
+
+
+## Dazed: small gold stars circling the flyer's head (standing still with
+## reduced motion).
+func _draw_stars() -> void:
+	var spin := 0.0 if _still else _bob_time * STAR_SPIN
+	for i in STAR_COUNT:
+		var a := spin + TAU * i / STAR_COUNT
+		var c := Vector2(cos(a) * STAR_ORBIT.x, STAR_Y + sin(a) * STAR_ORBIT.y)
+		var pts := PackedVector2Array()
+		for j in 8:
+			var r := STAR_R if j % 2 == 0 else STAR_R * 0.4
+			var b := TAU * j / 8.0 - PI / 2.0
+			pts.append(c + Vector2(cos(b), sin(b)) * r)
+		draw_colored_polygon(pts, UiTokens.ACTION)
