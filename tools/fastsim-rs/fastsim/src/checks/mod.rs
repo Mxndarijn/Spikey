@@ -18,6 +18,15 @@ pub mod arrival;
 pub mod honesty;
 pub mod passable;
 pub mod sight;
+pub mod reach;
+pub mod keys;
+pub mod points;
+pub mod revive;
+pub mod pairs;
+pub mod searches;
+pub mod runs;
+pub mod exits;
+pub mod sameseed;
 
 /// One check (C# `Checks.Check`).
 pub trait Check: Sync + Send {
