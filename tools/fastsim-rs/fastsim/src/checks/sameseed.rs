@@ -92,11 +92,15 @@ pub struct Play {
 pub struct SameSeed;
 
 impl SameSeed {
+    /// The hazards' states, but for those that follow the bird by design: the
+    /// Echo's shadow flies the bird's own path, and a coin is taken by
+    /// whoever flies through it (as coin spawns, a player's choice).
     fn hz(sim: &GameSim) -> String {
         let parts: Vec<String> = sim
             .room
             .hazards
             .iter()
+            .filter(|h| h.kind() != "echo" && h.kind() != "coin")
             .map(|h| format!("{}:{:x}", h.kind(), if h.alive() { h.checksum(0) & 0xffff } else { -1i64 }))
             .collect();
         parts.join(",")
