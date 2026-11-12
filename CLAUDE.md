@@ -38,12 +38,11 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
   `SimConfig.GAMEPLAY_VERSION`, then regenerate goldens with
   `godot --headless --path . -s res://tools/make_golden.gd`. Never regenerate
   goldens to make an unintended change pass.
-- `tools/fastsim` is a C# copy of `sim/` for fast playtest bots
-  (`tools/fastsim.ps1`). Any change in `sim/` must be ported there line by
-  line (`tools/fastsim/PORTING.md`); the check's FastSim parity step fails
-  until it matches. Big bot sweeps use FastSim, not Godot. `tools/fastsim-rs` is
-  the Rust copy (docs/FASTSIM_RS.md): port `sim/` changes there too; its parity
-  step skips when cargo is not installed.
+- `tools/fastsim-rs` is a Rust copy of `sim/` for fast playtest bots
+  (docs/FASTSIM_RS.md, `tools/fastsim.ps1`). Any change in `sim/` must be
+  ported there line by line (`tools/fastsim-rs/PORTING.md`); the check's
+  FastSim-RS parity step fails until it matches. Big bot sweeps use
+  FastSim-RS, not Godot.
 - Every character shares one hitbox. Characters, hats, themes and spike skins
   are cosmetic only.
 - Monetization is cosmetic only plus an optional rewarded-ad revive. Nothing
