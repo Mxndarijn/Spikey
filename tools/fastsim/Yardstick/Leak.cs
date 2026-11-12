@@ -36,7 +36,11 @@ public static class Leak
                 case Drop dr: dr._rng.reseed(0); break;
                 case Firework fw: fw._rng.reseed(0); break;
                 case OrchardSpawner os: os._rng.reseed(0); break;
-                case Bubble b: b.next_x = 0; break;
+                case Bubble b:
+                    b.next_x = 0;
+                    // A late spiky bubble's glow is under half size until 3 * WARN before it rises.
+                    if (b.spiked && b.wait > 3 * Bubble.WARN) b.x = 0;
+                    break;
                 case Stalactite st when st.gap_y != st.target_y:
                     st.target_y = st.gap_y + Math.Sign(st.target_y - st.gap_y);
                     break;
