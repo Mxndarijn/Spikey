@@ -65,18 +65,7 @@ static partial class Checks
         /// Blind cells allowed while their fix is in flight: (class, bot, "tell" or "deadly") -> fix session.
         public static readonly Dictionary<(string cls, string bot, string what), string> KNOWN = new()
         {
-            [("BossWatcher", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossWatcher", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossWatcher", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossWatcher", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossCrusher", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossCrusher", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossCrusher", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossCrusher", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossSaw", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossSaw", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossSaw", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
-            [("BossSaw", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossWatcher", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
             [("BossWatcher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
             [("BossCrusher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
             [("BossSaw", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",

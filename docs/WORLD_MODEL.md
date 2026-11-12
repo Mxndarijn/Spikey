@@ -1,4 +1,7 @@
-# World model: structured inputs for bots, and a planner on them
+# World model: structured inWith them (and the 2 s boss tells), `world runs 100 --skill beast --cap 20000`:
+median 209, p90 220, 61 of 100 alive at the cap, 1 of 39 deaths in a boss
+room (boss_crusher).
+puts for bots, and a planner on them
 
 A playtest tool (`tools/fastsim/World/`, run as `fastsim world ...`). It reads
 the present FastSim state once per tick and describes it as objects and
