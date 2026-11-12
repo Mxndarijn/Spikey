@@ -69,7 +69,6 @@ static partial class Checks
             [("Beam", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("BossCrusher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("BossSaw", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("BossWatcher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("CrateDrop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("Dart", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("Drop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
