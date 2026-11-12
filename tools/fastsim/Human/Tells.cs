@@ -40,6 +40,35 @@ public static class Tells
         return p;
     }
 
+    /// The Kaplan-Meier median score (runs alive at the cap are censored there) and a
+    /// 95% interval from 400 resamples of the runs. Infinity = more than half live past the cap.
+    public static (double med, double lo, double hi) km_median(List<(long points, bool dead)> runs)
+    {
+        static double km(List<(long points, bool dead)> rs)
+        {
+            double surv = 1;
+            int at_risk = rs.Count;
+            foreach (var g in rs.GroupBy(r => r.points).OrderBy(g => g.Key))
+            {
+                int died = g.Count(r => r.dead);
+                if (at_risk > 0) surv *= 1.0 - (double)died / at_risk;
+                if (surv <= 0.5) return g.Key;
+                at_risk -= g.Count();
+            }
+            return double.PositiveInfinity;
+        }
+        var rng = new Random(12345);
+        var meds = new List<double>();
+        for (int b = 0; b < 400; b++)
+        {
+            var pick = new List<(long, bool)>(runs.Count);
+            for (int i = 0; i < runs.Count; i++) pick.Add(runs[rng.Next(runs.Count)]);
+            meds.Add(km(pick));
+        }
+        meds.Sort();
+        return (km(runs), meds[(int)(0.025 * meds.Count)], meds[(int)(0.975 * meds.Count) - 1]);
+    }
+
     public static Motor motor(Func<string, string, string> opt)
     {
         string tier = opt("tier", "good");
@@ -187,8 +216,10 @@ public static class Tells
         double hsd = Math.Sqrt(Math.Max(0, runs.Sum(r => r.h_sq) / Math.Max(1, runs.Sum(r => r.h_n)) - hm * hm));
         double mins = minutes_ticks / 3600.0;
         var sb2 = dead.Select(r => (double)r.since_bounce).Where(x => x >= 0).OrderBy(x => x).ToList();
-        Console.WriteLine($"{opt("tier", "good")} {m.sigma}/{m.react_mu} persona [{opt("persona", "")}] seeds {seeds}: " +
-                          $"median {Humanness.med(pts)}, rate median {rate:F1}, deaths/100pt {100 * d:F3}, alive {runs.Count(r => !r.dead)}, {sw.Elapsed.TotalSeconds:F0}s");
+        var (km, km_lo, km_hi) = km_median(runs.Select(r => (r.points, r.dead)).ToList());
+        string F(double v) => double.IsPositiveInfinity(v) ? "past the cap" : v.ToString("F0");
+        Console.WriteLine($"{opt("tier", "good")} {m} persona [{(m.p == null ? "" : m.p.ToString())}] seeds {seeds} cap {cap}: " +
+                          $"KM median {F(km)} [{F(km_lo)}, {F(km_hi)}], median of the runs {Humanness.med(pts)}, rate median {rate:F1}, deaths/100pt {100 * d:F3}, alive {runs.Count(r => !r.dead)}, {sw.Elapsed.TotalSeconds:F0}s");
         Console.WriteLine($"  tap error: sd {sd(errs):F2} t, |err|>=4t {errs.Count(e => Math.Abs(e) >= 4) / (double)Math.Max(1, errs.Count):P1}, " +
                           $"rhythm: gap mean {gm:F1} t cv {(gm > 0 ? sd(gaps) / gm : 0):F2}, gaps<=11t {gaps.Count(g => g <= 11) / (double)Math.Max(1, gaps.Count):P1} (=8t {gaps.Count(g => g == 8) / (double)Math.Max(1, gaps.Count):P1}), " +
                           $"bursts(3+ taps <=11t) {bursts / Math.Max(0.01, mins):F2}/min, max taps in 1 s: med {Humanness.med(max_rate.Select(x => (long)x))} max {max_rate.DefaultIfEmpty(0).Max()}");

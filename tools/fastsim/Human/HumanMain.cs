@@ -32,6 +32,7 @@ public static class HumanMain
         MotorPlayer.MASK_HAZARDS = opt("mask", "both") is "both" or "hazards";
         MotorPlayer.MASK_TELLS = opt("masktells", "1") == "1";
         MotorPlayer.attempt = long.Parse(opt("attempt", "0"));
+        MotorPlayer.FOLLOW = int.Parse(opt("follow", MotorPlayer.FOLLOW.ToString()));
         HumanBot.BMARGIN = double.Parse(opt("bmargin", "-1"));
         string mode = pos.Count > 1 ? pos[1] : "measure";
         int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 16);

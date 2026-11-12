@@ -123,8 +123,13 @@ public sealed class MotorPlayer
             bp.bucket_px = 4;
             bp.speed_buckets = 12;
         }
+        bp.follow = FOLLOW;
         return bp;
     }
+
+    /// Plan reuse for every tier's planner (BlindPlanner.follow; 0 = a new look every 4 ticks).
+    /// Seeds 1..600, cap 20,000 on the bare planner: no more deaths, a seventh of the search.
+    public static int FOLLOW = 48;
 
     double gauss()
     {
@@ -349,7 +354,17 @@ public static class MotorTiers
         ["expert"] = (0.2, 2, true), ["beast"] = (0.0, -100, true),
     };
     /// The tiers with human habits (06-humanlike.md): human tap sd and reaction, plus a Persona.
-    public static readonly Dictionary<string, Motor> HUMAN = new();
+    /// Human behaviour, not human timing (the user's ruling): taps may be precise, but a
+    /// tier reacts to new things no faster than a person (good and expert about 11 ticks),
+    /// its thumb gap varies (no 8-tick metronome), it has rare lapses and hesitations and
+    /// its own preferred height each run. First values; fitted on the KM median later.
+    public static readonly Dictionary<string, Motor> HUMAN = new()
+    {
+        ["beginner"] = Motor.at(1.4) with { p = new Persona(lapse_min: 2, lapse_len: 20, hes_p: 0.08, hes_tau: 6, pref_sd: 30, gap_sd: 2) },
+        ["normal"] = Motor.at(0.6) with { p = new Persona(lapse_min: 1, lapse_len: 15, hes_p: 0.05, hes_tau: 5, pref_sd: 25, gap_sd: 2) },
+        ["good"] = Motor.at(0.3) with { react_mu = 7, p = new Persona(lapse_min: 0.5, lapse_len: 12, hes_p: 0.03, hes_tau: 4, pref_sd: 20, gap_sd: 1.5) },
+        ["expert"] = Motor.at(0.1) with { react_mu = 7, fine = true, p = new Persona(lapse_min: 0.2, lapse_len: 10, hes_p: 0.01, hes_tau: 3, pref_sd: 15, gap_sd: 1.5) },
+    };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 
     /// The tiers when the planner knows the planned exit mouths (BlindPlanner.know_exits):
