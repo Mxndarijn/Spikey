@@ -9,6 +9,7 @@ pub mod catalog_twists;
 pub mod hazard;
 pub mod room_catalog;
 pub mod room_def;
+pub mod room_pacing;
 pub mod room_rules;
 pub mod room_runtime;
 pub mod seasons;

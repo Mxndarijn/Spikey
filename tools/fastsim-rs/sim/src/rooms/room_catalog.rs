@@ -2,6 +2,7 @@
 use std::sync::OnceLock;
 
 use crate::rooms::room_def::RoomDef;
+use crate::rooms::room_pacing::RoomPacing;
 use crate::rooms::seasons::Seasons;
 use crate::rooms::{
     catalog_boss::CatalogBoss, catalog_core::CatalogCore,
@@ -10,6 +11,7 @@ use crate::rooms::{
 };
 use crate::sim_config::SimConfig;
 use crate::sim_rng::SimRng;
+use crate::sim_state::SimState;
 
 pub struct RoomCatalog;
 
@@ -64,6 +66,7 @@ impl RoomCatalog {
             list.extend(CatalogSeasonal::defs());
             list.extend(CatalogTwists::defs());
             list.extend(CatalogBoss::defs());
+            RoomPacing::apply(&mut list);
             list
         })
     }
@@ -87,38 +90,76 @@ impl RoomCatalog {
         if i >= 0 { Some(&Self::all()[i as usize]) } else { None }
     }
 
+    pub const DECK_BITS: i64 = 62;
+    pub const DECK_REFILL_PCT: i64 = 25;
+
     pub fn allowed(def: &RoomDef, score: i64, season: i64) -> bool {
-        if def.from_score > score {
+        if def.weight_at(score) <= 0 {
             return false;
         }
         def.season == Seasons::NONE || def.season == season
     }
 
-    /// GDScript default: arrival_y = SimConfig.WORLD_H.
-    pub fn pick_next(rng: &mut SimRng, current: i64, score: i64, season: i64, arrival_y: i64) -> i64 {
+    pub fn drawn(state: &SimState, index: i64) -> bool {
+        if index < Self::DECK_BITS {
+            return ((state.deck_lo >> index) & 1) == 1;
+        }
+        ((state.deck_hi >> (index - Self::DECK_BITS)) & 1) == 1
+    }
+
+    pub fn mark_drawn(state: &mut SimState, index: i64) {
+        if index < Self::DECK_BITS {
+            state.deck_lo |= 1i64 << index;
+        } else {
+            state.deck_hi |= 1i64 << (index - Self::DECK_BITS);
+        }
+    }
+
+    pub fn pick_next(rng: &mut SimRng, state: &mut SimState, current: i64, season: i64) -> i64 {
         let list = Self::all();
+        let score = state.score;
         let start = Self::first_index();
         let mut weights = [0i64; 128];
         assert!(list.len() <= weights.len());
         let mut total = 0;
+        let mut left = 0;
         for i in 0..list.len() {
             let mut w = 0;
-            let fits = list[i].fits_arrival(arrival_y);
             let ii = i as i64;
-            if ii != current && ii != start && fits && !list[i].boss && Self::allowed(&list[i], score, season) {
-                w = list[i].weight;
+            if ii != current
+                && ii != start
+                && !list[i].boss
+                && Self::allowed(&list[i], score, season)
+                && list[i].fits_arrival(state.anchor_y)
+            {
+                w = list[i].weight_at(score);
             }
             weights[i] = w;
             total += w;
+            if !Self::drawn(state, ii) {
+                left += w;
+            }
         }
         if total == 0 {
             return current;
         }
-        let mut r = rng.next_below(total);
+        if left == 0 || left * 100 < total * Self::DECK_REFILL_PCT {
+            state.deck_lo = 0;
+            state.deck_hi = 0;
+            if current >= 0 {
+                Self::mark_drawn(state, current);
+            }
+            left = total;
+        }
+        let mut r = rng.next_below(left);
         for i in 0..list.len() {
-            r -= weights[i];
-            if r < 0 && weights[i] > 0 {
-                return i as i64;
+            let ii = i as i64;
+            if weights[i] > 0 && !Self::drawn(state, ii) {
+                r -= weights[i];
+                if r < 0 {
+                    Self::mark_drawn(state, ii);
+                    return ii;
+                }
             }
         }
         current

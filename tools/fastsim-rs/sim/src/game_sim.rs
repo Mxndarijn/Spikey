@@ -761,13 +761,7 @@ impl GameSim {
             next = RoomCatalog::pick_boss(&mut self._spine, self.state.bosses_met);
             self.state.bosses_met |= RoomCatalog::boss_bit(next);
         } else {
-            next = RoomCatalog::pick_next(
-                &mut self._spine,
-                self.room.index,
-                self.state.score,
-                self.season,
-                self.state.anchor_y,
-            );
+            next = RoomCatalog::pick_next(&mut self._spine, &mut self.state, self.room.index, self.season);
         }
         self._seed_room();
         let p0 = crate::prof::enter(crate::prof::ARRIVAL);

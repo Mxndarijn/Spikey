@@ -1,5 +1,6 @@
 //! Port of sim/rooms/room_def.gd and room_variant.gd (Sim/Rooms/RoomDef.cs, RoomVariant.cs).
 use crate::hazards::Hz;
+use crate::rooms::room_pacing::RoomPacing;
 use crate::rooms::seasons::Seasons;
 use crate::sim_config::SimConfig;
 
@@ -31,6 +32,7 @@ pub struct RoomDef {
     pub from_score: i64,
     pub arrival_skip: Vec<i64>,
     pub weight: i64,
+    pub pace: Vec<i64>,
     pub season: i64,
 
     pub spikes: bool,
@@ -64,6 +66,7 @@ impl RoomDef {
             from_score: p_from,
             arrival_skip: Vec::new(),
             weight: 10,
+            pace: Vec::new(),
             season: Seasons::NONE,
             spikes: true,
             extra_spikes: 0,
@@ -87,6 +90,10 @@ impl RoomDef {
     pub fn with(mut self, p_hazards: Vec<Factory>) -> RoomDef {
         self.hazards = p_hazards;
         self
+    }
+
+    pub fn weight_at(&self, score: i64) -> i64 {
+        RoomPacing::weight(&self.pace, score)
     }
 
     pub fn fits_arrival(&self, y: i64) -> bool {

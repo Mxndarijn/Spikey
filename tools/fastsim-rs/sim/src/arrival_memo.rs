@@ -50,6 +50,8 @@ impl ArrivalMemo {
             s.exit_b_kind,
             s.route,
             s.bosses_met,
+            s.deck_lo,
+            s.deck_hi,
             s.arrival_hold,
             s.anchor_y,
             s.plan_a_y_left,
