@@ -27,6 +27,7 @@ public static class HumanMain
         HumanBot.WIDTH = long.Parse(opt("width", "0"));
         HumanBot.ESCALATE = int.Parse(opt("escalate", "2"));
         HumanBot.GAPMID = opt("gapmid", "0") == "1";
+        BlindPlanner.know_exits = opt("knowexits", "0") == "1";
         MotorPlayer.MASK_SPIKES = opt("mask", "both") is "both" or "spikes";
         MotorPlayer.MASK_HAZARDS = opt("mask", "both") is "both" or "hazards";
         HumanBot.BMARGIN = double.Parse(opt("bmargin", "-1"));
