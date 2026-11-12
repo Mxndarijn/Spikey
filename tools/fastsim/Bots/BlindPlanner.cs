@@ -9,7 +9,7 @@ namespace FastSim;
 public sealed class BlindPlanner
 {
     /// Ticks looked ahead at most, and at most `past` ticks past the next bounce.
-    public long horizon = 160, past = 40;
+    public long horizon = 200, past = 110;
     /// Ticks between looks when the last look was calm, and when it was not
     /// (no line in some guessed future, or only a fine / shorter line).
     public int replan = 4, replan_danger = 1;
@@ -29,15 +29,15 @@ public sealed class BlindPlanner
     /// Cost per tick of each px away from the middle height, and per tap (px).
     public long mid_cost = 1, tap_cost = 0;
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
-    public long margin = 0, margin_cost = 40;
+    public long margin = 16, margin_cost = 2000;
     /// The margin also counts the spikes of the wall ahead, the ceiling and the floor.
-    public bool spike_margin = false;
+    public bool spike_margin = true;
     /// The taps planned for the next ticks (read only; the human layer lands them with timing noise).
     public IReadOnlyCollection<bool> plan => _plan;
     /// One-sided stalactite fangs re-aim at every bounce. In an imagined bounce
     /// the planner takes the worst case: 1 = the column met first comes out as
     /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
-    public int worst_fangs = 1;
+    public int worst_fangs = 2;
     /// Rules from the death traces (research/families/*.md), each with a switch:
     /// no_pingpong: a line may not bounce twice on the same wall so that the
     ///   exit opens there, unless its preview was on screen when the look began
@@ -55,7 +55,7 @@ public sealed class BlindPlanner
     ///   (before, every fall above 3.3 px a tick shared one bucket).
     /// aim_anchor: with no exit on screen the height cost pulls to the room's
     ///   anchor (the next gaps are drawn around it) instead of the middle.
-    public bool wall_look = true, full_speeds = true, aim_anchor = false;
+    public bool wall_look = true, full_speeds = false, aim_anchor = false;
     public long wall_looks;
     public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
     public long kept_plans;
