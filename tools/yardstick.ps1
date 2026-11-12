@@ -12,11 +12,12 @@
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <runs.json or folder>
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode compare           # rebuild the table
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode leak -Bot planner  # does it use what it cannot see?
+#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files a.json,b.tsv  # intervals, survival, a vs b
 #
 # -Human with -Mode run also compares each bot with those human runs
 # (distances and a human-vs-bot classifier). Take a CPU slot for big runs.
 param(
-    [ValidateSet("run", "list", "compare", "humans", "leak")]
+    [ValidateSet("run", "list", "compare", "humans", "leak", "stats")]
     [string]$Mode = "run",
     [string]$Bot = "",
     [ValidateSet("quick", "full")]
@@ -26,6 +27,10 @@ param(
     [long]$Cap = 0,
     [int]$Threads = 16,
     [string]$Human = "",
+    # -Mode stats: run sets to read (yardstick JSONs or death atlas TSVs), comma separated;
+    # each is compared with the first. -Json writes the numbers too.
+    [string]$Files = "",
+    [string]$Json = "",
     [int]$TimingRuns = 0,
     [string]$Out = "D:\SoftwareProjects\SpikeCage-coord\research\yardstick",
     [ValidateSet("Idle", "BelowNormal", "Normal")]
@@ -51,6 +56,7 @@ if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
 
 $a = @("yardstick", $Mode, "--out", $Out, "--threads", $Threads, "--priority", $Priority.ToLower())
 if ($Mode -eq "leak") { $a += @("--bot", $Bot) }
+if ($Mode -eq "stats") { $a += @("--files", $Files); if ($Json) { $a += @("--json", $Json) } }
 if ($Mode -eq "run") {
     if ($Bot -eq "") { Write-Host "-Bot is needed (-Mode list shows them)" -ForegroundColor Red; exit 2 }
     $a += @("--bot", $Bot, "--set", $Set)

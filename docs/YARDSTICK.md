@@ -173,3 +173,51 @@ mouse). The Your runs file keeps the last 100.
 `fastsim check yardstick` (part of `tools/check.ps1`) checks that a replay of a bot's
 taps scores what the bot scored, the tier edges, and that the classifier tells the
 gap seeker from the RL bot but not two halves of the gap seeker's runs.
+
+## Statistics: intervals, survival curves, comparisons
+
+`-Mode stats` reads saved run sets and plays nothing: yardstick JSONs, or the
+BlindPlanner's death atlas TSVs (there, survivors' points are not stored and are
+spread evenly over them; the output says so). Each file after the first is also
+compared with the first.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files honest_full.json,human-expert_full.json
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files a.tsv,b.tsv -Json out.json
+```
+
+Code: `tools/fastsim/Yardstick/Survival.cs` (self-tested in `fastsim check yardstick`).
+
+Per set:
+
+- `deaths/100 pt` with an exact Poisson (Garwood) 95% interval, overall and on the
+  plateau (from 40 points on). Its half-width on the log scale is about 1.96 / sqrt(deaths),
+  so the number of deaths, not of runs, sets the precision: 100 deaths give +-20%,
+  400 give +-10%. For yardstick sets the seed bootstrap gives the same interval:
+  seeds do not differ in difficulty enough to matter.
+- Four medians: `raw` (the sample median, bootstrap interval; wrong once runs reach
+  the cap at different scores), `KM` (Kaplan-Meier with the Brookmeyer-Crowley
+  interval; correct with capped runs, missing when half the runs reach the cap),
+  `piecewise` (one death rate per score band, `PEM_BANDS`, bootstrap interval; uses
+  every run, knows the first rooms are easier, and extends the last band past the
+  cap), and the old `rate` median (one constant rate; it reads 20-25% low for bots
+  whose deaths are on the ramp, so it is not a tier number).
+- The survival curve (chance to score more than 10, 20, ... 1000) with log-log Greenwood
+  limits, the share alive at the cap (Wilson interval), and the mean score up to the
+  lowest survivor's score (restricted mean).
+- Deaths per 100 points by band, each with its interval. A death at exactly a band's
+  lower edge counts as one point tried in that band (the strength table's
+  `deaths_per_100_by_band` counts zero there).
+
+Per pair (b vs a):
+
+- Rate ratio, overall and on the plateau, with interval and p-value; the log-rank test
+  on the whole curve; both KM medians.
+- `paired`: Spearman correlation of the two bots' scores on the same seeds. It is about 0
+  for every pair measured so far (2026-11-12), so playing both bots on the same seeds
+  saves nothing; any seeds will do, and the sign test on seeds is weak.
+- A sequential rule: look five times (each fifth of the planned deaths) and stop when
+  |z| > 2.41 (Pocock bound, 5% overall).
+
+The planning table at the top gives the deaths needed in each set to see a given rate
+ratio (two-sided 5%, 80% power): about 315 each for 0.8, 1 400 each for 0.9.

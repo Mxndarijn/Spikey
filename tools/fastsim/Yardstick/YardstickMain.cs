@@ -36,6 +36,8 @@ public static class YardstickMain
                     return 0;
                 case "compare":
                     return write_table(out_dir);
+                case "stats":
+                    return stats(opts);
                 case "leak":
                 {
                     int threads = Math.Clamp(int.Parse(O("threads", "16")), 1, 64);
@@ -86,7 +88,7 @@ public static class YardstickMain
                     return 0;
                 }
             }
-            Console.Error.WriteLine($"unknown yardstick mode '{what}': run, compare, list, humans");
+            Console.Error.WriteLine($"unknown yardstick mode '{what}': run, compare, list, humans, leak, stats");
             return 2;
         }
         catch (Exception e) when (e is ArgumentException or FileNotFoundException or InvalidDataException)
@@ -94,6 +96,33 @@ public static class YardstickMain
             Console.Error.WriteLine(e.Message);
             return 2;
         }
+    }
+
+    /// `stats --files a,b,...`: intervals and survival curves for saved run
+    /// sets (yardstick JSONs or death atlas TSVs), each compared with the
+    /// first one. No sim is played. `--json <path>` also writes the numbers.
+    static int stats(Dictionary<string, string> opts)
+    {
+        var files = opts.GetValueOrDefault("files", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        int reps = int.Parse(opts.GetValueOrDefault("reps", "2000"));
+        Console.WriteLine(Survival.plan_text());
+        if (files.Length == 0) return 0;
+        var sets = files.Select(Survival.load).ToList();
+        var o = new JsonObject { ["sets"] = new JsonArray(), ["compare"] = new JsonArray() };
+        foreach (var s in sets)
+        {
+            var d = Survival.describe(s, reps);
+            o["sets"]!.AsArray().Add(d);
+            Console.WriteLine(Survival.text(d));
+        }
+        foreach (var s in sets.Skip(1))
+        {
+            var c = Survival.compare(s, sets[0], reps);
+            o["compare"]!.AsArray().Add(c);
+            Console.WriteLine(Survival.text_compare(c));
+        }
+        if (opts.TryGetValue("json", out var path)) File.WriteAllText(path, o.ToJsonString(PRETTY) + "\n");
+        return 0;
     }
 
     static int measure(BotSpec bot, string set, long first, int seeds, long cap, int threads, int t_runs, int t_taps,
