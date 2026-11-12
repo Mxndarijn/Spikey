@@ -264,6 +264,11 @@ public sealed class BlindPlanner
     /// they are drawn). True = the planner knows where the exits will be.
     public static bool know_exits = false;
 
+    /// Boss rooms: every attack is drawn from the boss's hidden seed, so the
+    /// copy gets its own seed too (the attack being told stays: BossBlind).
+    /// False = the planner knows every future attack (a leak; measuring only).
+    public static bool boss_blind = true;
+
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
     public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1)
     {
@@ -309,6 +314,7 @@ public sealed class BlindPlanner
         // on screen (a warning, a marked column, a moving thing) stays.
         foreach (var hz in c.room.hazards)
         {
+            if (hz is Boss bs && boss_blind) BossBlind.scramble(bs, own, false);
             switch (hz)
             {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
