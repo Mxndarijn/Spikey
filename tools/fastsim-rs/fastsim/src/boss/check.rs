@@ -17,17 +17,7 @@ impl BossFair {
 
     /// Unfair tells allowed while their fix is in flight: (boss, tier, seed, tell kind, phase) -> owner.
     /// One entry per case, so any other unfair tell still fails. Remove an entry when its fix lands.
-    pub const KNOWN: [((&'static str, i64, i64, &'static str, i64), &'static str); 9] = [
-        (("boss_watcher", 3, 3, "dart", 3), "room-fixes (hit during the reaction)"),
-        (("boss_watcher", 3, 19, "rows", 3), "room-fixes (no way through)"),
-        (("boss_crusher", 3, 1, "jaw", 2), "room-fixes (no way through)"),
-        (("boss_crusher", 3, 2, "jaw", 3), "room-fixes (no way through)"),
-        (("boss_saw", 1, 10, "hop", 3), "room-fixes (no way through)"),
-        (("boss_saw", 3, 6, "hop", 3), "room-fixes (hit during the reaction)"),
-        // Met once the planner's copies stopped reading the room's wall count (its lines changed).
-        (("boss_watcher", 3, 18, "dart", 2), "room-fixes (no way through)"),
-        (("boss_crusher", 3, 5, "jaw", 3), "room-fixes (no way through)"),
-        (("boss_crusher", 3, 19, "jaw", 2), "room-fixes (hit during the reaction)"),
+    pub const KNOWN: &'static [((&'static str, i64, i64, &'static str, i64), &'static str)] = &[
     ];
 
     fn known(boss: &str, tier: i64, seed: i64, kind: &str, phase: i64) -> bool {
