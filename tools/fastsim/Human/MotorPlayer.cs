@@ -13,7 +13,7 @@ public sealed record Motor(
     long min_gap,      // ticks between two presses at least (7.7 taps per second -> 8)
     long cancel,       // a planned tap can still be held back until this many ticks before it lands
     bool fine = false, // a finer search (4 px x 12 speed buckets, ~3.6x slower): more careful thinking
-    Persona p = null,  // the human habits on top (attention, misjudgement, panic, fatigue...); null = none
+    Persona p = null,  // the human habits on top (preferred height, hesitation, thumb gap jitter); null = none
     int level = -1)    // search fineness (MotorTiers.LEVELS; -1 = by `fine`)
 {
     /// Isaksen: reaction about 288 ms (17 ticks) to new things, at most 7.7 taps/s.
@@ -22,21 +22,13 @@ public sealed record Motor(
     public override string ToString() => $"tap sd {sigma:F2} t, react {react_mu + react_tau:F0} t, gap {min_gap} t";
 }
 
-/// Habits that make a player look like a person rather than a thumb on a
-/// planner (06-humanlike.md). All off by default.
+/// The human habits on top of the thumb (the user's ruling, 2026-11-12: human
+/// behaviour, not human timing; no lapses and no mistakes on purpose). All off by default.
 public sealed record Persona(
-    double perr = 0,        // misjudged own height: sd (px) of a slowly drifting error (OU, ~1 s)
-    double lapse_min = 0,   // attention lapses per minute: no new looks, the old plan runs out, then autopilot taps
-    double lapse_len = 0,   //   ... mean length (ticks, exponential)
-    double panic = 0,       // chance per tick of an extra press while the planner finds no full line
-    double fatigue = 0,     // tap sd grows by this share per minute played
     double pref_sd = 0,     // preferred height: offset (px) of the height the player drifts to, drawn per run
     double hes_p = 0,       // chance a press hesitates: lands an extra exponential delay late
     double hes_tau = 0,     //   ... with this mean (ticks)
-    long margin = -1,       // risk appetite: the planner's safety margin in px (-1 = planner default 16)
-    double sigma_run = 0,   // day form: the run's tap sd is scaled by exp(N(0, this))
-    int mc = 0,             // the planner judges lines with this many samples of its own tap noise (BlindPlanner.mc_samples)
-    double gap_sd = 0)      // the thumb's fastest repeat varies: each next press needs min_gap + |N(0, this)| ticks             // the planner judges lines with this many samples of its own tap noise (BlindPlanner.mc_samples)
+    double gap_sd = 0)      // the thumb's fastest repeat varies: each next press needs min_gap + |N(0, this)| ticks
 {
     public static readonly Persona NONE = new();
 }
@@ -66,10 +58,8 @@ public sealed class MotorPlayer
     public long masked_ticks, presses, cancels, delayed;
     // Persona state.
     readonly Persona _p;
-    readonly double _sigma0;
-    double _bias, _rhythm = 42;
-    long _lapse_until = -1, _t0 = -1, _gap_need = -1;
-    public long lapses, lapse_ticks, panics, hesitations;
+    long _gap_need = -1;
+    public long hesitations;
     /// Every press made: (intended tick, landing tick) - the realised motor error.
     public readonly List<(long want, long fire)> made = new();
     /// Experiments: which new things get a reaction time (spikes, hazards, warnings).
@@ -86,13 +76,9 @@ public sealed class MotorPlayer
         _rng = new Random(unchecked((int)(seed * 2246822519L) ^ 0x3c6ef372));
         this.planner = planner ?? make_planner(seed, m);
         _p = m.p ?? Persona.NONE;
-        _sigma0 = _p.sigma_run > 0 ? m.sigma * Math.Exp(_p.sigma_run * gauss()) : m.sigma;
-        _window = Math.Max(1, (long)Math.Ceiling(2.5 * _sigma0 * (1 + _p.fatigue * 10)));
+        _window = Math.Max(1, (long)Math.Ceiling(2.5 * m.sigma));
         if (_p.pref_sd > 0) this.planner.mid_offset = (long)Math.Round(gauss() * _p.pref_sd);
-        if (_p.margin >= 0) this.planner.margin = _p.margin;
     }
-
-    double sigma_now(long t) => _sigma0 * (1 + _p.fatigue * Math.Max(0, t - _t0) / 3600.0);
 
     /// The planner a person with tap sd `sigma` plays with: it keeps its line
     /// clear of spikes, ceiling and floor too (a narrow gap costs more than a
@@ -104,11 +90,6 @@ public sealed class MotorPlayer
         {
             bp.lines = 8;
             bp.wobble = Math.Max(1, (int)Math.Round(m.sigma));
-        }
-        if (m.p != null && m.p.mc > 0 && m.sigma > 0)
-        {
-            bp.mc_samples = m.p.mc;
-            bp.mc_sigma = m.sigma;
         }
         if (m.fine)
         {
@@ -169,7 +150,6 @@ public sealed class MotorPlayer
             return true;
         }
         long t = s.tick;
-        if (_t0 < 0) _t0 = t;
         notice(sim, t);
         var view = sim;
         if (t < _spikes_hidden_until || _hidden.Count > 0)
@@ -178,45 +158,16 @@ public sealed class MotorPlayer
             masked_ticks++;
         }
         planner.boss_unseen = t < _boss_hidden_until;
-        // Attention: a lapse now and then (no new looks while it lasts).
-        if (_p.lapse_min > 0 && t >= _lapse_until && s.arrival_hold == 0 && _rng.NextDouble() < _p.lapse_min / 3600.0)
-        {
-            _lapse_until = t + 1 + (long)(-_p.lapse_len * Math.Log(1.0 - _rng.NextDouble()));
-            lapses++;
-        }
-        bool lapse = t < _lapse_until;
-        if (lapse) lapse_ticks++;
         // Reacting to a tell: the old plan is played on while it lasts (never an empty thumb).
         bool reacting = t < _tell_until && planner.plan.Count > 0;
         if (reacting) tell_ticks++;
-        planner.frozen = lapse || reacting;
-        // Misjudged own height: the planner sees the bird `_bias` px off (drifts, ~1 s).
-        if (_p.perr > 0)
-        {
-            const double A = 0.9835; // exp(-1/60)
-            _bias = _bias * A + _p.perr * Math.Sqrt(1 - A * A) * gauss();
-            long b = (long)Math.Round(_bias * SimConfig.SUB);
-            if (b != 0)
-            {
-                if (ReferenceEquals(view, sim)) view = sim.clone_deep();
-                view.state.y += b;
-            }
-        }
-        double sg = sigma_now(t);
+        planner.frozen = reacting;
         planner.min_gap = _m.min_gap > 1 ? _m.min_gap : 0;
         planner.last_press = _last_fire;
         bool now = planner.decide(view);
         // Where the planner wants taps from now to `_window` ticks on.
         var want = new List<long>();
         if (now) want.Add(t);
-        // Autopilot in a lapse: the plan ran out, the thumb keeps its usual beat.
-        if (lapse && planner.plan.Count == 0 && t - _last_fire >= _rhythm && _taps.Count == 0) want.Add(t);
-        // Panic: no full line in sight, the thumb mashes now and then.
-        if (_p.panic > 0 && !lapse && planner.last_look >= 2 && _rng.NextDouble() < _p.panic)
-        {
-            want.Add(t);
-            panics++;
-        }
         if (_window > 0 && planner.plan is IReadOnlyCollection<bool> plan)
         {
             long u = t + 1;
@@ -241,7 +192,7 @@ public sealed class MotorPlayer
         foreach (long w in want)
         {
             if (_taps.Any(x => Math.Abs(x.want - w) <= 4) || _done.Any(d => Math.Abs(d - w) <= 4)) continue;
-            double e = gauss() * sg;
+            double e = gauss() * _m.sigma;
             if (_p.hes_p > 0 && _rng.NextDouble() < _p.hes_p)
             {
                 e -= _p.hes_tau * Math.Log(1.0 - _rng.NextDouble());
@@ -261,7 +212,6 @@ public sealed class MotorPlayer
             return false; // the thumb is still on its way back: the press lands a little later
         }
         made.Add(_taps[due]);
-        if (_last_fire > 0 && t - _last_fire < 90) _rhythm = 0.9 * _rhythm + 0.1 * (t - _last_fire);
         _done.Add(_taps[due].want);
         _done.RemoveAll(d => d < t - 16);
         _taps.RemoveAt(due);
@@ -356,19 +306,11 @@ public static class MotorTiers
         ["beginner"] = (1.4, 13, false), ["normal"] = (0.6, 13, false), ["good"] = (0.0, 8, false),
         ["expert"] = (0.2, 2, true), ["beast"] = (0.0, -100, true),
     };
-    /// The tiers with human habits (06-humanlike.md): human tap sd and reaction, plus a Persona.
-    /// Human behaviour, not human timing (the user's ruling): taps may be precise, but a
-    /// tier reacts to new things no faster than a person (good and expert about 11 ticks),
-    /// its thumb gap varies (no 8-tick metronome), it hesitates a little and has its own
-    /// loosely varying preferred height each run. No lapses and no missed taps on purpose
-    /// (the user's ruling); the tiers differ by reaction, tap scatter and search fineness.
-    /// First values; fitted on the KM median later.
-    public static readonly Dictionary<string, Motor> HUMAN = new()
+    /// The tiers on the shared human rules (MotorTiers.shared) at the calibration's start
+    /// points (tools/calibrate_tiers.ps1): `human tells --human 1` plays these. Not fitted.
+    public static Dictionary<string, Motor> HUMAN => new()
     {
-        ["beginner"] = Motor.at(1.4) with { p = new Persona(hes_p: 0.08, hes_tau: 6, pref_sd: 30, gap_sd: 2) },
-        ["normal"] = Motor.at(0.6) with { p = new Persona(hes_p: 0.05, hes_tau: 5, pref_sd: 25, gap_sd: 2) },
-        ["good"] = Motor.at(0.3) with { react_mu = 7, p = new Persona(hes_p: 0.03, hes_tau: 4, pref_sd: 20, gap_sd: 1.5) },
-        ["expert"] = Motor.at(0.1) with { react_mu = 7, fine = true, p = new Persona(hes_p: 0.01, hes_tau: 3, pref_sd: 15, gap_sd: 1.5) },
+        ["beginner"] = shared(24, 1), ["normal"] = shared(20, 2), ["good"] = shared(15, 3), ["expert"] = shared(12, 5),
     };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 

@@ -16,7 +16,7 @@ public static class Tells
         public List<double> offs = new();     // crossing height in the gap: -1 top edge .. +1 bottom edge
         public List<double> errs = new();     // landing - intended, ticks
         public long clean_death;              // 1: the planner had a full line for the last 45 ticks
-        public long lapses, lapse_ticks, panics, hes;
+        public long hes;
         public double h_sum, h_sq;
         public long h_n;
     }
@@ -30,11 +30,9 @@ public static class Tells
             double v = double.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture);
             p = a[0] switch
             {
-                "perr" => p with { perr = v }, "lapse_min" => p with { lapse_min = v }, "lapse_len" => p with { lapse_len = v },
-                "panic" => p with { panic = v }, "fatigue" => p with { fatigue = v }, "pref_sd" => p with { pref_sd = v },
-                "hes_p" => p with { hes_p = v }, "hes_tau" => p with { hes_tau = v }, "margin" => p with { margin = (long)v },
-                "sigma_run" => p with { sigma_run = v }, "mc" => p with { mc = (int)v }, "gap_sd" => p with { gap_sd = v },
-                _ => throw new ArgumentException($"unknown persona field '{a[0]}'"),
+                "pref_sd" => p with { pref_sd = v }, "hes_p" => p with { hes_p = v }, "hes_tau" => p with { hes_tau = v },
+                "gap_sd" => p with { gap_sd = v },
+                _ => throw new ArgumentException($"unknown persona field '{a[0]}' (pref_sd, hes_p, hes_tau, gap_sd)"),
             };
         }
         return p;
@@ -124,9 +122,6 @@ public static class Tells
             r.clean_death = sim.state.tick - last_bad > 45 ? 1 : 0;
         }
         foreach (var (w, f) in mp.made) r.errs.Add(f - w);
-        r.lapses = mp.lapses;
-        r.lapse_ticks = mp.lapse_ticks;
-        r.panics = mp.panics;
         r.hes = mp.hesitations;
         return r;
     }
@@ -231,8 +226,7 @@ public static class Tells
                           $"cause entropy {ent / Math.Log(Math.Max(2, causes.Count)):F2} [{string.Join(", ", causes.Take(5).Select(g => $"{g.Key} {g.Count()}"))}], " +
                           $"ticks after bounce p25/50/75 {pq(sb2, 0.25)}/{pq(sb2, 0.5)}/{pq(sb2, 0.75)}");
         Console.WriteLine($"  rooms: {string.Join(", ", dead.GroupBy(r => r.room).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()}"))}");
-        Console.WriteLine($"  persona: lapses {runs.Sum(r => r.lapses) / Math.Max(0.01, mins):F2}/min ({runs.Sum(r => r.lapse_ticks) / (double)Math.Max(1, minutes_ticks):P1} of time), " +
-                          $"panic presses {runs.Sum(r => r.panics) / Math.Max(0.01, mins):F2}/min, hesitations {runs.Sum(r => r.hes) / Math.Max(0.01, mins):F2}/min");
+        Console.WriteLine($"  persona: hesitations {runs.Sum(r => r.hes) / Math.Max(0.01, mins):F2}/min");
         return 0;
     }
 
