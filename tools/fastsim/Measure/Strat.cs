@@ -312,7 +312,10 @@ public static class Strat
             den += c.pi * l;
         }
         double qpt = num / Math.Max(1e-12, den);
-        double p0 = (D + 0.5) / (N + 1.0);
+        // The rate a stratum shrinks toward: its own bank rate when there is one, else the
+        // visit-weighted rate (never the trials' pooled rate: allocation makes that the deadly rooms').
+        double p_visit = qpt * pi.Sum(kv => kv.Value * (by.TryGetValue(kv.Key, out var lv) && lv.Count > 0 ? lv.Average(t => (double)t.points) : pooled_l));
+        double target(string key) => prior != null && prior.TryGetValue(key, out var pr0) ? pr0.p : p_visit;
         // Delta method: Q - q ~ sum_s pi_s (p_s - q l_s) / den, plus the error in pi itself.
         double var = 0, var_pi = 0;
         foreach (var c in e.cells)
@@ -322,13 +325,13 @@ public static class Strat
                 // Imputed from the bank (another bot's visits, about pi * visits of them): its error counts too.
                 var (pp, _) = prior != null && prior.TryGetValue(c.key, out var pr2) ? pr2 : (pooled_p, pooled_l);
                 double nb = Math.Max(1, c.pi * visits);
-                double pb = (pp * nb + SHRINK * p0) / (nb + SHRINK);
+                double pb = (pp * nb + SHRINK * p_visit) / (nb + SHRINK);
                 var += c.pi * c.pi * pb * (1 - pb) / nb;
                 continue;
             }
             // Shrunk toward the pooled rate (2 pseudo-visits): a stratum with no deaths yet is
             // not certain, but 118 strata must not add 59 phantom deaths either.
-            double pt = (c.d + SHRINK * p0) / (c.n + SHRINK);
+            double pt = (c.d + SHRINK * target(c.key)) / (c.n + SHRINK);
             double mean_pts = c.l;
             double var_pts = c.n > 1 ? Math.Max(0, (c.pts2 - c.n * mean_pts * mean_pts) / (c.n - 1)) : 0;
             // died and points are tied (a death ends the visit early): cov from the data.

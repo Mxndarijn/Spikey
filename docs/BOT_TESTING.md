@@ -72,10 +72,49 @@ gives.
   snapshot, same spine seed, same bot seed). The covariance between the arms
   is used in the ratio's CI; `rho` is printed.
 - **CI**: delta method on the ratio estimator, including the error in `pi`.
-  Strata with no deaths yet count as (d + 0.5) / (n + 1) so they are not
-  certain.
+  A stratum's p for its variance is shrunk toward its own bank rate by 2
+  pseudo-visits, so a stratum with no deaths yet is not certain (shrinking toward the
+  trials' pooled rate instead was wrong: Neyman makes that the deadly rooms' rate).
 
-Measured on BlindPlanner (gameplay 21, see "Validation" below): RESULTS
+### What it saves (measured 2026-11-12, gameplay 21, BlindPlanner `blind`)
+
+Information = 1 / se² of the log rate (or log ratio); a plain death count gives one
+unit per death, so full runs cost **216 CPU s per unit** here (the bank: 160 dev runs
+to 400 points, 12 772 CPU s, 59 plateau deaths, ramp included).
+
+| what | CPU s per unit of information | vs full runs |
+|---|---|---|
+| one bot, bank + Neyman trials (0.108 [0.089, 0.132]) | 142–169 | 1.3–1.5x |
+| a second bot on the shared bank (trials only, `margin=10`) | 120 | 1.8x |
+| a comparison, paired trials (`bpx=6` vs base, stopped at look 2) | see below | **3.1x** (2.3x with the bank) |
+| a comparison, paired trials (`margin=10` vs base) | see below | RESULT_C2 |
+
+- The Neyman gain alone is small, about 1.25x: BlindPlanner's 59 plateau deaths are
+  spread over 118 strata, and no room dominates once each is weighed by how often it
+  comes up (crates/wide has the highest p, 0.2 per visit, but is 0.7% of visits).
+- The big gain is **pairing**: both bots play the same room trials (same snapshot,
+  same spine, same bot seed), and their deaths correlate, rho 0.52 to 0.56. Whole runs
+  are uncorrelated (rho 0, the measurement review) because paths diverge over many rooms;
+  one room is short enough that the same draw is deadly for both. That about halves the
+  variance of the ratio.
+- Then **sequential stopping**: `bpx=6` stopped at look 2 of 5 (0.75 [0.61, 0.91],
+  z -2.85), at half the planned information.
+- `bpx=6` vs base, all costs: 34 294 CPU s of trials for information 95 on the log
+  ratio. Full runs need 2 x 95 = 189 plateau deaths per arm at 216 s (base) and 350 s
+  (`bpx=6`, 1.6x slower per tick): 107 000 CPU s.
+
+### Validation against full runs
+
+- Same bot, same gameplay: stratified 0.108 [0.089, 0.132] and 0.110 [0.096, 0.127]
+  (two trial sets) against full runs 0.125 [0.095, 0.162] (the bank, dev seeds) and
+  0.112 [0.100, 0.126] (the 400-seed atlas of the measurement review, an older build of
+  gameplay 21). The intervals overlap; the stratified number is 10–14% lower, inside
+  the noise of the full runs (+-27%).
+- Late starts from 100 points (96 runs, `measure runs`): 0.161 [0.122, 0.209] over
+  about 100..470 points, against the bank's 0.131 (160..320) and 0.154 (320+).
+- The death rate is not flat on the "plateau": 0.11 per 100 at 40..80, 0.13 at
+  160..320, 0.15–0.20 past 320 (boss tier 3, rooms unlocked up to 120). Compare bots
+  on the same score range.
 
 Caveats: a trial starts the bot fresh at the room entry (no memory of earlier
 rooms), and the entry states come from the bank bot's runs, so another bot's
@@ -132,6 +171,11 @@ The output gives the forks tested per room and per reason, the detection power
 (a leak that changes 1 flight in 100, 200, 1 000) and
 `hidden_but_kept_by_blind_copy`: hidden fields the bot's own blind copy keeps,
 which the old check (it scrambled only blind_copy's list) could never test.
+First run (BlindPlanner `blind`, 12 seeds, 775 forks, up to 390 points, 29 in boss
+rooms): **5 leaks**, 3 of them from `SimState.anchor_y` (the room's anchor, ruled hidden:
+track it from walls seen instead). The old check could not see it: blind_copy keeps
+anchor_y, and the old check scrambled only blind_copy's list.
+
 `fastsim check yardstick` calibrates it: the gap seeker must pass and
 PlannerBot (it steps copies of the real sim) must leak, and visible.tsv must
 match the drawing code.

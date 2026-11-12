@@ -282,6 +282,23 @@ public static class MeasureMain
         }
         Console.WriteLine("decision: " + decision);
         foreach (var a in arms) print_est(bank, a, range);
+        {
+            // What full runs would have cost for the same certainty: two independent arms of D
+            // plateau deaths each give a log-ratio information of D / 2, at the bank's CPU per death.
+            var ea = Strat.estimate(bank, arms[0], range, prior);
+            var eb = Strat.estimate(bank, arms[1], range, prior);
+            var r = Strat.ratio(ea, eb, bank);
+            double info = 1 / (r.se_log * r.se_log);
+            double trial_cpu = arms.Sum(a => a.Where(t => t.k >= 0).Sum(t => t.ms)) / 1000;
+            var full = full_plateau(bank);
+            // Each arm at its own speed: the bank's CPU per death times the arm's CPU on the
+            // paired trials relative to the bank bot's (the same jobs for both).
+            double ms_a = arms[0].Where(t => t.k >= 0).Sum(t => t.ms), ms_b = arms[1].Where(t => t.k >= 0).Sum(t => t.ms);
+            double speed_b = ms_a > 0 ? ms_b / ms_a : 1;
+            double full_cpu = (2 * info) * full.cpu_per_death * (1 + speed_b);
+            Console.WriteLine($"cost: information {info:F0} on the log ratio for {trial_cpu:F0} CPU s of trials (+{full.cpu_s:F0} s for the shared bank); " +
+                $"full runs for the same: {2 * info:F0} plateau deaths per arm, {full_cpu:F0} CPU s: {full_cpu / trial_cpu:F2}x, {full_cpu / (trial_cpu + full.cpu_s):F2}x with the bank");
+        }
         return 0;
     }
 

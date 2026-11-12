@@ -1,5 +1,9 @@
 # Bot yardstick
 
+For screening and confirming bot changes and for reporting tiers, follow the test
+protocol in `docs/BOT_TESTING.md` (`-Mode quick|confirm|report`): it needs a few times
+less CPU than full runs for the same certainty.
+
 One measure for every playtest bot, so the RL tiers, the world-model planner, the
 human-like planner, the MPC planner and any later bot can be compared on the same
 numbers. FastSim only (`tools/fastsim/Yardstick/`): no Godot, no window.
