@@ -211,6 +211,15 @@ public sealed class BlindPlanner
 
     public BlindPlanner(long seed) => _own = new SimRng(977 * seed + 5);
 
+    /// Whether the rest of the plan in hand lives in a fresh copy of what is on
+    /// screen now (false with no plan). The human layer asks when a new warning shows.
+    public bool plan_lives(GameSim sim)
+    {
+        if (_plan.Count == 0) return false;
+        var rest = _plan.Select(b => (byte)(b ? 1 : 0)).ToArray();
+        return lives(blind_copy(sim, new SimRng(_own.next_u32()), _bounce_y, reveal, own_anchor ? anchor : -1), rest, 0);
+    }
+
     public bool decide(GameSim sim)
     {
         if (!skip_observe) observe(sim);

@@ -30,6 +30,8 @@ public static class HumanMain
         BlindPlanner.know_exits = opt("knowexits", "0") == "1";
         MotorPlayer.MASK_SPIKES = opt("mask", "both") is "both" or "spikes";
         MotorPlayer.MASK_HAZARDS = opt("mask", "both") is "both" or "hazards";
+        MotorPlayer.MASK_TELLS = opt("masktells", "1") == "1";
+        MotorPlayer.attempt = long.Parse(opt("attempt", "0"));
         HumanBot.BMARGIN = double.Parse(opt("bmargin", "-1"));
         string mode = pos.Count > 1 ? pos[1] : "measure";
         int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 16);

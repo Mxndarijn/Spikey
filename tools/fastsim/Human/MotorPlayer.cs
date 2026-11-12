@@ -44,7 +44,10 @@ public sealed record Persona(
 /// lands each one N(0, sigma) ticks off (committed a little ahead, so early
 /// taps happen too), never two presses closer than `min_gap`, and anything
 /// that newly appears (the spikes put up at a bounce, a new hazard) is hidden
-/// from the planner until a reaction time has passed.
+/// from the planner until a reaction time has passed. A new warning on screen
+/// (Hazard.warnings: a glow, a marked column, a dashed line) that the plan in
+/// hand does not survive also takes a reaction time: until then the old plan
+/// is played on, with no new look.
 public sealed class MotorPlayer
 {
     public readonly BlindPlanner planner;
@@ -68,12 +71,26 @@ public sealed class MotorPlayer
     public long lapses, lapse_ticks, panics, hesitations;
     /// Every press made: (intended tick, landing tick) - the realised motor error.
     public readonly List<(long want, long fire)> made = new();
-    /// Experiments: which new things get a reaction time (spikes, hazards).
-    public static bool MASK_SPIKES = true, MASK_HAZARDS = true;
+    /// Experiments: which new things get a reaction time (spikes, hazards, warnings).
+    public static bool MASK_SPIKES = true, MASK_HAZARDS = true, MASK_TELLS = true;
+    /// The warnings on screen last tick (hazard index, box) and the tick a new one has been taken in.
+    HashSet<(int, long, long, long, long)> _warned = new(), _warned_now = new();
+    readonly List<long> _warn_buf = new();
+    long _tell_until = -1;
+    public long tell_reactions, tell_ticks;
+    /// Which attempt at a seed this is: the player's own randomness (thumb, reaction,
+    /// lapses, the planner's guesses) comes from the game seed and this number, so two
+    /// attempts at one seed differ like a person's do. `fastsim ... --attempt n`.
+    public static long attempt = 0;
+
+    /// The bot's own seed for a game seed (never the game seed itself).
+    public static long bot_seed(long seed) => SimHash.mix(SimHash.mix(SimHash.SEED, seed), 7919 + attempt);
 
     public MotorPlayer(Motor m, long seed, BlindPlanner planner = null)
     {
         _m = m;
+        // The player's own randomness: never the game's seed (bot_seed).
+        seed = bot_seed(seed);
         _rng = new Random(unchecked((int)(seed * 2246822519L) ^ 0x3c6ef372));
         this.planner = planner ?? make_planner(seed, m);
         _p = m.p ?? Persona.NONE;
@@ -165,7 +182,9 @@ public sealed class MotorPlayer
         }
         bool lapse = t < _lapse_until;
         if (lapse) lapse_ticks++;
-        planner.frozen = lapse;
+        bool reacting = t < _tell_until;
+        if (reacting) tell_ticks++;
+        planner.frozen = lapse || reacting;
         // Misjudged own height: the planner sees the bird `_bias` px off (drifts, ~1 s).
         if (_p.perr > 0)
         {
@@ -251,10 +270,12 @@ public sealed class MotorPlayer
     void notice(GameSim sim, long t)
     {
         var s = sim.state;
-        if (s.room_index != _room)
+        bool new_room = s.room_index != _room;
+        if (new_room)
         {
             // A new room: it shows during the arrival hold, so it is seen by the time the bird moves.
             _room = s.room_index;
+            _tell_until = -1;
             _known.Clear();
             _hidden.Clear();
             foreach (var h in sim.room.hazards) _known.Add(h);
@@ -273,6 +294,29 @@ public sealed class MotorPlayer
         foreach (var h in sim.room.hazards)
             if (h.alive && _known.Add(h) && MASK_HAZARDS && _m.react_mu >= 0) _hidden[h] = t + reaction();
         foreach (var h in _hidden.Where(kv => kv.Value <= t).Select(kv => kv.Key).ToList()) _hidden.Remove(h);
+        // New warnings (tells). One that the plan in hand lives through needs no
+        // change of plan; one that kills it is acted on a reaction time later.
+        _warned_now.Clear();
+        bool fresh = false;
+        for (int i = 0; i < sim.room.hazards.Count; i++)
+        {
+            var h = sim.room.hazards[i];
+            if (!h.alive) continue;
+            _warn_buf.Clear();
+            h.warnings(sim, _warn_buf);
+            for (int k = 0; k + Hazard.WARN_SIZE <= _warn_buf.Count; k += Hazard.WARN_SIZE)
+            {
+                var key = (i, _warn_buf[k], _warn_buf[k + 1], _warn_buf[k + 2], _warn_buf[k + 3]);
+                _warned_now.Add(key);
+                if (!_warned.Contains(key)) fresh = true;
+            }
+        }
+        (_warned, _warned_now) = (_warned_now, _warned);
+        if (fresh && !new_room && MASK_TELLS && _m.react_mu >= 0 && t >= _tell_until && !planner.plan_lives(sim))
+        {
+            _tell_until = t + reaction();
+            tell_reactions++;
+        }
     }
 
     /// The sim as the player has taken it in: new spikes not yet seen are not
