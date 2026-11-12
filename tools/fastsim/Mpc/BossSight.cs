@@ -84,12 +84,12 @@ public sealed partial class Sight
     void watcher(GameSim sim, BossWatcher w, int key, long t)
     {
         float x0 = sim.room.wall_left() / S - RP, x1 = sim.room.wall_right() / S + RP;
-        // The beams: lit rows flicker for TELL steps, then burn for BEAM_ON.
+        // The beams: lit rows flicker for BEAM_TELL steps, then burn for BEAM_ON.
         tell(key, w.beam == BossWatcher.Beam.WARN, t);
         var k = recall(key);
-        if (w.beam != BossWatcher.Beam.OFF && k != null && t - k.last <= BossWatcher.TELL + BossWatcher.BEAM_ON)
+        if (w.beam != BossWatcher.Beam.OFF && k != null && t - k.last <= BossWatcher.BEAM_TELL + BossWatcher.BEAM_ON)
         {
-            var (lo, hi) = due(k, t, BossWatcher.TELL);
+            var (lo, hi) = due(k, t, BossWatcher.BEAM_TELL);
             int eta = w.beam == BossWatcher.Beam.ON ? Math.Min(lo, 0) : lo;
             int dur = hi - eta + (int)BossWatcher.BEAM_ON;
             float half = BossWatcher.HALF_H / S + RP;
@@ -100,11 +100,11 @@ public sealed partial class Sight
                 warns.Add(new Warn(x0, y - half, x1, y + half, eta, dur));
             }
         }
-        // The dart: its lane is marked and its wall glows for TELL steps, then it flies across.
+        // The dart: its lane is marked and its wall glows for GAZE_TELL steps, then it flies across.
         var d = tell(key + 1, w.dart == BossWatcher.Dart.MARK, t);
         if (w.dart == BossWatcher.Dart.MARK && d != null)
         {
-            var (lo, hi) = due(d, t, BossWatcher.TELL);
+            var (lo, hi) = due(d, t, BossWatcher.GAZE_TELL);
             long wall = w.dart_side == 1 ? sim.room.wall_right() : sim.room.wall_left();
             dart(w, wall / S, lo, hi);
         }
