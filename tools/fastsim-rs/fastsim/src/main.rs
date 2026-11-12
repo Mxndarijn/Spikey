@@ -5,6 +5,7 @@
 //!                                                      fingerprint of C# `rl review speed`
 //!   fastsim-rs bench                                   sim copy / step time (Program.cs Bench)
 mod bots;
+mod checks;
 mod human;
 mod yardstick;
 mod dotnet_random;
@@ -41,6 +42,7 @@ fn main() {
         "parity" => parity::run(rest.get(1).map(|s| s.as_str()).unwrap_or("parity.txt")),
         "speed" => speed::speed(&opts),
         "bench" => speed::bench(),
+        "check" => checks::run(&rest[1..], &opts),
         "human" => human::run(&rest[1..], &opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),
         _ => {
