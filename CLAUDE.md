@@ -41,7 +41,9 @@ wall, avoid spikes). Read `docs/ARCHITECTURE.md` before structural changes.
 - `tools/fastsim` is a C# copy of `sim/` for fast playtest bots
   (`tools/fastsim.ps1`). Any change in `sim/` must be ported there line by
   line (`tools/fastsim/PORTING.md`); the check's FastSim parity step fails
-  until it matches. Big bot sweeps use FastSim, not Godot.
+  until it matches. Big bot sweeps use FastSim, not Godot. `tools/fastsim-rs` is
+  the Rust copy (docs/FASTSIM_RS.md): port `sim/` changes there too; its parity
+  step skips when cargo is not installed.
 - Every character shares one hitbox. Characters, hats, themes and spike skins
   are cosmetic only.
 - Monetization is cosmetic only plus an optional rewarded-ad revive. Nothing

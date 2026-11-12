@@ -12,6 +12,11 @@ change:
 
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 parity
 
+There is a second copy in Rust, `tools/fastsim-rs` (docs/FASTSIM_RS.md), with
+its own parity step in `tools/check.ps1`: port every `sim/` change there too
+(same rules, line by line), checked with
+`powershell -ExecutionPolicy Bypass -File tools/fastsim-rs/parity.ps1 -Quick`.
+
 Parity covers every room in practice and full runs in every season, every
 room variant forced (`GameSim.forced_variant`), a portal arrival into every
 room variant (`ArrivalBench.arrival` = `Reaction.arrival`), a revive in every
