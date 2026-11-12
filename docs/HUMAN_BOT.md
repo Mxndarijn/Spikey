@@ -24,13 +24,39 @@ but not random outcomes (not allowed). On top of it, a measured human motor mode
 
 Tiers (`MotorTiers.TIER`), yardstick `human:<tier>`:
 
-| tier | tap sd (ticks) | reaction to new things |
-|---|---|---|
-| beginner | 1.4 | ~17 ticks |
-| normal | 0.6 | ~17 ticks |
-| good | 0 | ~12 ticks |
-| expert | 0 | none |
-| beast | 0 | none (same as expert until the planner core gets stronger) |
+| tier | tap sd (ticks) | reaction to new things | search |
+|---|---|---|---|
+| beginner | 1.4 | ~17 ticks | default |
+| normal | 0.6 | ~17 ticks | default |
+| good | 0 | ~12 ticks | default |
+| expert | 0.2 | ~6 ticks | fine (4 px x 12 speed buckets) |
+| beast | 0 | none | fine |
+
+With the planned exit mouths known (`TIER_KNOWN_EXITS`, `BlindPlanner.know_exits`; only honest if the
+game shows them from room start): good 0.3 / ~17, expert 0 / ~12 / default, beast as above.
+
+Beast has no human limit except the 8-tick thumb gap (free once the planner plans with it). It models
+everything visible exactly: the planner steps a copy of the sim, so swings, orbits, pistons, crates
+already warned, bramble paths, lava, bubbles, updrafts and visible stalactites move as in the game;
+only values not yet on screen are replaced (`blind_copy`).
+
+### What beast lacks (death atlas, `fastsim human atlas`)
+
+Each death is replayed to 240 ticks before it; a fresh beast plays on with one kind of hidden value
+left true in its copies at a time (`BlindPlanner.reveal`). Seeds 1..64, cap 30k:
+
+- Hidden exits: 38 deaths. 17 "luck" (another guess of the hidden values lives), 14 saved by the
+  exits alone or by the wall seed (which also plans the exits), 2 by the wall seed alone, 5 doomed even
+  with the true future. Mostly bramble and stalker rooms: those hazards bounce off the reserved exit
+  mouths from room start, before the mouths are drawn.
+- Known exits: 16 deaths. 10 saved only by the wall seed (the next wall's spikes and spawns), 3 luck,
+  2 doomed, 1 combination.
+
+No death was saved by revealing something that is on screen, so there is no "visible but not
+modelled" gap left among the scrambles. The gaps are truly hidden: the next wall (spikes, spawns), and
+the exit mouths that hazards react to before they are drawn (a game rule question). Planning over
+several guessed futures (copies 3-5) did not help; a finer search did (0.258 -> 0.213 deaths per 100
+points on 200 seeds), at 3.6x the cost.
 
 The planner plans with the thumb's limit too: `BlindPlanner.min_gap` (8) and `last_press` (the real
 last press), so no line needs two taps closer than the thumb can do. Without that, the 8-tick cap took
