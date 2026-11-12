@@ -47,11 +47,13 @@ static func defs() -> Array[RoomDef]:
 	]
 	out.append(lock)
 
-	# Lava Rise: lava climbs a step for every point; a cool stone sinks it.
+	# Lava Rise: lava climbs a step for every point; something sinks it again.
+	# Variants: a cool stone (lava); an ice block in a wall slot to bounce on
+	# (cold); rafts of cooled rock to bump off (rafts).
 	var lava := RoomDef.new("lava", "mid", 50)
 	lava.max_spikes = 6
 	lava.hazards.append(func() -> Hazard: return Lava.new())
-	lava.variants = [RoomVariant.new("lava")]
+	lava.variants = [RoomVariant.new("lava"), RoomVariant.new("cold"), RoomVariant.new("rafts")]
 	out.append(lava)
 
 	# Echo: a shadow bird flies the bird's path a second late, or mirrors it
