@@ -80,21 +80,61 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 			drawn.append(i)
 	if drawn.size() > 1:
 		variant = drawn[rng.next_below(drawn.size())]
+		# A GENERATED variant drawn by the room seed's first draw stays: the
+		# arrival retries (GameSim._arrival_retries, which skip draws before
+		# the room starts) lay it out again rather than draw another variant.
+		# The first try is the same draw, so nothing changes there, nor in a
+		# room whose first draw is a static variant.
+		if sim.state.started:
+			var first: int = drawn[SimRng.new(rng_seed).next_below(drawn.size())]
+			if def.variants[first].kind == RoomVariant.Kind.GENERATED:
+				variant = first
 	elif drawn.size() == 1:
 		variant = drawn[0]
 	if sim.forced_variant != "":
 		variant = _variant_index(sim.forced_variant, variant)
+	var gen := (
+		not def.variants.is_empty() and def.variants[variant].kind == RoomVariant.Kind.GENERATED
+	)
 	if not def.variants.is_empty():
 		for f: Callable in def.variants[variant].hazards:
 			list.append(f)
+	# A generated variant is built after the room's own hazards and before the
+	# combo's (the same order a static one is set up in).
+	var after: Array[Callable] = []
 	if not def.combos.is_empty():
 		var combo: Array = def.combos[rng.next_below(def.combos.size())]
 		for f: Callable in combo:
-			list.append(f)
+			if gen:
+				after.append(f)
+			else:
+				list.append(f)
 	for f in list:
 		var h: Hazard = f.call()
 		hazards.append(h)
 		h.setup(sim, rng)
+	if gen:
+		_generate(sim, rng, def.variants[variant])
+	for f in after:
+		var h: Hazard = f.call()
+		hazards.append(h)
+		h.setup(sim, rng)
+
+
+## Builds a GENERATED variant (RoomVariant.recipe): generate, check
+## (VariantCheck), and on a fail throw that layout away and build again from
+## the next draws, up to GENERATE_TRIES times; the last try is the recipe's
+## safe fallback, kept unchecked.
+func _generate(sim: GameSim, rng: SimRng, v: RoomVariant) -> void:
+	var base := hazards.size()
+	var p := VariantParams.make(sim, rng)
+	for k in RoomVariant.GENERATE_TRIES:
+		p.attempt = k
+		p.fallback = k == RoomVariant.GENERATE_TRIES - 1
+		v.recipe.call(p)
+		if p.fallback or VariantCheck.holds(sim, v.avoid_touch, v.hold_steps):
+			return
+		hazards.resize(base)
 
 
 ## How many sim steps this tick runs: Midnight Cage runs 5 per 4 ticks,

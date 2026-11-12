@@ -12,6 +12,7 @@ impl FairLanes {
     pub const START_PATH: i64 = 32;
     pub const FIRST_HOP: i64 = SimConfig::FLAP_VY * SimConfig::FLAP_VY / (2 * SimConfig::GRAVITY);
     pub const ARRIVAL_PATH_TICKS: i64 = SimConfig::ARRIVAL_BLIND + 60;
+    pub const OPEN_PATH_TICKS: i64 = SimConfig::ARRIVAL_BLIND + SimConfig::ARRIVAL_FOLLOW;
     pub const ARRIVAL_PATH_MARGIN: i64 = 10 * SimConfig::SUB;
     pub const ARRIVAL_PATH_MIN: i64 = SimConfig::ARRIVAL_BLIND + 15;
 

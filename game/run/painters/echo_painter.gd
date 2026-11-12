@@ -2,7 +2,8 @@ extends HazardPainter
 ## Echo: the shadow bird in the spike colour (it kills), with a light eye. The
 ## echo also shows the path it will fly next (the bird's last second) as faint
 ## dots, so the danger is visible a second ahead. The mirror shows the room's
-## centre it turns round.
+## point it turns round
+## (the room's middle side to side, at the height drawn for it).
 
 const EchoHazard := preload("res://sim/hazards/echo.gd")
 
@@ -19,7 +20,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			var i := (h.head + k) % n
 			c.draw_circle(HazardLayer.at(h.xs[i], h.ys[i]), 2.5, Color(theme.spike, 0.3))
 	else:
-		var mid := Vector2(RoomView.W / 2.0, RoomView.H / 2.0)
+		var mid := Vector2(RoomView.W / 2.0, HazardLayer.px(h.pivot_y))
 		c.draw_rect(Rect2(mid - Vector2(4, 4), Vector2(8, 8)), Color(theme.spike, 0.4))
 	if not h.shown:
 		return

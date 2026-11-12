@@ -26,9 +26,10 @@ static func gap_reach(def: RoomDef) -> int:
 	# a free run anywhere on the wall.
 	if not def.hazards.is_empty() or not def.combos.is_empty() or def.squeeze:
 		return GAP_REACH
-	# Rooms that keep their hazards only in variants count too.
+	# Rooms that keep their hazards only in variants count too (a generated
+	# variant builds its hazards from its recipe).
 	for variant: RoomVariant in def.variants:
-		if not variant.hazards.is_empty():
+		if not variant.hazards.is_empty() or variant.kind == RoomVariant.Kind.GENERATED:
 			return GAP_REACH
 	return 0
 

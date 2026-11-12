@@ -91,9 +91,9 @@ static func defs() -> Array[RoomDef]:
 	icicles.hazards.append(func() -> Hazard: return Drop.new(70, 10 * SUB, 25))
 	out.append(icicles)
 
+	# Gifts drop from the ceiling: every variant is GENERATED round the
+	# arrival (Machines.crate_variants).
 	var gifts := _room("gifts", Seasons.WINTER, 60)
-	# Gifts drop from the ceiling.
-	gifts.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	gifts.variants = Machines.crate_variants(true)
 	out.append(gifts)
 
@@ -137,10 +137,12 @@ static func defs() -> Array[RoomDef]:
 	]
 	out.append(eggs)
 
+	# Bee Line: one GENERATED variant. Out of a portal the height the bees'
+	# wave runs round is drawn (Mover.WAVE_GEN_LO..WAVE_GEN_HI) until no bee
+	# meets a bird holding its height (held at the wave's middle, the bird
+	# crossed it whatever the timing); at the start of a run it is the middle.
 	var bees := _room("bees", Seasons.SPRING, 30)
-	bees.hazards.append(func() -> Hazard: return Mover.new("wave", 4))
-	# Held there, the bird crosses the middle of the bee wave.
-	bees.arrival_skip = PackedInt32Array([295 * SUB, 405 * SUB])
+	bees.variants = [RoomVariant.new("line").generated(_gen_bees)]
 	out.append(bees)
 
 	# Summer
@@ -162,9 +164,8 @@ static func defs() -> Array[RoomDef]:
 	out.append(beach)
 
 	# Caterpillar Crawl with crabs, and the same variants.
+	# A crab walks the ceiling: the variants are generated round the arrival.
 	var crabs := _room("crabs", Seasons.SUMMER, 30)
-	# A crab walks the ceiling.
-	crabs.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	crabs.variants = CatalogMotion.crawl_variants()
 	out.append(crabs)
 
@@ -315,3 +316,18 @@ static func _cupid(shape: String, slot: int) -> Hazard:
 			d.lanes_speed = 3 * SUB
 			d.lanes_flash = 84
 	return d
+
+
+## Generated Bee Line: four bees on the wave round a drawn height out of a
+## portal (the bees then time themselves to the arrival path, Mover.setup).
+## The fallback runs the wave round the end of the range away from the bird.
+static func _gen_bees(p: VariantParams) -> void:
+	var m := Mover.new("wave", 4)
+	if p.arriving:
+		var lo := Mover.WAVE_GEN_LO
+		var hi := Mover.WAVE_GEN_HI
+		if p.fallback:
+			m.center_y = lo if absi(lo - p.entry_y) > absi(hi - p.entry_y) else hi
+		else:
+			m.center_y = lo + p.rng.next_below((hi - lo) / SUB + 1) * SUB
+	p.add(m)

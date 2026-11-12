@@ -58,12 +58,21 @@ static func defs() -> Array[RoomDef]:
 
 	# Echo: a shadow bird flies the bird's path a second late, or mirrors it
 	# through the middle of the room.
+	# The mirror is GENERATED: out of a portal the height it turns round is
+	# drawn away from the band a bird holding its height sweeps (held level
+	# with that height, the bird meets its mirror in the middle).
 	var echo := RoomDef.new("echo", "late", 80)
 	echo.weight = 8
-	# Mirror: held at mid height, the bird meets its mirror in the middle.
-	echo.arrival_skip = PackedInt32Array([280 * SUB, 360 * SUB])
-	echo.hazards.append(func() -> Hazard: return Echo.new())
-	echo.variants = [RoomVariant.new("echo"), RoomVariant.new("mirror")]
+	echo.variants = [
+		RoomVariant.new("echo").with([func() -> Hazard: return Echo.new(Echo.Mode.ECHO)]),
+		RoomVariant.new("mirror").generated(_gen_mirror),
+	]
 	out.append(echo)
 
 	return out
+
+
+## Generated Echo, mirror: the shadow turns the bird round a drawn height.
+static func _gen_mirror(p: VariantParams) -> void:
+	var e: Hazard = p.add(Echo.new(Echo.Mode.MIRROR))
+	e.place_pivot(p)

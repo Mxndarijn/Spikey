@@ -10,7 +10,9 @@ use crate::fair_lanes::FairLanes;
 use crate::g::G;
 use crate::hazards::Hz;
 use crate::rooms::room_catalog::RoomCatalog;
-use crate::rooms::room_def::RoomDef;
+use crate::rooms::room_def::{Kind, RoomDef, RoomVariant};
+use crate::rooms::variant_check::VariantCheck;
+use crate::rooms::variant_params::VariantParams;
 use crate::rooms::room_rules::RoomRules;
 use crate::rooms::room_runtime::RoomRuntime;
 use crate::rooms::seasons::Seasons;
@@ -237,7 +239,7 @@ impl GameSim {
     /// `hazard.on_bounce(sim, sim._rng)` and the like: the hazard and the sim's
     /// RNG both taken out while it runs (no hazard touches `sim._rng` itself).
     #[inline]
-    fn with_hazard_rng(&mut self, i: usize, f: impl FnOnce(&mut Hz, &mut GameSim, &mut SimRng)) {
+    pub fn with_hazard_rng(&mut self, i: usize, f: impl FnOnce(&mut Hz, &mut GameSim, &mut SimRng)) {
         let mut rng = self._rng;
         self.with_hazard(i, |h, sim| f(h, sim, &mut rng));
         self._rng = rng;
@@ -422,21 +424,33 @@ impl GameSim {
         }
         if drawn.len() > 1 {
             self.room.variant = drawn[self._rng.next_below(drawn.len() as i64) as usize];
+            if self.state.started {
+                let first = drawn[SimRng::new(self.room.rng_seed).next_below(drawn.len() as i64) as usize];
+                if def.variants[first as usize].kind == Kind::GENERATED {
+                    self.room.variant = first;
+                }
+            }
         } else if drawn.len() == 1 {
             self.room.variant = drawn[0];
         }
         if !self.forced_variant.is_empty() {
             self.room.variant = self.room._variant_index(self.forced_variant, self.room.variant);
         }
+        let gen = !def.variants.is_empty() && def.variants[self.room.variant as usize].kind == Kind::GENERATED;
         if !def.variants.is_empty() {
             for f in &def.variants[self.room.variant as usize].hazards {
                 list.push(f);
             }
         }
+        let mut after: Vec<&'static crate::rooms::room_def::Factory> = Vec::new();
         if !def.combos.is_empty() {
             let combo = &def.combos[self._rng.next_below(def.combos.len() as i64) as usize];
             for f in combo {
-                list.push(f);
+                if gen {
+                    after.push(f);
+                } else {
+                    list.push(f);
+                }
             }
         }
         for f in list {
@@ -446,10 +460,36 @@ impl GameSim {
             self.room.hazards.push(h);
             self.with_hazard_rng(i, |h, sim, rng| h.setup(sim, rng));
         }
+        if gen {
+            self._generate(&def.variants[self.room.variant as usize]);
+        }
+        for f in after {
+            let mut h = f();
+            let i = self.room.hazards.len();
+            h.base_mut().idx = i;
+            self.room.hazards.push(h);
+            self.with_hazard_rng(i, |h, sim, rng| h.setup(sim, rng));
+        }
+    }
+
+    /// RoomRuntime._generate(sim, rng, v).
+    fn _generate(&mut self, v: &'static RoomVariant) {
+        let base_ = self.room.hazards.len();
+        let mut p = VariantParams::make(self);
+        let recipe = v.recipe.as_ref().expect("a GENERATED variant has a recipe");
+        for k in 0..RoomVariant::GENERATE_TRIES {
+            p.attempt = k;
+            p.fallback = k == RoomVariant::GENERATE_TRIES - 1;
+            recipe(self, &p);
+            if p.fallback || VariantCheck::holds(self, v.avoid_touch, v.hold_steps) {
+                return;
+            }
+            self.room.hazards.truncate(base_);
+        }
     }
 
     /// RoomRuntime.step(sim).
-    fn room_step(&mut self) {
+    pub fn room_step(&mut self) {
         self.room.t += 1;
         // Index loop: a hazard may add hazards (none do in step today).
         let mut i = 0;

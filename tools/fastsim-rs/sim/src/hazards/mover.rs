@@ -10,6 +10,7 @@ pub struct Mover {
     pub loop_h: i64,
     pub loop_period: i64,
     pub chase: bool,
+    pub center_y: i64,
     pub phase: i64,
     pub xs: Vec<i64>,
     pub ys: Vec<i64>,
@@ -35,6 +36,8 @@ impl Mover {
     pub const WAVE_AMP: i64 = 70 * Self::SUB;
     pub const WAVE_TURNS: i64 = 3;
     pub const WAVE_SPACING: i64 = 22;
+    pub const WAVE_GEN_LO: i64 = 150 * Self::SUB;
+    pub const WAVE_GEN_HI: i64 = 490 * Self::SUB;
     pub const CHASE_DEN: i64 = 10;
     pub const CHASE_STEP: i64 = 1;
     pub const CHASE_LAPS: i64 = 3;
@@ -49,6 +52,7 @@ impl Mover {
             loop_h: Self::LOOP_H,
             loop_period: Self::LOOP_PERIOD,
             chase: false,
+            center_y: Self::CENTER_Y,
             phase: 0,
             xs: Vec::new(),
             ys: Vec::new(),
@@ -144,7 +148,7 @@ impl Mover {
                 let k = t + self.phase - i * Self::WAVE_SPACING;
                 nx = Self::WAVE_MIN_X + SimTrig::ping_pong(k, Self::WAVE_PERIOD, Self::WAVE_MAX_X - Self::WAVE_MIN_X);
                 let a = k * SimTrig::TURN * Self::WAVE_TURNS / Self::WAVE_PERIOD;
-                ny = Self::CENTER_Y + Self::WAVE_AMP * SimTrig::sin_t(a) / SimTrig::ONE;
+                ny = self.center_y + Self::WAVE_AMP * SimTrig::sin_t(a) / SimTrig::ONE;
             }
             let iu = i as usize;
             if nx != self.xs[iu] {
@@ -206,6 +210,9 @@ impl Hazard for Mover {
         let mut out_ = mix_all(h, &[self.count, self.phase, G::b(self.mode == "figure8")]);
         if self.chase || self.loop_w != Self::LOOP_W || self.loop_h != Self::LOOP_H || self.loop_period != Self::LOOP_PERIOD {
             out_ = mix_all(out_, &[G::b(self.chase), self.loop_w, self.loop_h, self.loop_period]);
+        }
+        if self.center_y != Self::CENTER_Y {
+            out_ = mix_all(out_, &[self.center_y]);
         }
         for i in 0..self.count {
             let iu = i as usize;

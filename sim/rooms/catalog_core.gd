@@ -59,13 +59,17 @@ static func defs() -> Array[RoomDef]:
 
 	# Floating Isles: four still islands, one per band of the room. Variants:
 	# still; drifting (they sway sideways together on a slow loop); one big
-	# rock across the middle.
+	# rock across the middle. The reference GENERATED room: each island places
+	# itself round the planned entry height (Block.setup keeps the arrival lane
+	# clear), the layout is checked (VariantCheck) and drawn again on a fail,
+	# and the fallback leaves out the islands in the bird's way (_gen_isles).
 	var isles := RoomDef.new("isles", "starter", 10)
 	isles.max_spikes = 6
+	var big_rock: Array[Callable] = [_big_rock]
 	isles.variants = [
-		RoomVariant.new("classic").with(islands(0)),
-		RoomVariant.new("drifting").with(islands(Block.DRIFT)),
-		RoomVariant.new("one-big").with([_big_rock]),
+		RoomVariant.new("classic").generated(_gen_isles.bind(islands(0))),
+		RoomVariant.new("drifting").generated(_gen_isles.bind(islands(Block.DRIFT))),
+		RoomVariant.new("one-big").generated(_gen_isles.bind(big_rock)),
 	]
 	out.append(isles)
 
@@ -193,6 +197,28 @@ static func _island(band: int, drift: int) -> Hazard:
 	b.band = band
 	b.drift = drift
 	return b
+
+
+## Generated Floating Isles (the reference recipe, docs/ARCHITECTURE.md):
+## build the islands as hand made, each drawing its own size and spot. The
+## fallback (after GENERATE_TRIES - 1 failed checks) leaves out every island
+## that reaches into the band a bird holding its height sweeps
+## (VariantParams.hold_top / hold_bottom) within the check's flight from the
+## wall it comes out of, so it needs no check.
+static func _gen_isles(p: VariantParams, factories: Array[Callable]) -> void:
+	var made := p.add_all(factories)
+	if not p.fallback or not p.arriving:
+		return
+	var room := p.sim.room
+	var reach := VariantCheck.HOLD_STEPS * SimConfig.SPEED_X + 2 * SimConfig.BIRD_RADIUS
+	for b in made:
+		var x0: int = b.x0 - b.drift
+		var x1: int = b.x1 + b.drift
+		var near: bool = (
+			x0 < room.wall_left() + reach if p.sim.state.vx > 0 else x1 > room.wall_right() - reach
+		)
+		if near and b.y1 > p.hold_top() and b.y0 < p.hold_bottom():
+			b.alive = false
 
 
 static func _big_rock() -> Hazard:

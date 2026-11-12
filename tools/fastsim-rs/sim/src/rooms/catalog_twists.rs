@@ -49,11 +49,21 @@ impl CatalogTwists {
 
         let mut echo = RoomDef::new("echo", "late", 80);
         echo.weight = 8;
-        echo.arrival_skip = vec![280 * SUB, 360 * SUB];
-        echo.hazards.push(mk(|| Echo::new(-1).into()));
-        echo.variants = vec![RoomVariant::new("echo"), RoomVariant::new("mirror")];
+        echo.variants = vec![
+            RoomVariant::new("echo").with(vec![mk(|| Echo::new(crate::hazards::echo::Mode::ECHO).into())]),
+            RoomVariant::new("mirror").generated(recipe(|sim, p| Self::_gen_mirror(sim, p)), false, 0),
+        ];
         out_.push(echo);
 
         out_
+    }
+
+    fn _gen_mirror(sim: &mut GameSim, p: &VariantParams) {
+        let e = p.add(sim, Echo::new(crate::hazards::echo::Mode::MIRROR).into());
+        VariantParams::edit(sim, e, |h, sim| {
+            if let Hz::Echo(e) = h {
+                e.place_pivot(sim, p);
+            }
+        });
     }
 }

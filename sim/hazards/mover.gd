@@ -33,6 +33,9 @@ const WAVE_AMP := 70 * SUB
 const WAVE_TURNS := 3
 ## Steps between creatures following each other on the wave.
 const WAVE_SPACING := 22
+## Generated Bee Line: where the wave's middle height can be drawn.
+const WAVE_GEN_LO := 150 * SUB
+const WAVE_GEN_HI := 490 * SUB
 ## Chaser: speed in tenths of the loop speed, +1 tenth a lap for 3 laps (130%).
 const CHASE_DEN := 10
 const CHASE_STEP := 1
@@ -46,6 +49,8 @@ var loop_h := LOOP_H
 var loop_period := LOOP_PERIOD
 ## The last creature speeds up every lap (Bat Loop, chasing pair).
 var chase := false
+## Wave: the height it runs round (CENTER_Y, or drawn by the generated Bee Line).
+var center_y := CENTER_Y
 var phase := 0
 var xs: Array[int] = []
 var ys: Array[int] = []
@@ -166,7 +171,7 @@ func _place() -> void:
 			var k := t + phase - i * WAVE_SPACING
 			nx = WAVE_MIN_X + SimTrig.ping_pong(k, WAVE_PERIOD, WAVE_MAX_X - WAVE_MIN_X)
 			var a := k * SimTrig.TURN * WAVE_TURNS / WAVE_PERIOD
-			ny = CENTER_Y + WAVE_AMP * SimTrig.sin_t(a) / SimTrig.ONE
+			ny = center_y + WAVE_AMP * SimTrig.sin_t(a) / SimTrig.ONE
 		if nx != xs[i]:
 			facing[i] = 1 if nx > xs[i] else -1
 		xs[i] = nx
@@ -184,6 +189,8 @@ func checksum(h: int) -> int:
 	var out := mix_all(h, [count, phase, int(mode == "figure8")])
 	if chase or loop_w != LOOP_W or loop_h != LOOP_H or loop_period != LOOP_PERIOD:
 		out = mix_all(out, [int(chase), loop_w, loop_h, loop_period])
+	if center_y != CENTER_Y:
+		out = mix_all(out, [center_y])
 	for i in count:
 		out = mix_all(out, [xs[i], ys[i], facing[i]])
 	return out

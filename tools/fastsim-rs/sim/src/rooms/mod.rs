@@ -13,3 +13,5 @@ pub mod room_pacing;
 pub mod room_rules;
 pub mod room_runtime;
 pub mod seasons;
+pub mod variant_check;
+pub mod variant_params;

@@ -32,6 +32,8 @@ const SLIDE := 3 * SimConfig.SUB
 const HOP_MID := 30 * SimConfig.SUB
 ## A fixed column this close to a wall keeps that wall's exit inside its gap.
 const EXIT_NEAR := 120 * SimConfig.SUB
+## How fast an arrival opening (open_top, open_bottom) closes, per step.
+const CLOSE := 2 * SimConfig.SUB
 
 ## Column centre, sub-units.
 var x := 0
@@ -51,6 +53,13 @@ var half_w := HALF_W
 ## A fixed gap: its centre range (sub-units), or -1 for a gap that moves.
 var fixed_lo := -1
 var fixed_hi := -1
+## Generated variants, out of a portal: the gap opens this much further up
+## and down (sub-units) so a bird holding its height anywhere in the exit
+## comes through, until room step `open_until`, then closes back at CLOSE per
+## step (open_for_arrival). The tips include it, so it is drawn as it kills.
+var open_top := 0
+var open_bottom := 0
+var open_until := 0
 
 
 func _init(p_x: int = 0, p_follows: bool = false) -> void:
@@ -106,6 +115,10 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 		var drawn := _around(rng, sim.state.anchor_y, REACH)
 		if far == null or sim.state.exit_open or sim.state.exit_preview:
 			near.target_y = drawn
+		# An arrival opening (generated variants) is laid out for the gap as it
+		# is: the gap stays put while it is open (the draws are still made).
+		if near.open_until > t:
+			near.target_y = near.gap_y
 	if far != null:
 		# The far column walks toward the anchor (which steers to the exit),
 		# within MAX_STEP of the near one.
@@ -113,6 +126,8 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 		far.target_y = clampi(
 			_around(rng, sim.state.anchor_y, MAX_STEP), n - MAX_STEP, n + MAX_STEP
 		)
+		if far.open_until > t:
+			far.target_y = far.gap_y
 	_clear_wall_ahead(sim, far if far != null else near)
 
 
@@ -146,10 +161,11 @@ func blocks_exit(_sim: GameSim, side: int, y: int) -> bool:
 	var wall := 0 if side == 0 else SimConfig.WORLD_W
 	if absi(x - wall) > EXIT_NEAR:
 		return false
+	# The gap without an arrival opening: that closes again.
 	var r := SimConfig.BIRD_RADIUS
-	if top and y < top_tip() + r:
+	if top and y < gap_y - gap / 2 + r:
 		return true
-	return bottom and y > bottom_tip() - r
+	return bottom and y > gap_y + gap / 2 - r
 
 
 func step(_sim: GameSim) -> void:
@@ -157,15 +173,40 @@ func step(_sim: GameSim) -> void:
 		gap_y = mini(gap_y + SLIDE, target_y)
 	elif gap_y > target_y:
 		gap_y = maxi(gap_y - SLIDE, target_y)
+	if t > open_until:
+		open_top = maxi(open_top - CLOSE, 0)
+		open_bottom = maxi(open_bottom - CLOSE, 0)
+
+
+## Generated variants, out of a portal: opens the gap round the band a bird
+## holding its height anywhere in the exit sweeps (VariantParams.hold_top /
+## hold_bottom) while it flies past this column, there and back
+## (FairLanes.arrival_x for OPEN_PATH_TICKS steps), and keeps it open, the gap
+## held still, until it is past the last time. No RNG.
+func open_for_arrival(sim: GameSim, p: VariantParams) -> void:
+	if not p.arriving:
+		return
+	var reach := half_w + SimConfig.BIRD_RADIUS
+	var last := -1
+	for k in FairLanes.OPEN_PATH_TICKS:
+		if absi(FairLanes.arrival_x(sim, k + 1) - x) < reach:
+			last = k + 1
+	if last < 0:
+		return
+	open_until = last
+	if top:
+		open_top = maxi(gap_y - gap / 2 - p.hold_top(), 0)
+	if bottom:
+		open_bottom = maxi(p.hold_bottom() - (gap_y + gap / 2), 0)
 
 
 ## Tip of the hanging rock and of the standing rock.
 func top_tip() -> int:
-	return gap_y - gap / 2
+	return gap_y - gap / 2 - open_top
 
 
 func bottom_tip() -> int:
-	return gap_y + gap / 2
+	return gap_y + gap / 2 + open_bottom
 
 
 func kills(sim: GameSim) -> bool:
@@ -179,6 +220,9 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(
+	var out := mix_all(
 		h, [x, gap_y, target_y, int(follows), int(top), int(bottom), gap, half_w, fixed_lo]
 	)
+	if open_top != 0 or open_bottom != 0 or open_until != 0:
+		out = mix_all(out, [open_top, open_bottom, open_until])
+	return out

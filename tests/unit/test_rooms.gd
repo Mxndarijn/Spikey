@@ -20,7 +20,11 @@ func test_rooms_with_hazards_keep_the_gap_near_the_bird() -> void:
 	for def in RoomCatalog.all():
 		var has_hazards := not def.hazards.is_empty() or not def.combos.is_empty()
 		for variant: RoomVariant in def.variants:
-			has_hazards = has_hazards or not variant.hazards.is_empty()
+			has_hazards = (
+				has_hazards
+				or not variant.hazards.is_empty()
+				or variant.kind == RoomVariant.Kind.GENERATED
+			)
 		if has_hazards:
 			assert_true(RoomRules.gap_reach(def) > 0, "%s keeps the gap in reach" % def.id)
 	for id in ["bramble", "pinwheel", "rain", "swing"]:

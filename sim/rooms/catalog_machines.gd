@@ -29,6 +29,10 @@ const WIDE_MAX := 3
 ## Stalactite Run, floor fangs: the gap the one rock leaves (so its tip sits
 ## half of it below the gap's centre).
 const FANG_GAP := 100 * SUB
+## Two-column Stalactite variants: which rocks a column has.
+const BOTH := 0
+const FLOOR := 1
+const CEILING := 2
 ## Three-column variants: where the columns stand (px).
 const TRIO_X: Array[int] = [75, 180, 285]
 ## Alternating: the open middle (tip to tip) and where its centre can be
@@ -37,15 +41,18 @@ const TRIO_X: Array[int] = [75, 180, 285]
 const ALT_GAP := 150 * SUB
 const ALT_LO := 260 * SUB
 const ALT_HI := 380 * SUB
-const ALT_ARRIVAL_LO := 270 * SUB
-const ALT_ARRIVAL_HI := 430 * SUB
+## Generated alternating: where the open middle can be (it follows the entry).
+const ALT_GEN_LO := 220 * SUB
+const ALT_GEN_HI := 420 * SUB
 ## Short fangs: a 300 px corridor round the middle, thinner rocks; out of a
 ## portal only where a bird holding its height stays inside it.
 const SHORT_GAP := 300 * SUB
 const SHORT_Y := 320 * SUB
 const SHORT_HALF_W := 18 * SUB
-const SHORT_ARRIVAL_LO := 256 * SUB
-const SHORT_ARRIVAL_HI := 448 * SUB
+## Generated short fangs: where the corridor's middle can be (it follows the
+## entry; the hand-made one is always at SHORT_Y).
+const SHORT_GEN_LO := 250 * SUB
+const SHORT_GEN_HI := 390 * SUB
 
 
 static func defs() -> Array[RoomDef]:
@@ -98,32 +105,18 @@ static func defs() -> Array[RoomDef]:
 	# the rocks from the floor / the ceiling. Alternating: three long fingers,
 	# hanging, standing, hanging, around an open middle that stays put. Short
 	# fangs: three short columns around a 300 px corridor that never moves.
+	# Every variant is GENERATED round the planned
+	# entry height: out of a portal their gaps open round the band a bird
+	# holding its height anywhere in the exit sweeps, until it is past
+	# (Stalactite.open_for_arrival), so they fit every arrival height.
 	var stalac := RoomDef.new("stalac", "mid", 30)
 	stalac.max_spikes = 4
-	# The gap can't come up far enough for a hop near the top.
-	stalac.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	stalac.variants = [
-		RoomVariant.new("classic").with(
-			[_stalactite.bind(130 * SUB, false), _stalactite.bind(230 * SUB, true)]
-		),
-		RoomVariant.new("floor").with(
-			[_fang.bind(130, false, false), _fang.bind(230, true, false)]
-		),
-		RoomVariant.new("ceiling-only").with(
-			[_fang.bind(130, false, true), _fang.bind(230, true, true)]
-		),
-		(
-			RoomVariant
-			. new("alternating")
-			. with([_finger.bind(0), _finger.bind(1), _finger.bind(2)])
-			. skipping(PackedInt32Array([0, ALT_ARRIVAL_LO, ALT_ARRIVAL_HI, SimConfig.WORLD_H]))
-		),
-		(
-			RoomVariant
-			. new("short-fangs")
-			. with([_short.bind(0), _short.bind(1), _short.bind(2)])
-			. skipping(PackedInt32Array([0, SHORT_ARRIVAL_LO, SHORT_ARRIVAL_HI, SimConfig.WORLD_H]))
-		),
+		RoomVariant.new("classic").generated(_gen_columns.bind(BOTH)),
+		RoomVariant.new("floor").generated(_gen_columns.bind(FLOOR)),
+		RoomVariant.new("ceiling-only").generated(_gen_columns.bind(CEILING)),
+		RoomVariant.new("alternating").generated(_gen_fixed.bind(false)),
+		RoomVariant.new("short-fangs").generated(_gen_fixed.bind(true)),
 	]
 	out.append(stalac)
 
@@ -140,14 +133,30 @@ static func defs() -> Array[RoomDef]:
 	return out
 
 
-## Crate Drop's variants; Winter Gift Stack has the same ones with gifts.
+## Crate Drop's variants; Winter Gift Stack has the same ones with gifts,
+## GENERATED: gifts drop from the ceiling, so out of a portal the columns are
+## drawn again until the first gifts miss a bird holding its height for
+## FairLanes.ARRIVAL_PATH_TICKS (the first one falls after the reading time).
 static func crate_variants(gifts: bool) -> Array[RoomVariant]:
-	var out: Array[RoomVariant] = [
-		RoomVariant.new("classic").with([_crates.bind(gifts, false, false)]),
-		RoomVariant.new("wide").with([_crates.bind(gifts, true, false)]),
-		RoomVariant.new("pairs").with([_crates.bind(gifts, false, true)]),
-	]
+	var shapes := [["classic", false, false], ["wide", true, false], ["pairs", false, true]]
+	var out: Array[RoomVariant] = []
+	for sh: Array in shapes:
+		var v := RoomVariant.new(sh[0])
+		if gifts:
+			v.generated(_gen_crates.bind(sh[1], sh[2]), false, FairLanes.ARRIVAL_PATH_TICKS)
+		else:
+			v.with([_crates.bind(false, sh[1], sh[2])])
+		out.append(v)
 	return out
+
+
+## Generated Gift Stack: the crates as hand made (they draw their columns).
+## The fallback holds the first gift back for the arrival path's length more,
+## its column marked all that time.
+static func _gen_crates(p: VariantParams, wide: bool, pair: bool) -> void:
+	var c: Hazard = p.add(_crates(true, wide, pair))
+	if p.fallback and p.arriving:
+		c.warn_left += FairLanes.ARRIVAL_PATH_TICKS
 
 
 static func _crates(gifts: bool, wide: bool, pair: bool) -> Hazard:
@@ -217,6 +226,40 @@ static func _finger(i: int) -> Hazard:
 	s.fixed_lo = ALT_LO
 	s.fixed_hi = ALT_HI
 	return s
+
+
+## Generated Stalactite Run, classic (BOTH rocks), floor fangs or ceiling
+## only: two columns, the second following the first, their gaps opened for
+## the arrival. Nothing is drawn beyond the columns' own draws, so every try is
+## the same and the opening is what makes it fit (the fallback is that layout
+## too).
+static func _gen_columns(p: VariantParams, rocks: int) -> void:
+	var a: Hazard
+	var b: Hazard
+	if rocks != BOTH:
+		a = p.add(_fang(130, false, rocks == CEILING))
+		b = p.add(_fang(230, true, rocks == CEILING))
+	else:
+		a = p.add(_stalactite(130 * SUB, false))
+		b = p.add(_stalactite(230 * SUB, true))
+	a.open_for_arrival(p.sim, p)
+	b.open_for_arrival(p.sim, p)
+
+
+## Generated Stalactite Run, alternating or short fangs: three columns round an
+## open middle that stays put. The middle sits round the bird's hop where it
+## came in (alternating within ALT_GEN_LO..ALT_GEN_HI, wider than the hand-made
+## ALT_LO..ALT_HI; short fangs within SHORT_GEN_LO..SHORT_GEN_HI, where it was
+## always SHORT_Y), and opens further for the arrival.
+static func _gen_fixed(p: VariantParams, short: bool) -> void:
+	var fingers: Array[Hazard] = []
+	for i in 3:
+		var f := _short(i) if short else _finger(i)
+		f.fixed_lo = SHORT_GEN_LO if short else ALT_GEN_LO
+		f.fixed_hi = SHORT_GEN_HI if short else ALT_GEN_HI
+		fingers.append(p.add(f))
+	for f in fingers:
+		f.open_for_arrival(p.sim, p)
 
 
 ## Short fangs: column i of three, both rocks short.

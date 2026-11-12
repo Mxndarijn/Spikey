@@ -356,7 +356,9 @@ func test_mirror_flies_opposite_through_the_middle() -> void:
 	assert_eq(e.x, SimConfig.WORLD_W - 100 * SUB)
 	assert_eq(e.y, SimConfig.WORLD_H - 200 * SUB)
 	assert_false(e.kills(sim), "far apart off the middle")
-	assert_false(RoomCatalog.find("echo").fits_arrival(320 * SUB), "no arrivals at mid height")
+	# Generated mirror: it fits mid-height arrivals by turning round another
+	# height (test_generated_variants.gd).
+	assert_true(RoomCatalog.find("echo").fits_arrival(320 * SUB), "arrivals at mid height")
 
 
 func test_twist_hazards_are_deterministic() -> void:

@@ -78,7 +78,6 @@ impl CatalogSeasonal {
         out_.push(icicles);
 
         let mut gifts = Self::_room("gifts", Seasons::WINTER, 60);
-        gifts.arrival_skip = vec![0, RoomDef::CEILING_ARRIVAL];
         gifts.variants = CatalogMachines::crate_variants(true);
         out_.push(gifts);
 
@@ -118,8 +117,7 @@ impl CatalogSeasonal {
         out_.push(eggs);
 
         let mut bees = Self::_room("bees", Seasons::SPRING, 30);
-        bees.hazards.push(mk(|| Mover::new("wave", 4).into()));
-        bees.arrival_skip = vec![295 * SUB, 405 * SUB];
+        bees.variants = vec![RoomVariant::new("line").generated(recipe(|sim, p| Self::_gen_bees(sim, p)), false, 0)];
         out_.push(bees);
 
         // Summer
@@ -137,7 +135,6 @@ impl CatalogSeasonal {
         out_.push(beach);
 
         let mut crabs = Self::_room("crabs", Seasons::SUMMER, 30);
-        crabs.arrival_skip = vec![0, RoomDef::CEILING_ARRIVAL];
         crabs.variants = CatalogMotion::crawl_variants();
         out_.push(crabs);
 
@@ -301,5 +298,19 @@ impl CatalogSeasonal {
             _ => {}
         }
         d.into()
+    }
+
+    fn _gen_bees(sim: &mut GameSim, p: &VariantParams) {
+        let mut m = Mover::new("wave", 4);
+        if p.arriving {
+            let lo = Mover::WAVE_GEN_LO;
+            let hi = Mover::WAVE_GEN_HI;
+            if p.fallback {
+                m.center_y = if G::absi(lo - p.entry_y) > G::absi(hi - p.entry_y) { lo } else { hi };
+            } else {
+                m.center_y = lo + sim._rng.next_below((hi - lo) / Self::SUB + 1) * Self::SUB;
+            }
+        }
+        p.add(sim, m.into());
     }
 }

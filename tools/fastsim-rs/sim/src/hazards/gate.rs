@@ -12,6 +12,9 @@ pub struct Gate {
     pub phase: i64,
     pub gap_y: i64,
     pub gap_size: i64,
+    pub open_top: i64,
+    pub open_bottom: i64,
+    pub open_until: i64,
 }
 
 #[inline]
@@ -43,6 +46,7 @@ impl Gate {
     pub const ARRIVAL_HOVER: i64 = 30 * SimConfig::SUB;
     pub const EXIT_REACH: i64 = 80 * SimConfig::SUB;
     pub const SMALL_EXIT_MAX_Y: i64 = 490 * SimConfig::SUB;
+    pub const CLOSE: i64 = SimConfig::SUB;
 
     /// C# defaults: p_x = 0, p_period = 400, p_follows = false, p_gap = GAP.
     pub fn new(p_x: i64, p_period: i64, p_follows: bool, p_gap: i64) -> Gate {
@@ -55,6 +59,9 @@ impl Gate {
             phase: 0,
             gap_y: 0,
             gap_size: p_gap,
+            open_top: 0,
+            open_bottom: 0,
+            open_until: 0,
         }
     }
 
@@ -124,12 +131,37 @@ impl Gate {
         G::maxi(sim.steps_to_exit(side) - G::absi(wall_x - gate.x) / SimConfig::SPEED_X, 0)
     }
 
+    pub fn open_for_arrival(&mut self, sim: &GameSim, p: &VariantParams) {
+        if !p.arriving {
+            return;
+        }
+        let reach = Self::HALF_W + SimConfig::BIRD_RADIUS;
+        let mut last: i64 = -1;
+        let mut up = 0;
+        let mut down = 0;
+        for k in 0..FairLanes::OPEN_PATH_TICKS {
+            if G::absi(FairLanes::arrival_x(sim, k + 1) - self.x) >= reach {
+                continue;
+            }
+            last = k + 1;
+            let mid = self.gap_at(last);
+            up = G::maxi(up, mid - self.gap_size / 2 - p.hold_top(sim));
+            down = G::maxi(down, p.hold_bottom(sim) - (mid + self.gap_size / 2));
+        }
+        if last < 0 {
+            return;
+        }
+        self.open_until = last;
+        self.open_top = up;
+        self.open_bottom = down;
+    }
+
     pub fn gap_top(&self) -> i64 {
-        self.gap_y - self.gap_size / 2
+        self.gap_y - self.gap_size / 2 - self.open_top
     }
 
     pub fn gap_bottom(&self) -> i64 {
-        self.gap_y + self.gap_size / 2
+        self.gap_y + self.gap_size / 2 + self.open_bottom
     }
 }
 
@@ -189,6 +221,10 @@ impl Hazard for Gate {
 
     fn step(&mut self, _sim: &mut GameSim) {
         self._place();
+        if self.base.t > self.open_until {
+            self.open_top = G::maxi(self.open_top - Self::CLOSE, 0);
+            self.open_bottom = G::maxi(self.open_bottom - Self::CLOSE, 0);
+        }
     }
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
@@ -229,6 +265,10 @@ impl Hazard for Gate {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.x, self.period, self.phase, self.gap_y, G::b(self.follows), self.gap_size])
+        let out_ = mix_all(h, &[self.x, self.period, self.phase, self.gap_y, G::b(self.follows), self.gap_size]);
+        if self.open_top != 0 || self.open_bottom != 0 || self.open_until != 0 {
+            return mix_all(out_, &[self.open_top, self.open_bottom, self.open_until]);
+        }
+        out_
     }
 }

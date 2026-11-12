@@ -34,22 +34,22 @@ static func defs() -> Array[RoomDef]:
 	# second a moment behind the first, like one moving tunnel.
 	var gates := RoomDef.new("gates", "starter", 20)
 	gates.max_spikes = 6
-	# Near the top and bottom the gaps are at the end of their range and turn
-	# away before a slow player gets through both gates.
-	gates.arrival_skip = PackedInt32Array([0, 178 * SUB, 502 * SUB, SimConfig.WORLD_H])
 	# Variants: the two columns; one gate in the middle with a small window.
+	# Both are GENERATED round the planned entry height: out of a portal each
+	# gap opens round the band a bird holding its height anywhere in the exit
+	# sweeps, for as long as it flies past (Gate.open_for_arrival), so they
+	# fit every arrival height.
 	gates.variants = [
-		RoomVariant.new("classic").with(
-			[_gate.bind(130 * SUB, 760, false), _gate.bind(230 * SUB, 760, true)]
-		),
-		RoomVariant.new("single-small").with([_small_gate]),
+		RoomVariant.new("classic").generated(_gen_gates.bind(false)),
+		RoomVariant.new("single-small").generated(_gen_gates.bind(true)),
 	]
 	out.append(gates)
 
-	# Caterpillar Crawl: crawlers walk round the inside of the cage.
+	# Caterpillar Crawl: crawlers walk round the inside of the cage. Every
+	# variant is GENERATED: out of a portal the crawlers' starting places are
+	# drawn again until none meets a bird holding its height (a crawler walks
+	# the ceiling, so a high arrival needed it); see crawl_variants.
 	var crawl := RoomDef.new("crawl", "starter", 30)
-	# A crawler walks the ceiling.
-	crawl.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	crawl.variants = crawl_variants()
 	out.append(crawl)
 
@@ -168,20 +168,55 @@ static func _gate(x: int, period: int, follows: bool) -> Hazard:
 ## two on each; two short ones at double speed.
 static func crawl_variants() -> Array[RoomVariant]:
 	return [
-		RoomVariant.new("classic").with([_crawler.bind(0), _crawler.bind(1)]),
-		RoomVariant.new("swarm").with(
-			[
-				_swarm.bind(0, false),
-				_swarm.bind(0, true),
-				_swarm.bind(1, false),
-				_swarm.bind(1, true)
-			]
-		),
-		RoomVariant.new("sprinters").with([_sprinter.bind(0), _sprinter.bind(1)]),
+		RoomVariant.new("classic").generated(_gen_crawl.bind("classic")),
+		RoomVariant.new("swarm").generated(_gen_crawl.bind("swarm")),
+		RoomVariant.new("sprinters").generated(_gen_crawl.bind("sprinters")),
 	]
 
 
-## Shutter Gates, single small: one gate in the middle, its window Gate.SMALL_GAP.
+## Generated Caterpillar Crawl: the variant's crawlers as hand made (each draws
+## its start). The fallback puts every crawler on the edge away from the bird
+## (the floor for an arrival in the upper half, else the ceiling), each the same
+## way along it.
+static func _gen_crawl(p: VariantParams, shape: String) -> void:
+	var made: Array[Hazard] = []
+	match shape:
+		"swarm":
+			made.append(p.add(_swarm(0, false)))
+			made.append(p.add(_swarm(0, true)))
+			made.append(p.add(_swarm(1, false)))
+			made.append(p.add(_swarm(1, true)))
+		"sprinters":
+			made.append(p.add(_sprinter(0)))
+			made.append(p.add(_sprinter(1)))
+		_:
+			made.append(p.add(_crawler(0)))
+			made.append(p.add(_crawler(1)))
+	if not p.fallback or not p.arriving:
+		return
+	# Lane 0 starts on the ceiling, lane 1 on the floor: move the ones on the
+	# bird's side half way round the path, onto the other edge.
+	var away := 1 if p.entry_y < SimConfig.WORLD_H / 2 else 0
+	for h in made:
+		if h.lane != away:
+			h.start = posmod(h.start + Crawler.W + Crawler.H, Crawler.PERIMETER)
+			h._place()
+
+
+## Generated Shutter Gates: the classic pair (the second a moment behind the
+## first) or the single small gate, each gap opened for the arrival once both
+## are set up. Every try is the same: the opening is what makes it fit.
+static func _gen_gates(p: VariantParams, small: bool) -> void:
+	var made: Array[Hazard] = []
+	if small:
+		made.append(p.add(_small_gate()))
+	else:
+		made.append(p.add(_gate(130 * SUB, 760, false)))
+		made.append(p.add(_gate(230 * SUB, 760, true)))
+	for g in made:
+		g.open_for_arrival(p.sim, p)
+
+
 static func _small_gate() -> Hazard:
 	return Gate.new(180 * SUB, 760, false, Gate.SMALL_GAP)
 

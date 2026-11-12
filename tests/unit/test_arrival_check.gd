@@ -65,8 +65,8 @@ func test_rooms_are_not_picked_at_heights_they_skip() -> void:
 	for def: RoomDef in RoomCatalog.all():
 		if def.skips_heights():
 			skipping += 1
-	assert_true(skipping >= 6, "rooms that skip heights: %d" % skipping)
-	for id: String in ["gates", "stalac", "crawl", "swing", "bees"]:
+	assert_true(skipping >= 4, "rooms that skip heights: %d" % skipping)
+	for id: String in ["swing"]:
 		assert_true(picked_elsewhere.has(id), "%s is still picked at other heights" % id)
 
 

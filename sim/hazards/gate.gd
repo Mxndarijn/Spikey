@@ -29,6 +29,8 @@ const EXIT_REACH := 80 * SimConfig.SUB
 ## A small gate plans no exit below this: a revived bird (at BIRD_START_Y)
 ## can't drop through its window to an open exit lower down in one crossing.
 const SMALL_EXIT_MAX_Y := 490 * SimConfig.SUB
+## How fast an arrival opening (open_top, open_bottom) closes, per step.
+const CLOSE := SimConfig.SUB
 
 ## Column centre x.
 var x := 0
@@ -44,6 +46,14 @@ var phase := 0
 var gap_y := 0
 ## How tall the gap is.
 var gap_size := GAP
+## Generated variants, out of a portal: the gap opens this much further up
+## and down (sub-units) so a bird holding its height anywhere in the exit
+## comes through, until room step `open_until`, then closes back at CLOSE per
+## step (open_for_arrival). gap_top/gap_bottom include it, so it is drawn as it
+## kills.
+var open_top := 0
+var open_bottom := 0
+var open_until := 0
 
 
 func _init(p_x: int = 0, p_period: int = 400, p_follows: bool = false, p_gap: int = GAP) -> void:
@@ -133,6 +143,36 @@ static func _lead(sim: GameSim, gate_x: int) -> int:
 
 func step(_sim: GameSim) -> void:
 	_place()
+	if t > open_until:
+		open_top = maxi(open_top - CLOSE, 0)
+		open_bottom = maxi(open_bottom - CLOSE, 0)
+
+
+## Generated variants, out of a portal: opens the gap round the band a bird
+## holding its height anywhere in the exit sweeps (VariantParams.hold_top /
+## hold_bottom) for every step it flies past this gate, there and back
+## (FairLanes.arrival_x for OPEN_PATH_TICKS steps), and keeps it open until it
+## is past the last time. Call once the gates are set up (a follower shifts
+## its leader's phase). No RNG.
+func open_for_arrival(sim: GameSim, p: VariantParams) -> void:
+	if not p.arriving:
+		return
+	var reach := HALF_W + SimConfig.BIRD_RADIUS
+	var last := -1
+	var up := 0
+	var down := 0
+	for k in FairLanes.OPEN_PATH_TICKS:
+		if absi(FairLanes.arrival_x(sim, k + 1) - x) >= reach:
+			continue
+		last = k + 1
+		var mid := gap_at(last)
+		up = maxi(up, mid - gap_size / 2 - p.hold_top())
+		down = maxi(down, p.hold_bottom() - (mid + gap_size / 2))
+	if last < 0:
+		return
+	open_until = last
+	open_top = up
+	open_bottom = down
 
 
 func _place() -> void:
@@ -201,11 +241,11 @@ func blocks_exit(sim: GameSim, side: int, y: int) -> bool:
 
 
 func gap_top() -> int:
-	return gap_y - gap_size / 2
+	return gap_y - gap_size / 2 - open_top
 
 
 func gap_bottom() -> int:
-	return gap_y + gap_size / 2
+	return gap_y + gap_size / 2 + open_bottom
 
 
 func kills(sim: GameSim) -> bool:
@@ -215,4 +255,7 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [x, period, phase, gap_y, int(follows), gap_size])
+	var out := mix_all(h, [x, period, phase, gap_y, int(follows), gap_size])
+	if open_top != 0 or open_bottom != 0 or open_until != 0:
+		out = mix_all(out, [open_top, open_bottom, open_until])
+	return out

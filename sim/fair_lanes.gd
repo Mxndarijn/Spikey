@@ -23,6 +23,10 @@ const ARRIVAL_PATH_MARGIN := 10 * SimConfig.SUB
 ## (the reading time and a bit). The first one, not the best, so the layouts
 ## ArrivalCheck tries stay different from each other.
 const ARRIVAL_PATH_MIN := SimConfig.ARRIVAL_BLIND + 15
+## Generated columns (Shutter Gates, Stalactite Run) keep their arrival opening
+## for this many steps of the arrival path: the reading time and ArrivalCheck's
+## follow time, so the bird's way back through them is open too.
+const OPEN_PATH_TICKS := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
 
 
 ## Where the bird will be soon after the room starts: out of a portal the

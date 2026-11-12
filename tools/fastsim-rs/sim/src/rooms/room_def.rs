@@ -12,6 +12,23 @@ pub fn mk<F: Fn() -> Hz + Send + Sync + 'static>(f: F) -> Factory {
     Box::new(f)
 }
 
+/// A GENERATED variant's recipe (GDScript `func(p: VariantParams) -> void`): builds the layout
+/// into the room with `p.add(sim, h)`, drawing from `sim._rng`.
+pub type Recipe = Box<dyn Fn(&mut crate::game_sim::GameSim, &crate::rooms::variant_params::VariantParams) + Send + Sync>;
+
+pub fn recipe<F: Fn(&mut crate::game_sim::GameSim, &crate::rooms::variant_params::VariantParams) + Send + Sync + 'static>(
+    f: F,
+) -> Recipe {
+    Box::new(f)
+}
+
+/// RoomVariant.Kind.
+pub struct Kind;
+impl Kind {
+    pub const STATIC: i64 = 0;
+    pub const GENERATED: i64 = 1;
+}
+
 pub struct WallMode;
 impl WallMode {
     pub const STATIC: i64 = 0;
@@ -139,6 +156,10 @@ impl Squeeze {
 
 pub struct RoomVariant {
     pub id: &'static str,
+    pub kind: i64,
+    pub recipe: Option<Recipe>,
+    pub avoid_touch: bool,
+    pub hold_steps: i64,
     pub spike_num: i64,
     pub spike_den: i64,
     pub extra_spikes: i64,
@@ -154,6 +175,10 @@ impl RoomVariant {
     pub fn new(p_id: &'static str) -> RoomVariant {
         RoomVariant {
             id: p_id,
+            kind: Kind::STATIC,
+            recipe: None,
+            avoid_touch: false,
+            hold_steps: 0,
             spike_num: 1,
             spike_den: 1,
             extra_spikes: 0,
@@ -175,6 +200,17 @@ impl RoomVariant {
 
     pub fn with(mut self, p_hazards: Vec<Factory>) -> RoomVariant {
         self.hazards = p_hazards;
+        self
+    }
+
+    pub const GENERATE_TRIES: i64 = 8;
+
+    /// GD defaults: p_avoid_touch = false, p_hold_steps = 0.
+    pub fn generated(mut self, p_recipe: Recipe, p_avoid_touch: bool, p_hold_steps: i64) -> RoomVariant {
+        self.kind = Kind::GENERATED;
+        self.recipe = Some(p_recipe);
+        self.avoid_touch = p_avoid_touch;
+        self.hold_steps = p_hold_steps;
         self
     }
 

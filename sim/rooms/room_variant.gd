@@ -3,13 +3,37 @@ extends RefCounted
 ## One way a room kind can turn out. A RoomDef with variants draws one from the
 ## RNG every time the room starts (Bumper Cloud: one cloud or two; Tide Spikes:
 ## normal, big or small spikes). Gameplay data, like RoomDef.
+##
+## A variant is STATIC (its hazards are fixed factories, `hazards`, as hand
+## made) or GENERATED (`recipe` builds its layout when the room starts, from
+## the room RNG and VariantParams: the planned entry height and the score).
+## A generated layout is checked (VariantCheck) and, if it fails, built again
+## from the next draws, up to GENERATE_TRIES times; the last try is the
+## recipe's safe fallback (VariantParams.fallback), never checked. So it fits
+## every arrival height and needs no arrival_skip. Floating Isles is the
+## reference generated variant (docs/ARCHITECTURE.md, "Generated variants").
+
+enum Kind { STATIC, GENERATED }
 
 ## Squeeze Box: how the walls move. POINTS: both step in per point (the
 ## room's own rule); LEFT: only the left wall, in bigger steps; BREATHE: both
 ## slide in and back out on a slow loop, whatever the score.
 enum Squeeze { POINTS, LEFT, BREATHE }
 
+## Tries of a generated layout, the last one the fallback.
+const GENERATE_TRIES := 8
+
 var id := ""
+var kind := Kind.STATIC
+## GENERATED: func(p: VariantParams) -> void that builds the layout into the
+## room with p.add(), drawing from p.rng.
+var recipe := Callable()
+## GENERATED: the check must keep the bird off even safe bodies (bubbles).
+var avoid_touch := false
+## GENERATED: moving steps the check holds the bird's height (0 =
+## VariantCheck.HOLD_STEPS). Longer for a hazard whose first danger comes
+## after the reading time (the first gift in Gift Stack).
+var hold_steps := 0
 ## Wall spike size (depth and base) as a fraction of a normal spike.
 var spike_num := 1
 var spike_den := 1
@@ -44,6 +68,17 @@ func sized(num: int, den: int, p_extra_spikes: int) -> RoomVariant:
 
 func with(p_hazards: Array[Callable]) -> RoomVariant:
 	hazards = p_hazards
+	return self
+
+
+## Makes this a GENERATED variant built by `p_recipe` (see `recipe`).
+func generated(
+	p_recipe: Callable, p_avoid_touch: bool = false, p_hold_steps: int = 0
+) -> RoomVariant:
+	kind = Kind.GENERATED
+	recipe = p_recipe
+	avoid_touch = p_avoid_touch
+	hold_steps = p_hold_steps
 	return self
 
 

@@ -32,10 +32,12 @@ pub mod prelude {
     pub use crate::impl_base;
     pub use crate::rooms::hazard::{mix_all, Base, Hazard};
     pub use crate::rooms::room_catalog::RoomCatalog;
-    pub use crate::rooms::room_def::{mk, Factory, RoomDef, RoomVariant, Speed, Squeeze, WallMode};
+    pub use crate::rooms::room_def::{mk, recipe, Factory, Kind, Recipe, RoomDef, RoomVariant, Speed, Squeeze, WallMode};
     pub use crate::rooms::room_rules::RoomRules;
     pub use crate::rooms::room_runtime::RoomRuntime;
     pub use crate::rooms::seasons::Seasons;
+    pub use crate::rooms::variant_check::VariantCheck;
+    pub use crate::rooms::variant_params::VariantParams;
     pub use crate::sim_config::SimConfig;
     pub use crate::sim_math::{SimHash, SimMath};
     pub use crate::sim_rng::SimRng;

@@ -365,7 +365,7 @@ impl SameSeed {
 /// a death and a revive in room 2 or later, on an even and an odd score (docs/REVIVE.md).
 #[derive(Default)]
 pub struct SameSeedRevive {
-    /// (seed, die).
+    /// (seed, die), or (-1 - generated variant number, anchor slot) for a generated-variant case.
     _cases: OnceLock<Vec<(i64, i64)>>,
 }
 
@@ -384,7 +384,82 @@ impl SameSeedRevive {
                 out_.push((4206176851i64 + s * 7919, die));
             }
         }
+        for g in 0..Self::generated().len() {
+            for slot in 0..Self::GEN_ANCHORS.len() {
+                out_.push((-1 - g as i64, slot as i64));
+            }
+        }
         out_
+    }
+
+    /// Planned exit heights (px) the generated-variant cases come out of.
+    pub const GEN_ANCHORS: [i64; 5] = [120, 220, 320, 420, 520];
+    pub const GEN_SEEDS: i64 = 3;
+
+    /// Every GENERATED room variant: (room index, variant id).
+    fn generated() -> Vec<(usize, &'static str)> {
+        let mut out_ = Vec::new();
+        for (i, def) in RoomCatalog::all().iter().enumerate() {
+            for v in &def.variants {
+                if v.kind == Kind::GENERATED {
+                    out_.push((i, v.id));
+                }
+            }
+        }
+        out_
+    }
+
+    /// The layout as built out of the portal: every hazard's kind and checksum (positions and
+    /// sizes), the Echo's turning height only (the shadow itself follows the bird by design).
+    fn layout(sim: &GameSim) -> String {
+        let parts: Vec<String> = sim
+            .room
+            .hazards
+            .iter()
+            .map(|h| match h {
+                Hz::Echo(e) => format!("echo:{}:{}", e.mode, e.pivot_y),
+                _ => format!("{}:{}:{:x}", h.kind(), h.alive(), h.checksum(0)),
+            })
+            .collect();
+        format!("{}/{} {}", sim.room.def().id, sim.room.variant_id(), parts.join(","))
+    }
+
+    /// Practice in the variant, then through the exit at `exit_px` (kind NORMAL, CALM or WILD)
+    /// with the bird `dy_px` from the exit's middle (taps and timing differ only in that).
+    fn gen_arrival(index: usize, variant: &'static str, seed: i64, side: i64, kind: i64, exit_px: i64, dy_px: i64) -> String {
+        let def = &RoomCatalog::all()[index];
+        let mut sim = GameSim::with(seed, def.season, index as i64, variant);
+        sim.step(true);
+        let every = SimConfig::POINTS_PER_ROOM;
+        sim.state.score = G::maxi(every, (def.from_score + every - 1) / every * every);
+        let through = exit_px * SimConfig::SUB;
+        sim.state.y = through + dy_px * SimConfig::SUB;
+        sim._go_through(side, kind, through);
+        Self::layout(&sim)
+    }
+
+    /// The same layout whatever the bird did: two heights in the exit, both ways in, and at a
+    /// fork the Calm and the Wild exit (both lead to one door).
+    fn run_generated(g: usize, slot: usize) -> Vec<String> {
+        let (index, variant) = Self::generated()[g];
+        let exit_px = Self::GEN_ANCHORS[slot];
+        let mut fails = Vec::new();
+        for k in 0..Self::GEN_SEEDS {
+            let seed = 77_001 + k * 104_729 + slot as i64 * 13;
+            for side in 0..2 {
+                let a = Self::gen_arrival(index, variant, seed, side, ExitKind::NORMAL, exit_px, 40);
+                let b = Self::gen_arrival(index, variant, seed, side, ExitKind::NORMAL, exit_px, -40);
+                if a != b {
+                    fails.push(format!("{}: exit {} px, side {}, seed {}: bird +40 / -40 px give different layouts", variant, exit_px, side, seed));
+                }
+                let c = Self::gen_arrival(index, variant, seed, side, ExitKind::CALM, exit_px, 20);
+                let d = Self::gen_arrival(index, variant, seed, side, ExitKind::WILD, G::mini(exit_px + 80, 520), -30);
+                if c != d {
+                    fails.push(format!("{}: fork near {} px, side {}, seed {}: Calm and Wild give different layouts", variant, exit_px, side, seed));
+                }
+            }
+        }
+        fails
     }
 }
 
@@ -401,6 +476,10 @@ impl Check for SameSeedRevive {
 
     fn run(&self, n: usize) -> Value {
         let (seed, die) = self.cases()[n];
+        if seed < 0 {
+            let fails = Self::run_generated((-1 - seed) as usize, die as usize);
+            return result(fails, json!({ "generated": 1 }));
+        }
         let a = SameSeed::bot_play(GameSim::new(seed), Self::TICKS);
         let r = SameSeed::revive_play(GameSim::new(seed), die, Self::TICKS + 600);
         let mut fails = Vec::new();
@@ -413,11 +492,15 @@ impl Check for SameSeedRevive {
     }
 
     fn summary(&self, results: &[Value]) -> String {
+        let gen = results.iter().map(|r| i(&r["generated"])).sum::<i64>();
         format!(
-            "{} plays ({} seeds x deaths on an even and an odd score), {} revived",
-            results.len(),
+            "{} plays ({} seeds x deaths on an even and an odd score), {} revived; {} generated variants x {} exits x {} seeds: same layout for two bird heights and for Calm / Wild",
+            results.len() as i64 - gen,
             Self::SEEDS,
-            results.iter().map(|r| i(&r["revived"])).sum::<i64>()
+            results.iter().map(|r| i(&r["revived"])).sum::<i64>(),
+            gen / Self::GEN_ANCHORS.len() as i64,
+            Self::GEN_ANCHORS.len(),
+            Self::GEN_SEEDS
         )
     }
 }

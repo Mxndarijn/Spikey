@@ -183,47 +183,30 @@ func test_alternating_fingers_hang_stand_hang_around_a_still_middle() -> void:
 			_bird(sim, st.x, middle)
 			assert_false(st.kills(sim), "the open middle is safe")
 		assert_true(rocks[0].bottom_tip() - rocks[0].top_tip() >= 140 * SUB, "a big middle")
-		# The fingers are long: they reach past a third of the room.
-		assert_true(rocks[0].top_tip() >= 180 * SUB, "long hanging finger")
-		assert_true(rocks[1].bottom_tip() <= 460 * SUB, "long standing finger")
+		# The fingers are long: they reach a quarter of the way into the room
+		# wherever the middle follows the entry (Machines.ALT_GEN_LO..HI).
+		assert_true(rocks[0].top_tip() >= 145 * SUB, "long hanging finger")
+		assert_true(rocks[1].bottom_tip() <= 495 * SUB, "long standing finger")
 
 
 func test_short_fangs_leave_a_300_px_corridor_that_never_moves() -> void:
 	var sim := _sim("stalac", "short-fangs", 3)
 	var rocks := _hazards(sim, "stalactite")
 	assert_eq(rocks.size(), 3, "three columns")
+	# Generated: the corridor's middle follows the entry, then never moves.
+	var middle: int = rocks[0].gap_y
+	assert_between(middle, 250 * SUB, 390 * SUB, "round the entry")
 	_advance(sim, 1)
 	for n in 6:
 		_bounce(sim, n)
 		_advance(sim, 100)
 		for st in rocks:
 			assert_eq(st.bottom_tip() - st.top_tip(), 300 * SUB, "a 300 px corridor")
-			assert_eq(st.gap_y, 320 * SUB, "in the middle, never moving")
+			assert_eq(st.gap_y, middle, "never moving")
 			_bird(sim, st.x, st.top_tip() + R + SUB)
 			assert_false(st.kills(sim), "the corridor's top edge is clear")
 			_bird(sim, st.x, st.top_tip() - 10 * SUB)
 			assert_true(st.kills(sim), "the short rock kills")
-
-
-## Out of a portal the three-column variants only come where the bird
-## holding its height passes every column.
-func test_still_columns_only_come_out_of_a_portal_where_they_fit() -> void:
-	var def := RoomCatalog.find("stalac")
-	for v in def.variants:
-		if v.id != "alternating" and v.id != "short-fangs":
-			continue
-		for y_px in range(90, 560, 10):
-			if not v.fits_arrival(y_px * SUB):
-				continue
-			var sim := RoomsTest.sim_in_room("stalac", 2, Seasons.NONE, v.id)
-			sim.state.y = y_px * SUB
-			for h in sim.room.hazards:
-				h.setup(sim, SimRng.new(1))
-			for st in _hazards(sim, "stalactite"):
-				# Holding height: it hops up to about 62 px and sinks back.
-				for dy in range(-64, 3, 4):
-					_bird(sim, st.x, (y_px + dy) * SUB)
-					assert_false(st.kills(sim), "%s at %d px" % [v.id, y_px])
 
 
 # --- Crate Drop / Gift Stack --------------------------------------------------

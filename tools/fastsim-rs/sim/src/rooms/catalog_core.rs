@@ -41,10 +41,13 @@ impl CatalogCore {
 
         let mut isles = RoomDef::new("isles", "starter", 10);
         isles.max_spikes = 6;
+        let still = Self::islands(0);
+        let drifting = Self::islands(Block::DRIFT);
+        let big_rock: Vec<Factory> = vec![mk(|| Self::_big_rock())];
         isles.variants = vec![
-            RoomVariant::new("classic").with(Self::islands(0)),
-            RoomVariant::new("drifting").with(Self::islands(Block::DRIFT)),
-            RoomVariant::new("one-big").with(vec![mk(|| Self::_big_rock())]),
+            RoomVariant::new("classic").generated(recipe(move |sim, p| Self::_gen_isles(sim, p, &still)), false, 0),
+            RoomVariant::new("drifting").generated(recipe(move |sim, p| Self::_gen_isles(sim, p, &drifting)), false, 0),
+            RoomVariant::new("one-big").generated(recipe(move |sim, p| Self::_gen_isles(sim, p, &big_rock)), false, 0),
         ];
         out_.push(isles);
 
@@ -170,6 +173,26 @@ impl CatalogCore {
         b.band = band;
         b.drift = drift;
         b.into()
+    }
+
+    fn _gen_isles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+        let made = p.add_all(sim, factories);
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        let reach = VariantCheck::HOLD_STEPS * SimConfig::SPEED_X + 2 * SimConfig::BIRD_RADIUS;
+        let (top, bottom) = (p.hold_top(sim), p.hold_bottom(sim));
+        let (wl, wr, vx) = (sim.room.wall_left(), sim.room.wall_right(), sim.state.vx);
+        for i in made {
+            if let Hz::Block(b) = &mut sim.room.hazards[i] {
+                let x0 = b.x0 - b.drift;
+                let x1 = b.x1 + b.drift;
+                let near = if vx > 0 { x0 < wl + reach } else { x1 > wr - reach };
+                if near && b.y1 > top && b.y0 < bottom {
+                    b.base.alive = false;
+                }
+            }
+        }
     }
 
     fn _big_rock() -> Hz {

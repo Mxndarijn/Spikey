@@ -146,6 +146,11 @@ impl SightCheck {
                 let mut made: Vec<&'static str> = def.hazards.iter().map(|f| hz_name(&f())).collect();
                 if let Some(v) = def.variants.iter().find(|x| x.id == id) {
                     made.extend(v.hazards.iter().map(|f| hz_name(&f())));
+                    // A GENERATED variant has no factories: build the room (practice) and read it.
+                    if v.kind == Kind::GENERATED {
+                        let sim = GameSim::with(1, def.season, i as i64, id);
+                        made.extend(sim.room.hazards.iter().map(hz_name));
+                    }
                 }
                 let mut distinct: Vec<&'static str> = Vec::new();
                 for t in made {

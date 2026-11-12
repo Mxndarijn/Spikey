@@ -59,9 +59,10 @@ static func defs() -> Array[RoomDef]:
 	# Variants: classic (three bubbles); giants (three big, slow ones); spiky
 	# (two safe bubbles and two spiked ones, each marked on the floor for a
 	# second before it rises); coin-bubbles (a coin in every other bubble).
+	# Every variant is GENERATED: a bubble could carry a bird out of a high
+	# portal up into the ceiling, so out of a portal the bubbles' columns are
+	# drawn again until none touches a bird holding its height (_gen_bubbles).
 	var bubbles := RoomDef.new("bubbles", "mid", 50)
-	# A bubble can carry the bird up into the ceiling.
-	bubbles.arrival_skip = PackedInt32Array([0, RoomDef.CEILING_ARRIVAL])
 	var classic: Array[Callable] = []
 	var giants: Array[Callable] = []
 	var coin_bubbles: Array[Callable] = []
@@ -69,22 +70,17 @@ static func defs() -> Array[RoomDef]:
 		classic.append(_bubble.bind(lane))
 		giants.append(_giant.bind(lane))
 		coin_bubbles.append(_coin_bubble.bind(lane) if lane % 2 == 0 else _bubble.bind(lane))
+	var spiky: Array[Callable] = [
+		_bubble.bind(0),
+		_spiky_bubble.bind(1, 0),
+		_bubble.bind(2),
+		_spiky_bubble.bind(3, SPIKY_SPREAD),
+	]
 	bubbles.variants = [
-		RoomVariant.new("classic").with(classic),
-		RoomVariant.new("giants").with(giants),
-		(
-			RoomVariant
-			. new("spiky")
-			. with(
-				[
-					_bubble.bind(0),
-					_spiky_bubble.bind(1, 0),
-					_bubble.bind(2),
-					_spiky_bubble.bind(3, SPIKY_SPREAD),
-				]
-			)
-		),
-		RoomVariant.new("coin-bubbles").with(coin_bubbles),
+		RoomVariant.new("classic").generated(_gen_bubbles.bind(classic), true),
+		RoomVariant.new("giants").generated(_gen_bubbles.bind(giants), true),
+		RoomVariant.new("spiky").generated(_gen_bubbles.bind(spiky), true),
+		RoomVariant.new("coin-bubbles").generated(_gen_bubbles.bind(coin_bubbles), true),
 	]
 	out.append(bubbles)
 
@@ -197,6 +193,18 @@ static func _gust() -> Hazard:
 
 static func _coin(x_px: int, y_px: int) -> Hazard:
 	return CoinPickup.new(x_px * SUB, y_px * SUB)
+
+
+## Generated Bubble Lift: the variant's bubbles as hand made (each draws its
+## columns). The fallback starts every bubble under the floor, as a spiked one
+## does: none can reach a bird out of a portal while it reads the room.
+static func _gen_bubbles(p: VariantParams, factories: Array[Callable]) -> void:
+	var made := p.add_all(factories)
+	if not p.fallback or not p.arriving:
+		return
+	for b in made:
+		if not b.spiked:
+			b.y = SimConfig.WORLD_H + b.radius
 
 
 static func _bubble(lane: int) -> Hazard:

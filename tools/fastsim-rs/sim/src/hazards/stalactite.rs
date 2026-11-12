@@ -16,6 +16,9 @@ pub struct Stalactite {
     pub half_w: i64,
     pub fixed_lo: i64,
     pub fixed_hi: i64,
+    pub open_top: i64,
+    pub open_bottom: i64,
+    pub open_until: i64,
 }
 
 impl Stalactite {
@@ -29,6 +32,7 @@ impl Stalactite {
     pub const SLIDE: i64 = 3 * SimConfig::SUB;
     pub const HOP_MID: i64 = 30 * SimConfig::SUB;
     pub const EXIT_NEAR: i64 = 120 * SimConfig::SUB;
+    pub const CLOSE: i64 = 2 * SimConfig::SUB;
 
     /// C# defaults: p_x = 0, p_follows = false.
     pub fn new(p_x: i64, p_follows: bool) -> Stalactite {
@@ -45,6 +49,9 @@ impl Stalactite {
             half_w: Self::HALF_W,
             fixed_lo: -1,
             fixed_hi: -1,
+            open_top: 0,
+            open_bottom: 0,
+            open_until: 0,
         }
     }
 
@@ -88,12 +95,35 @@ impl Stalactite {
         lo + rng.next_below(hi - lo + 1)
     }
 
+    pub fn open_for_arrival(&mut self, sim: &GameSim, p: &VariantParams) {
+        if !p.arriving {
+            return;
+        }
+        let reach = self.half_w + SimConfig::BIRD_RADIUS;
+        let mut last: i64 = -1;
+        for k in 0..FairLanes::OPEN_PATH_TICKS {
+            if G::absi(FairLanes::arrival_x(sim, k + 1) - self.x) < reach {
+                last = k + 1;
+            }
+        }
+        if last < 0 {
+            return;
+        }
+        self.open_until = last;
+        if self.top {
+            self.open_top = G::maxi(self.gap_y - self.gap / 2 - p.hold_top(sim), 0);
+        }
+        if self.bottom {
+            self.open_bottom = G::maxi(p.hold_bottom(sim) - (self.gap_y + self.gap / 2), 0);
+        }
+    }
+
     pub fn top_tip(&self) -> i64 {
-        self.gap_y - self.gap / 2
+        self.gap_y - self.gap / 2 - self.open_top
     }
 
     pub fn bottom_tip(&self) -> i64 {
-        self.gap_y + self.gap / 2
+        self.gap_y + self.gap / 2 + self.open_bottom
     }
 }
 
@@ -137,6 +167,7 @@ impl Hazard for Stalactite {
                 swapped = true;
             }
         }
+        let t = self.base.t;
         let far_exists = swapped || self.partner.is_some();
         if self.base.t == 0 {
             // Just came out of a portal into this room: the gap ahead stays at
@@ -158,18 +189,34 @@ impl Hazard for Stalactite {
                     self.target_y = drawn;
                 }
             }
+            // An arrival opening (generated variants): the gap stays put while open.
+            if swapped {
+                let n = Self::_partner_mut(sim, self.partner.unwrap());
+                if n.open_until > t {
+                    n.target_y = n.gap_y;
+                }
+            } else if self.open_until > t {
+                self.target_y = self.gap_y;
+            }
         }
         let near_target = if swapped { Self::_partner(sim, self.partner.unwrap()).target_y } else { self.target_y };
         let mut column_target_y = near_target;
         if far_exists {
             // The far column walks toward the anchor, within MAX_STEP of the near one.
             let n = near_target;
-            let far_target =
+            let mut far_target =
                 G::clampi(Self::_around(rng, sim.state.anchor_y, Self::MAX_STEP), n - Self::MAX_STEP, n + Self::MAX_STEP);
             if swapped {
+                if self.open_until > t {
+                    far_target = self.gap_y;
+                }
                 self.target_y = far_target;
             } else {
-                Self::_partner_mut(sim, self.partner.unwrap()).target_y = far_target;
+                let far = Self::_partner_mut(sim, self.partner.unwrap());
+                if far.open_until > t {
+                    far_target = far.gap_y;
+                }
+                far.target_y = far_target;
             }
             column_target_y = far_target;
         }
@@ -185,10 +232,10 @@ impl Hazard for Stalactite {
             return false;
         }
         let r = SimConfig::BIRD_RADIUS;
-        if self.top && y < self.top_tip() + r {
+        if self.top && y < self.gap_y - self.gap / 2 + r {
             return true;
         }
-        self.bottom && y > self.bottom_tip() - r
+        self.bottom && y > self.gap_y + self.gap / 2 - r
     }
 
     fn step(&mut self, _sim: &mut GameSim) {
@@ -196,6 +243,10 @@ impl Hazard for Stalactite {
             self.gap_y = G::mini(self.gap_y + Self::SLIDE, self.target_y);
         } else if self.gap_y > self.target_y {
             self.gap_y = G::maxi(self.gap_y - Self::SLIDE, self.target_y);
+        }
+        if self.base.t > self.open_until {
+            self.open_top = G::maxi(self.open_top - Self::CLOSE, 0);
+            self.open_bottom = G::maxi(self.open_bottom - Self::CLOSE, 0);
         }
     }
 
@@ -206,7 +257,7 @@ impl Hazard for Stalactite {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(
+        let out_ = mix_all(
             h,
             &[
                 self.x,
@@ -219,6 +270,10 @@ impl Hazard for Stalactite {
                 self.half_w,
                 self.fixed_lo,
             ],
-        )
+        );
+        if self.open_top != 0 || self.open_bottom != 0 || self.open_until != 0 {
+            return mix_all(out_, &[self.open_top, self.open_bottom, self.open_until]);
+        }
+        out_
     }
 }

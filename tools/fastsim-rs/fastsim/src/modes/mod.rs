@@ -11,6 +11,7 @@
 //!   fastsim-rs scan [room] [delay] [seeds]          entry heights with no way to live
 //! Options: --out <file.json>, --first <n>, --variant <id>|all, --priority (printed only).
 mod reaction;
+pub mod variants;
 
 use std::time::Instant;
 

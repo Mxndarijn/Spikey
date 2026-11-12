@@ -24,18 +24,13 @@ impl CatalogMotion {
 
         let mut gates = RoomDef::new("gates", "starter", 20);
         gates.max_spikes = 6;
-        gates.arrival_skip = vec![0, 178 * SUB, 502 * SUB, SimConfig::WORLD_H];
         gates.variants = vec![
-            RoomVariant::new("classic").with(vec![
-                mk(|| Self::_gate(130 * SUB, 760, false)),
-                mk(|| Self::_gate(230 * SUB, 760, true)),
-            ]),
-            RoomVariant::new("single-small").with(vec![mk(|| Self::_small_gate())]),
+            RoomVariant::new("classic").generated(recipe(|sim, p| Self::_gen_gates(sim, p, false)), false, 0),
+            RoomVariant::new("single-small").generated(recipe(|sim, p| Self::_gen_gates(sim, p, true)), false, 0),
         ];
         out_.push(gates);
 
         let mut crawl = RoomDef::new("crawl", "starter", 30);
-        crawl.arrival_skip = vec![0, RoomDef::CEILING_ARRIVAL];
         crawl.variants = Self::crawl_variants();
         out_.push(crawl);
 
@@ -160,17 +155,59 @@ impl CatalogMotion {
 
     pub fn crawl_variants() -> Vec<RoomVariant> {
         vec![
-            RoomVariant::new("classic")
-                .with(vec![mk(|| Self::_crawler(0)), mk(|| Self::_crawler(1))]),
-            RoomVariant::new("swarm").with(vec![
-                mk(|| Self::_swarm(0, false)),
-                mk(|| Self::_swarm(0, true)),
-                mk(|| Self::_swarm(1, false)),
-                mk(|| Self::_swarm(1, true)),
-            ]),
-            RoomVariant::new("sprinters")
-                .with(vec![mk(|| Self::_sprinter(0)), mk(|| Self::_sprinter(1))]),
+            RoomVariant::new("classic").generated(recipe(|sim, p| Self::_gen_crawl(sim, p, "classic")), false, 0),
+            RoomVariant::new("swarm").generated(recipe(|sim, p| Self::_gen_crawl(sim, p, "swarm")), false, 0),
+            RoomVariant::new("sprinters").generated(recipe(|sim, p| Self::_gen_crawl(sim, p, "sprinters")), false, 0),
         ]
+    }
+
+    fn _gen_crawl(sim: &mut GameSim, p: &VariantParams, shape: &str) {
+        let mut made = Vec::new();
+        match shape {
+            "swarm" => {
+                made.push(p.add(sim, Self::_swarm(0, false)));
+                made.push(p.add(sim, Self::_swarm(0, true)));
+                made.push(p.add(sim, Self::_swarm(1, false)));
+                made.push(p.add(sim, Self::_swarm(1, true)));
+            }
+            "sprinters" => {
+                made.push(p.add(sim, Self::_sprinter(0)));
+                made.push(p.add(sim, Self::_sprinter(1)));
+            }
+            _ => {
+                made.push(p.add(sim, Self::_crawler(0)));
+                made.push(p.add(sim, Self::_crawler(1)));
+            }
+        }
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        let away = if p.entry_y < SimConfig::WORLD_H / 2 { 1 } else { 0 };
+        for i in made {
+            if let Hz::Crawler(c) = &mut sim.room.hazards[i] {
+                if c.lane != away {
+                    c.start = G::posmod(c.start + Crawler::W + Crawler::H, Crawler::PERIMETER);
+                    c._place();
+                }
+            }
+        }
+    }
+
+    fn _gen_gates(sim: &mut GameSim, p: &VariantParams, small: bool) {
+        let mut made = Vec::new();
+        if small {
+            made.push(p.add(sim, Self::_small_gate()));
+        } else {
+            made.push(p.add(sim, Self::_gate(130 * Self::SUB, 760, false)));
+            made.push(p.add(sim, Self::_gate(230 * Self::SUB, 760, true)));
+        }
+        for i in made {
+            VariantParams::edit(sim, i, |h, sim| {
+                if let Hz::Gate(g) = h {
+                    g.open_for_arrival(sim, p);
+                }
+            });
+        }
     }
 
     fn _small_gate() -> Hz {

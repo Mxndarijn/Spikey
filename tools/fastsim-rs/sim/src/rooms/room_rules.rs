@@ -27,7 +27,7 @@ impl RoomRules {
         }
         // Rooms that keep their hazards only in variants count too.
         for variant in &def.variants {
-            if !variant.hazards.is_empty() {
+            if !variant.hazards.is_empty() || variant.kind == crate::rooms::room_def::Kind::GENERATED {
                 return Self::GAP_REACH;
             }
         }

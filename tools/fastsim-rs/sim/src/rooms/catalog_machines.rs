@@ -21,13 +21,13 @@ impl CatalogMachines {
     pub const ALT_GAP: i64 = 150 * Self::SUB;
     pub const ALT_LO: i64 = 260 * Self::SUB;
     pub const ALT_HI: i64 = 380 * Self::SUB;
-    pub const ALT_ARRIVAL_LO: i64 = 270 * Self::SUB;
-    pub const ALT_ARRIVAL_HI: i64 = 430 * Self::SUB;
+    pub const ALT_GEN_LO: i64 = 220 * Self::SUB;
+    pub const ALT_GEN_HI: i64 = 420 * Self::SUB;
     pub const SHORT_GAP: i64 = 300 * Self::SUB;
     pub const SHORT_Y: i64 = 320 * Self::SUB;
     pub const SHORT_HALF_W: i64 = 18 * Self::SUB;
-    pub const SHORT_ARRIVAL_LO: i64 = 256 * Self::SUB;
-    pub const SHORT_ARRIVAL_HI: i64 = 448 * Self::SUB;
+    pub const SHORT_GEN_LO: i64 = 250 * Self::SUB;
+    pub const SHORT_GEN_HI: i64 = 390 * Self::SUB;
 
     pub fn defs() -> Vec<RoomDef> {
         const SUB: i64 = CatalogMachines::SUB;
@@ -72,39 +72,12 @@ impl CatalogMachines {
 
         let mut stalac = RoomDef::new("stalac", "mid", 30);
         stalac.max_spikes = 4;
-        stalac.arrival_skip = vec![0, RoomDef::CEILING_ARRIVAL];
         stalac.variants = vec![
-            RoomVariant::new("classic").with(vec![
-                mk(|| Self::_stalactite(130 * SUB, false)),
-                mk(|| Self::_stalactite(230 * SUB, true)),
-            ]),
-            RoomVariant::new("floor").with(vec![
-                mk(|| Self::_fang(130, false, false)),
-                mk(|| Self::_fang(230, true, false)),
-            ]),
-            RoomVariant::new("ceiling-only").with(vec![
-                mk(|| Self::_fang(130, false, true)),
-                mk(|| Self::_fang(230, true, true)),
-            ]),
-            RoomVariant::new("alternating")
-                .with(vec![
-                    mk(|| Self::_finger(0)),
-                    mk(|| Self::_finger(1)),
-                    mk(|| Self::_finger(2)),
-                ])
-                .skipping(vec![0, Self::ALT_ARRIVAL_LO, Self::ALT_ARRIVAL_HI, SimConfig::WORLD_H]),
-            RoomVariant::new("short-fangs")
-                .with(vec![
-                    mk(|| Self::_short(0)),
-                    mk(|| Self::_short(1)),
-                    mk(|| Self::_short(2)),
-                ])
-                .skipping(vec![
-                    0,
-                    Self::SHORT_ARRIVAL_LO,
-                    Self::SHORT_ARRIVAL_HI,
-                    SimConfig::WORLD_H,
-                ]),
+            RoomVariant::new("classic").generated(recipe(|sim, p| Self::_gen_columns(sim, p, Self::BOTH)), false, 0),
+            RoomVariant::new("floor").generated(recipe(|sim, p| Self::_gen_columns(sim, p, Self::FLOOR)), false, 0),
+            RoomVariant::new("ceiling-only").generated(recipe(|sim, p| Self::_gen_columns(sim, p, Self::CEILING)), false, 0),
+            RoomVariant::new("alternating").generated(recipe(|sim, p| Self::_gen_fixed(sim, p, false)), false, 0),
+            RoomVariant::new("short-fangs").generated(recipe(|sim, p| Self::_gen_fixed(sim, p, true)), false, 0),
         ];
         out_.push(stalac);
 
@@ -122,11 +95,71 @@ impl CatalogMachines {
     }
 
     pub fn crate_variants(gifts: bool) -> Vec<RoomVariant> {
-        vec![
-            RoomVariant::new("classic").with(vec![mk(move || Self::_crates(gifts, false, false))]),
-            RoomVariant::new("wide").with(vec![mk(move || Self::_crates(gifts, true, false))]),
-            RoomVariant::new("pairs").with(vec![mk(move || Self::_crates(gifts, false, true))]),
-        ]
+        let shapes: [(&'static str, bool, bool); 3] = [("classic", false, false), ("wide", true, false), ("pairs", false, true)];
+        let mut out_ = Vec::new();
+        for (id, wide, pair) in shapes {
+            let v = RoomVariant::new(id);
+            out_.push(if gifts {
+                v.generated(
+                    recipe(move |sim, p| Self::_gen_crates(sim, p, wide, pair)),
+                    false,
+                    FairLanes::ARRIVAL_PATH_TICKS,
+                )
+            } else {
+                v.with(vec![mk(move || Self::_crates(false, wide, pair))])
+            });
+        }
+        out_
+    }
+
+    fn _gen_crates(sim: &mut GameSim, p: &VariantParams, wide: bool, pair: bool) {
+        let c = p.add(sim, Self::_crates(true, wide, pair));
+        if p.fallback && p.arriving {
+            if let Hz::CrateDrop(cd) = &mut sim.room.hazards[c] {
+                cd.warn_left += FairLanes::ARRIVAL_PATH_TICKS;
+            }
+        }
+    }
+
+    pub const BOTH: i64 = 0;
+    pub const FLOOR: i64 = 1;
+    pub const CEILING: i64 = 2;
+
+    fn _gen_columns(sim: &mut GameSim, p: &VariantParams, rocks: i64) {
+        let (a, b) = if rocks != Self::BOTH {
+            (
+                p.add(sim, Self::_fang(130, false, rocks == Self::CEILING)),
+                p.add(sim, Self::_fang(230, true, rocks == Self::CEILING)),
+            )
+        } else {
+            (p.add(sim, Self::_stalactite(130 * Self::SUB, false)), p.add(sim, Self::_stalactite(230 * Self::SUB, true)))
+        };
+        for i in [a, b] {
+            VariantParams::edit(sim, i, |h, sim| {
+                if let Hz::Stalactite(s) = h {
+                    s.open_for_arrival(sim, p);
+                }
+            });
+        }
+    }
+
+    fn _gen_fixed(sim: &mut GameSim, p: &VariantParams, short: bool) {
+        let mut fingers = Vec::new();
+        for i in 0..3 {
+            let mut f = if short { Self::_short(i) } else { Self::_finger(i) };
+            if let Hz::Stalactite(s) = &mut f {
+                s.fixed_lo = if short { Self::SHORT_GEN_LO } else { Self::ALT_GEN_LO };
+                s.fixed_hi = if short { Self::SHORT_GEN_HI } else { Self::ALT_GEN_HI };
+            }
+            fingers.push(p.add(sim, f));
+        }
+        for i in fingers {
+            VariantParams::edit(sim, i, |h, sim| {
+                if let Hz::Stalactite(s) = h {
+                    s.open_for_arrival(sim, p);
+                }
+            });
+        }
     }
 
     fn _crates(gifts: bool, wide: bool, pair: bool) -> Hz {

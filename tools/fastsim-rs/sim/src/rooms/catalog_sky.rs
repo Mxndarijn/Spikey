@@ -40,7 +40,6 @@ impl CatalogSky {
         out_.push(updraft);
 
         let mut bubbles = RoomDef::new("bubbles", "mid", 50);
-        bubbles.arrival_skip = vec![0, RoomDef::CEILING_ARRIVAL];
         let mut classic: Vec<Factory> = Vec::new();
         let mut giants: Vec<Factory> = Vec::new();
         let mut coin_bubbles: Vec<Factory> = Vec::new();
@@ -54,16 +53,18 @@ impl CatalogSky {
                 mk(move || Self::_bubble(l))
             });
         }
+        let spiky: Vec<Factory> = vec![
+            mk(|| Self::_bubble(0)),
+            mk(|| Self::_spiky_bubble(1, 0)),
+            mk(|| Self::_bubble(2)),
+            mk(|| Self::_spiky_bubble(3, Self::SPIKY_SPREAD)),
+        ];
         bubbles.variants = vec![
-            RoomVariant::new("classic").with(classic),
-            RoomVariant::new("giants").with(giants),
-            RoomVariant::new("spiky").with(vec![
-                mk(|| Self::_bubble(0)),
-                mk(|| Self::_spiky_bubble(1, 0)),
-                mk(|| Self::_bubble(2)),
-                mk(|| Self::_spiky_bubble(3, Self::SPIKY_SPREAD)),
-            ]),
-            RoomVariant::new("coin-bubbles").with(coin_bubbles),
+            RoomVariant::new("classic").generated(recipe(move |sim, p| Self::_gen_bubbles(sim, p, &classic)), true, 0),
+            RoomVariant::new("giants").generated(recipe(move |sim, p| Self::_gen_bubbles(sim, p, &giants)), true, 0),
+            RoomVariant::new("spiky").generated(recipe(move |sim, p| Self::_gen_bubbles(sim, p, &spiky)), true, 0),
+            RoomVariant::new("coin-bubbles")
+                .generated(recipe(move |sim, p| Self::_gen_bubbles(sim, p, &coin_bubbles)), true, 0),
         ];
         out_.push(bubbles);
 
@@ -148,6 +149,20 @@ impl CatalogSky {
     }
 
     /// Bubble(lane): C# defaults p_radius = RADIUS, p_rise = RISE.
+    fn _gen_bubbles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+        let made = p.add_all(sim, factories);
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        for i in made {
+            if let Hz::Bubble(b) = &mut sim.room.hazards[i] {
+                if !b.spiked {
+                    b.y = SimConfig::WORLD_H + b.radius;
+                }
+            }
+        }
+    }
+
     fn _bubble(lane: i64) -> Hz {
         Bubble::new(lane, Bubble::RADIUS, Bubble::RISE).into()
     }

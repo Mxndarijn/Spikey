@@ -140,13 +140,13 @@ of a player holding height (`FairLanes.arrival_path`), Shutter Gates has its gap
 at the bird's height when it gets there, and a wall the bird reaches while
 still reading (fast or narrow rooms) keeps that player's hops free of spikes.
 The bird comes out at least `SimConfig.ARRIVAL_EDGE` from the ceiling and
-floor lines, so holding height never hops into them. Where no timing can
-work, the room isn't picked out of a portal at that height
-(`RoomDef.arrival_skip`): rooms with a hazard near the ceiling skip high
-arrivals, Bee Line skips the middle heights its bees sweep. A room variant
-can skip heights too (`RoomVariant.arrival_skip`): out of a portal the room
-only draws variants that fit, so each Lantern Swing variant skips the heights
-where its lanterns hang lowest. `tools/arrival_test.gd` and `tools/arrival_room.gd`
+floor lines, so holding height never hops into them. A hand-made (STATIC)
+variant that can't work at some height skips it (`RoomVariant.arrival_skip`,
+or `RoomDef.arrival_skip` for the whole room): out of a portal the room only
+draws variants that fit, so each Lantern Swing variant skips the heights
+where its lanterns hang lowest. Rooms that used to skip heights now build
+GENERATED variants round the arrival instead (see "Generated variants"
+below), so they fit every height. `tools/arrival_test.gd` and `tools/arrival_room.gd`
 measure how often a player who reacts late dies right after a portal.
 The reaction benchmark: a player who needs 0.75 s is never killed by a
 portal (every death there still had a way to live: `SurvivalSearch` finds
@@ -258,6 +258,69 @@ Adding a room: write the hazard (or reuse one) and port it to
 `tools/fastsim-rs` (`tools/fastsim-rs/PORTING.md`), its painter, a RoomDef in
 a batch file, its name in `RoomInfo` (and a skin in `RoomSkins` if it reuses a hazard's look), and
 tests; bump `GAMEPLAY_VERSION` and regenerate goldens.
+
+### Generated variants
+
+A room has one or more variants (`RoomVariant`), one drawn when the room
+starts. Each is **STATIC** (hand made: fixed hazard factories, `with()`) or
+**GENERATED** (`generated(recipe)`: a recipe builds the layout when the room
+starts). Static variants are set up exactly as before; generated ones go
+through `RoomRuntime._generate`:
+
+1. **Parameters** (`sim/rooms/variant_params.gd`, `VariantParams`): the
+   room RNG; the PLANNED entry height `entry_y` (out of a portal
+   `SimState.anchor_y`, the centre of the exit taken, from the seed, never
+   the bird's own height: the same-seed rule and 1v1 depend on it) and its
+   `spread` (`EXIT_FIT`, the bird comes out within it); the band a bird
+   holding its height there sweeps (`hold_top`, `hold_bottom`); the score and
+   its level (one per `BOSS_EVERY` points), so a recipe can scale; the try
+   number and `fallback`.
+2. **Generate**: the recipe builds its hazards into the room with `p.add()`
+   (each set up from the room RNG, in order) and may shape them round the
+   entry (Shutter Gates and Stalactite Run open their gaps round the hold
+   band until the bird is past: `open_for_arrival`, closing at a slide the
+   painter draws as it kills; Echo's mirror draws the height it turns round
+   away from the band; Bee Line draws its wave's height).
+3. **Check** (`sim/rooms/variant_check.gd`, `VariantCheck.holds`): on
+   copies, a bird at each `GameSim.ARRIVAL_HEIGHTS` height of the exit only
+   holds its height for `HOLD_STEPS` moving steps (`ARRIVAL_BLIND`; longer
+   with `hold_steps`, e.g. Gift Stack, whose first gift falls after the
+   reading time) and touches nothing deadly (with `avoid_touch` not even a
+   bubble). No draws, the room is left as it is.
+4. **Retry**: on a fail the layout is thrown away and built again from the
+   next draws, up to `RoomVariant.GENERATE_TRIES` (8) times. The last try is
+   the recipe's **safe fallback** (`p.fallback`), kept unchecked, safe by
+   construction (islands in the band left out, crawlers moved to the far
+   edge, bubbles started under the floor, the first gift held back, the bee
+   wave at the far end of its range).
+
+**Hard rule: a generated room is always the same for a seed.** A recipe (and
+its check and fallback) may only use the room's RNG, which is seeded from the
+run seed and the room's place in the run (`GameSim._spine`), and parameters
+that come from the seed: the planned entry height `anchor_y`, the score at
+the room start and its level. Never the bird's real height, its speed, the
+tick it came in on, its taps, the fork it took, coins or anything else a
+player does. `VariantCheck` flies its own birds from `anchor_y` and leaves
+the sim as it was. Checked by `tests/unit/test_generated_variants.gd` (each
+seed played twice with different taps, every generated room both plays meet
+built the same, hazard positions and sizes included; a bird anywhere in the
+exit; Calm or Wild at a fork) and by the `sameseed` FastSim check (every
+generated variant, five exit heights, both ways in, Calm and Wild).
+
+The rest of the fairness contract is the same for every room: the way on
+after the hold is ArrivalCheck's (`GameSim._arrival_retries`, which may still
+lay the room out again: a generated variant drawn by the room seed's first
+draw stays then, so its share is what the variant list says, and only its
+layout is drawn again), the planned exits stay reachable and clear
+(`ExitPlanner`, `blocks_exit`: an arrival opening is left out there, it
+closes), and every hazard keeps its own warnings. A generated variant needs
+no `arrival_skip`. Floating Isles is the reference recipe
+(`catalog_core.gd`, `_gen_isles`). Generated today: Floating Isles, Shutter
+Gates, Caterpillar Crawl and Crab Walk, Stalactite Run (classic, ceiling
+only, alternating), Bubble Lift, Echo (mirror), Gift Stack, Bee Line.
+`tests/unit/test_generated_variants.gd` checks the contract at every height;
+`fastsim-rs variants [arrivals] [rooms]` measures each variant's real share
+out of a portal, the full-wait rate and deaths within 2 s.
 
 ### Gameplay versions
 
