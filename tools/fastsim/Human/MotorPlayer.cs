@@ -184,29 +184,41 @@ public sealed class MotorPlayer
         }
         if (_hidden.Count > 0)
             for (int i = c.room.hazards.Count - 1; i >= 0; i--)
-                if (_hidden.ContainsKey(sim.room.hazards[i])) c.room.hazards.RemoveAt(i);
+                if (_hidden.ContainsKey(sim.room.hazards[i])) c.room.hazards[i].alive = false; // kept in the list: other hazards may link to it
         return c;
     }
 }
 
-/// The tiers: tap timing sd per tier (bisected to the targets, see docs/HUMAN_BOT.md).
+/// The tiers: tap timing sd (the main knob) and the reaction to new things
+/// per tier, fitted on the rate median (docs/HUMAN_BOT.md). Expert and beast
+/// react faster than the measured human ~17 ticks: with 17 ticks no setting of
+/// the tap sd reaches their targets.
 public static class MotorTiers
 {
-    public static readonly Dictionary<string, double> SIGMA = new()
+    public static readonly Dictionary<string, (double sigma, double react)> TIER = new()
     {
-        ["beginner"] = 4.0, ["normal"] = 3.0, ["good"] = 2.0, ["expert"] = 1.0, ["beast"] = 0.0,
+        ["beginner"] = (1.1, 13), ["normal"] = (0.45, 13), ["good"] = (0.0, 13), ["expert"] = (0.0, 0), ["beast"] = (0.0, -100),
     };
+    public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
+
+    public static Motor of(string tier)
+    {
+        var (sg, re) = TIER[tier];
+        return Motor.at(sg) with { react_mu = re, react_tau = re < 0 ? 0 : 4 };
+    }
 
     [System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Register()
     {
-        foreach (var kv in SIGMA)
+        foreach (var name in TIER.Keys.ToList())
         {
-            double sg = kv.Value;
-            FastSim.Yard.Bots.add(new($"human:{kv.Key}",
-                $"MotorPlayer: BlindPlanner (horizon 200, past 110, margin 16 incl. spikes, 8 lines, wobble) + Isaksen motor model, tap sd {sg} ticks, " +
-                "reaction ~17 ticks to new spikes/hazards, 8 ticks between presses",
-                FastSim.Yard.Copies.SCRAMBLED, seed => new MotorPlayer(Motor.at(SIGMA[kv.Key]), seed).decide));
+            string tier = name;
+            var m = of(tier);
+            FastSim.Yard.Bots.add(new($"human:{tier}",
+                $"MotorPlayer: BlindPlanner (horizon 200, past 110, margin 16 incl. spikes, 8 lines, wobble) + motor model: " +
+                $"tap sd {m.sigma} ticks, reaction {(m.react_mu < 0 ? "none" : $"~{m.react_mu + m.react_tau:F0} ticks")} to new spikes/hazards, " +
+                "8 ticks between presses",
+                FastSim.Yard.Copies.SCRAMBLED, seed => new MotorPlayer(of(tier), seed).decide));
         }
     }
 }

@@ -8,9 +8,10 @@ public sealed class ReflexBot
 {
     public const int N = 10;
     /// Hand-set start point (the ES starts here).
-    public static readonly double[] START = { 0.3, 1.0, 0.6, 1.5, 2.0, -0.1, 12, 0.3, 0.5, 0.0 };
+    public static readonly double[] START = { 0.3, 4.0, 0.5, 1.5, 2.0, 0.0, 12, 0.0, 0.5, 0.0 };
     static readonly long[] PROBE = { 4, 8, 12, 16, 22, 28, 36 };
 
+    public static Action<string> LOG;
     readonly double[] w;
     readonly Skill _k;
     readonly Random _rng;
@@ -84,6 +85,8 @@ public sealed class ReflexBot
         double score = w[1] * below + w[2] * along + w[3] * (hit_w - hit_t) * Math.Clamp(1.5 - far, 0, 1)
                        + w[4] * (urg_w - urg_t) + w[5] + w[7] * ((yw - pref) * g / (100 * PX))
                        + w[9] * (1 - far);
+        LOG?.Invoke($"t {t} y {s.y / SimConfig.SUB} vy {s.vy} goal {goal / SimConfig.SUB} pref {pref / PX:F0} below {below:F2} along {along:F2} " +
+                    $"hit {hit_w}/{hit_t} urg {urg_w:F2}/{urg_t:F2} yw {yw / SimConfig.SUB} score {score:F2}");
         // No tap while still shooting up (unless the wait line is deadly).
         if (along < -w[8] && urg_w < 0.5) return false;
         return score > 0;
@@ -93,8 +96,8 @@ public sealed class ReflexBot
     /// hazard where it is now, the ceiling or the floor (99 if never in sight).
     double danger(GameSim sim, bool tap)
     {
-        var saved = sim.state.copy();
         var s = sim.state;
+        long ox = s.x, oy = s.y;
         long g = SimConfig.GRAVITY * sim.room.gravity;
         long vy = tap ? SimConfig.FLAP_VY * sim.room.gravity : s.vy;
         long y = s.y, x = s.x;
@@ -132,7 +135,8 @@ public sealed class ReflexBot
                 break;
             }
         }
-        sim.state = saved;
+        s.x = ox;
+        s.y = oy;
         return hit;
     }
 }

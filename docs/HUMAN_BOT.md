@@ -5,7 +5,38 @@ Playtest bots that should look like a person playing, at five skill tiers
 A tool only: `tools/fastsim/Human/`, run as `fastsim human <mode>`. It never
 changes `sim/` or gameplay. Compare with the RL bot in `docs/RL_BOT.md`.
 
-## Approach A: a human model on a short look-ahead planner (`HumanBot.cs`)
+## Main line: a human layer on the review's BlindPlanner (`MotorPlayer.cs`)
+
+The planner is the bot review's `BlindPlanner` (`Bots/BlindPlanner.cs`): a beam over tap / wait on a copy
+of the sim whose RNG and already-drawn hidden values are replaced, so it predicts visible motion (allowed)
+but not random outcomes (not allowed). On top of it, a measured human motor model (Isaksen et al. 2015):
+
+- **Tap timing error** (the main skill knob): each planned tap lands `N(0, sigma)` ticks off, early or late.
+  Presses are committed ~2.5 sigma ticks ahead (the thumb is on its way); a press can still be held back
+  until 5 ticks before it lands.
+- **Tap rate cap**: at least 8 ticks between presses (at most 7.5 taps/s).
+- **Reaction to new things**: spikes put up at a bounce and newly appearing hazards are hidden from the
+  planner for an ex-Gaussian reaction time (mean ~17 ticks, 288 ms): the planner's copy has no spikes on
+  that wall yet, and new hazards are not alive in it.
+- **Planner settings for an imprecise thumb**: a 16 px margin that also counts the spikes of the wall
+  ahead, the ceiling and the floor (`spike_margin`), margin cost 2000 (with 40 the mid-height cost won and
+  the planner threaded one-slot gaps), 8 candidate lines tried with taps `round(sigma)` ticks early/late.
+
+Tiers (`MotorTiers.TIER`), yardstick `human:<tier>`:
+
+| tier | tap sd (ticks) | reaction to new things |
+|---|---|---|
+| beginner | 1.1 | ~17 ticks |
+| normal | 0.45 | ~17 ticks |
+| good | 0 | ~17 ticks |
+| expert | 0 | ~4 ticks |
+| beast | 0 | none |
+
+Isaksen's measured human sd is 2.2-3.7 ticks. At that sd this bot scores a rate median of 13-21 (below
+beginner); the targets need a steadier thumb than the average player in that study, or a planner that
+copes with noise better.
+
+## First try: a human model on a short look-ahead planner (`HumanBot.cs`, real copies)
 
 The player looks at the screen every `think` ticks and plans the next second
 or two with copies of the sim, but only with what is on screen:

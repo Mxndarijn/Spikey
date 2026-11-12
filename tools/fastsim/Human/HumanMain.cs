@@ -103,6 +103,14 @@ public static class HumanMain
                                   $"doomed at the bounce {got.Count(x => x.StartsWith("DOOMED"))}");
                 return 0;
             }
+            case "reflextrace":
+            {
+                ReflexBot.LOG = Console.WriteLine;
+                var sim = new GameSim(long.Parse(opt("seed", "1")));
+                var tr = Trace.play(sim, decider("reflex", 1, 1), long.Parse(opt("cap", "120")), false);
+                Console.WriteLine($"{tr.points} points, {tr.cause}");
+                return 0;
+            }
             case "motortrace":
             {
                 long seed = long.Parse(opt("seed", "3"));
@@ -160,9 +168,8 @@ public static class HumanMain
     {
         if (bot == "motor")
         {
-            double sg = O.ContainsKey("sigma") ? double.Parse(opt("sigma", "0"))
-                : MotorTiers.SIGMA.GetValueOrDefault(opt("tier", "beast"), 0);
-            var m = Motor.at(sg);
+            var m = O.ContainsKey("sigma") ? Motor.at(double.Parse(opt("sigma", "0"))) : MotorTiers.of(opt("tier", "beast"));
+            double sg = m.sigma;
             if (O.ContainsKey("react")) m = m with { react_mu = double.Parse(opt("react", "13")) };
             if (O.ContainsKey("gap")) m = m with { min_gap = long.Parse(opt("gap", "8")) };
             var bp = MotorPlayer.make_planner(seed, sg);
