@@ -183,7 +183,9 @@ func on_room_changed(room_index: int) -> void:
 		# It flies away from the wall it came out of.
 		_arrival_side = 0 if s.vx > 0 else 1
 		_arrival_y = s.y
-		_arrival_kind = s.route if s.score % SimConfig.FORK_EVERY == 0 else SimState.ExitKind.NORMAL
+		# A fork's exit keeps its kinds in the state after the bird goes through.
+		var fork := s.exit_b_kind != SimState.ExitKind.NORMAL
+		_arrival_kind = s.route if fork else SimState.ExitKind.NORMAL
 		_arrival = 1.0
 	_prev_sky = _current_sky()
 	_room_index = room_index

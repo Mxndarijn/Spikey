@@ -3,8 +3,10 @@ extends Hazard
 ## one). Every wall bounce is a hit: the room's exit opens after
 ## SimConfig.BOSS_POINTS of them, in three phases (PHASE_AT points into the
 ## room). After a phase change the boss waits STAGGER steps before its next
-## attack: that wait is the tell for the new phase. When the exit opens the
-## boss breaks (`down_at`): it no longer kills and only falls apart.
+## attack: that wait is the tell for the new phase. When an exit is drawn
+## (it opens, with no ghost first in a boss room) the boss breaks
+## (`down_at`): it no longer kills and only falls apart, so nothing of it is
+## ever in an exit's mouth (ExitZone).
 ##
 ## Its attacks run on the phase clock (steps since the phase began, clock()).
 ## Every player of a seed meets them on the same ticks: speed across is fixed,
@@ -51,7 +53,7 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 
 
 func step(sim: GameSim) -> void:
-	if down_at < 0 and sim.state.exit_open:
+	if down_at < 0 and (sim.state.exit_open or sim.state.exit_preview):
 		down_at = t
 	if down_at >= 0:
 		boss_down_step(sim)

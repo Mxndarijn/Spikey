@@ -411,7 +411,8 @@ func _take_exit(side: int) -> bool:
 ## With no ghost (a practice room starting one point short) it opens on
 ## `side`, as before. At a fork (ExitPlanner.is_fork) it is a Calm and a Wild
 ## exit, one in each half, in a random order. In a boss room the exit opens
-## after SimConfig.BOSS_POINTS bounces there instead, and the boss breaks.
+## after SimConfig.BOSS_POINTS bounces there instead, with no ghost first (the
+## boss fights on until then), and the boss breaks.
 func _maybe_open_exit(side: int) -> void:
 	if state.exit_open:
 		return
@@ -422,7 +423,7 @@ func _maybe_open_exit(side: int) -> void:
 			events.append(Event.EXIT_OPEN)
 			_boss_down()
 		return
-	if _exit_due(state.score + 1):
+	if _exit_due(state.score + 1) and not room.def.boss:
 		state.exit_preview = true
 		ExitPlanner.use_plan(self, 1 - side, state.score + 1)
 		events.append(Event.EXIT_PREVIEW)

@@ -162,7 +162,9 @@ that one room has `WILD_SPIKES` more spikes on every wall after the arrival's
 (`SimState.route` says which exit led into the room). The next room is
 picked by the seed
 (`RoomCatalog.pick_next`: weighted, never the same room twice, only rooms whose
-`from_score` is reached and whose season matches the run's).
+`from_score` is reached and whose season matches the run's). The exit at
+every 100 points leads into a boss room instead (no fork there; the boss's
+own exit, 20 bounces later, is the fork): see [BOSS_ROOMS.md](BOSS_ROOMS.md).
 
 Fairness is checked by `tests/support/survival_search.gd` (SurvivalSearch): it
 runs many copies of the sim side by side, tapping and waiting on each, so if all
@@ -333,7 +335,7 @@ Attest / Play Integrity to confirm a real device.
 | Worlds | `data/design/` (tokens) -> `data/themes/` (generated `ThemeDef`), `game/run/scenes/worlds/<id>.gd` (`WorldScene`) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |
 | Daily board | Best normal run of the day, resets at local midnight (replaced Hourly; the same-seed daily challenge was dropped) |
-| Boss rooms | New room kinds in `sim/room_rules.gd` (gameplay change, bumps version) |
+| Boss rooms | `sim/rooms/catalog_boss.gd` (RoomDef.boss), a hazard extending `sim/hazards/boss.gd` (phases, tells, down), its painter, `RoomInfo`; see [BOSS_ROOMS.md](BOSS_ROOMS.md) |
 | Seasonal rooms | `sim/rooms/catalog_seasonal.gd`, `meta/season_calendar.gd` (season is a run input) |
 | Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |
 | Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |
