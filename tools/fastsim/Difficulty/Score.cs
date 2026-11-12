@@ -88,7 +88,16 @@ public static class Score
                 if (f[4] == "error") { r.errors++; continue; }
                 switch (f[0])
                 {
-                    case "tube": r.tube.Add(f.Skip(4).Take(17).Select(D).ToArray()); break;
+                    case "tube":
+                    {
+                        var x = f.Skip(4).Take(17).Select(D).ToList();
+                        // Column 18: SurvivalSearch's verdict on a tube "no way" (1 no way either, 0 it got through).
+                        string c = f.Length > 22 ? f[21] : "-";
+                        x.Add(x[WAY] == 0 && c == "1" ? 1 : 0); // CONFIRMED
+                        x.Add(x[WAY] == 0 && c == "0" ? 1 : 0); // MISSED: the tube missed a way SurvivalSearch found
+                        r.tube.Add(x.ToArray());
+                        break;
+                    }
                     case "react":
                         r.react.Add(f.Skip(4).Take(13).Select(long.Parse).ToArray());
                         r.react_detail.Add(f[17]);
@@ -118,7 +127,8 @@ public static class Score
 
     // tube columns (after the 4 key columns)
     const int WAY = 0, TICKS = 1, FIRST_EXIT = 2, PEAK = 3, BAND_MIN = 4, BAND_P10 = 5, BAND_MED = 6, TIGHT_S = 7,
-        BITS = 8, BITS_S = 9, WIN = 10, WIN_MED = 11, TAPS = 12, TIGHT = 13, LINE_S = 14, CHOICE_S = 15, VIABLE = 16;
+        BITS = 8, BITS_S = 9, WIN = 10, WIN_MED = 11, TAPS = 12, TIGHT = 13, LINE_S = 14, CHOICE_S = 15, VIABLE = 16,
+        CONFIRMED = 17, MISSED = 18;
 
     /// The per-room measures (medians over the entries), in Room.f.
     static void features(Room r)
@@ -128,7 +138,11 @@ public static class Score
         {
             var ok = r.tube.Where(x => x[WAY] > 0).ToList();
             r.f["entries"] = r.tube.Count;
-            r.f["no_way_entries"] = r.tube.Count - ok.Count;
+            // An entry counts as having no way only when SurvivalSearch agrees (old files without
+            // that column: the tube's word, as "unconfirmed").
+            r.f["no_way_entries"] = r.tube.Count(x => x[WAY] == 0 && x[CONFIRMED] == 1);
+            r.f["no_way_unconfirmed"] = r.tube.Count(x => x[WAY] == 0 && x[CONFIRMED] == 0 && x[MISSED] == 0);
+            r.f["tube_missed"] = r.tube.Count(x => x[MISSED] == 1);
             if (ok.Count > 0)
             {
                 r.f["band_min"] = median(ok.Select(x => x[BAND_MIN]));
@@ -319,6 +333,7 @@ public static class Score
     {
         var f = new List<string>();
         if (r.f.GetValueOrDefault("no_way_entries") > 0) f.Add("no-way");
+        else if (r.f.GetValueOrDefault("no_way_unconfirmed") > 0) f.Add("no-way?");
         // Reaction.MAX_EXTRA_PCT: at most 2% of cases may die that a quick reaction survives.
         if (r.f.GetValueOrDefault("fails20") >= 2 && r.f.GetValueOrDefault("fail20") * 100 > Reaction.MAX_EXTRA_PCT) f.Add("unfair-react");
         else if (r.f.GetValueOrDefault("fail40") > bands.fail40_limit) f.Add("slow-react");

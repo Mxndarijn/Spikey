@@ -148,6 +148,7 @@ func _ready() -> void:
 	_run.coin_collected.connect(_coin.on_collected)
 	_run.coin_collected.connect(_on_coin_collected)
 	_hud.pause_pressed.connect(_toggle_pause)
+	_hud.score_placed.connect(func(top: float) -> void: _hazards.score_top = top)
 	_hud.play_again_pressed.connect(_try_restart)
 	_hud.home_pressed.connect(show_home)
 	_hud.restart_pressed.connect(_restart_practice)

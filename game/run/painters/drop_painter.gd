@@ -35,8 +35,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 		var x := HazardLayer.px(h.x)
 		match look.skin:
 			"icicle":
-				var shake := sin(time * 60.0) * 2.5 * k
-				_icicle(c, Vector2(x + shake, top + r), r, theme, 1.0)
+				_icicle_forming(c, x, top, r, k, look)
 			"pinecone":
 				_mark(c, x, top, r, k, theme)
 			_:
@@ -47,7 +46,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var p := HazardLayer.at(h.x, h.y)
 	match look.skin:
 		"icicle":
-			_icicle(c, p, r, theme, 1.0)
+			_icicle(c, p, r, look)
 		"pinecone":
 			_pinecone(c, p, r, theme, time)
 		_:
@@ -166,16 +165,31 @@ static func _spike_drop(c: CanvasItem, p: Vector2, r: float, theme: ThemeDef) ->
 	c.draw_arc(p, r * 0.6, PI * 1.15, PI * 1.6, 8, Color(theme.spike_edge, 0.8), 2.0, true)
 
 
-static func _icicle(c: CanvasItem, p: Vector2, r: float, theme: ThemeDef, alpha: float) -> void:
-	var pts := PackedVector2Array(
-		[p + Vector2(-r, -r), p + Vector2(r, -r), p + Vector2(0, -r + LENGTH * 1.4)]
-	)
-	c.draw_colored_polygon(pts, Color(theme.spike, alpha))
-	pts.append(pts[0])
-	c.draw_polyline(pts, Color(theme.spike, alpha), 1.0, true)
-	c.draw_line(
-		p + Vector2(-r * 0.4, -r), p + Vector2(-r * 0.1, r), Color(theme.spike_edge, 0.8), 2.0, true
-	)
+## A falling icicle: a two-tone rounded spike like the room's own, pointing
+## down from its top at `p.y - r` (its hitbox is the circle at `p`).
+static func _icicle(c: CanvasItem, p: Vector2, r: float, look: HazardLook) -> void:
+	var base := Vector2(p.x, p.y - r)
+	RoomView.paint_spike(c, base, Vector2(0, 1), r, LENGTH * 1.4, look.theme, look.ink)
+
+
+## The icicle forming, the way Spike Rain's drops form: it grows out of the
+## ceiling band (55% long at once, full by 60% of the warning), trembles from
+## 45% and lets go over the last 30%, ending where the falling icicle starts.
+static func _icicle_forming(
+	c: CanvasItem, x: float, top: float, r: float, k: float, look: HazardLook
+) -> void:
+	var grow := 0.55 + 0.45 * minf(1.0, k / 0.6)
+	var stretch := (k - 0.7) / 0.3 if k > 0.7 else 0.0
+	var tremble := 0.0
+	if k > 0.45:
+		tremble = sin(look.time * 55.0) * 1.2 * minf(1.0, (k - 0.45) / 0.3)
+	var length := LENGTH * 1.4
+	var tip := top + length * grow
+	# Hanging from the band, then its base drops to the ceiling line as it lets go.
+	var base_y := lerpf(RoomView.BAND, top, stretch)
+	var base := Vector2(x + tremble, base_y)
+	var half := r * (0.7 + 0.3 * grow)
+	RoomView.paint_spike(c, base, Vector2(0, 1), half, tip - base_y, look.theme, look.ink)
 
 
 static func _pinecone(c: CanvasItem, p: Vector2, r: float, theme: ThemeDef, time: float) -> void:

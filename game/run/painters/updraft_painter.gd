@@ -21,8 +21,10 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var time := look.time
 	var x0 := HazardLayer.px(h.x0)
 	var x1 := HazardLayer.px(h.x1)
-	var top := HazardLayer.px(SimConfig.KILL_TOP)
-	var bottom := HazardLayer.px(SimConfig.KILL_BOTTOM)
+	# The column runs band to band (behind the spike rows' tips), so it does
+	# not stop in mid-air a few px short of the ceiling and floor.
+	var top := RoomView.BAND
+	var bottom := RoomView.H - RoomView.BAND
 	var w := x1 - x0
 	var down := h.lift < 0
 	var strong := h.lift > SimConfig.GRAVITY
@@ -31,7 +33,8 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 
 	if h.gust == UpdraftHazard.Gust.OFF or h.gust == UpdraftHazard.Gust.WARN:
 		_dashed_edges(c, x0, x1, top, bottom, Color(theme.paper, 0.35))
-		var vent := Rect2(x0 + 10, bottom - VENT_H - 30, w - 20, VENT_H)
+		var vent_y := HazardLayer.px(SimConfig.KILL_BOTTOM) - VENT_H - 30
+		var vent := Rect2(x0 + 10, vent_y, w - 20, VENT_H)
 		c.draw_rect(vent, Color(theme.paper, 0.45))
 		if h.gust == UpdraftHazard.Gust.WARN:
 			var f := float(h.gust_step() - UpdraftHazard.GUST_OFF) / UpdraftHazard.GUST_WARN

@@ -31,8 +31,10 @@ static func draw(c: CanvasItem, h: Boss, look: HazardLook) -> void:
 	var tag := name.to_upper()
 	var size := UiTokens.FONT_SIZE_TAG
 	var tw := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	# Under the score, which a practice or replay banner pushes down.
+	var dy := look.score_top - HazardLook.RUN_SCORE_TOP
 	c.draw_string(
-		font, Vector2((w - tw) / 2.0, NAME_Y), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col
+		font, Vector2((w - tw) / 2.0, NAME_Y + dy), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col
 	)
 	var left := clampi(sim.next_exit_score() - sim.state.score, 0, SimConfig.BOSS_POINTS)
 	if h.down_at >= 0:
@@ -40,7 +42,7 @@ static func draw(c: CanvasItem, h: Boss, look: HazardLook) -> void:
 	var n := SimConfig.BOSS_POINTS
 	var x0 := (w - (n * (PIP.x + PIP_GAP) - PIP_GAP)) / 2.0
 	for i in n:
-		var r := Rect2(x0 + i * (PIP.x + PIP_GAP), PIPS_Y, PIP.x, PIP.y)
+		var r := Rect2(x0 + i * (PIP.x + PIP_GAP), PIPS_Y + dy, PIP.x, PIP.y)
 		var on := i < left
 		UiTheme.flat(col if on else Color(col, 0.22), 2, 0).draw(c.get_canvas_item(), r)
 	_title(c, h, look, name)

@@ -110,9 +110,18 @@ public static class DiffMain
             case "tube":
             {
                 var r = new Tube().run(Cases.arrive(t, i), t.cap);
+                // The tube merges near-equal states, so it can miss a way: a "no way" is
+                // checked with SurvivalSearch (finer, escalating). 1 confirmed, 0 it got through, - not needed.
+                string confirmed = "-";
+                if (!r.way)
+                {
+                    var at = Cases.arrive(t, i);
+                    var ss = new SurvivalSearch();
+                    confirmed = ss.run(at, t.cap) && Cases.cleared(ss.best, at.state.room_index) ? "0" : "1";
+                }
                 return string.Join("\t", r.way ? 1 : 0, r.ticks, r.first_exit, r.peak, r.band_min, r.band_p10, r.band_med,
                     F(r.tight_s), F(r.paths_bits), F(r.bits_per_s), r.line_window, r.line_window_med, r.line_taps,
-                    r.line_tight, F(r.line_s), F(r.choice_s), F(r.viable_frac));
+                    r.line_tight, F(r.line_s), F(r.choice_s), F(r.viable_frac), confirmed);
             }
             case "react":
             {

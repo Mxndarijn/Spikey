@@ -457,15 +457,23 @@ func _draw_score() -> void:
 
 ## The ceiling and floor spikes (their band is in the backdrop).
 func _draw_edges() -> void:
-	var count := int(W / (EDGE_SPIKE_HALF * 2.0))
-	var step := W / count
-	for i in count:
-		var cx := step * (i + 0.5)
-		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
+	# Squeeze Box and Narrow move the side walls in: the row of 9 fits between
+	# them, so no spike is cut in half by a wall band.
+	var left := 0.0
+	var right := W
+	if _run != null and _run.sim != null and _run.sim.room != null:
+		left = side_wall_x(0)
+		right = side_wall_x(1)
+	var row := edge_row(left, right)
+	var step := (right - left) / row.size()
+	for s in row:
+		var cx := s.x
+		var half := s.y
+		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), half, EDGE_SPIKE_DEPTH)
 		# A floor spike under a hazard that landed on it sinks into the floor.
 		var depth := EDGE_SPIKE_DEPTH * (1.0 - _floor_sink(cx - step / 2.0, cx + step / 2.0))
 		if depth > TIP_BACK + 1.0:
-			_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), EDGE_SPIKE_HALF, depth)
+			_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), half, depth)
 
 
 ## How far the floor spike from `left` to `right` has sunk (0..1), from the
@@ -712,12 +720,36 @@ static func spike_lit_points(
 ## colour with its lit half in spike-edge; color-blind spikes are ink with a
 ## white edge.
 func _draw_spike(base: Vector2, dir: Vector2, half: float, depth: float) -> void:
-	var pen := ScenePen.new(self)
+	paint_spike(self, base, dir, half, depth, _theme, color_blind_spikes)
+
+
+## A two-tone rounded spike on any canvas (painters use it so their spikes
+## match the room's): `theme` is the world as drawn, `ink` color-blind spikes.
+static func paint_spike(
+	c: CanvasItem,
+	base: Vector2,
+	dir: Vector2,
+	half: float,
+	depth: float,
+	theme: ThemeDef,
+	ink: bool
+) -> void:
+	var pen := ScenePen.new(c)
 	var pts := spike_points(base, dir, half, depth)
-	pen.fill(pts, INK_SPIKE if color_blind_spikes else _theme.spike)
-	pen.fill(
-		spike_lit_points(base, dir, half, depth),
-		INK_SPIKE_EDGE if color_blind_spikes else _theme.spike_edge
-	)
-	if color_blind_spikes:
+	pen.fill(pts, INK_SPIKE if ink else theme.spike)
+	pen.fill(spike_lit_points(base, dir, half, depth), INK_SPIKE_EDGE if ink else theme.spike_edge)
+	if ink:
 		pen.stroke(pts, INK_SPIKE_LINE, INK_SPIKE_LINE_W)
+
+
+## The ceiling and floor rows between the side walls at `left` and `right`:
+## each spike's centre x and half base (always 9 spikes, narrower when the
+## walls move in).
+static func edge_row(left: float, right: float) -> Array[Vector2]:
+	var count := int(W / (EDGE_SPIKE_HALF * 2.0))
+	var step := (right - left) / count
+	var half := EDGE_SPIKE_HALF * step / (W / count)
+	var out: Array[Vector2] = []
+	for i in count:
+		out.append(Vector2(left + step * (i + 0.5), half))
+	return out

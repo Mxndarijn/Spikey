@@ -19,6 +19,7 @@ using FastSim;
 ///   rescued   was tests/sim/test_rooms_survivable.gd
 ///   runs      was tests/sim/test_bot_runs.gd
 ///   rlbot     the RL bot only reads the sim (RL/RlCheck.cs)
+///   rlboss    the RL bot's danger grid marks every boss tell (RL/BossTellCheck.cs)
 ///   exits     nothing in an open or ghost exit's mouth (ExitChecks.cs; tests/sim/test_exit_clear.gd)
 ///   reach     tests/sim/test_exits_reachable.gd: every exit can still be taken when
 ///             it opens, on many different lines (seed 3392377610's room 3, v21)
@@ -35,7 +36,11 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
+<<<<<<< HEAD
         new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new FastSim.Diff.DifficultyCheck(),
+=======
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new BlindSeeds(), new MpcBossSight(), new RlBossTells(), new BossFair(),
+>>>>>>> next-features-2
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)

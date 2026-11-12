@@ -12,6 +12,7 @@ extends Node2D
 const PAINTER_DIR := "res://game/run/painters"
 const INK_EDGE := Color("#FFFFFF")
 const INK_LINE_W := 2.0
+const GUIDE_ALPHA := 0.22
 
 static var _painters: Dictionary[String, HazardPainter] = {}
 
@@ -20,6 +21,10 @@ var color_blind_spikes := false:
 	set(value):
 		color_blind_spikes = value
 		queue_redraw()
+
+## Where the HUD's run score starts (Hud.score_placed), for painters that
+## draw under it (the boss bar).
+var score_top := HazardLook.RUN_SCORE_TOP
 
 var _run: RunController
 var _theme: ThemeDef
@@ -62,6 +67,7 @@ func look() -> HazardLook:
 		skin = RoomSkins.of(_run.sim.room.def.id)
 	var out := HazardLook.new(drawn_theme(), _time, skin, color_blind_spikes)
 	out.sim = _run.sim if _run != null else null
+	out.score_top = score_top
 	return out
 
 
@@ -97,6 +103,13 @@ func _draw() -> void:
 		var p := painter(h.kind)
 		if p != null:
 			p.paint(self, h, hazard_look)
+
+
+## A safe guide line (a track, a rail, a ring something rides on): the
+## world's text ink, faint, so it reads on light and night skies alike and is
+## never mistaken for a hazard.
+static func guide(theme: ThemeDef) -> Color:
+	return Color(theme.ink, GUIDE_ALPHA)
 
 
 ## Sub-units to pixels.

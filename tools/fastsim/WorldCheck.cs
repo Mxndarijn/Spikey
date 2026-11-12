@@ -282,6 +282,7 @@ public static partial class WorldCheck
         ("reads the RNG", @"\b(SimRng|_rng|next_u32|next_below|reseed)\b"),
         ("reads a hidden salt", @"\.salt\b"),
         ("reads a hidden target", @"\.(target_y|next_x)\b"),
+        ("reads a boss draw", @"\.seed\b|\.(draw|lit_rows|slam_of|_next_lane|hop_to|_pick_column|safe_y)\s*\("),
         ("runs hazard hooks", @"\.(setup|_place|on_bounce|on_flap|on_wall_bounce|adjust_wall|near_row|touch|kills|_next_drop|_pick_y|_aim|_load|pop)\s*\("),
         ("runs arrival checks", @"\b(ArrivalCheck|_arrival_retries|_arrive_in|_go_through|_enter_room)\b"),
         ("changes the sim", @"\bsim\.(state|room)\.[a-z_]+\s*(=[^=]|\+=|-=|\+\+|--)"),

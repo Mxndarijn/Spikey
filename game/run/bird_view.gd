@@ -39,8 +39,12 @@ var _character: CharacterDef
 var _flap_timer := 0.0
 var _shake := 0.0
 var _bob_time := 0.0
-## Positive = taller and thinner (flap), negative = wider and flatter (bounce).
+## Positive = taller and thinner (flap).
 var _stretch := 0.0
+## A wall bounce: the body squeezes against the wall (narrower along x, a bit
+## taller), so it never pokes into a wall band (Narrow, Squeeze Box) when it
+## turns round. 0..BOUNCE_SQUASH, easing back like the stretch.
+var _squash := 0.0
 var _tilt := 0.0
 var _fading := false
 ## Flip progress: 1 = upright, -1 = upside down (Gravity Flip). Moves linearly;
@@ -68,6 +72,7 @@ func bind(run: RunController, character: CharacterDef) -> void:
 	_flap_timer = 0.0
 	_shake = 0.0
 	_stretch = 0.0
+	_squash = 0.0
 	_tilt = 0.0
 	_fading = false
 	_show = false
@@ -88,7 +93,7 @@ func on_flap() -> void:
 
 
 func on_bounce() -> void:
-	_stretch = -BOUNCE_SQUASH
+	_squash = BOUNCE_SQUASH
 
 
 func on_death() -> void:
@@ -217,10 +222,12 @@ func _process(delta: float) -> void:
 	position = Vector2(px, py)
 	var facing := 1.0 if s.vx > 0 else -1.0
 	_stretch = move_toward(_stretch, 0.0, delta * SQUASH_RECOVER * absf(_stretch) + delta * 0.2)
+	_squash = move_toward(_squash, 0.0, delta * SQUASH_RECOVER * _squash + delta * 0.2)
 	var g := _gravity_sign()
 	_flip = flip_step(_flip, flip_target(g), delta)
 	var flip := flip_scale(_flip)
-	scale = Vector2(facing * (1.0 - _stretch), (1.0 + _stretch) * flip)
+	var sx := (1.0 - _stretch) * (1.0 - _squash)
+	scale = Vector2(facing * sx, (1.0 + _stretch) * (1.0 + _squash * 0.5) * flip)
 	# Ease toward the target so a flap swings the nose up instead of snapping it.
 	# Tilt is measured along gravity: "falling" is toward the ceiling when flipped.
 	var target := tilt_for(s.vy * g) if s.started else 0.0

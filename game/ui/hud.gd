@@ -16,6 +16,8 @@ extends CanvasLayer
 ## Taps outside buttons pass through to Main as flaps.
 
 signal pause_pressed
+## The run score moved (the practice or replay banner pushes it down): its top, px.
+signal score_placed(top: float)
 signal play_again_pressed
 signal home_pressed
 ## Practice: restart the room, or leave for the Rooms screen. Game over's dock
@@ -335,6 +337,7 @@ func _place_score() -> void:
 	var banner := _practicing or _replaying
 	_score.offset_top = 92 if banner else 34
 	_score.offset_bottom = _score.offset_top + UiTheme.RUN_SCORE_SIZE + 6
+	score_placed.emit(_score.offset_top)
 	_score.add_theme_font_size_override("font_size", 64 if banner else UiTheme.RUN_SCORE_SIZE)
 	# The replay chip fills the top middle; the coins drop beside the score.
 	_run_coins.offset_top = REPLAY_COINS_TOP if _replaying else RUN_COINS_TOP

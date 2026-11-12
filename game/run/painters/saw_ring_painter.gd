@@ -11,7 +11,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var time := look.time
 	var center := HazardLayer.at(h.center_x, h.center_y)
 	var squash := float(h.ry_num) / float(h.ry_den)
-	var guide := Color(theme.world_accent, 0.25)
+	var guide := HazardLayer.guide(theme)
 	_guide(c, center, HazardLayer.px(h.radius), squash, guide)
 	if h.inner_count > 0:
 		_guide(c, center, HazardLayer.px(h.inner_radius), squash, guide)

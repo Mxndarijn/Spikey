@@ -26,8 +26,18 @@ public static class Review
             case "honest":
                 honest(opts, seeds, cap, threads);
                 return 0;
+            case "fair":
+                return Fairness.run(opts, seeds, cap, threads);
             case "atlas":
                 return atlas(opts, seeds, cap, threads);
+            case "exposure":
+                return Autopsy.exposure(opts, seeds, threads);
+            case "bouncefair":
+                return Autopsy.bouncefair(opts, seeds, threads);
+            case "fixtest":
+                return Autopsy.fixtest(opts, threads);
+            case "autopsy":
+                return Autopsy.run(opts, seeds, cap, threads);
             case "blindcheck":
                 return blindcheck(seeds);
             case "trace":
@@ -91,10 +101,15 @@ public static class Review
     }
 
     /// Sets the planner's knobs from the command line; returns them as text.
-    static string configure(BlindPlanner bot, Dictionary<string, string> opts)
+    internal static string configure(BlindPlanner bot, Dictionary<string, string> opts)
     {
         long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
         BlindPlanner.know_exits = L("knowexits", 0) != 0;
+        BlindPlanner.boss_blind = L("hideboss", 1) != 0;
+        BlindPlanner.hide_keys = L("hidekeys", 1) != 0;
+        bot.own_anchor = L("ownanchor", 1) != 0;
+        BlindPlanner.know_walls = L("knowwalls", 0) != 0;
+        BlindPlanner.know_all = L("knowall", 0) != 0;
         bot.horizon = L("h", bot.horizon);
         bot.past = L("past", bot.past);
         bot.replan = (int)L("k", bot.replan);
@@ -103,9 +118,6 @@ public static class Review
         bot.lines = (int)L("lines", bot.lines);
         bot.wobble = (int)L("wobble", bot.wobble);
         bot.part = (int)L("part", bot.part);
-        bot.after = L("after", bot.after);
-        bot.band = L("band", bot.band);
-        bot.coarse_px = L("coarse", bot.coarse_px);
         bot.mid_cost = L("mid", bot.mid_cost);
         bot.tap_cost = L("tap", bot.tap_cost);
         bot.margin = L("margin", bot.margin);
@@ -124,7 +136,7 @@ public static class Review
         bot.bucket_px = L("bpx", bot.bucket_px);
         bot.speed_buckets = L("speeds", bot.speed_buckets);
         bot.fine_px = L("fine", bot.fine_px);
-        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
     }
 
     /// `rl review atlas`: every death of the BlindPlanner with a verdict.
@@ -291,6 +303,7 @@ public static class Review
         long looks = 0, nodes = 0;
         ArrivalMemo.on = opts.GetValueOrDefault("memo", "1") != "0";
         ArrivalMemo.verify = opts.GetValueOrDefault("memo", "1") == "2";
+        BlindPlanner.pool = opts.GetValueOrDefault("pool", "1") != "0";
         // Warm up the JIT (tiered PGO) so the first seeds do not count the compile.
         {
             var sim = new GameSim(999);
@@ -353,7 +366,7 @@ public static class Review
         Console.WriteLine($"  {all} ticks in {sec:F1} s = {all / sec:F0} ticks/s, {all / sec / threads:F0} per thread; {deaths} deaths in {pts} points; looks {looks} ({1000.0 * sec * threads / Math.Max(1, looks):F3} ms each)" + (world ? $", nodes {nodes} ({nodes / sec / threads / 1e6:F2} M/s/thread)" : ""));
         ulong all_fp = 0;
         foreach (var r in res) all_fp = (all_fp ^ r.taps) * 1099511628211UL;
-        Console.WriteLine($"  taps fingerprint {all_fp:x16} (same = same play); arrival memo {(ArrivalMemo.on ? "on" : "off")}: {ArrivalMemo.hits} hits, {ArrivalMemo.misses} misses{(ArrivalMemo.verify ? $", {ArrivalMemo.wrong} wrong" : "")}");
+        Console.WriteLine($"  taps fingerprint {all_fp:x16} (same = same play); arrival memo {(ArrivalMemo.on ? "on" : "off")}: {ArrivalMemo.hits} hits, {ArrivalMemo.misses} misses{(ArrivalMemo.verify ? $", {ArrivalMemo.wrong} wrong" : "")}; sim pool {(BlindPlanner.pool ? "on" : "off")}");
         Console.WriteLine($"  GC: {alloc / 1e9:F1} GB allocated ({alloc / Math.Max(1, all) / 1024.0:F0} KB/tick), gen0 {GC.CollectionCount(0) - g0} gen1 {GC.CollectionCount(1) - g1} gen2 {GC.CollectionCount(2) - g2}, pauses {pause:F1} s = {100 * pause / sec:F1}% of wall time");
         double busy = sec * threads * 1000;
         for (int k = 0; k < Prof.N; k++)
@@ -373,6 +386,11 @@ public static class Review
         var bot = new BlindPlanner(seed);
         Console.WriteLine("trace seed " + seed + " [" + configure(bot, opts) + "]");
         var taps = new List<bool>();
+        // --taps dir: the run from a tap file (Autopsy), no planner (look / agree read 0).
+        string tdir = opts.GetValueOrDefault("taps", "");
+        if (tdir != "")
+            foreach (byte b in File.ReadAllBytes(Path.Combine(tdir, $"{seed}.taps"))) { taps.Add(b != 0); sim.step(b != 0); }
+        else
         while (!sim.is_over() && taps.Count < cap) { bool tap = bot.decide(sim); taps.Add(tap); sim.step(tap); }
         if (!sim.is_over()) { Console.WriteLine("alive at the cap"); return 0; }
         long died = taps.Count;
@@ -382,7 +400,7 @@ public static class Review
         configure(bot, opts);
         for (int t = 0; t < died; t++)
         {
-            bool tap = bot.decide(sim);
+            bool tap = tdir != "" ? taps[t] : bot.decide(sim);
             if (t >= died - last)
             {
                 var st = sim.state;

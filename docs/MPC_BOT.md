@@ -111,3 +111,21 @@ so the numbers compare.
 
 See `tools/mpcbot/RESULTS.md` for the measured numbers and what was learned
 about each hazard.
+
+### Boss rooms (`Mpc/BossSight.cs`)
+
+Sight turns every drawn boss tell into a warning (box, eta, duration), timed
+from the step the tell first showed: the Watcher's lit rows and dart lane,
+the Crusher's slam line, jaw lane and crate column, the Saw King's landing
+ring, hop path and blade ring. It reads no boss seed, draw or clock
+(`MpcCheck` bans them); `fastsim check mpcboss` asserts each tell kind is
+warned before it strikes.
+
+Practice room per boss, tier 1, seeds 1..40, cap 20,000, 2 s tells (points in
+the boss room; 20 clears it):
+
+| boss | median before | median after | deaths / 100 pts before | after |
+|---|---|---|---|---|
+| Watcher | 5 | 220 (22 of 40 at the cap) | 11.36 | 0.25 |
+| Crusher | 23 | 104 | 2.73 | 0.73 |
+| Saw King | 16 | 53 | 5.87 | 1.41 |

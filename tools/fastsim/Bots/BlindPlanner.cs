@@ -19,13 +19,6 @@ public sealed class BlindPlanner
     public int copies = 1, lines = 1, wobble = 0;
     /// Lines differ when they part within this many ticks.
     public int part = 16;
-    /// Two-stage look (0 = off): the next wall is unknown until the bounce, so
-    /// the bird should reach this wall where most next walls stay reachable.
-    /// Stage one finds lines to just before the bounce, one per `band` px of
-    /// height there (`lines` of them). Stage two gives each of them `copies`
-    /// guessed futures and asks whether some line lives `after` ticks in each
-    /// (a coarse search). The line with the most futures alive is played.
-    public long after = 0, band = 40, coarse_px = 12, coarse_speeds = 4;
     /// Cost per tick of each px away from the middle height, and per tap (px).
     public long mid_cost = 1, tap_cost = 0;
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
@@ -65,23 +58,96 @@ public sealed class BlindPlanner
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
+    /// Honesty switches (research/planner-review/01-honesty.md), all on. The boss
+    /// seed is `boss_blind` (BossBlind).
+    /// own_anchor: the copy's anchor_y is the planner's own, tracked from the
+    ///   walls it bounced off and the exit it took, never the room's state.anchor_y
+    ///   (the user's ruling: the anchor comes only from walls already seen).
+    /// hide_keys: a key chain's later keys (shown one at a time) are placed anew.
+    public static bool hide_keys = true;
+    public bool own_anchor = true;
+    public long anchor = SimConfig.BIRD_START_Y;
+    long _seen_room = 0, _last_y;
+    /// Tests: the memory was set by hand, don't update it from this tick's events.
+    public bool skip_observe = false;
+    bool _last_open;
+    long _last_a, _last_b, _last_b_kind;
+    readonly long[] _last_drawn = new long[2];
+
+    static long drawn(SimState s, long side)
+    {
+        long slots = ExitPlanner.slots(s);
+        if (s.exit_open && s.exit_side == side) return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~slots;
+        long mask = side == 0 ? s.left_spikes : s.right_spikes;
+        if (s.exit_preview && s.exit_side == side) mask &= ~slots;
+        return mask;
+    }
+
+    /// GameSim._anchor_at_wall without the pull to the planned exit.
+    public static long anchor_after(long mask, long anchor)
+    {
+        long best = anchor, best_d = -1, slot = 0;
+        while (slot < SimConfig.SLOT_COUNT)
+        {
+            if (RoomRules.has_slot(mask, slot)) { slot++; continue; }
+            long lo = slot;
+            while (slot + 1 < SimConfig.SLOT_COUNT && !RoomRules.has_slot(mask, slot + 1)) slot++;
+            long y = Math.Clamp(anchor, SimConfig.slot_center_y(lo), SimConfig.slot_center_y(slot));
+            long d = Math.Abs(y - anchor);
+            if (best_d < 0 || d < best_d) { best = y; best_d = d; }
+            slot++;
+        }
+        return best;
+    }
+
+    /// Called once per tick before the tap: what the player saw happen in the last tick.
+    public void observe(GameSim sim)
+    {
+        var s = sim.state;
+        if (s.room_index != _seen_room)
+        {
+            _seen_room = s.room_index;
+            if (_last_open)
+            {
+                bool a = Math.Abs(_last_y - _last_a) <= SimConfig.EXIT_FIT || _last_b_kind == ExitKind.NORMAL;
+                long door = _last_b_kind != ExitKind.NORMAL ? SimConfig.FORK_DOOR_Y : (a ? _last_a : _last_b);
+                anchor = GameSim._arrival_y(door);
+            }
+        }
+        else if (sim.events.Contains(Event.BOUNCE))
+            anchor = anchor_after(_last_drawn[s.vx > 0 ? 0 : 1], anchor);
+        _last_y = s.y;
+        _last_drawn[0] = drawn(s, 0);
+        _last_drawn[1] = drawn(s, 1);
+        _last_open = s.exit_open;
+        _last_a = s.exit_a_y;
+        _last_b = s.exit_b_y;
+        _last_b_kind = s.exit_b_kind;
+    }
+
     readonly SimRng _own;
     readonly Queue<bool> _plan = new();
     int _since = int.MaxValue;
     int _wait = 1;
     long _bounce_y = -1, _vx;
     readonly List<(byte[] taps, long cost, GameSim sim)> _found = new();
-    public long two_stage_looks;
     /// How the last look ended: 0 = a line for the whole look, 1 = only with fine buckets, 2 = only a shorter look, 3 = none.
     public int last_look;
     /// In how many of the guessed futures the played line lived (of `copies`).
     public int last_agree;
     public long looks, fine_looks, short_looks, no_looks, split_looks;
+    /// The last look's first guessed-future seed (blind_copy(sim, new SimRng(it)) is its copy)
+    /// and the plan it left (read by the autopsy).
+    public long last_seed0;
+    /// The anchor the last look's copies used (-1 = the room's own).
+    public long last_anchor = -1;
+    public bool[] last_plan = Array.Empty<bool>();
 
     public BlindPlanner(long seed) => _own = new SimRng(977 * seed + 5);
 
     public bool decide(GameSim sim)
     {
+        if (!skip_observe) observe(sim);
         if (!sim.state.started) return true;
         // The height at the last bounce: a player remembers it (stalactite gaps slide to it).
         if (sim.state.vx != _vx)
@@ -92,10 +158,14 @@ public sealed class BlindPlanner
         }
 #if PROF
         long p0 = Prof.now();
-        if (_since >= _wait || _plan.Count == 0) look(sim);
+        if (_since >= _wait || _plan.Count == 0) { look(sim); last_plan = _plan.ToArray(); }
         Prof.add(Prof.LOOK, p0);
 #else
-        if (_since >= _wait || _plan.Count == 0) look(sim);
+        if (_since >= _wait || _plan.Count == 0)
+        {
+            look(sim);
+            last_plan = _plan.ToArray();
+        }
 #endif
         _since++;
         bool tap = _plan.Count > 0 && _plan.Dequeue();
@@ -111,43 +181,10 @@ public sealed class BlindPlanner
         int n = Math.Max(1, copies);
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
-        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal);
+        last_seed0 = seeds[0];
+        last_anchor = own_anchor ? anchor : -1;
+        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen, boss_leak);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
-        if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
-        {
-            beam(copy(0), to_wall - 1, bucket_px, speed_buckets, band);
-            if (_found.Count > 0)
-            {
-                two_stage_looks++;
-                var cands = _found.ToList();
-                byte[] pick = null;
-                int pick_ok = -1;
-                long pick_cost = 0;
-                foreach (var (taps, cost, at) in cands)
-                {
-                    int ok = 0;
-                    for (int j = 0; j < n; j++)
-                    {
-                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y, reveal), after, coarse_px, coarse_speeds, 0, true);
-                        if (_found.Count > 0) ok++;
-                    }
-                    if (ok > pick_ok || (ok == pick_ok && cost < pick_cost))
-                    {
-                        pick = taps;
-                        pick_ok = ok;
-                        pick_cost = cost;
-                    }
-                    if (ok == n) break;
-                }
-                last_agree = pick_ok;
-                if (pick_ok < n) split_looks++;
-                _wait = pick_ok < n ? replan_danger : replan;
-                _plan.Clear();
-                foreach (byte b in pick) _plan.Enqueue(b != 0);
-                _since = 0;
-                return;
-            }
-        }
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
         beam(copy(0), want, bucket_px, speed_buckets);
         if (_found.Count == 0 && fine_px > 0)
@@ -277,6 +314,9 @@ public sealed class BlindPlanner
     /// treat those mouths as walls from the room's start, ExitZone, before
     /// they are drawn). True = the planner knows where the exits will be.
     public static bool know_exits = false;
+    /// Measurement only: the copy keeps the room's true wall seed (knows every next wall),
+    /// or is a plain copy (knows everything).
+    public static bool know_walls = false, know_all = false;
 
     /// Boss rooms: every attack is drawn from the boss's hidden seed, so the
     /// copy gets its own seed too (the attack being told stays: BossBlind).
@@ -287,6 +327,11 @@ public sealed class BlindPlanner
     /// Measuring only (Human/Atlas.cs): bits of `Reveal` that leave one kind of
     /// hidden value as it truly is in the copy. 0 = everything hidden (play).
     public int reveal = 0;
+    /// Boss rooms (research/planner-review/07-bosses.md): `boss_unseen`: the
+    /// tell now on screen has not been taken in yet (set by the human layer
+    /// for a reaction time), so it is a guess as well (with `boss_blind`).
+    /// `boss_leak` (measuring only): this planner's copies keep the true boss seed.
+    public bool boss_unseen = false, boss_leak = false;
 
     public static class Reveal
     {
@@ -299,21 +344,33 @@ public sealed class BlindPlanner
         };
     }
 
-    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0)
+    /// `own_anchor`: the planner's own room anchor, tracked from walls it saw (-1 = keep the copy's).
+    /// `boss_unseen`: the boss tell on screen is not taken in yet (a guess too).
+    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0, long own_anchor = -1, bool boss_unseen = false, bool boss_leak = false)
     {
 #if PROF
         long p0 = Prof.now();
-        var c = blind_copy_(sim, own, bounce_y);
+        var c = blind_copy_(sim, own, bounce_y, reveal, own_anchor, boss_unseen, boss_leak);
         Prof.add(Prof.BLIND, p0);
         return c;
     }
 
-    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y)
+    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y, int reveal, long own_anchor, bool boss_unseen, bool boss_leak)
     {
 #endif
         var c = sim.clone_deep();
         c.memo_arrivals = true;
+        if (know_all) return c;
         bool R(int bit) => (reveal & bit) != 0;
+        if (own_anchor >= 0) c.state.anchor_y = own_anchor;
+        // The run's seed and the room as entered (kept for a revive, with both RNGs) hold the
+        // true draws. A look never revives: the copy does not carry them.
+        c.seed_value = 0;
+        c._entry_room = null;
+        c._entry_state = null;
+        c._entry_rng = null;
+        c._entry_spine = null;
+        long true_seed = c.room.rng_seed;
         { var x = own.next_u32(); if (!R(Reveal.RNG)) c._rng = new SimRng(x); }
         // Seed-only generation: each wall reseeds from the room's seed, the
         // spine picks the next rooms, and the exits are planned from the room's
@@ -321,6 +378,7 @@ public sealed class BlindPlanner
         // (plan_room keeps an exit already on screen as it is).
         { var x = own.next_u32(); if (!R(Reveal.WALLSEED)) c.room.rng_seed = x; }
         { var x = own.next_u32(); if (!R(Reveal.SPINE)) c._spine = new SimRng(x); }
+        if (know_walls) c.room.rng_seed = true_seed;
         if (c.state.plan_at != 0 && !know_exits && !R(Reveal.EXITS)) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
@@ -362,7 +420,7 @@ public sealed class BlindPlanner
                 Beam => Reveal.BEAM, Updraft => Reveal.UPDRAFT, Boss => Reveal.BOSS, _ => 0,
             };
             if (kind != 0 && R(kind)) continue;
-            if (hz is Boss bs && boss_blind) BossBlind.scramble(bs, own, false);
+            if (hz is Boss bs && boss_blind && !boss_leak) BossBlind.scramble(bs, own, boss_unseen);
             switch (hz)
             {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
@@ -386,6 +444,14 @@ public sealed class BlindPlanner
                     st.target_y = G.clampi(to, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
                     break;
                 }
+                // A key chain: where each later key appears is drawn at the room's start.
+                case ExitKey ek when hide_keys && ek.mode == ExitKey.Mode.CHAIN:
+                    for (long i = ek.got + 1; i < ek.count; i++)
+                    {
+                        ek.chain_off[i] = ExitKey.KEY_OFF_MIN + own.next_below(ExitKey.CHAIN_OFF_MAX - ExitKey.KEY_OFF_MIN + 1);
+                        ek.chain_d[i] = ExitKey.CHAIN_D_MIN + own.next_below(ExitKey.CHAIN_D_MAX - ExitKey.CHAIN_D_MIN + 1);
+                    }
+                    break;
                 // The second ball's column before it drops in.
                 case KeepyBall kb when kb.waiting > 0 && c.room.t < KeepyBall.SECOND_DROP:
                     kb.x = KeepyBall.MIN_X + own.next_below(KeepyBall.MAX_X - KeepyBall.MIN_X + 1);
@@ -415,6 +481,17 @@ public sealed class BlindPlanner
         return c;
     }
 
+    /// Reuse the sims of lines that died or lost their bucket (Bots/SimPool.cs); off = allocate every copy.
+    public static bool pool = true;
+    readonly Stack<GameSim> _pool = new();
+
+    GameSim clone(GameSim s) => pool && _pool.Count > 0 ? SimPool.copy(s, _pool.Pop()) : s.clone_deep();
+
+    void drop(GameSim s)
+    {
+        if (pool && _pool.Count < 4096) _pool.Push(s);
+    }
+
     struct Node
     {
         public GameSim sim;
@@ -426,16 +503,14 @@ public sealed class BlindPlanner
 
     /// Fills `_found` with up to `lines` lines that live `ticks` ticks,
     /// cheapest first: the cheapest of each family of lines that share their first `part` ticks.
-    /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
-    /// With `any`: stops at the first line found (only "is there one").
-    void beam(GameSim root, long ticks, long bpx, long speeds, long by_band = 0, bool any = false)
+    void beam(GameSim root, long ticks, long bpx, long speeds)
     {
 #if PROF
         long p0 = Prof.now();
-        try { beam_(root, ticks, bpx, speeds, by_band, any); } finally { Prof.add(Prof.BEAM, p0); }
+        try { beam_(root, ticks, bpx, speeds); } finally { Prof.add(Prof.BEAM, p0); }
     }
 
-    void beam_(GameSim root, long ticks, long bpx, long speeds, long by_band, bool any)
+    void beam_(GameSim root, long ticks, long bpx, long speeds)
     {
 #endif
         _found.Clear();
@@ -465,18 +540,26 @@ public sealed class BlindPlanner
                 {
 #if PROF
                     long q0 = Prof.now();
-                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    var s = a == 1 ? clone(e.sim) : e.sim;
                     if (a == 1) Prof.add(Prof.CLONE, q0);
                     q0 = Prof.now();
                     s.step(a == 1);
                     Prof.add(Prof.STEP, q0);
 #else
-                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    var s = a == 1 ? clone(e.sim) : e.sim;
                     s.step(a == 1);
 #endif
-                    if (s.is_over()) continue;
+                    if (s.is_over())
+                    {
+                        drop(s);
+                        continue;
+                    }
                     // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
-                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
+                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1))
+                    {
+                        drop(s);
+                        continue;
+                    }
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
@@ -494,7 +577,12 @@ public sealed class BlindPlanner
                     var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost, since = a == 1 ? 1 : e.since + 1 };
                     if (slots.TryGetValue(key, out int at))
                     {
-                        if (cost < next[at].cost) next[at] = node;
+                        if (cost < next[at].cost)
+                        {
+                            drop(next[at].sim);
+                            next[at] = node;
+                        }
+                        else drop(s);
                     }
                     else
                     {
@@ -513,11 +601,6 @@ public sealed class BlindPlanner
                 frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost, since = e.since });
             }
         }
-        if (any)
-        {
-            _found.Add((Array.Empty<byte>(), 0, null));
-            return;
-        }
         // The family of a line: its node `part` ticks in.
         long depth = Math.Min(part, ticks) - 1;
         int family_end = depth + 1 < layer.Count ? layer[(int)depth + 1] : parents.Count;
@@ -527,9 +610,7 @@ public sealed class BlindPlanner
         {
             if (e.sim.state.room_index != room) continue;
             int f = e.parent;
-            if (by_band > 0) f = (int)(e.sim.state.y / (by_band * SimConfig.SUB));
-            else
-                while (f >= family_end) f = parents[f];
+            while (f >= family_end) f = parents[f];
             if (!best.TryGetValue(f, out var have) || e.cost < have.cost) best[f] = e;
         }
         foreach (var e in best.Values.OrderBy(e => e.cost).Take(Math.Max(1, lines)))

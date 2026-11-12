@@ -56,7 +56,7 @@ public sealed class Blob
 /// The bot's eyes. Every tick it looks at the present sim only: it moves the
 /// bird to probe points, asks each live hazard's kills() and puts the bird
 /// back. It never copies or steps the sim.
-public sealed class Sight
+public sealed partial class Sight
 {
     public const int CELL_PX = 8;
     public const long CELL = CELL_PX * SimConfig.SUB;
@@ -126,6 +126,8 @@ public sealed class Sight
             }
             _by.Clear();
             _draft_seen.Clear();
+            _tells.Clear();
+            _first_t = room.t;
             _room_index = sim.state.room_index;
         }
         _room_t = room.t;
@@ -152,7 +154,7 @@ public sealed class Sight
         warns.Clear();
         if (read_warnings)
             for (int i = 0; i < hz.Count; i++)
-                if (hz[i].alive) warnings(sim, hz[i]);
+                if (hz[i].alive) warnings(sim, hz[i], i);
     }
 
     /// Learns whether a one-shape hazard follows the bird's height (the
@@ -226,8 +228,13 @@ public sealed class Sight
     /// The warnings the game draws before a hazard strikes, as boxes of bird
     /// positions to be out of. Only what is on screen now: where it glows and
     /// how far the glow has got.
-    void warnings(GameSim sim, Hazard h)
+    void warnings(GameSim sim, Hazard h, int at)
     {
+        if (h is Boss boss)
+        {
+            boss_warnings(sim, boss, at);
+            return;
+        }
         const float RP = (float)R / SimConfig.SUB, S = SimConfig.SUB;
         if (h is Piston p && p.state() == Piston.State.GLOW)
         {

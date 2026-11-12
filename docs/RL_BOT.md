@@ -29,7 +29,7 @@ are scaled to about -1..1.
 | exit | open on the wall ahead, preview, the exit heights relative to the bird, Wild/Calm |
 | wall strip | 21 heights around the bird (every 16 px, -160..+160): 1 where a bird there would hit a spike on the wall ahead, the ceiling or the floor |
 | at the wall | the bird's height when it reaches the wall if it waits and if it taps now (its own fall only, no sim copies), whether that height hits, and the nearest safe height |
-| hazards | a danger grid in front of the bird: 10 columns (0..216 px ahead, every 24 px) x 15 rows (-168..+168 px, every 24 px), 1 where some hazard's `kills()` is true for a bird at that point, or the ceiling or floor line |
+| hazards | a danger grid in front of the bird: 10 columns (0..216 px ahead, every 24 px) x 15 rows (-168..+168 px, every 24 px), 1 where some hazard's `kills()` is true for a bird at that point, or the ceiling or floor line; 0.5 where a boss tell warns of an attack (see "Boss tells") |
 | motion | the same danger grid 6 ticks earlier, so the policy sees which way hazards move |
 
 The danger grid is the one generic piece: every hazard already answers
@@ -44,6 +44,34 @@ after, in every room variant).
 
 The bot sees only what is on screen now and a moment ago: no look-ahead
 copies of the sim, unlike PlannerBot and SurvivalSearch.
+
+### Boss tells
+
+`kills()` shows a boss attack only once it is deadly, so the grid had no
+tells. `Observer.warned()` marks the cells (value `Observer.WARN`, 0.5) that a
+boss tell drawn in `game/run/painters/boss_*_painter.gd` warns of, from the
+boss's visible fields only (never `Boss.seed`, `draw()` or `safe_y()`):
+
+| boss | tell | warned cells |
+| --- | --- | --- |
+| Watcher | rows flicker (`beam == WARN`) | the lit rows' beam bands, wall to wall |
+| Watcher | dart lane marked (`dart == MARK`) | the dart's lane, wall to wall |
+| Crusher | press shakes (phase 1, `telling`) | above the slam line (`slam_y`) |
+| Crusher | jaw's next lane dashed (phases 2-3, `telling`) | outside `lane_to` +- `lane_half()` |
+| Crusher | crate column dashed (`crate == MARK`) | the column between press and plate |
+| Saw King | landing ring dashed (`telling`) | the ring round `to_y` (king, ring or hop blades by phase) |
+
+The input size and `LAYOUT` (3) stay the same, so existing policies load; but
+no policy has trained on warned cells, so a retrained policy should use them
+better. The `rlboss` check (`RL/BossTellCheck.cs`) plays through each boss with
+a survival search and shows, per tell and attack, the mean warned and deadly
+cells; warned cells must show in every tell and never outside one.
+
+`FastSim rl bosses [--seeds 100] [--cap 20000] [--tells 0] [--warn x] [--policy file]`
+plays each boss room on its own (tier 1) and counts the rooms survived.
+`policy.json` (layout 3), seeds 1..100, cap 20,000, tells off -> on (0.5):
+Watcher 0 -> 17, Crusher 31 -> 31, Saw King 7 -> 7. With 1.0: 13 / 18 / 5;
+with 0: 18 / 29 / 2. `policy_delay12.json`: 0 in every boss room.
 
 ## Actions
 

@@ -134,3 +134,13 @@ fallback is Linux under WSL with Xvfb and a Linux Godot (software OpenGL).
 errors, `RunFile.check()`, `RunRender`'s loud failures, and the real game
 playing a run file to the same end with its look. `tests/unit/test_fastsim_checks.gd`
 pins FastSim's `GAMEPLAY_VERSION` and its run file keys to the GDScript ones.
+
+## Frames of every room variant
+
+For a visual review of the rooms (only when the user asked for frames):
+`tools/capture_variants.ps1 -Out <folder> [-World <world id>] [-Rooms id,id]`
+plays each room variant as a debug-picker practice run with the planner bot on
+a hidden desktop (like `render_run.ps1`) and saves JPGs at fixed sim ticks
+(`<room>__<variant>__t<tick>.jpg`). The practice seed comes from the room and
+variant, so two builds show the same moments (before/after a painter change).
+Take the GPU lock around it.

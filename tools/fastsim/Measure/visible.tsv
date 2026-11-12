@@ -1,0 +1,283 @@
+# Fields the screen shows (deny by default: every other field is hidden). Built by `fastsim measure visibility --write` from game/run.
+Beam.alive	game/run/painters/beam_painter.gd
+Beam.rows	game/run/painters/beam_painter.gd
+Belt.alive	game/run/painters/belt_painter.gd
+Belt.left_dir	game/run/painters/belt_painter.gd
+Belt.left_shift	game/run/painters/belt_painter.gd
+Belt.right_dir	game/run/painters/belt_painter.gd
+Belt.right_shift	game/run/painters/belt_painter.gd
+Block.alive	game/run/painters/block_painter.gd
+Block.opacity()	game/run/painters/block_painter.gd
+Block.x0	game/run/painters/block_painter.gd
+Block.x1	game/run/painters/block_painter.gd
+Block.y0	game/run/painters/block_painter.gd
+Block.y1	game/run/painters/block_painter.gd
+BossCrusher.alive	game/run/painters/boss_crusher_painter.gd
+BossCrusher.crate	game/run/painters/boss_crusher_painter.gd
+BossCrusher.crate_x	game/run/painters/boss_crusher_painter.gd
+BossCrusher.crate_y	game/run/painters/boss_crusher_painter.gd
+BossCrusher.down_at	game/run/painters/boss_crusher_painter.gd
+BossCrusher.jaw	game/run/painters/boss_crusher_painter.gd
+BossCrusher.lane_half()	game/run/painters/boss_crusher_painter.gd
+BossCrusher.lane_to	game/run/painters/boss_crusher_painter.gd
+BossCrusher.phase	game/run/painters/boss_crusher_painter.gd
+BossCrusher.plate_y	game/run/painters/boss_crusher_painter.gd
+BossCrusher.press_y	game/run/painters/boss_crusher_painter.gd
+BossCrusher.slam_y	game/run/painters/boss_crusher_painter.gd
+BossCrusher.telling	game/run/painters/boss_crusher_painter.gd
+BossSaw.alive	game/run/painters/boss_saw_painter.gd
+BossSaw.angle	game/run/painters/boss_saw_painter.gd
+BossSaw.blade_x	game/run/painters/boss_saw_painter.gd
+BossSaw.blade_y	game/run/painters/boss_saw_painter.gd
+BossSaw.blades	game/run/painters/boss_saw_painter.gd
+BossSaw.down_at	game/run/painters/boss_saw_painter.gd
+BossSaw.king_y	game/run/painters/boss_saw_painter.gd
+BossSaw.phase	game/run/painters/boss_saw_painter.gd
+BossSaw.ring	game/run/painters/boss_saw_painter.gd
+BossSaw.ring_max()	game/run/painters/boss_saw_painter.gd
+BossSaw.telling	game/run/painters/boss_saw_painter.gd
+BossSaw.to_y	game/run/painters/boss_saw_painter.gd
+BossWatcher.alive	game/run/painters/boss_watcher_painter.gd
+BossWatcher.beam	game/run/painters/boss_watcher_painter.gd
+BossWatcher.beam_t	game/run/painters/boss_watcher_painter.gd
+BossWatcher.dart	game/run/painters/boss_watcher_painter.gd
+BossWatcher.dart_lane	game/run/painters/boss_watcher_painter.gd
+BossWatcher.dart_side	game/run/painters/boss_watcher_painter.gd
+BossWatcher.dart_t	game/run/painters/boss_watcher_painter.gd
+BossWatcher.dart_x	game/run/painters/boss_watcher_painter.gd
+BossWatcher.down_at	game/run/painters/boss_watcher_painter.gd
+BossWatcher.lit	game/run/painters/boss_watcher_painter.gd
+BossWatcher.phase	game/run/painters/boss_watcher_painter.gd
+Bouncer.alive	game/run/painters/bouncer_painter.gd
+Bouncer.radius	game/run/painters/bouncer_painter.gd
+Bouncer.vx	game/run/painters/bouncer_painter.gd
+Bouncer.x	game/run/painters/bouncer_painter.gd
+Bouncer.y	game/run/painters/bouncer_painter.gd
+Bubble.alive	game/run/painters/bubble_painter.gd
+Bubble.carrying	game/run/painters/bubble_painter.gd
+Bubble.coin_in_reach()	game/run/painters/bubble_painter.gd
+Bubble.has_coin	game/run/painters/bubble_painter.gd
+Bubble.lane	game/run/painters/bubble_painter.gd
+Bubble.radius	game/run/painters/bubble_painter.gd
+Bubble.spiked	game/run/painters/bubble_painter.gd
+Bubble.wait	game/run/painters/bubble_painter.gd
+Bubble.x	game/run/painters/bubble_painter.gd
+Bubble.y	game/run/painters/bubble_painter.gd
+Bumper.alive	game/run/painters/bumper_painter.gd
+Bumper.radius	game/run/painters/bumper_painter.gd
+Bumper.x	game/run/painters/bumper_painter.gd
+Bumper.y	game/run/painters/bumper_painter.gd
+CrateDrop.alive	game/run/painters/crate_drop_painter.gd
+CrateDrop.coins	game/run/painters/crate_drop_painter.gd
+CrateDrop.col	game/run/painters/crate_drop_painter.gd
+CrateDrop.col_b	game/run/painters/crate_drop_painter.gd
+CrateDrop.cols	game/run/painters/crate_drop_painter.gd
+CrateDrop.crate_h	game/run/painters/crate_drop_painter.gd
+CrateDrop.crate_w	game/run/painters/crate_drop_painter.gd
+CrateDrop.done	game/run/painters/crate_drop_painter.gd
+CrateDrop.done_b	game/run/painters/crate_drop_painter.gd
+CrateDrop.gifts	game/run/painters/crate_drop_painter.gd
+CrateDrop.heights	game/run/painters/crate_drop_painter.gd
+CrateDrop.warn_left	game/run/painters/crate_drop_painter.gd
+CrateDrop.y	game/run/painters/crate_drop_painter.gd
+CrateDrop.y_b	game/run/painters/crate_drop_painter.gd
+Crawler.alive	game/run/painters/crawler_painter.gd
+Crawler.kind	game/run/painters/crawler_painter.gd
+Crawler.seg_radius	game/run/painters/crawler_painter.gd
+Crawler.speed	game/run/painters/crawler_painter.gd
+Crawler.xs	game/run/painters/crawler_painter.gd
+Crawler.ys	game/run/painters/crawler_painter.gd
+Dart.alive	game/run/painters/dart_painter.gd
+Dart.glow()	game/run/painters/dart_painter.gd
+Dart.lanes	game/run/painters/dart_painter.gd
+Dart.side	game/run/painters/dart_painter.gd
+Dart.state	game/run/painters/dart_painter.gd
+Dart.tail_x()	game/run/painters/dart_painter.gd
+Dart.x	game/run/painters/dart_painter.gd
+Drop.alive	game/run/painters/drop_painter.gd
+Drop.base_x	game/run/painters/drop_painter.gd
+Drop.falling()	game/run/painters/drop_painter.gd
+Drop.radius	game/run/painters/drop_painter.gd
+Drop.shard_dx	game/run/painters/drop_painter.gd
+Drop.shard_t	game/run/painters/drop_painter.gd
+Drop.shard_x	game/run/painters/drop_painter.gd
+Drop.shard_y	game/run/painters/drop_painter.gd
+Drop.stake_half_base()	game/run/painters/drop_painter.gd
+Drop.stake_height()	game/run/painters/drop_painter.gd
+Drop.staked()	game/run/painters/drop_painter.gd
+Drop.style	game/run/painters/drop_painter.gd
+Drop.timer	game/run/painters/drop_painter.gd
+Drop.warn_progress()	game/run/painters/drop_painter.gd
+Drop.warning()	game/run/painters/drop_painter.gd
+Drop.x	game/run/painters/drop_painter.gd
+Drop.y	game/run/painters/drop_painter.gd
+Echo.alive	game/run/painters/echo_painter.gd
+Echo.facing	game/run/painters/echo_painter.gd
+Echo.head	game/run/painters/echo_painter.gd
+Echo.mode	game/run/painters/echo_painter.gd
+Echo.shown	game/run/painters/echo_painter.gd
+Echo.x	game/run/painters/echo_painter.gd
+Echo.xs	game/run/painters/echo_painter.gd
+Echo.y	game/run/painters/echo_painter.gd
+Echo.ys	game/run/painters/echo_painter.gd
+EdgePad.alive	game/run/painters/edge_pad_painter.gd
+EdgePad.line_y()	game/run/painters/edge_pad_painter.gd
+EdgePad.since_bump	game/run/painters/edge_pad_painter.gd
+EdgePad.top	game/run/painters/edge_pad_painter.gd
+EdgePad.x0()	game/run/painters/edge_pad_painter.gd
+EdgePad.x1()	game/run/painters/edge_pad_painter.gd
+ExitKey.alive	game/run/painters/exit_key_painter.gd
+ExitKey.born	game/run/painters/exit_key_painter.gd
+ExitKey.count	game/run/painters/exit_key_painter.gd
+ExitKey.done()	game/run/painters/exit_key_painter.gd
+ExitKey.door_a_y	game/run/painters/exit_key_painter.gd
+ExitKey.door_b_y	game/run/painters/exit_key_painter.gd
+ExitKey.door_open	game/run/painters/exit_key_painter.gd
+ExitKey.door_side	game/run/painters/exit_key_painter.gd
+ExitKey.got	game/run/painters/exit_key_painter.gd
+ExitKey.kx	game/run/painters/exit_key_painter.gd
+ExitKey.ky	game/run/painters/exit_key_painter.gd
+ExitKey.locked()	game/run/painters/exit_key_painter.gd
+ExitKey.locked_bounces	game/run/painters/exit_key_painter.gd
+ExitKey.mode	game/run/painters/exit_key_painter.gd
+ExitKey.t	game/run/painters/exit_key_painter.gd
+Firework.alive	game/run/painters/firework_painter.gd
+Firework.burst_y	game/run/painters/firework_painter.gd
+Firework.fuse_progress()	game/run/painters/firework_painter.gd
+Firework.phase	game/run/painters/firework_painter.gd
+Firework.spark_count()	game/run/painters/firework_painter.gd
+Firework.x	game/run/painters/firework_painter.gd
+Firework.y	game/run/painters/firework_painter.gd
+Gate.alive	game/run/painters/gate_painter.gd
+Gate.gap_bottom()	game/run/painters/gate_painter.gd
+Gate.gap_top()	game/run/painters/gate_painter.gd
+Gate.x	game/run/painters/gate_painter.gd
+KeepyBall.alive	game/run/painters/keepy_ball_painter.gd
+KeepyBall.gravity	game/run/painters/keepy_ball_painter.gd
+KeepyBall.waiting	game/run/painters/keepy_ball_painter.gd
+KeepyBall.x	game/run/painters/keepy_ball_painter.gd
+KeepyBall.y	game/run/painters/keepy_ball_painter.gd
+Lava.alive	game/run/painters/lava_painter.gd
+Lava.ice_on	game/run/painters/lava_painter.gd
+Lava.ice_side	game/run/painters/lava_painter.gd
+Lava.ice_slot	game/run/painters/lava_painter.gd
+Lava.line	game/run/painters/lava_painter.gd
+Lava.raft_age	game/run/painters/lava_painter.gd
+Lava.raft_on	game/run/painters/lava_painter.gd
+Lava.raft_x	game/run/painters/lava_painter.gd
+Lava.stone_on	game/run/painters/lava_painter.gd
+Lava.stone_x	game/run/painters/lava_painter.gd
+Lava.stone_y	game/run/painters/lava_painter.gd
+Mover.alive	game/run/painters/mover_painter.gd
+Mover.facing	game/run/painters/mover_painter.gd
+Mover.xs	game/run/painters/mover_painter.gd
+Mover.ys	game/run/painters/mover_painter.gd
+OrchardSpawner.alive	game/run/painters/orchard_spawner_painter.gd
+OrchardSpawner.live	game/run/painters/orchard_spawner_painter.gd
+OrchardSpawner.xs	game/run/painters/orchard_spawner_painter.gd
+OrchardSpawner.ys	game/run/painters/orchard_spawner_painter.gd
+Pendulum.alive	game/run/painters/pendulum_painter.gd
+Pendulum.has_twin()	game/run/painters/pendulum_painter.gd
+Pendulum.pivot_x	game/run/painters/pendulum_painter.gd
+Pendulum.pivot_y	game/run/painters/pendulum_painter.gd
+Pendulum.radius	game/run/painters/pendulum_painter.gd
+Pendulum.twin_x	game/run/painters/pendulum_painter.gd
+Pendulum.x	game/run/painters/pendulum_painter.gd
+Pendulum.x2	game/run/painters/pendulum_painter.gd
+Pendulum.y	game/run/painters/pendulum_painter.gd
+Pendulum.y2	game/run/painters/pendulum_painter.gd
+Piston.alive	game/run/painters/piston_painter.gd
+Piston.base_x()	game/run/painters/piston_painter.gd
+Piston.extent()	game/run/painters/piston_painter.gd
+Piston.glow()	game/run/painters/piston_painter.gd
+Piston.reach	game/run/painters/piston_painter.gd
+Piston.side	game/run/painters/piston_painter.gd
+Piston.y	game/run/painters/piston_painter.gd
+RoomRuntime.blink_left	game/run/*.gd room.<field>
+RoomRuntime.blink_right	game/run/*.gd room.<field>
+RoomRuntime.blink_showing_second()	game/run/*.gd room.<field>
+RoomRuntime.def	game/run/*.gd room.<field>
+RoomRuntime.entry_score	game/run/*.gd room.<field>
+RoomRuntime.gravity	game/run/*.gd room.<field>
+RoomRuntime.hazards	game/run/*.gd room.<field>
+RoomRuntime.inset()	game/run/*.gd room.<field>
+RoomRuntime.points	game/run/*.gd room.<field>
+RoomRuntime.spike_depth()	game/run/*.gd room.<field>
+RoomRuntime.spike_half_base()	game/run/*.gd room.<field>
+RoomRuntime.variant	game/run/*.gd room.<field>
+RoomRuntime.variant_id()	game/run/*.gd room.<field>
+RoomRuntime.wall_left()	game/run/*.gd room.<field>
+RoomRuntime.wall_right()	game/run/*.gd room.<field>
+Rotor.alive	game/run/painters/rotor_painter.gd
+Rotor.blade_length	game/run/painters/rotor_painter.gd
+Rotor.blades	game/run/painters/rotor_painter.gd
+Rotor.half_w	game/run/painters/rotor_painter.gd
+Rotor.hub_radius	game/run/painters/rotor_painter.gd
+Rotor.hubs	game/run/painters/rotor_painter.gd
+SawRing.alive	game/run/painters/saw_ring_painter.gd
+SawRing.center_x	game/run/painters/saw_ring_painter.gd
+SawRing.center_y	game/run/painters/saw_ring_painter.gd
+SawRing.count	game/run/painters/saw_ring_painter.gd
+SawRing.dir	game/run/painters/saw_ring_painter.gd
+SawRing.inner_count	game/run/painters/saw_ring_painter.gd
+SawRing.inner_radius	game/run/painters/saw_ring_painter.gd
+SawRing.radius	game/run/painters/saw_ring_painter.gd
+SawRing.ry_den	game/run/painters/saw_ring_painter.gd
+SawRing.ry_num	game/run/painters/saw_ring_painter.gd
+SawRing.xs	game/run/painters/saw_ring_painter.gd
+SawRing.ys	game/run/painters/saw_ring_painter.gd
+SimState.arrival_hold	game/run/*.gd state.<field>
+SimState.coin_active	game/run/*.gd state.<field>
+SimState.coin_x	game/run/*.gd state.<field>
+SimState.coin_y	game/run/*.gd state.<field>
+SimState.coins	game/run/*.gd state.<field>
+SimState.copy()	game/run/*.gd state.<field>
+SimState.exit_a_kind	game/run/*.gd state.<field>
+SimState.exit_a_y	game/run/*.gd state.<field>
+SimState.exit_b_kind	game/run/*.gd state.<field>
+SimState.exit_b_y	game/run/*.gd state.<field>
+SimState.exit_open	game/run/*.gd state.<field>
+SimState.exit_preview	game/run/*.gd state.<field>
+SimState.exit_side	game/run/*.gd state.<field>
+SimState.left_spikes	game/run/*.gd state.<field>
+SimState.pickup_x	game/run/*.gd state.<field>
+SimState.pickup_y	game/run/*.gd state.<field>
+SimState.right_spikes	game/run/*.gd state.<field>
+SimState.room_index	game/run/*.gd state.<field>
+SimState.route	game/run/*.gd state.<field>
+SimState.score	game/run/*.gd state.<field>
+SimState.started	game/run/*.gd state.<field>
+SimState.tick	game/run/*.gd state.<field>
+SimState.vx	game/run/*.gd state.<field>
+SimState.vy	game/run/*.gd state.<field>
+SimState.x	game/run/*.gd state.<field>
+SimState.y	game/run/*.gd state.<field>
+SpikeBall.alive	game/run/painters/spike_ball_painter.gd
+SpikeBall.x	game/run/painters/spike_ball_painter.gd
+SpikeBall.y	game/run/painters/spike_ball_painter.gd
+Stalactite.alive	game/run/painters/stalactite_painter.gd
+Stalactite.bottom	game/run/painters/stalactite_painter.gd
+Stalactite.bottom_tip()	game/run/painters/stalactite_painter.gd
+Stalactite.half_w	game/run/painters/stalactite_painter.gd
+Stalactite.top	game/run/painters/stalactite_painter.gd
+Stalactite.top_tip()	game/run/painters/stalactite_painter.gd
+Stalactite.x	game/run/painters/stalactite_painter.gd
+Stalker.alive	game/run/painters/stalker_painter.gd
+Stalker.side	game/run/painters/stalker_painter.gd
+Stalker.x	game/run/painters/stalker_painter.gd
+Stalker.y	game/run/painters/stalker_painter.gd
+Updraft.alive	game/run/painters/updraft_painter.gd
+Updraft.gust	game/run/painters/updraft_painter.gd
+Updraft.gust_step()	game/run/painters/updraft_painter.gd
+Updraft.lift	game/run/painters/updraft_painter.gd
+Updraft.x0	game/run/painters/updraft_painter.gd
+Updraft.x1	game/run/painters/updraft_painter.gd
+Wind.a_dir	game/run/painters/wind_painter.gd
+Wind.a_y0	game/run/painters/wind_painter.gd
+Wind.a_y1	game/run/painters/wind_painter.gd
+Wind.alive	game/run/painters/wind_painter.gd
+Wind.b_dir	game/run/painters/wind_painter.gd
+Wind.b_y0	game/run/painters/wind_painter.gd
+Wind.b_y1	game/run/painters/wind_painter.gd
+Wind.blowing()	game/run/painters/wind_painter.gd
+Wind.warning()	game/run/painters/wind_painter.gd

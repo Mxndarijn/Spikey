@@ -36,6 +36,9 @@ public sealed class MotorPlayer
     readonly Dictionary<Hazard, long> _hidden = new(ReferenceEqualityComparer.Instance);
     long _spikes_hidden_until = -1, _score = -1, _room = -1, _last_fire = -100;
     long _window;
+    long _boss_key = 0, _boss_hidden_until = -1;
+    /// Boss tells get the same reaction time as new hazards (07-bosses.md); off = the planner sees them at once.
+    public static bool REACT_BOSS = true;
     public long masked_ticks, presses, cancels, delayed;
     /// Experiments: which new things get a reaction time (spikes, hazards).
     public static bool MASK_SPIKES = true, MASK_HAZARDS = true;
@@ -113,6 +116,7 @@ public sealed class MotorPlayer
             view = masked(sim, t);
             masked_ticks++;
         }
+        planner.boss_unseen = t < _boss_hidden_until;
         planner.min_gap = _m.min_gap > 1 ? _m.min_gap : 0;
         planner.last_press = _last_fire;
         bool now = planner.decide(view);
@@ -180,6 +184,13 @@ public sealed class MotorPlayer
         else if (s.score != _score)
             _spikes_hidden_until = MASK_SPIKES && _m.react_mu >= 0 ? t + reaction() : -1; // new spikes on the wall ahead
         _score = s.score;
+        foreach (var h in sim.room.hazards)
+            if (h is Boss b)
+            {
+                long key = BossBlind.tell_key(b);
+                if (key != _boss_key && REACT_BOSS && _m.react_mu >= 0) _boss_hidden_until = t + reaction();
+                _boss_key = key;
+            }
         foreach (var h in sim.room.hazards)
             if (h.alive && _known.Add(h) && MASK_HAZARDS && _m.react_mu >= 0) _hidden[h] = t + reaction();
         foreach (var h in _hidden.Where(kv => kv.Value <= t).Select(kv => kv.Key).ToList()) _hidden.Remove(h);

@@ -57,6 +57,11 @@ public static class RlMain
                 case "measure":
                     return Tiers.measure(dir, O("tier", "all"), int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
                         long.Parse(O("cap", BotCaps.RUN_CAP.ToString())), threads, O("out", ""));
+                case "bosses":
+                    Observer.tells = O("tells", "1") != "0";
+                    if (opts.ContainsKey("warn")) Observer.WARN = float.Parse(opts["warn"]);
+                    return BossRuns.run(dir, O("policy", "policy.json"), int.Parse(O("seeds", "100")),
+                        long.Parse(O("cap", "20000")), threads);
                 case "review":
                     return Review.run(pos.Count > 2 ? pos[2] : "", dir, opts);
                 case "imitate":
@@ -117,7 +122,7 @@ public static class RlMain
             Console.Error.WriteLine("rlbot: " + e.Message);
             return 2;
         }
-        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, teach, deaths, heights, calibrate, measure, speed)");
+        Console.Error.WriteLine("rlbot: unknown mode " + what + " (train, teach, deaths, heights, calibrate, measure, bosses, speed)");
         return 2;
     }
 }
