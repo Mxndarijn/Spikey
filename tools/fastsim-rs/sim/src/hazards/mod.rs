@@ -311,3 +311,27 @@ impl Hz {
         )
     }
 }
+
+impl Hz {
+    /// Whether this type's code reads `sim.room.hazards` (other hazards). The
+    /// others run with the whole list lent out instead of being taken out of it
+    /// (GameSim::with_hazard). Every type that names `room.hazards` must be here.
+    #[inline]
+    pub fn needs_room(&self) -> bool {
+        matches!(
+            self,
+            Hz::Taken
+                | Hz::Beam(_)
+                | Hz::Block(_)
+                | Hz::Bubble(_)
+                | Hz::Bumper(_)
+                | Hz::CoinPickup(_)
+                | Hz::Crawler(_)
+                | Hz::Gate(_)
+                | Hz::PadCoin(_)
+                | Hz::Piston(_)
+                | Hz::SpikeBall(_)
+                | Hz::Stalactite(_)
+        )
+    }
+}

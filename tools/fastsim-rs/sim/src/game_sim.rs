@@ -209,6 +209,14 @@ impl GameSim {
     /// Runs `f` on hazard `i` with it taken out of the room list (rooms/hazard.rs).
     #[inline]
     pub fn with_hazard<R>(&mut self, i: usize, f: impl FnOnce(&mut Hz, &mut GameSim) -> R) -> R {
+        if !self.room.hazards[i].needs_room() {
+            // Its code never reads room.hazards: lend the whole list out (3 words, not the hazard).
+            let mut list = std::mem::take(&mut self.room.hazards);
+            let r = f(&mut list[i], self);
+            debug_assert!(self.room.hazards.is_empty(), "a hazard added hazards while the list was lent out");
+            self.room.hazards = list;
+            return r;
+        }
         let mut h = std::mem::replace(&mut self.room.hazards[i], Hz::Taken);
         let r = f(&mut h, self);
         self.room.hazards[i] = h;
@@ -219,11 +227,9 @@ impl GameSim {
     /// RNG both taken out while it runs (no hazard touches `sim._rng` itself).
     #[inline]
     fn with_hazard_rng(&mut self, i: usize, f: impl FnOnce(&mut Hz, &mut GameSim, &mut SimRng)) {
-        let mut h = std::mem::replace(&mut self.room.hazards[i], Hz::Taken);
         let mut rng = self._rng;
-        f(&mut h, self, &mut rng);
+        self.with_hazard(i, |h, sim| f(h, sim, &mut rng));
         self._rng = rng;
-        self.room.hazards[i] = h;
     }
 
     pub fn step(&mut self, tap: bool) {

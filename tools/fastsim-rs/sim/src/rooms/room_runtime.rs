@@ -11,7 +11,6 @@ use crate::sim_math::SimHash;
 use crate::sim_rng::SimRng;
 use crate::sim_trig::SimTrig;
 
-#[derive(Clone)]
 pub struct RoomRuntime {
     pub def_: Option<&'static RoomDef>,
     pub index: i64,
@@ -29,6 +28,43 @@ pub struct RoomRuntime {
     pub rng_seed: i64,
     pub walls: i64,
     pub entry_score: i64,
+}
+
+impl Clone for RoomRuntime {
+    fn clone(&self) -> Self {
+        let mut c = RoomRuntime { hazards: Vec::with_capacity(self.hazards.len()), ..RoomRuntime::default() };
+        c.copy_fields(self);
+        c.hazards.extend(self.hazards.iter().cloned());
+        c
+    }
+
+    /// Reuses the hazard list's buffer (planner copies).
+    fn clone_from(&mut self, src: &Self) {
+        self.copy_fields(src);
+        self.hazards.clone_from(&src.hazards);
+    }
+}
+
+impl RoomRuntime {
+    /// Every field but the hazards.
+    #[inline]
+    fn copy_fields(&mut self, o: &RoomRuntime) {
+        self.def_ = o.def_;
+        self.index = o.index;
+        self.t = o.t;
+        self.ticks = o.ticks;
+        self.points = o.points;
+        self.variant = o.variant;
+        self.tide_left = o.tide_left;
+        self.tide_right = o.tide_right;
+        self.tide_salt = o.tide_salt;
+        self.blink_left = o.blink_left;
+        self.blink_right = o.blink_right;
+        self.gravity = o.gravity;
+        self.rng_seed = o.rng_seed;
+        self.walls = o.walls;
+        self.entry_score = o.entry_score;
+    }
 }
 
 impl Default for RoomRuntime {
