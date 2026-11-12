@@ -3,6 +3,8 @@
 # is not installed or the build fails (the callers then use C# FastSim).
 #   $rs = & tools/fastsim-rs/exe.ps1 [-NoBuild]
 param([switch]$NoBuild)
+# Compiler warnings go to stderr: never let a caller's "Stop" turn them into errors.
+$ErrorActionPreference = "Continue"
 $exe = Join-Path $PSScriptRoot "target/release/fastsim-rs.exe"
 if (-not $NoBuild) {
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "build.ps1") -NoSlot 2>&1 | Out-Null
