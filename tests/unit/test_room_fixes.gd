@@ -96,7 +96,7 @@ func test_wide_crates_skip_a_column_the_bird_reaches_while_it_falls() -> void:
 	sim.state.vx = SimConfig.SPEED_X
 	var warn := CrateDrop.WARN_TICKS
 	var e: int = cd.entry_steps(sim, 0, 400)
-	assert_true(e >= warn and e <= warn + CrateDrop.FAIR_SPAN, "entered at %d" % e)
+	assert_true(e >= warn and e <= warn + cd.fall_steps(0), "entered at %d" % e)
 	assert_false(cd._fair_col(sim, 0, warn))
 	var picked: int = cd._free_col(sim, 0, -1, warn)
 	assert_true(picked != 0, "another column")
@@ -369,7 +369,7 @@ func test_crates_skip_a_column_the_bird_comes_back_into_while_it_falls() -> void
 	var warn := CrateDrop.WARN_TICKS
 	assert_true(cd.entry_steps(sim, 1, 400) < warn, "first pass before the fall")
 	var again: int = cd.entry_steps(sim, 1, 400, warn)
-	assert_true(again <= warn + CrateDrop.FAIR_SPAN, "back in at %d" % again)
+	assert_true(again <= warn + cd.fall_steps(1), "back in at %d" % again)
 	assert_false(cd._fair_col(sim, 1, warn))
 
 
@@ -417,3 +417,18 @@ func test_a_chimney_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
 		assert_true(air._gust_on_way(sim, 1), "the chimney lifts on the way")
 		var out: int = air.adjust_wall(sim, 1, ALL & ~(0b1111 << 9))
 		assert_true(_free_ok(out, ok) >= need, "low %d" % (low / SUB))
+
+
+## Crate pairs out of a portal: no crate falls on a bird that holds its height
+## and comes back from the far wall (the fall lasts until the crate lands), so
+## the room needs no full ARRIVAL_BLIND wait.
+func test_crate_pairs_need_no_long_wait_out_of_a_portal() -> void:
+	var sim := RoomsTest.sim_in_room("crates", 1, Seasons.NONE, "pairs")
+	var cd := _hazard(sim, "crate_drop")
+	sim.state.x = SimConfig.BIRD_RADIUS
+	sim.state.vx = SimConfig.SPEED_X
+	var warn := CrateDrop.START_DELAY + CrateDrop.WARN_TICKS
+	for c in cd.cols:
+		if cd._fair_col(sim, c, warn):
+			var back: int = cd.entry_steps(sim, c, 400, warn)
+			assert_true(back > warn + cd.fall_steps(c), "column %d: back at %d" % [c, back])

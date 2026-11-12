@@ -29,10 +29,11 @@ const COIN_LIFT := 4 * SimConfig.SUB
 ## A column isn't marked if the bird, flying on, comes into its crate's kill
 ## range (on any pass: also back from the wall) from the end of the warning to
 ## FAIR_SPAN steps later: it could neither pass under the falling crate and out
-## before it lands, nor have had time to climb over it. When every free column
-## is like that, no crate is marked yet (WAIT): the pick is tried again every
-## step until one is fair (the bird's x doesn't depend on taps, so every player
-## of a seed waits as long).
+## before it lands, nor have had time to climb over it. The room's first crate
+## (out of a portal, the player still reading the room) counts every pass until
+## it lands. When every free column is like that, no crate is marked yet
+## (WAIT): the pick is tried again every step until one is fair (the bird's x
+## doesn't depend on taps, so every player of a seed waits as long).
 const FAIR_SPAN := 50
 ## `col` while waiting for a fair column.
 const WAIT := -2
@@ -114,8 +115,11 @@ func _next_drop(sim: GameSim, warn: int) -> void:
 		wait_warn = warn
 		return
 	if pair and col >= 0:
-		# The second crate falls about half the room away.
+		# The second crate falls about half the room away, only in a fair column
+		# (else this drop has no second crate).
 		col_b = _free_col(sim, (col + cols / 2) % cols, col, warn)
+		if col_b >= 0 and sim != null and not _fair_col(sim, col_b, warn):
+			col_b = -1
 	drops += 1
 	y = -crate_h
 	vy = 0
@@ -146,9 +150,24 @@ func _free_col(sim: GameSim, start: int, skip: int, warn: int) -> int:
 
 
 ## False if the bird comes into column c's kill range in x while its crate,
-## warned for `warn` steps, falls (FAIR_SPAN).
+## warned for `warn` steps, falls: FAIR_SPAN steps of it, or all of it (until
+## it lands, fall_steps) for the room's first crate.
 func _fair_col(sim: GameSim, c: int, warn: int) -> bool:
-	return entry_steps(sim, c, warn + FAIR_SPAN + 1, warn) > warn + FAIR_SPAN
+	var land := warn + (fall_steps(c) if drops == 0 else FAIR_SPAN)
+	return entry_steps(sim, c, land + 1, warn) > land
+
+
+## Steps a crate falls down column c before it lands, as step() moves it.
+func fall_steps(c: int) -> int:
+	var land := stack_top(c) - crate_h
+	var top := -crate_h
+	var speed := 0
+	var dur := 0
+	while top < land:
+		speed = mini(speed + FALL_ACCEL, MAX_FALL)
+		top += speed
+		dur += 1
+	return dur
 
 
 ## Steps until the bird, flying on (its x doesn't depend on taps), first comes
@@ -307,14 +326,5 @@ func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
 
 
 func _warn_col(out: PackedInt64Array, c: int) -> void:
-	var land := stack_top(c) - crate_h
-	# Steps of the fall, as step() moves the crate.
-	var top := -crate_h
-	var speed := 0
-	var dur := 0
-	while top < land:
-		speed = mini(speed + FALL_ACCEL, MAX_FALL)
-		top += speed
-		dur += 1
 	var x := col_left(c)
-	add_warning(out, x, -crate_h, x + crate_w, stack_top(c), warn_left, dur, WARN_KILL)
+	add_warning(out, x, -crate_h, x + crate_w, stack_top(c), warn_left, fall_steps(c), WARN_KILL)

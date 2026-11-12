@@ -43,8 +43,8 @@ impl CrateDrop {
     pub const FALL_ACCEL: i64 = 20;
     pub const MAX_FALL: i64 = 9 * SimConfig::SUB;
     pub const COIN_LIFT: i64 = 4 * SimConfig::SUB;
-    pub const FAIR_SPAN: i64 = 50;
     pub const WAIT: i64 = -2;
+    pub const FAIR_SPAN: i64 = 50;
 
     /// C# defaults: p_gifts = false, p_cols = COLS, p_col_w = COL_W,
     /// p_crate_w = CRATE, p_crate_h = CRATE, p_max_height = MAX_HEIGHT,
@@ -109,6 +109,11 @@ impl CrateDrop {
         }
         if self.pair && self.col >= 0 {
             self.col_b = self._free_col(sim, (self.col + self.cols / 2) % self.cols, self.col, warn);
+            if let Some(s) = sim {
+                if self.col_b >= 0 && !self._fair_col(s, self.col_b, warn) {
+                    self.col_b = -1;
+                }
+            }
         }
         self.drops += 1;
         self.y = -self.crate_h;
@@ -154,9 +159,23 @@ impl CrateDrop {
     }
 
     /// False if the bird comes into column c's kill range in x while its crate,
-    /// warned for `warn` steps, falls (FAIR_SPAN).
+    /// warned for `warn` steps, falls (until it lands: fall_steps).
     pub fn _fair_col(&self, sim: &GameSim, c: i64, warn: i64) -> bool {
-        self.entry_steps(sim, c, warn + Self::FAIR_SPAN + 1, warn) > warn + Self::FAIR_SPAN
+        let land = warn + if self.drops == 0 { self.fall_steps(c) } else { Self::FAIR_SPAN };
+        self.entry_steps(sim, c, land + 1, warn) > land
+    }
+
+    pub fn fall_steps(&self, c: i64) -> i64 {
+        let land = self.stack_top(c) - self.crate_h;
+        let mut top = -self.crate_h;
+        let mut speed = 0;
+        let mut dur = 0;
+        while top < land {
+            speed = G::mini(speed + Self::FALL_ACCEL, Self::MAX_FALL);
+            top += speed;
+            dur += 1;
+        }
+        dur
     }
 
     /// Steps until the bird, flying on, first comes into column c's crate in x
@@ -219,17 +238,8 @@ impl CrateDrop {
     }
 
     pub fn _warn_col(&self, out_: &mut Vec<i64>, c: i64) {
-        let land = self.stack_top(c) - self.crate_h;
-        let mut top = -self.crate_h;
-        let mut speed = 0;
-        let mut dur = 0;
-        while top < land {
-            speed = G::mini(speed + Self::FALL_ACCEL, Self::MAX_FALL);
-            top += speed;
-            dur += 1;
-        }
         let x = self.col_left(c);
-        add_warning(out_, x, -self.crate_h, x + self.crate_w, self.stack_top(c), self.warn_left, dur, WARN_KILL);
+        add_warning(out_, x, -self.crate_h, x + self.crate_w, self.stack_top(c), self.warn_left, self.fall_steps(c), WARN_KILL);
     }
 
     pub fn stack_top(&self, c: i64) -> i64 {

@@ -41,6 +41,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
         "entrytrace" => exit_pass::entry_trace(opts),
         "bosstell" => exit_pass::boss_tell(opts),
         "exitpass" => exit_pass::run(opts, seeds),
+        "arrivalwait" => exit_pass::arrival_wait(opts, seeds),
         "exposure" => autopsy::exposure(opts, seeds),
         "bouncefair" => autopsy::bouncefair(opts, seeds),
         "fixtest" => autopsy::fixtest(opts),

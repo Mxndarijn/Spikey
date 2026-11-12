@@ -363,3 +363,22 @@ pub fn entry_trace(opts: &Opts) -> i32 {
     }
     0
 }
+
+/// `rl review arrivalwait --rooms crates,gifts --seeds 400`: how often a portal
+/// arrival (the difficulty tool's entries, Cases::arrive) has no fair layout at
+/// every height and waits the whole ARRIVAL_BLIND instead of PORTAL_HOLD. Tool only.
+pub fn arrival_wait(opts: &Opts, seeds: i32) -> i32 {
+    let filter = opts.get("rooms").cloned().unwrap_or_else(|| "crates,gifts".to_string());
+    println!("full waits out of a portal (ARRIVAL_BLIND), {} entries per variant", seeds);
+    for t in Cases::all(&filter) {
+        let (waits, n): (i64, i64) = (0..seeds as i64)
+            .into_par_iter()
+            .map(|i| match Cases::arrive(&t, i) {
+                Ok(sim) => ((sim.state.arrival_hold == SimConfig::ARRIVAL_BLIND) as i64, 1),
+                Err(_) => (0, 0),
+            })
+            .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
+        println!("{}\t{}\t{}\t{:.1}%", t.label, waits, n, 100.0 * waits as f64 / n.max(1) as f64);
+    }
+    0
+}
