@@ -198,11 +198,21 @@ public static class Observer
     static bool can_guard(Hazard h) =>
         _guards.GetOrAdd(h.GetType(), t => t.GetMethod(nameof(Hazard.guards_edge))!.DeclaringType != typeof(Hazard));
 
+    /// The warnings of every hazard but the bosses (Hazard.warnings, the shared
+    /// reading of tells: only what the painters draw). Bosses keep `warned`.
+    [ThreadStatic] static List<long> _warns;
+
     /// The danger grid: 1 where a bird would be killed by a hazard, the
-    /// ceiling or the floor, WARN where a boss tell says an attack will land,
-    /// -1 where not.
+    /// ceiling or the floor, WARN where a warning on screen says it will be
+    /// (a beam's dashed row, a glowing piston's reach, a marked column, a
+    /// boss's tell), -1 where not.
     public static void grid(GameSim sim, float[] f, int at)
     {
+        var warns = _warns ??= new List<long>();
+        warns.Clear();
+        if (tells)
+            foreach (var h in sim.room.hazards)
+                if (h.alive && h is not Boss) h.warnings(sim, warns);
         // Hazards may write the bird while answering (EdgePad.guards_edge
         // bounces it), so the bird's state is put back afterwards.
         var saved = sim.state.copy();
@@ -260,6 +270,10 @@ public static class Observer
                                 break;
                             }
                 }
+                if (!bad && !warn)
+                    for (int w = 0; w + Hazard.WARN_SIZE <= warns.Count && !warn; w += Hazard.WARN_SIZE)
+                        warn = warns[w + 6] == Hazard.WARN_KILL && px + r >= warns[w] && px - r <= warns[w + 2]
+                               && py + r >= warns[w + 1] && py - r <= warns[w + 3];
                 f[k++] = bad ? 1f : warn ? WARN : -1f;
             }
         }

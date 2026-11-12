@@ -68,16 +68,6 @@ static partial class Checks
         public static readonly Dictionary<(string cls, string bot, string what), string> KNOWN = new()
         {
             [("BossWatcher", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
-            [("Beam", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("BossCrusher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("BossSaw", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("CrateDrop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Dart", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Drop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Firework", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Lava", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Piston", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
-            [("Stalker", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("Beam", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
             [("Dart", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
             [("Drop", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
