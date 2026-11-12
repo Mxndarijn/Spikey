@@ -25,7 +25,7 @@ impl Check for BlindSeeds {
         "blind_seeds"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/HonestyCheck.cs"
+        "tools/fastsim-rs/fastsim/src/checks/honesty.rs"
     }
     fn count(&self) -> usize {
         1

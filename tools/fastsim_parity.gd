@@ -1,11 +1,11 @@
 extends SceneTree
-## Records runs for the FastSim parity check (tools/fastsim, the C# copy of
-## sim/ for fast bots). The C# side replays every run and must get the same
-## checksum on every tick.
+## Records runs for the FastSim-RS parity check (tools/fastsim-rs, the Rust copy
+## of sim/ for fast bots). The Rust side (`fastsim-rs parity`) replays every run
+## and must get the same checksum on every tick.
 ##   godot --headless --path . -s res://tools/fastsim_parity.gd -- <out.txt> [quick|full]
 ##     [part parts]
 ## With `part parts` it records only its share of the cases (every parts-th,
-## from part), so tools/fastsim.ps1 can record in several processes at once.
+## from part), so tools/fastsim-rs/parity.ps1 can record in several processes at once.
 ##
 ## Cases, one per line:
 ##   run <name> <seed> <season> <practice> <actions> <checksums>
@@ -14,7 +14,7 @@ extends SceneTree
 ##     Then "w:<n>": the warnings on screen after each action
 ##     (GameSim.warnings()), all mixed into one number.
 ##   search <name> <seed> <season> <practice> <ticks> <ok> <survived> <taps>
-##     SurvivalSearch from a fresh sim; the C# search must find the same taps.
+##     SurvivalSearch from a fresh sim; the Rust search must find the same taps.
 ##   case <name> <setup> <driver> <actions> <checksums>
 ##     A sim built by <setup>, then played as <actions> (as in `run`):
 ##       p:<seed>:<season>:<practice>:<variant>  GameSim.new with a forced variant
@@ -26,24 +26,24 @@ extends SceneTree
 ##       n:<room id>:<seed>:<variant>:<points>    BotSetups.practice, score += points
 ##       b:<seed>:<season>:<score>:-              a run at <score> through a portal
 ##                                                (a boss's at every BOSS_EVERY)
-##     (variant "-" for none). <driver> is who chose the taps: "replay" (C#
+##     (variant "-" for none). <driver> is who chose the taps: "replay" (Rust
 ##     only replays them), "gap" (SimBots.gap_seeker, SimRng 7, revives when it
 ##     can), "tap:<seed>" (SimBots.random_tapper, until the run ends) or
 ##     "planner:<seed>:<horizon>:<rollouts>:<hold>:<after>" (holds its height
 ##     <hold> ticks as ArrivalBench, then PlannerBot for <after> ticks): for a
-##     bot, the C# bot must choose the same taps.
+##     bot, the Rust bot must choose the same taps.
 ##   csearch <name> <setup> <ticks> <ok> <survived> <taps>
 ##     SurvivalSearch from a <setup> sim, as `search`.
 ##   qsearch <name> <setup> <ticks> <ok> <survived> <taps>
-##     The same with QuickSearch (C# run_quick).
+##     The same with QuickSearch (Rust run_quick).
 ## Coverage: every room in practice (a gap-seeking bot and a SurvivalSearch
 ## line, so the bird lives long enough to see exits and portals), and full runs
 ## through the portals in every season, with a revive. For the bot checks on
-## FastSim (`fastsim check`, Checks.cs): every room variant forced in practice,
-## a portal arrival into every room variant, a revive in every room, every
-## other sim those checks start from (BotSetups), and the bots and searches
-## they use. No GDScript test plays a bot any more, so this is what ties the
-## checks to the real game code.
+## FastSim-RS (`fastsim-rs check`, tools/fastsim-rs/fastsim/src/checks/): every
+## room variant forced in practice, a portal arrival into every room variant, a
+## revive in every room, every other sim those checks start from (BotSetups =
+## fastsim/src/setups.rs), and the bots and searches they use. No GDScript test
+## plays a bot any more, so this is what ties the checks to the real game code.
 
 const AIM_TICKS := 600
 const ROOM_SEARCH_TICKS := 700
@@ -101,7 +101,7 @@ func _initialize() -> void:
 	quit(0)
 
 
-## What the FastSim bot checks (Checks.cs) rely on: every (room, variant) of
+## What the FastSim bot checks (fastsim/src/checks/) rely on: every (room, variant) of
 ## ArrivalBench.cases() forced in practice and out of a portal, a revive in
 ## every room, and their bots and searches.
 func _check_cases(quick: bool) -> void:
@@ -150,7 +150,7 @@ func _check_cases(quick: bool) -> void:
 	_room_check_cases(quick)
 
 
-## The setups of the crawl, gates, isles and runs checks (Checks.cs).
+## The setups of the crawl, gates, isles and runs checks (checks/searches.rs, runs.rs).
 func _room_check_cases(quick: bool) -> void:
 	var crawl := RoomCatalog.index_of("crawl")
 	var top := SimConfig.slot_center_y(1)
@@ -305,7 +305,7 @@ func _planner_case(
 	_lines.append("case %s %s %s %s %s" % [name, text, driver, actions, _sums(sums, w)])
 
 
-## SimBots.random_tapper (as Checks.cs Runs plays it) until the run ends.
+## SimBots.random_tapper (as checks/runs.rs plays it) until the run ends.
 func _tap_case(name: String, text: String, bot_seed: int) -> void:
 	if not _mine():
 		return
@@ -418,7 +418,7 @@ func _search_case(name: String, seed_value: int, season: int, practice: int, tic
 
 
 ## The checksums of a run or case, then " w:<n>": every tick's warnings
-## (GameSim.warnings) mixed into one number, so the C# copy must show the same tells.
+## (GameSim.warnings) mixed into one number, so the Rust copy must show the same tells.
 static func _sums(sums: PackedStringArray, w: int) -> String:
 	return "%s w:%d" % [",".join(sums), w]
 

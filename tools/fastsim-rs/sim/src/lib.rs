@@ -1,6 +1,7 @@
-//! The deterministic Flapjaw sim in Rust: a line-by-line port of
-//! tools/fastsim/Sim (itself a port of sim/). Integers only. See
-//! docs/FASTSIM_RS.md for the porting rules.
+//! The deterministic Flapjaw sim in Rust: a line-by-line port of sim/ (first
+//! made from the C# FastSim, removed on 2026-11-12; the "Port of X.cs" notes
+//! name the C# file each one came from). Integers only. Porting rules:
+//! tools/fastsim-rs/PORTING.md.
 #![allow(clippy::collapsible_else_if, clippy::needless_range_loop, clippy::new_without_default)]
 
 pub mod arrival_check;

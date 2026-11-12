@@ -7,6 +7,9 @@
 //! (`PriorityQueue` here) and `System.Random` is `DotnetRandom` with the same seeds.
 //! `--threads` is read but not used: every mode runs on rayon's global pool (`--jobs N`).
 //! `measure visibility` (visibility.rs) rebuilds visible.tsv from the GDScript painters as C# does.
+//! fields.rs and methods.rs are generated from the Rust sim's sources by gen/rs_fields.py and
+//! gen/rs_methods.py (gen/README.md): regenerate when a sim type gains or loses a field or a
+//! no-argument method.
 pub mod bank;
 pub mod fields;
 pub mod leak_run;
@@ -408,7 +411,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             Ok(if o["leaks"].as_str() == Some("no") { 0 } else { 1 })
         }
         "visibility" => {
-            // Rebuilds Measure/visible.tsv from game/run (the painters) and the sim's sources.
+            // Rebuilds tools/fastsim-rs/data/visible.tsv from game/run (the painters) and the sim's sources.
             visibility::run(opts.get("root"), opts.contains_key("write"))
         }
         "check" => {
@@ -1368,7 +1371,7 @@ pub fn self_test() -> Vec<String> {
                     })
                     .unwrap_or_default();
                 if want != have {
-                    errs.push("tools/fastsim/Measure/visible.tsv is stale: run `fastsim measure visibility --write`".into());
+                    errs.push("tools/fastsim-rs/data/visible.tsv is stale: run `fastsim measure visibility --write`".into());
                 }
             }
             Err(e) => errs.push(format!("visible list: {}", e)),

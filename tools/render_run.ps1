@@ -100,6 +100,8 @@ try {
         "--write-movie", (& $q (Join-Path $frameDir "frame.png")), "--log-file", (& $q $godotLog),
         "-s", "res://tools/render_run.gd", "--", (& $q $runPath), (& $q $renderSummary), $hold
     ) -join " "
+    # render/hidden_desktop.cs is a small Win32 helper (CreateDesktop), compiled here by
+    # PowerShell; it is not part of FastSim (the bot sim is Rust, tools/fastsim-rs).
     Add-Type -TypeDefinition (Get-Content (Join-Path $PSScriptRoot "render/hidden_desktop.cs") -Raw)
     Write-Host "render: filming on a hidden desktop ($Resolution, 60 fps)..."
     $code = [FlapjawHiddenDesktop]::Run($exe, $gdArgs, $root, $TimeoutMinutes * 60000)

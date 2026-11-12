@@ -5,9 +5,9 @@ extends TestCase
 ## pistons sit their cycle out and beams stop short, and ExitPlanner never
 ## puts an exit where a hazard is already. The full sweep (SurvivalSearch
 ## through every variant, and full runs in every season, seed 4206176851
-## among them) runs on FastSim: `tools/fastsim.ps1 -Mode check -Check exits`,
-## part of tools/check.ps1. Here: every variant with the bird held still, on
-## a coarse probe.
+## among them) runs on FastSim-RS: `tools/fastsim.ps1 -Mode check -Check exits`
+## (tools/fastsim-rs/fastsim/src/checks/exits.rs), part of tools/check.ps1.
+## Here: every variant with the bird held still, on a coarse probe.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true

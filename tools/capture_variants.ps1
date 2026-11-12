@@ -39,6 +39,8 @@ $gdArgs = (@(
     "--windowed", "--resolution", $Resolution, "--fixed-fps", "60", "--disable-vsync",
     "--log-file", (& $q $log), "-s", "res://tools/capture_variants.gd", "--"
 ) + $userArgs) -join " "
+# render/hidden_desktop.cs is a small Win32 helper (CreateDesktop), compiled here by
+# PowerShell; it is not part of FastSim (the bot sim is Rust, tools/fastsim-rs).
 Add-Type -TypeDefinition (Get-Content (Join-Path $PSScriptRoot "render/hidden_desktop.cs") -Raw)
 $code = [FlapjawHiddenDesktop]::Run($exe, $gdArgs, $root, $TimeoutMinutes * 60000)
 $n = @(Get-ChildItem $Out -Filter "*.jpg").Count

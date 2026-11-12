@@ -566,8 +566,8 @@ impl MotorTiers {
         m
     }
 
-    /// The fitted knobs per tier: tools/fastsim/Human/tiers.json (the same file C# reads,
-    /// written by tools/calibrate_tiers.ps1). Empty when there is no file.
+    /// The fitted knobs per tier: tools/fastsim-rs/data/tiers.json (written by
+    /// tools/calibrate_tiers.ps1). Empty when there is no file.
     pub fn calibrated() -> &'static HashMap<String, (f64, i32)> {
         static CAL: OnceLock<HashMap<String, (f64, i32)>> = OnceLock::new();
         CAL.get_or_init(|| {
@@ -575,7 +575,7 @@ impl MotorTiers {
             let Ok(exe) = std::env::current_exe() else { return res };
             let mut d = exe.parent().map(|p| p.to_path_buf());
             while let Some(dir) = d {
-                let f = dir.join("tools").join("fastsim").join("Human").join("tiers.json");
+                let f = dir.join("tools").join("fastsim-rs").join("data").join("tiers.json");
                 if f.exists() {
                     if let Ok(text) = std::fs::read_to_string(&f) {
                         if let Ok(j) = serde_json::from_str::<serde_json::Value>(text.trim_start_matches('\u{feff}')) {

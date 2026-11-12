@@ -3,8 +3,8 @@ extends RefCounted
 ## One recorded run to render or check: the replay (gameplay version, seed,
 ## season, taps, revives and the result it claims) plus how it looked (the
 ## loadout: one id per ItemKind) and the look settings. The one file a bot
-## writes when it wants a run rendered (docs/RENDERING.md). FastSim bots
-## write the same JSON (tools/fastsim/Bots/RunFile.cs).
+## writes when it wants a run rendered (docs/RENDERING.md). FastSim-RS bots
+## write the same JSON (tools/fastsim-rs/fastsim/src/bots/run_file.rs).
 ##
 ## JSON: Replay.to_dict() plus "format", "format_version", "name", "loadout"
 ## and "settings", so a run file is also a leaderboard run (main.play_replay).

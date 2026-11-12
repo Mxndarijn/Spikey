@@ -1,7 +1,7 @@
 # Bot testing: the protocol
 
 How to tell whether a bot change helps, and how to report a bot's tier, for the
-least CPU. FastSim only (`tools/fastsim/Measure/`), no Godot, no window. The
+least CPU. FastSim-RS only (`tools/fastsim-rs/fastsim/src/measure/`), no Godot, no window. The
 statistics behind it are in the measurement review
 (`SpikeCage-coord/research/planner-review/10-measurement.md`); `docs/YARDSTICK.md`
 has the yardstick and the `-Mode stats` tool this builds on.
@@ -133,7 +133,7 @@ across rooms.
 ## Late starts for strong bots (`measure runs`)
 
 ```
-fastsim measure runs --bank blind.bank.json --bot blind --from 100 --n 80
+fastsim-rs measure runs --bank blind.bank.json --bot blind --from 100 --n 80
 ```
 
 Runs that start from a bank entry at 40, 100 or 200 points (the first per bank
@@ -151,7 +151,7 @@ without replaying the easy first rooms.
 - **Beast**: the KM median is missing (half the runs reach the cap) or its CI is
   above 354. Reported by the plateau rate and the share alive at the cap.
 - **Infinite** (the user's definition): every run that can be finished is
-  finished. The fairness judge (`fastsim rl review fair`, on the same seeds
+  finished. The fairness judge (`fastsim-rs rl review fair`, on the same seeds
   and cap) is the oracle: a death it calls `bot` had an honest, visible-only
   line, so that run could be finished; `reaction`, `hidden` and `lost` deaths
   had none (a room to fix). `finishable.share` = alive at the cap / (alive +
@@ -166,7 +166,8 @@ powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Tiers good -
 powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Exe <engine> -Verify
 ```
 
-Every human tier plays by the same rules (`MotorTiers.shared`, `tools/fastsim/Human/MotorPlayer.cs`):
+Every human tier plays by the same rules (`MotorTiers.shared`,
+`tools/fastsim-rs/fastsim/src/human/motor_player.rs`):
 only what is on screen, the 8-tick thumb gap with jitter, a little hesitation, the cage
 middle when nothing forces otherwise, a loosely varying preferred height and one small tap
 scatter. No lapses, no mistakes on purpose. A tier has two knobs only:
@@ -182,7 +183,7 @@ The bot `tier:react=R,level=L` plays those knobs. The script fits each tier to i
 2. Inside that level it brackets the target by reaction and closes in by secant steps on
    log(median).
 3. A last evaluation with twice the budget at the chosen knobs; the result goes to
-   `tools/fastsim/Human/tiers.json`, which the `human:<tier>` bots then play. With `-Verify`
+   `tools/fastsim-rs/data/tiers.json`, which the `human:<tier>` bots then play. With `-Verify`
    each tier then plays the holdout once (full runs, `measure report`).
 
 Each evaluation is one `measure median`: room trials over every stratum (ramp and plateau,
@@ -196,7 +197,7 @@ Caveats: a weak tier's trials start from a strong bot's room entries (the doc's 
 banks), strata under 0.2% of visits take the bank bot's rate, and the plateau is one rate
 from 40 points on, so expert's median (past 160 points) leans on that.
 
-**For any engine** (the Rust port): the script needs only
+**For any engine** (FastSim-RS by default): the script needs only
 `<exe> measure median --bank <bank.json> --bot tier:react=<R>,level=<L> --budget <cpu s>
 --threads <n> --out <trials.tsv> --json <out.json>` writing at least `{"median", "lo", "hi"}`
 (null for "past every band"), and `<exe> measure bank --bot blind --first 10000 --seeds
@@ -212,8 +213,8 @@ A is real; B has every RNG and seed replaced (`BlindPlanner.blind_copy`) and
 then, **deny by default**, every field the screen does not show copied from a
 donor (the same room and variant drawn again from its entry with another spine,
 flown with the same taps to the fork tick). A field is visible only when the
-game's drawing code reads it: `tools/fastsim/Measure/visible.tsv`, built by
-`fastsim measure visibility --write` from `game/run/*.gd` and the painters (a
+game's drawing code reads it: `tools/fastsim-rs/data/visible.tsv`, built by
+`fastsim-rs measure visibility --write` from `game/run/*.gd` and the painters (a
 method a painter calls counts by its result, so a tide's salt stays hidden while
 its depth is shown). Fields are copied one at a time and kept only while the
 screen stays the same. An honest bot taps the same in A and B until something
@@ -228,14 +229,14 @@ rooms): **5 leaks**, 3 of them from `SimState.anchor_y` (the room's anchor, rule
 track it from walls seen instead). The old check could not see it: blind_copy keeps
 anchor_y, and the old check scrambled only blind_copy's list.
 
-`fastsim check yardstick` calibrates it: the gap seeker must pass and
+`fastsim-rs check yardstick` calibrates it: the gap seeker must pass and
 PlannerBot (it steps copies of the real sim) must leak, and visible.tsv must
 match the drawing code.
 
 ## Files (for every port)
 
-Everything is plain data, so the Rust port can write the same files and either
-tool can read them. A state is never stored: it is rebuilt by replaying taps.
+Everything is plain data, so any engine can write the same files and any tool
+can read them. A state is never stored: it is rebuilt by replaying taps.
 
 **Bank**, `*.bank.json`: `{"format": "flapjaw_bank", "version": 1,
 "gameplay_version", "bot", "about", "cap", "point_cap", "first_seed", "seeds",

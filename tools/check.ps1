@@ -10,15 +10,13 @@
      side in -Jobs headless Godot processes (default: one per core, at most 8:
      more only adds Godot start-ups now that no bot plays here;
      -Jobs 1 runs them all in one process). No bot plays here (step 6).
-  5. FastSim parity: tools/fastsim (the C# copy of sim/) still matches sim/,
-     tick for tick, in every room and variant, out of portals, after revives
-     and from every sim the checks start from, and its bots and searches
-     choose what the GDScript ones do
-  5b. FastSim-RS parity: tools/fastsim-rs (the Rust copy, docs/FASTSIM_RS.md)
-     replays the same recording; skipped cleanly when cargo is not installed
+  5. FastSim-RS parity: tools/fastsim-rs (the Rust copy of sim/,
+     docs/FASTSIM_RS.md) still matches sim/, tick for tick, in every room and
+     variant, out of portals, after revives and from every sim the checks start
+     from, and its bots and searches choose what the GDScript ones do
   6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
-     seeker, random tapper: tools/fastsim-rs checks, C# FastSim without cargo),
-     one process with -FastSimJobs threads
+     seeker, random tapper: tools/fastsim-rs/fastsim/src/checks/), one process
+     with -FastSimJobs threads
 
   The steps run side by side where they can: lint, format and the FastSim
   checks (which need no Godot) start at once; once the import is done, the
@@ -128,15 +126,7 @@ if ($FastSimJobs -le 0) { $FastSimJobs = [Math]::Max(2, [int]($Jobs / 2)) }
 $fastsim = Join-Path $root "tools/fastsim.ps1"
 $runParity = -not $TestFilter -or $TestFilter -eq "fastsim"
 
-# FastSim is built once, here, so parity and the checks can share it.
-$hasDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
-$fastsimBuilt = $false
-if ($hasDotnet) {
-    & dotnet build (Join-Path $root "tools/fastsim/FastSim.csproj") -c Release -nologo -v q | Out-Null
-    $fastsimBuilt = $LASTEXITCODE -eq 0
-}
-
-# FastSim-RS (the Rust copy, docs/FASTSIM_RS.md): built here too; no cargo = skipped.
+# FastSim-RS (docs/FASTSIM_RS.md) is built once, here, so parity and the checks can share it.
 $fastsimRs = Join-Path $root "tools/fastsim-rs"
 $cargoBin = Join-Path $HOME ".cargo/bin"
 if (Test-Path $cargoBin) { $env:PATH = "$cargoBin" + [IO.Path]::PathSeparator + $env:PATH }
@@ -154,8 +144,7 @@ if ($gdlint -and $gdformat) {
     Start-Step "lint" $gdlint $gdDirs
     Start-Step "format" $gdformat (@("--check", "--line-length", "100") + $gdDirs)
 }
-# The bot checks run on FastSim-RS when it built (fastsim.ps1 picks it), else on C#.
-if ($fastsimRsBuilt -or $fastsimBuilt) {
+if ($fastsimRsBuilt) {
     $fa = @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "check", "-NoBuild", "-Jobs", $FastSimJobs)
     if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
     Start-Step "checks" "powershell" $fa
@@ -171,10 +160,6 @@ $importTime = $sw.Elapsed.TotalSeconds
 if ($importOk) {
     Start-Step "load" $godot @("--headless", "--path", $root, "-s", "res://tools/ci/load_all.gd")
     Set-BelowNormal "load"
-    if ($runParity -and $fastsimBuilt) {
-        Start-Step "parity" "powershell" @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "parity", "-Quick", "-NoBuild", "-Jobs", "2")
-        Set-BelowNormal "parity"
-    }
     if ($runParity -and $fastsimRsBuilt) {
         Start-Step "parity-rs" "powershell" @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $fastsimRs "parity.ps1"), "-Quick", "-NoBuild", "-Jobs", "2")
         Set-BelowNormal "parity-rs"
@@ -214,47 +199,31 @@ if ($importOk) {
     Write-Host "skipped: the import failed" -ForegroundColor Red
 }
 
-# 5. FastSim (the C# copy of sim/ for fast bots) still matches sim/.
-if ($runParity) {
-    Write-Step "FastSim parity"
-    if (-not $hasDotnet) {
-        Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
-        $failed += "fastsim parity (dotnet not installed)"
-    } elseif (-not $fastsimBuilt) {
-        & dotnet build (Join-Path $root "tools/fastsim/FastSim.csproj") -c Release -nologo -v q
-        $failed += "fastsim parity (FastSim build failed)"
-    } elseif ($steps.ContainsKey("parity")) {
-        if ((Show-Step "parity") -ne 0) { $failed += "fastsim parity (port the sim/ change to tools/fastsim, see PORTING.md)" }
-    } else {
-        Write-Host "skipped: the import failed" -ForegroundColor Red
-        $failed += "fastsim parity (skipped)"
-    }
-}
-
-# 5b. FastSim-RS (the Rust copy) matches sim/ too. No cargo: skipped, not failed.
+# 5. FastSim-RS (the Rust copy of sim/ the bots run on) still matches sim/.
 if ($runParity) {
     Write-Step "FastSim-RS parity"
     if (-not $hasCargo) {
-        Write-Host "skipped: cargo not installed (tools/fastsim-rs, docs/FASTSIM_RS.md)" -ForegroundColor Yellow
+        Write-Host "cargo not installed: install Rust (docs/FASTSIM_RS.md)" -ForegroundColor Red
+        $failed += "fastsim-rs parity (cargo not installed)"
     } elseif (-not $fastsimRsBuilt) {
         & powershell -ExecutionPolicy Bypass -File (Join-Path $fastsimRs "build.ps1") -NoSlot
         $failed += "fastsim-rs parity (FastSim-RS build failed)"
     } elseif ($steps.ContainsKey("parity-rs")) {
-        if ((Show-Step "parity-rs") -ne 0) { $failed += "fastsim-rs parity (port the sim/ change to tools/fastsim-rs, see docs/FASTSIM_RS.md)" }
+        if ((Show-Step "parity-rs") -ne 0) { $failed += "fastsim-rs parity (port the sim/ change to tools/fastsim-rs, see tools/fastsim-rs/PORTING.md)" }
     } else {
         Write-Host "skipped: the import failed" -ForegroundColor Red
         $failed += "fastsim-rs parity (skipped)"
     }
 }
 
-# 6. Every bot test, on FastSim (tools/fastsim/Checks.cs). With a
-# -TestFilter only the checks it names or whose old test it matches.
+# 6. Every bot test, on FastSim-RS. With a -TestFilter only the checks it names
+# or whose old test it matches.
 Write-Step "FastSim checks"
-if (-not $fastsimRsBuilt -and -not $hasDotnet) {
-    Write-Host "neither cargo nor dotnet installed (docs/FASTSIM_RS.md)" -ForegroundColor Red
-    $failed += "fastsim checks (no FastSim)"
-} elseif (-not $fastsimRsBuilt -and -not $fastsimBuilt) {
-    $failed += "fastsim checks (FastSim build failed)"
+if (-not $hasCargo) {
+    Write-Host "cargo not installed: install Rust (docs/FASTSIM_RS.md)" -ForegroundColor Red
+    $failed += "fastsim checks (cargo not installed)"
+} elseif (-not $fastsimRsBuilt) {
+    $failed += "fastsim checks (FastSim-RS build failed)"
 } else {
     if ((Show-Step "checks") -ne 0) { $failed += "fastsim checks" }
 }

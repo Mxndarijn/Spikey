@@ -363,7 +363,7 @@ impl Check for SightCheck {
         "sight"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/Perception.cs:test_bots_see_every_hazard"
+        "tools/fastsim-rs/fastsim/src/checks/sight.rs:test_bots_see_every_hazard"
     }
     fn count(&self) -> usize {
         self.cases().len()

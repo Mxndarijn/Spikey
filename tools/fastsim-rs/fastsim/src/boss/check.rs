@@ -52,7 +52,7 @@ impl Check for BossFair {
         "bossfair"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/Bots/BossFairCheck.cs"
+        "tools/fastsim-rs/fastsim/src/boss/check.rs"
     }
     fn count(&self) -> usize {
         Self::cases().len()

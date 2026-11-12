@@ -1,8 +1,8 @@
 # Room difficulty
 
-`fastsim difficulty` gives every room, variant and boss a difficulty score, so rooms can be
+`fastsim-rs difficulty` gives every room, variant and boss a difficulty score, so rooms can be
 ranked, the ones that are too hard or too easy for their group found, and each placed in a
-category. Code: `tools/fastsim/Difficulty/`. It only reads the sim; it changes no gameplay.
+category. Code: `tools/fastsim-rs/fastsim/src/difficulty/`. It only reads the sim; it changes no gameplay.
 
 ```
 powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode difficulty -Step list

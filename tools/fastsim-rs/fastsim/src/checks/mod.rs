@@ -78,7 +78,7 @@ impl Check for Yardstick {
         "yardstick"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/Yardstick/YardstickCheck.cs"
+        "tools/fastsim-rs/fastsim/src/yardstick/check.rs"
     }
     fn count(&self) -> usize {
         1

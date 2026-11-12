@@ -2,8 +2,9 @@ extends TestCase
 ## Caterpillar Crawl (and Summer Crab Walk, the same hazard): a crawler on a
 ## wall side must never stand in front of the only bounce spot or the exit.
 ## The SurvivalSearch cases (through the first portal, and from a revive
-## through the hard exits) run on FastSim: `tools/fastsim.ps1 -Mode check
-## -Check crawl`, part of tools/check.ps1.
+## through the hard exits) run on FastSim-RS: `tools/fastsim.ps1 -Mode check
+## -Check crawl` (tools/fastsim-rs/fastsim/src/checks/searches.rs), part of
+## tools/check.ps1.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true

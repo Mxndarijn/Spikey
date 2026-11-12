@@ -1,4 +1,4 @@
-//! Port of tools/fastsim/Honesty.cs `run`: `fastsim-rs honesty plan|anchor|rooms|seeds`.
+//! Port of the C# FastSim's Honesty.cs `run`: `fastsim-rs honesty plan|anchor|rooms|seeds`.
 //! Does the BlindPlanner's plan depend on things that are not on screen?
 //! (research/planner-review/01-honesty.md)
 //!

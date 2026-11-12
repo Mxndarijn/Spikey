@@ -5,7 +5,9 @@ extends RefCounted
 ## spread over heights, both sides and a few scores, each laid out as out of a
 ## real portal (GameSim._arrival_retries).
 ##
-## The benchmark (tools/fastsim.ps1 -Mode reaction / odds run it in full):
+## The benchmark (tools/fastsim.ps1 -Mode reaction / odds run it in full on
+## FastSim-RS; its thresholds are pinned to tools/fastsim-rs/fastsim/src/checks/arrival.rs
+## by tests/unit/test_fastsim_checks.gd):
 ## - EARLY_DELAY (0.75 s): no portal arrival kills. A death there must be the
 ##   bot's own mistake: SurvivalSearch finds a way to live from the moment the
 ##   player reacts.

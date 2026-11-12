@@ -6,7 +6,7 @@
 # across every JSON in -Out. FastSim only: no Godot run, no window.
 #
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode list
-#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all             # quick set, seeds 1..100
+#   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot human:all          # quick set, seeds 1..100
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot planner,gap -Set full   # seeds 1..400
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot search -Seeds 32
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <runs.json or folder>
@@ -20,9 +20,7 @@
 #   -Mode report  -Bot new [-Fair fair.txt]          # holdout seeds 1..400 once: KM tier, beast/infinite, whole-run leak check
 #   -Mode leakrun -Bot new                           # the whole-run leak check alone (seeds 900001+)
 #
-# Runs on FastSim-RS (tools/fastsim-rs, docs/FASTSIM_RS.md) by default, the
-# same numbers and files as C# FastSim; -CSharp uses C# FastSim. Bots only C#
-# has (rl:*, world:*, mpc*, honest-v1) run on C# automatically.
+# Runs on FastSim-RS (tools/fastsim-rs, docs/FASTSIM_RS.md).
 #
 # -Human with -Mode run also compares each bot with those human runs
 # (distances and a human-vs-bot classifier). Take a CPU slot for big runs.
@@ -53,36 +51,15 @@ param(
     [int]$BankSeeds = 160,
     [string]$Out = "D:\SoftwareProjects\SpikeCage-coord\research\yardstick",
     [ValidateSet("Idle", "BelowNormal", "Normal")]
-    [string]$Priority = "BelowNormal",
-    [switch]$CSharp
+    [string]$Priority = "BelowNormal"
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "tools/fastsim/FastSim.csproj"
-$exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim"
-
-$csOnly = $Bot -match "(^|,)\s*(rl:|world:|mpc|honest-v1)"
-$rs = $null
-if (-not $CSharp -and -not $csOnly) { $rs = & (Join-Path $root "tools/fastsim-rs/exe.ps1") }
-if ($rs) {
-    $exe = $rs
-    # fastsim-rs: one thread pool for the whole run (--jobs); --threads is read too.
-    $rsJobs = @("--jobs", $Threads)
-} else {
-$rsJobs = @()
-if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    Write-Host "dotnet not found: install the .NET 9 SDK to use FastSim." -ForegroundColor Red
-    exit 2
-}
-& dotnet build $proj -c Release -nologo -v q | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    & dotnet build $proj -c Release -nologo -v q
-    Write-Host "FastSim build failed." -ForegroundColor Red
-    exit 2
-}
-if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
-}
+$exe = & (Join-Path $root "tools/fastsim-rs/exe.ps1")
+if (-not $exe) { Write-Host "FastSim-RS not built (install Rust: docs/FASTSIM_RS.md)." -ForegroundColor Red; exit 2 }
+# fastsim-rs: one thread pool for the whole run (--jobs); --threads is read too.
+$rsJobs = @("--jobs", $Threads)
 
 if ($Mode -in @("quick", "confirm", "report", "leakrun")) {
     if ($Bot -eq "") { Write-Host "-Bot is needed" -ForegroundColor Red; exit 2 }

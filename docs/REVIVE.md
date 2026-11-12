@@ -289,18 +289,18 @@ Open points:
   - the room's planned exits never move;
   - a revived run meets the same map as a run that never died there (rooms,
     variants, plans and walls), on a death on an even and an odd score.
-- The `sameseed` FastSim check (`tools/fastsim/SameSeed.cs`): 24 seeds, a
+- The `sameseed` FastSim check (`tools/fastsim-rs/fastsim/src/checks/sameseed.rs`): 24 seeds, a
   death on a score ending in 4 and in 5 in room 2 or later, revived, against
   the same PlannerBot with no death: the same rooms, variants, room seeds,
   plans, ghosts and open exits, and the same walls (a bounce at another tick
   in the room or with the hazards elsewhere checks only side and score; a room
   whose exit opened at another tick ends the comparison, as Bumper Cloud and
-  wind move the exit for any two players). `fastsim sameseed <seed> --die 5
+  wind move the exit for any two players). `fastsim-rs sameseed <seed> --die 5
   --onlyrevive 1` shows one seed in full.
 - `tests/unit/test_replay.gd` additions: a revived run verifies; the same run
   with the revive tick removed, moved by one, or doubled is rejected; the
   dictionary round trip keeps `revives`.
-- The `revive` FastSim check (`tools/fastsim/Checks.cs`, was
+- The `revive` FastSim check (`tools/fastsim-rs/fastsim/src/checks/revive.rs`, was
   `tests/sim/test_revive_survivable.gd`): for every room kind, all three exit
   cases at the death, both exit walls, both ways in and three portal heights
   (140, 300 and 480 px; 1764 cases), the bird comes in through a portal laid

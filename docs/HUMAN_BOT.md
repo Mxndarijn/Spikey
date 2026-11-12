@@ -2,12 +2,13 @@
 
 Playtest bots that should look like a person playing, at five skill tiers
 (beginner 30, normal 60, good 120, expert 250, beast 500+ median points).
-A tool only: `tools/fastsim/Human/`, run as `fastsim human <mode>`. It never
-changes `sim/` or gameplay. Compare with the RL bot in `docs/RL_BOT.md`.
+A tool only: `tools/fastsim-rs/fastsim/src/human/`, run as
+`fastsim-rs human <mode>` (`docs/FASTSIM_RS.md`). It never changes `sim/` or
+gameplay.
 
-## Main line: a human layer on the review's BlindPlanner (`MotorPlayer.cs`)
+## Main line: a human layer on the review's BlindPlanner (`human/motor_player.rs`)
 
-The planner is the bot review's `BlindPlanner` (`Bots/BlindPlanner.cs`): a beam over tap / wait on a copy
+The planner is the bot review's `BlindPlanner` (`bots/blind_planner.rs`): a beam over tap / wait on a copy
 of the sim whose RNG and already-drawn hidden values are replaced, so it predicts visible motion (allowed)
 but not random outcomes (not allowed). On top of it, a measured human motor model (Isaksen et al. 2015):
 
@@ -66,41 +67,15 @@ Isaksen's measured human sd is 2.2-3.7 ticks. At that sd this bot scores a rate 
 beginner); the targets need a steadier thumb than the average player in that study, or a planner that
 copes with noise better.
 
-## First try: a human model on a short look-ahead planner (`HumanBot.cs`, real copies)
+## Retired tries: HumanBot and Reflex
 
-The player looks at the screen every `think` ticks and plans the next second
-or two with copies of the sim, but only with what is on screen:
+Two earlier human models were retired with the C# FastSim on 2026-11-12 (not
+ported to Rust; their code and notes are in the git history): HumanBot, a
+look-ahead planner on real sim copies with reaction lag, motor noise, misjudged
+height and lapses (one skill knob `s`), and Reflex, ~10 rule weights tuned by
+evolution with no sim copies (a median of 23, below beginner; table below).
 
-- **No foresight of new spikes.** The wall ahead gets new spikes at each
-  bounce. A planned flight that dies on those after a bounce counts as fine
-  (the player can't know yet), and after a bounce it aims at mid screen, not
-  at the new gap. A room change ends the plan (the next room isn't on screen).
-- **Reaction lag**: a decision can place a tap no earlier than `lag` ticks
-  later. Taps already decided in that window stay.
-- **Motor noise**: each tap lands `N(0, jitter)` ticks off.
-- **Misjudged height**: at each look the player sees itself `N(0, perr)` px off.
-- **Lapses**: a look is skipped with chance `lapse`; the old plan runs out.
-- **Comfort height**: plans are ranked (among the ones that live) by how
-  close they stay to the gap on the wall ahead, pulled toward mid screen
-  just after a bounce, with extra cost near the floor and ceiling. This is
-  what keeps the bot off the floor.
-- **Planner**: a bucketed beam over tap / no tap per tick ("careful search",
-  `plan` ticks, `width` lines kept per tick, no taps faster than 6 ticks
-  apart), with cheap "habits" (aim at the gap +- an offset, tap now or hold)
-  as a fallback.
-
-One skill knob `s` in 0..1 moves every limit together (`Skill.at`), and
-`fastsim human fit` bisects `s` per tier to hit the target medians.
-
-## Approach B: reflex rules tuned by evolution (`Reflex.cs`)
-
-No sim copies at all: the bird's own flight (wait or tap now) is
-extrapolated with the sim's physics and checked against where hazards are
-now (`kills()` probes, like the RL observer), the spikes on the wall ahead,
-the ceiling and the floor. A weighted rule of ~10 numbers decides the tap;
-`fastsim human train-reflex` tunes them with antithetic, rank-based ES.
-
-## The "looks human" score (`Trace.cs`, `Humanness`)
+## The "looks human" score (`human/trace.rs`, `Humanness`)
 
 0..100 from parts that each compare one habit with a band for people playing
 one-button flyers: time near the floor (bottom 15%) and ceiling, mean and
@@ -114,14 +89,13 @@ replays (needs the user's OK) the bands should be refit from them.
 
 ## Commands
 
-    fastsim human measure --skill 0.7 --seeds 100 [--cap ticks] [--set lag=4,perr=2]
-    fastsim human measure --bot reflex --seeds 100
-    fastsim human baseline --bot gap|rl|search --seeds 32
-    fastsim human fit --seeds 60
-    fastsim human train-reflex --gens 20 --pop 16 --seeds 24
-    fastsim human runfile --skill 1 --seed 7 --out run.json
+    fastsim-rs human measure --bot motor --tier good --seeds 100 [--cap ticks]
+    fastsim-rs human baseline --bot gap|search --seeds 32
+    fastsim-rs human fit --bot motor --seeds 60
+    fastsim-rs human deaths|atlas|motortrace --bot motor ...
 
-At most 4 threads (`--threads`), BelowNormal priority.
+Threads: the global `--jobs`. To render a human-tier run, record its taps and
+write a run file with `bots/run_file.rs` (`docs/RENDERING.md`).
 
 ## Results (yardstick, seeds 1..400, full cap, first death ends the run; next-features-2 code, seed-only generation)
 
@@ -131,8 +105,8 @@ At most 4 threads (`--threads`), BelowNormal priority.
 | human:normal | 67 | 154 | 57.7 | normal | 1.19 | 0 | 34, 6% |
 | human:good | 153 | 455 | 148.3 | good | 0.47 | 1 | 32, 6% |
 | human:expert (= beast) | 226 | 629 | 209.6 | expert | 0.33 | 7 | 32, 5% |
-| reflex (approach B, ES-tuned rules, no copies) | 23 | 50 | 18 | below beginner | 3.7 | 0 | - |
-| rl:beast (for comparison) | 42 | 78 | 32 | beginner | 2.1 | 0 | 30 ticks, 5%; 62% in the bottom quarter |
+| reflex (retired, ES-tuned rules, no copies) | 23 | 50 | 18 | below beginner | 3.7 | 0 | - |
+| rl:beast (retired RL bot, for comparison) | 42 | 78 | 32 | beginner | 2.1 | 0 | 30 ticks, 5%; 62% in the bottom quarter |
 
 Every tier: 1.4 taps/s, 0% of taps under 8 ticks apart, timing sd 2.4-2.5 ticks (Isaksen: 2.2-3.7),
 3% of the time in the bottom quarter, no leaks. Deaths per 100 points by score band

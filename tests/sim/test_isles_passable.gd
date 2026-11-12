@@ -2,8 +2,9 @@ extends TestCase
 ## Floating Isles (and the Egg Hunt, which has the same islands) must always
 ## leave a way through, in every variant (still, drifting, one big rock): off
 ## the start, past the islands to the portal, into the next room, and after a
-## revive. SurvivalSearch plays each case on FastSim (`tools/fastsim.ps1 -Mode
-## check -Check isles`, part of tools/check.ps1); here the layout rules it
+## revive. SurvivalSearch plays each case on FastSim-RS (`tools/fastsim.ps1 -Mode
+## check -Check isles`, tools/fastsim-rs/fastsim/src/checks/searches.rs, part of
+## tools/check.ps1); here the layout rules it
 ## relies on are checked on many seeds without it. A drifting island is checked
 ## over its whole sway (Block.drift each way of where it starts).
 

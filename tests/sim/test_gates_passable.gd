@@ -2,8 +2,9 @@ extends TestCase
 ## Shutter Gates: the portal can always be reached. An exit is only planned
 ## where the bird can get to from the gap of the last gate (Gate.blocks_exit).
 ## The SurvivalSearch cases (through the portal from many
-## seeds, and after a revive) run on FastSim: `tools/fastsim.ps1 -Mode check
-## -Check gates`, part of tools/check.ps1. Here: the exit planning rule.
+## seeds, and after a revive) run on FastSim-RS: `tools/fastsim.ps1 -Mode check
+## -Check gates` (tools/fastsim-rs/fastsim/src/checks/searches.rs), part of
+## tools/check.ps1. Here: the exit planning rule.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true

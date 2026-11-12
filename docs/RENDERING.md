@@ -53,8 +53,8 @@ gameplay_version}`.
 ## The run file
 
 JSON. A `Replay.to_dict()` (`sim/replay.gd`) plus the look. Read and written
-by `RunFile` (`meta/run_file.gd`); FastSim writes the same with
-`tools/fastsim/Bots/RunFile.cs`.
+by `RunFile` (`meta/run_file.gd`); FastSim-RS writes the same with
+`tools/fastsim-rs/fastsim/src/bots/run_file.rs`.
 
 | key | | |
 |---|---|---|
@@ -91,23 +91,26 @@ var replay := SimBots.play(seed_value, SimBots.gap_seeker)   # or Replay.from_si
 RunFile.from_replay(replay, {ItemKind.WORLD: "ice"}, "my bot").save_file("C:/runs/bot.run.json")
 ```
 
-### From a FastSim bot (C#)
+### From a FastSim-RS bot (Rust)
 
 Record each tick you tap on (and each revive) while the bot plays, then hand
-the sim as it ended to `RunFile.write`:
+the sim as it ended to `RunFile::write` (`RunFile::make` takes a loadout and
+settings too):
 
-```csharp
-var taps = new List<long>();
-while (!sim.is_over() && sim.state.tick < SimConfig.MAX_TICKS)
-{
-    bool tap = bot(sim);
-    if (tap) taps.Add(sim.state.tick);
+```rust
+let mut taps = Vec::new();
+while !sim.is_over() && sim.state.tick < SimConfig::MAX_TICKS {
+    let tap = bot(&sim);
+    if tap {
+        taps.push(sim.state.tick);
+    }
     sim.step(tap);
 }
-RunFile.write(@"C:\runs\bot.run.json", sim, taps, loadout: new() { ["world"] = "ice" }, name: "tier 3");
+RunFile::write("C:/runs/bot.run.json", &sim, &taps, &[], "tier 3")?;
+// with a look: RunFile::make(&sim, &taps, &[], &[("world", "ice")], "tier 3", &[])
 ```
 
-FastSim must match `sim/` (parity is part of the check), so its runs replay
+FastSim-RS must match `sim/` (parity is part of the check), so its runs replay
 in Godot tick for tick. `tools/fastsim.ps1 -Mode runfile -Seed 7 -Out run.json`
 writes an example (a gap seeker run).
 
@@ -133,7 +136,7 @@ fallback is Linux under WSL with Xvfb and a Linux Godot (software OpenGL).
 `tests/unit/test_run_file.gd` (headless): the format round trip and its
 errors, `RunFile.check()`, `RunRender`'s loud failures, and the real game
 playing a run file to the same end with its look. `tests/unit/test_fastsim_checks.gd`
-pins FastSim's `GAMEPLAY_VERSION` and its run file keys to the GDScript ones.
+pins FastSim-RS's `GAMEPLAY_VERSION` and its run file keys to the GDScript ones.
 
 ## Frames of every room variant
 

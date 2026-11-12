@@ -372,7 +372,7 @@ impl Check for SameSeedRevive {
         "sameseed"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/SameSeed.cs"
+        "tools/fastsim-rs/fastsim/src/checks/sameseed.rs"
     }
     fn count(&self) -> usize {
         self.cases().len()

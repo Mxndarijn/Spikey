@@ -4,13 +4,13 @@ For screening and confirming bot changes and for reporting tiers, follow the tes
 protocol in `docs/BOT_TESTING.md` (`-Mode quick|confirm|report`): it needs a few times
 less CPU than full runs for the same certainty.
 
-One measure for every playtest bot, so the RL tiers, the world-model planner, the
-human-like planner, the MPC planner and any later bot can be compared on the same
-numbers. FastSim only (`tools/fastsim/Yardstick/`): no Godot, no window.
+One measure for every playtest bot, so the human tiers, the BlindPlanner and any later
+bot can be compared on the same numbers. FastSim-RS only
+(`tools/fastsim-rs/fastsim/src/yardstick/`): no Godot, no window.
 
 ```
 powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode list
-powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all              # quick set
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot human:all           # quick set
 powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot mybot:all -Set full
 powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode compare            # rebuild the table
 ```
@@ -24,22 +24,25 @@ that has been measured. Take a CPU slot for big runs.
 
 A bot is anything that answers "tap this tick?" for a live `GameSim`: a function
 `GameSim -> bool`, called once per tick before `sim.step()`. It must not step or
-change that sim (clone it to look ahead). Register it from your own file, so no one
-edits the yardstick's files:
+change that sim (clone it to look ahead). Write it in its own file with a
+`yardstick_bots() -> Vec<BotSpec>` (as `fastsim/src/human/mod.rs` does) and call that
+from `Bots::builtins()` (`yardstick/bots.rs`), so the yardstick's own files change by
+one line:
 
-```csharp
-static class MyBotYardstick
-{
-    [System.Runtime.CompilerServices.ModuleInitializer]
-    internal static void Init()
-    {
-        foreach (var level in new[] { "beginner", "normal", "good", "expert", "beast" })
-            FastSim.Yard.Bots.add(new(
-                $"mybot:{level}",              // family:level; "mybot:all" runs them in tier order
-                "what it is, its knobs",        // shown in the JSON and by -Mode list
-                FastSim.Yard.Copies.NONE,       // what it steps to look ahead (see below)
-                seed => new MyBot(level, seed).decide));
-    }
+```rust
+pub fn yardstick_bots() -> Vec<BotSpec> {
+    ["beginner", "normal", "good", "expert", "beast"]
+        .iter()
+        .map(|&level| BotSpec {
+            name: format!("mybot:{level}"),     // family:level; "mybot:all" runs them in tier order
+            about: "what it is, its knobs".to_string(), // shown in the JSON and by -Mode list
+            copies: Copies::NONE,               // what it steps to look ahead (see below)
+            make: Arc::new(move |seed: i64| -> Decide {
+                let mut bot = MyBot::new(level, seed);
+                Box::new(move |sim: &GameSim| bot.decide(sim))
+            }),
+        })
+        .collect()
 }
 ```
 
@@ -58,10 +61,11 @@ Every bot states what it reads (the *copies* column):
 
 Built in: `gap` (gap seeker, none), `planner` (PlannerBot, real), `search`
 (SurvivalSearch re-planned every 30 ticks, real, an oracle; slow), `honest` (the bot
-review's BlindPlanner, `Bots/BlindPlanner.cs` from 651f45d: a beam on one copy with every
-hidden draw replaced, horizon 200, 110 ticks past the next bounce, margin 10, re-planned
-every 4 ticks; scrambled), `honest-v1` (the review's first try, which still leaks some
-hidden draws: "scrambled (leaky)"), `rl:<tier>` (the policy and tiers in `tools/rlbot`, none).
+review's BlindPlanner, `fastsim/src/bots/blind_planner.rs`, from C# 651f45d: a beam on
+one copy with every hidden draw replaced, horizon 200, 110 ticks past the next bounce,
+margin 10, re-planned every 4 ticks; scrambled) and `human:<tier>` (`docs/HUMAN_BOT.md`). `honest-v1`, the
+`rl:<tier>` bots and the world-model bots were retired with the C# FastSim on 2026-11-12;
+their rows in older tables stay as history.
 
 ## Seeds and cap
 
@@ -69,10 +73,10 @@ The shared protocol from the bot review (`SpikeCage-coord/research/bot-review.md
 
 | set | seeds | cap |
 |---|---|---|
-| quick | 1 .. 100 | `BotCaps.RUN_CAP` (216 000 ticks, 60 min, about 2 400 points) |
-| full | 1 .. 400 | `BotCaps.RUN_CAP` |
+| quick | 1 .. 100 | `RUN_CAP` (216 000 ticks, 60 min, about 2 400 points) |
+| full | 1 .. 400 | `RUN_CAP` |
 
-`BotCaps.RUN_CAP` (`tools/fastsim/Bots/BotCaps.cs`) is the bots' cap, twice the game's own
+`RUN_CAP` (`tools/fastsim-rs/fastsim/src/speed.rs`) is the bots' cap, twice the game's own
 `SimConfig.MAX_TICKS` (30 min), which replays use; a bot run longer than that can't be
 replayed or rendered by the game. Tables made before 2026-11-12 used `SimConfig.MAX_TICKS`.
 
@@ -84,7 +88,7 @@ are any, their median is a floor, not a score.
 ## Leak check
 
 The rule: a bot may know only what is on screen: not where the portal will be before it
-is drawn, the next spike walls, the next room or hidden timers. `Leak.cs` tests it.
+is drawn, the next spike walls, the next room or hidden timers. `yardstick/leak.rs` tests it.
 Each of 24 seeds is played twice by two fresh copies of the bot, forking just after a
 wall bounce near ticks 200, 700, 1500, 3000, 5000 and 8000. At the fork the second sim
 gets every hidden draw replaced (`BlindPlanner.blind_copy`: the sim's RNG, which draws
@@ -158,7 +162,7 @@ gameplay version are skipped, since they no longer replay.
 
 ```
 powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode humans -Human <file or folder>
-powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot rl:all -Human <file or folder>
+powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Bot human:all -Human <file or folder>
 ```
 
 `-Mode humans` adds a `human` row to the table. `-Human` with a run adds `vs_human`
@@ -174,9 +178,10 @@ mouse). The Your runs file keeps the last 100.
 
 ## Check
 
-`fastsim check yardstick` (part of `tools/check.ps1`) checks that a replay of a bot's
-taps scores what the bot scored, the tier edges, and that the classifier tells the
-gap seeker from the RL bot but not two halves of the gap seeker's runs.
+`fastsim-rs check yardstick` (part of `tools/check.ps1`) checks that a replay of a bot's
+taps scores what the bot scored, the tier edges, and that the classifier cannot tell two
+halves of the gap seeker's runs apart (C# also checked that it told the gap seeker from
+the retired RL bot).
 
 ## Statistics: intervals, survival curves, comparisons
 
@@ -190,7 +195,7 @@ powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files 
 powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files a.tsv,b.tsv -Json out.json
 ```
 
-Code: `tools/fastsim/Yardstick/Survival.cs` (self-tested in `fastsim check yardstick`).
+Code: `tools/fastsim-rs/fastsim/src/yardstick/survival.rs` (self-tested in `fastsim-rs check yardstick`).
 
 Per set:
 

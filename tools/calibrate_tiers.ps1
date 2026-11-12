@@ -2,12 +2,11 @@
 # (30 / 60 / 120 / 250 points, within +-15%) by bisecting each tier's two knobs:
 # the reaction to new things (ticks) and the search fineness (a level 0..5).
 # Every other human rule is the same for all tiers (MotorTiers.shared in
-# tools/fastsim/Human/MotorPlayer.cs). Writes tools/fastsim/Human/tiers.json,
+# tools/fastsim-rs/fastsim/src/human/motor_player.rs). Writes tools/fastsim-rs/data/tiers.json,
 # which the `human:<tier>` bots then play. docs/BOT_TESTING.md, "Tier calibration".
 #
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Tiers good,expert -Budget 600
-#   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -CSharp              # on C# FastSim instead of FastSim-RS
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Exe <engine>        # any engine with `measure median`
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Verify              # then full holdout runs per tier
 #
@@ -15,16 +14,14 @@
 # --threads T --out <trials> --json <out>`: room trials from a shared bank, the KM median
 # the stratified death rates give, and its interval. Any engine that takes that command
 # and writes that JSON ({"median", "lo", "hi", ...}) can run this script: FastSim-RS by
-# default (tools/fastsim-rs, the same trials and numbers as C#), C# FastSim with -CSharp or
-# when cargo is missing. Every evaluation takes a CPU slot (VARIANT_RULES.md) and frees it.
+# default (tools/fastsim-rs, built here). Every evaluation takes a CPU slot (VARIANT_RULES.md) and frees it.
 param(
     [string]$Tiers = "beginner,normal,good,expert",
     # CPU seconds of trials per evaluation; the last evaluation of each tier gets 2x more.
     [double]$Budget = 300,
     [int]$Threads = 4,
-    # The engine (default: FastSim-RS, built here; C# FastSim with -CSharp or without cargo).
+    # The engine (default: FastSim-RS, built here).
     [string]$Exe = "",
-    [switch]$CSharp,
     # The shared bank (full runs of the default BlindPlanner on dev seeds); made if missing.
     [string]$Bank = "",
     [int]$BankSeeds = 160,
@@ -46,20 +43,14 @@ $start = @{ beginner = @(24, 1); normal = @(20, 2); good = @(15, 3); expert = @(
 $reactMin = 11; $reactMax = 60; $levels = 6
 $fit = 0.15; $aim = 0.08
 
-if (-not $Exe -and -not $CSharp) { $Exe = & (Join-Path $root "tools/fastsim-rs/exe.ps1") }
-if (-not $Exe) {
-    $proj = Join-Path $root "tools/fastsim/FastSim.csproj"
-    & dotnet build $proj -c Release -nologo -v q | Out-Null
-    if ($LASTEXITCODE -ne 0) { Write-Host "FastSim build failed." -ForegroundColor Red; exit 2 }
-    $Exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim.exe"
-    if (-not (Test-Path $Exe)) { $Exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim" }
-}
-# fastsim-rs runs everything on one thread pool (--jobs); --threads is read too (C# ignores --jobs).
+if (-not $Exe) { $Exe = & (Join-Path $root "tools/fastsim-rs/exe.ps1") }
+if (-not $Exe) { Write-Host "FastSim-RS not built (install Rust: docs/FASTSIM_RS.md)." -ForegroundColor Red; exit 2 }
+# fastsim-rs runs everything on one thread pool (--jobs); --threads is read too.
 $jobs = @("--jobs", $Threads)
 $mdir = Join-Path $Out "measure"
 New-Item -ItemType Directory -Force $mdir | Out-Null
 # One bank per state of the sim: a room fix makes a new one.
-$simRev = (& git -C $root log -1 --format=%h -- sim tools/fastsim/Sim).Trim()
+$simRev = (& git -C $root log -1 --format=%h -- sim tools/fastsim-rs/sim).Trim()
 if (-not $Bank) { $Bank = Join-Path $mdir "blind.calib-$simRev.bank.json" }
 
 function With-Slot([scriptblock]$body) {
@@ -140,7 +131,7 @@ foreach ($tier in $Tiers.Split(",") | ForEach-Object { $_.Trim() }) {
 }
 
 # Tiers fitted before keep their values when only some are run again.
-$file = Join-Path $root "tools/fastsim/Human/tiers.json"
+$file = Join-Path $root "tools/fastsim-rs/data/tiers.json"
 $all = [ordered]@{}
 if (Test-Path $file) {
     $old = (Get-Content $file -Raw | ConvertFrom-Json).tiers

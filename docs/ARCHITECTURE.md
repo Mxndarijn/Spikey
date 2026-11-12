@@ -157,7 +157,7 @@ benchmark with the full bot's death rate after changing a room:
 `tools/fastsim.ps1 -Mode reaction`, and `-Mode odds` for
 survival by reaction time in real runs; `-Variant <id>|all` plays one room
 variant, or each in turn, instead of the drawn one: see
-`tools/fastsim/PORTING.md`). Every 50 points a
+`tools/fastsim-rs/PORTING.md`). Every 50 points a
 fork offers a Calm and a Wild exit. Both lead to the same door
 (`SimConfig.FORK_DOOR_Y`) of the same next room, so two players on one seed
 meet the same map again whichever they took: Wild pays `WILD_COINS` (5) and
@@ -190,7 +190,7 @@ start and never comes back.
   and the hazards it builds (factories, or variants drawn at room start).
   Double Trouble's pairs are variants that follow the combo rules in
   `sim/rooms/catalog_combo.gd`, checked by `tests/sim/test_double_trouble.gd`
-  and `tools/fastsim.ps1 -Mode combos`.
+  and the `pairs` FastSim check.
 - `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
   seasonal, combo, twists). `RoomCatalog.BATCHES` fixes the order; append new
   batches at the end.
@@ -210,11 +210,11 @@ start and never comes back.
   steps until it starts (`eta`), the steps it lasts and whether it kills or
   only pushes (`Hazard.WARN_SIZE` ints each; `GameSim.warnings()` gathers them).
   That is the bots' one shared reading of tells (BlindPlanner's human
-  reaction, MPC Sight, the RL Observer; `docs/BOT_SIGHT.md`). It reports only
+  reaction and the human tiers; `docs/BOT_SIGHT.md`). It reports only
   what the painter draws, reads only, draws nothing from the RNG and is not in
   the checksum, so it never changes a run. A new hazard with a tell must add
-  it: the sight check's `warn` column and `tests/unit/test_warnings.gd` fail
-  otherwise.
+  it: `tests/unit/test_warnings.gd` fails otherwise, and FastSim-RS parity
+  fails until its Rust copy reports the same.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
@@ -249,8 +249,8 @@ start and never comes back.
   maps today's date to a season, `GameSim`/`Replay` store it.
 
 Adding a room: write the hazard (or reuse one) and port it to
-`tools/fastsim`, its painter, a RoomDef in a batch file, its name in
-`RoomInfo` (and a skin in `RoomSkins` if it reuses a hazard's look), and
+`tools/fastsim-rs` (`tools/fastsim-rs/PORTING.md`), its painter, a RoomDef in
+a batch file, its name in `RoomInfo` (and a skin in `RoomSkins` if it reuses a hazard's look), and
 tests; bump `GAMEPLAY_VERSION` and regenerate goldens.
 
 ### Gameplay versions
@@ -387,23 +387,32 @@ heading. About 20 s at `-Jobs 8`.
    slowest methods take `(part, parts)` with `const PARTS := n`, each part
    doing its share of the rooms or seeds; a `combine_` function then checks
    totals over all parts. Pieces start longest first, from the last run's times.
-5. **FastSim parity**: `tools/fastsim` (the C# copy of `sim/` for fast bots)
-   replays runs recorded by `tools/fastsim_parity.gd` and must match tick for
-   tick: every room in practice and in full runs in every season, every room
-   variant forced, a portal arrival into every room variant, a revive in every
+5. **FastSim-RS parity**: `tools/fastsim-rs` (the Rust copy of `sim/` for
+   fast bots, `docs/FASTSIM_RS.md`) replays runs recorded by
+   `tools/fastsim_parity.gd` and must match tick for tick: every room in
+   practice and in full runs in every season, every room variant forced, a portal arrival into every room variant, a revive in every
    room, every other sim the checks start from (`tests/support/bot_setups.gd`);
    and its bots and searches (gap seeker, random tapper, the light PlannerBot,
    SurvivalSearch, QuickSearch) must choose the same taps. This is what ties
-   step 6 to the real game code. Without the .NET SDK the check fails.
-6. **FastSim checks** (`tools/fastsim.ps1 -Mode check`, `tools/fastsim/Checks.cs`):
+   step 6 to the real game code. Without Rust (cargo) the check fails.
+6. **FastSim checks** (`tools/fastsim.ps1 -Mode check`,
+   `tools/fastsim-rs/fastsim/src/checks/`):
    every test that plays a bot, with the rules and thresholds the GDScript
    tests they replaced had, on more seeds: every variant passable, the portal
    reaction benchmark, the points cap, revives in every room and exit case,
    Double Trouble pairs, the crawl, gates and isles searches, the once
    impossible rooms, and random-tapper and gap-seeker runs (the list:
-   `tools/fastsim/PORTING.md`). `-TestFilter` picks the checks it names or
+   `tools/fastsim-rs/PORTING.md`). `-TestFilter` picks the checks it names or
    whose old test path it matches; `-FastSimJobs` sets the workers (default
    `-Jobs`). CI runs steps 5 and 6 too (`.github/workflows/check.yml`).
+
+Retired bots: WorldPlanner (the world model), the MPC bot, the RL bot (policy,
+training, imitation, PPO, DAgger), HumanBot and Reflex (the old reflex human
+bot) and honest-v1 were removed with the C# FastSim on 2026-11-12, with their
+checks (rlbot, rlboss, mpcbot, mpcboss). Their docs, code and research are in
+the git history and in `D:\SoftwareProjects\SpikeCage-coord\research`. The
+bots that stay (BlindPlanner, the human tiers, the yardstick) run on
+FastSim-RS.
 
 The database has its own tests (`tools/db_test.ps1`, needs Docker; CI runs
 them in `.github/workflows/supabase-db.yml`).

@@ -162,7 +162,7 @@ impl Check for DifficultyCheck {
         "difficulty"
     }
     fn test(&self) -> &'static str {
-        "tools/fastsim/Difficulty:tube"
+        "tools/fastsim-rs/fastsim/src/difficulty:tube"
     }
     fn count(&self) -> usize {
         Self::CASES.len()

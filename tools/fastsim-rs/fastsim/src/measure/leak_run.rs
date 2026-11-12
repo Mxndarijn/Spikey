@@ -2,14 +2,13 @@
 //! whole-run leak check (`fastsim measure leak`, docs/BOT_TESTING.md).
 //!
 //! C# reads and writes the sim's fields by reflection. Rust has none, so `fields.rs` (generated
-//! by `gen/gen_fields.py` from the C# field declarations and the Rust structs) lists every field
-//! of SimState, RoomRuntime and each hazard in C# `GetFields` order, with getters, setters for
-//! the transplant candidates and the no-argument methods visible.tsv can name. Regenerate it
-//! when a sim type gains or loses a field:
+//! by `gen/rs_fields.py` from the Rust sim's structs) lists every field of SimState, RoomRuntime
+//! and each hazard in C# `GetFields` order, with getters, setters for the transplant candidates
+//! and the no-argument methods visible.tsv can name. Regenerate it when a sim type gains or
+//! loses a field (gen/README.md):
 //!
-//!     cd tools/fastsim && python ../fastsim-rs/fastsim/src/measure/gen/cs_fields.py . cs.json
-//!     python ../fastsim-rs/fastsim/src/measure/gen/rs_fields.py ../fastsim-rs/sim/src rs.json cs.json
-//!     python ../fastsim-rs/fastsim/src/measure/gen/gen_fields.py cs.json rs.json ../fastsim-rs/fastsim/src/measure/fields.rs
+//!     cd tools/fastsim-rs
+//!     python fastsim/src/measure/gen/rs_fields.py sim/src fastsim/src/measure/fields.rs
 //!
 //! The visible checksum only has to tell two sims apart the way C#'s does (A vs B), so its
 //! value differs from C#'s; which fields and methods it covers is the same.
@@ -104,17 +103,17 @@ fn plain_equal(a: &V, b: &V) -> bool {
 }
 
 impl Visibility {
-    /// tools/fastsim/Measure/visible.tsv: from this crate's folder (tools/fastsim-rs/fastsim), or
+    /// tools/fastsim-rs/data/visible.tsv: from this crate's folder (tools/fastsim-rs/fastsim), or
     /// found from the executable's folder upward.
     pub fn file() -> String {
-        let built = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fastsim/Measure/visible.tsv");
+        let built = concat!(env!("CARGO_MANIFEST_DIR"), "/../data/visible.tsv");
         if std::path::Path::new(built).is_file() {
             return built.to_string();
         }
         if let Ok(exe) = std::env::current_exe() {
             let mut d = exe.parent().map(|p| p.to_path_buf());
             while let Some(p) = d {
-                let c = p.join("tools").join("fastsim").join("Measure").join("visible.tsv");
+                let c = p.join("tools").join("fastsim-rs").join("data").join("visible.tsv");
                 if c.is_file() {
                     return c.to_string_lossy().to_string();
                 }
