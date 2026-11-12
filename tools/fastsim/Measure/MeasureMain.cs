@@ -358,11 +358,14 @@ public static class MeasureMain
     }
 
     /// `median --bank B --bot X --budget S [--out T.tsv] [--json J]`: the KM median a bot
-    /// would get on full runs, from room trials (docs/BOT_TESTING.md, "Tier calibration").
-    /// S more CPU seconds of trials over every stratum, ramp and plateau (Neyman), the death
-    /// rate per band from the stratified estimator, then the median of the piecewise
-    /// constant survival those rates give; its interval from 4000 draws of the rates
-    /// (each lognormal by its own CI). Trials pile up in T, so a second call refines.
+    /// would get on full runs, from trials (docs/BOT_TESTING.md, "Tier calibration").
+    /// S more CPU seconds, an equal share per score band: the first room (0..10 points,
+    /// which no room entry starts) from fresh runs on their own seeds, played until the
+    /// first room change; the other ramp bands and the plateau from room trials of their
+    /// strata (Neyman inside each band). The death rate per band, then the median of the
+    /// piecewise constant survival those rates give; its interval from 4000 draws of the
+    /// rates (each lognormal by its own CI). Trials pile up in T (and T.start.tsv for the
+    /// first room), so a second call refines.
     static int median(Dictionary<string, string> opts, int threads)
     {
         var bank = Bank.load(opts["bank"]);
@@ -370,13 +373,34 @@ public static class MeasureMain
         string path = opts.GetValueOrDefault("out", Path.ChangeExtension(opts["bank"], null).Replace(".bank", "") + ".median.tsv");
         double budget = double.Parse(opts.GetValueOrDefault("budget", "300"), System.Globalization.CultureInfo.InvariantCulture) * 1000;
         var bots = new List<BotSpec> { bot };
-        var pools = new Strat.Pools(bank, "all");
-        var have = load_arms(path, bank, bots);
-        foreach (var t in have.SelectMany(x => x)) pools.mark_used(t.seed, t.tick, t.k);
-        pools.grow(8, threads);
-        var arms = budget > 0 ? batch(bank, "all", bots, have, pools, budget, threads, path) : have;
+        var arms = load_arms(path, bank, bots);
         var prior = Strat.bank_prior(bank).ToDictionary(kv => kv.Key, kv => (kv.Value.p, kv.Value.l));
-        var est = BANDS.Select(b => Strat.estimate(bank, arms[0], b.range, prior)).ToArray();
+        double share = budget / BANDS.Length;
+        // The first room: fresh runs.
+        string start_path = Path.ChangeExtension(path, null) + ".start.tsv";
+        var starts = load_starts(start_path, bot.name);
+        if (budget > 0) starts = first_rooms(bot, starts, share, threads, start_path);
+        // The rest: room trials per band.
+        for (int b = 1; b < BANDS.Length && budget > 0; b++)
+        {
+            var pools = new Strat.Pools(bank, BANDS[b].range);
+            foreach (var t in arms.SelectMany(x => x)) pools.mark_used(t.seed, t.tick, t.k);
+            pools.grow(8, threads);
+            arms = batch(bank, BANDS[b].range, bots, arms, pools, share, threads, path);
+        }
+        var est = new (double q, double se_log, int trials, int deaths, double imputed, long pts)[BANDS.Length];
+        {
+            int d = starts.Count(x => x.died);
+            long pts = starts.Sum(x => x.points);
+            est[0] = (100.0 * d / Math.Max(1, pts), 1 / Math.Sqrt(Math.Max(0.5, d)), starts.Count, d, 0, pts);
+        }
+        for (int b = 1; b < BANDS.Length; b++)
+        {
+            var e = Strat.estimate(bank, arms[0], BANDS[b].range, prior);
+            double se = double.IsFinite(e.se_log) && e.se_log > 0 ? e.se_log : 1;
+            long pts = arms[0].Where(t => t.kind == "room" && !t.censored && Strat.in_range(t.key, BANDS[b].range)).Sum(t => t.points);
+            est[b] = (double.IsFinite(e.q) ? e.q : 0, se, e.trials, e.deaths, e.imputed_share, pts);
+        }
         double med = median_of(est.Select(e => e.q).ToArray());
         var rng = new Random(4711);
         var draws = new List<double>();
@@ -386,32 +410,80 @@ public static class MeasureMain
             {
                 double u = 1.0 - rng.NextDouble(), v = rng.NextDouble();
                 double g = Math.Sqrt(-2 * Math.Log(u)) * Math.Cos(2 * Math.PI * v);
+                // A band with no deaths yet: drawn around the half-death level of its points (Jeffreys).
+                if (e.deaths == 0) return 100 * 0.5 / Math.Max(1, e.pts) * Math.Exp(g * 1.4 - 0.98);
                 return e.q * Math.Exp(g * e.se_log);
             }).ToArray();
             draws.Add(median_of(q));
         }
         draws.Sort();
         double lo = draws[(int)(0.025 * draws.Count)], hi = draws[(int)(0.975 * draws.Count) - 1];
-        double cpu = arms[0].Where(t => t.k >= 0).Sum(t => t.ms) / 1000;
-        JsonNode R(double v) => double.IsInfinity(v) ? null : Math.Round(v, 1);
+        double cpu = (arms[0].Where(t => t.k >= 0).Sum(t => t.ms) + starts.Sum(x => x.ms)) / 1000;
+        JsonNode R(double v, int digits = 1) => double.IsFinite(v) ? Math.Round(v, digits) : null;
+        int trials = arms[0].Count(t => t.k >= 0) + starts.Count, deaths = arms[0].Count(t => t.k >= 0 && t.died) + starts.Count(x => x.died);
         var o = new JsonObject
         {
             ["bot"] = bot.name, ["about"] = bot.about, ["median"] = R(med), ["lo"] = R(lo), ["hi"] = R(hi),
-            ["trials"] = arms[0].Count(t => t.k >= 0), ["deaths"] = arms[0].Count(t => t.k >= 0 && t.died), ["cpu_s"] = Math.Round(cpu),
+            ["trials"] = trials, ["deaths"] = deaths, ["cpu_s"] = Math.Round(cpu),
             ["bank"] = opts["bank"], ["gameplay_version"] = SimConfig.GAMEPLAY_VERSION,
             ["bands"] = new JsonArray(BANDS.Zip(est).Select(x => (JsonNode)new JsonObject
             {
-                ["range"] = x.First.range, ["per100"] = Math.Round(x.Second.q, 4), ["lo"] = Math.Round(x.Second.lo, 4),
-                ["hi"] = Math.Round(x.Second.hi, 4), ["trials"] = x.Second.trials, ["deaths"] = x.Second.deaths,
-                ["imputed_share"] = Math.Round(x.Second.imputed_share, 3),
+                ["range"] = x.First.range, ["per100"] = R(x.Second.q, 4), ["se_log"] = R(x.Second.se_log, 3),
+                ["trials"] = x.Second.trials, ["deaths"] = x.Second.deaths, ["imputed_share"] = R(x.Second.imputed, 3),
             }).ToArray()),
         };
-        Console.WriteLine($"{bot.name}: median {(double.IsInfinity(med) ? "past every band" : med.ToString("F0"))} " +
-            $"[{(double.IsInfinity(lo) ? "inf" : lo.ToString("F0"))}, {(double.IsInfinity(hi) ? "inf" : hi.ToString("F0"))}], " +
-            $"{o["trials"]} trials, {o["deaths"]} deaths, {cpu:F0} CPU s");
-        foreach (var e in est) Console.WriteLine("  " + e.text());
+        string F(double v) => double.IsFinite(v) ? v.ToString("F0") : "inf";
+        Console.WriteLine($"{bot.name}: median {F(med)} [{F(lo)}, {F(hi)}], {trials} trials, {deaths} deaths, {cpu:F0} CPU s");
+        foreach (var (b, e) in BANDS.Zip(est))
+            Console.WriteLine($"  {b.range,-8} {e.q:F4} per 100 (+-{100 * 1.96 * e.se_log:F0}%), {e.trials} trials, {e.deaths} deaths, imputed {100 * e.imputed:F0}%");
         if (opts.ContainsKey("json")) File.WriteAllText(opts["json"], o.ToJsonString(PRETTY) + Environment.NewLine);
         return 0;
+    }
+
+    public sealed record Start(string bot, long seed, bool died, long points, double ms);
+
+    static List<Start> load_starts(string path, string bot)
+    {
+        if (!File.Exists(path)) return new List<Start>();
+        return File.ReadAllLines(path).Skip(1).Select(l => l.Split('\t')).Where(c => c.Length >= 5 && c[0] == bot)
+            .Select(c => new Start(c[0], long.Parse(c[1]), c[2] == "1", long.Parse(c[3]), double.Parse(c[4], System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
+    }
+
+    /// Fresh runs on seeds of their own (dev seeds from 60 001), each to its first room
+    /// change or its death, until `budget_ms` more CPU is spent.
+    static List<Start> first_rooms(BotSpec bot, List<Start> have, double budget_ms, int threads, string path)
+    {
+        var all = new List<Start>(have);
+        long next = all.Count == 0 ? 0 : all.Max(x => x.seed) - (SeedSets.DEV + 50_000);
+        double spent = 0;
+        if (!File.Exists(path)) File.WriteAllText(path, "bot\tseed\tdied\tpoints\tms\n");
+        while (spent < budget_ms)
+        {
+            int n = threads * 4;
+            var got = new Start[n];
+            Parallel.For(0, n, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
+            {
+                long seed = SeedSets.DEV + 50_000 + next + 1 + i;
+                var clock = Stopwatch.StartNew();
+                var sim = new GameSim(seed);
+                var decide = bot.make(seed);
+                long ticks = 0;
+                while (!sim.is_over() && sim.state.room_index == 0 && ticks < 20_000)
+                {
+                    sim.step(decide(sim));
+                    ticks++;
+                }
+                got[i] = new Start(bot.name, seed, sim.is_over(), Math.Min(sim.state.score, 10), clock.Elapsed.TotalMilliseconds);
+            });
+            next += n;
+            spent += got.Sum(x => x.ms);
+            all.AddRange(got);
+            File.AppendAllLines(path, got.Select(x => string.Join('\t', x.bot, x.seed, x.died ? "1" : "0", x.points,
+                x.ms.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))));
+        }
+        log($"first room: {all.Count} fresh runs, {all.Count(x => x.died)} deaths");
+        return all;
     }
 
     /// `report --bot X [--fair F] [--claimed tier]`: the holdout (seeds 1..400,
