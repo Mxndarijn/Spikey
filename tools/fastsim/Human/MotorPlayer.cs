@@ -196,7 +196,7 @@ public static class MotorTiers
 {
     public static readonly Dictionary<string, (double sigma, double react)> TIER = new()
     {
-        ["beginner"] = (1.1, 13), ["normal"] = (0.45, 13), ["good"] = (0.0, 13), ["expert"] = (0.0, 0), ["beast"] = (0.0, -100),
+        ["beginner"] = (1.4, 13), ["normal"] = (0.6, 13), ["good"] = (0.0, 8), ["expert"] = (0.0, -100), ["beast"] = (0.0, -100),
     };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 

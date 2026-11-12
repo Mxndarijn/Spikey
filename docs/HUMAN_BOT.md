@@ -26,11 +26,15 @@ Tiers (`MotorTiers.TIER`), yardstick `human:<tier>`:
 
 | tier | tap sd (ticks) | reaction to new things |
 |---|---|---|
-| beginner | 1.1 | ~17 ticks |
-| normal | 0.45 | ~17 ticks |
-| good | 0 | ~17 ticks |
-| expert | 0 | ~4 ticks |
-| beast | 0 | none |
+| beginner | 1.4 | ~17 ticks |
+| normal | 0.6 | ~17 ticks |
+| good | 0 | ~12 ticks |
+| expert | 0 | none |
+| beast | 0 | none (same as expert until the planner core gets stronger) |
+
+The planner plans with the thumb's limit too: `BlindPlanner.min_gap` (8) and `last_press` (the real
+last press), so no line needs two taps closer than the thumb can do. Without that, the 8-tick cap took
+the planner from 0.29 to 1.9 deaths per 100 points.
 
 Isaksen's measured human sd is 2.2-3.7 ticks. At that sd this bot scores a rate median of 13-21 (below
 beginner); the targets need a steadier thumb than the average player in that study, or a planner that
@@ -93,23 +97,22 @@ replays (needs the user's OK) the bands should be refit from them.
 
 At most 4 threads (`--threads`), BelowNormal priority.
 
-## Results (yardstick, seeds 1..400, full cap, first death ends the run)
+## Results (yardstick, seeds 1..400, full cap, first death ends the run; next-features-2 code, seed-only generation)
 
-| bot | median | p90 | rate median | tier (rate) | deaths/100 pt | alive at cap | looks human |
+| bot | median | p90 | rate median | tier (rate) | deaths/100 pt | alive at cap | reaction to new things (median, < 10 ticks) |
 |---|---|---|---|---|---|---|---|
-| human:beginner | 41 | 77 | 32 | beginner | 2.14 | 0 | bottom quarter 1%, 1.4 taps/s, 0% taps < 8 ticks apart, timing sd 2.8 |
-| human:normal | 66 | 148 | 55 | normal | 1.26 | 0 | same habits, timing sd 2.4 |
-| human:good | 125 | 340 | 115 | good | 0.60 | 0 | same, timing sd 2.6 |
-| human:expert | 192 | 581 | 182 | expert | 0.38 | 2 | same, timing sd 2.5 |
-| human:beast | 210 | 681 | 209 | expert (claims beast) | 0.33 | 6 | same |
-| reflex (approach B, ES-tuned rules, no copies) | 23 | 50 | 18 | below beginner | 3.7 | 0 | looks-human 87/100 (my score) |
-| HumanBot (first try, real copies, no limits) | ~330 | ~650 | - | - | 0.21-0.29 | - | 89/100 (my score); used hidden draws |
-| rl:beast (for comparison) | 42 | 78 | 32 | beginner | 2.1 | 0 | bottom quarter 62%, 66% taps < 8 ticks apart |
+| human:beginner | 39 | 81 | 30.5 | beginner | 2.25 | 0 | 35 ticks, 7% |
+| human:normal | 67 | 154 | 57.7 | normal | 1.19 | 0 | 34, 6% |
+| human:good | 153 | 455 | 148.3 | good | 0.47 | 1 | 32, 6% |
+| human:expert (= beast) | 226 | 629 | 209.6 | expert | 0.33 | 7 | 32, 5% |
+| reflex (approach B, ES-tuned rules, no copies) | 23 | 50 | 18 | below beginner | 3.7 | 0 | - |
+| rl:beast (for comparison) | 42 | 78 | 32 | beginner | 2.1 | 0 | 30 ticks, 5%; 62% in the bottom quarter |
 
-Deaths per 100 points by score band (0..10 / 10..20 / 20..40 / 40..80 / 80..160 / 160..320 / 320+):
-beginner 0.25 / 1.27 / 2.35 / 4.20 / 3.45 / 9.38 / -; normal 0.08 / 0.57 / 1.03 / 1.73 / 1.89 / 2.01 / 2.53;
-good 0 / 0.05 / 0.28 / 0.81 / 0.73 / 0.70 / 0.76; expert 0 / 0.05 / 0.23 / 0.56 / 0.33 / 0.42 / 0.44;
-beast 0 / 0.08 / 0.22 / 0.50 / 0.31 / 0.35 / 0.36.
+Every tier: 1.4 taps/s, 0% of taps under 8 ticks apart, timing sd 2.4-2.5 ticks (Isaksen: 2.2-3.7),
+3% of the time in the bottom quarter, no leaks. Deaths per 100 points by score band
+(0..10 / 10..20 / 20..40 / 40..80 / 80..160 / 160..320 / 320+): beginner 0.41 / 1.55 / 2.68 / 4.05 / 3.97 / 4.00 / -;
+normal 0.03 / 0.36 / 0.72 / 1.92 / 1.82 / 1.70 / 2.42; good 0 / 0 / 0.11 / 0.58 / 0.58 / 0.57 / 0.52;
+expert 0 / 0 / 0.03 / 0.37 / 0.33 / 0.42 / 0.39.
 
 Beast misses its target: it is the planner itself with only the 8-tick tap gap, and the planner core
 (the review's) sits at ~0.33 deaths per 100 points; beast needs ~0.14.
