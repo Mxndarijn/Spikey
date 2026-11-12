@@ -50,11 +50,8 @@ public sealed class MotorPlayer
     /// The planner a person with tap sd `sigma` plays with: it keeps its line
     /// clear of spikes, ceiling and floor too (a narrow gap costs more than a
     /// detour), and tries its lines with taps `wobble` ticks early and late.
-    public static BlindPlanner make_planner(long seed, double sigma) => new(seed)
-    {
-        horizon = 200, past = 110, margin = 16, margin_cost = 2000, spike_margin = true,
-        lines = 8, wobble = (int)Math.Round(sigma),
-    };
+    public static BlindPlanner make_planner(long seed, double sigma) => sigma <= 0 ? new BlindPlanner(seed)
+        : new BlindPlanner(seed) { lines = 8, wobble = Math.Max(1, (int)Math.Round(sigma)) };
 
     double gauss()
     {
@@ -102,6 +99,8 @@ public sealed class MotorPlayer
             view = masked(sim, t);
             masked_ticks++;
         }
+        planner.min_gap = _m.min_gap > 1 ? _m.min_gap : 0;
+        planner.last_press = _last_fire;
         bool now = planner.decide(view);
         // Where the planner wants taps from now to `_window` ticks on.
         var want = new List<long>();
@@ -165,10 +164,10 @@ public sealed class MotorPlayer
             _spikes_hidden_until = -1;
         }
         else if (s.score != _score)
-            _spikes_hidden_until = MASK_SPIKES ? t + reaction() : -1; // new spikes on the wall ahead
+            _spikes_hidden_until = MASK_SPIKES && _m.react_mu >= 0 ? t + reaction() : -1; // new spikes on the wall ahead
         _score = s.score;
         foreach (var h in sim.room.hazards)
-            if (h.alive && _known.Add(h) && MASK_HAZARDS) _hidden[h] = t + reaction();
+            if (h.alive && _known.Add(h) && MASK_HAZARDS && _m.react_mu >= 0) _hidden[h] = t + reaction();
         foreach (var h in _hidden.Where(kv => kv.Value <= t).Select(kv => kv.Key).ToList()) _hidden.Remove(h);
     }
 
@@ -215,7 +214,7 @@ public static class MotorTiers
             string tier = name;
             var m = of(tier);
             FastSim.Yard.Bots.add(new($"human:{tier}",
-                $"MotorPlayer: BlindPlanner (horizon 200, past 110, margin 16 incl. spikes, 8 lines, wobble) + motor model: " +
+                $"MotorPlayer: BlindPlanner (class defaults; 8 lines tried with tap shifts when sd > 0) + motor model: " +
                 $"tap sd {m.sigma} ticks, reaction {(m.react_mu < 0 ? "none" : $"~{m.react_mu + m.react_tau:F0} ticks")} to new spikes/hazards, " +
                 "8 ticks between presses",
                 FastSim.Yard.Copies.SCRAMBLED, seed => new MotorPlayer(of(tier), seed).decide));

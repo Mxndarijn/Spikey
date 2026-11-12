@@ -34,6 +34,9 @@ public sealed class BlindPlanner
     public bool spike_margin = true;
     /// The taps planned for the next ticks (read only; the human layer lands them with timing noise).
     public IReadOnlyCollection<bool> plan => _plan;
+    /// Lines never tap twice within `min_gap` ticks (a thumb's limit; 0 = off). `last_press`: the
+    /// tick of the player's last real press, set by the caller (the human layer) before decide.
+    public long min_gap = 0, last_press = -1000;
     /// One-sided stalactite fangs re-aim at every bounce. In an imagined bounce
     /// the planner takes the worst case: 1 = the column met first comes out as
     /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
@@ -359,6 +362,7 @@ public sealed class BlindPlanner
         public int parent;
         public byte tap;
         public long cost;
+        public long since; // ticks since this line's last tap
     }
 
     /// Fills `_found` with up to `lines` lines that live `ticks` ticks,
@@ -377,7 +381,7 @@ public sealed class BlindPlanner
         else if (aim_anchor) mid = root.state.anchor_y;
         var parents = new List<int>();
         var taps = new List<byte>();
-        var frontier = new List<Node> { new Node { sim = root, parent = -1 } };
+        var frontier = new List<Node> { new Node { sim = root, parent = -1, since = root.state.tick - last_press } };
         var slots = new Dictionary<long, int>();
         var next = new List<Node>();
         for (long t = 0; t < ticks; t++)
@@ -386,7 +390,8 @@ public sealed class BlindPlanner
             next.Clear();
             foreach (var e in frontier)
             {
-                bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY;
+                bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY
+                               && (min_gap <= 0 || e.since >= min_gap);
                 long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
                 bool e_open = e.sim.state.exit_open;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
@@ -404,7 +409,7 @@ public sealed class BlindPlanner
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;
                     if (wide_key) key = (key * 64 + st.x / (16 * SimConfig.SUB)) * 2 + (st.vx > 0 ? 1 : 0);
-                    var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost };
+                    var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost, since = a == 1 ? 1 : e.since + 1 };
                     if (slots.TryGetValue(key, out int at))
                     {
                         if (cost < next[at].cost) next[at] = node;
@@ -423,7 +428,7 @@ public sealed class BlindPlanner
             {
                 parents.Add(e.parent);
                 taps.Add(e.tap);
-                frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost });
+                frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost, since = e.since });
             }
         }
         if (any)

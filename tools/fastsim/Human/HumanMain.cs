@@ -166,6 +166,11 @@ public static class HumanMain
 
     public static Func<GameSim, bool> decider(string bot, double s, long seed)
     {
+        if (bot == "blind")
+        {
+            var bp = new BlindPlanner(seed);
+            return bp.decide;
+        }
         if (bot == "motor")
         {
             var m = O.ContainsKey("sigma") ? Motor.at(double.Parse(opt("sigma", "0"))) : MotorTiers.of(opt("tier", "beast"));
