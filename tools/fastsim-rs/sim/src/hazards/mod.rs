@@ -16,9 +16,11 @@ pub mod bubble;
 pub mod bumper;
 pub mod cave_drip;
 pub mod cave_rock;
+pub mod button_pair;
 pub mod coin_pickup;
 pub mod crate_drop;
 pub mod crawler;
+pub mod crowd_fill;
 pub mod curious_bouncer;
 pub mod dart;
 pub mod drop;
@@ -57,9 +59,11 @@ pub use boss_watcher::BossWatcher;
 pub use bouncer::Bouncer;
 pub use bubble::Bubble;
 pub use bumper::Bumper;
+pub use button_pair::ButtonPair;
 pub use coin_pickup::CoinPickup;
 pub use crate_drop::CrateDrop;
 pub use crawler::Crawler;
+pub use crowd_fill::CrowdFill;
 pub use curious_bouncer::CuriousBouncer;
 pub use dart::Dart;
 pub use drop::Drop;
@@ -196,9 +200,11 @@ hazard_enum!(
     Bumper,
     CaveDrip,
     CaveRock,
+    ButtonPair,
     CoinPickup,
     CrateDrop,
     Crawler,
+    CrowdFill,
     CuriousBouncer,
     Dart,
     Drop,
@@ -326,6 +332,7 @@ impl Hz {
                 | Hz::Bouncer(_)
                 | Hz::CaveRock(_)
                 | Hz::Crawler(_)
+                | Hz::CrowdFill(_)
                 | Hz::ExitKey(_)
                 | Hz::Gate(_)
                 | Hz::Lava(_)

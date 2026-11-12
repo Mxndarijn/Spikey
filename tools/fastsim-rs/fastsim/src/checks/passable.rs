@@ -1,4 +1,4 @@
-//! Checks.Passable (Checks.cs), was tests/sim/test_variants_passable.gd: SurvivalSearch gets
+﻿//! Checks.Passable (Checks.cs), was tests/sim/test_variants_passable.gd: SurvivalSearch gets
 //! through each practice seed of every variant and takes the first portal.
 use std::sync::OnceLock;
 
@@ -17,7 +17,7 @@ impl Passable {
     /// Practice seeds per room variant (the GD test played the first 2 of these).
     pub const SEEDS_EACH: i64 = 6;
     /// test_variants_passable.gd CASES: [room id, ticks].
-    pub const CASES: [(&'static str, i64); 46] = [
+    pub const CASES: [(&'static str, i64); 47] = [
         ("narrow", 900), ("tide", 1150), ("cloud", 1150), ("bramble", 1150), ("rain", 1150),
         ("swing", 1150), ("updraft", 1150), ("crosswind", 1150), ("belt", 1150), ("lockexit", 1700),
         ("lava", 1150), ("echo", 1150), ("bubbles", 1150), ("garden", 1150), ("slowmo", 2300),
@@ -26,7 +26,7 @@ impl Passable {
         ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
         ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),
         ("ghostdoors", 1150), ("piston", 1150), ("stalac", 1150), ("crates", 1150), ("gifts", 1150),
-        ("beams", 1150), ("cave", 1150), ("pegs", 1150),
+        ("beams", 1150), ("cave", 1150), ("pegs", 1150), ("buttons", 20000),
         ("boss_watcher", 1950), ("boss_crusher", 1950), ("boss_saw", 1950),
     ];
 

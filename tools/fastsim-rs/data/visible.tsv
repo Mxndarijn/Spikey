@@ -67,6 +67,11 @@ Bumper.alive	game/run/painters/bumper_painter.gd
 Bumper.radius	game/run/painters/bumper_painter.gd
 Bumper.x	game/run/painters/bumper_painter.gd
 Bumper.y	game/run/painters/bumper_painter.gd
+ButtonPair.alive	game/run/painters/button_pair_painter.gd
+ButtonPair.last_top	game/run/painters/button_pair_painter.gd
+ButtonPair.lit_top	game/run/painters/button_pair_painter.gd
+ButtonPair.since_press	game/run/painters/button_pair_painter.gd
+ButtonPair.since_wrong	game/run/painters/button_pair_painter.gd
 CaveDrip.alive	game/run/painters/cave_drip_painter.gd
 CaveDrip.eta	game/run/painters/cave_drip_painter.gd
 CaveDrip.falling	game/run/painters/cave_drip_painter.gd
@@ -101,6 +106,8 @@ Crawler.seg_radius	game/run/painters/crawler_painter.gd
 Crawler.speed	game/run/painters/crawler_painter.gd
 Crawler.xs	game/run/painters/crawler_painter.gd
 Crawler.ys	game/run/painters/crawler_painter.gd
+CrowdFill.alive	game/run/painters/crowd_fill_painter.gd
+CrowdFill.since_pick	game/run/painters/crowd_fill_painter.gd
 Dart.alive	game/run/painters/dart_painter.gd
 Dart.glow()	game/run/painters/dart_painter.gd
 Dart.lanes	game/run/painters/dart_painter.gd

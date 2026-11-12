@@ -381,6 +381,10 @@ impl SameSeed {
                 out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
             }
             let prefix = format!("{}:", ra.index);
+            // In a room whose bounces don't score (Buttons) the score follows the player's
+            // presses, not the map (its walls count from the entry score): only the walls are
+            // compared there.
+            let scored = RoomCatalog::find(&ra.kind).map_or(true, |d| d.bounce_points);
             // A wall's spikes depend only on the room's seed and wall number (compared above),
             // the score, the route's Wild bonus, `gen` (the anchor, the wall bounced off, the
             // side's bonus, the exit state) and the hazards that move spikes (`adj`, met at the
@@ -396,10 +400,10 @@ impl SameSeed {
                 let side_ok = wa.side == wb.side || SameSeedRevive::turns_back(&ra.kind);
                 let first = k.split(':').nth(1) == Some("1");
                 let inputs = wa.gen == wb.gen
-                    && wa.score == wb.score
+                    && (!scored || wa.score == wb.score)
                     && wa.adj == wb.adj
                     && (wa.adj.is_empty() || wa.in_room == wb.in_room);
-                let mut bad = !side_ok || wa.score != wb.score;
+                let mut bad = !side_ok || scored && wa.score != wb.score;
                 if inputs {
                     if ra.route == rb.route || first {
                         bad |= wa.mask != wb.mask || wa.anchor != wb.anchor;

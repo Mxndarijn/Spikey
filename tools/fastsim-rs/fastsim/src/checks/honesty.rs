@@ -401,6 +401,29 @@ impl Honesty {
                 s.n("head", x.head);
                 Self::base_fields(s, &x.base);
             }
+            Hz::ButtonPair(x) => {
+                s.n("width", x.width);
+                s.n("top_x0", x.top_x0);
+                s.n("bottom_x0", x.bottom_x0);
+                s.n("presses", x.presses);
+                s.n("since_press", x.since_press);
+                s.n("since_wrong", x.since_wrong);
+                Self::base_fields(s, &x.base);
+            }
+            Hz::CrowdFill(x) => {
+                s.n("seats_left", x.seats_left);
+                s.n("seats_right", x.seats_right);
+                s.n("coming_left", x.coming_left);
+                s.n("coming_right", x.coming_right);
+                s.n("since_pick", x.since_pick);
+                s.n("start_seats", x.start_seats);
+                s.n("newcomers", x.newcomers);
+                s.n("last_run", x.last_run);
+                s.n("keep_run", x.keep_run);
+                s.n("_seed", x._seed);
+                s.rng("_rng", &x._rng);
+                Self::base_fields(s, &x.base);
+            }
             Hz::EdgePad(x) => {
                 s.n("period", x.period);
                 s.n("phase", x.phase);
@@ -843,9 +866,11 @@ pub fn hz_name(h: &Hz) -> &'static str {
         Hz::Bumper(_) => "Bumper",
         Hz::CaveDrip(_) => "CaveDrip",
         Hz::CaveRock(_) => "CaveRock",
+        Hz::ButtonPair(_) => "ButtonPair",
         Hz::CoinPickup(_) => "CoinPickup",
         Hz::CrateDrop(_) => "CrateDrop",
         Hz::Crawler(_) => "Crawler",
+        Hz::CrowdFill(_) => "CrowdFill",
         Hz::CuriousBouncer(_) => "CuriousBouncer",
         Hz::Dart(_) => "Dart",
         Hz::Drop(_) => "Drop",

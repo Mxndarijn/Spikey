@@ -695,7 +695,7 @@ impl BlindPlanner {
         let hide_keys = HIDE_KEYS.load(Ordering::Relaxed);
         for hz in c.room.hazards.iter_mut() {
             let kind = match hz {
-                Hz::CrateDrop(_) | Hz::Dart(_) => Reveal::SALTS,
+                Hz::CrateDrop(_) | Hz::Dart(_) | Hz::CrowdFill(_) => Reveal::SALTS,
                 Hz::Drop(_) | Hz::Firework(_) | Hz::OrchardSpawner(_) => Reveal::PRIVRNG,
                 Hz::Bubble(_) => Reveal::BUBBLE,
                 Hz::Stalactite(_) => Reveal::STALAC,
@@ -715,6 +715,11 @@ impl BlindPlanner {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
                 Hz::CrateDrop(cd) => cd.salt = own.next_u32(),
                 Hz::Dart(d) => d.salt = own.next_u32(),
+                // Where Crowded's later newcomers sit (seeded per wall from the room's seed).
+                Hz::CrowdFill(cf) => {
+                    cf._seed = own.next_u32();
+                    cf._rng.reseed(own.next_u32());
+                }
                 Hz::Drop(dr) => dr._rng.reseed(own.next_u32()),
                 Hz::Firework(fw) => fw._rng.reseed(own.next_u32()),
                 Hz::OrchardSpawner(os) => os._rng.reseed(own.next_u32()),

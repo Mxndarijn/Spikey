@@ -39,7 +39,13 @@ const SEASON_NAMES := ["October", "December", "February", "Spring", "Summer", "N
 const ROOMS := {
 	"open": ["Open Sky", "The cage at its simplest: two spike walls and you.", 1, "sunset", ""],
 	"crowded":
-	["Crowded", "Open Sky with more spikes. One wall may be packed.", 2, "sunset", "extra"],
+	[
+		"Crowded",
+		"The spikes stay put, and more take a seat at every bounce. Learn the walls.",
+		2,
+		"sunset",
+		"extra"
+	],
 	"narrow": ["Narrow", "The walls slide in. Less room, quicker bounces.", 2, "ice", "extra"],
 	"tide":
 	[
@@ -129,6 +135,8 @@ const ROOMS := {
 		"sugar",
 		"cloud"
 	],
+	"buttons":
+	["Buttons", "Press the lit button: top, bottom, top. Only presses score.", 3, "sugar", "cloud"],
 	"crates":
 	[
 		"Crate Drop",

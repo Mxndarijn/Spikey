@@ -16,12 +16,12 @@ impl CatalogCore {
 
         out_.push(RoomDef::new("open", "starter", 0));
 
+        // Crowded (Filling up): the walls keep their spikes and newcomers take seats (CrowdFill).
         let mut crowded = RoomDef::new("crowded", "starter", 10);
-        crowded.extra_spikes = 1;
         crowded.variants = vec![
-            RoomVariant::new("classic"),
-            RoomVariant::new("lopsided").leaning(2),
-            RoomVariant::new("storm").sized(1, 1, 2),
+            RoomVariant::new("classic").with(vec![mk(|| CrowdFill::new().into())]),
+            RoomVariant::new("lopsided").with(vec![mk(|| CrowdFill::new().into())]),
+            RoomVariant::new("storm").with(vec![mk(|| CrowdFill::new().into())]),
         ];
         out_.push(crowded);
 

@@ -49,6 +49,8 @@ var reach := 0
 # Movement
 var gravity_sign := 1
 var speed := Speed.NORMAL
+## Whether a wall bounce scores a point (Buttons: only its presses do).
+var bounce_points := true
 ## Whether the usual coin appears on a wall bounce.
 var bounce_coin := true
 ## Coin Garden: a bounce adds a coin even when one is already out.

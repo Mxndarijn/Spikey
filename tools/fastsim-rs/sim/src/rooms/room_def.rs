@@ -63,6 +63,8 @@ pub struct RoomDef {
 
     pub gravity_sign: i64,
     pub speed: i64,
+    /// Whether a wall bounce scores a point (Buttons: only its presses do).
+    pub bounce_points: bool,
     pub bounce_coin: bool,
     pub bounce_coin_stacks: bool,
     pub boss: bool,
@@ -95,6 +97,7 @@ impl RoomDef {
             reach: 0,
             gravity_sign: 1,
             speed: Speed::NORMAL,
+            bounce_points: true,
             bounce_coin: true,
             bounce_coin_stacks: false,
             boss: false,

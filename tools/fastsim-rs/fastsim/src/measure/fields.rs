@@ -314,6 +314,19 @@ pub const CAVEROCK: &[F] = &[
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
 ];
+pub const BUTTONPAIR: &[F] = &[
+    F { name: "width", ty: Ty::Long, readonly: false },
+    F { name: "top_x0", ty: Ty::Long, readonly: false },
+    F { name: "bottom_x0", ty: Ty::Long, readonly: false },
+    F { name: "lit_top", ty: Ty::Bool, readonly: false },
+    F { name: "presses", ty: Ty::Long, readonly: false },
+    F { name: "since_press", ty: Ty::Long, readonly: false },
+    F { name: "since_wrong", ty: Ty::Long, readonly: false },
+    F { name: "last_top", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
 pub const COINPICKUP: &[F] = &[
     F { name: "x", ty: Ty::Long, readonly: false },
     F { name: "y", ty: Ty::Long, readonly: false },
@@ -366,6 +379,25 @@ pub const CRAWLER: &[F] = &[
     F { name: "trails", ty: Ty::Bool, readonly: false },
     F { name: "xs", ty: Ty::ListLong, readonly: false },
     F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const CROWDFILL: &[F] = &[
+    F { name: "seats_left", ty: Ty::Long, readonly: false },
+    F { name: "seats_right", ty: Ty::Long, readonly: false },
+    F { name: "coming_left", ty: Ty::Long, readonly: false },
+    F { name: "coming_right", ty: Ty::Long, readonly: false },
+    F { name: "started_left", ty: Ty::Bool, readonly: false },
+    F { name: "started_right", ty: Ty::Bool, readonly: false },
+    F { name: "since_pick", ty: Ty::Long, readonly: false },
+    F { name: "start_seats", ty: Ty::Long, readonly: false },
+    F { name: "newcomers", ty: Ty::Long, readonly: false },
+    F { name: "left_only", ty: Ty::Bool, readonly: false },
+    F { name: "last_run", ty: Ty::Long, readonly: false },
+    F { name: "keep_run", ty: Ty::Long, readonly: false },
+    F { name: "_seed", ty: Ty::Long, readonly: false },
+    F { name: "_rng", ty: Ty::Rng, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -813,9 +845,11 @@ pub fn hz_class(h: &Hz) -> &'static str {
         Hz::Bumper(_) => "Bumper",
         Hz::CaveDrip(_) => "CaveDrip",
         Hz::CaveRock(_) => "CaveRock",
+        Hz::ButtonPair(_) => "ButtonPair",
         Hz::CoinPickup(_) => "CoinPickup",
         Hz::CrateDrop(_) => "CrateDrop",
         Hz::Crawler(_) => "Crawler",
+        Hz::CrowdFill(_) => "CrowdFill",
         Hz::CuriousBouncer(_) => "CuriousBouncer",
         Hz::Dart(_) => "Dart",
         Hz::Drop(_) => "Drop",
@@ -860,9 +894,11 @@ pub fn hz_get(h: &Hz, i: usize) -> V {
         Hz::Bumper(x) => bumper_get(x, i),
         Hz::CaveDrip(x) => cavedrip_get(x, i),
         Hz::CaveRock(x) => caverock_get(x, i),
+        Hz::ButtonPair(x) => buttonpair_get(x, i),
         Hz::CoinPickup(x) => coinpickup_get(x, i),
         Hz::CrateDrop(x) => cratedrop_get(x, i),
         Hz::Crawler(x) => crawler_get(x, i),
+        Hz::CrowdFill(x) => crowdfill_get(x, i),
         Hz::CuriousBouncer(x) => curiousbouncer_get(x, i),
         Hz::Dart(x) => dart_get(x, i),
         Hz::Drop(x) => drop_get(x, i),
@@ -907,9 +943,11 @@ pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
         Hz::Bumper(x) => bumper_set(x, i, v),
         Hz::CaveDrip(x) => cavedrip_set(x, i, v),
         Hz::CaveRock(x) => caverock_set(x, i, v),
+        Hz::ButtonPair(x) => buttonpair_set(x, i, v),
         Hz::CoinPickup(x) => coinpickup_set(x, i, v),
         Hz::CrateDrop(x) => cratedrop_set(x, i, v),
         Hz::Crawler(x) => crawler_set(x, i, v),
+        Hz::CrowdFill(x) => crowdfill_set(x, i, v),
         Hz::CuriousBouncer(x) => curiousbouncer_set(x, i, v),
         Hz::Dart(x) => dart_set(x, i, v),
         Hz::Drop(x) => drop_set(x, i, v),
@@ -954,9 +992,11 @@ pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
         Hz::Bumper(x) => bumper_method(x, name),
         Hz::CaveDrip(x) => cavedrip_method(x, name),
         Hz::CaveRock(x) => caverock_method(x, name),
+        Hz::ButtonPair(x) => buttonpair_method(x, name),
         Hz::CoinPickup(x) => coinpickup_method(x, name),
         Hz::CrateDrop(x) => cratedrop_method(x, name),
         Hz::Crawler(x) => crawler_method(x, name),
+        Hz::CrowdFill(x) => crowdfill_method(x, name),
         Hz::CuriousBouncer(x) => curiousbouncer_method(x, name),
         Hz::Dart(x) => dart_method(x, name),
         Hz::Drop(x) => drop_method(x, name),
@@ -1004,9 +1044,11 @@ pub fn class_fields(c: &str) -> &'static [F] {
         "Bumper" => BUMPER,
         "CaveDrip" => CAVEDRIP,
         "CaveRock" => CAVEROCK,
+        "ButtonPair" => BUTTONPAIR,
         "CoinPickup" => COINPICKUP,
         "CrateDrop" => CRATEDROP,
         "Crawler" => CRAWLER,
+        "CrowdFill" => CROWDFILL,
         "CuriousBouncer" => CURIOUSBOUNCER,
         "Dart" => DART,
         "Drop" => DROP,
@@ -1727,6 +1769,46 @@ fn caverock_method(x: &CaveRock, name: &str) -> Option<V> {
     }
 }
 
+fn buttonpair_get(x: &ButtonPair, i: usize) -> V {
+    match i {
+        0 => V::I(x.width),
+        1 => V::I(x.top_x0),
+        2 => V::I(x.bottom_x0),
+        3 => V::B(x.lit_top),
+        4 => V::I(x.presses),
+        5 => V::I(x.since_press),
+        6 => V::I(x.since_wrong),
+        7 => V::B(x.last_top),
+        8 => V::S(x.base.kind),
+        9 => V::B(x.base.alive),
+        10 => V::I(x.base.t),
+        _ => panic!("ButtonPair: no field {}", i),
+    }
+}
+
+fn buttonpair_set(x: &mut ButtonPair, i: usize, v: &V) {
+    match i {
+        0 => x.width = v.i(),
+        1 => x.top_x0 = v.i(),
+        2 => x.bottom_x0 = v.i(),
+        3 => x.lit_top = v.b(),
+        4 => x.presses = v.i(),
+        5 => x.since_press = v.i(),
+        6 => x.since_wrong = v.i(),
+        7 => x.last_top = v.b(),
+        9 => x.base.alive = v.b(),
+        10 => x.base.t = v.i(),
+        _ => panic!("ButtonPair: field {} is not a transplant candidate", i),
+    }
+}
+
+fn buttonpair_method(x: &ButtonPair, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
 fn coinpickup_get(x: &CoinPickup, i: usize) -> V {
     match i {
         0 => V::I(x.x),
@@ -1875,6 +1957,58 @@ fn crawler_set(x: &mut Crawler, i: usize, v: &V) {
 }
 
 fn crawler_method(x: &Crawler, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn crowdfill_get(x: &CrowdFill, i: usize) -> V {
+    match i {
+        0 => V::I(x.seats_left),
+        1 => V::I(x.seats_right),
+        2 => V::I(x.coming_left),
+        3 => V::I(x.coming_right),
+        4 => V::B(x.started_left),
+        5 => V::B(x.started_right),
+        6 => V::I(x.since_pick),
+        7 => V::I(x.start_seats),
+        8 => V::I(x.newcomers),
+        9 => V::B(x.left_only),
+        10 => V::I(x.last_run),
+        11 => V::I(x.keep_run),
+        12 => V::I(x._seed),
+        13 => V::Rng(x._rng),
+        14 => V::S(x.base.kind),
+        15 => V::B(x.base.alive),
+        16 => V::I(x.base.t),
+        _ => panic!("CrowdFill: no field {}", i),
+    }
+}
+
+fn crowdfill_set(x: &mut CrowdFill, i: usize, v: &V) {
+    match i {
+        0 => x.seats_left = v.i(),
+        1 => x.seats_right = v.i(),
+        2 => x.coming_left = v.i(),
+        3 => x.coming_right = v.i(),
+        4 => x.started_left = v.b(),
+        5 => x.started_right = v.b(),
+        6 => x.since_pick = v.i(),
+        7 => x.start_seats = v.i(),
+        8 => x.newcomers = v.i(),
+        9 => x.left_only = v.b(),
+        10 => x.last_run = v.i(),
+        11 => x.keep_run = v.i(),
+        12 => x._seed = v.i(),
+        13 => x._rng = v.rng(),
+        15 => x.base.alive = v.b(),
+        16 => x.base.t = v.i(),
+        _ => panic!("CrowdFill: field {} is not a transplant candidate", i),
+    }
+}
+
+fn crowdfill_method(x: &CrowdFill, name: &str) -> Option<V> {
     let _ = x;
     match name {
         _ => None,

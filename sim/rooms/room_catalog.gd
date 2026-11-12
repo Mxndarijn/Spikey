@@ -16,6 +16,7 @@ const BATCHES: Array[Script] = [
 	preload("res://sim/rooms/catalog_twists.gd"),
 	preload("res://sim/rooms/catalog_boss.gd"),
 	preload("res://sim/rooms/catalog_caves.gd"),
+	preload("res://sim/rooms/catalog_puzzles.gd"),
 ]
 
 ## The room deck holds this many rooms per word of SimState (deck_lo, deck_hi).

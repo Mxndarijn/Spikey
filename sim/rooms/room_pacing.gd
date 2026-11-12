@@ -59,6 +59,7 @@ const TIERS := {
 	"bubbles": MIDDLE,  # 45
 	"narrow": MIDDLE,  # 47
 	"pegs": MIDDLE,  # 44 (provisional: 4-room fit, not the full catalogue)
+	"buttons": MIDDLE,  # not measured yet (provisional, design guess)
 	"rain": HARD,  # 49
 	"cave": HARD,  # 48 (provisional: 4-room fit, not the full catalogue)
 	"gates": HARD,  # 51

@@ -4,6 +4,7 @@ pub mod catalog_caves;
 pub mod catalog_core;
 pub mod catalog_machines;
 pub mod catalog_motion;
+pub mod catalog_puzzles;
 pub mod catalog_seasonal;
 pub mod catalog_sky;
 pub mod catalog_twists;

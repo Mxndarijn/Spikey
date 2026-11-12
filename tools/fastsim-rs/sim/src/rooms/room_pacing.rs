@@ -37,6 +37,7 @@ impl RoomPacing {
         ("bubbles", Self::MIDDLE),  // 45
         ("narrow", Self::MIDDLE),  // 47
         ("pegs", Self::MIDDLE), // 44 (provisional)
+        ("buttons", Self::MIDDLE), // not measured yet (provisional)
         ("rain", Self::HARD),  // 49
         ("cave", Self::HARD), // 48 (provisional)
         ("gates", Self::HARD),  // 51

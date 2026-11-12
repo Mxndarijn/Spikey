@@ -6,7 +6,8 @@ use crate::rooms::room_pacing::RoomPacing;
 use crate::rooms::seasons::Seasons;
 use crate::rooms::{
     catalog_boss::CatalogBoss, catalog_caves::CatalogCaves, catalog_core::CatalogCore,
-    catalog_machines::CatalogMachines, catalog_motion::CatalogMotion, catalog_seasonal::CatalogSeasonal,
+    catalog_machines::CatalogMachines, catalog_motion::CatalogMotion, catalog_puzzles::CatalogPuzzles,
+    catalog_seasonal::CatalogSeasonal,
     catalog_sky::CatalogSky, catalog_twists::CatalogTwists,
 };
 use crate::sim_config::SimConfig;
@@ -67,6 +68,7 @@ impl RoomCatalog {
             list.extend(CatalogTwists::defs());
             list.extend(CatalogBoss::defs());
             list.extend(CatalogCaves::defs());
+            list.extend(CatalogPuzzles::defs());
             RoomPacing::apply(&mut list);
             list
         })

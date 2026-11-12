@@ -41,9 +41,18 @@ static func gap_reach(def: RoomDef) -> int:
 static func generate_wall(
 	rng: SimRng, score: int, def: RoomDef, bird_y: int = -1, bonus: int = 0, p_reach: int = -1
 ) -> int:
+	return generate_wall_run(rng, score, def, bird_y, bonus, p_reach)[0]
+
+
+## generate_wall, with the free run it kept: [mask, start, lo, hi], `start`
+## the run's first slot, drawn from `lo` to `hi` (the starts the reach
+## allowed). -1s when the wall has no spikes. The same draws.
+static func generate_wall_run(
+	rng: SimRng, score: int, def: RoomDef, bird_y: int = -1, bonus: int = 0, p_reach: int = -1
+) -> Array[int]:
 	var n := spike_count(score, def, bonus)
 	if n == 0:
-		return 0
+		return [0, -1, -1, -1]
 	var gap := def.gap
 	var lo := 0
 	var hi := SimConfig.SLOT_COUNT - gap
@@ -71,7 +80,7 @@ static func generate_wall(
 		candidates[j] = candidates[i]
 		candidates[i] = picked
 		mask |= 1 << picked
-	return mask
+	return [mask, gap_start, lo, hi]
 
 
 static func has_slot(mask: int, slot: int) -> bool:

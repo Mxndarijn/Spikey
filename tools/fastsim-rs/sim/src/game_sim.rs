@@ -73,6 +73,10 @@ pub struct GameSim {
     pub _arrival_wait: i64,
     pub _free_lo: i64,
     pub _free_hi: i64,
+    /// The free run the last new wall was drawn with, for hazards that change the wall
+    /// (CrowdFill): its first slot and the first and last starts it could have had
+    /// (RoomRules.generate_wall_run). -1s: none.
+    pub wall_run: [i64; 3],
     /// The room, the whole state and both RNGs as the bird came in, for a revive. Never changed after
     /// it is taken, so clones share it (GDScript's SimCopy copies it).
     pub _entry_room: Option<Arc<RoomRuntime>>,
@@ -108,6 +112,7 @@ impl GameSim {
             _arrival_wait: SimConfig::PORTAL_HOLD,
             _free_lo: -1,
             _free_hi: -1,
+            wall_run: [-1, -1, -1],
             _entry_room: None,
             _entry_state: None,
             _entry_rng: SimRng::default(),
@@ -169,6 +174,7 @@ impl GameSim {
             _entry_spine: self._entry_spine,
             _free_lo: -1,
             _free_hi: -1,
+            wall_run: self.wall_run,
             _points_override: -1,
             _points_also: -1,
         }
@@ -194,6 +200,7 @@ impl GameSim {
         c._entry_spine = self._entry_spine;
         c._free_lo = -1;
         c._free_hi = -1;
+        c.wall_run = self.wall_run;
         c._points_override = -1;
         c._points_also = -1;
     }
@@ -673,7 +680,9 @@ impl GameSim {
     }
 
     fn _maybe_open_exit(&mut self) {
-        if self.state.exit_open {
+        // Nothing is due before a point is scored in the room (in Buttons a bounce scores
+        // nothing, and the room starts at a multiple of POINTS_PER_ROOM).
+        if self.state.exit_open || self.room.points == 0 {
             return;
         }
         if self.state.exit_preview {
@@ -981,7 +990,10 @@ impl GameSim {
             bonus += SimConfig::WILD_SPIKES;
         }
         let def = self.room.def();
-        let mut mask = RoomRules::generate_wall(&mut self._rng, self.state.score, def, target, bonus, reach);
+        let wall_score = if def.bounce_points { self.state.score } else { self.room.entry_score };
+        let drawn = RoomRules::generate_wall_run(&mut self._rng, wall_score, def, target, bonus, reach);
+        let mut mask = drawn[0];
+        self.wall_run = [drawn[1], drawn[2], drawn[3]];
         let mut i = 0;
         while i < self.room.hazards.len() {
             let h = &self.room.hazards[i];
@@ -1063,11 +1075,24 @@ impl GameSim {
     }
 
     fn _bounce_score(&mut self) {
-        if self.state.exit_open {
+        if self.state.exit_open || !self.room.def().bounce_points {
             self.events.push(Event::BOUNCE);
             return;
         }
         self._score();
+    }
+
+    /// A hazard scores a point (a Buttons press, ButtonPair): unless the exit is open, or the
+    /// room's exit is already due and waits for the next wall bounce to open (_maybe_open_exit).
+    /// Returns whether it scored. For hazards only.
+    pub fn _score_press(&mut self) -> bool {
+        if self.state.exit_open || (self.room.points > 0 && self._exit_due(self.state.score)) {
+            return false;
+        }
+        self.state.score += 1;
+        self.room.points += 1;
+        self.events.push(Event::SCORE);
+        true
     }
 
     fn _score(&mut self) {
@@ -1128,9 +1153,10 @@ impl GameSim {
         let mut i = 0;
         while i < self.room.hazards.len() {
             if self.room.hazards[i].alive() {
-                let hit = if matches!(self.room.hazards[i], Hz::EdgePad(_)) {
+                let hit = if matches!(self.room.hazards[i], Hz::EdgePad(_) | Hz::ButtonPair(_)) {
                     self.with_hazard(i, |h, sim| match h {
                         Hz::EdgePad(p) => p.guards_edge_mut(sim, top),
+                        Hz::ButtonPair(p) => p.guards_edge_mut(sim, top),
                         _ => unreachable!(),
                     })
                 } else {

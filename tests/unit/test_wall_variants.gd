@@ -1,8 +1,8 @@
 extends TestCase
-## Variants that change the walls, gravity or light: Crowded (Lopsided, Spike
-## storm), Squeeze Box (Left press, Breathing box), Blink Walls (Fast blink),
-## Hunter Spike (Twin hunters), Gravity Flip (Flip-flop) and Midnight Cage
-## (Lantern, Flicker).
+## Variants that change the walls, gravity or light: Squeeze Box (Left press,
+## Breathing box), Blink Walls (Fast blink), Hunter Spike (Twin hunters),
+## Gravity Flip (Flip-flop) and Midnight Cage (Lantern, Flicker). Crowded's
+## walls: test_crowded_buttons.gd.
 
 const SUB := SimConfig.SUB
 const Dart := preload("res://sim/hazards/dart.gd")
@@ -30,44 +30,6 @@ func test_variant_lists() -> void:
 			ids.append(v.id)
 		assert_eq(ids, want[id], "%s variants" % id)
 		assert_eq(sim_in(id, want[id][1]).room.variant_id(), want[id][1], "%s forced" % id)
-
-
-# --- Crowded ----------------------------------------------------------------
-
-
-func test_lopsided_packs_the_left_wall() -> void:
-	var sim := sim_in("crowded", "lopsided")
-	var def := sim.room.def
-	var left := RoomRules.spike_count(30, def, sim.room.spike_bonus(0))
-	var right := RoomRules.spike_count(30, def, sim.room.spike_bonus(1))
-	var normal := RoomRules.spike_count(30, def)
-	assert_true(left > normal, "more on the left")
-	assert_true(right < normal, "fewer on the right")
-	assert_true(right >= 1, "the right wall keeps a spike")
-	assert_true(left <= SimConfig.SLOT_COUNT - def.gap, "the left wall keeps its gap")
-
-
-func test_lopsided_walls_get_their_own_counts() -> void:
-	var sim := sim_in("crowded", "lopsided", 11)
-	sim.state.score = 30
-	var seen_left := {}
-	var seen_right := {}
-	for i in 20:
-		sim._new_wall(0)
-		sim._new_wall(1)
-		seen_left[_bits(sim.state.left_spikes)] = true
-		seen_right[_bits(sim.state.right_spikes)] = true
-	assert_eq(seen_left.keys(), [RoomRules.spike_count(30, sim.room.def, 2)])
-	assert_eq(seen_right.keys(), [RoomRules.spike_count(30, sim.room.def, -2)])
-
-
-func test_spike_storm_adds_two_per_wall() -> void:
-	var sim := sim_in("crowded", "storm")
-	var def := sim.room.def
-	for side in 2:
-		assert_eq(sim.room.spike_bonus(side), 2)
-	assert_eq(RoomRules.spike_count(10, def, 2), RoomRules.spike_count(10, def) + 2)
-	assert_eq(sim.room.spike_depth(), SimConfig.SPIKE_DEPTH, "normal size spikes")
 
 
 # --- Squeeze Box --------------------------------------------------------------
@@ -250,10 +212,3 @@ func _hold(sim: GameSim) -> void:
 	sim.state.vy = 0
 	sim.state.left_spikes = 0
 	sim.state.right_spikes = 0
-
-
-func _bits(mask: int) -> int:
-	var n := 0
-	for slot in SimConfig.SLOT_COUNT:
-		n += (mask >> slot) & 1
-	return n

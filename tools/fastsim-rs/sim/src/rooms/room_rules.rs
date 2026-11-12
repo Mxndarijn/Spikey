@@ -36,9 +36,23 @@ impl RoomRules {
 
     /// GDScript defaults: bird_y = -1, bonus = 0, p_reach = -1.
     pub fn generate_wall(rng: &mut SimRng, score: i64, def: &RoomDef, bird_y: i64, bonus: i64, p_reach: i64) -> i64 {
+        Self::generate_wall_run(rng, score, def, bird_y, bonus, p_reach)[0]
+    }
+
+    /// generate_wall, with the free run it kept: [mask, start, lo, hi], `start` the run's first
+    /// slot, drawn from `lo` to `hi` (the starts the reach allowed). -1s when the wall has no
+    /// spikes. The same draws.
+    pub fn generate_wall_run(
+        rng: &mut SimRng,
+        score: i64,
+        def: &RoomDef,
+        bird_y: i64,
+        bonus: i64,
+        p_reach: i64,
+    ) -> [i64; 4] {
         let n = Self::spike_count(score, def, bonus);
         if n == 0 {
-            return 0;
+            return [0, -1, -1, -1];
         }
         let gap = def.gap;
         let mut lo = 0;
@@ -76,7 +90,7 @@ impl RoomRules {
             candidates[i as usize] = picked;
             mask |= 1i64 << picked;
         }
-        mask
+        [mask, gap_start, lo, hi]
     }
 
     #[inline(always)]

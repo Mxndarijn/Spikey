@@ -49,6 +49,10 @@ var practice_room := -1
 ## the RNG goes on exactly as in a normal run. "" (always in real play) plays
 ## the drawn variant.
 var forced_variant := ""
+## The free run the last new wall was drawn with, for hazards that change the
+## wall (CrowdFill): its first slot and the first and last starts it could
+## have had (RoomRules.generate_wall_run). -1s: none.
+var wall_run := PackedInt32Array([-1, -1, -1])
 var state := SimState.new()
 ## The room being played: its hazards and wall rules.
 var room := RoomRuntime.new()
@@ -431,7 +435,9 @@ func _take_exit(side: int) -> bool:
 ## bounces there instead, with no ghost first (the boss fights on until then),
 ## and the boss breaks.
 func _maybe_open_exit() -> void:
-	if state.exit_open:
+	# Nothing is due before a point is scored in the room (in Buttons a bounce
+	# scores nothing, and the room starts at a multiple of POINTS_PER_ROOM).
+	if state.exit_open or room.points == 0:
 		return
 	if state.exit_preview:
 		if _exit_due(state.score):
@@ -752,7 +758,13 @@ func _new_wall(side: int) -> void:
 	# is the one a Calm player gets.
 	if state.route == SimState.ExitKind.WILD and room.walls > 1 and not _checking:
 		bonus += SimConfig.WILD_SPIKES
-	var mask := RoomRules.generate_wall(_rng, state.score, room.def, target, bonus, reach)
+	# A room whose bounces don't score (Buttons) counts its spikes from the
+	# score it was entered at: its presses depend on the player, its walls
+	# only on the seed.
+	var wall_score := state.score if room.def.bounce_points else room.entry_score
+	var drawn := RoomRules.generate_wall_run(_rng, wall_score, room.def, target, bonus, reach)
+	var mask: int = drawn[0]
+	wall_run = PackedInt32Array([drawn[1], drawn[2], drawn[3]])
 	for h in room.hazards:
 		if h.alive:
 			mask = h.adjust_wall(self, side, mask)
@@ -847,10 +859,22 @@ func _anchor_at_wall(side: int) -> void:
 ## way on is through it, so turning back (say off the Bumper Cloud) and
 ## bouncing again can't farm points.
 func _bounce_score() -> void:
-	if state.exit_open:
+	if state.exit_open or not room.def.bounce_points:
 		events.append(Event.BOUNCE)
 		return
 	_score()
+
+
+## A hazard scores a point (a Buttons press, ButtonPair): unless the exit is
+## open, or the room's exit is already due and waits for the next wall bounce
+## to open (_maybe_open_exit). Returns whether it scored. For hazards only.
+func _score_press() -> bool:
+	if state.exit_open or (room.points > 0 and _exit_due(state.score)):
+		return false
+	state.score += 1
+	room.points += 1
+	events.append(Event.SCORE)
+	return true
 
 
 func _score() -> void:

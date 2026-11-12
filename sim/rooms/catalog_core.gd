@@ -11,6 +11,7 @@ const CuriousBouncer := preload("res://sim/hazards/curious_bouncer.gd")
 const HeavyBouncer := preload("res://sim/hazards/heavy_bouncer.gd")
 const OrbitCoin := preload("res://sim/hazards/orbit_coin.gd")
 const SpikeBall := preload("res://sim/hazards/spike_ball.gd")
+const CrowdFill := preload("res://sim/hazards/crowd_fill.gd")
 
 const SUB := SimConfig.SUB
 ## Coin Garden: the middle of the coin diamond, and how far out Orbiting Coins
@@ -26,15 +27,17 @@ static func defs() -> Array[RoomDef]:
 	# Open Sky: the classic cage, where every run starts.
 	out.append(RoomDef.new("open", "starter", 0))
 
-	# Crowded: Open Sky with a spike more per wall. Variants: as is; Lopsided
-	# (two more on the left wall, two fewer on the right); Spike storm (two
-	# more on each wall).
+	# Crowded (Filling up): the walls keep their spikes, and at every bounce a
+	# newcomer takes a seat on the wall the bird just left (CrowdFill). The
+	# room starts nearly empty and is packed by its exit. Variants: classic
+	# (one newcomer a bounce); lopsided (every newcomer on the left wall);
+	# storm (two a bounce, from one spike a wall).
 	var crowded := RoomDef.new("crowded", "starter", 10)
-	crowded.extra_spikes = 1
+	var fill: Array[Callable] = [func() -> Hazard: return CrowdFill.new()]
 	crowded.variants = [
-		RoomVariant.new("classic"),
-		RoomVariant.new("lopsided").leaning(2),
-		RoomVariant.new("storm").sized(1, 1, 2),
+		RoomVariant.new("classic").with(fill),
+		RoomVariant.new("lopsided").with(fill),
+		RoomVariant.new("storm").with(fill),
 	]
 	out.append(crowded)
 
