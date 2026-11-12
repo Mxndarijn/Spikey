@@ -111,7 +111,7 @@ public static class Review
         bot.no_pingpong = L("pingpong", 1) != 0;
         bot.keep_plan = L("keep", 1) != 0;
         bot.bounce_look = L("bouncelook", 1) != 0;
-        bot.wide_key = L("widekey", 1) != 0;
+        bot.wide_key = L("widekey", 0) != 0;
         bot.aim_exit = L("aimexit", 1) != 0;
         bot.wall_look = L("walllook", 1) != 0;
         bot.full_speeds = L("fullspeeds", 0) != 0;
