@@ -10,7 +10,7 @@ extends RefCounted
 ## 3: the room system (RoomCatalog): many room kinds with hazards, seasons.
 ## 4: floatier flap: 300 px/s up, 750 px/s^2 gravity (apex after ~0.4 s, ~60 px).
 ## 5: exit portals: rooms change by flying through an exit (the bird flies
-##    straight on); every 50 points a Calm/Wild fork picks the route.
+##    straight on); every 50 points a Calm/Wild fork: Wild pays more and its next room is harder.
 ## 6: room tuning from playtests (fairer gates, stalactites, saw ring, beams,
 ##    updraft, pads); the bird comes out of a portal in the opposite wall and
 ##    keeps flying the same way; the open first room never comes back.
@@ -125,7 +125,9 @@ const COIN_MAX_Y := 550 * SUB
 # Exits: every POINTS_PER_ROOM points an exit opens on the wall the bird is
 # heading to. Fly into it to reach the next room: the bird comes out of the
 # opposite wall, still flying the same way. Every FORK_EVERY points there are
-# two exits, Calm and Wild, and the one taken sets the route until the next fork.
+# two exits, Calm and Wild. Both lead to the same door (FORK_DOOR_Y) of the same
+# next room, so every player meets the same map again; Wild pays WILD_COINS and
+# plays that one room with WILD_SPIKES more on each wall after the first.
 const EXIT_HALF := 48 * SUB
 ## Exits sit on a slot center, so the opening is that slot and one either side
 ## and the nearest spikes are two slots away. A bird whose center reaches the
@@ -137,8 +139,14 @@ const EXIT_MAX_Y := 530 * SUB
 ## Fork exits: one above this line, one below it.
 const FORK_SPLIT_Y := 320 * SUB
 const FORK_EVERY := 50
+## The height of the door both fork exits lead to: the room behind a fork is
+## laid out for this height whichever exit the bird took.
+const FORK_DOOR_Y := FORK_SPLIT_Y
 ## Coins for taking the Wild exit.
-const WILD_COINS := 3
+const WILD_COINS := 5
+## Extra spikes per wall in the room behind a Wild exit (every wall after the
+## arrival's, so the arrival layout is the same for Calm and Wild).
+const WILD_SPIKES := 3
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
 ## wait, taps ignored) after a revive.
 const ARRIVAL_HOLD := 60

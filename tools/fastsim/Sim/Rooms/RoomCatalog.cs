@@ -3,9 +3,6 @@ namespace FastSim;
 /// Port of sim/rooms/room_catalog.gd.
 public static class RoomCatalog
 {
-    static readonly string[] CALM_GROUPS = { "starter", "mid", "bonus", "seasonal" };
-    static readonly string[] WILD_GROUPS = { "mid", "late", "seasonal" };
-
     static List<RoomDef> _all;
     static long _first = -1;
 
@@ -52,22 +49,7 @@ public static class RoomCatalog
         return def.season == Seasons.NONE || def.season == season;
     }
 
-    public static long route_weight(RoomDef def, long route)
-    {
-        if (route == ExitKind.CALM)
-        {
-            if (Array.IndexOf(CALM_GROUPS, def.group) < 0) return 0;
-            return def.group == "bonus" ? def.weight * 2 : def.weight;
-        }
-        if (route == ExitKind.WILD)
-        {
-            if (Array.IndexOf(WILD_GROUPS, def.group) < 0) return 0;
-            return def.group == "late" ? def.weight * 2 : def.weight;
-        }
-        return def.weight;
-    }
-
-    public static long pick_next(SimRng rng, long current, long score, long season, long route = ExitKind.NORMAL, long arrival_y = SimConfig.WORLD_H)
+    public static long pick_next(SimRng rng, long current, long score, long season, long arrival_y = SimConfig.WORLD_H)
     {
         var list = all();
         long start = first_index();
@@ -77,11 +59,10 @@ public static class RoomCatalog
         {
             long w = 0;
             bool fits = list[i].fits_arrival(arrival_y);
-            if (i != current && i != start && fits && allowed(list[i], score, season)) w = route_weight(list[i], route);
+            if (i != current && i != start && fits && allowed(list[i], score, season)) w = list[i].weight;
             weights[i] = w;
             total += w;
         }
-        if (total == 0 && route != ExitKind.NORMAL) return pick_next(rng, current, score, season, ExitKind.NORMAL, arrival_y);
         if (total == 0) return current;
         long r = rng.next_below(total);
         for (int i = 0; i < list.Count; i++)

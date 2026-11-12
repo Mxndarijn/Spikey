@@ -432,14 +432,20 @@ public sealed class GameSim
     void _go_through(long side, long kind, long through_y)
     {
         state.exit_open = false;
-        if (kind != ExitKind.NORMAL) state.route = kind;
+        state.route = kind;
         if (kind == ExitKind.WILD)
             for (long i = 0; i < SimConfig.WILD_COINS; i++) collect_coin(state.x, state.y);
         state.room_index += 1;
+        long door = through_y;
+        if (kind != ExitKind.NORMAL)
+        {
+            state.y += SimConfig.FORK_DOOR_Y - through_y;
+            door = SimConfig.FORK_DOOR_Y;
+        }
         state.y = _arrival_y(state.y);
-        state.anchor_y = _arrival_y(through_y);
+        state.anchor_y = _arrival_y(door);
         long next = practice_room;
-        if (!is_practice()) next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.route, state.anchor_y);
+        if (!is_practice()) next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y);
         _seed_room();
         long skip = _arrival_retries(side, next);
         for (long i = 0; i < skip; i++) _rng.next_u32();
@@ -588,7 +594,9 @@ public sealed class GameSim
         }
         _free_lo = -1;
         _free_hi = -1;
-        long mask = RoomRules.generate_wall(_rng, state.score, room.def, target, room.spike_bonus(side), reach);
+        long bonus = room.spike_bonus(side);
+        if (state.route == ExitKind.WILD && room.walls > 1 && !_checking) bonus += SimConfig.WILD_SPIKES;
+        long mask = RoomRules.generate_wall(_rng, state.score, room.def, target, bonus, reach);
         for (int i = 0; i < room.hazards.Count; i++)
             if (room.hazards[i].alive) mask = room.hazards[i].adjust_wall(this, side, mask);
         if (side == 0) state.left_spikes = mask;

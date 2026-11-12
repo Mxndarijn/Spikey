@@ -17,9 +17,6 @@ const BATCHES: Array[Script] = [
 	preload("res://sim/rooms/catalog_twists.gd"),
 ]
 
-const CALM_GROUPS: Array[String] = ["starter", "mid", "bonus", "seasonal"]
-const WILD_GROUPS: Array[String] = ["mid", "late", "seasonal"]
-
 static var _all: Array[RoomDef] = []
 
 
@@ -60,34 +57,13 @@ static func allowed(def: RoomDef, score: int, season: int) -> bool:
 	return def.season == Seasons.NONE or def.season == season
 
 
-## Pick weight of a room on a fork route (0 = not on this route). Calm leads to
-## starter, mid, bonus and seasonal rooms (bonus twice as likely); Wild to mid,
-## late and seasonal rooms (late twice as likely).
-static func route_weight(def: RoomDef, route: int) -> int:
-	match route:
-		SimState.ExitKind.CALM:
-			if def.group not in CALM_GROUPS:
-				return 0
-			return def.weight * 2 if def.group == "bonus" else def.weight
-		SimState.ExitKind.WILD:
-			if def.group not in WILD_GROUPS:
-				return 0
-			return def.weight * 2 if def.group == "late" else def.weight
-	return def.weight
-
-
-## Picks the next room by weight among the allowed ones on the route, never the
-## current one or the open first room, nor one that doesn't fit a bird coming
-## out of a portal at `arrival_y` (RoomDef.arrival_skip). If the route allows
-## nothing yet, any allowed room is fine.
+## Picks the next room by weight among the allowed ones, never the current one
+## or the open first room, nor one that doesn't fit a bird coming out of a
+## portal at `arrival_y` (RoomDef.arrival_skip). The same for every route: a
+## fork never changes which room comes next.
 ## One RNG draw (none if only one room fits).
 static func pick_next(
-	rng: SimRng,
-	current: int,
-	score: int,
-	season: int,
-	route: int = SimState.ExitKind.NORMAL,
-	arrival_y: int = SimConfig.WORLD_H
+	rng: SimRng, current: int, score: int, season: int, arrival_y: int = SimConfig.WORLD_H
 ) -> int:
 	var list := all()
 	# The open first room is only the start: a run never comes back to it.
@@ -98,11 +74,9 @@ static func pick_next(
 		var w := 0
 		var fits := list[i].fits_arrival(arrival_y)
 		if i != current and i != start and fits and allowed(list[i], score, season):
-			w = route_weight(list[i], route)
+			w = list[i].weight
 		weights.append(w)
 		total += w
-	if total == 0 and route != SimState.ExitKind.NORMAL:
-		return pick_next(rng, current, score, season, SimState.ExitKind.NORMAL, arrival_y)
 	if total == 0:
 		return current
 	var r := rng.next_below(total)

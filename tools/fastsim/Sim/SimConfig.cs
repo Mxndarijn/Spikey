@@ -38,7 +38,9 @@ public static class SimConfig
     public const long EXIT_MAX_Y = 530 * SUB;
     public const long FORK_SPLIT_Y = 320 * SUB;
     public const long FORK_EVERY = 50;
-    public const long WILD_COINS = 3;
+    public const long FORK_DOOR_Y = FORK_SPLIT_Y;
+    public const long WILD_COINS = 5;
+    public const long WILD_SPIKES = 3;
     public const long ARRIVAL_HOLD = 60;
     public const long PORTAL_HOLD = 30;
     public const long ARRIVAL_BLIND = 60;

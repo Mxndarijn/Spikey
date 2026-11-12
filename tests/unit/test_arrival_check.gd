@@ -54,7 +54,7 @@ func test_rooms_are_not_picked_at_heights_they_skip() -> void:
 		var y := y_px * SimConfig.SUB
 		var rng := SimRng.new(y_px)
 		for i in 300:
-			var next := RoomCatalog.pick_next(rng, 0, 200, Seasons.SPRING, 0, y)
+			var next := RoomCatalog.pick_next(rng, 0, 200, Seasons.SPRING, y)
 			var def: RoomDef = RoomCatalog.all()[next]
 			assert_true(def.fits_arrival(y), "%s picked at %d px" % [def.id, y_px])
 			if def.skips_heights():

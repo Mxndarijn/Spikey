@@ -155,8 +155,11 @@ benchmark with the full bot's death rate after changing a room:
 survival by reaction time in real runs; `-Variant <id>|all` plays one room
 variant, or each in turn, instead of the drawn one: see
 `tools/fastsim/PORTING.md`). Every 50 points a
-fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
-mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
+fork offers a Calm and a Wild exit. Both lead to the same door
+(`SimConfig.FORK_DOOR_Y`) of the same next room, so two players on one seed
+meet the same map again whichever they took: Wild pays `WILD_COINS` (5) and
+that one room has `WILD_SPIKES` more spikes on every wall after the arrival's
+(`SimState.route` says which exit led into the room). The next room is
 picked by the seed
 (`RoomCatalog.pick_next`: weighted, never the same room twice, only rooms whose
 `from_score` is reached and whose season matches the run's).

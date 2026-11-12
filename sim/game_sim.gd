@@ -488,24 +488,27 @@ func steps_to_wall(side: int) -> int:
 ## slow to react still lives (ArrivalCheck). The
 ## wall it now faces (`side` again) gets spikes as after a bounce. No point is
 ## scored for this. `through_y` is the height of the exit taken: the room is
-## picked and laid out for it, never for the bird's own height.
+## picked and laid out for it, never for the bird's own height. Both exits of a
+## fork lead to one door (SimConfig.FORK_DOOR_Y), so the room behind a fork is
+## the same for Calm and Wild; the route (`kind`) lasts that one room.
 func _go_through(side: int, kind: int, through_y: int) -> void:
 	state.exit_open = false
-	if kind != SimState.ExitKind.NORMAL:
-		state.route = kind
+	state.route = kind
 	if kind == SimState.ExitKind.WILD:
 		for i in SimConfig.WILD_COINS:
 			collect_coin(state.x, state.y)
 	state.room_index += 1
+	var door := through_y
+	if kind != SimState.ExitKind.NORMAL:
+		state.y += SimConfig.FORK_DOOR_Y - through_y
+		door = SimConfig.FORK_DOOR_Y
 	# Far enough from the ceiling and floor to hop while reading the room (the
 	# bird jumps walls here anyway, so the view shows no slide).
 	state.y = _arrival_y(state.y)
-	state.anchor_y = _arrival_y(through_y)
+	state.anchor_y = _arrival_y(door)
 	var next := practice_room
 	if not is_practice():
-		next = RoomCatalog.pick_next(
-			_spine, room.index, state.score, season, state.route, state.anchor_y
-		)
+		next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y)
 	_seed_room()
 	# Lay the room out so a player who needs a moment to look can live: the
 	# check plays it on copies, and each retry skips one RNG draw.
@@ -682,9 +685,13 @@ func _new_wall(side: int) -> void:
 		target = (_free_lo + _free_hi) / 2
 	_free_lo = -1
 	_free_hi = -1
-	var mask := RoomRules.generate_wall(
-		_rng, state.score, room.def, target, room.spike_bonus(side), reach
-	)
+	var bonus := room.spike_bonus(side)
+	# Behind a Wild exit: more spikes on every wall after the arrival's. The
+	# arrival check (_checking) lays the room out without them, so the layout
+	# is the one a Calm player gets.
+	if state.route == SimState.ExitKind.WILD and room.walls > 1 and not _checking:
+		bonus += SimConfig.WILD_SPIKES
+	var mask := RoomRules.generate_wall(_rng, state.score, room.def, target, bonus, reach)
 	for h in room.hazards:
 		if h.alive:
 			mask = h.adjust_wall(self, side, mask)

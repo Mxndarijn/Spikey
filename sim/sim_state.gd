@@ -44,7 +44,8 @@ var exit_a_y := 0
 var exit_a_kind := 0
 var exit_b_y := 0
 var exit_b_kind := 0
-## The route picked at the last fork (ExitKind.CALM or WILD), NORMAL before one.
+## The exit kind taken into this room: CALM or WILD in the room behind a fork,
+## NORMAL everywhere else.
 var route := 0
 ## Where the last coin was collected (the view flies it from there).
 var pickup_x := 0
