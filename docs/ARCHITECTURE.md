@@ -314,6 +314,17 @@ built the same, hazard positions and sizes included; a bird anywhere in the
 exit; Calm or Wild at a fork) and by the `sameseed` FastSim check (every
 generated variant, five exit heights, both ways in, Calm and Wild).
 
+**Hard rule: the layout never changes once the bird is in the room.** A
+recipe builds the layout once, at room start (fallbacks and searches
+included), and nothing reshapes it afterwards. Allowed during the room: the
+hazards' own visible, predictable motion, as hand-made variants have (a swing,
+a turning wheel, a falling drop, a gap that slides on each bounce), and the
+usual wall spikes per bounce. `test_generated_layouts_stay_fixed_while_the_bird_is_in_the_room`
+checks it: per hazard kind it declares the fields that make the layout
+(`LAYOUT_FIELDS`); they must not change at any later tick. Shutter Gates and
+Stalactite Run are still being reworked to a fixed layout (their arrival
+opening closes after the bird is past; `PENDING_FIXED`).
+
 The rest of the fairness contract is the same for every room: the way on
 after the hold is ArrivalCheck's (`GameSim._arrival_retries`, which may still
 lay the room out again: a generated variant drawn by the room seed's first

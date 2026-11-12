@@ -23,6 +23,58 @@ const ROOMS: Array[String] = [
 	"bramble",
 	"rain",
 ]
+## The hard rule: a generated layout is built once, at room start, and stays
+## as it is while the bird is in the room. Per hazard kind, the fields that
+## make its layout (its declared moving parts, like a swing's angle, a wheel's
+## turn or a falling drop, are left out). Gates and Stalactite are being made
+## fixed by the new-rooms-design session (their arrival opening still closes
+## after the bird is past): until then they are PENDING_FIXED here.
+const LAYOUT_FIELDS := {
+	"updraft": ["half_w", "lift", "y0", "y1", "drift_min", "drift_span"],
+	"rotor":
+	[
+		"blades",
+		"blade_max",
+		"blade_min",
+		"half_w",
+		"hub_radius",
+		"period",
+		"spin",
+		"hubs",
+		"spread_x",
+		"spread_y",
+		"lean",
+		"center_x",
+		"center_y",
+	],
+	"pendulum":
+	[
+		"pivot_x",
+		"pivot_y",
+		"length",
+		"radius",
+		"amplitude",
+		"period",
+		"gust",
+		"gust_period",
+		"winch",
+		"winch_period",
+		"twin_x",
+		"twin_length",
+	],
+	"crate_drop": ["cols", "col_w", "col_x0", "crate_w", "crate_h", "max_height", "pair", "gifts"],
+	"bouncer": ["lane"],
+	"drop": ["speed", "gap", "delay", "warn", "radius", "style"],
+	"block": ["y0", "y1", "home_x", "band", "drift", "big"],
+	"crawler": ["lane", "start", "segments", "seg_radius", "spacing", "speed"],
+	"bubble": ["lane", "radius", "spiked", "coin_bubble"],
+	"echo": ["mode", "pivot_y"],
+	"mover": ["mode", "count", "loop_w", "loop_h", "loop_period", "center_y"],
+	"gate": ["x", "period", "gap_size", "open_top", "open_bottom"],
+	"stalactite":
+	["x", "gap", "half_w", "top", "bottom", "fixed_lo", "fixed_hi", "open_top", "open_bottom"],
+}
+const PENDING_FIXED: Array[String] = ["gates", "stalac"]
 
 
 static func _arrived(index: int, variant: String, anchor_px: int, dy_px: int, side: int) -> GameSim:
@@ -215,3 +267,43 @@ static func _through(index: int, variant: String, kind: int, exit_px: int, dy_px
 
 static func _named_layout(sim: GameSim) -> String:
 	return "%s/%s %d" % [sim.room.def.id, sim.room.variant_id(), _layout(sim)]
+
+
+func test_generated_layouts_stay_fixed_while_the_bird_is_in_the_room() -> void:
+	for id in ROOMS:
+		if id in PENDING_FIXED:
+			continue
+		var index := RoomCatalog.index_of(id)
+		for v in RoomCatalog.all()[index].variants:
+			if v.kind != RoomVariant.Kind.GENERATED:
+				continue
+			for y_px: int in [140, 320, 500]:
+				for side in 2:
+					var sim := _arrived(index, v.id, y_px, 0, side)
+					var start := _snapshot(sim)
+					var room := sim.state.room_index
+					var bot := SimRng.new(y_px + side)
+					for i in 900:
+						if sim.is_over() or sim.state.room_index != room:
+							break
+						sim.step(SimBots.random_tapper(sim, bot, 14))
+						if i % 30 == 29 and not sim.is_over() and sim.state.room_index == room:
+							assert_eq(
+								_snapshot(sim, start.size()),
+								start,
+								"%s/%s at %d px, side %d, tick %d" % [id, v.id, y_px, side, i]
+							)
+
+
+## Every hazard's layout fields (LAYOUT_FIELDS), the first `count` hazards
+## (a hazard may add pieces later, a split ball's half).
+static func _snapshot(sim: GameSim, count: int = -1) -> Array:
+	var out := []
+	var n := sim.room.hazards.size() if count < 0 else mini(count, sim.room.hazards.size())
+	for i in n:
+		var h: Hazard = sim.room.hazards[i]
+		var row := [h.kind]
+		for f: String in LAYOUT_FIELDS.get(h.kind, []):
+			row.append(h.get(f))
+		out.append(row)
+	return out
