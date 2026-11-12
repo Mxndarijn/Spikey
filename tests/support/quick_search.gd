@@ -2,7 +2,7 @@ class_name QuickSearch
 extends SurvivalSearch
 ## SurvivalSearch with a coarse (fast) first pass. A line it finds is a real
 ## way through; only when it finds none does the full search run. Used by the
-## Floating Isles check (tools/fastsim/Checks.cs Isles, C# run_quick).
+## Floating Isles check (FastSim-RS `isles`, SurvivalSearch::run_quick).
 
 
 func run(sim: GameSim, ticks: int) -> bool:

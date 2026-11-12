@@ -54,6 +54,11 @@ fn main() {
         "human" => human::run(&rest[1..], &opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),
         "measure" => measure::run(&rest[1..], &opts),
+        "runfile" => bots::run_file::RunFile::run_mode(
+            rest.get(1).map(|s| s.parse().expect("seed")).unwrap_or(1),
+            rest.get(2).map(|s| s.parse().expect("bot seed")).unwrap_or(1),
+            opts.get("out").map(|s| s.as_str()).unwrap_or("run.json"),
+        ),
         "boss" => boss::run(&rest[1..], &opts),
         "difficulty" => difficulty::run(&rest[1..], &opts),
         "rl" if rest.get(1).map(|s| s.as_str()) == Some("review") => review::run(&rest[2..], &opts),

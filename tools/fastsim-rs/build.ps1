@@ -3,8 +3,8 @@
 # Exit 3 when cargo is not installed (callers skip the Rust steps then).
 param([switch]$NoSlot)
 $ErrorActionPreference = "Stop"
-$cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
-if (Test-Path $cargoBin) { $env:Path = "$cargoBin;" + $env:Path }
+$cargoBin = Join-Path $HOME ".cargo/bin"
+if (Test-Path $cargoBin) { $env:PATH = "$cargoBin" + [IO.Path]::PathSeparator + $env:PATH }
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { Write-Host "cargo not installed"; exit 3 }
 $manifest = Join-Path $PSScriptRoot "Cargo.toml"
 $slot = "D:\SoftwareProjects\SpikeCage-coord\slot.ps1"

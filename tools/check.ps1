@@ -138,8 +138,8 @@ if ($hasDotnet) {
 
 # FastSim-RS (the Rust copy, docs/FASTSIM_RS.md): built here too; no cargo = skipped.
 $fastsimRs = Join-Path $root "tools/fastsim-rs"
-$cargoBin = Join-Path $env:USERPROFILE ".cargo/bin"
-if (Test-Path $cargoBin) { $env:Path = "$cargoBin;" + $env:Path }
+$cargoBin = Join-Path $HOME ".cargo/bin"
+if (Test-Path $cargoBin) { $env:PATH = "$cargoBin" + [IO.Path]::PathSeparator + $env:PATH }
 $hasCargo = [bool](Get-Command cargo -ErrorAction SilentlyContinue)
 $fastsimRsBuilt = $false
 if ($hasCargo -and $runParity) {

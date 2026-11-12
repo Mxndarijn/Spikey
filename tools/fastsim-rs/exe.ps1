@@ -5,7 +5,8 @@
 param([switch]$NoBuild)
 # Compiler warnings go to stderr: never let a caller's "Stop" turn them into errors.
 $ErrorActionPreference = "Continue"
-$exe = Join-Path $PSScriptRoot "target/release/fastsim-rs.exe"
+$exe = Join-Path $PSScriptRoot "target/release/fastsim-rs"
+if ($env:OS -eq "Windows_NT") { $exe = "$exe.exe" }
 if (-not $NoBuild) {
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "build.ps1") -NoSlot 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {

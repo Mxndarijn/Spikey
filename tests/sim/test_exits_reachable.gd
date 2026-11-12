@@ -5,7 +5,7 @@ extends TestCase
 ## Now a room's exits are picked when it starts (ExitPlanner.plan_room), the
 ## same for every player, and near an exit the anchor, the fangs and the
 ## walls steer to it. The search side of this test is the FastSim check
-## `reach` (tools/fastsim/Checks.cs); this one checks the rules it relies on.
+## `reach` (tools/fastsim-rs/fastsim/src/checks/reach.rs); this one checks the rules it relies on.
 
 const Stalactite := preload("res://sim/hazards/stalactite.gd")
 const SEEDS := 3

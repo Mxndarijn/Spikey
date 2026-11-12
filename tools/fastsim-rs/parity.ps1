@@ -4,7 +4,8 @@
 # -Cases replays an existing recording instead of recording. Exit 3: cargo not installed (skip).
 param([switch]$Quick, [int]$Jobs = 8, [switch]$NoBuild, [string]$Keep = "", [string]$Cases = "")
 $root = Resolve-Path (Join-Path $PSScriptRoot "../..")
-$exe = Join-Path $PSScriptRoot "target/release/fastsim-rs.exe"
+$exe = Join-Path $PSScriptRoot "target/release/fastsim-rs"
+if ($env:OS -eq "Windows_NT") { $exe = "$exe.exe" }
 if (-not $NoBuild) {
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "build.ps1") -NoSlot
     if ($LASTEXITCODE -eq 3) { exit 3 }

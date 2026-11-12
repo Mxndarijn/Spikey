@@ -2,8 +2,8 @@ name: Check
 
 # The Linux version of tools/check.ps1: lint + format, headless import, load every script
 # and scene, the full test suite (unit, sim purity, golden replays, bot runs), then the
-# FastSim parity check (the C# copy of sim/ in tools/fastsim must match it tick for tick)
-# and the bot-heavy tests on FastSim (tools/fastsim/Checks.cs).
+# FastSim-RS parity check (the Rust copy of sim/ in tools/fastsim-rs must match it tick for
+# tick) and the bot-heavy tests on FastSim-RS (`fastsim-rs check all`).
 # Runs on its own for pushes and pull requests, and is called by the phone builds
 # (build.yml): they build while this runs, and nothing is released, uploaded to TestFlight or
 # announced unless it passes. A build of a commit that already has a passed (or running) push
@@ -71,22 +71,39 @@ jobs:
         # Side by side, one headless Godot per core (tests/run_tests.gd).
         run: godot --headless --path . -s res://tests/run_tests.gd -- --jobs "$(nproc)"
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: FastSim parity
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/fastsim-rs/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-${{ hashFiles('tools/fastsim-rs/**/*.rs') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-
+
+      - name: Build FastSim-RS
+        # A portable target instead of .cargo/config.toml's target-cpu=native: the cached
+        # build must run on any runner. The sim is integers only, so results do not change.
+        env:
+          RUSTFLAGS: -C target-cpu=x86-64-v2
+        shell: pwsh
+        run: |
+          ./tools/fastsim-rs/build.ps1 -NoSlot
+          exit $LASTEXITCODE
+
+      - name: FastSim-RS parity
+        # tools/fastsim-rs (the Rust copy of sim/ the bots run on) must match sim/ tick for tick.
         shell: pwsh
         run: |
           $env:GODOT = (Get-Command godot).Source
-          ./tools/fastsim.ps1 -Mode parity -Quick -Jobs 4 -Priority Normal
+          ./tools/fastsim-rs/parity.ps1 -Quick -NoBuild -Jobs 4
           exit $LASTEXITCODE
 
-      - name: FastSim checks
-        # Every variant passable, the portal reaction benchmark, the points cap,
-        # revives and Double Trouble pairs (their GD tests above keep a sample).
-        shell: pwsh
-        run: |
-          ./tools/fastsim.ps1 -Mode check -Jobs "$(nproc)" -Priority Normal
-          exit $LASTEXITCODE
+      - name: FastSim-RS checks
+        # Every bot test (docs/FASTSIM_RS.md): passable variants, the portal reaction
+        # benchmark, the points cap, revives, the room searches, exits, bosses, difficulty.
+        run: ./tools/fastsim-rs/target/release/fastsim-rs check all --jobs "$(nproc)"

@@ -77,11 +77,11 @@ param(
 )
 
 # FastSim-RS (the Rust copy) runs the modes and checks it has ported, by
-# default: bench, difficulty, and -Mode check when every check asked for is
+# default: bench, difficulty, runfile, and -Mode check when every check asked for is
 # ported. Everything else (and -CSharp) runs on C# FastSim. -Mode parity always
 # checks C# FastSim; tools/fastsim-rs/parity.ps1 checks the Rust copy.
 $rsChecks = @("passable", "arrival", "sight", "blind_seeds", "yardstick", "bossfair", "difficulty")
-$rsMode = $Mode -in @("bench", "difficulty")
+$rsMode = $Mode -in @("bench", "difficulty", "runfile")
 if ($Mode -eq "check" -and $Check -ne "all") {
     $rsMode = @($Check.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -notin $rsChecks }).Count -eq 0
 }
@@ -91,6 +91,10 @@ if ($rsMode -and -not $CSharp) {
         $ra = @()
         if ($Mode -eq "check") { $ra = @("check", $Check); if ($Filter) { $ra += @("--filter", $Filter) } }
         elseif ($Mode -eq "bench") { $ra = @("bench") }
+        elseif ($Mode -eq "runfile") {
+            if (-not $Out) { Write-Host "-Mode runfile needs -Out <file.json>" -ForegroundColor Red; exit 2 }
+            $ra = @("runfile", $Seed, $(if ($Seeds) { $Seeds } else { 1 }), "--out", [IO.Path]::GetFullPath($Out))
+        }
         else {
             $ra = @("difficulty", $Step)
             if ($Room -ne "*") { $ra += @("--rooms", $Room) }
