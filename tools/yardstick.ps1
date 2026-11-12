@@ -20,6 +20,10 @@
 #   -Mode report  -Bot new [-Fair fair.txt]          # holdout seeds 1..400 once: KM tier, beast/infinite, whole-run leak check
 #   -Mode leakrun -Bot new                           # the whole-run leak check alone (seeds 900001+)
 #
+# Runs on FastSim-RS (tools/fastsim-rs, docs/FASTSIM_RS.md) by default, the
+# same numbers and files as C# FastSim; -CSharp uses C# FastSim. Bots only C#
+# has (rl:*, world:*, mpc*, honest-v1) run on C# automatically.
+#
 # -Human with -Mode run also compares each bot with those human runs
 # (distances and a human-vs-bot classifier). Take a CPU slot for big runs.
 param(
@@ -49,7 +53,8 @@ param(
     [int]$BankSeeds = 160,
     [string]$Out = "D:\SoftwareProjects\SpikeCage-coord\research\yardstick",
     [ValidateSet("Idle", "BelowNormal", "Normal")]
-    [string]$Priority = "BelowNormal"
+    [string]$Priority = "BelowNormal",
+    [switch]$CSharp
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,6 +62,15 @@ $root = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $root "tools/fastsim/FastSim.csproj"
 $exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim"
 
+$csOnly = $Bot -match "(^|,)\s*(rl:|world:|mpc|honest-v1)"
+$rs = $null
+if (-not $CSharp -and -not $csOnly) { $rs = & (Join-Path $root "tools/fastsim-rs/exe.ps1") }
+if ($rs) {
+    $exe = $rs
+    # fastsim-rs: one thread pool for the whole run (--jobs); --threads is read too.
+    $rsJobs = @("--jobs", $Threads)
+} else {
+$rsJobs = @()
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host "dotnet not found: install the .NET 9 SDK to use FastSim." -ForegroundColor Red
     exit 2
@@ -68,6 +82,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
+}
 
 if ($Mode -in @("quick", "confirm", "report", "leakrun")) {
     if ($Bot -eq "") { Write-Host "-Bot is needed" -ForegroundColor Red; exit 2 }
@@ -75,7 +90,7 @@ if ($Mode -in @("quick", "confirm", "report", "leakrun")) {
     New-Item -ItemType Directory -Force $mdir | Out-Null
     $bots = $Bot.Split(",") | ForEach-Object { $_.Trim() }
     $tag = ($bots[0] -replace "[:,=]", "-")
-    $common = @("--threads", $Threads, "--priority", $Priority.ToLower())
+    $common = @("--threads", $Threads, "--priority", $Priority.ToLower()) + $rsJobs
     if ($Mode -in @("quick", "confirm")) {
         if ($Bank -eq "") { $Bank = Join-Path $mdir "$tag.dev.bank.json" }
         if (-not (Test-Path $Bank)) {
@@ -112,7 +127,7 @@ if ($Mode -in @("quick", "confirm", "report", "leakrun")) {
     exit $LASTEXITCODE
 }
 
-$a = @("yardstick", $Mode, "--out", $Out, "--threads", $Threads, "--priority", $Priority.ToLower())
+$a = @("yardstick", $Mode, "--out", $Out, "--threads", $Threads, "--priority", $Priority.ToLower()) + $rsJobs
 if ($Mode -eq "leak") { $a += @("--bot", $Bot) }
 if ($Mode -eq "stats") { $a += @("--files", $Files); if ($Json) { $a += @("--json", $Json) } }
 if ($Mode -eq "run") {

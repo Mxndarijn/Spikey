@@ -13,6 +13,10 @@ mod fxhash;
 mod parity;
 mod setups;
 mod speed;
+mod measure;
+mod review;
+mod boss;
+mod difficulty;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -49,6 +53,10 @@ fn main() {
         "check" => checks::run(&rest[1..], &opts),
         "human" => human::run(&rest[1..], &opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),
+        "measure" => measure::run(&rest[1..], &opts),
+        "boss" => boss::run(&rest[1..], &opts),
+        "difficulty" => difficulty::run(&rest[1..], &opts),
+        "rl" if rest.get(1).map(|s| s.as_str()) == Some("review") => review::run(&rest[2..], &opts),
         _ => {
             eprintln!("usage: fastsim-rs parity <cases.txt> | speed [options] | bench   [--jobs N]");
             2

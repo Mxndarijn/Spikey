@@ -71,8 +71,45 @@ param(
     [string]$In = "",
     # Use the FastSim already built (tools/check.ps1 builds once, then runs
     # parity and the checks side by side).
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    # Use C# FastSim even where FastSim-RS has the mode (docs/FASTSIM_RS.md).
+    [switch]$CSharp
 )
+
+# FastSim-RS (the Rust copy) runs the modes and checks it has ported, by
+# default: bench, difficulty, and -Mode check when every check asked for is
+# ported. Everything else (and -CSharp) runs on C# FastSim. -Mode parity always
+# checks C# FastSim; tools/fastsim-rs/parity.ps1 checks the Rust copy.
+$rsChecks = @("passable", "arrival", "sight", "blind_seeds", "yardstick", "bossfair", "difficulty")
+$rsMode = $Mode -in @("bench", "difficulty")
+if ($Mode -eq "check" -and $Check -ne "all") {
+    $rsMode = @($Check.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -notin $rsChecks }).Count -eq 0
+}
+if ($rsMode -and -not $CSharp) {
+    $rs = & (Join-Path (Split-Path -Parent $PSScriptRoot) "tools/fastsim-rs/exe.ps1") -NoBuild:$NoBuild
+    if ($rs) {
+        $ra = @()
+        if ($Mode -eq "check") { $ra = @("check", $Check); if ($Filter) { $ra += @("--filter", $Filter) } }
+        elseif ($Mode -eq "bench") { $ra = @("bench") }
+        else {
+            $ra = @("difficulty", $Step)
+            if ($Room -ne "*") { $ra += @("--rooms", $Room) }
+            if ($Step -eq "measure") {
+                $ra += @("--what", $What, "--trials", $(if ($Seeds) { $Seeds } else { 16 }),
+                    "--out", $(if ($Out) { [IO.Path]::GetFullPath($Out) } else { "difficulty.tsv" }))
+                if ($Bots) { $ra += @("--bots", $Bots) }
+            }
+            if ($Step -eq "show") { $ra += @("--first", $Seed) }
+            if ($Step -eq "score") {
+                $ra += @("--in", (($In -split ",") | ForEach-Object { [IO.Path]::GetFullPath($_) }) -join ",")
+                if ($Out) { $ra += @("--out", [IO.Path]::GetFullPath($Out)) }
+            }
+        }
+        $ra += @("--jobs", $(if ($Jobs -gt 0) { $Jobs } else { 4 }))
+        & $rs @ra
+        exit $LASTEXITCODE
+    }
+}
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
