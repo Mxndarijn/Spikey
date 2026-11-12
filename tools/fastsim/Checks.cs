@@ -459,7 +459,7 @@ static partial class Checks
         {
             long total = results.Sum(r => (long)r["total"]);
             long no_way = results.Sum(r => (long)r["no_way"]);
-            if (no_way * 100 > Reaction.MAX_EXTRA_PCT * total)
+            if (no_way > Reaction.MAX_NO_WAY)
             {
                 var worst = results.Where(r => (long)r["no_way"] > 0).OrderByDescending(r => (long)r["no_way"])
                     .Take(12).Select(r => $"{r["id"]} {r["no_way"]}");
@@ -472,7 +472,7 @@ static partial class Checks
         {
             long total = results.Sum(r => (long)r["total"]);
             long no_way = results.Sum(r => (long)r["no_way"]);
-            return $"{results.Count} rooms/variants x {COUNT} arrivals, no way to live at 1 s in {no_way} of {total} ({100.0 * no_way / Math.Max(1, total):F2}%, limit {Reaction.MAX_EXTRA_PCT}%)";
+            return $"{results.Count} rooms/variants x {COUNT} arrivals, no way to live at 1 s in {no_way} of {total} ({100.0 * no_way / Math.Max(1, total):F2}%, must be {Reaction.MAX_NO_WAY}), the bird anywhere in the exit";
         }
     }
 

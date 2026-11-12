@@ -1,12 +1,13 @@
 extends TestCase
-## Nothing kills in an open or ghost exit's mouth (sim/exit_zone.gd): balls
+## Nothing kills in a room's exit mouths, from the room's start (its exits
+## are planned then, on both walls: sim/exit_zone.gd): balls
 ## bounce off it, sliders stop at it, shots, drops and sparks break on it,
 ## pistons sit their cycle out and beams stop short, and ExitPlanner never
 ## puts an exit where a hazard is already. The full sweep (SurvivalSearch
 ## through every variant, and full runs in every season, seed 4206176851
 ## among them) runs on FastSim: `tools/fastsim.ps1 -Mode check -Check exits`,
-## part of tools/check.ps1. Here: every variant with the bird held still and
-## an exit opened on each wall, on a coarse probe.
+## part of tools/check.ps1. Here: every variant with the bird held still, on
+## a coarse probe.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true
@@ -20,24 +21,25 @@ const STEPS := 240
 const PROBE_EVERY := 3
 
 
-## The kinds of hazard that kill a bird in an open or ghost exit's mouth now:
+## The kinds of hazard that kill a bird in one of the room's exit mouths now:
 ## bird circles from touching the wall to a bird radius back, within EXIT_HALF.
 static func blockers(sim: GameSim) -> Array[String]:
 	var out: Array[String] = []
-	if ExitZone.count(sim) == 0:
-		return out
 	var s := sim.state
 	var r := SimConfig.BIRD_RADIUS
 	var keep_x := s.x
 	var keep_y := s.y
-	var wall := sim.room.wall_left() + r if s.exit_side == 0 else sim.room.wall_right() - r
-	var dir := 1 if s.exit_side == 0 else -1
-	for i in ExitZone.count(sim):
-		for dx: int in [0, r]:
+	for i in ExitZone.BOXES:
+		if ExitZone.box_y(sim, i) == 0:
+			continue
+		var side := ExitZone.box_side(sim, i)
+		var wall := sim.room.wall_left() + r if side == 0 else sim.room.wall_right() - r
+		var dir := 1 if side == 0 else -1
+		for dx: int in [0, r - 1]:
 			var dy := -SimConfig.EXIT_HALF
 			while dy <= SimConfig.EXIT_HALF:
 				s.x = wall + dir * dx
-				s.y = ExitZone.exit_y(sim, i) + dy
+				s.y = ExitZone.box_y(sim, i) + dy
 				for h in sim.room.hazards:
 					if h.alive and h.kills(sim) and not out.has(h.kind):
 						out.append(h.kind)
@@ -47,19 +49,23 @@ static func blockers(sim: GameSim) -> Array[String]:
 	return out
 
 
-## A practice room of `index` in variant `variant`, some steps in, with an
-## exit just opened on wall `side` and the bird held mid-room at its height
-## (so a Stalker is drawn to it).
-static func with_exit(index: int, variant: String, side: int, seed_value: int) -> GameSim:
+## A practice room of `index` in variant `variant`, its exits planned (both
+## walls), with the bird held mid-room at the right wall's exit height (so a
+## Stalker is drawn to it).
+static func practice(index: int, variant: String, seed_value: int) -> GameSim:
 	var sim := GameSim.new(seed_value, RoomCatalog.all()[index].season, index, variant)
-	for i in 30 + seed_value % 90:
-		sim.room.step(sim)
 	sim.state.x = SimConfig.WORLD_W / 2
-	sim.state.vx = SimConfig.SPEED_X if side == 1 else -SimConfig.SPEED_X
-	ExitPlanner.plan(sim, sim._rng, side, sim.state.score + SimConfig.POINTS_PER_ROOM)
-	sim.state.exit_open = true
-	sim.state.y = sim.state.exit_a_y
+	sim.state.vx = SimConfig.SPEED_X
+	sim.state.y = sim.state.plan_a_y_right
 	return sim
+
+
+## No planned exits, so a test can put one exit where it wants.
+static func clear_plan(sim: GameSim) -> void:
+	sim.state.plan_a_y_left = 0
+	sim.state.plan_b_y_left = 0
+	sim.state.plan_a_y_right = 0
+	sim.state.plan_b_y_right = 0
 
 
 func test_no_hazard_in_an_exit_mouth() -> void:
@@ -71,20 +77,26 @@ func test_no_hazard_in_an_exit_mouth() -> void:
 			for v in all[index].variants:
 				ids.append(v.id)
 		for variant in ids:
-			for side in 2:
-				var sim := with_exit(index, variant, side, 1000 + index * 7 + side)
+			for k in 2:
+				var sim := practice(index, variant, 1000 + index * 7 + k)
 				var found: Array[String] = []
-				for k in STEPS:
+				for step in STEPS:
 					sim.room.step(sim)
-					if k % PROBE_EVERY == 0:
+					if step % PROBE_EVERY == 0:
 						found = blockers(sim)
 						if not found.is_empty():
 							break
 				assert_true(
 					found.is_empty(),
 					(
-						"%s/%s, exit on wall %d at %d px: %s in its mouth"
-						% [all[index].id, variant, side, sim.state.exit_a_y / 64, ", ".join(found)]
+						"%s/%s seed %d, step %d: %s in an exit's mouth"
+						% [
+							all[index].id,
+							variant,
+							1000 + index * 7 + k,
+							sim.room.t,
+							", ".join(found)
+						]
 					)
 				)
 
@@ -94,10 +106,11 @@ func test_a_beam_stops_short_of_the_mouth() -> void:
 	var index := RoomCatalog.index_of("beams")
 	var sim := GameSim.new(5, RoomCatalog.all()[index].season, index)
 	var beam: Beam = sim.room.hazards[0]
+	clear_plan(sim)
 	sim.state.exit_side = 1
 	sim.state.exit_open = true
 	sim.state.exit_a_y = beam.rows[0]
-	assert_eq(beam.beam_right(sim, 0), ExitZone.left(sim) - 1)
+	assert_eq(beam.beam_right(sim, 0), ExitZone.left_on(sim, 1) - 1)
 	assert_eq(beam.beam_left(sim, 0), sim.room.wall_left())
 	sim.state.exit_a_y = beam.rows[0] + ExitZone.HALF + Beam.HALF_H + SimConfig.SUB
 	assert_eq(beam.beam_right(sim, 0), sim.room.wall_right(), "a beam clear of the mouth")
@@ -107,24 +120,26 @@ func test_a_beam_stops_short_of_the_mouth() -> void:
 func test_a_ball_bounces_off_the_mouth() -> void:
 	var index := RoomCatalog.index_of("bramble")
 	var sim := GameSim.new(5, RoomCatalog.all()[index].season, index, "classic")
+	clear_plan(sim)
 	sim.state.exit_side = 1
 	sim.state.exit_open = true
 	sim.state.exit_a_y = 320 * SimConfig.SUB
 	var ball := Bouncer.new()
-	ball.x = ExitZone.left(sim) - ball.radius - 2 * SimConfig.SUB
+	ball.x = ExitZone.left_on(sim, 1) - ball.radius - 2 * SimConfig.SUB
 	ball.y = sim.state.exit_a_y
 	ball.vx = Bouncer.SPEED_X
 	ball.vy = 0
 	for i in 4:
 		ball.move(sim)
 	assert_true(ball.vx < 0, "turned back")
-	assert_true(ball.x + ball.radius < ExitZone.left(sim), "outside the mouth")
+	assert_true(ball.x + ball.radius < ExitZone.left_on(sim, 1), "outside the mouth")
 
 
 ## The Stalker's spikes slide up to the mouth's edge and wait there.
 func test_the_stalker_waits_at_the_mouth() -> void:
 	var index := RoomCatalog.index_of("stalker")
 	var sim := GameSim.new(5, RoomCatalog.all()[index].season, index)
+	clear_plan(sim)
 	sim.state.vx = SimConfig.SPEED_X
 	sim.state.exit_side = 1
 	sim.state.exit_open = true

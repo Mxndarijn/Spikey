@@ -77,8 +77,15 @@ static func plan_room(sim: GameSim, at: int) -> void:
 	s.plan_b_y_left = 0
 	s.plan_a_y_right = 0
 	s.plan_b_y_right = 0
+	# A revive brings the bird back out of its portal with one point (or
+	# none) to go, and puts the exit on the wall behind it: that wall's exit
+	# must also be clear for the bird getting there a crossing after the
+	# portal (GameSim.revive).
+	var heading := 1 if s.vx > 0 else 0
 	for side in 2:
+		sim._points_also = 1 if side != heading else -1
 		plan(sim, rng, side, at)
+		sim._points_also = -1
 		if side == 0:
 			s.plan_a_y_left = s.exit_a_y
 			s.plan_a_kind_left = s.exit_a_kind
@@ -209,29 +216,19 @@ static func random_y(sim: GameSim, rng: SimRng, lo: int, hi: int) -> int:
 	return SimConfig.slot_center_y(open[rng.next_below(open.size())])
 
 
-## Puts the open exit on wall `side` at the spike slot nearest the bird: a
-## revived bird comes out of it (GameSim.revive). At a fork, the exit on the
-## bird's side of the split moves there; the other stays where it was.
-## Returns false, with the exit moved to wall `side` but its heights as they
-## were, when a hazard blocks that slot (Hazard.blocks_exit).
-static func at_bird(sim: GameSim, side: int) -> bool:
-	var s := sim.state
-	s.exit_side = side
-	var c0 := SimConfig.slot_center_y(0)
-	var slot := clampi(
-		(s.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, 0, SimConfig.SLOT_COUNT - 1
-	)
-	var y := SimConfig.slot_center_y(slot)
-	if blocked(sim, y):
-		return false
-	if s.exit_b_kind != SimState.ExitKind.NORMAL and s.y >= SimConfig.FORK_SPLIT_Y:
-		s.exit_b_y = y
-	else:
-		s.exit_a_y = y
-	return true
-
-
 static func blocked(sim: GameSim, y: int) -> bool:
+	if _blocked_now(sim, y):
+		return true
+	if sim._points_also < 0:
+		return false
+	var keep := sim._points_override
+	sim._points_override = sim._points_also
+	var out := _blocked_now(sim, y)
+	sim._points_override = keep
+	return out
+
+
+static func _blocked_now(sim: GameSim, y: int) -> bool:
 	# A room with a short reach (Narrow) keeps the exit near the anchor (where
 	# generation puts the bird, SimState.anchor_y).
 	if sim.room.def.reach > 0 and absi(y - sim.state.anchor_y) > sim.room.def.reach:
@@ -255,7 +252,7 @@ static func in_mouth(sim: GameSim, side: int, y: int) -> bool:
 	var wall := sim.room.wall_left() + r if side == 0 else sim.room.wall_right() - r
 	var dir := 1 if side == 0 else -1
 	var out := false
-	for dx: int in [0, r / 2, r]:
+	for dx: int in [0, r / 2, r - 1]:
 		var dy := -SimConfig.EXIT_HALF
 		while dy <= SimConfig.EXIT_HALF and not out:
 			s.x = wall + dir * dx

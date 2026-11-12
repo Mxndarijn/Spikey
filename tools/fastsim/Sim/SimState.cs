@@ -52,6 +52,7 @@ public sealed class SimState
     public long plan_a_kind_right = 0;
     public long plan_b_y_right = 0;
     public long plan_at = 0;
+    public long revive_gap = 0;
 
     public SimState copy() => (SimState)MemberwiseClone();
 
@@ -94,6 +95,7 @@ public sealed class SimState
         h = SimHash.mix(h, plan_a_kind_right);
         h = SimHash.mix(h, plan_b_y_right);
         h = SimHash.mix(h, plan_at);
+        h = SimHash.mix(h, revive_gap);
         return h;
     }
 }

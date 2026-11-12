@@ -13,6 +13,10 @@ func test_fastsim_uses_the_arrival_benchmark_thresholds() -> void:
 	var rc := FileAccess.get_file_as_string(REACTION)
 	assert_eq(_const(rc, "EARLY_DELAY"), ArrivalBench.EARLY_DELAY, "Reaction.EARLY_DELAY")
 	assert_eq(_const(rc, "MAX_EXTRA_PCT"), ArrivalBench.MAX_EXTRA_PCT, "Reaction.MAX_EXTRA_PCT")
+	assert_eq(_const(rc, "MAX_NO_WAY"), ArrivalBench.MAX_NO_WAY, "Reaction.MAX_NO_WAY")
+	assert_eq(ArrivalBench.MAX_NO_WAY, 0, "a 1 s reaction always has a way to live")
+	assert_true(rc.contains("OFFSETS = { 0, -65, 65, -32, 32 }"), "Reaction.OFFSETS")
+	assert_eq(ArrivalBench.OFFSETS, [0, -65, 65, -32, 32] as Array[int])
 
 
 ## FastSim run files (Bots/RunFile.cs) carry FastSim's gameplay version, and

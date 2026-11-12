@@ -48,8 +48,7 @@ func test_revive_restarts_the_room_as_the_bird_came_in() -> void:
 	assert_eq(s.y, at.y, "at the height it came in at")
 	assert_eq(s.vx, at.vx, "flying the way it came in")
 	assert_true(absi(at.x - came.state.x) <= SimConfig.SPEED_X * 2, "kept right out of the portal")
-	if not (s.exit_open and s.exit_side == (0 if s.vx > 0 else 1)):
-		assert_eq(s.x, at.x, "at the portal it came through")
+	assert_eq(s.x, at.x, "at the portal it came through")
 	assert_eq(s.vy, 0, "flying level")
 	assert_eq(s.left_spikes, at.left_spikes, "the left wall as it came in")
 	assert_eq(s.right_spikes, at.right_spikes, "the right wall as it came in")
@@ -122,34 +121,37 @@ func _revived_with_exit(kind: String, side: int) -> GameSim:
 	return sim
 
 
-func test_an_open_exit_is_the_portal_the_bird_comes_out_of() -> void:
+func test_an_open_exit_is_the_rooms_planned_exit_on_the_wall_behind() -> void:
 	for side: int in [0, 1]:
 		var sim := _revived_with_exit("open", side)
 		var s := sim.state
 		var behind := 0 if s.vx > 0 else 1
+		var wall := sim.room.wall_left() if behind == 0 else sim.room.wall_right()
 		assert_true(s.exit_open, "wall %d: still open" % side)
 		assert_eq(s.exit_side, behind, "wall %d: on the wall it came in by" % side)
-		assert_false(ExitPlanner.blocked(sim, s.exit_a_y), "wall %d: nothing blocks it" % side)
-		assert_true(
-			absi(s.exit_a_y - s.y) <= SimConfig.SLOT_SIZE / 2, "wall %d: at its height" % side
-		)
+		var planned := s.plan_a_y_left if behind == 0 else s.plan_a_y_right
+		assert_eq(s.exit_a_y, planned, "wall %d: where the room planned it" % side)
 		assert_eq(sim.wall_mask(behind) & ExitPlanner.slots(s), 0, "wall %d: no spike in it" % side)
+		assert_eq(
+			sim.wall_mask(behind) & sim._slots_level_with(s.y),
+			0,
+			"wall %d: no spike level with the bird at its portal" % side
+		)
+		assert_true(absi(s.x - wall) <= SimConfig.BIRD_RADIUS + 1, "wall %d: at its portal" % side)
 
 
-## Shutter Gates block an exit at the height this bird came in at: the exit is
-## planned elsewhere on that wall and the bird comes out clear of its spikes.
-func test_an_open_exit_a_hazard_blocks_at_the_portal_is_planned_again() -> void:
+## Shutter Gates: the exit stays the room's planned one, and the bird comes
+## out of its portal with no spike level with it on the wall it came in by.
+func test_an_open_exit_in_shutter_gates_stays_planned() -> void:
 	var sim := BotSetups.gates_revived(101, true, 0, SimConfig.slot_center_y(1))
 	var s := sim.state
 	var behind := 0 if s.vx > 0 else 1
 	var wall := sim.room.wall_left() if behind == 0 else sim.room.wall_right()
 	assert_true(s.exit_open)
 	assert_eq(s.exit_side, behind, "on the wall it came in by")
-	assert_false(ExitPlanner.blocked(sim, s.exit_a_y), "where nothing blocks it")
-	assert_true(
-		absi(s.x - wall) > SimConfig.BIRD_RADIUS + sim.room.max_spike_depth(),
-		"the bird is clear of the spike tips"
-	)
+	assert_eq(s.exit_a_y, s.plan_a_y_left if behind == 0 else s.plan_a_y_right, "as planned")
+	assert_true(absi(s.x - wall) <= SimConfig.BIRD_RADIUS + 1, "at its portal")
+	assert_eq(sim.wall_mask(behind) & sim._slots_level_with(s.y), 0, "no spike level with it")
 	for i in SimConfig.ARRIVAL_HOLD + 2:
 		sim.step(false)
 	assert_true(s.alive, "not killed by the wall it came in by")
@@ -197,3 +199,57 @@ func test_revived_runs_are_deterministic() -> void:
 	assert_true(
 		a.end_tick > a.revive_ticks[0] + SimConfig.ARRIVAL_HOLD, "it flew on after the wait"
 	)
+
+
+## Same seed, a revive at two different moments of one room (and none at
+## all): the room's planned exits, and the exit that then shows, are the same.
+func test_a_revive_never_moves_the_rooms_exits() -> void:
+	var start := GameSim.new(2024)
+	var rng := SimRng.new(1)
+	while not start.is_over() and start.state.room_index < 1:
+		start.step(SimBots.gap_seeker(start, rng))
+	assert_eq(start.state.room_index, 1, "the bot reached room 1")
+	var plan := _plan(start.state)
+	var shown: Array = []
+	for die_after: int in [5, 300, 600]:
+		var sim := SimCopy.copy(start)
+		var bot := SimRng.new(3)
+		for i in die_after:
+			if sim.is_over():
+				break
+			sim.step(SimBots.gap_seeker(sim, bot))
+		if sim.state.room_index != 1:
+			continue
+		var at_death := sim.state.exit_open or sim.state.exit_preview
+		while not sim.is_over():
+			sim.step(false)
+		assert_true(sim.revive(), "revived after %d ticks" % die_after)
+		assert_eq(_plan(sim.state), plan, "after %d ticks: the room's exits as planned" % die_after)
+		if at_death:
+			var s := sim.state
+			var planned := s.plan_a_y_left if s.exit_side == 0 else s.plan_a_y_right
+			assert_eq(s.exit_a_y, planned, "after %d ticks: the exit shown is planned" % die_after)
+		# Fly on to the ghost: it shows where the room planned it.
+		var bot2 := SimRng.new(5)
+		for i in 1200:
+			if sim.is_over() or sim.state.exit_preview or sim.state.room_index != 1:
+				break
+			sim.step(SimBots.gap_seeker(sim, bot2))
+		if sim.state.exit_preview:
+			var s := sim.state
+			var planned := s.plan_a_y_left if s.exit_side == 0 else s.plan_a_y_right
+			assert_eq(s.exit_a_y, planned, "after %d ticks: the ghost is planned" % die_after)
+			shown.append(s.exit_a_y)
+	assert_true(shown.size() >= 1, "a revived bot reached the ghost")
+
+
+static func _plan(s: SimState) -> Array[int]:
+	return [
+		s.plan_at,
+		s.plan_a_y_left,
+		s.plan_a_kind_left,
+		s.plan_b_y_left,
+		s.plan_a_y_right,
+		s.plan_a_kind_right,
+		s.plan_b_y_right
+	]

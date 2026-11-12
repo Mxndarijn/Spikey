@@ -116,20 +116,18 @@ public class Beam : Hazard
 
     public long beam_left(GameSim sim, long i)
     {
-        long left = sim.room.wall_left();
-        if (ExitZone.side(sim) == 0 && _crosses_exit(sim, i)) return ExitZone.right(sim) + 1;
-        return left;
+        if (_crosses_exit(sim, i, 0)) return ExitZone.right_on(sim, 0) + 1;
+        return sim.room.wall_left();
     }
 
     public long beam_right(GameSim sim, long i)
     {
-        long right = sim.room.wall_right();
-        if (ExitZone.side(sim) == 1 && _crosses_exit(sim, i)) return ExitZone.left(sim) - 1;
-        return right;
+        if (_crosses_exit(sim, i, 1)) return ExitZone.left_on(sim, 1) - 1;
+        return sim.room.wall_right();
     }
 
-    bool _crosses_exit(GameSim sim, long i) =>
-        ExitZone.hits_rect(sim, sim.room.wall_left(), rows[(int)i] - HALF_H, sim.room.wall_right(), rows[(int)i] + HALF_H);
+    bool _crosses_exit(GameSim sim, long i, long side) =>
+        ExitZone.hits_rect_on(sim, side, sim.room.wall_left(), rows[(int)i] - HALF_H, sim.room.wall_right(), rows[(int)i] + HALF_H);
 
     public override bool kills(GameSim sim)
     {

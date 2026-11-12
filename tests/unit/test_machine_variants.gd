@@ -57,6 +57,7 @@ func test_rooms_have_their_variants() -> void:
 func test_double_slam_fires_both_rams_together_at_one_height() -> void:
 	for s in 6:
 		var sim := _sim("piston", "double-slam", s)
+		NoExits.clear(sim)
 		var ps := _hazards(sim, "piston")
 		assert_eq(ps.size(), 2, "two pistons")
 		var a: Hazard = ps[0]
@@ -85,6 +86,7 @@ func test_double_slam_fires_both_rams_together_at_one_height() -> void:
 
 func test_ladder_fires_top_to_bottom_at_fixed_heights() -> void:
 	var sim := _sim("piston", "ladder", 4)
+	NoExits.clear(sim)
 	var ps := _hazards(sim, "piston")
 	assert_eq(ps.size(), 3, "three rungs")
 	var ys: Array[int] = []

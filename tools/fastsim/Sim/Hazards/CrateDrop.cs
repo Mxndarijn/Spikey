@@ -71,7 +71,7 @@ public sealed class CrateDrop : Hazard
     public override void setup(GameSim sim, SimRng rng)
     {
         salt = rng.next_u32();
-        _next_drop(sim, START_DELAY + WARN_TICKS);
+        _next_drop(null, START_DELAY + WARN_TICKS);
     }
 
     public void _next_drop(GameSim sim, long warn)
@@ -94,7 +94,7 @@ public sealed class CrateDrop : Hazard
         for (long i = 0; i < cols; i++)
         {
             long c = (start + i) % cols;
-            if (c != skip && heights[(int)c] < max_height && !_col_in_exit(sim, c)) return c;
+            if (c != skip && heights[(int)c] < max_height && (sim == null || !_col_in_exit(sim, c))) return c;
         }
         return -1;
     }
@@ -113,10 +113,12 @@ public sealed class CrateDrop : Hazard
 
     public override void step(GameSim sim)
     {
-        if (col < 0)
+        if (col < 0) return;
+        if (t == 1 && (_col_in_exit(sim, col) || (col_b >= 0 && _col_in_exit(sim, col_b))))
         {
-            if (ExitZone.count(sim) == 0 && _free_col(sim, 0, -1) >= 0) _next_drop(sim, WARN_TICKS);
-            return;
+            drops -= 1;
+            _next_drop(sim, warn_left);
+            if (col < 0) return;
         }
         if (warn_left > 0)
         {
