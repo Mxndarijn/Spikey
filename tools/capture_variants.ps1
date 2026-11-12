@@ -12,6 +12,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Out,
     [string]$World = "",
     [string]$Rooms = "",
+    # Grab a frame every this many ticks from 60 to 240 (0 = the usual 15 moments).
+    [int]$Every = 0,
     [string]$Resolution = "540x960",
     [int]$TimeoutMinutes = 90
 )
@@ -30,7 +32,8 @@ if (-not (Test-Path $exe)) { $exe = $godot }
 $log = Join-Path $Out "godot.log"
 $q = { param($p) '"' + $p + '"' }
 $userArgs = @((& $q $Out), (& $q $World))
-if ($Rooms) { $userArgs += (& $q $Rooms) }
+$userArgs += (& $q $Rooms)
+if ($Every -gt 0) { $userArgs += "$Every" }
 $gdArgs = (@(
     "--audio-driver", "Dummy", "--path", (& $q $root), "--rendering-driver", "opengl3",
     "--windowed", "--resolution", $Resolution, "--fixed-fps", "60", "--disable-vsync",

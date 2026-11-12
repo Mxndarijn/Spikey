@@ -3,7 +3,9 @@ extends SceneTree
 ## practice run with the planner bot and saves JPG frames at fixed sim ticks.
 ## Draws for real, so run it only through tools/capture_variants.ps1 (a hidden
 ## desktop, like tools/render_run.ps1) and only when the user asked for frames.
-##   -- <out_dir> <world_id> [filter]
+##   -- <out_dir> <world_id> [filter] [every]
+## `every` > 0 grabs a frame every that many ticks from 60 to 240 instead (to
+## look at motion, e.g. a bounce).
 ## Writes <out_dir>/<room>__<variant>__t<tick>.jpg.
 
 const PROFILE := "user://capture_variants_profile.json"
@@ -23,6 +25,7 @@ var _k := 0
 var _tries := 0
 var _bot := PlannerBot.new(7)
 var _started := false
+var _dense: Array[int] = []
 
 
 func _initialize() -> void:
@@ -33,6 +36,9 @@ func _initialize() -> void:
 	_out = args[0]
 	var world := args[1] if args.size() > 1 else ""
 	var filter := args[2] if args.size() > 2 else ""
+	if args.size() > 3 and int(args[3]) > 0:
+		for t in range(60, 241, int(args[3])):
+			_dense.append(t)
 	DirAccess.make_dir_recursive_absolute(_out)
 	for def in RoomCatalog.all():
 		if not filter.is_empty() and not def.id in filter.split(","):
@@ -56,6 +62,8 @@ func _initialize() -> void:
 
 
 func _ticks() -> Array[int]:
+	if not _dense.is_empty():
+		return _dense
 	return BOSS_TICKS if _jobs[_i][2] else TICKS
 
 

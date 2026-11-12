@@ -156,37 +156,3 @@ static func rock_box(c: CanvasItem, rect: Rect2, look: HazardLook, alpha: float 
 		box.border_width_top = 3
 	box.anti_aliasing = true
 	box.draw(c.get_canvas_item(), rect)
-
-
-## A deadly bar fixed to the ceiling (`from_top`) or the floor: it runs from
-## the very edge of the cage, so no sky or spike shows between it and the
-## band, and only its free end is rounded.
-static func anchored_bar(
-	c: CanvasItem, x: float, half: float, free_y: float, from_top: bool, look: HazardLook
-) -> void:
-	var edge := 0.0 if from_top else RoomView.H
-	var rect := Rect2(x - half, minf(edge, free_y), half * 2.0, absf(free_y - edge))
-	if rect.size.y < 0.5:
-		return
-	var theme := look.theme
-	var box := StyleBoxFlat.new()
-	box.bg_color = theme.spike
-	var r := int(minf(8.0, rect.size.y / 2.0))
-	if from_top:
-		box.corner_radius_bottom_left = r
-		box.corner_radius_bottom_right = r
-	else:
-		box.corner_radius_top_left = r
-		box.corner_radius_top_right = r
-		box.border_color = Color(theme.spike_edge, 0.8)
-		box.border_width_top = 3
-	if look.ink:
-		box.border_color = INK_EDGE
-		box.border_width_left = int(INK_LINE_W)
-		box.border_width_right = int(INK_LINE_W)
-		if from_top:
-			box.border_width_bottom = int(INK_LINE_W)
-		else:
-			box.border_width_top = 3
-	box.anti_aliasing = true
-	box.draw(c.get_canvas_item(), rect)

@@ -4,11 +4,12 @@ extends HazardPainter
 ## ceiling shows where the next crate (or pair) falls. Gift stacks carry a
 ## coin on top.
 ##
-## Landing (the "spikes sink" look): when a stack starts, the floor spikes
-## right under it sink into the floor over SINK_TIME with a dust puff, and the
-## stack's base grows down onto the floor band. RoomView asks floor_sink()
-## how far each floor spike is down. Only spikes wholly under a stack sink:
-## the sim kills from the stack's top to the bottom of the room over its
+## Landing: the floor spikes under a stack ride up on top of it. When a crate
+## lands, the stack settles one spike depth down onto the floor band over
+## SINK_TIME (with a dust puff), squashing the spikes under it (RoomView asks
+## floor_sink() how far each floor spike is down), while spikes push up on its
+## top with their tips at the sim's stack top. Only spikes wholly under a stack
+## sink: the sim kills from the stack's top to the bottom of the room over its
 ## width, so no safe spot appears.
 
 const CrateDropHazard := preload("res://sim/hazards/crate_drop.gd")
@@ -30,6 +31,8 @@ var _hazard_id := 0
 ## Crates per column last frame, and when each column's stack started (s).
 var _heights := PackedInt32Array()
 var _started := PackedFloat32Array()
+## When each column's top crate landed (s): it settles from then.
+var _landed := PackedFloat32Array()
 ## Dust puffs: [x, y, width, start time].
 var _puffs: Array[PackedFloat32Array] = []
 var _now := 0.0
@@ -47,14 +50,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	for col in h.cols:
 		var n: int = h.heights[col]
 		var x := HazardLayer.px(h.col_left(col))
-		if n > 0:
-			# The base the stack stands on once the spikes under it are down.
-			var base := RoomView.EDGE_SPIKE_DEPTH * _ease(time - _started[col])
-			if base > 0.5:
-				HazardLayer.rock_box(c, Rect2(x + 2.0, floor_y, w - 4.0, base), look)
-		for i in n:
-			var y := floor_y - ch * (i + 1)
-			_crate(c, Rect2(x, y, w, ch), look, gift)
+		_stack(c, col, n, x, w, ch, floor_y, look, gift)
 		if h.coins[col] == 1:
 			var p := HazardLayer.at(h.col_center(col), h.coin_y(col))
 			p.y += sin(time * 4.0 + col) * 2.0
@@ -96,6 +92,48 @@ static func _falling(c: CanvasItem, r: Rect2, look: HazardLook, gift: bool) -> v
 		c.draw_rect(inner, edge, false, 2.0, true)
 
 
+## A standing stack, drawn one spike depth lower than the sim's (so it sits on
+## the floor band, where the spikes stood) with the floor spikes riding on top
+## of it: their tips are the sim's stack top, where it starts to kill. When a
+## crate lands, it settles over SINK_TIME, squashing the spikes it landed on
+## while new ones push up on top of it.
+func _stack(
+	c: CanvasItem,
+	col: int,
+	n: int,
+	x: float,
+	w: float,
+	ch: float,
+	floor_y: float,
+	look: HazardLook,
+	gift: bool
+) -> void:
+	if n <= 0:
+		return
+	var d := RoomView.EDGE_SPIKE_DEPTH
+	var e := _ease(_now - _landed[col])
+	for i in n:
+		var top := i == n - 1
+		var y := floor_y - ch * (i + 1) + (d * e if top else d)
+		if top and n > 1:
+			_spikes_on(c, x, w, floor_y - ch * (n - 1) + d, d * (1.0 - e), look)
+		_crate(c, Rect2(x, y, w, ch), look, gift)
+	_spikes_on(c, x, w, floor_y - ch * n + d * e, d * e, look)
+
+
+## Floor spikes standing on a stack top at `y`, as many as fit its width.
+static func _spikes_on(
+	c: CanvasItem, x: float, w: float, y: float, depth: float, look: HazardLook
+) -> void:
+	if depth <= RoomView.TIP_BACK + 1.0:
+		return
+	var count := maxi(1, roundi(w / (RoomView.EDGE_SPIKE_HALF * 2.0)))
+	var step := w / count
+	for i in count:
+		var base := Vector2(x + step * (i + 0.5), y)
+		RoomView.paint_spike(c, base, Vector2(0, -1), step / 2.0, depth, look.theme, look.ink)
+
+
 ## 0..1: how far a floor spike from `left` to `right` (px) has sunk.
 func floor_sink(hazard: Hazard, left: float, right: float) -> float:
 	var h := hazard as CrateDropHazard
@@ -122,6 +160,7 @@ func _track_landings(h: CrateDropHazard, time: float) -> void:
 		_started.resize(h.cols)
 		# Stacks already standing (a redraw mid-room) are already down.
 		_started.fill(time - SINK_TIME)
+		_landed = PackedFloat32Array(_started)
 		_puffs.clear()
 		return
 	for col in h.cols:
@@ -131,7 +170,9 @@ func _track_landings(h: CrateDropHazard, time: float) -> void:
 		if n > _heights[col]:
 			if _heights[col] == 0:
 				_started[col] = time
-			var bottom := HazardLayer.px(h.stack_top(col) + h.crate_h)
+			_landed[col] = time
+			# Where the new crate settles: one spike depth under the sim's.
+			var bottom := HazardLayer.px(h.stack_top(col) + h.crate_h) + RoomView.EDGE_SPIKE_DEPTH
 			var x := HazardLayer.px(h.col_left(col))
 			var w := HazardLayer.px(h.crate_w)
 			_puffs.append(PackedFloat32Array([x, bottom, w, time]))
