@@ -128,6 +128,8 @@ public static partial class WorldCheck
                     if (tap) taps.Add(sim.state.tick);
                     sim.step(tap);
                 }
+                // A replay plays on to a death: end a capped run by not tapping any more.
+                for (int i = 0; i < 2000 && !sim.is_over(); i++) sim.step(false);
                 string out_ = O("out", "world_run.json");
                 RunFile.write(out_, sim, taps, name: "world planner (" + sk.name + ")");
                 Console.WriteLine($"world runfile: seed {seed}, skill {sk.name}, score {sim.state.score}, {sim.state.tick} ticks -> {out_}");
