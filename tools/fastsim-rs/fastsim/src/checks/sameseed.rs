@@ -339,6 +339,13 @@ impl SameSeed {
                 // every wall after its arrival (WILD_SPIKES): a player's choice.
                 let timed = !apart && wa.in_room == wb.in_room && wa.hazards == wb.hazards && ra.route == rb.route;
                 apart = !timed;
+                // A bumper can turn the bird back (Bumper Cloud, Heart Bumpers), so in
+                // such a room the side a wall is met on is the player's doing: from
+                // there the plays are apart for the rest of the room.
+                if wa.side != wb.side && SameSeedRevive::turns_back(&ra.kind) {
+                    apart = true;
+                    continue;
+                }
                 if wa.side != wb.side || wa.score != wb.score || timed && (wa.mask != wb.mask || wa.anchor != wb.anchor) {
                     out_.push(format!(
                         "{} wall {}: spikes {:x}/{:x} side {}/{} score {}/{} anchor {}/{}",
@@ -390,6 +397,13 @@ impl SameSeedRevive {
             }
         }
         out_
+    }
+
+    /// Whether room `kind` has a bumper (in the room or any variant), which can turn the bird back.
+    fn turns_back(kind: &str) -> bool {
+        let Some(def) = RoomCatalog::all().iter().find(|d| d.id == kind) else { return false };
+        def.hazards.iter().any(|f| f().kind() == "bumper")
+            || def.variants.iter().any(|v| v.hazards.iter().any(|f| f().kind() == "bumper"))
     }
 
     /// Planned exit heights (px) the generated-variant cases come out of.
