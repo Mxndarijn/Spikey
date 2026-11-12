@@ -57,7 +57,7 @@ public sealed class BlindPlanner
     ///   anchor (the next gaps are drawn around it) instead of the middle.
     public bool wall_look = true, full_speeds = false, aim_anchor = false;
     public long wall_looks;
-    public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
+    public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = false, aim_exit = true;
     public long kept_plans;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
