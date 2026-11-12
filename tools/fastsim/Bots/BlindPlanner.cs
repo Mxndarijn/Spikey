@@ -69,6 +69,28 @@ public sealed class BlindPlanner
     ///   _new_wall, a rule a player learns), so from there every next gap is
     ///   nearest. Read from the wall drawn on screen only. Wins over aim_anchor.
     public bool aim_wall = false;
+    /// mid_visible: the middle the height cost pulls to (when no exit, wall or
+    ///   anchor aim applies) is the middle of the open height on screen: under
+    ///   the Crusher's press and over its plate, over the lava line. Without it
+    ///   the middle is the cage's (y 320), whatever fills the cage.
+    public bool mid_visible = false;
+
+    /// The middle of the open height on screen in `s` (ceiling and floor lines, moved by what covers them).
+    public static long visible_mid(GameSim s)
+    {
+        long top = SimConfig.KILL_TOP, bottom = SimConfig.KILL_BOTTOM;
+        foreach (var hz in s.room.hazards)
+        {
+            if (!hz.alive) continue;
+            if (hz is BossCrusher bc && bc.down_at < 0)
+            {
+                top = Math.Max(top, bc.press_y + BossCrusher.BITE);
+                bottom = Math.Min(bottom, bc.plate_y - BossCrusher.BITE);
+            }
+            else if (hz is Lava lv) bottom = Math.Min(bottom, lv.line);
+        }
+        return bottom > top ? (top + bottom) / 2 : (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
+    }
 
     /// Where `aim_wall` pulls a bird flying to the wall ahead of it in `s`.
     public static long wall_aim(GameSim s)
@@ -178,6 +200,10 @@ public sealed class BlindPlanner
     /// When no line lives the whole look: play the line that lived longest in
     /// that same search (it is already there) instead of searching again
     /// to the wall and with 3/4, 9/16, ... of the look.
+    /// Measured harmful (seeds 1..200, cap 20,000: 43 deaths against 31, ceiling
+    /// deaths 16 against 6): the longest line of a failed look often ends at the
+    /// ceiling, and the search to the wall it skips is the part with nothing to
+    /// guess. Kept off; for measuring only.
     public bool longest = false;
     byte[] _deep;
     long _deep_len, _deep_cost;
@@ -649,7 +675,7 @@ public sealed class BlindPlanner
         long bh = bpx * SimConfig.SUB;
         long bvy = full_speeds ? (SimConfig.MAX_FALL_VY - SimConfig.FLAP_VY) / speeds + 1 : -SimConfig.FLAP_VY * 2 / speeds;
         long tap_from = tap_free ? SimConfig.FLAP_VY + bvy : tap_below;
-        long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
+        long mid = mid_visible ? visible_mid(root) : (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
         bool exit_shown = root.state.exit_open || root.state.exit_preview;
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
         else if (aim_wall) mid = wall_aim(root);
