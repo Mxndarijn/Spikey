@@ -104,6 +104,8 @@ public static class HumanMain
                                   $"doomed at the bounce {got.Count(x => x.StartsWith("DOOMED"))}");
                 return 0;
             }
+            case "atlas":
+                return Atlas.run(opt, threads);
             case "reflextrace":
             {
                 ReflexBot.LOG = Console.WriteLine;
@@ -178,10 +180,18 @@ public static class HumanMain
             double sg = m.sigma;
             if (O.ContainsKey("react")) m = m with { react_mu = double.Parse(opt("react", "13")) };
             if (O.ContainsKey("gap")) m = m with { min_gap = long.Parse(opt("gap", "8")) };
-            var bp = MotorPlayer.make_planner(seed, sg);
+            if (O.ContainsKey("fine")) m = m with { fine = opt("fine", "1") == "1" };
+            var bp = MotorPlayer.make_planner(seed, m);
             if (O.ContainsKey("lines")) bp.lines = int.Parse(opt("lines", "1"));
             if (O.ContainsKey("wobble")) bp.wobble = int.Parse(opt("wobble", "0"));
             if (O.ContainsKey("copies")) bp.copies = int.Parse(opt("copies", "1"));
+            // --bp horizon=260,past=150,bucket_px=6: any public field of BlindPlanner.
+            foreach (var kv in opt("bp", "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var p = kv.Split('=');
+                var f = typeof(BlindPlanner).GetField(p[0]) ?? throw new ArgumentException($"no BlindPlanner field '{p[0]}'");
+                f.SetValue(bp, Convert.ChangeType(p[1] == "true" || p[1] == "false" ? bool.Parse(p[1]) : (object)p[1], f.FieldType));
+            }
             if (O.ContainsKey("margin")) bp.margin = long.Parse(opt("margin", "10"));
             if (O.ContainsKey("smargin")) bp.spike_margin = opt("smargin", "1") == "1";
             if (O.ContainsKey("mcost")) bp.margin_cost = long.Parse(opt("mcost", "40"));

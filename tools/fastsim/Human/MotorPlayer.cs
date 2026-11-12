@@ -11,7 +11,8 @@ public sealed record Motor(
     double react_sd,   //   ... and its sd
     double react_tau,  //   ... plus an exponential tail with this mean
     long min_gap,      // ticks between two presses at least (7.7 taps per second -> 8)
-    long cancel)       // a planned tap can still be held back until this many ticks before it lands
+    long cancel,       // a planned tap can still be held back until this many ticks before it lands
+    bool fine = false) // a finer search (4 px x 12 speed buckets, ~3.6x slower): more careful thinking
 {
     /// Isaksen: reaction about 288 ms (17 ticks) to new things, at most 7.7 taps/s.
     public static Motor at(double sigma) => new(sigma, 13, 2, 4, 8, 5);
@@ -43,15 +44,28 @@ public sealed class MotorPlayer
     {
         _m = m;
         _rng = new Random(unchecked((int)(seed * 2246822519L) ^ 0x3c6ef372));
-        this.planner = planner ?? make_planner(seed, m.sigma);
+        this.planner = planner ?? make_planner(seed, m);
         _window = Math.Max(1, (long)Math.Ceiling(2.5 * m.sigma));
     }
 
     /// The planner a person with tap sd `sigma` plays with: it keeps its line
     /// clear of spikes, ceiling and floor too (a narrow gap costs more than a
     /// detour), and tries its lines with taps `wobble` ticks early and late.
-    public static BlindPlanner make_planner(long seed, double sigma) => sigma <= 0 ? new BlindPlanner(seed)
-        : new BlindPlanner(seed) { lines = 8, wobble = Math.Max(1, (int)Math.Round(sigma)) };
+    public static BlindPlanner make_planner(long seed, Motor m)
+    {
+        var bp = new BlindPlanner(seed);
+        if (m.sigma > 0)
+        {
+            bp.lines = 8;
+            bp.wobble = Math.Max(1, (int)Math.Round(m.sigma));
+        }
+        if (m.fine)
+        {
+            bp.bucket_px = 4;
+            bp.speed_buckets = 12;
+        }
+        return bp;
+    }
 
     double gauss()
     {
@@ -189,29 +203,32 @@ public sealed class MotorPlayer
 }
 
 /// The tiers: tap timing sd (the main knob) and the reaction to new things
-/// per tier, fitted on the rate median (docs/HUMAN_BOT.md). Expert and beast
-/// react faster than the measured human ~17 ticks: with 17 ticks no setting of
-/// the tap sd reaches their targets.
+/// per tier, fitted on the rate median (docs/HUMAN_BOT.md). Expert reacts faster
+/// than the measured human ~17 ticks (about 6), beast not at all; both think with
+/// the finer search. Beast has no human limit but the 8-tick thumb gap (which costs
+/// nothing once the planner plans with it).
 public static class MotorTiers
 {
-    public static readonly Dictionary<string, (double sigma, double react)> TIER = new()
+    public static readonly Dictionary<string, (double sigma, double react, bool fine)> TIER = new()
     {
-        ["beginner"] = (1.4, 13), ["normal"] = (0.6, 13), ["good"] = (0.0, 8), ["expert"] = (0.0, -100), ["beast"] = (0.0, -100),
+        ["beginner"] = (1.4, 13, false), ["normal"] = (0.6, 13, false), ["good"] = (0.0, 8, false),
+        ["expert"] = (0.2, 2, true), ["beast"] = (0.0, -100, true),
     };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 
     /// The tiers when the planner knows the planned exit mouths (BlindPlanner.know_exits):
     /// hazards bounce off them from room start, so a hidden-exit copy mispredicts them.
     /// Seeds 1..100, full cap: rate medians 33 / 59 / 119 / 257 / 724.
-    public static readonly Dictionary<string, (double sigma, double react)> TIER_KNOWN_EXITS = new()
+    public static readonly Dictionary<string, (double sigma, double react, bool fine)> TIER_KNOWN_EXITS = new()
     {
-        ["beginner"] = (1.4, 13), ["normal"] = (0.6, 13), ["good"] = (0.3, 13), ["expert"] = (0.0, 8), ["beast"] = (0.0, -100),
+        ["beginner"] = (1.4, 13, false), ["normal"] = (0.6, 13, false), ["good"] = (0.3, 13, false),
+        ["expert"] = (0.0, 8, false), ["beast"] = (0.0, -100, true),
     };
 
     public static Motor of(string tier)
     {
-        var (sg, re) = (BlindPlanner.know_exits ? TIER_KNOWN_EXITS : TIER)[tier];
-        return Motor.at(sg) with { react_mu = re, react_tau = re < 0 ? 0 : 4 };
+        var (sg, re, fine) = (BlindPlanner.know_exits ? TIER_KNOWN_EXITS : TIER)[tier];
+        return Motor.at(sg) with { react_mu = re, react_tau = re < 0 ? 0 : 4, fine = fine };
     }
 
     [System.Runtime.CompilerServices.ModuleInitializer]
@@ -222,10 +239,16 @@ public static class MotorTiers
             string tier = name;
             var m = of(tier);
             FastSim.Yard.Bots.add(new($"human:{tier}",
-                $"MotorPlayer: BlindPlanner (class defaults; 8 lines tried with tap shifts when sd > 0) + motor model: " +
+                $"MotorPlayer: BlindPlanner (class defaults{(m.fine ? ", 4 px x 12 speed buckets" : "")}; 8 lines tried with tap shifts when sd > 0) + motor model: " +
                 $"tap sd {m.sigma} ticks, reaction {(m.react_mu < 0 ? "none" : $"~{m.react_mu + m.react_tau:F0} ticks")} to new spikes/hazards, " +
                 "8 ticks between presses",
                 FastSim.Yard.Copies.SCRAMBLED, seed => new MotorPlayer(of(tier), seed).decide));
+            // The same tier on the known-exits table, with the planner told the planned exit
+            // mouths (only honest if the game shows them from room start). Process-wide switch:
+            // run these bots in their own yardstick call.
+            FastSim.Yard.Bots.add(new($"human-ke:{tier}",
+                $"human:{tier} on the known-exits table, BlindPlanner.know_exits = true",
+                FastSim.Yard.Copies.SCRAMBLED, seed => { BlindPlanner.know_exits = true; return new MotorPlayer(of(tier), seed).decide; }));
         }
     }
 }

@@ -105,7 +105,7 @@ public sealed class BlindPlanner
         int n = Math.Max(1, copies);
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
-        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y);
+        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
         if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
         {
@@ -122,7 +122,7 @@ public sealed class BlindPlanner
                     int ok = 0;
                     for (int j = 0; j < n; j++)
                     {
-                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y), after, coarse_px, coarse_speeds, 0, true);
+                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y, reveal), after, coarse_px, coarse_speeds, 0, true);
                         if (_found.Count > 0) ok++;
                     }
                     if (ok > pick_ok || (ok == pick_ok && cost < pick_cost))
@@ -265,24 +265,40 @@ public sealed class BlindPlanner
     public static bool know_exits = false;
 
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
-    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1)
+    /// Measuring only (Human/Atlas.cs): bits of `Reveal` that leave one kind of
+    /// hidden value as it truly is in the copy. 0 = everything hidden (play).
+    public int reveal = 0;
+
+    public static class Reveal
+    {
+        public const int RNG = 1, WALLSEED = 2, SPINE = 4, EXITS = 8, STALAC = 16, SALTS = 32, PRIVRNG = 64,
+            BUBBLE = 128, KEEPY = 256, BEAM = 512, UPDRAFT = 1024, ALL = 2047;
+        public static readonly (string name, int bit)[] KINDS =
+        {
+            ("rng", RNG), ("wallseed", WALLSEED), ("spine", SPINE), ("exits", EXITS), ("stalac", STALAC), ("salts", SALTS),
+            ("privrng", PRIVRNG), ("bubble", BUBBLE), ("keepy", KEEPY), ("beam", BEAM), ("updraft", UPDRAFT),
+        };
+    }
+
+    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0)
     {
         var c = sim.clone_deep();
-        c._rng = new SimRng(own.next_u32());
+        bool R(int bit) => (reveal & bit) != 0;
+        { var x = own.next_u32(); if (!R(Reveal.RNG)) c._rng = new SimRng(x); }
         // Seed-only generation: each wall reseeds from the room's seed, the
         // spine picks the next rooms, and the exits are planned from the room's
         // seed at room start. All three are hidden: replace them and plan again
         // (plan_room keeps an exit already on screen as it is).
-        c.room.rng_seed = own.next_u32();
-        c._spine = new SimRng(own.next_u32());
-        if (c.state.plan_at != 0 && !know_exits) ExitPlanner.plan_room(c, c.state.plan_at);
+        { var x = own.next_u32(); if (!R(Reveal.WALLSEED)) c.room.rng_seed = x; }
+        { var x = own.next_u32(); if (!R(Reveal.SPINE)) c._spine = new SimRng(x); }
+        if (c.state.plan_at != 0 && !know_exits && !R(Reveal.EXITS)) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
         // MAX_STEP of that (the room's rule, which a player learns).
         // On seed-only generation the room slides them to state.anchor_y (the
         // exit taken or the open run on the last wall: on screen), so that is used.
         bounce_y = c.state.anchor_y;
-        if (bounce_y >= 0)
+        if (bounce_y >= 0 && !R(Reveal.STALAC))
         {
             var cols = c.room.hazards.OfType<Stalactite>().Where(st => st.fixed_lo < 0).ToList();
             cols.Sort((p, q) => c.state.vx > 0 ? p.x.CompareTo(q.x) : q.x.CompareTo(p.x));
@@ -309,6 +325,13 @@ public sealed class BlindPlanner
         // on screen (a warning, a marked column, a moving thing) stays.
         foreach (var hz in c.room.hazards)
         {
+            int kind = hz switch
+            {
+                CrateDrop or Dart => Reveal.SALTS, Drop or Firework or OrchardSpawner => Reveal.PRIVRNG,
+                Bubble => Reveal.BUBBLE, Stalactite => Reveal.STALAC, KeepyBall => Reveal.KEEPY,
+                Beam => Reveal.BEAM, Updraft => Reveal.UPDRAFT, _ => 0,
+            };
+            if (kind != 0 && R(kind)) continue;
             switch (hz)
             {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.
