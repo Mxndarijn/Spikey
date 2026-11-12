@@ -19,6 +19,7 @@ static partial class Checks
         {
             var fails = new List<string>();
             fails.AddRange(Survival.self_test());
+            fails.AddRange(FastSim.Measure.MeasureMain.self_test());
             foreach (var (m, want) in new[] { (20.0, "below beginner"), (30, "beginner"), (50, "normal"), (120, "good"), (300, "expert"), (354, "beast"), (900, "beast") })
                 if (Stats.tier_of(m) != want) fails.Add($"tier_of({m}) is {Stats.tier_of(m)}, not {want}");
             var gap = Bots.find("gap");

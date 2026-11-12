@@ -85,6 +85,7 @@ if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
 if (mode == "human") return FastSim.Human.HumanMain.run(pos, opts);
 if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
+if (mode == "measure") return FastSim.Measure.MeasureMain.run(pos, opts);
 if (mode == "mpc") return FastSim.Mpc.MpcRun.run(pos, opts);
 if (mode == "honesty") return Honesty.run(pos, opts);
 if (mode == "sameseed") return SameSeed.run(pos, opts);

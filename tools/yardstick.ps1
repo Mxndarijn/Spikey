@@ -14,10 +14,16 @@
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode leak -Bot planner  # does it use what it cannot see?
 #   powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode stats -Files a.json,b.tsv  # intervals, survival, a vs b
 #
+# The test protocol (docs/BOT_TESTING.md): one command per stage.
+#   -Mode quick   -Bot base,new [-Budget 600]        # stratified screen on dev seeds, minutes
+#   -Mode confirm -Bot base,new [-Ratio 0.8]         # sequential (Pocock, 5 looks) until decided
+#   -Mode report  -Bot new [-Fair fair.txt]          # holdout seeds 1..400 once: KM tier, beast/infinite, whole-run leak check
+#   -Mode leakrun -Bot new                           # the whole-run leak check alone (seeds 900001+)
+#
 # -Human with -Mode run also compares each bot with those human runs
 # (distances and a human-vs-bot classifier). Take a CPU slot for big runs.
 param(
-    [ValidateSet("run", "list", "compare", "humans", "leak", "stats")]
+    [ValidateSet("run", "list", "compare", "humans", "leak", "stats", "quick", "confirm", "report", "leakrun")]
     [string]$Mode = "run",
     [string]$Bot = "",
     [ValidateSet("quick", "full")]
@@ -32,6 +38,15 @@ param(
     [string]$Files = "",
     [string]$Json = "",
     [int]$TimingRuns = 0,
+    # Protocol modes: the snapshot bank (made from the first bot on dev seeds when missing),
+    # CPU seconds of trials per bot (quick), the smallest rate ratio worth finding (confirm),
+    # a CPU limit (confirm), and the fairness judge's output for "infinite" (report).
+    [string]$Bank = "",
+    [double]$Budget = 600,
+    [double]$Ratio = 0.8,
+    [double]$MaxCpu = 0,
+    [string]$Fair = "",
+    [int]$BankSeeds = 160,
     [string]$Out = "D:\SoftwareProjects\SpikeCage-coord\research\yardstick",
     [ValidateSet("Idle", "BelowNormal", "Normal")]
     [string]$Priority = "BelowNormal"
@@ -53,6 +68,49 @@ if ($LASTEXITCODE -ne 0) {
     exit 2
 }
 if (Test-Path "$exe.exe") { $exe = "$exe.exe" }
+
+if ($Mode -in @("quick", "confirm", "report", "leakrun")) {
+    if ($Bot -eq "") { Write-Host "-Bot is needed" -ForegroundColor Red; exit 2 }
+    $mdir = Join-Path $Out "measure"
+    New-Item -ItemType Directory -Force $mdir | Out-Null
+    $bots = $Bot.Split(",") | ForEach-Object { $_.Trim() }
+    $tag = ($bots[0] -replace "[:,=]", "-")
+    $common = @("--threads", $Threads, "--priority", $Priority.ToLower())
+    if ($Mode -in @("quick", "confirm")) {
+        if ($Bank -eq "") { $Bank = Join-Path $mdir "$tag.dev.bank.json" }
+        if (-not (Test-Path $Bank)) {
+            Write-Host "making the snapshot bank $Bank ($($bots[0]), dev seeds 10001..$(10000 + $BankSeeds), to 400 points)"
+            & $exe measure bank --bot $bots[0] --first 10000 --seeds $BankSeeds --points 400 --out $Bank @common
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        $pair = ($bots -join "_") -replace "[:,=]", "-"
+        if ($Mode -eq "quick") {
+            & $exe measure trials --bank $Bank --bots ($bots -join ",") --budget $Budget --out (Join-Path $mdir "$pair.quick.tsv") @common
+        } else {
+            $x = @("measure", "confirm", "--bank", $Bank, "--bots", ($bots -join ","), "--ratio", $Ratio, "--out", (Join-Path $mdir "$pair.confirm.tsv"))
+            if ($MaxCpu -gt 0) { $x += @("--max-cpu", $MaxCpu) }
+            & $exe @x @common
+        }
+        exit $LASTEXITCODE
+    }
+    if ($Mode -eq "report") {
+        foreach ($b in $bots) {
+            $t = $b -replace "[:,=]", "-"
+            $x = @("measure", "report", "--bot", $b, "--out", (Join-Path $mdir "$t.holdout.bank.json"), "--json", (Join-Path $mdir "$t.report.json"))
+            if ($Fair) { $x += @("--fair", $Fair) }
+            if ($Cap) { $x += @("--cap", $Cap) }
+            & $exe @x @common
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $exe measure leak --bot $b --bank (Join-Path $mdir "$t.leak.bank.json") --json (Join-Path $mdir "$t.leak.json") @common
+        }
+        exit $LASTEXITCODE
+    }
+    foreach ($b in $bots) {
+        $t = $b -replace "[:,=]", "-"
+        & $exe measure leak --bot $b --bank (Join-Path $mdir "$t.leak.bank.json") --json (Join-Path $mdir "$t.leak.json") @common
+    }
+    exit $LASTEXITCODE
+}
 
 $a = @("yardstick", $Mode, "--out", $Out, "--threads", $Threads, "--priority", $Priority.ToLower())
 if ($Mode -eq "leak") { $a += @("--bot", $Bot) }
