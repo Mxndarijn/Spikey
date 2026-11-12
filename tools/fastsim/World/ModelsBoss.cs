@@ -68,7 +68,7 @@ public abstract class BossM : HazardModel
         to > from ? G.mini(from + down, to) : G.maxi(from - up, to);
 }
 
-/// The Watcher: beam rows light up after a 60-substep warning (which rows is
+/// The Watcher: beam rows light up after a BEAM_TELL (2 s) warning (which rows is
 /// drawn per cycle: known once warned), and in phases 2 and 3 a gaze marks a
 /// dart lane at the bird's height, then the dart flies across.
 public sealed class WatcherM : BossM
@@ -116,8 +116,8 @@ public sealed class WatcherM : BossM
                 lit = 0;
                 lit_known = false;
             }
-            if (beam_t < BossWatcher.TELL) beam = BossWatcher.Beam.WARN;
-            else if (beam_t < BossWatcher.TELL + BossWatcher.BEAM_ON) beam = BossWatcher.Beam.ON;
+            if (beam_t < BossWatcher.BEAM_TELL) beam = BossWatcher.Beam.WARN;
+            else if (beam_t < BossWatcher.BEAM_TELL + BossWatcher.BEAM_ON) beam = BossWatcher.Beam.ON;
         }
         long g = phase == 2 ? c % gaze_every : (c % BossWatcher.CYCLE) - BossWatcher.GAZE_AT;
         if (phase != 1) Gaze(w, g);
@@ -134,7 +134,7 @@ public sealed class WatcherM : BossM
         if (dart == BossWatcher.Dart.MARK)
         {
             dart_t = g;
-            if (g >= BossWatcher.TELL)
+            if (g >= BossWatcher.GAZE_TELL)
             {
                 dart = BossWatcher.Dart.FLY;
                 dart_x = dart_side == 1 ? w.room.WallRight : w.room.WallLeft;
@@ -183,7 +183,7 @@ public sealed class WatcherM : BossM
 
 /// The Crusher: a press from the ceiling and a plate from the floor. Phase 1
 /// the press slams to a height shown while it shakes; phases 2 and 3 both
-/// jaws move to a lane shown 60 substeps ahead; phase 3 also drops crates
+/// jaws move to a lane shown TELL (2 s) ahead; phase 3 also drops crates
 /// from columns marked before they fall.
 public sealed class CrusherM : BossM
 {
@@ -334,7 +334,7 @@ public sealed class CrusherM : BossM
 
 /// The Saw King: a big saw in the middle that hops between three heights
 /// (from the top or bottom always back to the middle; from the middle up or
-/// down, shown 60 substeps ahead), with a spinning ring of blades in phase 2
+/// down, shown TELL (2 s) ahead), with a spinning ring of blades in phase 2
 /// (at a height shown while it tells) and a small ring in phase 3.
 public sealed class SawKingM : BossM
 {
