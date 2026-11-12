@@ -48,6 +48,13 @@ public sealed class BlindPlanner
     /// wide_key: the bucket also holds the flight direction and x (bumpers and
     ///   wind send lines to different places at the same height).
     /// aim_exit: the height cost pulls to an exit that is on screen instead of the middle.
+    /// wall_look: when no line lives the whole look, search to just past the
+    ///   wall ahead (the part with nothing to guess) with coarse, fine and
+    ///   very fine buckets before trying shorter looks.
+    /// full_speeds: the speed buckets span the whole range of fall speeds
+    ///   (before, every fall above 3.3 px a tick shared one bucket).
+    public bool wall_look = true, full_speeds = true;
+    public long wall_looks;
     public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
     public long kept_plans;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
@@ -177,6 +184,18 @@ public sealed class BlindPlanner
                 _wait = replan_danger;
                 _since = 0;
                 return;
+            }
+        }
+        if (found == null && wall_look && to_wall + 26 < want)
+        {
+            foreach (var (px, sp) in new[] { (bucket_px, speed_buckets), (fine_px, fine_speeds), (2L, 40L) })
+            {
+                beam(copy(0), to_wall + 26, px, sp);
+                if (_found.Count == 0) continue;
+                found = _found[0].taps;
+                last_look = 2;
+                wall_looks++;
+                break;
             }
         }
         for (long t = want * 3 / 4; t >= 2 && found == null; t = t * 3 / 4)
@@ -349,7 +368,7 @@ public sealed class BlindPlanner
         _found.Clear();
         var layer = new List<int>();
         long bh = bpx * SimConfig.SUB;
-        long bvy = -SimConfig.FLAP_VY * 2 / speeds;
+        long bvy = full_speeds ? (SimConfig.MAX_FALL_VY - SimConfig.FLAP_VY) / speeds + 1 : -SimConfig.FLAP_VY * 2 / speeds;
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
         bool exit_shown = root.state.exit_open || root.state.exit_preview;
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
