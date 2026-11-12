@@ -15,6 +15,13 @@ tools (`rl review fair|autopsy|exposure|bouncefair|fixtest`), `boss run|fair`,
 `difficulty`, and the checks `passable`, `arrival`, `sight` (the BlindPlanner
 column), `blind_seeds`, `yardstick`, `bossfair` and `difficulty`.
 Not ported: WorldPlanner, MPC, RL, HumanBot/Reflex, honest-v1, and the other checks.
+Also ported: `Hazard.warnings` / `GameSim.warnings` (the parity checks the
+recorded warnings too), BlindPlanner's plan reuse (`follow`), `tap_free`,
+`frozen`, `mid_offset`, `plan_lives` and the wall-count rule of `blind_copy`, and
+the calibrated human tiers (`MotorTiers.shared`, `LEVELS`, the Persona habits,
+the reaction to new warnings, `Human/tiers.json`). C# only, research switches
+that are off by default: `longest`, `peek`, `aim_wall`, `mid_visible`,
+`mc_samples`, the `steps` counter.
 
 `tools/yardstick.ps1` runs on Rust by default (every mode, the protocol modes
 included); bots only C# has (rl:*, world:*, mpc*, honest-v1) switch to C# on
