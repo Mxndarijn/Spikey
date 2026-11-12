@@ -27,6 +27,10 @@ static partial class Checks
             [("boss_crusher", 3, 2, "jaw", 3)] = "room-fixes (no way through)",
             [("boss_saw", 1, 10, "hop", 3)] = "room-fixes (no way through)",
             [("boss_saw", 3, 6, "hop", 3)] = "room-fixes (hit during the reaction)",
+            // Met once the planner's copies stopped reading the room's wall count (its lines changed).
+            [("boss_watcher", 3, 18, "dart", 2)] = "room-fixes (no way through)",
+            [("boss_crusher", 3, 5, "jaw", 3)] = "room-fixes (no way through)",
+            [("boss_crusher", 3, 19, "jaw", 2)] = "room-fixes (hit during the reaction)",
         };
 
         public override int count() => cases.Count;

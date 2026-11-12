@@ -24,6 +24,8 @@ public static class Leak
     {
         var c = sim.clone_deep();
         c.room.rng_seed = 0;
+        // blind_copy keeps only what the rules ask of the wall count (none, the first, later).
+        c.room.walls = Math.Min(c.room.walls, 2);
         var st0 = c.state;
         st0.plan_a_y_left = st0.plan_a_kind_left = st0.plan_b_y_left = 0;
         st0.plan_a_y_right = st0.plan_a_kind_right = st0.plan_b_y_right = 0;

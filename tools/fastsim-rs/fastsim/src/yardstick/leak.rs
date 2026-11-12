@@ -50,6 +50,8 @@ impl Leak {
     pub fn visible(sim: &GameSim) -> i64 {
         let mut c = sim.clone_deep();
         c.room.rng_seed = 0;
+        // blind_copy keeps only what the rules ask of the wall count (none, the first, later).
+        c.room.walls = c.room.walls.min(2);
         let st0 = &mut c.state;
         st0.plan_a_y_left = 0;
         st0.plan_a_kind_left = 0;
