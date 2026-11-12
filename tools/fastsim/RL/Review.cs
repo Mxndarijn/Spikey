@@ -133,6 +133,7 @@ public static class Review
         bot.wall_look = L("walllook", 1) != 0;
         bot.full_speeds = L("fullspeeds", 0) != 0;
         bot.aim_anchor = L("aimanchor", 0) != 0;
+        bot.aim_wall = L("aimwall", 0) != 0;
         bot.fine_speeds = L("finespeeds", bot.fine_speeds);
         bot.spike_margin = L("spikemargin", bot.spike_margin ? 1 : 0) != 0;
         bot.bucket_px = L("bpx", bot.bucket_px);

@@ -52,6 +52,28 @@ public sealed class BlindPlanner
     /// aim_anchor: with no exit on screen the height cost pulls to the room's
     ///   anchor (the next gaps are drawn around it) instead of the middle.
     public bool wall_look = true, full_speeds = false, aim_anchor = false;
+    /// aim_wall: with no exit on screen the height cost pulls to the middle of
+    ///   the free part of the wall ahead (its nearest free point), for each
+    ///   line anew after every bounce. The next wall's sure gap is drawn within
+    ///   reach of the middle of what was free on the wall just hit (GameSim.
+    ///   _new_wall, a rule a player learns), so from there every next gap is
+    ///   nearest. Read from the wall drawn on screen only. Wins over aim_anchor.
+    public bool aim_wall = false;
+
+    /// Where `aim_wall` pulls a bird flying to the wall ahead of it in `s`.
+    public static long wall_aim(GameSim s)
+    {
+        long mask = drawn(s.state, s.state.vx > 0 ? 1 : 0);
+        long lo = -1, hi = -1;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+        {
+            if (RoomRules.has_slot(mask, slot)) continue;
+            if (lo < 0) lo = slot;
+            hi = slot;
+        }
+        if (lo < 0) return (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
+        return anchor_after(mask, (SimConfig.slot_center_y(lo) + SimConfig.slot_center_y(hi)) / 2);
+    }
     public long wall_looks;
     public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = false, aim_exit = true;
     public long kept_plans;
@@ -561,6 +583,7 @@ public sealed class BlindPlanner
         public byte tap;
         public long cost;
         public long since; // ticks since this line's last tap
+        public long aim; // the height its cost pulls to
     }
 
     /// Fills `_found` with up to `lines` lines that live `ticks` ticks,
@@ -583,10 +606,12 @@ public sealed class BlindPlanner
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
         bool exit_shown = root.state.exit_open || root.state.exit_preview;
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
+        else if (aim_wall) mid = wall_aim(root);
         else if (aim_anchor) mid = root.state.anchor_y;
+        bool re_aim = aim_wall && !(aim_exit && exit_shown);
         var parents = new List<int>();
         var taps = new List<byte>();
-        var frontier = new List<Node> { new Node { sim = root, parent = -1, since = root.state.tick - last_press } };
+        var frontier = new List<Node> { new Node { sim = root, parent = -1, since = root.state.tick - last_press, aim = mid } };
         var slots = new Dictionary<long, int>();
         var next = new List<Node>();
         for (long t = 0; t < ticks; t++)
@@ -626,7 +651,10 @@ public sealed class BlindPlanner
                     }
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
-                    long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
+                    long aim = e.aim;
+                    if (re_aim && (st.vx != vx0 || st.room_index != room0))
+                        aim = aim_exit && (st.exit_open || st.exit_preview) ? st.exit_a_y : wall_aim(s);
+                    long cost = e.cost + Math.Abs(st.y - aim) / SimConfig.SUB * mid_cost + a * tap_cost;
 #if PROF
                     long q1 = Prof.now();
                     if (margin > 0 && near_death(s)) cost += margin_cost;
@@ -638,7 +666,7 @@ public sealed class BlindPlanner
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;
                     if (wide_key) key = (key * 64 + st.x / (16 * SimConfig.SUB)) * 2 + (st.vx > 0 ? 1 : 0);
-                    var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost, since = a == 1 ? 1 : e.since + 1 };
+                    var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost, since = a == 1 ? 1 : e.since + 1, aim = aim };
                     if (slots.TryGetValue(key, out int at))
                     {
                         if (cost < next[at].cost)
@@ -680,7 +708,7 @@ public sealed class BlindPlanner
             {
                 parents.Add(e.parent);
                 taps.Add(e.tap);
-                frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost, since = e.since });
+                frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost, since = e.since, aim = e.aim });
             }
         }
         // The family of a line: its node `part` ticks in.
