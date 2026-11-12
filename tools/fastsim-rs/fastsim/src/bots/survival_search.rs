@@ -1,7 +1,7 @@
 //! Port of Bots/SurvivalSearch.cs (tests/support/survival_search.gd). Must find
 //! the same taps as the GDScript search, so the bucket keys, the order copies
 //! are tried in and the order of the kept set are the same.
-use std::collections::HashMap;
+use crate::fxhash::FxMap;
 
 use sim::prelude::*;
 
@@ -102,7 +102,7 @@ impl SurvivalSearch {
         self.best = None;
         self.best_inputs = Vec::new();
         // Insertion-ordered "dictionary": key -> slot in `next`.
-        let mut slots: HashMap<i64, usize> = HashMap::new();
+        let mut slots: FxMap<i64, usize> = FxMap::default();
         let mut next: Vec<Entry> = Vec::new();
         // (room_kind, death_cause) of every frontier sim after its step, for the
         // report when nothing survives (C# reads the stepped frontier).
@@ -179,7 +179,7 @@ impl SurvivalSearch {
         out_
     }
 
-    fn _keep(&self, slots: &mut HashMap<i64, usize>, next: &mut Vec<Entry>, s: GameSim, parent: i32, tap: u8) {
+    fn _keep(&self, slots: &mut FxMap<i64, usize>, next: &mut Vec<Entry>, s: GameSim, parent: i32, tap: u8) {
         if s.is_over() {
             return;
         }

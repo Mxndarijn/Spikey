@@ -8,6 +8,7 @@ mod bots;
 mod human;
 mod yardstick;
 mod dotnet_random;
+mod fxhash;
 mod parity;
 mod setups;
 mod speed;
@@ -40,6 +41,8 @@ fn main() {
         "parity" => parity::run(rest.get(1).map(|s| s.as_str()).unwrap_or("parity.txt")),
         "speed" => speed::speed(&opts),
         "bench" => speed::bench(),
+        "human" => human::run(&rest[1..], &opts),
+        "yardstick" => yardstick::run(&rest[1..], &opts),
         _ => {
             eprintln!("usage: fastsim-rs parity <cases.txt> | speed [options] | bench   [--jobs N]");
             2

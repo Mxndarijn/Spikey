@@ -3,7 +3,9 @@
 //! values already drawn, see `blind_copy`) are replaced by its own random
 //! numbers. Beam search over tap / wait, re-planned every `replan` ticks.
 //! Tool only (playtest bots). Same fields, defaults and order as C#.
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+
+use crate::fxhash::FxMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use sim::prelude::*;
@@ -604,7 +606,7 @@ impl BlindPlanner {
         let mut taps: Vec<u8> = Vec::new();
         let since0 = root.state.tick - self.last_press;
         let mut frontier: Vec<Node> = vec![Node { sim: root, parent: -1, tap: 0, cost: 0, since: since0 }];
-        let mut slots: HashMap<i64, usize> = HashMap::new();
+        let mut slots: FxMap<i64, usize> = FxMap::default();
         let mut next: Vec<Node> = Vec::new();
         for _t in 0..ticks {
             slots.clear();
@@ -682,7 +684,7 @@ impl BlindPlanner {
             if ((depth + 1) as usize) < layer.len() { layer[(depth + 1) as usize] as i32 } else { parents.len() as i32 };
         let room = frontier.iter().map(|e| e.sim.state.room_index).max().unwrap();
         // C# Dictionary<int, Node>: values in first-insertion order.
-        let mut best_at: HashMap<i32, usize> = HashMap::new();
+        let mut best_at: FxMap<i32, usize> = FxMap::default();
         let mut best: Vec<usize> = Vec::new();
         for (i, e) in frontier.iter().enumerate() {
             if e.sim.state.room_index != room {
