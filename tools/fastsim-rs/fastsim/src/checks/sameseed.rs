@@ -326,6 +326,10 @@ impl SameSeed {
                 out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
             }
             let prefix = format!("{}:", ra.index);
+            // Each wall's anchor follows the last one, so once a wall was met at
+            // another tick or with the hazards elsewhere (a key taken later), the
+            // later walls of the room may differ too: only side and score then.
+            let mut apart = false;
             for (k, wa) in &a.walls.list {
                 if !k.starts_with(&prefix) {
                     continue;
@@ -333,7 +337,8 @@ impl SameSeed {
                 let Some(wb) = b.walls.get(k) else { continue };
                 // A room entered by the other exit of a fork has more spikes on
                 // every wall after its arrival (WILD_SPIKES): a player's choice.
-                let timed = wa.in_room == wb.in_room && wa.hazards == wb.hazards && ra.route == rb.route;
+                let timed = !apart && wa.in_room == wb.in_room && wa.hazards == wb.hazards && ra.route == rb.route;
+                apart = !timed;
                 if wa.side != wb.side || wa.score != wb.score || timed && (wa.mask != wb.mask || wa.anchor != wb.anchor) {
                     out_.push(format!(
                         "{} wall {}: spikes {:x}/{:x} side {}/{} score {}/{} anchor {}/{}",
@@ -597,6 +602,10 @@ pub fn run_mode(pos: &[String], opts: &crate::speed::Opts) -> i32 {
             }
             let mut wd: Vec<String> = Vec::new();
             let prefix = format!("{}:", ra.index);
+            // Each wall's anchor follows the last one, so once a wall was met at
+            // another tick or with the hazards elsewhere (a key taken later), the
+            // later walls of the room may differ too: only side and score then.
+            let mut apart = false;
             for (k, wa) in &a.walls.list {
                 if !k.starts_with(&prefix) {
                     continue;
