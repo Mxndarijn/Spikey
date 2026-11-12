@@ -32,8 +32,11 @@ const SLIDE := 3 * SimConfig.SUB
 ## A fixed gap sits this far above where the bird came in: a bird holding its
 ## height hops up to about 60 px over it, so this is the middle of its hop.
 const HOP_MID := 30 * SimConfig.SUB
-## A fixed column this close to a wall keeps that wall's exit inside its gap.
+## A fixed column this close to a wall keeps that wall's exit inside its gap;
+## any other fixed column keeps it within FIXED_REACH past its tip (the bird
+## crosses that far before the exit, and must get back over it each lap).
 const EXIT_NEAR := 120 * SimConfig.SUB
+const FIXED_REACH := 120 * SimConfig.SUB
 
 ## Column centre, sub-units.
 var x := 0
@@ -156,7 +159,7 @@ func blocks_exit(_sim: GameSim, side: int, y: int) -> bool:
 		return false
 	var wall := 0 if side == 0 else SimConfig.WORLD_W
 	if absi(x - wall) > EXIT_NEAR:
-		return false
+		return (top and y < top_tip() - FIXED_REACH) or (bottom and y > bottom_tip() + FIXED_REACH)
 	if top and y < gap_y - gap / 2 + r:
 		return true
 	return bottom and y > gap_y + gap / 2 - r

@@ -31,6 +31,8 @@ const BEND_HALF: Array[int] = [100, 95, 90]
 ## Fork: the island's tip, the two branches' half height at the far wall, and
 ## the island's half thickness there.
 const ISLE_TIP_X := 300 * SUB
+## The far end is flat over this much by the far wall (an exit's box, ExitZone).
+const FAR_FLAT := ExitZone.DEPTH + 4 * SUB
 const BRANCH_HALF := 90 * SUB
 const ISLE_HALF := 36 * SUB
 ## Rock: its lip sits FANG_ROOM_MIN..+FANG_ROOM_SPAN past the limit the fangs
@@ -48,15 +50,15 @@ const LONG_HALF := 12 * SUB
 const LONG_TOP: Array[int] = [55, 115, 175, 235]
 const LONG_BOTTOM: Array[int] = [85, 145, 205]
 ## Drips: steps between drips (per level), and the first one's earliest step.
-const DRIP_CADENCE: Array[int] = [72, 54, 36]
+const DRIP_CADENCE: Array[int] = [48, 40, 32]
 const DRIP_FIRST := 90
 ## Bats: each swoops up and down at its own spot (entry-relative px, per
 ## level), sways BAT_SWAY, takes BAT_PERIOD steps per figure-eight (two
 ## swoops). The gallery is BAT_ROOM taller each side, so a bat at the top or
 ## bottom of its swoop is clear of the arrival band.
-const BAT_XS: Array[Array] = [[110, 210], [110, 210], [70, 150, 230]]
+const BAT_XS: Array[Array] = [[70, 150, 230], [70, 150, 230], [60, 120, 180, 240]]
 const BAT_SWAY := 6 * SUB
-const BAT_PERIOD: Array[int] = [480, 420, 360]
+const BAT_PERIOD: Array[int] = [400, 360, 320]
 const BAT_ROOM := 48 * SUB
 ## A bat keeps this much more than the two radii from the bird out of a portal.
 const BAT_MARGIN := 4 * SUB
@@ -136,13 +138,19 @@ static func _level(p: VariantParams) -> int:
 	return mini(p.level, 2)
 
 
-## The cave's arrival band (CAVE_SPREAD round the planned height), [top, bottom].
+## The cave's arrival band, [top, bottom]: a bird holding its height within
+## CAVE_SPREAD of the planned height, and the bird itself anywhere in the whole
+## exit (it never comes out in the rock; only a hop from the exit's very top
+## may reach the fangs).
 static func _cave_band(p: VariantParams) -> PackedInt32Array:
 	var r := SimConfig.BIRD_RADIUS + VariantParams.MARGIN
-	var spread := CAVE_SPREAD
-	var high := GameSim._arrival_y(p.entry_y - spread)
-	var low := GameSim._arrival_y(p.entry_y + spread)
-	return PackedInt32Array([high - FairLanes.FIRST_HOP - r, low + r])
+	var high := GameSim._arrival_y(p.entry_y - CAVE_SPREAD)
+	var low := GameSim._arrival_y(p.entry_y + CAVE_SPREAD)
+	var top := high - FairLanes.FIRST_HOP - r
+	var bottom := low + r
+	top = mini(top, GameSim._arrival_y(p.entry_y - SimConfig.EXIT_FIT) - r)
+	bottom = maxi(bottom, GameSim._arrival_y(p.entry_y + SimConfig.EXIT_FIT) + r)
+	return PackedInt32Array([top, bottom])
 
 
 static func _limits(p: VariantParams, variant: int) -> PackedInt32Array:
@@ -178,12 +186,14 @@ static func _limits(p: VariantParams, variant: int) -> PackedInt32Array:
 ## at entry-relative x.
 static func _limit(lim: PackedInt32Array, which: int, x: int) -> int:
 	if which < 2:
-		var s := _smooth(x - GALLERY_X, W - GALLERY_X)
+		var span := W - FAR_FLAT - GALLERY_X
+		var s := _smooth(x - GALLERY_X, span)
 		var a := lim[L_TOP0 + which]
-		return a + (lim[L_TOP1 + which] - a) * s / (W - GALLERY_X)
-	var t := _smooth(x - ISLE_TIP_X, W - ISLE_TIP_X)
+		return a + (lim[L_TOP1 + which] - a) * s / span
+	var isle_span := W - FAR_FLAT - ISLE_TIP_X
+	var t := _smooth(x - ISLE_TIP_X, isle_span)
 	var tip := lim[L_TIP]
-	return tip + (lim[L_ISLE_TOP1 + which - 2] - tip) * t / (W - ISLE_TIP_X)
+	return tip + (lim[L_ISLE_TOP1 + which - 2] - tip) * t / isle_span
 
 
 ## One rock face as a polyline (entry-relative x, left to right): its lip

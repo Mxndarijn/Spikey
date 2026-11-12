@@ -58,7 +58,9 @@ const TIERS := {
 	"stalker": MIDDLE,  # 42
 	"bubbles": MIDDLE,  # 45
 	"narrow": MIDDLE,  # 47
+	"pegs": MIDDLE,  # 44 (provisional: 4-room fit, not the full catalogue)
 	"rain": HARD,  # 49
+	"cave": HARD,  # 48 (provisional: 4-room fit, not the full catalogue)
 	"gates": HARD,  # 51
 	"midnight": HARD,  # 52
 	"sawring": HARD,  # 54

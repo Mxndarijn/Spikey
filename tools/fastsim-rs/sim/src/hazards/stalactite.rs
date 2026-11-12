@@ -30,6 +30,7 @@ impl Stalactite {
     pub const SLIDE: i64 = 3 * SimConfig::SUB;
     pub const HOP_MID: i64 = 30 * SimConfig::SUB;
     pub const EXIT_NEAR: i64 = 120 * SimConfig::SUB;
+    pub const FIXED_REACH: i64 = 120 * SimConfig::SUB;
 
     /// GDScript defaults: p_x = 0, p_follows = false.
     pub fn new(p_x: i64, p_follows: bool) -> Stalactite {
@@ -153,7 +154,8 @@ impl Hazard for Stalactite {
         }
         let wall = if side == 0 { 0 } else { SimConfig::WORLD_W };
         if G::absi(self.x - wall) > Self::EXIT_NEAR {
-            return false;
+            return (self.top && y < self.top_tip() - Self::FIXED_REACH)
+                || (self.bottom && y > self.bottom_tip() + Self::FIXED_REACH);
         }
         if self.top && y < self.gap_y - self.gap / 2 + r {
             return true;

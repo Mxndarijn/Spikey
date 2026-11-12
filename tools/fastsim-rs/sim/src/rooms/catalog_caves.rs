@@ -17,6 +17,7 @@ impl CatalogCaves {
     pub const BEND: [i64; 3] = [40, 65, 90];
     pub const BEND_HALF: [i64; 3] = [100, 95, 90];
     pub const ISLE_TIP_X: i64 = 300 * Self::SUB;
+    pub const FAR_FLAT: i64 = ExitZone::DEPTH + 4 * Self::SUB;
     pub const BRANCH_HALF: i64 = 90 * Self::SUB;
     pub const ISLE_HALF: i64 = 36 * Self::SUB;
     pub const FANG_ROOM_MIN: i64 = 22 * Self::SUB;
@@ -29,11 +30,11 @@ impl CatalogCaves {
     pub const LONG_HALF: i64 = 12 * Self::SUB;
     pub const LONG_TOP: [i64; 4] = [55, 115, 175, 235];
     pub const LONG_BOTTOM: [i64; 3] = [85, 145, 205];
-    pub const DRIP_CADENCE: [i64; 3] = [72, 54, 36];
+    pub const DRIP_CADENCE: [i64; 3] = [48, 40, 32];
     pub const DRIP_FIRST: i64 = 90;
-    pub const BAT_XS: [&'static [i64]; 3] = [&[110, 210], &[110, 210], &[70, 150, 230]];
+    pub const BAT_XS: [&'static [i64]; 3] = [&[70, 150, 230], &[70, 150, 230], &[60, 120, 180, 240]];
     pub const BAT_SWAY: i64 = 6 * Self::SUB;
-    pub const BAT_PERIOD: [i64; 3] = [480, 420, 360];
+    pub const BAT_PERIOD: [i64; 3] = [400, 360, 320];
     pub const BAT_ROOM: i64 = 48 * Self::SUB;
     pub const BAT_MARGIN: i64 = 4 * Self::SUB;
     pub const PEG_COUNT: [i64; 3] = [6, 8, 10];
@@ -105,7 +106,11 @@ impl CatalogCaves {
         let spread = Self::CAVE_SPREAD;
         let high = GameSim::_arrival_y(p.entry_y - spread);
         let low = GameSim::_arrival_y(p.entry_y + spread);
-        [high - FairLanes::FIRST_HOP - r, low + r]
+        let mut top = high - FairLanes::FIRST_HOP - r;
+        let mut bottom = low + r;
+        top = G::mini(top, GameSim::_arrival_y(p.entry_y - SimConfig::EXIT_FIT) - r);
+        bottom = G::maxi(bottom, GameSim::_arrival_y(p.entry_y + SimConfig::EXIT_FIT) + r);
+        [top, bottom]
     }
 
     fn _limits(sim: &mut GameSim, p: &VariantParams, variant: i64) -> [i64; 8] {
@@ -139,13 +144,15 @@ impl CatalogCaves {
 
     fn _limit(lim: &[i64; 8], which: usize, x: i64) -> i64 {
         if which < 2 {
-            let s = Self::_smooth(x - Self::GALLERY_X, Self::W - Self::GALLERY_X);
+            let span = Self::W - Self::FAR_FLAT - Self::GALLERY_X;
+            let s = Self::_smooth(x - Self::GALLERY_X, span);
             let a = lim[Self::L_TOP0 + which];
-            return a + (lim[Self::L_TOP1 + which] - a) * s / (Self::W - Self::GALLERY_X);
+            return a + (lim[Self::L_TOP1 + which] - a) * s / span;
         }
-        let t = Self::_smooth(x - Self::ISLE_TIP_X, Self::W - Self::ISLE_TIP_X);
+        let isle_span = Self::W - Self::FAR_FLAT - Self::ISLE_TIP_X;
+        let t = Self::_smooth(x - Self::ISLE_TIP_X, isle_span);
         let tip = lim[Self::L_TIP];
-        tip + (lim[Self::L_ISLE_TOP1 + which - 2] - tip) * t / (Self::W - Self::ISLE_TIP_X)
+        tip + (lim[Self::L_ISLE_TOP1 + which - 2] - tip) * t / isle_span
     }
 
     fn _face(sim: &mut GameSim, lim: &[i64; 8], which: usize, from_x: i64, longs: &[i64]) -> Vec<i64> {
