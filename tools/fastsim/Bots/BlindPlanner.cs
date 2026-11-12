@@ -134,6 +134,15 @@ public sealed class BlindPlanner
     /// Lines may tap whenever the bird's upward speed is under this (the default
     /// keeps taps about 12 ticks apart, so a line can't climb faster than 3.75 px a tick).
     public long tap_below = SurvivalSearch.TAP_BELOW_VY;
+    /// Free tap timing that the buckets can hold: a line may tap again as soon
+    /// as it has left the speed bucket of a fresh tap (upward speed under
+    /// FLAP_VY + one bucket). Any sooner, a line that taps and its twin that
+    /// does not share a bucket, the cheaper one (the tap, below the aimed
+    /// height) wins every tick, and no line can ever start to fall: with
+    /// `tap_below` at "always" the whole search climbs into the ceiling
+    /// (measured: 3.1 deaths per 100 points against 0.05). With 12 speed
+    /// buckets this is a tap every 5 ticks (4.5 px a tick up, against 3.75).
+    public bool tap_free = false;
     /// When no line lives the whole look: play the line that lived longest in
     /// that same search (it is already there) instead of searching again
     /// to the wall and with 3/4, 9/16, ... of the look.
@@ -570,6 +579,7 @@ public sealed class BlindPlanner
         var layer = new List<int>();
         long bh = bpx * SimConfig.SUB;
         long bvy = full_speeds ? (SimConfig.MAX_FALL_VY - SimConfig.FLAP_VY) / speeds + 1 : -SimConfig.FLAP_VY * 2 / speeds;
+        long tap_from = tap_free ? SimConfig.FLAP_VY + bvy : tap_below;
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
         bool exit_shown = root.state.exit_open || root.state.exit_preview;
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
@@ -585,7 +595,7 @@ public sealed class BlindPlanner
             next.Clear();
             foreach (var e in frontier)
             {
-                bool can_tap = e.sim.state.vy * e.sim.room.gravity > tap_below
+                bool can_tap = e.sim.state.vy * e.sim.room.gravity > tap_from
                                && (min_gap <= 0 || e.since >= min_gap);
                 long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
                 bool e_open = e.sim.state.exit_open;
