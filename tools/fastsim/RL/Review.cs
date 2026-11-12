@@ -145,7 +145,7 @@ public static class Review
         bot.longest = L("longest", 0) != 0;
         if (L("anytap", 0) != 0) bot.tap_below = long.MinValue;
         bot.tap_free = L("tapfree", 0) != 0;
-        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}{(bot.follow > 0 ? " follow " + bot.follow : "")}{(bot.longest ? " longest" : "")}{(bot.tap_free ? " tapfree" : "")}{(bot.aim_wall ? " aimwall" : "")}{(bot.aim_anchor ? " aimanchor" : "")}{(bot.mid_visible ? " midvisible" : "")}";
     }
 
     /// `rl review atlas`: every death of the BlindPlanner with a verdict.
