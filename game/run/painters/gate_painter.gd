@@ -1,14 +1,14 @@
 extends HazardPainter
-## Gate (Shutter Gates): a rock bar above and below a sliding gap, with teeth
-## on the gap edges so the deadly lips read clearly. The bars come out of the
-## ceiling and floor behind their spike rows (the spikes are drawn again over
-## each bar), and the teeth are two-tone spikes as wide as the bar, inside the
+## Gate (Shutter Gates): a rock bar above and below a sliding gap, each ending
+## in a spike tip at the gap so the deadly lips read clearly. The bars come out
+## of the ceiling and floor behind their spike rows (the spikes are drawn again
+## over each bar). The tip is one two-tone spike as wide as the bar, inside the
 ## bar's hitbox: the drawing ends exactly where the gap starts.
 
 const GateHazard := preload("res://sim/hazards/gate.gd")
 
-const TEETH := 2
-const TOOTH := 7.0
+const TEETH := 1
+const TOOTH := 12.0
 
 
 func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
@@ -39,7 +39,7 @@ static func _bar(
 		c.draw_rect(r, HazardLayer.INK_EDGE, false, HazardLayer.INK_LINE_W)
 
 
-## The teeth at a gap edge: TEETH two-tone spikes filling the bar's width, from
+## The tip at a gap edge: TEETH two-tone spikes filling the bar's width, from
 ## `y` pointing `dir` (1 = down) into the gap, TOOTH deep.
 static func _teeth(
 	c: CanvasItem, cx: float, half: float, y: float, dir: float, look: HazardLook
