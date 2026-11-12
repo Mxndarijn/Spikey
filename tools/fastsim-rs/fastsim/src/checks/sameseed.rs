@@ -25,6 +25,10 @@ pub struct Wall {
     /// The hazards that move spikes (`has_adjust_wall`): with the score, the route, the
     /// room's seed and the last wall, the only things a wall's spikes depend on.
     pub adj: String,
+    /// What the spikes were drawn from besides the score, route and room seed: the anchor,
+    /// the wall bounced off as the anchor saw it, the side's spike bonus and the exit state
+    /// (`Record::gen_inputs`).
+    pub gen: String,
     pub coin: String,
 }
 
@@ -121,6 +125,36 @@ impl SameSeed {
         parts.join(",")
     }
 
+    /// GameSim._drawn_mask: wall `side`'s spikes as drawn, with the exit's openings.
+    fn drawn(sim: &GameSim, side: i64) -> i64 {
+        let st = &sim.state;
+        if st.exit_open && st.exit_side == side {
+            return ((1i64 << SimConfig::SLOT_COUNT) - 1) & !ExitPlanner::slots(st);
+        }
+        let mask = if side == 0 { st.left_spikes } else { st.right_spikes };
+        if st.exit_preview && st.exit_side == side { mask & !ExitPlanner::slots(st) } else { mask }
+    }
+
+    /// The inputs of the wall just drawn for `side` (GameSim._new_wall), besides the score, the
+    /// route and the room's seed and wall number: the anchor, `from`, the wall bounced off as
+    /// _anchor_at_wall saw it before the step (`drawn`; its free run steers the new one), the side's spike
+    /// bonus (a variant's lean differs per side) and the exit state _wall_target reads. The
+    /// side itself is not one: in a room with a bumper, a wall drawn on the other side from the
+    /// same inputs has the same spikes.
+    fn gen_inputs(sim: &GameSim, side: i64, from: i64) -> String {
+        let st = &sim.state;
+        format!(
+            "{} {:x} {} {} {} {} {}",
+            st.anchor_y,
+            from,
+            sim.room.spike_bonus(side),
+            st.exit_open,
+            st.exit_preview,
+            st.exit_side,
+            sim.points_to_exit()
+        )
+    }
+
     fn hz_of(sim: &GameSim, skip_bird: bool) -> String {
         let parts: Vec<String> = sim
             .room
@@ -195,6 +229,9 @@ impl SameSeed {
             let d = decide(&sim);
             let Some(d) = d else { break };
             steps += 1;
+            // The walls as _anchor_at_wall sees them, before the step: a bounce clears the
+            // wall bounced off.
+            let drawn = [Self::drawn(&sim, 0), Self::drawn(&sim, 1)];
             sim.step(d);
             let events = sim.events.clone();
             for e in events {
@@ -235,6 +272,7 @@ impl SameSeed {
                         life,
                         hazards: Self::hz_all(&sim),
                         adj: Self::hz_adj(&sim),
+                        gen: Self::gen_inputs(&sim, side, drawn[(1 - side) as usize]),
                         coin: String::new(),
                     };
                     p.walls.set(format!("{}:{}", st.room_index, sim.room.walls), w);
@@ -343,34 +381,25 @@ impl SameSeed {
                 out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
             }
             let prefix = format!("{}:", ra.index);
-            // A wall's spikes depend only on the room's seed and wall count (compared above),
-            // the score, the route's Wild bonus, the anchor and free run the last wall left,
-            // and the hazards that move spikes (`adj`, met at the same tick in the room when
-            // there are any). When all of those are the same, the spikes must be too. The
-            // first wall starts from the room's arrival anchor; each later one is in step
-            // when the last pair of walls came out the same (spikes and anchor), checked or not.
-            let mut synced = ra.anchor == rb.anchor;
+            // A wall's spikes depend only on the room's seed and wall number (compared above),
+            // the score, the route's Wild bonus, `gen` (the anchor, the wall bounced off, the
+            // side's bonus, the exit state) and the hazards that move spikes (`adj`, met at the
+            // same tick in the room when there are any). When all of those are the same, the
+            // spikes must be too, whichever side the wall is on: walls are matched by number.
             for (k, wa) in &a.walls.list {
                 if !k.starts_with(&prefix) {
                     continue;
                 }
-                let Some(wb) = b.walls.get(k) else {
-                    synced = false;
-                    continue;
-                };
-                // A bumper can turn the bird back (Bumper Cloud, Heart Bumpers), so in
-                // such a room the side a wall is met on is the player's doing: not a
-                // difference, and the plays are out of step until two walls match again.
-                if wa.side != wb.side && SameSeedRevive::turns_back(&ra.kind) {
-                    synced = false;
-                    continue;
-                }
+                let Some(wb) = b.walls.get(k) else { continue };
+                // A bumper can turn the bird back (Bumper Cloud, Heart Bumpers), so in such a
+                // room the side a wall is met on is the player's doing, not a difference.
+                let side_ok = wa.side == wb.side || SameSeedRevive::turns_back(&ra.kind);
                 let first = k.split(':').nth(1) == Some("1");
-                let inputs = synced
+                let inputs = wa.gen == wb.gen
                     && wa.score == wb.score
                     && wa.adj == wb.adj
                     && (wa.adj.is_empty() || wa.in_room == wb.in_room);
-                let mut bad = wa.side != wb.side || wa.score != wb.score;
+                let mut bad = !side_ok || wa.score != wb.score;
                 if inputs {
                     if ra.route == rb.route || first {
                         bad |= wa.mask != wb.mask || wa.anchor != wb.anchor;
@@ -397,7 +426,6 @@ impl SameSeed {
                         wb.anchor
                     ));
                 }
-                synced = wa.mask == wb.mask && wa.anchor == wb.anchor;
             }
         }
         out_
