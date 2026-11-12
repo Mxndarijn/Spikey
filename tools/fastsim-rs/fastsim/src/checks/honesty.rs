@@ -734,7 +734,7 @@ impl Honesty {
                 if t % 50 == 7 {
                     states += 1;
                     let before = Self::seed_fields(&sim);
-                    let copy = BlindPlanner::blind_copy(&sim, own, -1, 0, -1);
+                    let copy = BlindPlanner::blind_copy(&sim, own, -1, 0, -1, false, false);
                     own.next_u32();
                     let after = Self::seed_fields(&copy);
                     for (path, &value) in &before {

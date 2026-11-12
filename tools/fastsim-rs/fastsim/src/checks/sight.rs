@@ -457,7 +457,7 @@ impl Check for SightCheck {
                     let lead = on - t;
                     let mut seen: Vec<Option<bool>> = vec![None; Self::BOTS.len()];
                     // blind: a blind copy stepped on the bot's own line.
-                    let mut bc = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 31 + t * 7 + i as i64), -1, 0, -1);
+                    let mut bc = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 31 + t * 7 + i as i64), -1, 0, -1, false, false);
                     let mut k = 0;
                     while k < lead && !bc.is_over() {
                         bc.step(line[(t + k) as usize] == 1);
@@ -490,8 +490,8 @@ impl Check for SightCheck {
             }
             if t % Self::LEAK_EVERY == 0 {
                 // Hidden draws: two blind copies must differ in each.
-                let a = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 3 + t * 2 + 1), -1, 0, -1);
-                let b = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 3 + t * 2 + 2), -1, 0, -1);
+                let a = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 3 + t * 2 + 1), -1, 0, -1, false, false);
+                let b = BlindPlanner::blind_copy(&sim, SimRng::new(seed * 3 + t * 2 + 2), -1, 0, -1, false, false);
                 for i in 0..sim.room.hazards.len() {
                     let ht = hz_name(&sim.room.hazards[i]);
                     let va = Self::hidden_values(&a.room.hazards[i]);

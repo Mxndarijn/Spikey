@@ -111,6 +111,10 @@ pub struct BlindPlanner {
     pub fine_speeds: i64,
     /// Measuring only (Human/Atlas): bits of `Reveal` left as they truly are in the copy.
     pub reveal: i32,
+    /// Boss rooms: the tell on screen is not taken in yet (set by the human layer), so a guess too.
+    pub boss_unseen: bool,
+    /// Measuring only: this planner's copies keep the true boss seed.
+    pub boss_leak: bool,
     /// Honesty (research/planner-review/01-honesty.md): the copy's anchor_y is the planner's
     /// own, tracked from the walls it bounced off and the exit it took, never state.anchor_y.
     pub own_anchor: bool,
@@ -184,6 +188,8 @@ impl BlindPlanner {
             fine_px: 3,
             fine_speeds: 12,
             reveal: 0,
+            boss_unseen: false,
+            boss_leak: false,
             own_anchor: true,
             anchor: SimConfig::BIRD_START_Y,
             _seen_room: 0,
@@ -313,7 +319,15 @@ impl BlindPlanner {
 
     fn copy(&self, sim: &GameSim, seed: i64) -> GameSim {
         let p0 = sim::prof::enter(sim::prof::BLIND);
-        let c = Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal, if self.own_anchor { self.anchor } else { -1 });
+        let c = Self::blind_copy(
+            sim,
+            SimRng::new(seed),
+            self._bounce_y,
+            self.reveal,
+            if self.own_anchor { self.anchor } else { -1 },
+            self.boss_unseen,
+            self.boss_leak,
+        );
         sim::prof::leave(p0);
         c
     }
@@ -342,7 +356,7 @@ impl BlindPlanner {
                     let at = at.expect("a stage-one line keeps its sim");
                     let mut ok = 0;
                     for j in 0..n as usize {
-                        let c = Self::blind_copy(&at, SimRng::new(seeds[j] + 1), self._bounce_y, self.reveal, -1);
+                        let c = Self::blind_copy(&at, SimRng::new(seeds[j] + 1), self._bounce_y, self.reveal, -1, self.boss_unseen, self.boss_leak);
                         self.beam(c, self.after, self.coarse_px, self.coarse_speeds, 0, true);
                         if !self._found.is_empty() {
                             ok += 1;
@@ -522,7 +536,17 @@ impl BlindPlanner {
     /// A copy of `sim` with every hidden random value replaced by `own`'s.
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
     /// `own_anchor`: the planner's own room anchor, tracked from walls it saw (-1 = keep the copy's).
-    pub fn blind_copy(sim: &GameSim, mut own: SimRng, bounce_y: i64, reveal: i32, own_anchor: i64) -> GameSim {
+    /// `boss_unseen`: the boss tell on screen is not taken in yet (a guess too); `boss_leak`: keep the true boss seed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn blind_copy(
+        sim: &GameSim,
+        mut own: SimRng,
+        bounce_y: i64,
+        reveal: i32,
+        own_anchor: i64,
+        boss_unseen: bool,
+        boss_leak: bool,
+    ) -> GameSim {
         let mut c = sim.clone_deep();
         if own_anchor >= 0 {
             c.state.anchor_y = own_anchor;
@@ -631,8 +655,8 @@ impl BlindPlanner {
             if kind != 0 && r(kind) {
                 continue;
             }
-            if hz.as_boss().is_some() && boss_blind {
-                BossBlind::scramble(hz, &mut own, false);
+            if hz.as_boss().is_some() && boss_blind && !boss_leak {
+                BossBlind::scramble(hz, &mut own, boss_unseen);
             }
             match hz {
                 // Hash salts and private RNGs: where every later crate, dart, drop, rocket and coin goes.

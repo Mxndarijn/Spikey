@@ -17,6 +17,7 @@
 //! - the caller swapping the sim for a copy (Yardstick/Leak.fork:
 //!   `sa = sa.clone_deep()`): the state cannot show it, so the caller says so
 //!   with `sims_swapped()` (thread-local: a fork runs on one thread).
+use crate::bots::boss_blind::BossBlind;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -87,6 +88,8 @@ impl fmt::Display for Motor {
 /// Experiments: which new things get a reaction time (spikes, hazards).
 pub static MASK_SPIKES: AtomicBool = AtomicBool::new(true);
 pub static MASK_HAZARDS: AtomicBool = AtomicBool::new(true);
+/// Boss tells get the same reaction time as new hazards (07-bosses.md); off = the planner sees them at once.
+pub static REACT_BOSS: AtomicBool = AtomicBool::new(true);
 
 /// A hazard as C# would tell it apart: (object set, index in room.hazards).
 type HzKey = (u64, usize);
@@ -111,6 +114,8 @@ pub struct MotorPlayer {
     _room: i64,
     _last_fire: i64,
     _window: i64,
+    _boss_key: i64,
+    _boss_hidden_until: i64,
     pub masked_ticks: i64,
     pub presses: i64,
     pub cancels: i64,
@@ -142,6 +147,8 @@ impl MotorPlayer {
             _room: -1,
             _last_fire: -100,
             _window: 1i64.max((2.5 * m.sigma).ceil() as i64),
+            _boss_key: 0,
+            _boss_hidden_until: -1,
             masked_ticks: 0,
             presses: 0,
             cancels: 0,
@@ -239,6 +246,7 @@ impl MotorPlayer {
         } else {
             sim
         };
+        self.planner.boss_unseen = t < self._boss_hidden_until;
         self.planner.min_gap = if self._m.min_gap > 1 { self._m.min_gap } else { 0 };
         self.planner.last_press = self._last_fire;
         let now = self.planner.decide(view);
@@ -319,6 +327,15 @@ impl MotorPlayer {
                 if MASK_SPIKES.load(Ordering::Relaxed) && react { t + self.reaction() } else { -1 };
         }
         self._score = s.score;
+        for h in &sim.room.hazards {
+            if h.as_boss().is_some() {
+                let key = BossBlind::tell_key(h);
+                if key != self._boss_key && REACT_BOSS.load(Ordering::Relaxed) && react {
+                    self._boss_hidden_until = t + self.reaction();
+                }
+                self._boss_key = key;
+            }
+        }
         let mask_hazards = MASK_HAZARDS.load(Ordering::Relaxed);
         for (i, h) in sim.room.hazards.iter().enumerate() {
             let key = (self._objects, i);
