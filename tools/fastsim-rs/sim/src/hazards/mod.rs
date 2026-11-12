@@ -171,6 +171,9 @@ macro_rules! hazard_enum {
             pub fn checksum(&self, h0: i64) -> i64 {
                 match self { $(Hz::$v(h) => h.checksum(h0),)* Hz::Taken => taken() }
             }
+            pub fn warnings(&self, sim: &GameSim, out_: &mut Vec<i64>) {
+                match self { $(Hz::$v(h) => h.warnings(sim, out_),)* Hz::Taken => taken() }
+            }
         }
     };
 }

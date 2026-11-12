@@ -1,4 +1,5 @@
 //! Port of sim/hazards/bubble.gd (Sim/Hazards/Bubble.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -175,6 +176,15 @@ impl Hazard for Bubble {
         if self.carrying {
             self.pop();
         }
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if !self.spiked || self.wait > 3 * Self::WARN || self.y - self.radius < SimConfig::KILL_BOTTOM {
+            return;
+        }
+        let eta = self.wait + (self.y - self.radius - SimConfig::KILL_BOTTOM) / -self.vy;
+        let dur = (SimConfig::KILL_BOTTOM + 2 * self.radius - Self::POP_TOP) / -self.vy + 1;
+        add_warning(out_, self.x - self.radius, Self::POP_TOP - self.radius, self.x + self.radius, SimConfig::WORLD_H, eta, dur, WARN_KILL);
     }
 
     fn checksum(&self, h: i64) -> i64 {

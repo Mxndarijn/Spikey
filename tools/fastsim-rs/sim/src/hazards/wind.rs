@@ -1,4 +1,5 @@
 //! Port of sim/hazards/wind.gd (Sim/Hazards/Wind.cs).
+use crate::rooms::hazard::{add_warning, WARN_PUSH};
 use crate::prelude::*;
 
 pub struct Mode;
@@ -87,6 +88,18 @@ impl Hazard for Wind {
             sim.state.x += self.a_dir * Self::PUSH;
         } else if self.b_dir != 0 && y >= self.b_y0 && y <= self.b_y1 {
             sim.state.x += self.b_dir * Self::PUSH;
+        }
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if !self.warning() {
+            return;
+        }
+        let eta = Self::GUST_CALM + Self::GUST_WARN - G::posmod(self.base.t, Self::GUST_PERIOD);
+        let dur = Self::GUST_PERIOD - Self::GUST_CALM - Self::GUST_WARN;
+        add_warning(out_, 0, self.a_y0, SimConfig::WORLD_W, self.a_y1, eta, dur, WARN_PUSH);
+        if self.b_dir != 0 {
+            add_warning(out_, 0, self.b_y0, SimConfig::WORLD_W, self.b_y1, eta, dur, WARN_PUSH);
         }
     }
 

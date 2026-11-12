@@ -1,4 +1,5 @@
 //! Port of sim/hazards/piston.gd (Sim/Hazards/Piston.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 pub struct State;
@@ -263,6 +264,14 @@ impl Hazard for Piston {
             return false;
         }
         sim.bird_touches_rect(self.base_x(), self.y - Self::HALF_H, self.tip_x(), self.y + Self::HALF_H)
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.state() != State::GLOW {
+            return;
+        }
+        add_warning(out_, self.base_x(), self.y - Self::HALF_H, self._far_x(), self.y + Self::HALF_H,
+            Self::IDLE_TICKS + self.glow_ticks - self.cycle_pos(), Self::EXTEND_TICKS + Self::HOLD_TICKS + Self::RETRACT_TICKS, WARN_KILL);
     }
 
     fn checksum(&self, h: i64) -> i64 {

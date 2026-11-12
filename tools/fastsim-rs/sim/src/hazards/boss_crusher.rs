@@ -2,6 +2,7 @@
 //! subclass: the parent is the field `boss`. C# `crate` (a Rust keyword) is
 //! the field `crate_`.
 use crate::hazards::boss::BossKind;
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 /// `BossCrusher.Crate`.
@@ -301,6 +302,30 @@ impl Hazard for BossCrusher {
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
         Boss::adjust_wall(self, sim, side, mask)
+    }
+
+    fn warnings(&self, sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.boss.down_at >= 0 || self.boss.clock() < 0 {
+            return;
+        }
+        let lt = self.boss.clock() % Self::CYCLE;
+        let x0 = sim.room.wall_left();
+        let x1 = sim.room.wall_right();
+        if self.telling && self.boss.phase == 1 {
+            let dur = Self::LIFT_AT - Self::SLAM_AT + (self.slam_y - Self::PRESS_REST) / Self::LIFT + 1;
+            add_warning(out_, x0, SimConfig::KILL_TOP, x1, self.slam_y + Self::BITE, Self::SLAM_AT - lt, dur, WARN_KILL);
+        } else if self.telling {
+            let top = self.lane_to - self.lane_half() - Self::TEETH + Self::BITE;
+            let bottom = self.lane_to + self.lane_half() + Self::TEETH - Self::BITE;
+            add_warning(out_, x0, SimConfig::KILL_TOP, x1, top, Self::TELL - lt, Self::CYCLE, WARN_KILL);
+            add_warning(out_, x0, bottom, x1, SimConfig::KILL_BOTTOM, Self::TELL - lt, Self::CYCLE, WARN_KILL);
+        }
+        for i in 0..2 {
+            if self.crate_[i] == Crate::MARK {
+                add_warning(out_, self.crate_x[i] - Self::CRATE_HALF, self.lane_to - self.lane_half(), self.crate_x[i] + Self::CRATE_HALF,
+                    self.lane_to + self.lane_half(), Self::CRATE_FALL - lt, (2 * self.lane_half()) / Self::CRATE_SPEED + 2, WARN_KILL);
+            }
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {

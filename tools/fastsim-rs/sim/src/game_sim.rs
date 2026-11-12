@@ -202,6 +202,17 @@ impl GameSim {
     }
 
     #[inline]
+    /// Every warning (tell) on screen now: Hazard.warnings of each live hazard,
+    /// WARN_SIZE numbers per warning, added to `out_` (cleared first).
+    pub fn warnings(&self, out_: &mut Vec<i64>) {
+        out_.clear();
+        for h in self.room.hazards.iter() {
+            if h.base().alive {
+                h.warnings(self, out_);
+            }
+        }
+    }
+
     pub fn is_over(&self) -> bool {
         !self.state.alive
     }

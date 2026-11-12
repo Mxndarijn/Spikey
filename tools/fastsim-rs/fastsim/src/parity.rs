@@ -44,6 +44,8 @@ pub fn run(path: &str) -> i32 {
             let actions = f[5].as_bytes();
             let sums: Vec<&str> = if f.len() > 6 && !f[6].is_empty() { f[6].split(',').collect() } else { Vec::new() };
             let mut sim = GameSim::with(seed, season, practice, "");
+            let mut w = SimHash::SEED;
+            let mut warns: Vec<i64> = Vec::new();
             for i in 0..actions.len() {
                 let a = actions[i];
                 if a == b'r' {
@@ -51,6 +53,7 @@ pub fn run(path: &str) -> i32 {
                 } else {
                     sim.step(a == b'1');
                 }
+                w = warn_mix(w, &sim, &mut warns);
                 ticks.fetch_add(1, Ordering::Relaxed);
                 if sim.checksum() != p64(sums[i]) {
                     fails.lock().unwrap().push(format!(
@@ -61,6 +64,9 @@ pub fn run(path: &str) -> i32 {
                     ));
                     return;
                 }
+            }
+            if warns_differ(&f, w) {
+                fails.lock().unwrap().push(format!("{tag}: the state matches but the warnings (Hazard.warnings) differ somewhere in the run"));
             }
         } else if f[0] == "search" {
             let n = p64(f[5]);
@@ -130,6 +136,24 @@ pub fn setup(text: &str) -> GameSim {
 
 /// Replays a `case` line; with a bot driver the Rust bot must also choose
 /// every tap itself. None when it matches, else where it differs.
+/// Every tick's warnings mixed into one number (tools/fastsim_parity.gd, _warn_mix).
+fn warn_mix(w: i64, sim: &GameSim, warns: &mut Vec<i64>) -> i64 {
+    sim.warnings(warns);
+    let mut out_ = SimHash::mix(w, warns.len() as i64);
+    for &v in warns.iter() {
+        out_ = SimHash::mix(out_, v);
+    }
+    out_
+}
+
+/// True when the line ends in "w:<n>" (the recorded warnings) and `w` is another number.
+fn warns_differ(f: &[&str], w: i64) -> bool {
+    match f.last() {
+        Some(last) if last.starts_with("w:") => p64(&last[2..]) != w,
+        _ => false,
+    }
+}
+
 fn play_case(f: &[&str]) -> Option<String> {
     let mut sim = setup(f[2]);
     let (driver, actions) = (f[3], f[4].as_bytes());
@@ -141,6 +165,8 @@ fn play_case(f: &[&str]) -> Option<String> {
     let hold = if d[0] == "planner" { p64(d[4]) } else { 0 };
     let y0 = sim.state.y;
     let mut n = 0;
+    let mut w = SimHash::SEED;
+    let mut warns: Vec<i64> = Vec::new();
     for i in 0..actions.len() {
         let a = actions[i];
         if driver != "replay" {
@@ -175,6 +201,7 @@ fn play_case(f: &[&str]) -> Option<String> {
             sim.step(a == b'1');
             n += 1;
         }
+        w = warn_mix(w, &sim, &mut warns);
         if sim.checksum() != p64(sums[i]) {
             return Some(format!(
                 "differs at action {i} ('{}'), tick {}, room {}",
@@ -183,6 +210,9 @@ fn play_case(f: &[&str]) -> Option<String> {
                 room_id(&sim)
             ));
         }
+    }
+    if warns_differ(f, w) {
+        return Some("the state matches but the warnings (Hazard.warnings) differ somewhere in the case".into());
     }
     // The bot must also stop where the GDScript one stopped.
     if d[0] == "gap" && (if sim.is_over() { sim.can_revive() } else { sim.state.tick < 1500 }) {

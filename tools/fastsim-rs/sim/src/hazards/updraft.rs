@@ -1,4 +1,5 @@
 //! Port of sim/hazards/updraft.gd (Sim/Hazards/Updraft.cs).
+use crate::rooms::hazard::{add_warning, WARN_PUSH};
 use crate::prelude::*;
 
 pub struct Gust;
@@ -124,6 +125,14 @@ impl Hazard for Updraft {
             let vy = sim.state.vy - self.lift;
             sim.state.vy = G::clampi(vy, -SimConfig::MAX_FALL_VY, SimConfig::MAX_FALL_VY);
         }
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.gust != Gust::WARN {
+            return;
+        }
+        let eta = Self::GUST_OFF + Self::GUST_WARN - self.gust_step();
+        add_warning(out_, self.x0, SimConfig::KILL_TOP, self.x1, SimConfig::KILL_BOTTOM, eta, Self::GUST_ON, WARN_PUSH);
     }
 
     fn checksum(&self, h: i64) -> i64 {

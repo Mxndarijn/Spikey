@@ -82,6 +82,25 @@ pub trait Hazard: Clone {
     fn checksum(&self, h: i64) -> i64 {
         h
     }
+    /// The warnings (tells) on screen now, WARN_SIZE numbers each added to `out_`:
+    /// x0, y0, x1, y1, eta, dur, kind (sim/rooms/hazard.gd). Reads only.
+    fn warnings(&self, sim: &GameSim, out_: &mut Vec<i64>) {}
+}
+
+pub const WARN_SIZE: usize = 7;
+pub const WARN_KILL: i64 = 0;
+pub const WARN_PUSH: i64 = 1;
+
+/// `Hazard.add_warning`.
+#[allow(clippy::too_many_arguments)]
+pub fn add_warning(out_: &mut Vec<i64>, x0: i64, y0: i64, x1: i64, y1: i64, eta: i64, dur: i64, p_kind: i64) {
+    out_.push(x0.min(x1));
+    out_.push(y0.min(y1));
+    out_.push(x0.max(x1));
+    out_.push(y0.max(y1));
+    out_.push(eta);
+    out_.push(dur);
+    out_.push(p_kind);
 }
 
 /// `Hazard.mix_all(h, a, b, c)`.

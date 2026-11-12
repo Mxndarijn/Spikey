@@ -1,6 +1,7 @@
 //! Port of sim/hazards/boss_watcher.gd (Sim/Hazards/BossWatcher.cs). A Boss
 //! subclass: the parent is the field `boss`.
 use crate::hazards::boss::BossKind;
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 /// `BossWatcher.Beam`.
@@ -247,6 +248,25 @@ impl Hazard for BossWatcher {
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
         Boss::adjust_wall(self, sim, side, mask)
+    }
+
+    fn warnings(&self, sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.boss.down_at >= 0 || self.boss.clock() < 0 {
+            return;
+        }
+        if self.beam == Beam::WARN {
+            for i in 0..Self::ROWS.len() {
+                if (self.lit >> i) & 1 == 1 {
+                    add_warning(out_, sim.room.wall_left(), Self::ROWS[i] - Self::HALF_H, sim.room.wall_right(), Self::ROWS[i] + Self::HALF_H,
+                        Self::BEAM_TELL - self.beam_t, Self::BEAM_ON, WARN_KILL);
+                }
+            }
+        }
+        if self.dart == Dart::MARK {
+            let dur = (SimConfig::WORLD_W + Self::DART_LEN) / Self::DART_SPEED + 1;
+            add_warning(out_, 0, self.dart_lane - Self::DART_HALF, SimConfig::WORLD_W, self.dart_lane + Self::DART_HALF,
+                Self::GAZE_TELL - self.dart_t, dur, WARN_KILL);
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {

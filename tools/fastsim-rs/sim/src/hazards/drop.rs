@@ -1,4 +1,5 @@
 //! Port of sim/hazards/drop.gd (Sim/Hazards/Drop.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 pub struct Phase;
@@ -280,6 +281,15 @@ impl Hazard for Drop {
             }
         }
         self.phase == Phase::STAKE && self._touches_stake(sim)
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.phase != Phase::WARN {
+            return;
+        }
+        let half = self.radius + if self.style == Style::WOBBLE { Self::SWAY } else { 0 };
+        let dur = (SimConfig::WORLD_H + self.radius - Self::TOP) / self.speed + 1;
+        add_warning(out_, self.x - half, Self::TOP - self.radius, self.x + half, SimConfig::WORLD_H, self.timer, dur, WARN_KILL);
     }
 
     fn checksum(&self, h: i64) -> i64 {

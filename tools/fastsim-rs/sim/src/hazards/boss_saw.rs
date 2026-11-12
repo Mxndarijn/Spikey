@@ -1,6 +1,7 @@
 //! Port of sim/hazards/boss_saw.gd (Sim/Hazards/BossSaw.cs). A Boss subclass:
 //! the parent is the field `boss`.
 use crate::hazards::boss::BossKind;
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -253,6 +254,25 @@ impl Hazard for BossSaw {
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
         Boss::adjust_wall(self, sim, side, mask)
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.boss.down_at >= 0 || self.boss.clock() < 0 || !self.telling {
+            return;
+        }
+        let lt = self.boss.clock() % self.cycle();
+        let top = G::mini(self.from_y, self.to_y);
+        let bottom = G::maxi(self.from_y, self.to_y);
+        if lt < Self::TELL {
+            let r = Self::KING_R + if self.boss.phase == 3 { Self::RING_HOP + Self::BLADE_R } else { 0 };
+            add_warning(out_, Self::KING_X - r, top - r, Self::KING_X + r, bottom + r, Self::TELL - lt, self.cycle() - Self::TELL, WARN_KILL);
+        }
+        if self.boss.phase == 2 {
+            let far = self.ring_max() + Self::BLADE_R;
+            let eta = Self::RING_OUT - lt + (Self::RING_SHOW + Self::RING_SPEED - 1) / Self::RING_SPEED;
+            let dur = Self::RING_IN - Self::RING_OUT + self.ring_max() / Self::RING_SPEED;
+            add_warning(out_, Self::KING_X - far, self.to_y - far, Self::KING_X + far, self.to_y + far, eta, dur, WARN_KILL);
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {

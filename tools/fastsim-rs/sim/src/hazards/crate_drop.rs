@@ -1,5 +1,6 @@
 //! Port of sim/hazards/crate_drop.gd (Sim/Hazards/CrateDrop.cs). C# passes a
 //! null sim to `_next_drop` / `_free_col` from setup: here `Option<&GameSim>`.
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -156,6 +157,20 @@ impl CrateDrop {
         self.col_x0 + c * self.col_w + self.col_w / 2
     }
 
+    pub fn _warn_col(&self, out_: &mut Vec<i64>, c: i64) {
+        let land = self.stack_top(c) - self.crate_h;
+        let mut top = -self.crate_h;
+        let mut speed = 0;
+        let mut dur = 0;
+        while top < land {
+            speed = G::mini(speed + Self::FALL_ACCEL, Self::MAX_FALL);
+            top += speed;
+            dur += 1;
+        }
+        let x = self.col_left(c);
+        add_warning(out_, x, -self.crate_h, x + self.crate_w, self.stack_top(c), self.warn_left, dur, WARN_KILL);
+    }
+
     pub fn stack_top(&self, c: i64) -> i64 {
         Self::FLOOR - self.heights[c as usize] * self.crate_h
     }
@@ -260,6 +275,16 @@ impl Hazard for CrateDrop {
                 self.coins[c as usize] = 0;
                 sim.collect_coin(self.col_center(c), self.coin_y(c), 1);
             }
+        }
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.col < 0 || self.warn_left <= 0 {
+            return;
+        }
+        self._warn_col(out_, self.col);
+        if self.col_b >= 0 {
+            self._warn_col(out_, self.col_b);
         }
     }
 

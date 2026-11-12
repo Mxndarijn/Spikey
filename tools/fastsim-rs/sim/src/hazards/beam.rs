@@ -1,4 +1,5 @@
 //! Port of sim/hazards/beam.gd (Sim/Hazards/Beam.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 pub struct State;
@@ -179,6 +180,17 @@ impl Hazard for Beam {
             }
         }
         false
+    }
+
+    fn warnings(&self, sim: &GameSim, out_: &mut Vec<i64>) {
+        for i in 0..self.rows.len() as i64 {
+            if self.state(i) != State::WARN {
+                continue;
+            }
+            let r = self.rows[i as usize];
+            add_warning(out_, self.beam_left(sim, i), r - Self::HALF_H, self.beam_right(sim, i), r + Self::HALF_H,
+                self.warn_ticks - self.cycle_pos(i), Self::ON_TICKS, WARN_KILL);
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {

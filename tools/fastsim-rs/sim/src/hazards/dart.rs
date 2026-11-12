@@ -1,4 +1,5 @@
 //! Port of sim/hazards/dart.gd (Sim/Hazards/Dart.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 /// `Dart.State`.
@@ -193,6 +194,18 @@ impl Hazard for Dart {
             return true;
         }
         sim.bird_touches_rect(self.tail_x(), self.lane_y - Self::HALF_H, self.x, self.lane_y + Self::HALF_H)
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.state != State::GLOW {
+            return;
+        }
+        let eta = (if self.lanes { self.lanes_flash } else { Self::GLOW_TICKS }) - (self.base.t - self.since);
+        let dur = (SimConfig::WORLD_W + Self::LENGTH) / (if self.lanes { self.lanes_speed } else { Self::SPEED }) + 1;
+        add_warning(out_, 0, self.lane_y - Self::HALF_H, SimConfig::WORLD_W, self.lane_y + Self::HALF_H, eta, dur, WARN_KILL);
+        if self.pair {
+            add_warning(out_, 0, self.lane2_y - Self::HALF_H, SimConfig::WORLD_W, self.lane2_y + Self::HALF_H, eta, dur, WARN_KILL);
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {

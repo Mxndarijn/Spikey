@@ -1,5 +1,6 @@
 //! Port of sim/hazards/splitting_bouncer.gd (Sim/Hazards/SplittingBouncer.cs). A Bouncer
 //! subclass: the parent is the field `b`. `other` is an owned Bouncer, not a room hazard.
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -85,6 +86,14 @@ impl Hazard for SplittingBouncer {
     }
 
     // straight_path() is false: near_row stays the Hazard default (false).
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.other.is_some() || self.b.base.t < Self::SPLIT_AT {
+            return;
+        }
+        let (x, y, r) = (self.b.x, self.b.y, self.b.radius);
+        add_warning(out_, x - r, y - r, x + r, y + r, Self::WARN - self.warn, 1, WARN_KILL);
+    }
 
     fn checksum(&self, h: i64) -> i64 {
         let mut out_ = mix_all(self.b.checksum(h), &[self.b.radius, self.warn]);

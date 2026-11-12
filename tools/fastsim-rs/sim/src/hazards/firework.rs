@@ -1,4 +1,5 @@
 //! Port of sim/hazards/firework.gd (Sim/Hazards/Firework.cs).
+use crate::rooms::hazard::{add_warning, WARN_KILL};
 use crate::prelude::*;
 
 /// C# `Firework.Phase`.
@@ -227,6 +228,22 @@ impl Hazard for Firework {
             }
         }
         false
+    }
+
+    fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
+        if self.phase != Phase::PAD && self.phase != Phase::CLIMB {
+            return;
+        }
+        let climb = (self.y - self.burst_y + Self::CLIMB_VY - 1) / Self::CLIMB_VY;
+        let mut eta = climb;
+        if self.phase == Phase::PAD {
+            eta += self.timer;
+            add_warning(out_, self.x - Self::ROCKET_RADIUS, self.burst_y - Self::ROCKET_RADIUS, self.x + Self::ROCKET_RADIUS,
+                Self::PAD_Y + Self::ROCKET_RADIUS, self.timer, climb + 1, WARN_KILL);
+        }
+        let far = Self::SPARK_DEADLY * Self::SPARK_SPEED + Self::SPARK_RADIUS;
+        let dur = Self::SPARK_DEADLY + if self.style == Style::DOUBLE { Self::ECHO } else { 0 };
+        add_warning(out_, self.x - far, self.burst_y - far, self.x + far, self.burst_y + far, eta, dur, WARN_KILL);
     }
 
     fn checksum(&self, h: i64) -> i64 {
