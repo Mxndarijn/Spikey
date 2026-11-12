@@ -38,6 +38,18 @@ public sealed class BlindPlanner
     /// the planner takes the worst case: 1 = the column met first comes out as
     /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
     public int worst_fangs = 1;
+    /// Rules from the death traces (research/families/*.md), each with a switch:
+    /// no_pingpong: a line may not bounce twice on the same wall so that the
+    ///   exit opens there, unless its preview was on screen when the look began
+    ///   (its height is a guess until then; the wall fills with spikes around it).
+    /// keep_plan: when no line lives the whole look, the rest of the old plan
+    ///   stays if it still lives in the new copy.
+    /// bounce_look: a new look at every change of direction.
+    /// wide_key: the bucket also holds the flight direction and x (bumpers and
+    ///   wind send lines to different places at the same height).
+    /// aim_exit: the height cost pulls to an exit that is on screen instead of the middle.
+    public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
+    public long kept_plans;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
@@ -63,6 +75,7 @@ public sealed class BlindPlanner
         if (sim.state.vx != _vx)
         {
             if (_vx != 0) _bounce_y = sim.state.y;
+            if (_vx != 0 && bounce_look) _since = int.MaxValue;
             _vx = sim.state.vx;
         }
         if (_since >= _wait || _plan.Count == 0) look(sim);
@@ -153,10 +166,24 @@ public sealed class BlindPlanner
                 }
             }
         }
+        if (found == null && keep_plan && _plan.Count >= 8)
+        {
+            var rest = _plan.Select(b => (byte)(b ? 1 : 0)).ToArray();
+            if (lives(copy(0), rest, 0))
+            {
+                kept_plans++;
+                last_look = 2;
+                short_looks++;
+                _wait = replan_danger;
+                _since = 0;
+                return;
+            }
+        }
         for (long t = want * 3 / 4; t >= 2 && found == null; t = t * 3 / 4)
         {
             last_look = 2;
             beam(copy(0), t, bucket_px, speed_buckets);
+            if (_found.Count == 0 && fine_px > 0 && keep_plan) beam(copy(0), t, fine_px, fine_speeds);
             if (_found.Count > 0) found = _found[0].taps;
         }
         if (last_look == 2) short_looks++;
@@ -324,6 +351,8 @@ public sealed class BlindPlanner
         long bh = bpx * SimConfig.SUB;
         long bvy = -SimConfig.FLAP_VY * 2 / speeds;
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
+        bool exit_shown = root.state.exit_open || root.state.exit_preview;
+        if (aim_exit && exit_shown) mid = root.state.exit_a_y;
         var parents = new List<int>();
         var taps = new List<byte>();
         var frontier = new List<Node> { new Node { sim = root, parent = -1 } };
@@ -337,11 +366,14 @@ public sealed class BlindPlanner
             {
                 bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY;
                 long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
+                bool e_open = e.sim.state.exit_open;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
                 {
                     var s = a == 1 ? e.sim.clone_deep() : e.sim;
                     s.step(a == 1);
                     if (s.is_over()) continue;
+                    // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
+                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
@@ -349,6 +381,7 @@ public sealed class BlindPlanner
                     long along = st.vy * s.room.gravity - SimConfig.FLAP_VY;
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;
+                    if (wide_key) key = (key * 64 + st.x / (16 * SimConfig.SUB)) * 2 + (st.vx > 0 ? 1 : 0);
                     var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost };
                     if (slots.TryGetValue(key, out int at))
                     {

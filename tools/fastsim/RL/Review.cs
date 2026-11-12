@@ -108,11 +108,16 @@ public static class Review
         bot.margin = L("margin", bot.margin);
         bot.margin_cost = L("margincost", bot.margin_cost);
         bot.worst_fangs = (int)L("fangs", bot.worst_fangs);
+        bot.no_pingpong = L("pingpong", 1) != 0;
+        bot.keep_plan = L("keep", 1) != 0;
+        bot.bounce_look = L("bouncelook", 1) != 0;
+        bot.wide_key = L("widekey", 1) != 0;
+        bot.aim_exit = L("aimexit", 1) != 0;
         bot.spike_margin = L("spikemargin", bot.spike_margin ? 1 : 0) != 0;
         bot.bucket_px = L("bpx", bot.bucket_px);
         bot.speed_buckets = L("speeds", bot.speed_buckets);
         bot.fine_px = L("fine", bot.fine_px);
-        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
     }
 
     /// `rl review atlas`: every death of the BlindPlanner with a verdict.
