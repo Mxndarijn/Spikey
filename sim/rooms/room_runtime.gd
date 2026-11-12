@@ -47,11 +47,14 @@ var gravity := 1
 var rng_seed := 0
 ## Walls generated in this room so far (the arrival's wall is 0).
 var walls := 0
+## The run's score when the room was entered (a boss room's tier and exit).
+var entry_score := 0
 
 
 func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	def = p_def
 	index = p_index
+	entry_score = sim.state.score
 	t = 0
 	ticks = 0
 	points = 0
@@ -193,10 +196,11 @@ func max_spike_depth() -> int:
 ## The variant's extra (or fewer) spikes on wall `side` (Lopsided leans them
 ## onto the left wall).
 func spike_bonus(side: int = 0) -> int:
+	var boss := SimConfig.boss_tier(entry_score) - 1 if def.boss else 0
 	if def.variants.is_empty():
-		return 0
+		return boss
 	var v := _variant()
-	return v.extra_spikes + (v.lean if side == 0 else -v.lean)
+	return boss + v.extra_spikes + (v.lean if side == 0 else -v.lean)
 
 
 func wall_left() -> int:
@@ -282,7 +286,8 @@ func checksum(h: int) -> int:
 			blink_right,
 			gravity,
 			rng_seed,
-			walls
+			walls,
+			entry_score
 		]
 	)
 	for hz in hazards:

@@ -44,11 +44,11 @@ public sealed class WorldPlanner
         }
 
         // k per tier from `fastsim world calibrate 48 --cap 30000` on gameplay 21+
-        // (seed-only generation): medians 32 / ~60 / 118 / 251 at k 0.81 / 0.868 / 0.922 / 0.99.
+        // (seed-only generation): medians 32 / ~60 / 118 / 251 at k 0.81 / 0.88 / 0.922 / 0.99.
         public static readonly Skill BEAST = At("beast", 1);
         public static readonly Skill EXPERT = At("expert", 0.99);
         public static readonly Skill GOOD = At("good", 0.922);
-        public static readonly Skill NORMAL = At("normal", 0.868);
+        public static readonly Skill NORMAL = At("normal", 0.88);
         public static readonly Skill BEGINNER = At("beginner", 0.81);
         public static readonly Skill[] ALL = { BEGINNER, NORMAL, GOOD, EXPERT, BEAST };
 

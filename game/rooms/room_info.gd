@@ -249,12 +249,18 @@ const ROOMS := {
 	"lava":
 	[
 		"Lava Rise",
-		"The lava climbs with every point. Grab a cool stone to sink it.",
+		"The lava climbs with every point. Cool it to sink it again.",
 		3,
 		"lava",
 		"blocks"
 	],
 	"echo": ["Echo", "A shadow bird flies your path one second behind you.", 4, "ice", "flip"],
+	"boss_watcher":
+	["The Watcher", "Boss. Beams light whole rows, then its gaze marks you.", 5, "star", "beam"],
+	"boss_crusher":
+	["The Crusher", "Boss. A press slams down, then a jaw leaves a lane.", 5, "lava", "blocks"],
+	"boss_saw":
+	["Saw King", "Boss. A huge saw hops between heights, then spins blades.", 5, "sunset", "ball"],
 }
 
 
@@ -279,8 +285,10 @@ static func glyph(id: String) -> String:
 	return ROOMS[id][4] if ROOMS.has(id) else ""
 
 
-## Which card group the room sits in.
+## Which card group the room sits in. Bosses sit with the late-game rooms.
 static func group(def: RoomDef) -> String:
+	if def.boss:
+		return "late"
 	return "seasonal" if def.season != Seasons.NONE else def.group
 
 

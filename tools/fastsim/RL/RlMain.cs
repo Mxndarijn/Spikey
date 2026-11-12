@@ -56,7 +56,7 @@ public static class RlMain
                         double.Parse(O("expert", "0")));
                 case "measure":
                     return Tiers.measure(dir, O("tier", "all"), int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
-                        long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads, O("out", ""));
+                        long.Parse(O("cap", BotCaps.RUN_CAP.ToString())), threads, O("out", ""));
                 case "review":
                     return Review.run(pos.Count > 2 ? pos[2] : "", dir, opts);
                 case "imitate":
@@ -86,7 +86,7 @@ public static class RlMain
                 }
                 case "imeasure":
                     return Imitation.measure(dir, int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
-                        long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads);
+                        long.Parse(O("cap", BotCaps.RUN_CAP.ToString())), threads);
                 case "diagnose":
                     return Imitation.diagnose(dir, int.Parse(O("seeds", "64")), long.Parse(O("first", "0")), long.Parse(O("cap", "54000")),
                         long.Parse(O("horizon", "90")), int.Parse(O("back", "240")), threads);

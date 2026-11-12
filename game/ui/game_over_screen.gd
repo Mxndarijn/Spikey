@@ -1,6 +1,7 @@
 class_name GameOverScreen
 extends Control
-## Game over on the room: "Game over", the score, "Best 92", "Revived at 63"
+## Game over on the emptied room (GameOverStage clears the hazards and floats
+## the flyer, big and dazed, to FLYER_Y): "Game over", the score, "Best 92", "Revived at 63"
 ## when the run used its revive, a stats row (+coins, rooms cleared this run,
 ## today's rank), the run's seed, and the Game over dock (Home, Rooms | Again
 ## | #rank, Style). A new best gets the gold ribbon, the score counting up,
@@ -30,6 +31,22 @@ const WALL_CLEAR := 54.0
 const STAT_SIZE := 26
 const STAT_MIN := 12
 const STAT_ICON := 26.0
+## Top of each line, logical px. Game over (normal / new best): the caption,
+## the score, Best (Revived at sits REVIVED_GAP under it), the flyer's centre
+## (GameOverStage.SPOT) and the stats row, with the seed SEED_GAP under it and
+## the dock below. Nothing on it overlaps the flyer: Best and Revived at end
+## above it, the stats start below it.
+const CAPTION_Y := 60.0
+const CAPTION_SIZE := 24
+const SCORE_Y := 78.0
+const SCORE_Y_NEW_BEST := 106.0
+const BEST_Y := 228.0
+const BEST_Y_NEW_BEST := 252.0
+const BEST_SIZE := 18
+const REVIVED_GAP := 26.0
+const FLYER_Y := 340.0
+const STATS_Y := 396.0
+const SEED_GAP := 6.0
 ## The final score shrinks to fit the screen from this many digits.
 const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
 const FINAL_SCORE_MIN := 64
@@ -62,16 +79,18 @@ func _init() -> void:
 	_caption.text = "Game over"
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiKit.across(self, _caption, 104)
+	_caption.add_theme_font_override("font", GameFonts.display())
+	_caption.add_theme_font_size_override("font_size", CAPTION_SIZE)
+	UiKit.across(self, _caption, CAPTION_Y)
 	_final_score.theme_type_variation = &"RoomBigScore"
 	_final_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_final_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiKit.across(self, _final_score, 122)
+	UiKit.across(self, _final_score, SCORE_Y)
 	_best_score.theme_type_variation = &"SkyCaption"
-	_best_score.add_theme_font_size_override("font_size", 16)
+	_best_score.add_theme_font_size_override("font_size", BEST_SIZE)
 	_best_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_best_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiKit.across(self, _best_score, 274)
+	UiKit.across(self, _best_score, BEST_Y)
 	_revived_line.alignment = BoxContainer.ALIGNMENT_CENTER
 	_revived_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_revived_line.add_theme_constant_override("separation", 5)
@@ -85,18 +104,18 @@ func _init() -> void:
 	_revived_text.theme_type_variation = &"RoomMuted"
 	_revived_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_revived_line.add_child(_revived_text)
-	UiKit.across(self, _revived_line, 300)
+	UiKit.across(self, _revived_line, BEST_Y + REVIVED_GAP)
 	_stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stats.add_theme_constant_override("separation", STAT_GAP)
 	_stat_coins = _stat(_stats, "coins", COIN_ICON)
 	_stat_rooms = _stat(_stats, "rooms")
 	_stat_rank = _stat(_stats, "today")
-	UiKit.across(self, _stats, 330)
+	UiKit.across(self, _stats, STATS_Y)
 	_seed.theme_type_variation = &"RoomMuted"
 	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiKit.across(self, _seed, 400)
+	UiKit.across(self, _seed, STATS_Y + 56.0)
 	_dock = (
 		Dock
 		. new(
@@ -123,7 +142,7 @@ func _process(delta: float) -> void:
 
 ## Shows the run's result. `previous_best` shows as "was 87" on a new best;
 ## `rooms` is how many rooms this run cleared; `rank` today's place (0 while
-## unknown); `seed_value` -1 hides the seed; `revived_at` the score the run
+## unknown); `seed_line` the seed (seed_text; "" hides it); `revived_at` the score the run
 ## was revived at (-1: it wasn't). `still`: reduced motion (no count-up).
 func show_result(
 	score: int,
@@ -133,7 +152,7 @@ func show_result(
 	previous_best: int,
 	rooms: int,
 	rank: int,
-	seed_value: int,
+	seed_line: String,
 	revived_at: int,
 	still: bool
 ) -> void:
@@ -148,23 +167,23 @@ func show_result(
 	_new_best.visible = is_new_best
 	_caption.visible = not is_new_best
 	# A new best moves the score down under the ribbon.
-	var top := 130.0 if is_new_best else 122.0
+	var top := SCORE_Y_NEW_BEST if is_new_best else SCORE_Y
 	_final_score.offset_top = top
 	_final_score.offset_bottom = top + _final_score.get_combined_minimum_size().y
-	_best_score.offset_top = 276.0 if is_new_best else 274.0
+	_best_score.offset_top = BEST_Y_NEW_BEST if is_new_best else BEST_Y
 	_revived_line.visible = revived_at >= 0
 	_revived_text.text = "Revived at %d" % revived_at
 	# The heart takes the room text's colour (white on night rooms).
 	_revived_icon.modulate = _revived_text.get_theme_color("font_color")
-	_revived_line.offset_top = _best_score.offset_top + 26.0
+	_revived_line.offset_top = _best_score.offset_top + REVIVED_GAP
 	_revived_line.offset_bottom = (
 		_revived_line.offset_top + _revived_line.get_combined_minimum_size().y
 	)
-	_stats.offset_top = 356.0 if is_new_best else 330.0
+	_stats.offset_top = STATS_Y
 	_stats.offset_bottom = _stats.offset_top + _stats.get_combined_minimum_size().y
-	_seed.text = seed_text(seed_value)
-	_seed.visible = seed_value >= 0
-	_seed.offset_top = _stats.offset_bottom + 14.0
+	_seed.text = seed_line
+	_seed.visible = not seed_line.is_empty()
+	_seed.offset_top = _stats.offset_bottom + SEED_GAP
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
 	visible = true
 	_new_best.still = still
@@ -201,9 +220,15 @@ static func final_score_size(score: int) -> int:
 	)
 
 
-## "Seed 123456 · v11": the seed and gameplay version replay the run exactly.
-static func seed_text(seed_value: int) -> String:
-	return "Seed %d · v%d" % [seed_value, SimConfig.GAMEPLAY_VERSION]
+## "Seed ES8SS-62G0N · v21", "Seed RS8SS-62H0N · Halloween · v21": the code
+## (SeedCode) holds the seed, season and version, so it replays the run exactly.
+static func seed_text(
+	seed_value: int, season: int = Seasons.NONE, version: int = SimConfig.GAMEPLAY_VERSION
+) -> String:
+	var shown := "Seed " + SeedCode.encode(seed_value, season, version)
+	if season != Seasons.NONE:
+		shown += " · " + SeasonCalendar.display_name(season)
+	return shown + " · v%d" % version
 
 
 ## "Best 92"; on a new best just "was 87" (the ribbon says New best).

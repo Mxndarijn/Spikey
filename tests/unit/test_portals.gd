@@ -1,7 +1,8 @@
 extends TestCase
 ## Exit portals: every 10 points an exit opens on the wall ahead; flying into it
 ## moves to the next room, and the bird flies straight on into it. Every 50
-## points a fork offers a Calm and a Wild exit. One point before an exit
+## points a fork offers a Calm and a Wild exit; both lead to the same next room
+## (Wild pays coins and that room has more spikes). One point before an exit
 ## opens, it shows as a ghost on the wall and at the height it will open at.
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
@@ -178,17 +179,85 @@ func test_fork_every_fifty_points_sets_the_route() -> void:
 	_hit_wall(sim, 0, wild_y)
 	assert_eq(sim.state.route, SimState.ExitKind.WILD, "the Wild route is set")
 	assert_eq(sim.state.coins, coins + SimConfig.WILD_COINS, "Wild pays coins")
-	var def := RoomCatalog.all()[sim.state.room_kind]
-	assert_true(def.group in RoomCatalog.WILD_GROUPS, "a Wild room (%s)" % def.group)
 
 
-func test_routes_limit_the_room_groups() -> void:
-	var rng := SimRng.new(4)
-	for i in 100:
-		var calm := RoomCatalog.all()[RoomCatalog.pick_next(rng, 0, 200, Seasons.NONE, 1)]
-		assert_true(calm.group in RoomCatalog.CALM_GROUPS, "calm %s" % calm.group)
-		var wild := RoomCatalog.all()[RoomCatalog.pick_next(rng, 0, 200, Seasons.NONE, 2)]
-		assert_true(wild.group in RoomCatalog.WILD_GROUPS, "wild %s" % wild.group)
+## The fork at 50 taken both ways from one state: [calm, wild] sims, each just
+## through its exit.
+static func _both_forks(seed_value: int) -> Array[GameSim]:
+	var calm := _sim_at(49, seed_value)
+	_hit_wall(calm, 1, 300 * SimConfig.SUB)
+	var wild := SimCopy.copy(calm)
+	for sim: GameSim in [calm, wild]:
+		var s := sim.state
+		var want := SimState.ExitKind.CALM if sim == calm else SimState.ExitKind.WILD
+		_hit_wall(sim, 0, s.exit_a_y if s.exit_a_kind == want else s.exit_b_y)
+	return [calm, wild]
+
+
+static func _spikes(mask: int) -> int:
+	var n := 0
+	for slot in SimConfig.SLOT_COUNT:
+		n += (mask >> slot) & 1
+	return n
+
+
+func test_both_fork_exits_lead_to_the_same_room() -> void:
+	for seed_value in [3, 8, 21, 77]:
+		var pair := _both_forks(seed_value)
+		var calm := pair[0].state
+		var wild := pair[1].state
+		assert_eq(calm.route, SimState.ExitKind.CALM, "seed %d" % seed_value)
+		assert_eq(wild.route, SimState.ExitKind.WILD, "seed %d" % seed_value)
+		assert_eq(wild.room_kind, calm.room_kind, "same room, seed %d" % seed_value)
+		assert_eq(pair[1].room.variant_id(), pair[0].room.variant_id(), "same variant")
+		assert_eq(pair[1].room.rng_seed, pair[0].room.rng_seed, "same room seed")
+		assert_eq(calm.anchor_y, SimConfig.FORK_DOOR_Y, "Calm comes out of the door")
+		assert_eq(wild.anchor_y, SimConfig.FORK_DOOR_Y, "Wild comes out of the door")
+		assert_eq(wild.arrival_hold, calm.arrival_hold, "same wait")
+		assert_eq(wild.left_spikes, calm.left_spikes, "same arrival walls")
+		assert_eq(wild.right_spikes, calm.right_spikes, "same arrival walls")
+		assert_eq(
+			[wild.plan_a_y_left, wild.plan_b_y_left, wild.plan_a_y_right, wild.plan_b_y_right],
+			[calm.plan_a_y_left, calm.plan_b_y_left, calm.plan_a_y_right, calm.plan_b_y_right],
+			"same exits planned"
+		)
+		assert_eq(wild.coins, calm.coins + SimConfig.WILD_COINS, "only Wild pays")
+
+
+func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
+	for seed_value in [3, 8, 21, 77]:
+		var pair := _both_forks(seed_value)
+		var more := 0
+		for i in 4:
+			var side := 0 if pair[0].state.vx < 0 else 1
+			for sim: GameSim in pair:
+				_hit_wall(sim, side, 300 * SimConfig.SUB)
+			var heading := 1 - side
+			var calm_n := _spikes(pair[0].wall_mask(heading))
+			var wild_n := _spikes(pair[1].wall_mask(heading))
+			assert_true(
+				wild_n >= calm_n, "seed %d wall %d: %d vs %d" % [seed_value, i, wild_n, calm_n]
+			)
+			if wild_n > calm_n:
+				more += 1
+		assert_true(more > 0, "Wild walls have more spikes, seed %d" % seed_value)
+		# On to the next exit (at 60) and through it: from here the map is one.
+		for sim: GameSim in pair:
+			sim.state.score = 59
+			var side := 0 if sim.state.vx < 0 else 1
+			_hit_wall(sim, side, 300 * SimConfig.SUB)
+			assert_true(sim.state.exit_open, "seed %d: the exit at 60" % seed_value)
+			_hit_wall(sim, sim.state.exit_side, sim.state.exit_a_y)
+		var calm := pair[0].state
+		var wild := pair[1].state
+		assert_eq(calm.room_index, 2, "seed %d: through" % seed_value)
+		assert_eq(wild.room_index, 2, "seed %d: through" % seed_value)
+		assert_eq(wild.route, SimState.ExitKind.NORMAL, "the route lasts one room")
+		assert_eq(wild.room_kind, calm.room_kind, "seed %d: same room again" % seed_value)
+		assert_eq(pair[1].room.variant_id(), pair[0].room.variant_id())
+		assert_eq(wild.anchor_y, calm.anchor_y)
+		assert_eq(wild.left_spikes, calm.left_spikes, "same walls again")
+		assert_eq(wild.right_spikes, calm.right_spikes, "same walls again")
 
 
 func test_practice_exits_lead_back_to_the_same_room() -> void:

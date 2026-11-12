@@ -214,8 +214,19 @@ func _on_dock(id: String) -> void:
 			style_pressed.emit()
 
 
-## Updates the run's coin counter and gives it a little bump.
-func set_run_coins(total: int) -> void:
+## Updates the run's coin counter and gives it a little bump. `reset`: after a
+## revive the run is back to the coins it had when the bird came into the room,
+## so coins still flying are dropped and the counter just shows `total`.
+func set_run_coins(total: int, reset: bool = false) -> void:
+	if reset:
+		for coin in _flying:
+			coin.queue_free()
+		_flying.clear()
+		if _coin_tween != null:
+			_coin_tween.kill()
+		_run_coins.scale = Vector2.ONE
+		_run_coins.set_amount(total)
+		return
 	_run_coins.set_amount(total)
 	_run_coins.pivot_offset = _run_coins.size / 2.0
 	if total > 0 and is_inside_tree():
@@ -269,6 +280,8 @@ static func _fly_step(t: float, coin: Control, start: Vector2, bend: Vector2, en
 
 
 func _land_coin(coin: Control, total: int) -> void:
+	if not coin in _flying:
+		return
 	_flying.erase(coin)
 	coin.queue_free()
 	set_run_coins(total)
@@ -421,7 +434,8 @@ func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> voi
 
 ## `previous_best` shows as "was 87" on a new best; `rooms` is how many rooms
 ## this run cleared; `rank` today's place (0 while unknown); `revived_at` the
-## score the run was revived at (-1: it wasn't).
+## score the run was revived at (-1: it wasn't); `season` the run's season
+## (the seed code holds it).
 func show_game_over(
 	score: int,
 	best: int,
@@ -431,7 +445,8 @@ func show_game_over(
 	rooms: int = 0,
 	rank: int = 0,
 	seed_value: int = -1,
-	revived_at: int = -1
+	revived_at: int = -1,
+	season: int = Seasons.NONE
 ) -> void:
 	revive_offer.visible = false
 	_pause_button.visible = false
@@ -446,7 +461,7 @@ func show_game_over(
 		previous_best,
 		rooms,
 		rank,
-		seed_value,
+		GameOverScreen.seed_text(seed_value, season) if seed_value >= 0 else "",
 		revived_at,
 		reduced_motion
 	)

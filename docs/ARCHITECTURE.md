@@ -68,8 +68,10 @@ flowchart TD
   - A spine RNG (`GameSim._spine`) draws only each room's kind and seed, a fixed
     number of draws per portal. The room's own RNG lays it out, and every wall
     after the arrival's reseeds from the room seed and the wall's number
-    (`RoomRuntime.rng_seed`, `walls`). A coin taken or not, a revive, or any other
-    difference inside a room never reaches the next wall or room.
+    (`RoomRuntime.rng_seed`, `walls`). A coin taken or not, or any other
+    difference inside a room never reaches the next wall or room. A revive puts
+    the whole run back as the bird came into the room, score, coins and RNGs
+    included ([REVIVE.md](REVIVE.md)), so it never reaches them either.
   - `SimState.anchor_y` stands in for the bird's height wherever generation
     used it: room and variant picks out of a portal, the free run near the
     bird (`RoomRules.gap_reach`), hazards aimed at the arrival
@@ -153,11 +155,16 @@ benchmark with the full bot's death rate after changing a room:
 survival by reaction time in real runs; `-Variant <id>|all` plays one room
 variant, or each in turn, instead of the drawn one: see
 `tools/fastsim/PORTING.md`). Every 50 points a
-fork offers a Calm and a Wild exit: the one taken sets the route (Calm: starter,
-mid and bonus rooms; Wild: mid and late rooms, plus 3 coins). The next room is
+fork offers a Calm and a Wild exit. Both lead to the same door
+(`SimConfig.FORK_DOOR_Y`) of the same next room, so two players on one seed
+meet the same map again whichever they took: Wild pays `WILD_COINS` (5) and
+that one room has `WILD_SPIKES` more spikes on every wall after the arrival's
+(`SimState.route` says which exit led into the room). The next room is
 picked by the seed
 (`RoomCatalog.pick_next`: weighted, never the same room twice, only rooms whose
-`from_score` is reached and whose season matches the run's).
+`from_score` is reached and whose season matches the run's). The exit at
+every 100 points leads into a boss room instead (no fork there; the boss's
+own exit, 20 bounces later, is the fork): see [BOSS_ROOMS.md](BOSS_ROOMS.md).
 
 Fairness is checked by `tests/support/survival_search.gd` (SurvivalSearch): it
 runs many copies of the sim side by side, tapping and waiting on each, so if all
@@ -200,20 +207,24 @@ start and never comes back.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
   It never puts an exit where a hazard kills in its mouth already
   (`ExitPlanner.in_mouth`) or says it would (`Hazard.blocks_exit`).
-- `sim/exit_zone.gd` (ExitZone): the mouths of a room's exits (the opening
-  plus a bird radius around it, three bird radii deep), on both walls, for the
-  whole room: the exits are planned from the room's seed when it starts
-  (`ExitPlanner.plan_room`), so they never depend on how anyone flies.
-  Hazards treat the mouths as part of the wall: balls bounce off them, the
-  Stalker stops at their edge, the Echo keeps out, darts, drops, crates and
-  sparks break on them, pistons move off their rows or sit the cycle out, and
-  beams stop short; fixed rams and swinging lanterns can't, so an exit never
-  goes where they reach (`blocks_exit`). Wall spikes may cover a mouth until
-  its exit's ghost shows. `tools/fastsim.ps1 -Mode check -Check exits` (every
-  variant, and full runs in every season, each played twice with different
-  taps) checks that both plays meet the same exits, that nothing ever kills in
-  or turns the bird back from a mouth, and that no spike reaches into a shown
-  exit's mouth; `tests/sim/test_exit_clear.gd` keeps a sample.
+- `sim/exit_zone.gd` (ExitZone): the mouth of a drawn exit (the opening plus
+  a bird radius around it, three bird radii deep), from its ghost (or its
+  opening) until the bird leaves the room. Where a room's exits go is planned
+  from its seed when it starts (`ExitPlanner.plan_room`), so every player of a
+  seed meets the same exits, but hazards only respect a mouth once it is drawn
+  (the plan is hidden, so a bot or player can't read it from the hazards).
+  Hazards treat a mouth as part of the wall: balls bounce off it, the Stalker
+  stops at its edge, the Echo keeps out, darts, drops, crates and sparks break
+  on it, pistons move off its row or sit the cycle out, and beams stop short.
+  Whatever is in a mouth when it is drawn gets out on the next step (bounces
+  out, jumps clear, breaks, pulls back). Fixed rams and swinging lanterns
+  can't, so an exit is never planned where they reach (`blocks_exit`). Wall
+  spikes may cover a mouth until its exit's ghost shows.
+  `tools/fastsim.ps1 -Mode check -Check exits` (every variant, and full runs in
+  every season, each played twice with different taps) checks that both plays
+  meet the same exits, that nothing kills in or turns the bird back from a
+  drawn mouth, and that no spike reaches into it; `tests/sim/test_exit_clear.gd`
+  keeps a sample.
 - `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
   `HazardPainter` per hazard kind, which casts the hazard to its own class and
   gets a `HazardLook` (world, clock, the room's skin, color-blind mode).
@@ -262,7 +273,10 @@ _process           views draw, interpolating between previous and current tick
   globals), `RunLook` (the flyer, world, trail, crash, portal and music in the
   live room; borrowed during a replay), `ReviveFlow` (the revive offer, free
   or for an ad), `BoardAlerts` (the daily prize spot and push alerts), and
-  the HUD with its `PauseScreen` and `GameOverScreen`.
+  the HUD with its `PauseScreen` and `GameOverScreen`. At game over
+  `GameOverStage` empties the room behind that screen (hazards, coins, trail,
+  crash effect and cage spikes fade; the sky and landscape stay) and floats
+  the flyer to the middle, big and dazed; a new run brings it all back.
 - Each world's look beyond its colours is one file,
   `game/run/scenes/worlds/<id>.gd` (a `WorldScene`): its landscape, what falls
   through its sky and its touch on a Match my world portal. A world without one
@@ -321,7 +335,7 @@ Attest / Play Integrity to confirm a real device.
 | Worlds | `data/design/` (tokens) -> `data/themes/` (generated `ThemeDef`), `game/run/scenes/worlds/<id>.gd` (`WorldScene`) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |
 | Daily board | Best normal run of the day, resets at local midnight (replaced Hourly; the same-seed daily challenge was dropped) |
-| Boss rooms | New room kinds in `sim/room_rules.gd` (gameplay change, bumps version) |
+| Boss rooms | `sim/rooms/catalog_boss.gd` (RoomDef.boss), a hazard extending `sim/hazards/boss.gd` (phases, tells, down), its painter, `RoomInfo`; see [BOSS_ROOMS.md](BOSS_ROOMS.md) |
 | Seasonal rooms | `sim/rooms/catalog_seasonal.gd`, `meta/season_calendar.gd` (season is a run input) |
 | Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |
 | Accessibility | `meta/player_settings.gd` (`PlayerSettings`); color-blind spikes, reduced flashing and screen shake in the view. A larger tap area is input-only. No hitbox changes |

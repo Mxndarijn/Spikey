@@ -82,6 +82,8 @@ var _practice_variant := ""
 ## Practice from the debug page's seed picker: the seed every try plays (-1 =
 ## a new random seed each try). Real runs never set it.
 var _practice_seed := -1
+## The season that seed plays in (its seed code holds it), not today's.
+var _practice_season := Seasons.NONE
 ## Practice started from the debug page: leaving it goes back there, not to Rooms.
 var _practice_from_debug := false
 var _room_id := ""
@@ -101,6 +103,8 @@ var _rooms_group := ""
 var _revive_count := false
 ## Seconds left in the 3, 2, 1 before a resumed run plays on (0: none).
 var _countdown := 0.0
+## Game over empties the room behind its text and shows the flyer big.
+var _stage := GameOverStage.new()
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -125,6 +129,8 @@ func _ready() -> void:
 	_make_services()
 	_look = RunLook.new(_profile, _room, _hazards, _trail, _bird, _crash, _menus, _hud, _audio)
 	_look.use_equipped()
+	add_child(_stage)
+	_stage.setup(_room, _bird, [_hazards, _coin, _trail, _crash, _night])
 	_revive = ReviveFlow.new(_profile, _run, ads, _hud.revive_offer, _save_profile)
 	_revive.ended.connect(_finish_run)
 	_revive.revived.connect(_on_revive)
@@ -451,11 +457,15 @@ func start_picker_practice(id: String, variant: String = "") -> void:
 
 
 ## A practice run from the debug page's seed picker, in every build: the whole
-## run of seed `seed_value` from its first room, again on every try. As
-## practice it never changes the save or the leaderboards.
-func start_seed_practice(seed_value: int) -> void:
-	if seed_value < 0 or seed_value > SeedPicker.MAX_SEED:
+## run of seed `seed_value` in `season` (the seed code's, never today's) from
+## its first room, again on every try. As practice it never changes the save
+## or the leaderboards.
+func start_seed_practice(seed_value: int, p_season: int = Seasons.NONE) -> void:
+	if seed_value < 0 or seed_value > SeedCode.MAX_RANDOM:
 		return
+	if p_season < Seasons.NONE or p_season >= Seasons.COUNT:
+		return
+	_practice_season = p_season
 	_practise("", "", seed_value)
 	_practice_from_debug = true
 
@@ -470,7 +480,7 @@ func _practise(id: String, variant: String, seed_value: int = -1) -> void:
 	_look.show_flyer(true)
 	var shown := RoomInfo.name_of(id)
 	if seed_value >= 0:
-		shown = "Seed %d" % seed_value
+		shown = "Seed " + SeedCode.current(seed_value, _practice_season)
 	elif not variant.is_empty():
 		shown = RoomPicker.choice_text(id, variant)
 	_hud.set_practice(shown)
@@ -726,8 +736,10 @@ func _new_run() -> void:
 		var seed_value := randi()
 		if mode == Mode.PRACTICE and _practice_seed >= 0:
 			seed_value = _practice_seed
+			run_season = _practice_season
 		_run.new_run(seed_value, run_season, practice, variant)
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
+	_stage.reset()
 	_room.bind(_run, _look.theme)
 	_hazards.bind(_run, _look.theme)
 	_bird.bind(_run, _look.character)
@@ -765,11 +777,11 @@ func _try_restart() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _in_play():
 		return
-	if event.is_action_pressed("ui_cancel") or _is_key(event, KEY_P):
+	if event.is_action_pressed("ui_cancel") or TapInput.is_key(event, KEY_P):
 		_toggle_pause()
 		get_viewport().set_input_as_handled()
 		return
-	if not _is_tap(event):
+	if not TapInput.is_tap(event):
 		return
 	get_viewport().set_input_as_handled()
 	if _run.paused:
@@ -931,6 +943,8 @@ func _start_revive_countdown() -> void:
 ## The sim revived the bird (also in a replay of a revived run): it comes out
 ## of the portal it came into the room by, as at a portal arrival.
 func _on_revived() -> void:
+	# The score and coins are back to what they were when the bird came in.
+	_hud.set_run_coins(_run.sim.state.coins, true)
 	_room.on_revived()
 	# The crash effect may have turned the flyer into pieces: bring it back.
 	_crash.clear()
@@ -971,19 +985,7 @@ func _finish_run(replay: Replay) -> void:
 		_rooms_cleared,
 		leaderboard.cached_rank(LeaderboardService.DAILY),
 		replay.seed_value,
-		_revive.revived_at
+		_revive.revived_at,
+		replay.season
 	)
-
-
-static func _is_tap(event: InputEvent) -> bool:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		return mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
-	return _is_key(event, KEY_SPACE)
-
-
-static func _is_key(event: InputEvent, key: Key) -> bool:
-	if event is InputEventKey:
-		var k := event as InputEventKey
-		return k.pressed and not k.echo and k.keycode == key
-	return false
+	_stage.show_empty(is_new_best, _hud.reduced_motion)

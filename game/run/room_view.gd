@@ -87,8 +87,10 @@ const SPRINKLE_COLORS := [
 const LEAF_COLORS := [Color("#E2603A"), Color("#F2A23A"), Color("#C9452F")]
 
 
-## The sky and the world's scene, drawn behind the room's own drawing and only
-## redrawn when the world or the sky changes.
+## The sky, the world's scene and the room's frame (the band colour round the
+## room, Midnight Cage's tint), drawn behind the room's own drawing and only
+## redrawn when the world or the sky changes. Game over fades the room's own
+## drawing (self_modulate, GameOverStage) and leaves this one.
 class Backdrop:
 	extends Node2D
 	var view: RoomView
@@ -110,6 +112,8 @@ var show_score := false:
 var color_blind_spikes := false:
 	set(value):
 		color_blind_spikes = value
+		if _backdrop != null:
+			_backdrop.queue_redraw()
 		queue_redraw()
 
 ## How portals look (Customize > Portals); main sets the equipped one.
@@ -179,7 +183,9 @@ func on_room_changed(room_index: int) -> void:
 		# It flies away from the wall it came out of.
 		_arrival_side = 0 if s.vx > 0 else 1
 		_arrival_y = s.y
-		_arrival_kind = s.route if s.score % SimConfig.FORK_EVERY == 0 else SimState.ExitKind.NORMAL
+		# A fork's exit keeps its kinds in the state after the bird goes through.
+		var fork := s.exit_b_kind != SimState.ExitKind.NORMAL
+		_arrival_kind = s.route if fork else SimState.ExitKind.NORMAL
 		_arrival = 1.0
 	_prev_sky = _current_sky()
 	_room_index = room_index
@@ -271,6 +277,15 @@ func paint_backdrop(canvas: CanvasItem) -> void:
 	pen.sky = _drawn_sky
 	pen.sky_split = _theme.sky_split
 	WorldScenes.paint(pen, _theme)
+	var room := _run.sim.room if _run != null and _run.sim != null else null
+	if room != null and RoomSkins.of(room.def.id) == "midnight":
+		var dim := WorldScenes.midnight_dim(_theme).x
+		canvas.draw_rect(Rect2(0, 0, W, H), Color(WorldScenes.MIDNIGHT_TINT, dim))
+	var body := INK_SPIKE if color_blind_spikes else _theme.spike
+	for rect in surround_rects():
+		canvas.draw_rect(rect, body)
+	canvas.draw_rect(Rect2(0, 0, W, BAND), body)
+	canvas.draw_rect(Rect2(0, H - BAND, W, BAND), body)
 
 
 func _draw() -> void:
@@ -278,9 +293,6 @@ func _draw() -> void:
 		return
 	var room := _run.sim.room if _run != null and _run.sim != null else null
 	_draw_motes()
-	if room != null and RoomSkins.of(room.def.id) == "midnight":
-		var dim := WorldScenes.midnight_dim(_theme).x
-		draw_rect(Rect2(0, 0, W, H), Color(WorldScenes.MIDNIGHT_TINT, dim))
 	_draw_score()
 	_draw_edges()
 	if room != null:
@@ -443,12 +455,8 @@ func _draw_score() -> void:
 	)
 
 
+## The ceiling and floor spikes (their band is in the backdrop).
 func _draw_edges() -> void:
-	var body := INK_SPIKE if color_blind_spikes else _theme.spike
-	for r in surround_rects():
-		draw_rect(r, body)
-	draw_rect(Rect2(0, 0, W, BAND), body)
-	draw_rect(Rect2(0, H - BAND, W, BAND), body)
 	var count := int(W / (EDGE_SPIKE_HALF * 2.0))
 	var step := W / count
 	for i in count:

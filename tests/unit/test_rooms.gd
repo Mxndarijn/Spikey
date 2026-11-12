@@ -267,7 +267,6 @@ func test_the_open_first_room_never_comes_back() -> void:
 	var start := RoomCatalog.first_index()
 	var rng := SimRng.new(77)
 	for score in [10, 40, 120]:
-		for route in [SimState.ExitKind.NORMAL, SimState.ExitKind.CALM, SimState.ExitKind.WILD]:
-			for i in 200:
-				var next := RoomCatalog.pick_next(rng, 3, score, Seasons.NONE, route)
-				assert_ne(next, start, "open is only the start")
+		for i in 600:
+			var next := RoomCatalog.pick_next(rng, 3, score, Seasons.NONE)
+			assert_ne(next, start, "open is only the start")

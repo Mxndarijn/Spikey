@@ -30,8 +30,8 @@ signal leaderboard_pressed
 signal settings_changed
 ## The debug page's room picker: practise `id` with `variant`.
 signal practice_requested(id: String, variant: String)
-## The debug page's seed picker: play seed `seed_value` as practice.
-signal seed_requested(seed_value: int)
+## The debug page's seed picker: play seed `seed_value` in `season` as practice.
+signal seed_requested(seed_value: int, season: int)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")

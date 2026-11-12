@@ -156,7 +156,6 @@ func test_longest_gap_mask() -> void:
 
 func test_twin_hunters_fire_from_their_own_walls_in_turn() -> void:
 	var sim := sim_in("hunter", "twin")
-	NoExits.clear(sim)
 	var darts: Array[Dart] = []
 	for h in sim.room.hazards:
 		if h is Dart:

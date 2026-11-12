@@ -144,7 +144,6 @@ func test_curious_bramble_steers_toward_the_bird_slowly() -> void:
 
 func test_heavy_bramble_arcs_off_the_floor_and_leaves_the_top_clear() -> void:
 	var sim := bramble("heavy")
-	NoExits.clear(sim)
 	var h: HeavyBouncer = sim.room.hazards[0]
 	var floor_y := h.bottom_y()
 	var peaks: Array[int] = []

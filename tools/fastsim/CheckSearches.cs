@@ -167,15 +167,15 @@ static partial class Checks
     }
 
     /// The searches of tests/sim/test_crawl_passable.gd: through the first
-    /// portal on the seeds where a crawler once covered the way, and from a
-    /// revive through the hard exits (the GD test searched seed 7 only).
+    /// portal on the seeds where a crawler once covered the way. (A revive now
+    /// replays the room's arrival, score and all, so the revive searches
+    /// through an exit behind the bird are gone: docs/REVIVE.md.)
     public sealed class Crawl : Searches
     {
         public override string name => "crawl";
         public override string test => "tests/sim/test_crawl_passable.gd:test_search_gets_past_the_first_portal";
         public const long SEARCH_TICKS = 1000;
         public static readonly (string id, long seed)[] SEARCH_CASES = { ("crawl", 22), ("crawl", 64), ("crabs", 89) };
-        public const long REVIVE_SEEDS = 8;
 
         protected override List<object> make()
         {
@@ -186,24 +186,13 @@ static partial class Checks
                 out_.Add(new S($"{id} seed {seed}", () => new GameSim(seed, RoomCatalog.all()[index].season, index),
                     SEARCH_TICKS, Through.PortalTaken));
             }
-            int crawl = (int)RoomCatalog.index_of("crawl");
-            long top = SimConfig.slot_center_y(1);
-            long bottom = SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 2);
-            var hard = new (string exit, long side, long y)[] { ("ghost", 1, top), ("ghost", 0, bottom), ("open", 1, top), ("open", 0, bottom) };
-            for (long k = 0; k < REVIVE_SEEDS; k++)
-                foreach (var (exit, side, y) in hard)
-                {
-                    long seed = 7 + k;
-                    out_.Add(new S($"seed {seed}: {exit} exit on wall {side} at {y / SimConfig.SUB} px, after the revive",
-                        () => Setups.crawl_revived(crawl, seed, exit, side, y), SimConfig.ARRIVAL_HOLD + 240, Through.ExactlyOnePortal));
-                }
             return out_;
         }
     }
 
     /// The searches of tests/sim/test_gates_passable.gd: the once unreachable
-    /// portals, the quick runs from just before an exit is planned, and after
-    /// a revive at every exit height on both walls (more seeds here).
+    /// portals and the quick runs from just before an exit is planned (more
+    /// seeds here).
     public sealed class Gates : Searches
     {
         public override string name => "gates";
@@ -211,9 +200,8 @@ static partial class Checks
         public static readonly (long seed, long ticks)[] ONCE_IMPOSSIBLE = { (141, 960), (144, 960) };
         public const long SEEDS = 14;
         public const long QUICK_TICKS = 290;
-        /// More quick-run seeds per variant, and revive rounds (the GD test played 1).
+        /// More quick-run seeds per variant.
         public const long MORE_SEEDS = 42;
-        public const long REVIVE_ROUNDS = 3;
 
         protected override List<object> make()
         {
@@ -231,50 +219,24 @@ static partial class Checks
             for (long i = 0; i < SEEDS * 2; i++) quick(500 + i * 37, i < SEEDS ? "classic" : "single-small", i % 4 != 3);
             foreach (var variant in new[] { "classic", "single-small" })
                 for (long k = 0; k < MORE_SEEDS; k++) quick(3000 + k * 41, variant, k % 4 != 3);
-            long crossing = SimConfig.WORLD_W / SimConfig.SPEED_X;
-            for (long round = 0; round < REVIVE_ROUNDS; round++)
-            {
-                long n = 0;
-                foreach (var variant in new[] { "classic", "single-small" })
-                    for (long slot = 1; slot < SimConfig.SLOT_COUNT - 1; slot += 2)
-                    {
-                        // A small gate plans no exit that low (Gate.SMALL_EXIT_MAX_Y).
-                        if (variant != "classic" && SimConfig.slot_center_y(slot) > Gate.SMALL_EXIT_MAX_Y) continue;
-                        for (long side = 0; side < 2; side++)
-                        {
-                            // Alternate, so every height gets both cases across the two walls.
-                            bool open = n % 2 == 0;
-                            n += 1;
-                            long seed = 100 + n + round * 1000, y = SimConfig.slot_center_y(slot), sd = side;
-                            // Open or a ghost, the exit is behind the revived bird: two crossings.
-                            long ticks = SimConfig.ARRIVAL_HOLD + crossing * 2 + 20;
-                            string v = variant;
-                            out_.Add(new S($"{variant} seed {seed}: {(open ? "open" : "ghost")} exit at slot {slot} on wall {side}",
-                                () => Setups.gates_revived(seed, open, sd, y, v), ticks, Through.PastStart));
-                        }
-                    }
-            }
             return out_;
         }
     }
 
     /// The searches of tests/sim/test_isles_passable.gd: Floating Isles and
     /// Egg Hunt in every variant through the portal from just before an exit
-    /// is planned, and a revived bird through the open exit (more seeds here).
+    /// is planned (more seeds here).
     public sealed class Isles : Searches
     {
         public override string name => "isles";
         public override string test => "tests/sim/test_isles_passable.gd:test_isles_lead_through_the_portal";
         public static readonly long[] ISLES_SEEDS = { 1, 322, 7, 2024, 31337 };
         public static readonly long[] EGGS_SEEDS = { 3, 58 };
-        public static readonly long[] REVIVE_SEEDS = { 15, 127, 183 };
         public const long NEAR_EXIT = 28;
         public const long PORTAL_TICKS = 450;
-        /// The open exit is behind the revived bird: two crossings, and a bit.
-        public static readonly long REVIVE_TICKS = SimConfig.ARRIVAL_HOLD + 2 * (SimConfig.WORLD_W / SimConfig.SPEED_X) + 30;
         public static readonly string[] ISLES_VARIANTS = { "classic", "drifting", "one-big" };
         public static readonly string[] EGGS_VARIANTS = { "classic", "drifting", "golden" };
-        /// More seeds for every room variant and the revive.
+        /// More seeds for every room variant.
         public const long MORE_SEEDS = 12;
 
         protected override List<object> make()
@@ -291,10 +253,6 @@ static partial class Checks
                 foreach (var s in ISLES_SEEDS.Concat(more)) portal("isles", s, v);
             foreach (var v in EGGS_VARIANTS)
                 foreach (var s in EGGS_SEEDS.Concat(more)) portal("eggs", s, v);
-            foreach (var v in ISLES_VARIANTS)
-                foreach (var s in REVIVE_SEEDS.Concat(more))
-                    out_.Add(new S($"isles {v} seed {s}, after the revive", () => Setups.isles_revived("isles", s, "open", s % 2, v),
-                        REVIVE_TICKS, Through.PastStart, quick: true));
             return out_;
         }
     }

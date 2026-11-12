@@ -30,6 +30,11 @@ static func copy_room(room: RoomRuntime) -> RoomRuntime:
 	return _copy_object(room, {}) as RoomRuntime
 
 
+## Copies an RNG (its state), for a revive (GameSim._entry_rng).
+static func copy_rng(rng: SimRng) -> SimRng:
+	return _copy_object(rng, {}) as SimRng
+
+
 static func _copy_fields(src: Object, dst: Object, memo: Dictionary) -> void:
 	for field: Array in _plan(src.get_script()):
 		var name: StringName = field[0]

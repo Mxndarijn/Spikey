@@ -38,7 +38,13 @@ public static class SimConfig
     public const long EXIT_MAX_Y = 530 * SUB;
     public const long FORK_SPLIT_Y = 320 * SUB;
     public const long FORK_EVERY = 50;
-    public const long WILD_COINS = 3;
+    public const long FORK_DOOR_Y = FORK_SPLIT_Y;
+    public const long WILD_COINS = 5;
+    public const long WILD_SPIKES = 3;
+    public const long BOSS_EVERY = 100;
+    public const long BOSS_POINTS = 20;
+    public const long BOSS_HOLD = 90;
+    public static readonly long[] BOSS_COINS = { 15, 20, 25 };
     public const long ARRIVAL_HOLD = 60;
     public const long PORTAL_HOLD = 30;
     public const long ARRIVAL_BLIND = 60;
@@ -46,6 +52,8 @@ public static class SimConfig
     public const long ARRIVAL_TRIES = 16;
     public const long ARRIVAL_EDGE = 84 * SUB;
     public const long MAX_TICKS = 60 * 60 * 30;
+
+    public static long boss_tier(long entry_score) => G.clampi(entry_score / BOSS_EVERY, 1, BOSS_COINS.Length);
 
     public static long slot_center_y(long slot) => SLOT_TOP + slot * SLOT_SIZE + SLOT_SIZE / 2;
 }

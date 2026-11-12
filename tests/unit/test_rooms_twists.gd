@@ -11,7 +11,7 @@ const SUB := SimConfig.SUB
 const TWISTS := {
 	"crosswind": ["wind", ["steady", "split", "gusty"]],
 	"belt": ["belt", ["up", "counter", "switchback"]],
-	"lava": ["lava", ["lava"]],
+	"lava": ["lava", ["lava", "cold", "rafts"]],
 	"echo": ["echo", ["echo", "mirror"]],
 }
 
@@ -131,6 +131,7 @@ func test_belt_stops_on_an_open_exit() -> void:
 func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 	var sim := _started("lava", 10)
 	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.STONE
 	l.line = l.rest()
 	for p in Lava.STONE_AFTER:
 		sim.room.points += 1
@@ -158,6 +159,7 @@ func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 func test_lava_stops_rising_and_keeps_a_free_run() -> void:
 	var sim := _started("lava", 11)
 	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.STONE
 	l.line = l.rest()
 	sim.room.points = 20
 	l.on_bounce(sim, SimRng.new(1))
@@ -180,6 +182,7 @@ func test_lava_stops_rising_and_keeps_a_free_run() -> void:
 func test_lava_keeps_exits_out_of_its_reach() -> void:
 	var sim := _started("lava", 12)
 	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.STONE
 	l.rises = 4
 	# The room's exits are picked when it starts: the line rises with every
 	# point still to score before the exit opens.
@@ -191,6 +194,131 @@ func test_lava_keeps_exits_out_of_its_reach() -> void:
 	var worst := l.line_at(5)
 	assert_true(l.blocks_exit(sim, 1, worst), "no exit in the lava")
 	assert_false(l.blocks_exit(sim, 1, worst - Lava.EXIT_CLEAR - SUB), "above it is fine")
+
+
+func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
+	var sim := _started("lava", 13)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.COLD
+	sim.state.anchor_y = 300 * SUB
+	sim.state.vx = -SimConfig.SPEED_X
+	for p in Lava.STONE_AFTER - 1:
+		sim.room.points += 1
+		l.on_bounce(sim, SimRng.new(p))
+	assert_false(l.ice_on, "no ice before the lava has risen enough")
+	sim.room.points += 1
+	l.on_bounce(sim, SimRng.new(5))
+	assert_true(l.ice_on, "ice shows up")
+	assert_false(l.stone_on, "and no stone")
+	assert_eq(l.ice_side, 1, "on the wall the bird just left")
+	var cy := SimConfig.slot_center_y(l.ice_slot)
+	assert_true(absi(cy - sim.state.anchor_y) >= Lava.ICE_AWAY, "away from the anchor")
+	assert_true(cy <= l.line_at(l.rises) - Lava.STONE_CLEAR, "clear of the lava")
+	assert_true(cy >= SimConfig.KILL_TOP + Lava.STONE_EDGE, "clear of the ceiling")
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	var mask: int = l.adjust_wall(sim, 1, all)
+	for slot in range(maxi(l.ice_slot - 1, 0), mini(l.ice_slot + 2, SimConfig.SLOT_COUNT)):
+		assert_false(RoomRules.has_slot(mask, slot), "no spike on or next to the ice")
+
+
+## Generation never reads the bird: at any height, the same ice slot.
+func test_the_ice_slot_never_depends_on_the_birds_height() -> void:
+	var slots := {}
+	for y: int in [120, 300, 480]:
+		var sim := _started("lava", 13)
+		var l: Lava = sim.room.hazards[0]
+		l.mode = Lava.Mode.COLD
+		sim.state.anchor_y = 300 * SUB
+		sim.state.y = y * SUB
+		sim.state.vx = -SimConfig.SPEED_X
+		for p in Lava.STONE_AFTER:
+			sim.room.points += 1
+			l.on_bounce(sim, SimRng.new(5))
+		assert_true(l.ice_on, "ice at bird height %d" % y)
+		slots[l.ice_slot] = true
+	assert_eq(slots.size(), 1, "one slot for every bird height")
+
+
+func test_bouncing_on_the_ice_sinks_the_lava() -> void:
+	var sim := _started("lava", 14)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.COLD
+	l.rises = 4
+	l.ice_on = true
+	l.ice_side = 1
+	l.ice_slot = 4
+	var cy := SimConfig.slot_center_y(4)
+	sim.state.x = sim.room.wall_right() - SimConfig.BIRD_RADIUS - 40 * SUB
+	sim.state.y = cy
+	l.touch(sim)
+	assert_true(l.ice_on, "the ice is in the wall, not in the room")
+	sim.state.x = sim.room.wall_right() - SimConfig.BIRD_RADIUS
+	sim.state.y = cy + SimConfig.SLOT_SIZE + SimConfig.BIRD_RADIUS
+	l.touch(sim)
+	assert_true(l.ice_on, "a bounce past the ice misses it")
+	sim.state.y = cy + 10 * SUB
+	l.touch(sim)
+	assert_false(l.ice_on, "a bounce on the ice uses it")
+	assert_eq(l.rises, 0, "and sinks the lava")
+
+
+func test_rafts_float_up_then_carry_and_sink_the_lava() -> void:
+	var sim := _started("lava", 15)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.RAFTS
+	l.raft_points = sim.room.points
+	sim.room.points += Lava.RAFT_FROM
+	l.on_bounce(sim, SimRng.new(3))
+	assert_true(l.raft_on[0], "a raft floats up")
+	assert_false(l.stone_on, "no stone")
+	assert_true(l.raft_x[0] >= Lava.RAFT_X_MIN and l.raft_x[0] <= Lava.RAFT_X_MAX, "clear of walls")
+	sim.room.points += 1
+	l.on_bounce(sim, SimRng.new(4))
+	assert_false(l.raft_on[1], "one raft at a time while the lava is low")
+	for i in 200:
+		l.step(sim)
+	assert_eq(l.line, l.line_at(l.rises), "the lava is up")
+	assert_true(l.raft_age[0] >= Lava.RAFT_RISE, "the raft is up")
+	sim.state.x = l.raft_x[0]
+	sim.state.y = l.line - SimConfig.BIRD_RADIUS + 2 * SUB
+	sim.state.vy = 4 * SUB
+	assert_false(l.kills(sim), "over the raft the lava is safe")
+	var before := l.rises
+	l.touch(sim)
+	assert_false(l.raft_on[0], "the raft is used")
+	assert_eq(l.rises, maxi(before - Lava.RAFT_SINK, 0), "the lava sinks two steps")
+	assert_true(sim.state.vy < 0, "the bird is thrown up")
+	sim.state.x = Lava.RAFT_X_MIN
+	sim.state.y = l.line
+	assert_true(l.kills(sim), "without a raft the lava kills")
+
+
+func test_a_rising_raft_is_not_there_yet() -> void:
+	var sim := _started("lava", 16)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.RAFTS
+	l.rises = 3
+	l.line = l.line_at(3)
+	l.raft_on[0] = true
+	l.raft_x[0] = 180 * SUB
+	l.raft_age[0] = Lava.RAFT_RISE - 1
+	sim.state.x = 180 * SUB
+	sim.state.y = l.line - SimConfig.BIRD_RADIUS
+	assert_true(l.kills(sim), "still rising: the lava kills")
+	l.touch(sim)
+	assert_true(l.raft_on[0], "and the raft does nothing")
+
+
+func test_two_rafts_from_high_up() -> void:
+	var sim := _started("lava", 17)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.RAFTS
+	l.raft_points = sim.room.points
+	sim.room.points += Lava.RAFT_TWO
+	l.on_bounce(sim, SimRng.new(1))
+	sim.room.points += Lava.RAFT_EVERY
+	l.on_bounce(sim, SimRng.new(2))
+	assert_true(l.raft_on[0] and l.raft_on[1], "two rafts once the lava is high")
 
 
 # --- Echo --------------------------------------------------------------------

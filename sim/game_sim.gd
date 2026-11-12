@@ -15,7 +15,8 @@ enum Event {
 	COIN,
 	EXIT_OPEN,
 	EXIT_PREVIEW,
-	REVIVE
+	REVIVE,
+	BOSS_DOWN
 }
 
 ## How hard a bumper shoves the bird (vertical speed, sub-units per step): a bit
@@ -76,12 +77,14 @@ var _points_also := -1
 ## known): set by _anchor_at_wall for the _new_wall right after it.
 var _free_lo := -1
 var _free_hi := -1
-## The room as the bird came into it, and the bird as it came in (position,
-## speed, wall spikes): a revive restarts the room from here. Taken at the run
+## The room as the bird came into it, the whole state then (bird, score,
+## coins, exits) and both RNGs: a revive restarts the run from here. Taken at the run
 ## start and after each portal arrival (not in practice or checks); never
 ## changed afterwards.
 var _entry_room: RoomRuntime = null
 var _entry_state: SimState = null
+var _entry_rng: SimRng = null
+var _entry_spine: SimRng = null
 
 
 func _init(
@@ -161,60 +164,37 @@ func can_revive() -> bool:
 	return not state.alive and not is_practice() and state.revives < SimConfig.MAX_REVIVES
 
 
-## Brings a dead bird back: the room restarts exactly as the bird came into
-## it (the same variant, hazards and wall spikes), with the bird at the
-## portal it came through, at the same height, flying the same way, after
-## ARRIVAL_HOLD ticks with the room frozen. Score, coins and the RNG carry
-## on. An open exit stays open as the portal the bird comes out of; a ghost
-## stays a ghost, planned again on the wall the bird came in by. Called
-## between steps, like a tap: the tick does not move.
+## Brings a dead bird back: the run goes back to the moment the bird came
+## into the room (_keep_entry). The room (variant, hazards, wall spikes), the
+## bird (wall, height, way, speed), the score, the coins, the room's coin, the
+## planned exits and both RNGs are all as they were then, so the rest of the
+## run is the one a player who never died there would meet. Only the tick, the
+## revive count and the taps (flaps) carry on. The bird waits ARRIVAL_HOLD
+## ticks with the room frozen, then flies on by itself. Called between steps,
+## like a tap: the tick does not move.
 ## Returns false, changing nothing, when can_revive() is false.
 func revive() -> bool:
 	if not can_revive():
 		return false
 	events.clear()
-	state.alive = true
-	state.death_cause = SimState.DeathCause.NONE
-	state.revives += 1
-	room = SimCopy.copy_room(_entry_room)
-	state.room_kind = room.index
-	state.x = _entry_state.x
-	state.y = _entry_state.y
-	state.vx = _entry_state.vx
-	state.vy = 0
-	state.anchor_y = _entry_state.anchor_y
-	state.left_spikes = _entry_state.left_spikes
-	state.right_spikes = _entry_state.right_spikes
-	# An exit always ends up on the wall the bird came in by, so a crossing and
-	# a bounce come before it. Ahead, an open one would leave a single flight to
-	# line up with it and a ghost would open under the bird as it bounced there.
-	# It is the room's own planned exit for that wall (ExitPlanner.plan_room,
-	# kept in _entry_state), so a revive changes nothing about where the exits
-	# are: the same for every player of the seed, whenever they died. With an
-	# open exit that wall is spiked everywhere but the exit, so the bird comes
-	# out just clear of the spike tips.
-	var behind := 0 if state.vx > 0 else 1
-	state.revive_gap = 0
-	if state.exit_open:
-		ExitPlanner.use_plan(self, behind, state.score)
-		# That wall is spiked everywhere but the exit: none level with the
-		# bird until it next bounces, so it comes out of its portal as it did.
-		state.revive_gap = state.y
-	elif state.exit_preview:
-		ExitPlanner.use_plan(self, behind, state.score + 1)
+	var tick := state.tick
+	var revives := state.revives + 1
+	var flaps := state.flaps
+	state.assign(_entry_state)
+	state.tick = tick
+	state.revives = revives
+	state.flaps = flaps
+	# At the run start the bird waited for a first tap; after a revive it flies
+	# on by itself once the hold is over.
+	state.started = true
 	state.arrival_hold = SimConfig.ARRIVAL_HOLD
+	room = SimCopy.copy_room(_entry_room)
+	_rng = SimCopy.copy_rng(_entry_rng)
+	_spine = SimCopy.copy_rng(_entry_spine)
+	_free_lo = -1
+	_free_hi = -1
 	events.append(Event.REVIVE)
 	return true
-
-
-## The wall slots whose spikes would be level with a bird at height `y`.
-func _slots_level_with(y: int) -> int:
-	var reach := room.spike_half_base() + SimConfig.BIRD_RADIUS
-	var out := 0
-	for slot in SimConfig.SLOT_COUNT:
-		if absi(y - SimConfig.slot_center_y(slot)) <= reach:
-			out |= 1 << slot
-	return out
 
 
 ## The spikes a wall shows right now. A wall with an open exit is spiked
@@ -224,8 +204,6 @@ func _slots_level_with(y: int) -> int:
 func wall_mask(side: int) -> int:
 	if state.exit_open and state.exit_side == side:
 		var open := ((1 << SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state)
-		if state.revive_gap > 0:
-			open &= ~_slots_level_with(state.revive_gap)
 		return open
 	var mask := room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
 	if state.exit_preview and state.exit_side == side:
@@ -377,7 +355,6 @@ func _check_walls() -> void:
 	if state.vx > 0 and state.x + r >= right:
 		if _take_exit(1):
 			return
-		state.revive_gap = 0
 		_anchor_at_wall(1)
 		state.x = 2 * (right - r) - state.x
 		state.vx = -SimConfig.SPEED_X
@@ -389,7 +366,6 @@ func _check_walls() -> void:
 	elif state.vx < 0 and state.x - r <= left:
 		if _take_exit(0):
 			return
-		state.revive_gap = 0
 		_anchor_at_wall(0)
 		state.x = 2 * (left + r) - state.x
 		state.vx = SimConfig.SPEED_X
@@ -433,26 +409,49 @@ func _take_exit(side: int) -> bool:
 ## it. The exit then opens there at the ghost's exact height(s), even if the
 ## bird got turned back (Bumper Cloud) and bounced on the ghost's wall itself.
 ## With no ghost (a practice room starting one point short) it opens on
-## `side`, as before. Every FORK_EVERY points it is a fork: a Calm and a Wild
-## exit, one in each half, in a random order.
+## `side`, as before. At a fork (ExitPlanner.is_fork) it is a Calm and a Wild
+## exit, one in each half, in a random order. In a boss room the exit opens
+## after SimConfig.BOSS_POINTS bounces there instead, with no ghost first (the
+## boss fights on until then), and the boss breaks.
 func _maybe_open_exit(side: int) -> void:
 	if state.exit_open:
 		return
-	var every := SimConfig.POINTS_PER_ROOM
 	if state.exit_preview:
-		if state.score % every == 0:
+		if _exit_due(state.score):
 			state.exit_preview = false
 			state.exit_open = true
 			events.append(Event.EXIT_OPEN)
+			_boss_down()
 		return
-	if (state.score + 1) % every == 0:
+	if _exit_due(state.score + 1) and not room.def.boss:
 		state.exit_preview = true
 		ExitPlanner.use_plan(self, 1 - side, state.score + 1)
 		events.append(Event.EXIT_PREVIEW)
-	elif state.score % every == 0:
+	elif _exit_due(state.score):
 		state.exit_open = true
 		ExitPlanner.use_plan(self, side, state.score)
 		events.append(Event.EXIT_OPEN)
+		_boss_down()
+
+
+## Whether an exit opens at score `at` in this room: every POINTS_PER_ROOM
+## points, or in a boss room BOSS_POINTS after it was entered.
+func _exit_due(at: int) -> bool:
+	if room.def.boss:
+		return at == room.entry_score + SimConfig.BOSS_POINTS
+	return at % SimConfig.POINTS_PER_ROOM == 0
+
+
+## The exit of a boss room just opened: the boss breaks (its hazard stops) and
+## pays its coins (none in practice).
+func _boss_down() -> void:
+	if not room.def.boss:
+		return
+	events.append(Event.BOSS_DOWN)
+	if not is_practice():
+		collect_coin(
+			state.x, state.y, SimConfig.BOSS_COINS[SimConfig.boss_tier(room.entry_score) - 1]
+		)
 
 
 ## The score the next exit opens at: now if one is open, else the next
@@ -460,6 +459,8 @@ func _maybe_open_exit(side: int) -> void:
 func next_exit_score() -> int:
 	if state.exit_open:
 		return state.score
+	if room.def != null and room.def.boss:
+		return room.entry_score + SimConfig.BOSS_POINTS
 	var every := SimConfig.POINTS_PER_ROOM
 	return (state.score / every + 1) * every
 
@@ -513,30 +514,44 @@ func steps_to_wall(side: int) -> int:
 ## slow to react still lives (ArrivalCheck). The
 ## wall it now faces (`side` again) gets spikes as after a bounce. No point is
 ## scored for this. `through_y` is the height of the exit taken: the room is
-## picked and laid out for it, never for the bird's own height.
+## picked and laid out for it, never for the bird's own height. Both exits of a
+## fork lead to one door (SimConfig.FORK_DOOR_Y), so the room behind a fork is
+## the same for Calm and Wild; the route (`kind`) lasts that one room.
 func _go_through(side: int, kind: int, through_y: int) -> void:
 	state.exit_open = false
-	if kind != SimState.ExitKind.NORMAL:
-		state.route = kind
+	state.route = kind
 	if kind == SimState.ExitKind.WILD:
 		for i in SimConfig.WILD_COINS:
 			collect_coin(state.x, state.y)
 	state.room_index += 1
+	var door := through_y
+	if kind != SimState.ExitKind.NORMAL:
+		state.y += SimConfig.FORK_DOOR_Y - through_y
+		door = SimConfig.FORK_DOOR_Y
 	# Far enough from the ceiling and floor to hop while reading the room (the
 	# bird jumps walls here anyway, so the view shows no slide).
 	state.y = _arrival_y(state.y)
-	state.anchor_y = _arrival_y(through_y)
+	state.anchor_y = _arrival_y(door)
 	var next := practice_room
-	if not is_practice():
-		next = RoomCatalog.pick_next(
-			_spine, room.index, state.score, season, state.route, state.anchor_y
-		)
+	if is_practice():
+		pass
+	elif _boss_due():
+		next = RoomCatalog.pick_boss(_spine, state.bosses_met)
+		state.bosses_met |= RoomCatalog.boss_bit(next)
+	else:
+		next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y)
 	_seed_room()
 	# Lay the room out so a player who needs a moment to look can live: the
 	# check plays it on copies, and each retry skips one RNG draw.
 	for i in _arrival_retries(side, next):
 		_rng.next_u32()
 	_arrive_in(side, next)
+
+
+## Whether the exit just taken leads into a boss room: the one at every
+## BOSS_EVERY points (never out of a boss room itself).
+func _boss_due() -> bool:
+	return state.score > 0 and state.score % SimConfig.BOSS_EVERY == 0 and not room.def.boss
 
 
 ## Far enough from the ceiling and floor to hop while reading the room.
@@ -622,6 +637,9 @@ func _arrive_in(side: int, next: int) -> void:
 	_arrive(side, Event.ROOM_CHANGE)
 	ExitPlanner.plan_room(self, next_exit_score())
 	state.arrival_hold = _arrival_wait
+	# A boss comes in while the bird waits (its own attacks wait longer still).
+	if room.def.boss:
+		state.arrival_hold = maxi(state.arrival_hold, SimConfig.BOSS_HOLD)
 	_arrival_wait = SimConfig.PORTAL_HOLD
 	_keep_entry()
 
@@ -632,6 +650,8 @@ func _keep_entry() -> void:
 		return
 	_entry_room = SimCopy.copy_room(room)
 	_entry_state = state.copy()
+	_entry_rng = SimCopy.copy_rng(_rng)
+	_entry_spine = SimCopy.copy_rng(_spine)
 
 
 ## Puts the bird in the room just started, out of a portal in the wall
@@ -705,9 +725,13 @@ func _new_wall(side: int) -> void:
 		target = (_free_lo + _free_hi) / 2
 	_free_lo = -1
 	_free_hi = -1
-	var mask := RoomRules.generate_wall(
-		_rng, state.score, room.def, target, room.spike_bonus(side), reach
-	)
+	var bonus := room.spike_bonus(side)
+	# Behind a Wild exit: more spikes on every wall after the arrival's. The
+	# arrival check (_checking) lays the room out without them, so the layout
+	# is the one a Calm player gets.
+	if state.route == SimState.ExitKind.WILD and room.walls > 1 and not _checking:
+		bonus += SimConfig.WILD_SPIKES
+	var mask := RoomRules.generate_wall(_rng, state.score, room.def, target, bonus, reach)
 	for h in room.hazards:
 		if h.alive:
 			mask = h.adjust_wall(self, side, mask)

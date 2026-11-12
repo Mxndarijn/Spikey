@@ -27,6 +27,7 @@ public sealed class RoomDef
     public long speed = Speed.NORMAL;
     public bool bounce_coin = true;
     public bool bounce_coin_stacks = false;
+    public bool boss = false;
 
     public List<Func<Hazard>> hazards = new();
     /// Each combo is a list of factories.

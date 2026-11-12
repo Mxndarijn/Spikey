@@ -34,10 +34,21 @@ static func slots(state: SimState) -> int:
 	return out
 
 
+## Whether the exit for score `at` is a fork (Calm and Wild): every
+## FORK_EVERY points, but a boss's exit takes the fork of its BOSS_EVERY
+## (the exit there leads into the boss room). Never in practice.
+static func is_fork(sim: GameSim, at: int) -> bool:
+	if sim.is_practice():
+		return false
+	if sim.room.def != null and sim.room.def.boss:
+		return true
+	return at % SimConfig.FORK_EVERY == 0 and at % SimConfig.BOSS_EVERY != 0
+
+
 ## Picks where the exit(s) for score `at` go, on wall `side`.
 static func plan(sim: GameSim, rng: SimRng, side: int, at: int) -> void:
 	sim.state.exit_side = side
-	var fork := at % SimConfig.FORK_EVERY == 0 and not sim.is_practice()
+	var fork := is_fork(sim, at)
 	if fork:
 		var top := random_y(
 			sim, rng, SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF

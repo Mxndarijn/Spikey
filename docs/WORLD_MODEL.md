@@ -155,7 +155,7 @@ One number k sets every limit (`Skill.At`): reaction delay to the unforeseen
 every 8 ticks below beast (planned for, not cut), dropped taps 2%(1-k),
 look-ahead 150-70(1-k) ticks, margin 6-4(1-k) px, beam, misjudged height up
 to 12(1-k) px (a new error at each wall, sometimes 3x). Calibrated k:
-beginner 0.81, normal 0.868, good 0.922, expert 0.99, beast 1.
+beginner 0.81, normal 0.88, good 0.922, expert 0.99, beast 1.
 
 Yardstick quick set (seeds 1..100, cap 108 000, first death ends the run,
 leak check: no leaks), commit 43afb28:
@@ -168,5 +168,18 @@ leak check: no leaks), commit 43afb28:
 | world:expert | 219.5 | 110.5 | 697 | 3 | 219.6 | expert |
 | world:beast | 216.5 | 100.5 | 622 | 2 | 198.6 | expert (target beast 500+) |
 
-Beast isn't strong enough yet to stand apart from expert; normal sits at the
-low edge of its band (a slightly higher k, about 0.88, would centre it).
+Yardstick full set (400 seeds, cap 108 000, no leaks), commit e4e26ef, normal
+rerun at k 0.88 (at 0.868 its rate median was 41.9, just under the edge):
+
+| bot | median | p25 | p90 | alive at cap | rate median | tier |
+|---|---|---|---|---|---|---|
+| world:beginner | 30.5 | 18 | 72 | 0 | 26.4 | beginner |
+| world:normal (k 0.88) | 70 | 38.8 | 178.1 | 0 | 62.1 | normal |
+| world:good | 132.5 | 69 | 419.4 | 0 | 134.6 | good |
+| world:expert | 223 | 100 | 761.3 | 14 | 222.8 | expert |
+| world:beast | 200 | 103.8 | 670.3 | 7 | 205.5 | expert (target beast 500+) |
+
+Beast isn't strong enough yet to stand apart from expert: at k 1 the
+remaining deaths come from model errors (hidden exit mouths, stalactite
+targets, random lanes), not from human limits, so removing the limits
+gains nothing.

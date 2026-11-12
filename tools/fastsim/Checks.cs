@@ -22,6 +22,9 @@ using FastSim;
 ///   exits     nothing in an open or ghost exit's mouth (ExitChecks.cs; tests/sim/test_exit_clear.gd)
 ///   reach     tests/sim/test_exits_reachable.gd: every exit can still be taken when
 ///             it opens, on many different lines (seed 3392377610's room 3, v21)
+///   mpcbot    the MPC bot never copies or steps the sim (Mpc/MpcCheck.cs)
+///   sameseed  after a revive the run meets the map of a run that never died
+///             (SameSeed.cs, docs/REVIVE.md)
 /// (CheckSearches.cs has the last five.) ArrivalBench's thresholds are pinned
 /// by tests/unit/test_fastsim_checks.gd.
 ///
@@ -32,7 +35,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)
@@ -294,6 +297,7 @@ static partial class Checks
             ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
             ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),
             ("ghostdoors", 1150), ("piston", 1150), ("stalac", 1150), ("crates", 1150), ("gifts", 1150),
+            ("boss_watcher", 1950), ("boss_crusher", 1950), ("boss_saw", 1950),
         };
 
         public override int count() => cases.Count;
@@ -526,6 +530,8 @@ static partial class Checks
             var bot = new SimRng(7);
             long room_index = sim.state.room_index;
             long entry_score = sim.state.score;
+            // A boss room's exit opens after BOSS_POINTS bounces there.
+            long cap = sim.room.def.boss ? SimConfig.BOSS_POINTS : SimConfig.POINTS_PER_ROOM;
             long full = 0;
             var fails = new List<string>();
             while (sim.state.tick < MAX_TICKS)
@@ -535,12 +541,13 @@ static partial class Checks
                 sim.step(SimBots.gap_seeker(sim, bot));
                 if (sim.state.room_index != room_index)
                 {
-                    if (sim.state.score - entry_score == SimConfig.POINTS_PER_ROOM) full++;
+                    if (sim.state.score - entry_score == cap) full++;
                     room_index = sim.state.room_index;
                     entry_score = sim.state.score;
+                    cap = sim.room.def.boss ? SimConfig.BOSS_POINTS : SimConfig.POINTS_PER_ROOM;
                 }
                 long gained = sim.state.score - entry_score;
-                if (gained > SimConfig.POINTS_PER_ROOM || sim.room.points > SimConfig.POINTS_PER_ROOM)
+                if (gained > cap || sim.room.points > cap)
                 {
                     fails.Add($"{label}: {gained} points in one room (tick {sim.state.tick})");
                     break;

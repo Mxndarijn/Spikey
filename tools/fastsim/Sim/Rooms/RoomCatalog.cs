@@ -3,11 +3,37 @@ namespace FastSim;
 /// Port of sim/rooms/room_catalog.gd.
 public static class RoomCatalog
 {
-    static readonly string[] CALM_GROUPS = { "starter", "mid", "bonus", "seasonal" };
-    static readonly string[] WILD_GROUPS = { "mid", "late", "seasonal" };
-
     static List<RoomDef> _all;
     static long _first = -1;
+    static List<long> _bosses = new();
+
+    public static List<long> bosses()
+    {
+        if (_bosses.Count == 0)
+        {
+            var list = all();
+            for (long i = 0; i < list.Count; i++)
+                if (list[(int)i].boss) _bosses.Add(i);
+        }
+        return _bosses;
+    }
+
+    public static long pick_boss(SimRng rng, long met)
+    {
+        var list = bosses();
+        var open = new List<long>();
+        for (long i = 0; i < list.Count; i++)
+            if (((met >> (int)i) & 1) == 0) open.Add(i);
+        if (open.Count == 0)
+            for (long i = 0; i < list.Count; i++) open.Add(i);
+        return list[(int)open[(int)rng.next_below(open.Count)]];
+    }
+
+    public static long boss_bit(long index)
+    {
+        long i = bosses().IndexOf(index);
+        return i < 0 ? 0 : 1L << (int)i;
+    }
 
     public static List<RoomDef> all()
     {
@@ -21,6 +47,7 @@ public static class RoomCatalog
             list.AddRange(CatalogSeasonal.defs());
             list.AddRange(CatalogCombo.defs());
             list.AddRange(CatalogTwists.defs());
+            list.AddRange(CatalogBoss.defs());
             _all = list;
         }
         return _all;
@@ -52,22 +79,7 @@ public static class RoomCatalog
         return def.season == Seasons.NONE || def.season == season;
     }
 
-    public static long route_weight(RoomDef def, long route)
-    {
-        if (route == ExitKind.CALM)
-        {
-            if (Array.IndexOf(CALM_GROUPS, def.group) < 0) return 0;
-            return def.group == "bonus" ? def.weight * 2 : def.weight;
-        }
-        if (route == ExitKind.WILD)
-        {
-            if (Array.IndexOf(WILD_GROUPS, def.group) < 0) return 0;
-            return def.group == "late" ? def.weight * 2 : def.weight;
-        }
-        return def.weight;
-    }
-
-    public static long pick_next(SimRng rng, long current, long score, long season, long route = ExitKind.NORMAL, long arrival_y = SimConfig.WORLD_H)
+    public static long pick_next(SimRng rng, long current, long score, long season, long arrival_y = SimConfig.WORLD_H)
     {
         var list = all();
         long start = first_index();
@@ -77,11 +89,10 @@ public static class RoomCatalog
         {
             long w = 0;
             bool fits = list[i].fits_arrival(arrival_y);
-            if (i != current && i != start && fits && allowed(list[i], score, season)) w = route_weight(list[i], route);
+            if (i != current && i != start && fits && !list[i].boss && allowed(list[i], score, season)) w = list[i].weight;
             weights[i] = w;
             total += w;
         }
-        if (total == 0 && route != ExitKind.NORMAL) return pick_next(rng, current, score, season, ExitKind.NORMAL, arrival_y);
         if (total == 0) return current;
         long r = rng.next_below(total);
         for (int i = 0; i < list.Count; i++)

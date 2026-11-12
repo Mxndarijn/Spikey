@@ -13,13 +13,13 @@ namespace FastSim.Yard;
 public static class YardstickMain
 {
     public const int FORMAT = 1;
-    /// The shared protocol (bot-review.md): seeds 1..400, the game's own cap
-    /// (SimConfig.MAX_TICKS, 30 minutes, about 1200 points), no revives. A
+    /// The shared protocol (bot-review.md): seeds 1..400, the bots' cap
+    /// (BotCaps.RUN_CAP, 60 minutes, about 2400 points), no revives. A
     /// median over 64 seeds moves by about 25% by chance; over 400 by about 10%.
     /// The quick set is the first 100 of them.
     public const long FIRST = 0;
     public const int QUICK = 100, FULL = 400;
-    public const long CAP = SimConfig.MAX_TICKS;
+    public const long CAP = BotCaps.RUN_CAP;
     public static readonly JsonSerializerOptions PRETTY = new() { WriteIndented = true };
 
     public static int run(List<string> pos, Dictionary<string, string> opts)

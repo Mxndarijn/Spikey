@@ -20,6 +20,7 @@ using FastSim;
 //   fastsim yardstick run|compare|list|humans      one measure for every bot (Yardstick/, docs/YARDSTICK.md)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
+//   fastsim sameseed <seed> [season] [ticks]        one seed played several ways, what differs (SameSeed.cs)
 //   fastsim runfile <seed> [bot_seed] --out <file>  a gap_seeker run as a run file
 //                                                   (Bots/RunFile.cs, docs/RENDERING.md)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
@@ -66,6 +67,8 @@ if (mode == "rl") return FastSim.Rl.RlMain.run(pos, opts);
 if (mode == "human") return FastSim.Human.HumanMain.run(pos, opts);
 if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
+if (mode == "mpc") return FastSim.Mpc.MpcRun.run(pos, opts);
+if (mode == "sameseed") return SameSeed.run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
@@ -508,8 +511,18 @@ static class Parity
             "gr" => Checks.Setups.gates_revived(long.Parse(f[1]), f[2] == "1", long.Parse(f[3]), long.Parse(f[4]), f[5]),
             "ir" => Checks.Setups.isles_revived(f[1], long.Parse(f[2]), f[3], long.Parse(f[4]), f[5]),
             "n" => near(f),
+            "b" => boss_portal(f),
             _ => throw new Exception("unknown setup " + text),
         };
+    }
+
+    static GameSim boss_portal(string[] f)
+    {
+        var sim = new GameSim(long.Parse(f[1]), long.Parse(f[2]));
+        sim.step(true);
+        sim.state.score = long.Parse(f[3]);
+        sim._go_through(1, ExitKind.NORMAL, 320 * SimConfig.SUB);
+        return sim;
     }
 
     static GameSim near(string[] f)

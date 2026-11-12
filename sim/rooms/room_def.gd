@@ -49,6 +49,9 @@ var speed := Speed.NORMAL
 var bounce_coin := true
 ## Coin Garden: a bounce adds a coin even when one is already out.
 var bounce_coin_stacks := false
+## A boss room (SimConfig.BOSS_EVERY): never picked by the usual picker, only
+## by RoomCatalog.pick_boss; its exit opens after SimConfig.BOSS_POINTS bounces.
+var boss := false
 
 ## Factories (Callables returning a Hazard), built at room start in order.
 var hazards: Array[Callable] = []

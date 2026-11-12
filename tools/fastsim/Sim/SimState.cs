@@ -40,6 +40,7 @@ public sealed class SimState
     public long exit_b_y = 0;
     public long exit_b_kind = 0;
     public long route = 0;
+    public long bosses_met = 0;
     public long pickup_x = 0;
     public long pickup_y = 0;
     public long arrival_hold = 0;
@@ -52,9 +53,17 @@ public sealed class SimState
     public long plan_a_kind_right = 0;
     public long plan_b_y_right = 0;
     public long plan_at = 0;
-    public long revive_gap = 0;
 
     public SimState copy() => (SimState)MemberwiseClone();
+
+    static readonly System.Reflection.FieldInfo[] FIELDS = typeof(SimState).GetFields(
+        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+    /// Every field set to `o`'s (GDScript SimState.assign).
+    public void assign(SimState o)
+    {
+        foreach (var f in FIELDS) f.SetValue(this, f.GetValue(o));
+    }
 
     public long checksum()
     {
@@ -95,7 +104,7 @@ public sealed class SimState
         h = SimHash.mix(h, plan_a_kind_right);
         h = SimHash.mix(h, plan_b_y_right);
         h = SimHash.mix(h, plan_at);
-        h = SimHash.mix(h, revive_gap);
+        h = SimHash.mix(h, bosses_met);
         return h;
     }
 }
