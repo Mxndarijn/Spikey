@@ -1,5 +1,5 @@
 //! Yardstick/ (docs/YARDSTICK.md): one measure for every bot. Port of YardstickMain.cs:
-//! `fastsim yardstick <run|compare|list|leak|humans> [options]` (tools/yardstick.ps1): one
+//! `fastsim yardstick <run|compare|list|leak|humans|stats> [options]` (tools/yardstick.ps1): one
 //! shared measure of every bot. Same seeds, same cap and the same numbers for all, written as
 //! one JSON per bot and run set plus a comparison table across every JSON in the output folder.
 //! `check` (Rust only) runs YardstickCheck.cs.
@@ -11,6 +11,7 @@ pub mod compare;
 pub mod leak;
 pub mod runs;
 pub mod stats;
+pub mod survival;
 pub mod timing;
 
 use std::collections::VecDeque;
@@ -64,6 +65,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             Ok(0)
         }
         "compare" => Ok(write_table(&out_dir)),
+        "stats" => stats(opts),
         "check" => Ok(check::main()),
         "leak" => {
             let threads = parse::<i32>("threads", &o_("threads", "16")).clamp(1, 64);
@@ -81,7 +83,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
                         continue;
                     }
                     o.as_object_mut().unwrap().insert("leak".to_string(), leak.clone());
-                    write_text(&p, &(serde_json::to_string_pretty(&o).unwrap() + "\n"));
+                    write_text(&p, &(json_pretty(&o) + "\n"));
                 }
             }
             Ok(write_table(&out_dir))
@@ -126,7 +128,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             Ok(0)
         }
         _ => {
-            eprintln!("unknown yardstick mode '{}': run, compare, list, humans", what);
+            eprintln!("unknown yardstick mode '{}': run, compare, list, humans, leak, stats", what);
             Ok(2)
         }
     })();
@@ -137,6 +139,41 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             2
         }
     }
+}
+
+/// `stats --files a,b,...`: intervals and survival curves for saved run
+/// sets (yardstick JSONs or death atlas TSVs), each compared with the
+/// first one. No sim is played. `--json <path>` also writes the numbers.
+fn stats(opts: &Opts) -> Result<i32, String> {
+    let files: Vec<String> = opts
+        .get("files")
+        .map(|s| s.as_str())
+        .unwrap_or("")
+        .split(',')
+        .map(|f| f.trim().to_string())
+        .filter(|f| !f.is_empty())
+        .collect();
+    let reps: i32 = parse("reps", opts.get("reps").map(|s| s.as_str()).unwrap_or("2000"));
+    println!("{}", survival::plan_text());
+    if files.is_empty() {
+        return Ok(0);
+    }
+    let sets: Vec<survival::Set> = files.iter().map(|f| survival::load(f)).collect::<Result<_, _>>()?;
+    let mut o = json!({ "sets": [], "compare": [] });
+    for s in &sets {
+        let d = survival::describe(s, reps);
+        o["sets"].as_array_mut().unwrap().push(d.clone());
+        println!("{}", survival::text(&d));
+    }
+    for s in sets.iter().skip(1) {
+        let c = survival::compare(s, &sets[0], reps);
+        o["compare"].as_array_mut().unwrap().push(c.clone());
+        println!("{}", survival::text_compare(&c));
+    }
+    if let Some(path) = opts.get("json") {
+        write_text(Path::new(path), &(json_pretty(&o) + "\n"));
+    }
+    Ok(0)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -322,7 +359,7 @@ fn write_text(path: &Path, text: &str) {
 
 fn save(o: &Value, out_dir: &Path) {
     let path = out_dir.join(file_name(o["bot"].as_str().unwrap_or(""), o["set"].as_str().unwrap_or("")));
-    write_text(&path, &(serde_json::to_string_pretty(o).unwrap() + "\n"));
+    write_text(&path, &(json_pretty(o) + "\n"));
     println!("  wrote {}", path.display());
 }
 
@@ -426,6 +463,92 @@ fn as_long(v: &Value) -> Option<i64> {
 }
 
 // ---- formatting as C# does it ------------------------------------------------
+
+/// `node.ToJsonString(PRETTY)` (WriteIndented, the default encoder): two-space indent,
+/// Environment.NewLine between lines, strings escaped as JavaScriptEncoder.Default does
+/// (`"` `&` `'` `+` `<` `>` and the backtick as \uXXXX, all outside printable ASCII too).
+pub fn json_pretty(v: &Value) -> String {
+    let nl = if cfg!(windows) { "\r\n" } else { "\n" };
+    let mut out_ = String::new();
+    json_write(v, 0, nl, &mut out_);
+    out_
+}
+
+fn json_write(v: &Value, depth: usize, nl: &str, out_: &mut String) {
+    match v {
+        Value::Null => out_.push_str("null"),
+        Value::Bool(b) => out_.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) => match (n.as_i64(), n.as_u64(), n.as_f64()) {
+            (Some(i), _, _) => out_.push_str(&i.to_string()),
+            (None, Some(u), _) => out_.push_str(&u.to_string()),
+            // A whole double (a negative zero too) without ".0", as .NET writes it.
+            (None, None, Some(x)) if x.fract() == 0.0 && x.abs() < 1e15 => out_.push_str(&format!("{}", x)),
+            _ => out_.push_str(&n.to_string()),
+        },
+        Value::String(s) => json_str(s, out_),
+        Value::Array(a) => {
+            if a.is_empty() {
+                out_.push_str("[]");
+                return;
+            }
+            out_.push('[');
+            for (i, x) in a.iter().enumerate() {
+                if i > 0 {
+                    out_.push(',');
+                }
+                out_.push_str(nl);
+                out_.push_str(&"  ".repeat(depth + 1));
+                json_write(x, depth + 1, nl, out_);
+            }
+            out_.push_str(nl);
+            out_.push_str(&"  ".repeat(depth));
+            out_.push(']');
+        }
+        Value::Object(m) => {
+            if m.is_empty() {
+                out_.push_str("{}");
+                return;
+            }
+            out_.push('{');
+            for (i, (k, x)) in m.iter().enumerate() {
+                if i > 0 {
+                    out_.push(',');
+                }
+                out_.push_str(nl);
+                out_.push_str(&"  ".repeat(depth + 1));
+                json_str(k, out_);
+                out_.push_str(": ");
+                json_write(x, depth + 1, nl, out_);
+            }
+            out_.push_str(nl);
+            out_.push_str(&"  ".repeat(depth));
+            out_.push('}');
+        }
+    }
+}
+
+/// A JSON string as Utf8JsonWriter escapes it: \n \r \t \b \f \\ short, the rest \uXXXX.
+fn json_str(s: &str, out_: &mut String) {
+    out_.push('"');
+    for c in s.chars() {
+        match c {
+            '\n' => out_.push_str("\\n"),
+            '\r' => out_.push_str("\\r"),
+            '\t' => out_.push_str("\\t"),
+            '\u{8}' => out_.push_str("\\b"),
+            '\u{C}' => out_.push_str("\\f"),
+            '\\' => out_.push_str("\\\\"),
+            ' '..='~' if !matches!(c, '"' | '&' | '\'' | '+' | '<' | '>' | '`') => out_.push(c),
+            _ => {
+                let mut buf = [0u16; 2];
+                for u in c.encode_utf16(&mut buf) {
+                    out_.push_str(&format!("\\u{:04X}", u));
+                }
+            }
+        }
+    }
+    out_.push('"');
+}
 
 /// C# `JsonNode.ToString()` inside an interpolated string: null -> "", a string as it is,
 /// a number in its shortest round-trip form.

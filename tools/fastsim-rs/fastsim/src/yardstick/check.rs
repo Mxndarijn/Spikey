@@ -16,6 +16,7 @@ use super::timing::Timing;
 /// Checks.Yardstick.run: the failures (empty = pass) and `{"runs": n}`.
 pub fn run() -> (Vec<String>, Value) {
     let mut fails: Vec<String> = Vec::new();
+    fails.extend(super::survival::self_test());
     let cases: [(f64, &str); 7] = [
         (20.0, "below beginner"),
         (30.0, "beginner"),
