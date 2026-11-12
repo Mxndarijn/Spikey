@@ -200,9 +200,17 @@ public static class MotorTiers
     };
     public static readonly Dictionary<string, double> SIGMA = TIER.ToDictionary(kv => kv.Key, kv => kv.Value.sigma);
 
+    /// The tiers when the planner knows the planned exit mouths (BlindPlanner.know_exits):
+    /// hazards bounce off them from room start, so a hidden-exit copy mispredicts them.
+    /// Seeds 1..100, full cap: rate medians 33 / 59 / 119 / 257 / 724.
+    public static readonly Dictionary<string, (double sigma, double react)> TIER_KNOWN_EXITS = new()
+    {
+        ["beginner"] = (1.4, 13), ["normal"] = (0.6, 13), ["good"] = (0.3, 13), ["expert"] = (0.0, 8), ["beast"] = (0.0, -100),
+    };
+
     public static Motor of(string tier)
     {
-        var (sg, re) = TIER[tier];
+        var (sg, re) = (BlindPlanner.know_exits ? TIER_KNOWN_EXITS : TIER)[tier];
         return Motor.at(sg) with { react_mu = re, react_tau = re < 0 ? 0 : 4 };
     }
 
