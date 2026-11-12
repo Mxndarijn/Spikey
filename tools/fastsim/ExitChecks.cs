@@ -1,10 +1,10 @@
 using System.Text.Json.Nodes;
 using FastSim;
 
-/// `fastsim check exits`: no hazard ever kills in, or turns the bird back
-/// from, an exit's mouth (sim/exit_zone.gd); from an exit's ghost until it
-/// closes no wall spike reaches into it; two plays of a seed that fly
-/// differently meet each exit at the same place. The GDScript test
+/// `fastsim check exits`: from the step after an exit is drawn (its ghost, or
+/// its opening) until the bird leaves, no hazard kills in, or turns the bird
+/// back from, its mouth (sim/exit_zone.gd), and no wall spike reaches into it;
+/// two plays of a seed that fly differently meet each exit at the same place. The GDScript test
 /// tests/sim/test_exit_clear.gd keeps a small sample of the first rule.
 static partial class Checks
 {

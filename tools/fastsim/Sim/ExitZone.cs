@@ -1,34 +1,23 @@
 namespace FastSim;
 
-/// Port of sim/exit_zone.gd: the mouths of a room's exits, which hazards
-/// treat as part of the wall.
+/// Port of sim/exit_zone.gd: the mouths of a room's drawn exits (a ghost or
+/// open), which hazards treat as part of the wall.
 public static class ExitZone
 {
     public const long DEPTH = 3 * SimConfig.BIRD_RADIUS;
     public const long HALF = SimConfig.EXIT_HALF + SimConfig.BIRD_RADIUS;
 
-    public const long BOXES = 6;
+    public const long BOXES = 2;
 
     public static long count(GameSim _sim) => BOXES;
 
-    public static long box_side(GameSim sim, long i)
-    {
-        if (i < 4) return i < 2 ? 0 : 1;
-        return sim.state.exit_side;
-    }
+    public static long box_side(GameSim sim, long _i) => sim.state.exit_side;
 
     public static long box_y(GameSim sim, long i)
     {
         var s = sim.state;
-        switch (i)
-        {
-            case 0: return s.plan_a_y_left;
-            case 1: return s.plan_a_kind_left != ExitKind.NORMAL ? s.plan_b_y_left : 0;
-            case 2: return s.plan_a_y_right;
-            case 3: return s.plan_a_kind_right != ExitKind.NORMAL ? s.plan_b_y_right : 0;
-        }
         if (!s.exit_open && !s.exit_preview) return 0;
-        if (i == 4) return s.exit_a_y;
+        if (i == 0) return s.exit_a_y;
         return s.exit_b_kind != ExitKind.NORMAL ? s.exit_b_y : 0;
     }
 
