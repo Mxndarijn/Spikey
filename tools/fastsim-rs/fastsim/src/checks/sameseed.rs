@@ -400,3 +400,9 @@ impl Check for SameSeedRevive {
         )
     }
 }
+
+/// `fastsim sameseed ...` (SameSeed.run, the research mode). STUB: being ported.
+pub fn run_mode(_pos: &[String], _opts: &crate::speed::Opts) -> i32 {
+    eprintln!("sameseed: not ported yet");
+    2
+}
