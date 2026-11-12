@@ -50,6 +50,8 @@ A breadth-first search from the entry over real sim copies, one tick at a time, 
 per bucket of bird state (4 px height, 1/8 flap of vertical speed, 40 px x, direction). Unlike
 SurvivalSearch it keeps every bucket, and records where each copy's tap and no-tap step landed.
 A backward pass marks the **viable** copies: those with a line that still reaches the exit.
+An entry where none is viable is checked again with SurvivalSearch (finer buckets): only when it
+finds no way either does the entry count as `no-way` (otherwise `no-way?` in old files).
 Taps follow SurvivalSearch's rule (only once the last flap has half worn off).
 
 - **Free band** (px): how many px of bird heights are still viable at a tick. Measured from
@@ -108,5 +110,11 @@ Recategorising is the user's call: the tool only suggests.
 
 ## Results
 
-The full run of 2026-11-12 on next-features-2 and the published page are listed in
-`D:\SoftwareProjects\SpikeCage-coord\research\room-difficulty\`.
+The run of 2026-11-12 (next-features-2 at 5354aac): `D:\SoftwareProjects\SpikeCage-coordesearchoom-difficulty\`
+(README.md, the TSVs and report.md/json). Page: https://claude.ai/artifact/LReB6JtzyrC3nSqag71kCD
+
+- Best single predictors of the bot skill (Spearman): viable share of reachable states -0.75,
+  tap window -0.70, ways through per point -0.66, route choice +0.63, free band about -0.55,
+  fail at 0.67 s +0.60. Together, leave-one-out r = 0.81.
+- A tube "no way" is checked with SurvivalSearch: on that run 6 of 10 were confirmed, the other 4
+  were ways the bucket merging lost.
