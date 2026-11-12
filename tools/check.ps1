@@ -14,6 +14,8 @@
      tick for tick, in every room and variant, out of portals, after revives
      and from every sim the checks start from, and its bots and searches
      choose what the GDScript ones do
+  5b. FastSim-RS parity: tools/fastsim-rs (the Rust copy, docs/FASTSIM_RS.md)
+     replays the same recording; skipped cleanly when cargo is not installed
   6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
      seeker, random tapper: tools/fastsim/Checks.cs), in -FastSimJobs worker
      processes
@@ -134,6 +136,17 @@ if ($hasDotnet) {
     $fastsimBuilt = $LASTEXITCODE -eq 0
 }
 
+# FastSim-RS (the Rust copy, docs/FASTSIM_RS.md): built here too; no cargo = skipped.
+$fastsimRs = Join-Path $root "tools/fastsim-rs"
+$cargoBin = Join-Path $env:USERPROFILE ".cargoin"
+if (Test-Path $cargoBin) { $env:Path = "$cargoBin;" + $env:Path }
+$hasCargo = [bool](Get-Command cargo -ErrorAction SilentlyContinue)
+$fastsimRsBuilt = $false
+if ($hasCargo -and $runParity) {
+    & powershell -ExecutionPolicy Bypass -File (Join-Path $fastsimRs "build.ps1") -NoSlot 2>&1 | Out-Null
+    $fastsimRsBuilt = $LASTEXITCODE -eq 0
+}
+
 # 1 and 6 start now: they need no Godot.
 $gdlint = Resolve-Tool "gdlint"
 $gdformat = Resolve-Tool "gdformat"
@@ -160,6 +173,10 @@ if ($importOk) {
     if ($runParity -and $fastsimBuilt) {
         Start-Step "parity" "powershell" @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "parity", "-Quick", "-NoBuild", "-Jobs", "2")
         Set-BelowNormal "parity"
+    }
+    if ($runParity -and $fastsimRsBuilt) {
+        Start-Step "parity-rs" "powershell" @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $fastsimRs "parity.ps1"), "-Quick", "-NoBuild", "-Jobs", "2")
+        Set-BelowNormal "parity-rs"
     }
 }
 
@@ -210,6 +227,22 @@ if ($runParity) {
     } else {
         Write-Host "skipped: the import failed" -ForegroundColor Red
         $failed += "fastsim parity (skipped)"
+    }
+}
+
+# 5b. FastSim-RS (the Rust copy) matches sim/ too. No cargo: skipped, not failed.
+if ($runParity) {
+    Write-Step "FastSim-RS parity"
+    if (-not $hasCargo) {
+        Write-Host "skipped: cargo not installed (tools/fastsim-rs, docs/FASTSIM_RS.md)" -ForegroundColor Yellow
+    } elseif (-not $fastsimRsBuilt) {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $fastsimRs "build.ps1") -NoSlot
+        $failed += "fastsim-rs parity (FastSim-RS build failed)"
+    } elseif ($steps.ContainsKey("parity-rs")) {
+        if ((Show-Step "parity-rs") -ne 0) { $failed += "fastsim-rs parity (port the sim/ change to tools/fastsim-rs, see docs/FASTSIM_RS.md)" }
+    } else {
+        Write-Host "skipped: the import failed" -ForegroundColor Red
+        $failed += "fastsim-rs parity (skipped)"
     }
 }
 
