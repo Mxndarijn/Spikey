@@ -151,6 +151,23 @@ pub struct BlindPlanner {
     pub short_looks: i64,
     pub no_looks: i64,
     pub split_looks: i64,
+    /// Human layer: `frozen` = no new looks (the old plan runs on while the
+    /// player takes in a new warning), `mid_offset` = px added to the height the
+    /// cost pulls to (a player's preferred height).
+    pub frozen: bool,
+    pub mid_offset: i64,
+    /// Plan reuse (0 = off): after a calm look the plan is followed for up to
+    /// `follow` ticks without a new look, as long as it still lives on a copy
+    /// made with the same guesses as that look (checked every `replan` ticks).
+    pub follow: i32,
+    /// Free tap timing that the buckets can hold: a line may tap again once it
+    /// has left the speed bucket of a fresh tap (C# BlindPlanner.tap_free).
+    pub tap_free: bool,
+    pub follows: i64,
+    pub follow_fails: i64,
+    _guess: i64,
+    _since_look: i32,
+    _calm: bool,
 }
 
 impl BlindPlanner {
@@ -217,7 +234,29 @@ impl BlindPlanner {
             short_looks: 0,
             no_looks: 0,
             split_looks: 0,
+            frozen: false,
+            mid_offset: 0,
+            follow: 0,
+            tap_free: false,
+            follows: 0,
+            follow_fails: 0,
+            _guess: 0,
+            _since_look: 0,
+            _calm: false,
         }
+    }
+
+    /// Whether the rest of the plan in hand lives in a fresh copy of what is on
+    /// screen now (false with no plan), guessed the same way as the look that made
+    /// it, so only something new on screen can kill it. The human layer asks when a
+    /// new warning shows.
+    pub fn plan_lives(&mut self, sim: &GameSim) -> bool {
+        if self._plan.is_empty() {
+            return false;
+        }
+        let rest: Vec<u8> = self._plan.iter().map(|&b| b as u8).collect();
+        let mut c = self.copy(sim, self._guess);
+        Self::lives(&mut c, &rest, 0)
     }
 
     /// The taps planned for the next ticks (read only).
@@ -307,10 +346,31 @@ impl BlindPlanner {
             }
             self._vx = sim.state.vx;
         }
-        if self._since >= self._wait || self._plan.is_empty() {
+        if !self.frozen && (self._since >= self._wait || self._plan.is_empty()) {
             let p0 = sim::prof::enter(sim::prof::LOOK);
-            self.look(sim);
-            self.last_plan = self._plan.iter().copied().collect();
+            let mut kept = false;
+            if self.follow > 0
+                && self._since != i32::MAX
+                && self._calm
+                && self._plan.len() >= 24
+                && self._since_look + self._since < self.follow
+            {
+                let rest: Vec<u8> = self._plan.iter().map(|&b| b as u8).collect();
+                let mut c = self.copy(sim, self._guess);
+                kept = Self::lives(&mut c, &rest, 0);
+                if kept {
+                    self.follows += 1;
+                    self._since_look += self._since;
+                    self._since = 0;
+                } else {
+                    self.follow_fails += 1;
+                }
+            }
+            if !kept {
+                self.look(sim);
+                self._since_look = 0;
+                self.last_plan = self._plan.iter().copied().collect();
+            }
             sim::prof::leave(p0);
         }
         self._since = self._since.wrapping_add(1);
@@ -347,6 +407,8 @@ impl BlindPlanner {
         let to_wall = sim.steps_to_wall(heading);
         self.last_seed0 = seeds[0];
         self.last_anchor = if self.own_anchor { self.anchor } else { -1 };
+        self._guess = seeds[0];
+        self._calm = false;
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
         let c0 = self.copy(sim, seeds[0]);
         self.beam(c0, want, self.bucket_px, self.speed_buckets);
@@ -436,6 +498,7 @@ impl BlindPlanner {
             self.split_looks += 1;
         }
         self._wait = if danger { self.replan_danger } else { self.replan };
+        self._calm = !danger;
         self._plan.clear();
         if let Some(found) = found {
             for b in found {
@@ -550,6 +613,14 @@ impl BlindPlanner {
         }
         if KNOW_WALLS.load(Ordering::Relaxed) {
             c.room.rng_seed = true_seed;
+        }
+        // Each wall's draws come from the room's seed and how many walls the room
+        // has drawn. With a seed of its own the count tells the copy nothing, but
+        // its guesses would still change with it: keep only what the rules ask of
+        // it (none yet, the first, later ones), so no look depends on a count the
+        // screen does not show.
+        if !KNOW_WALLS.load(Ordering::Relaxed) && !r(Reveal::WALLSEED) {
+            c.room.walls = c.room.walls.min(2);
         }
         if c.state.plan_at != 0 && !KNOW_EXITS.load(Ordering::Relaxed) && !r(Reveal::EXITS) {
             let at = c.state.plan_at;
@@ -717,12 +788,16 @@ impl BlindPlanner {
         } else {
             -SimConfig::FLAP_VY * 2 / speeds
         };
+        let tap_from = if self.tap_free { SimConfig::FLAP_VY + bvy } else { SurvivalSearch::TAP_BELOW_VY };
         let mut mid = (SimConfig::KILL_TOP + SimConfig::KILL_BOTTOM) / 2;
         let exit_shown = root.state.exit_open || root.state.exit_preview;
         if self.aim_exit && exit_shown {
             mid = root.state.exit_a_y;
         } else if self.aim_anchor {
             mid = root.state.anchor_y;
+        }
+        if !(self.aim_exit && exit_shown) {
+            mid += self.mid_offset * SimConfig::SUB;
         }
         let mut parents: Vec<i32> = Vec::new();
         let mut taps: Vec<u8> = Vec::new();
@@ -735,7 +810,7 @@ impl BlindPlanner {
             slots.clear();
             next.clear();
             for e in frontier.drain(..) {
-                let can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch::TAP_BELOW_VY
+                let can_tap = e.sim.state.vy * e.sim.room.gravity > tap_from
                     && (self.min_gap <= 0 || e.since >= self.min_gap);
                 let vx0 = e.sim.state.vx;
                 let room0 = e.sim.state.room_index;
