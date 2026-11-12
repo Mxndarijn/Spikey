@@ -92,6 +92,7 @@ public static class Review
     static string configure(BlindPlanner bot, Dictionary<string, string> opts)
     {
         long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
+        BlindPlanner.know_exits = L("knowexits", 0) != 0;
         bot.horizon = L("h", bot.horizon);
         bot.past = L("past", bot.past);
         bot.replan = (int)L("k", bot.replan);
