@@ -332,7 +332,7 @@ public sealed class GameSim
             state.right_spikes = 0;
             _bounce_score();
             _new_wall(0);
-            _maybe_open_exit(0);
+            _maybe_open_exit();
         }
         else if (state.vx < 0 && state.x - r <= left)
         {
@@ -344,7 +344,7 @@ public sealed class GameSim
             state.left_spikes = 0;
             _bounce_score();
             _new_wall(1);
-            _maybe_open_exit(1);
+            _maybe_open_exit();
         }
     }
 
@@ -376,7 +376,7 @@ public sealed class GameSim
         return true;
     }
 
-    void _maybe_open_exit(long side)
+    void _maybe_open_exit()
     {
         if (state.exit_open) return;
         if (state.exit_preview)
@@ -393,13 +393,13 @@ public sealed class GameSim
         if (_exit_due(state.score + 1) && !room.def.boss)
         {
             state.exit_preview = true;
-            ExitPlanner.use_plan(this, 1 - side, state.score + 1);
+            ExitPlanner.use_plan(this, SimConfig.EXIT_WALL, state.score + 1);
             events.Add(Event.EXIT_PREVIEW);
         }
         else if (_exit_due(state.score))
         {
             state.exit_open = true;
-            ExitPlanner.use_plan(this, side, state.score);
+            ExitPlanner.use_plan(this, SimConfig.EXIT_WALL, state.score);
             events.Add(Event.EXIT_OPEN);
             _boss_down();
         }
@@ -447,7 +447,7 @@ public sealed class GameSim
 
     public const long EXIT_STEER = 3;
 
-    long _wall_target(long side)
+    long _wall_target()
     {
         long reach = RoomRules.gap_reach(room.def);
         if (reach <= 0 || state.exit_open) return state.anchor_y;
@@ -456,9 +456,7 @@ public sealed class GameSim
             if (_free_lo >= 0 && reach - (_free_hi - _free_lo) / 2 >= SimConfig.SLOT_SIZE) return -1;
             return state.anchor_y;
         }
-        long touch = points_to_exit() + 1;
-        long exit_side = touch % 2 == 1 ? side : 1 - side;
-        long to = ExitPlanner.planned_y(this, exit_side, state.anchor_y);
+        long to = ExitPlanner.planned_y(this, SimConfig.EXIT_WALL, state.anchor_y);
         return state.anchor_y + G.clampi(to - state.anchor_y, -reach / 2, reach / 2);
     }
 
@@ -640,7 +638,7 @@ public sealed class GameSim
         if (room.walls > 0) _rng.reseed(SimHash.mix(room.rng_seed, room.walls));
         room.walls += 1;
         long reach = -1;
-        long target = _wall_target(side);
+        long target = _wall_target();
         if (target < 0)
         {
             reach = RoomRules.gap_reach(room.def) - (_free_hi - _free_lo) / 2;
@@ -671,11 +669,10 @@ public sealed class GameSim
         if (room.def.bounce_coin && !is_practice()) _spawn_coin();
     }
 
-    long _anchor_target(long side)
+    long _anchor_target()
     {
         if (state.exit_open || points_to_exit() > EXIT_STEER) return state.anchor_y;
-        long exit_side = points_to_exit() % 2 == 0 ? side : 1 - side;
-        return ExitPlanner.planned_y(this, exit_side, state.anchor_y);
+        return ExitPlanner.planned_y(this, SimConfig.EXIT_WALL, state.anchor_y);
     }
 
     long _drawn_mask(long side)
@@ -690,7 +687,7 @@ public sealed class GameSim
     void _anchor_at_wall(long side)
     {
         long mask = _drawn_mask(side);
-        long target = _anchor_target(side);
+        long target = _anchor_target();
         long best = state.anchor_y;
         long best_d = -1;
         _free_lo = -1;

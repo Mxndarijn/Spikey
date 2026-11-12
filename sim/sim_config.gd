@@ -122,12 +122,17 @@ const COIN_MAX_X := 280 * SUB
 const COIN_MIN_Y := 90 * SUB
 const COIN_MAX_Y := 550 * SUB
 
-# Exits: every POINTS_PER_ROOM points an exit opens on the wall the bird is
-# heading to. Fly into it to reach the next room: the bird comes out of the
+# Exits: every POINTS_PER_ROOM points an exit opens on the right wall
+# (EXIT_WALL). Fly into it to reach the next room: the bird comes out of the
 # opposite wall, still flying the same way. Every FORK_EVERY points there are
 # two exits, Calm and Wild. Both lead to the same door (FORK_DOOR_Y) of the same
 # next room, so every player meets the same map again; Wild pays WILD_COINS and
 # plays that one room with WILD_SPIKES more on each wall after the first.
+## The wall every exit and ghost is on: 1, right. Every room starts with the
+## bird heading there (out of a portal in the left wall), and the Bumper Cloud
+## turning the bird back never moves it, so every player of a seed leaves each
+## room the same way.
+const EXIT_WALL := 1
 const EXIT_HALF := 48 * SUB
 ## Exits sit on a slot center, so the opening is that slot and one either side
 ## and the nearest spikes are two slots away. A bird whose center reaches the

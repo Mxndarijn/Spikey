@@ -32,8 +32,9 @@ var coin_y := 0
 var coins := 0
 ## Taps this run (for achievements).
 var flaps := 0
-## Exit portal(s): open on `exit_side` (0 left, 1 right). `exit_a_y` is always
-## used; `exit_b_y` only at a fork. Kinds are ExitKind values.
+## Exit portal(s): open on `exit_side` (0 left, 1 right; always
+## SimConfig.EXIT_WALL). `exit_a_y` is always used; `exit_b_y` only at a fork.
+## Kinds are ExitKind values.
 ## `exit_preview`: the next exit is already planned (one point early) and
 ## shown as a ghost on `exit_side`; it opens there, at the same height(s),
 ## on the next point. Until then it is not a way through.

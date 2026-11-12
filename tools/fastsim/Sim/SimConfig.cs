@@ -32,6 +32,7 @@ public static class SimConfig
     public const long COIN_MAX_X = 280 * SUB;
     public const long COIN_MIN_Y = 90 * SUB;
     public const long COIN_MAX_Y = 550 * SUB;
+    public const long EXIT_WALL = 1;
     public const long EXIT_HALF = 48 * SUB;
     public const long EXIT_FIT = 2 * SLOT_SIZE - SPIKE_HALF_BASE;
     public const long EXIT_MIN_Y = 110 * SUB;
