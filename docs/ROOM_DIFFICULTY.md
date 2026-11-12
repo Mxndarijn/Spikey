@@ -110,7 +110,7 @@ Recategorising is the user's call: the tool only suggests.
 
 ## Results
 
-The run of 2026-11-12 (next-features-2 at 5354aac): `D:\SoftwareProjects\SpikeCage-coordesearchoom-difficulty\`
+The run of 2026-11-12 (next-features-2 at 5354aac): `D:\SoftwareProjects\SpikeCage-coord\research\room-difficulty\`
 (README.md, the TSVs and report.md/json). Page: https://claude.ai/artifact/LReB6JtzyrC3nSqag71kCD
 
 - Best single predictors of the bot skill (Spearman): viable share of reachable states -0.75,
