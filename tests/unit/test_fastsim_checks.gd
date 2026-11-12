@@ -28,7 +28,7 @@ func test_fastsim_gameplay_version_and_run_file_format() -> void:
 	assert_eq(_const(cfg, "GAMEPLAY_VERSION"), SimConfig.GAMEPLAY_VERSION, "sim_config.rs")
 	var rf := FileAccess.get_file_as_string(RUN_FILE)
 	assert_eq(_const(rf, "FORMAT_VERSION"), RunFile.FORMAT_VERSION, "run_file.rs FORMAT_VERSION")
-	assert_true(rf.contains("FORMAT: &'static str = \"%s\"" % RunFile.FORMAT), "run_file.rs FORMAT")
+	assert_true(rf.contains('FORMAT: &\'static str = "%s"' % RunFile.FORMAT), "run_file.rs FORMAT")
 	for key: String in RunFile.from_replay(Replay.new()).to_dict():
 		assert_true(rf.contains('"%s":' % key), "run_file.rs writes %s" % key)
 
