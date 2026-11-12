@@ -2,7 +2,7 @@
 //! fault or the room's? (SpikeCage-coord/research/planner-review/08-fairness.md).
 //! See the C# file for the judges (oracle, honest0, honestR) and the verdicts.
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Instant;
 
 use rayon::prelude::*;
@@ -10,8 +10,87 @@ use sim::prelude::*;
 
 use super::{configure, crate_drop, culture_cmp, room_name, NL};
 use crate::bots::{BlindPlanner, SurvivalSearch};
+use crate::setups::Setups;
 use crate::speed::Opts;
 use crate::yardstick::fmt_num;
+
+/// The room anchor a player can know: tracked from the walls it bounced off
+/// and the exit it took (BlindPlanner.observe's rule), never state.anchor_y.
+/// observe() once per tick, on the state before that tick's input.
+/// C# `clone()` (MemberwiseClone plus a copy of `_last_drawn`) is `Clone`.
+#[derive(Clone)]
+pub struct AnchorTrack {
+    pub anchor: i64,
+    _seen_room: i64,
+    _last_y: i64,
+    _last_a: i64,
+    _last_b: i64,
+    _last_b_kind: i64,
+    _last_open: bool,
+    _last_drawn: [i64; 2],
+}
+
+impl AnchorTrack {
+    pub fn new() -> AnchorTrack {
+        AnchorTrack {
+            anchor: SimConfig::BIRD_START_Y,
+            _seen_room: 0,
+            _last_y: 0,
+            _last_a: 0,
+            _last_b: 0,
+            _last_b_kind: 0,
+            _last_open: false,
+            _last_drawn: [0; 2],
+        }
+    }
+
+    fn drawn(s: &SimState, side: i64) -> i64 {
+        let slots = ExitPlanner::slots(s);
+        if s.exit_open && s.exit_side == side {
+            return ((1i64 << SimConfig::SLOT_COUNT) - 1) & !slots;
+        }
+        let mut mask = if side == 0 { s.left_spikes } else { s.right_spikes };
+        if s.exit_preview && s.exit_side == side {
+            mask &= !slots;
+        }
+        mask
+    }
+
+    pub fn observe(&mut self, sim: &GameSim) {
+        let s = &sim.state;
+        if s.room_index != self._seen_room {
+            self._seen_room = s.room_index;
+            if self._last_open {
+                let a = (self._last_y - self._last_a).abs() <= SimConfig::EXIT_FIT || self._last_b_kind == ExitKind::NORMAL;
+                let door = if self._last_b_kind != ExitKind::NORMAL {
+                    SimConfig::FORK_DOOR_Y
+                } else if a {
+                    self._last_a
+                } else {
+                    self._last_b
+                };
+                self.anchor = GameSim::_arrival_y(door);
+            }
+        } else if sim.events.contains(&Event::BOUNCE) {
+            self.anchor = BlindPlanner::anchor_after(self._last_drawn[if s.vx > 0 { 0 } else { 1 }], self.anchor);
+        }
+        self._last_y = s.y;
+        self._last_drawn[0] = Self::drawn(s, 0);
+        self._last_drawn[1] = Self::drawn(s, 1);
+        self._last_open = s.exit_open;
+        self._last_a = s.exit_a_y;
+        self._last_b = s.exit_b_y;
+        self._last_b_kind = s.exit_b_kind;
+    }
+}
+
+/// Off (--judgeanchor 0): honest copies keep the room's real anchor_y (the
+/// judge before this fix). C# `static bool own_anchor`.
+pub static OWN_ANCHOR: AtomicBool = AtomicBool::new(true);
+
+fn own_anchor() -> bool {
+    OWN_ANCHOR.load(Ordering::Relaxed)
+}
 
 pub struct Judge {
     pub react: i64,
@@ -34,6 +113,8 @@ pub struct Judge {
     /// (C# copies the prefix list; here `hist[.._pre]` is read in place).
     _extra: Vec<GameSim>,
     _pre: usize,
+    /// C# `_trk` (the known anchor after observing `_hist[i]`) past the prefix, as `_extra`.
+    _trk_extra: Vec<AnchorTrack>,
     _taps: Vec<bool>,
     _base: i64,
 }
@@ -71,6 +152,7 @@ impl Judge {
             _left: 0,
             _extra: Vec::new(),
             _pre: 0,
+            _trk_extra: Vec::new(),
             _taps: Vec::new(),
             _base: 0,
         }
@@ -82,6 +164,7 @@ impl Judge {
     pub fn honest(
         &mut self,
         hist: &[GameSim],
+        trk: &[AnchorTrack],
         taps: &[bool],
         base_tick: i64,
         start: i64,
@@ -91,6 +174,7 @@ impl Judge {
     ) -> bool {
         self._pre = ((start - base_tick + 1) as usize).min(hist.len());
         self._extra.clear();
+        self._trk_extra.clear();
         self._taps = taps.iter().take((start - base_tick) as usize).copied().collect();
         self._base = base_tick;
         self._end = end;
@@ -98,7 +182,7 @@ impl Judge {
         self._left = self.budget;
         self.ran_out = false;
         self.stages_used = 0;
-        self.stage(hist, start, delayed)
+        self.stage(hist, trk, start, delayed)
     }
 
     fn at<'a>(&'a self, hist: &'a [GameSim], tick: i64) -> &'a GameSim {
@@ -114,7 +198,32 @@ impl Judge {
         self._pre + self._extra.len()
     }
 
-    fn stage(&mut self, hist: &[GameSim], s: i64, delayed: bool) -> bool {
+    fn trk_at<'a>(&'a self, trk: &'a [AnchorTrack], tick: i64) -> &'a AnchorTrack {
+        let i = (tick - self._base) as usize;
+        if i < self._pre {
+            &trk[i]
+        } else {
+            &self._trk_extra[i - self._pre]
+        }
+    }
+
+    /// C# `_trk[^1]`.
+    fn trk_last<'a>(&'a self, trk: &'a [AnchorTrack]) -> &'a AnchorTrack {
+        match self._trk_extra.last() {
+            Some(t) => t,
+            None => &trk[self._pre - 1],
+        }
+    }
+
+    fn known_anchor(&self, trk: &[AnchorTrack], tick: i64) -> i64 {
+        if own_anchor() {
+            self.trk_at(trk, tick).anchor
+        } else {
+            -1
+        }
+    }
+
+    fn stage(&mut self, hist: &[GameSim], trk: &[AnchorTrack], s: i64, delayed: bool) -> bool {
         if s >= self._end {
             return quick(0, self.at(hist, s), self.viable);
         }
@@ -134,7 +243,7 @@ impl Judge {
                 SimRng::new(self._salt.wrapping_mul(7919).wrapping_add(s.wrapping_mul(131)) + j as i64 + 1),
                 -1,
                 0,
-                -1,
+                self.known_anchor(trk, info),
                 false,
                 false,
             );
@@ -148,7 +257,8 @@ impl Judge {
                 worlds.push(c);
             }
         }
-        let found = self.beam(worlds, len);
+        let room_anchor = if own_anchor() { self.trk_at(trk, s).anchor } else { self.at(hist, s).state.anchor_y };
+        let found = self.beam(worlds, len, room_anchor);
         for (line, ends) in found {
             let mut ok = true;
             let mut i = 0;
@@ -164,17 +274,22 @@ impl Judge {
             // Fly the line in the true world, keeping its states for the next stage's copies.
             let keep_h = self.hist_count();
             let keep_t = self._taps.len();
+            let keep_k = self._pre + self._trk_extra.len();
             let mut cur = self.at(hist, s).clone_deep();
             for &b in &line {
                 cur.step(b != 0);
                 self._taps.push(b != 0);
                 self._extra.push(cur.clone_deep());
+                let mut tr = self.trk_last(trk).clone();
+                tr.observe(&cur);
+                self._trk_extra.push(tr);
             }
-            if !cur.is_over() && self.stage(hist, s + line.len() as i64, delayed) {
+            if !cur.is_over() && self.stage(hist, trk, s + line.len() as i64, delayed) {
                 return true;
             }
             self._extra.truncate(keep_h - self._pre);
             self._taps.truncate(keep_t);
+            self._trk_extra.truncate(keep_k - self._pre);
             if self.ran_out {
                 return false;
             }
@@ -184,9 +299,9 @@ impl Judge {
 
     /// Lines (common inputs) that live `ticks` in every world: up to `cands`, one per 40 px band of
     /// the true world's end height, nearest the room's anchor first. Each with its end states.
-    fn beam(&self, roots: Vec<GameSim>, ticks: i64) -> Vec<(Vec<u8>, Vec<GameSim>)> {
+    fn beam(&self, roots: Vec<GameSim>, ticks: i64, room_anchor: i64) -> Vec<(Vec<u8>, Vec<GameSim>)> {
         let (r_open, r_preview, r_a_y, r_anchor) =
-            (roots[0].state.exit_open, roots[0].state.exit_preview, roots[0].state.exit_a_y, roots[0].state.anchor_y);
+            (roots[0].state.exit_open, roots[0].state.exit_preview, roots[0].state.exit_a_y, room_anchor);
         let mut parents: Vec<i32> = Vec::new();
         let mut taps: Vec<u8> = Vec::new();
         let mut frontier = vec![Node { w: roots, parent: -1, tap: 0, since: 99 }];
@@ -346,6 +461,29 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
     let l = |key: &str, d: i64| -> i64 { opts.get(key).map(|v| v.parse().expect(key)).unwrap_or(d) };
     let (first, back, step) = (l("first", 0), l("back", 240), l("step", 10));
     let out_path = opts.get("out").cloned().unwrap_or_default();
+    OWN_ANCHOR.store(l("judgeanchor", 1) != 0, Ordering::Relaxed);
+    // --room id [--variant v]: each run starts in that room (a practice
+    // start) and ends when the bird leaves it: deaths per visit, room by room.
+    let only = opts.get("room").cloned().unwrap_or_default();
+    let only_v = opts.get("variant").cloned().unwrap_or_else(|| "classic".to_string());
+    // --boss 0|1|2 --score N: each run starts in that boss room (Watcher,
+    // Crusher, Saw King) out of the boss portal at score N, as in a real run.
+    let (boss, boss_score) = (l("boss", -1), l("score", SimConfig::BOSS_EVERY));
+    let start = |seed: i64| -> GameSim {
+        if boss >= 0 {
+            let mut g = GameSim::new(seed);
+            g.state.started = true;
+            g.state.score = boss_score;
+            g.state.bosses_met = ((1i64 << RoomCatalog::bosses().len()) - 1) & !(1i64 << boss);
+            g._go_through(1, ExitKind::NORMAL, 320 * SimConfig::SUB);
+            return g;
+        }
+        if only.is_empty() {
+            GameSim::new(seed)
+        } else {
+            Setups::practice(&only, seed, &only_v)
+        }
+    };
     let make = || {
         let mut j = Judge::new();
         j.react = l("react", 60);
@@ -365,7 +503,8 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
         .map(|i| {
             let t0 = Instant::now();
             let seed = first + i + 1;
-            let mut sim = GameSim::new(seed);
+            let mut sim = start(seed);
+            let room0 = sim.state.room_index;
             let mut bot = BlindPlanner::new(seed);
             let cfg = configure(&mut bot, opts);
             let mut rooms: Vec<(String, i64)> = Vec::new();
@@ -373,7 +512,10 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
             let mut taps: Vec<bool> = Vec::new();
             let (mut bounce_tick, mut entry_tick, mut drops, mut drop_tick) = (0i64, 0i64, -1i64, 0i64);
             let (mut ri0, mut last_e) = (-1i64, -1i64);
-            while !sim.is_over() && (taps.len() as i64) < cap {
+            while !sim.is_over()
+                && (taps.len() as i64) < cap
+                && (only.is_empty() && boss < 0 || sim.state.room_index == room0)
+            {
                 if sim.state.room_index != ri0 {
                     ri0 = sim.state.room_index;
                     add(&mut rooms, room_name(&sim));
@@ -425,13 +567,18 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
             // True states of the last back + react + 1 ticks before the death.
             let lead = back + l("react", 60) + 1;
             let base_tick = 0.max(died - lead);
-            let mut c = GameSim::new(seed);
+            let mut c = start(seed);
+            let mut track = AnchorTrack::new();
             for t in 0..base_tick {
+                track.observe(&c);
                 c.step(taps[t as usize]);
             }
             let mut hist: Vec<GameSim> = Vec::new();
+            let mut trk: Vec<AnchorTrack> = Vec::new();
             for t in base_tick..=died {
+                track.observe(&c);
                 hist.push(c.clone_deep());
+                trk.push(track.clone());
                 if t < died {
                     c.step(taps[t as usize]);
                 }
@@ -448,13 +595,13 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
             let mut honest0 = -1;
             if oracle >= 0 {
                 honest_r = last(step, back, died, base_tick, &mut |b| {
-                    let ok = judge.honest(&hist, &rel, base_tick, died - b, end, seed, true);
+                    let ok = judge.honest(&hist, &trk, &rel, base_tick, died - b, end, seed, true);
                     undecided |= judge.ran_out;
                     ok
                 });
                 if honest_r < 0 {
                     honest0 = last(step, back, died, base_tick, &mut |b| {
-                        judge.honest(&hist, &rel, base_tick, died - b, end, seed, false)
+                        judge.honest(&hist, &trk, &rel, base_tick, died - b, end, seed, false)
                     });
                 } else {
                     honest0 = honest_r;

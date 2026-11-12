@@ -1,7 +1,8 @@
 //! `fastsim-rs rl review <what>`: port of RL/Review.cs `run` for the modes that do
 //! not need the RL policy: fair (RL/Fairness.cs), exposure, bouncefair, fixtest and
 //! autopsy (RL/Autopsy.cs), horizon and honest (honest.rs), atlas (atlas.rs), trace
-//! (trace.rs) and blindcheck (blindcheck.rs). Same options, same printed text
+//! (trace.rs), blindcheck (blindcheck.rs) and exitpass, bosstell and entrytrace
+//! (RL/ExitPass.cs, exit_pass.rs). Same options, same printed text
 //! (docs/BOT_TESTING.md).
 //!
 //! Not ported: rescue, speed (use `fastsim-rs speed`), sens and shape (RL policy), and
@@ -18,6 +19,7 @@ use crate::speed::Opts;
 pub mod atlas;
 pub mod autopsy;
 pub mod blindcheck;
+pub mod exit_pass;
 pub mod fairness;
 pub mod honest;
 pub mod trace;
@@ -36,6 +38,9 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
     let cap: i64 = o("cap", &RUN_CAP.to_string()).parse().expect("--cap");
     match what {
         "fair" => fairness::run(opts, seeds, cap),
+        "entrytrace" => exit_pass::entry_trace(opts),
+        "bosstell" => exit_pass::boss_tell(opts),
+        "exitpass" => exit_pass::run(opts, seeds),
         "exposure" => autopsy::exposure(opts, seeds),
         "bouncefair" => autopsy::bouncefair(opts, seeds),
         "fixtest" => autopsy::fixtest(opts),
