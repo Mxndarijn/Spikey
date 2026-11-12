@@ -100,4 +100,73 @@ bird.
 
 ## Measured
 
-(filled in below as results come in)
+### Prediction error (`fastsim world errors 3 900`, `docs/world_model_errors.txt`)
+
+143 room variants x 3 practice runs, about 12 000 predictions, each compared
+10, 30 and 60 ticks ahead. All 35 hazard classes met.
+
+- The bird's own path: exact in 100% of predictions (given the same taps).
+  Walls ahead (spikes, belt shift): exact.
+- Exact (0 px, no kill-zone miss): movers, saw rings, rotors, pendulums,
+  gates, crawlers, blocks, spike balls, pads, wind, updrafts, belts, keys,
+  coins, splitting bouncers, mirror, firework rockets and sparks (up to a few
+  % falsely predicted, see below).
+- Error from hidden random choices (the honest limits): lanes darts (+60:
+  16% of the kill zone missed, next lane random), plain drops (+60: 11%,
+  next column random), stalactites (target drawn at each bounce; modelled as
+  an interval with the spikes at the worst edge, so mostly false danger: +60
+  1.4% missed, 10.6% false), crates, bubbles and orchard (only the next
+  spawn's place).
+- Error from the exit mouths (gameplay 21+, seed-only generation): the room
+  plans its exits at the start and hazards treat the mouths of those exits
+  as part of the wall (bouncers bounce off them, darts and drops stop, beams
+  end short, pistons skip, the stalker stops short). The game doesn't draw a
+  planned mouth until its exit shows, so the model doesn't read it: bouncers
+  are now off by 20-25% of their kill zone at +60 when they reach a mouth,
+  and darts and pistons show false danger. A bot could learn the mouths from
+  watching hazards turn at them; not done yet.
+
+### The planner (BEAST, no limits; full runs, first death ends the run)
+
+| version | seeds | cap | median | alive at cap |
+|---|---|---|---|---|
+| first try | 1..12 | 20k | 20 | 0 |
+| timeline wall fix (spikes vanished at the bounce substep) | 1..24 | 30k | 116 | 2 |
+| beam 256, exit preview, bumper wall views | 1..48 | 30k | 121 | 3 |
+| plan through to the far wall (90 ticks after the bounce) | 1..42 | 30k | 160 | 15 |
+| plan following (9x faster), stalactite interval, preview opening on the bounced wall | 1..48 | 30k | 290 | 21 |
+| gameplay 21+ (seed-only generation, anchor tracking) | 1..48 | 30k | 215 | 14 |
+
+A 30k-tick cap is about 340 points, so the capped medians are floors. For
+comparison: the RL bot ~55, the review's honest planner (scrambled copies)
+~200 on the same gameplay, SurvivalSearch ~543 (it sees the future).
+
+Room anchor (gameplay 21+): the next wall's gap is drawn around the room's
+`anchor_y`, which moves at each bounce to the point of that wall's gap
+nearest the old anchor. `Memory` tracks it from walls the bird saw (matches
+the sim except in the last three points before an exit, where the room
+steers toward its hidden planned exit). The planner pulls each bounce
+toward the anchor after that bounce.
+
+### Skill levels (`fastsim world calibrate 48 --cap 30000`, then the yardstick)
+
+One number k sets every limit (`Skill.At`): reaction delay to the unforeseen
+12(1-k) ticks, tap timing error |N(0, 3(1-k))| ticks late, at most one tap
+every 8 ticks below beast (planned for, not cut), dropped taps 2%(1-k),
+look-ahead 150-70(1-k) ticks, margin 6-4(1-k) px, beam, misjudged height up
+to 12(1-k) px (a new error at each wall, sometimes 3x). Calibrated k:
+beginner 0.81, normal 0.868, good 0.922, expert 0.99, beast 1.
+
+Yardstick quick set (seeds 1..100, cap 108 000, first death ends the run,
+leak check: no leaks), commit 43afb28:
+
+| bot | median | p25 | p90 | alive at cap | rate median | tier |
+|---|---|---|---|---|---|---|
+| world:beginner | 29.5 | 17.5 | 69 | 0 | 25.2 | beginner |
+| world:normal | 45.5 | 20 | 109 | 0 | 42.8 | normal (edge 42) |
+| world:good | 132 | 67.5 | 400 | 0 | 122.5 | good |
+| world:expert | 219.5 | 110.5 | 697 | 3 | 219.6 | expert |
+| world:beast | 216.5 | 100.5 | 622 | 2 | 198.6 | expert (target beast 500+) |
+
+Beast isn't strong enough yet to stand apart from expert; normal sits at the
+low edge of its band (a slightly higher k, about 0.88, would centre it).
