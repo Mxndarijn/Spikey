@@ -1,0 +1,764 @@
+<title>Flapjaw Boss Rooms</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<style>
+/* Layout: one column of rules, then one row per boss (live room left, phases right), stacking on phones. */
+:root {
+  --bg: #FBF5EC;
+  --card: #FFF4E2;
+  --card-2: #F4E5CC;
+  --ink: #231A33;
+  --muted: #665C68;
+  --line: #D8CBBE;
+  --gold: #FFC93C;
+  --mint: #5FD3A8;
+  --boss: #231A33;
+  --on-boss: #FFFFFF;
+  --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1F1428; --card: #2A2036; --card-2: #352A44; --ink: #FFF4E2; --muted: #BDB2C2;
+    --line: #4A3F58; --boss: #FFF4E2; --on-boss: #231A33; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1F1428; --card: #2A2036; --card-2: #352A44; --ink: #FFF4E2; --muted: #BDB2C2;
+  --line: #4A3F58; --boss: #FFF4E2; --on-boss: #231A33; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px;
+  line-height: 1.45; font-weight: 500;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-weight: 900; font-stretch: 125%; font-size: clamp(40px, 8vw, 72px); line-height: .95; letter-spacing: -0.01em; }
+h2 { font-weight: 900; font-stretch: 125%; font-size: clamp(26px, 4vw, 34px); line-height: 1.05; }
+h3 { font-weight: 800; font-size: 18px; line-height: 1.25; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 18px; color: var(--ink); }
+.muted { color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 16px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 4px; gap: 2px; flex-wrap: wrap; }
+.seg button {
+  font: 700 14px var(--font); color: var(--ink); background: transparent; border: 0; border-radius: 999px;
+  padding: 8px 14px; cursor: pointer; min-height: 36px;
+}
+.seg button[aria-pressed="true"] { background: var(--boss); color: var(--on-boss); }
+button:focus-visible, .thumb:focus-visible, .ph:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.pill { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 8px; background: var(--card-2); color: var(--ink); }
+.pill.ink { background: var(--boss); color: var(--on-boss); }
+
+/* Rules */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 28px 32px; }
+.rule { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rule h3 { display: flex; gap: 10px; align-items: baseline; }
+.rule .k { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.rule p { font-size: 15px; }
+.rule code, p code, li code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .88em; background: var(--card); padding: 1px 5px; border-radius: 5px; }
+
+/* Run strip */
+.runbox { overflow-x: auto; padding-bottom: 6px; }
+.run { min-width: 720px; display: flex; flex-direction: column; gap: 8px; }
+.rooms { display: flex; gap: 3px; height: 64px; }
+.room { flex-grow: 10; flex-basis: 0; background: var(--card); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--muted); min-width: 0; }
+.room.boss { flex-grow: 20; background: var(--boss); color: var(--on-boss); }
+.room b { font-weight: 800; color: inherit; font-size: 13px; }
+.room.boss b { color: var(--on-boss); }
+.events { position: relative; height: 46px; }
+.ev { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ev::before { content: ""; width: 2px; height: 10px; background: var(--ink); }
+.ev .pill { font-size: 10px; }
+.ev .pill.calm { background: var(--mint); color: #231A33; }
+.ev .pill.wild { background: var(--gold); color: #231A33; }
+
+/* Boss rows */
+.boss { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (max-width: 760px) { .boss { grid-template-columns: minmax(0, 1fr); } }
+.stage { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-inline: auto; }
+.stage canvas.main { width: 100%; aspect-ratio: 360 / 640; max-width: 100%; display: block; border-radius: 22px; background: var(--card); }
+.ctl { display: flex; gap: 10px; align-items: center; }
+.ctl button { font: 800 14px var(--font); border: 0; border-radius: 999px; background: var(--boss); color: var(--on-boss); min-height: 36px; padding: 0 14px; cursor: pointer; }
+.bar { position: relative; flex: 1; height: 24px; display: flex; gap: 2px; border-radius: 6px; overflow: hidden; }
+.bar .s { flex-basis: 0; display: flex; align-items: center; padding-left: 5px; font-size: 10px; font-weight: 800; letter-spacing: .03em; white-space: nowrap; overflow: hidden; min-width: 0; }
+.bar .s.tell { background: repeating-linear-gradient(135deg, var(--card-2) 0 5px, var(--line) 5px 10px); color: var(--ink); }
+.bar .s.hit { background: var(--boss); color: var(--on-boss); }
+.bar .s.rest { background: var(--card); color: var(--muted); }
+.bar .head { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--gold); left: 0; }
+.thumbs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.thumb { border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; flex-direction: column; gap: 4px; align-items: center; font: 700 11px var(--font); color: var(--muted); min-width: 0; }
+.thumb canvas { width: 100%; aspect-ratio: 360/640; border-radius: 8px; display: block; outline: 2px solid transparent; outline-offset: 1px; }
+.thumb[aria-selected="true"] { color: var(--ink); }
+.thumb[aria-selected="true"] canvas { outline-color: var(--ink); }
+.info { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.phases { display: flex; flex-direction: column; gap: 8px; }
+.ph { background: transparent; border-radius: 16px; padding: 12px 14px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 4px 14px; cursor: pointer; text-align: left; border: 0; font: inherit; color: inherit; }
+.ph[aria-current="true"] { background: var(--card); }
+.ph .nm { font-weight: 800; font-size: 14px; grid-row: span 3; }
+.ph .nm small { display: block; font-weight: 700; color: var(--muted); font-size: 12px; }
+.ph .ln { font-size: 14px; min-width: 0; }
+.ph .ln i { font-style: normal; font-weight: 800; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+@media (max-width: 460px) { .ph { grid-template-columns: minmax(0, 1fr); } .ph .nm { grid-row: auto; } }
+.tiers { font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.tiers b { font-weight: 800; }
+ol.qs { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; max-width: 72ch; }
+ol.qs li { padding-left: 4px; }
+ol.qs b { font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Flapjaw · design proposal · not built</span>
+    <h1>Boss Rooms</h1>
+    <p class="lead">At 100, 200, 300 and on, the portal leads into a boss room. Every wall bounce is a hit on the boss. Twenty bounces break it, in three phases, and every attack shows itself one second before it can hurt you.</p>
+    <div class="toolbar">
+      <span class="eyebrow">World</span>
+      <div class="seg" id="worlds" role="group" aria-label="World">
+        <button type="button" data-w="sunset" aria-pressed="true">Sunset Glow</button>
+        <button type="button" data-w="ice" aria-pressed="false">Ice Cavern</button>
+        <button type="button" data-w="star" aria-pressed="false">Star Station</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="rules" aria-label="How a boss room works">
+    <div class="rule"><span class="k">Start</span><h3>The exit at 100 is a boss portal</h3>
+      <p>The exit is planned on the 99th point like any other and shows as a ghost with a BOSS tag. Out of it the room holds 1.5 s instead of 0.5 s (taps ignored) while the boss comes in and its name shows. The first tell starts no sooner than 1 s after the bird can move.</p></div>
+    <div class="rule"><span class="k">Length</span><h3>20 bounces, three phases, about 23 s</h3>
+      <p>A crossing is 70 ticks (1.17 s), so 20 bounces take 23 s. The boss bar has 20 pips and every bounce takes one. Phases change at 7 and 14 bounces. Between phases the boss staggers for one crossing with no new attack: that stagger is the tell for the phase change. There is no exit at 110.</p></div>
+    <div class="rule"><span class="k">End</span><h3>At 120 the boss breaks</h3>
+      <p>Its hazards stop and fade, so the last crossing is free. The exit opens on the wall ahead (planned and ghosted on the 119th point). Reward: a coin burst into the counter (15 at 100, 20 at 200, 25 from 300) and a first-clear trophy in Rooms. Cosmetic money only, and the score stays bounces.</p></div>
+    <div class="rule"><span class="k">Harder later</span><h3>Tier = score ÷ 100</h3>
+      <p>Tier 1: one attack at a time. Tier 2 (200): phase 3 runs two attacks together under the Double Trouble combo rules, shorter rests, one more wall spike. Tier 3 (300 and on): each boss's rage variant, two more wall spikes. What never changes: tells of 1 s or more, a free band of 120 px or more, 20 bounces.</p></div>
+    <div class="rule"><span class="k">Fork</span><h3>The fork moves to the boss exit</h3>
+      <p>If Calm/Wild stays, 100 and 200 get one boss portal and the boss's exit at 120 and 220 is the fork (Wild still pays its 3 coins). If fork-choice drops the fork, the boss exit is one plain portal. A boss on the Wild route only would let a 1v1 player skip it, so that is not proposed.</p></div>
+    <div class="rule"><span class="k">Death and revive</span><h3>The room restarts as entered</h3>
+      <p>A death in a boss room is a normal death. A revive works as in revive-reset: score back to 100, the boss at a full bar, coins as at entry, the same attack clock. No phase checkpoints: a checkpoint makes a revive worth more in a boss room and puts two 1v1 players on different clocks.</p></div>
+    <div class="rule"><span class="k">Fair way through</span><h3>Every safe line is a height</h3>
+      <p>The bird can't choose where it is across the room, only how high it is. So every attack leaves a band of heights open, at least 120 px (bird 28, hop 60, margin), and its tell says which heights. Each boss and tier gets a FastSim check: simple players must live through every phase, like <code>ArrivalCheck</code>.</p></div>
+    <div class="rule"><span class="k">Same seed</span><h3>One clock for everyone</h3>
+      <p>Speed across is fixed, so every player bounces on the same ticks and the boss's phases and tells land on the same ticks. Lanes and columns come from the room seed. Attacks aimed at the bird read its height when the tell starts, like Hunter Spike: that is the player's own choice. Which boss comes is a spine draw from the bosses not met yet in this run.</p></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px" aria-label="Where boss rooms sit in a run">
+    <h2>Where they sit in a run</h2>
+    <p class="muted">Scores 80 to 230 with the fork kept (option A). Each block is one room; a boss room is two rooms long.</p>
+    <div class="runbox"><div class="run" id="run"></div></div>
+  </section>
+
+  <div id="bosses" style="display:flex;flex-direction:column;gap:72px"></div>
+
+  <section style="display:flex;flex-direction:column;gap:16px" aria-label="Open questions">
+    <h2>Open questions</h2>
+    <ol class="qs">
+      <li><b>Which bosses first?</b> Suggestion: The Watcher and The Crusher. They reuse Beam Gates, Hunter Spike, Piston and Lava Rise almost as they are. Saw King next, Spike Serpent last (it needs a new lunge hazard).</li>
+      <li><b>Length:</b> 20 bounces (proposed, three phases, two rooms long) or 10 (keeps the 10-point cadence, about 12 s, two phases)?</li>
+      <li><b>Reward:</b> coins 15 / 20 / 25 plus a trophy, or also a boss-only cosmetic, for example a crown hat for breaking all four?</li>
+      <li><b>Fork:</b> boss exit becomes the Calm/Wild fork (option A), or one plain exit if fork-choice drops forks. With option A, forks sit at 120 and 150, close together; should 150 go?</li>
+      <li><b>Boss order:</b> seeded draw from the bosses not met in the run (proposed), or a fixed order so 100 is always the same, easiest boss?</li>
+      <li><b>Revive:</b> full restart at 100 (proposed) or a checkpoint at the phase start?</li>
+      <li><b>Wall spikes:</b> 3 per wall at tier 1 instead of the usual 8 at that score, since the boss is the threat. OK?</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(() => {
+const W = 360, H = 640, CR = 70, LOOP = 1680;
+const UI = { ink: "#231A33", white: "#FFFFFF", coin: "#FFC93C", coinEdge: "#F0A81E", mint: "#5FD3A8", gold: "#FFC93C", raised: "#F4E5CC" };
+const WORLDS = {
+  sunset: { top: "#FFC78E", mid: "#FF8F74", bot: "#FF8F74", glow: "#FFDDB0", spike: "#2A1740", edge: "#665875", accent: "#FF5E9C", trail: "#FFFFFF", particle: "#FFF1C9", hills: ["#FFB08A", "#F7957A", "#EE7F6C"], night: false },
+  ice: { top: "#EAF7FF", mid: "#A9DDF7", bot: "#A9DDF7", glow: "#F6FCFF", spike: "#14305A", edge: "#566A88", accent: "#5CC8FF", trail: "#FFFFFF", particle: "#FFFFFF", hills: ["#D2ECFA", "#BCE1F4", "#A4D4EE"], night: false },
+  star: { top: "#3B2C8F", mid: "#241A63", bot: "#241A63", glow: "#C9C2F2", spike: "#C9D3E6", edge: "#E7EBF4", accent: "#7DE2FF", trail: "#7DE2FF", particle: "#FFFFFF", hills: ["#30247F", "#281D6C", "#1C1453"], night: true },
+};
+let th = WORLDS.sunset;
+
+const wrap = (t, n = LOOP) => ((t % n) + n) % n;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = v => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); };
+const lerp = (a, b, v) => a + (b - a) * v;
+function hs(n) { n = Math.imul(n ^ 0x9e3779b9, 2654435761) >>> 0; n ^= n >>> 15; n = Math.imul(n, 2246822519) >>> 0; n ^= n >>> 13; return (n >>> 0) / 4294967296; }
+function hexA(hex, a) { const n = parseInt(hex.slice(1, 7), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+const birdX = T => { const p = wrap(T, 2 * CR); return p < CR ? 40 + 4 * p : 320 - 4 * (p - CR); };
+const birdDir = T => (wrap(T, 2 * CR) < CR ? 1 : -1);
+const hop = T => { const p = wrap(T, 26) / 26; return 12 - 96 * p * (1 - p); };
+const slotY = s => 80 + 40 * s;
+
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); }
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function font(c, w, size, wide) { c.font = `${w} ${size}px Archivo, system-ui, sans-serif`; if ("fontStretch" in c) c.fontStretch = wide ? "expanded" : "normal"; if ("letterSpacing" in c) c.letterSpacing = "0px"; }
+
+function tri(c, ax, ay, bx, by, tx, ty) {
+  c.fillStyle = th.spike; c.strokeStyle = th.spike; c.lineJoin = "round"; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.lineTo(tx, ty); c.closePath(); c.fill(); c.stroke();
+  c.fillStyle = th.edge; c.beginPath(); c.moveTo((ax + bx) / 2, (ay + by) / 2); c.lineTo(bx, by); c.lineTo(tx, ty); c.closePath(); c.fill();
+}
+function wallSpike(c, side, cy, d = 1) {
+  if (side > 0) tri(c, 360, cy - 18, 360, cy + 18, 360 - 30 * d, cy);
+  else tri(c, 0, cy + 18, 0, cy - 18, 30 * d, cy);
+}
+function dashed(c, alpha, fn) {
+  c.save(); c.setLineDash([9, 7]); c.lineWidth = 3; c.lineCap = "round"; c.strokeStyle = hexA(th.spike, alpha);
+  c.beginPath(); fn(); c.stroke(); c.restore();
+}
+const flick = T => 0.4 + 0.35 * (Math.floor(T / 6) % 2);
+
+function sky(c) {
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, th.top); g.addColorStop(0.55, th.mid); g.addColorStop(1, th.bot);
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const r = c.createRadialGradient(276, 168, 0, 276, 168, 92);
+  r.addColorStop(0, hexA(th.glow, 0.45)); r.addColorStop(0.5, hexA(th.glow, 0.25)); r.addColorStop(1, hexA(th.glow, 0));
+  c.fillStyle = r; c.fillRect(176, 70, 200, 200);
+  c.fillStyle = th.glow; circle(c, 276, 168, 24);
+  if (th.night) {
+    for (let i = 0; i < 46; i++) { c.fillStyle = hexA(th.particle, 0.25 + 0.4 * hs(i + 5)); circle(c, hs(i) * 360, 50 + hs(i + 99) * 460, 0.8 + hs(i + 7) * 1.2); }
+  } else {
+    c.fillStyle = "rgba(255,255,255,0.3)";
+    rr(c, 26, 138, 84, 20, 10); c.fill(); rr(c, 52, 126, 42, 22, 11); c.fill();
+    rr(c, 236, 292, 74, 16, 8); c.fill();
+  }
+  const hill = (base, amp, f, ph, col) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, H);
+    for (let x = 0; x <= 360; x += 6) c.lineTo(x, base - amp * Math.sin(x * f + ph));
+    c.lineTo(360, H); c.closePath(); c.fill();
+  };
+  hill(546, 18, 0.018, 0.6, th.hills[0]); hill(572, 14, 0.026, 2.1, th.hills[1]); hill(598, 10, 0.034, 4, th.hills[2]);
+}
+function edges(c) {
+  for (let i = 0; i < 9; i++) { tri(c, i * 40 + 40, 0, i * 40, 0, i * 40 + 20, 34); tri(c, i * 40, 640, i * 40 + 40, 640, i * 40 + 20, 606); }
+}
+function ghost(c, score) {
+  c.save(); c.fillStyle = "rgba(255,255,255,0.5)"; font(c, 900, 124, true); c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText(String(score), 180, 330); c.restore();
+}
+function bird(c, x, y, dir, T, alpha = 1) {
+  if (alpha <= 0) return;
+  c.save(); c.globalAlpha = alpha;
+  for (let i = 1; i <= 6; i++) { c.fillStyle = hexA(th.trail, 0.32 * (1 - i / 7)); circle(c, x - dir * i * 8, y + hop(T - i * 2) * 0.2, 8 - i); }
+  c.fillStyle = "#FFFFFF"; circle(c, x, y, 16);
+  const flap = wrap(T, 26) < 7 ? -1 : 1;
+  c.fillStyle = UI.raised; c.beginPath(); c.ellipse(x - 4 * dir, y + 3 * flap, 8, 5, flap * 0.5 * dir, 0, Math.PI * 2); c.fill();
+  c.fillStyle = UI.ink; circle(c, x + 6 * dir, y - 4, 3.2);
+  c.fillStyle = "#FF9F43"; c.beginPath(); c.moveTo(x + 13 * dir, y - 2); c.lineTo(x + 23 * dir, y + 2); c.lineTo(x + 13 * dir, y + 7); c.closePath(); c.fill();
+  c.restore();
+}
+function coin(c, x, y, r = 11) { c.fillStyle = UI.coin; circle(c, x, y, r); c.strokeStyle = UI.coinEdge; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r - 4, 0, Math.PI * 2); c.stroke(); }
+function pill(c, x, y, text, bg, fg) {
+  font(c, 800, 11); if ("letterSpacing" in c) c.letterSpacing = "0.66px";
+  const w = c.measureText(text).width + 18; c.fillStyle = bg; rr(c, x - w / 2, y - 10, w, 20, 8); c.fill();
+  c.fillStyle = fg; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(text, x, y + 0.5);
+  if ("letterSpacing" in c) c.letterSpacing = "0px";
+}
+function portal(c, side, cy, col, T, s = 1) {
+  if (s <= 0.01) return;
+  const cx = side > 0 ? 360 - 15 : 15;
+  c.save(); c.translate(cx, cy); c.scale(0.3 * s, s);
+  c.fillStyle = col; circle(c, 0, 0, 48);
+  c.rotate(T * 0.05 * side);
+  c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 7; c.lineCap = "round";
+  for (let k = 0; k < 3; k++) {
+    c.rotate((Math.PI * 2) / 3); c.beginPath();
+    for (let a = 0; a <= 1.001; a += 0.1) { const r = 14 + 30 * a, g = a * 2.4; c.lineTo(Math.cos(g) * r, Math.sin(g) * r); }
+    c.stroke();
+  }
+  c.fillStyle = UI.ink; circle(c, 0, 0, 13); c.restore();
+}
+function hud(c, s) {
+  const ink = th.night ? "#FFFFFF" : UI.ink;
+  c.fillStyle = ink; rr(c, 22, 46, 6, 20, 2); c.fill(); rr(c, 34, 46, 6, 20, 2); c.fill();
+  coin(c, 300, 56, 10); c.fillStyle = ink; font(c, 800, 18); c.textAlign = "left"; c.textBaseline = "middle"; c.fillText(String(s.coins), 316, 57);
+  if (s.name) {
+    font(c, 800, 11); if ("letterSpacing" in c) c.letterSpacing = "0.66px";
+    c.fillStyle = ink; c.textAlign = "center"; c.fillText(s.name, 180, 50);
+    if ("letterSpacing" in c) c.letterSpacing = "0px";
+    const x0 = 180 - (20 * 9 - 3) / 2;
+    for (let i = 0; i < 20; i++) { c.fillStyle = i < s.hp ? ink : hexA(ink, 0.22); rr(c, x0 + i * 9, 61, 6, 10, 2); c.fill(); }
+  }
+}
+
+/* ---------- shared phase plumbing ---------- */
+function ys(boss, ph, T) { let s = 0; for (let i = 0; i < 24; i++) s += boss.target(ph, wrap(T - i)); return s / 24; }
+function walls(c, boss, ph, T) {
+  const b = Math.floor(T / CR), side = birdDir(T), tIn = T - b * CR;
+  const belt = boss.belt ? boss.belt(ph) : false;
+  const ya = ys(boss, ph, (b + 1) * CR - 1);
+  const center = belt ? ya + 37 : ya;
+  const n = 3 + (boss.extraSpikes || 0);
+  const cand = [];
+  for (let s = 0; s < 13; s++) if (Math.abs(slotY(s) - center) >= 74) cand.push(s);
+  cand.sort((p, q) => hs(b * 131 + p + boss.seed) - hs(b * 131 + q + boss.seed));
+  const grow = clamp(tIn / 8, 0, 1), off = belt ? -tIn * 37 / 70 : 0;
+  if (belt) boss.scales(c, side, off);
+  for (const s of cand.slice(0, belt ? n + 2 : n)) {
+    const cy = slotY(s) + off; if (cy < 54 || cy > 588) continue; wallSpike(c, side, cy, grow);
+  }
+}
+function scoreOf(ph, T) {
+  const b = Math.floor(T / CR);
+  if (ph === 1) return 100 + (b % 7);
+  if (ph === 2) return 107 + (b % 7);
+  return 114 + (b % 6);
+}
+
+function render(c, boss, ph, T) {
+  c.save(); sky(c);
+  if (ph === "intro") renderIntro(c, boss, T);
+  else if (ph === "down") renderDown(c, boss, T);
+  else {
+    const score = scoreOf(ph, T); ghost(c, score);
+    walls(c, boss, ph, T); edges(c); boss.draw(c, ph, T);
+    const y = ys(boss, ph, T) + hop(T);
+    bird(c, birdX(T), y, birdDir(T), T);
+    hud(c, { coins: 31, name: boss.tag, hp: 120 - score });
+  }
+  c.restore();
+}
+function renderIntro(c, boss, T) {
+  const lt = wrap(T, 180);
+  ghost(c, 100); edges(c);
+  for (let s = 0; s < 13; s++) if (Math.abs(slotY(s) - 320) > 60 && hs(s + 3) < 0.3) wallSpike(c, 1, slotY(s), 1);
+  boss.intro(c, ease(lt / 80), lt);
+  portal(c, -1, 320, th.accent, T, lt < 60 ? 1 : 1 - ease((lt - 60) / 25));
+  const moving = lt >= 90;
+  const x = moving ? 40 + 4 * (lt - 90) : 40;
+  bird(c, x, 320 + (moving ? hop(lt - 90) : 0), 1, moving ? lt : 0);
+  hud(c, { coins: 31, name: boss.tag, hp: 20 });
+  const a = lt < 96 ? 1 : 1 - ease((lt - 96) / 20);
+  if (a > 0) {
+    c.save(); c.globalAlpha = a; const ink = th.night ? "#FFFFFF" : UI.ink;
+    pill(c, 180, 402, "BOSS · 100", ink, th.night ? UI.ink : "#FFFFFF");
+    font(c, 900, 40, true); let size = 40; const w = c.measureText(boss.name).width; if (w > 310) size = Math.floor(40 * 310 / w);
+    font(c, 900, size, true); c.fillStyle = ink; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(boss.name, 180, 442);
+    font(c, 700, 14); c.fillText("Break it in 20 bounces", 180, 476); c.restore();
+  }
+}
+function renderDown(c, boss, T) {
+  const lt = wrap(T, 130);
+  ghost(c, 120);
+  const open = [2, 3, 4, 8, 9, 10];
+  for (let s = 0; s < 13; s++) if (!open.includes(s)) wallSpike(c, 1, slotY(s), 1);
+  edges(c);
+  boss.down(c, ease(lt / 90), lt);
+  portal(c, 1, 200, UI.mint, T); portal(c, 1, 440, UI.gold, T);
+  pill(c, 296, 200, "CALM", UI.mint, UI.ink); pill(c, 298, 440, "WILD", UI.gold, UI.ink);
+  const arrived = Math.min(15, Math.max(0, Math.floor((lt - 30) / 2)));
+  for (let i = 0; i < 15; i++) {
+    const p = clamp((lt - 6 - i * 2) / 26, 0, 1); if (p <= 0 || p >= 1) continue;
+    const sx = 180 + Math.cos(i * 2.4) * 30, sy = boss.downY + Math.sin(i * 2.4) * 30;
+    coin(c, lerp(sx, 300, p), lerp(sy, 56, p) - Math.sin(p * Math.PI) * 60, 8);
+  }
+  const x = Math.min(330, 40 + 4 * lt), y = lerp(330, 200, ease(lt / 50)) + hop(lt) * (lt < 60 ? 1 : 0);
+  bird(c, x, y, 1, lt, lt < 70 ? 1 : 1 - clamp((lt - 70) / 6, 0, 1));
+  hud(c, { coins: 31 + arrived, name: boss.tag, hp: 0 });
+  pill(c, 180, 98, "BOSS DOWN · +15", th.night ? "#FFFFFF" : UI.ink, th.night ? UI.ink : "#FFFFFF");
+}
+
+/* ---------- Saw King ---------- */
+function sawDisc(c, x, y, r, rot, teeth) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.fillStyle = th.spike; c.beginPath();
+  for (let i = 0; i < teeth * 2; i++) { const a = (i * Math.PI) / teeth, R = i % 2 ? r : r * 1.24; c.lineTo(Math.cos(a) * R, Math.sin(a) * R); }
+  c.closePath(); c.fill(); c.fillStyle = th.edge; circle(c, 0, 0, r * 0.66); c.fillStyle = th.spike; circle(c, 0, 0, r * 0.52); c.restore();
+}
+function face(c, x, y, look, gap = 11) {
+  c.fillStyle = th.top; circle(c, x - gap, y - 2, 5.5); circle(c, x + gap, y - 2, 5.5);
+  c.fillStyle = th.spike; circle(c, x - gap + look, y - 1, 2.4); circle(c, x + gap + look, y - 1, 2.4);
+  c.strokeStyle = th.top; c.lineWidth = 3; c.lineCap = "round";
+  c.beginPath(); c.moveTo(x - gap - 8, y - 12); c.lineTo(x - gap + 5, y - 8); c.moveTo(x + gap + 8, y - 12); c.lineTo(x + gap - 5, y - 8); c.stroke();
+}
+const SAW = (() => {
+  const Hs = [180, 320, 460], pos1 = [0, 2, 1, 0, 1, 2, 1], pos2 = [1, 0, 1, 0, 1, 1, 0], P2Y = [260, 380];
+  function king1(T) {
+    const k = Math.floor(T / 240) % 7, lt = T % 240, a = pos1[k], b = pos1[(k + 1) % 7];
+    return { a, b, y: lt < 60 ? Hs[a] : lerp(Hs[a], Hs[b], ease((lt - 60) / 30)), lt };
+  }
+  function ring2(T) {
+    const k = Math.floor(T / 240) % 7, lt = T % 240, cur = P2Y[pos2[k]], prev = P2Y[pos2[(k + 6) % 7]];
+    const y = lt < 60 ? prev : lerp(prev, cur, ease((lt - 60) / 40));
+    let R = 0; if (lt >= 60 && lt < 100) R = 115 * ease((lt - 60) / 40); else if (lt >= 100 && lt < 170) R = 115; else if (lt >= 170 && lt < 210) R = 115 * (1 - ease((lt - 170) / 40));
+    return { y, R, cur, lt };
+  }
+  function blades(c, x, y, R, rot, n) { if (R < 46) return; for (let i = 0; i < n; i++) { const a = rot * 1.4 + (i * Math.PI * 2) / n; sawDisc(c, x + Math.cos(a) * R, y + Math.sin(a) * R, 10, rot * 3, 7); } }
+  return {
+    id: "saw", name: "Saw King", tag: "SAW KING", seed: 11, downY: 180,
+    target(ph, T) {
+      if (ph === 2) { const r = ring2(T); return r.cur === 380 ? 146 : 504; }
+      const k = Math.floor(T / 240) % 7, lt = T % 240;
+      const kk = lt < 8 ? (k + 6) % 7 : k;
+      return Hs[3 - pos1[kk] - pos1[(kk + 1) % 7]];
+    },
+    draw(c, ph, T) {
+      const rot = T * 0.05;
+      if (ph === 2) {
+        const r = ring2(T);
+        if (r.lt < 60) dashed(c, flick(T), () => c.arc(180, r.cur, 126, 0, Math.PI * 2));
+        blades(c, 180, r.y, r.R, rot, 6); sawDisc(c, 180, r.y, 42, rot, 12); face(c, 180, r.y, birdX(T) > 180 ? 2 : -2);
+        return;
+      }
+      const k = king1(T);
+      if (k.lt < 60) dashed(c, flick(T), () => c.arc(180, Hs[k.b], ph === 3 ? 92 : 56, 0, Math.PI * 2));
+      const spin = k.lt < 60 ? rot * 0.4 : rot;
+      if (ph === 3) blades(c, 180, k.y, 72, rot, 6);
+      sawDisc(c, 180, k.y, 42, spin, 12); face(c, 180, k.y, birdX(T) > 180 ? 2 : -2);
+    },
+    intro(c, e, lt) { const y = lerp(-70, 180, e); sawDisc(c, 180, y, 42, lt * 0.12, 12); face(c, 180, y, 0); },
+    down(c, e, lt) {
+      c.save(); c.globalAlpha = 1 - e * 0.85; const y = 180 + e * e * 420;
+      c.translate(180, y); c.rotate(e * 1.2); sawDisc(c, -14, 0, 30, lt * 0.02, 9); sawDisc(c, 26, 10, 18, -lt * 0.03, 7); c.restore();
+    },
+    bars: { 1: [["tell", "Tell", 0, 60], ["hit", "Jump", 60, 90], ["rest", "Sits", 90, 240]], 2: [["tell", "Tell", 0, 60], ["hit", "Ring out", 60, 170], ["rest", "Ring in", 170, 240]], 3: [["tell", "Tell", 0, 60], ["hit", "Jump", 60, 90], ["rest", "Sits, ringed", 90, 240]] },
+    len: { 1: 240, 2: 240, 3: 240 },
+    rep: { intro: 46, 1: 30, 2: 120, 3: 40, down: 30 },
+    from: ["Saw Ring", "Pinwheel", "Bramble Ball"],
+    blurb: "A huge saw with a face. It owns the middle column, so you meet it twice a crossing. Everything it does is about which height it takes next.",
+    phases: [
+      ["intro", "Arrival", "", "Drops from the ceiling to the top band while the bird waits in the portal.", "The whole 1.5 s hold. Its first jump comes 1 s after you can move.", "Any height: nothing aims at the bird yet."],
+      [1, "Hop", "bounces 1–7", "Jumps between three heights: 180, 320 and 460 px.", "A dashed ring where it will land; its spin slows.", "The third height, the one it neither leaves nor lands on."],
+      [2, "Ring", "bounces 8–14", "Drifts up or down and swings six blades out to 115 px.", "A dashed circle of the whole ring at its new place.", "The far band: the top when it sinks, the bottom when it rises."],
+      [3, "Ringed hop", "bounces 15–20", "The hops again, now with a 72 px blade ring.", "The same landing ring, drawn ring-sized.", "The third height, with less room."],
+      ["down", "Boss down", "bounce 20", "Cracks and falls; the blades stop.", "", "Fly to the exit: Calm above, Wild below."],
+    ],
+    tiers: ["Phase 3 hops every 3 s instead of 4 (tell still 1 s).", "Eight blades and a 130 px ring in phase 2; the ringed hop never sits still."],
+  };
+})();
+
+/* ---------- The Crusher ---------- */
+const CRUSH = (() => {
+  const P1 = [250, 320, 250, 320, 280, 320, 250];
+  const LANES = [[150, 430], [250, 530], [190, 470], [110, 390], [200, 480], [130, 410], [230, 510]];
+  const inner = l => [l[0] + 24, l[1] - 24];
+  function press(c, pb, shake = 0) {
+    const x = shake;
+    c.fillStyle = th.edge; c.fillRect(80 + x, 0, 12, pb - 46); c.fillRect(268 + x, 0, 12, pb - 46);
+    c.fillStyle = th.spike; c.fillRect(-4 + x, pb - 46, 368, 46);
+    c.fillStyle = th.edge; c.fillRect(-4 + x, pb - 46, 368, 6);
+    for (let i = 0; i < 9; i++) tri(c, i * 40 + x, pb, i * 40 + 40 + x, pb, i * 40 + 20 + x, pb + 24);
+    c.fillStyle = th.top;
+    c.beginPath(); c.moveTo(146 + x, pb - 34); c.lineTo(170 + x, pb - 28); c.lineTo(170 + x, pb - 18); c.lineTo(146 + x, pb - 22); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(214 + x, pb - 34); c.lineTo(190 + x, pb - 28); c.lineTo(190 + x, pb - 18); c.lineTo(214 + x, pb - 22); c.closePath(); c.fill();
+  }
+  function plate(c, ft) {
+    c.fillStyle = th.spike; c.fillRect(-4, ft, 368, 660 - ft); c.fillStyle = th.edge; c.fillRect(-4, ft + 8, 368, 4);
+    for (let i = 0; i < 9; i++) tri(c, i * 40 + 40, ft, i * 40, ft, i * 40 + 20, ft - 24);
+  }
+  function p1(T) {
+    const k = Math.floor(T / 240) % 7, lt = T % 240, tg = P1[k];
+    let pb = 80; if (lt >= 60 && lt < 80) pb = lerp(80, tg, ease((lt - 60) / 20)); else if (lt >= 80 && lt < 170) pb = tg; else if (lt >= 170 && lt < 200) pb = lerp(tg, 80, ease((lt - 170) / 30));
+    return { pb, tg, lt };
+  }
+  function jaw(T) {
+    const k = Math.floor(T / 240) % 7, lt = T % 240, cur = LANES[k], prev = LANES[(k + 6) % 7], e = lt < 60 ? 0 : ease((lt - 60) / 40);
+    return { pb: lerp(prev[0], cur[0], e), ft: lerp(prev[1], cur[1], e), cur, prev, lt, k };
+  }
+  function crateCol(k) {
+    const t0 = k * 240; let best = 2, bd = -1;
+    for (let col = 1; col <= 7; col++) {
+      const cx = 20 + 40 * col; let md = 999;
+      for (let t = t0 + 165; t <= t0 + 215; t += 3) md = Math.min(md, Math.abs(birdX(t) - cx));
+      if (md > bd) { bd = md; best = col; }
+    }
+    return 20 + 40 * best;
+  }
+  return {
+    id: "crusher", name: "The Crusher", tag: "THE CRUSHER", seed: 23, downY: 60,
+    target(ph, T) {
+      if (ph === 1) { const lt = T % 240; return lt < 205 ? 462 : 340; }
+      const j = jaw(T), a = inner(j.prev), b = inner(j.cur);
+      if (j.lt < 100) { const lo = Math.max(a[0], b[0]), hi = Math.min(a[1], b[1]); return (lo + hi) / 2; }
+      return (b[0] + b[1]) / 2;
+    },
+    draw(c, ph, T) {
+      if (ph === 1) {
+        const p = p1(T);
+        if (p.lt < 60) dashed(c, flick(T), () => { c.moveTo(8, p.tg + 24); c.lineTo(352, p.tg + 24); });
+        press(c, p.pb, p.lt > 30 && p.lt < 60 ? Math.sin(T * 1.7) * 2 : 0); return;
+      }
+      const j = jaw(T);
+      if (j.lt < 60) dashed(c, flick(T), () => { c.moveTo(8, j.cur[0] + 24); c.lineTo(352, j.cur[0] + 24); c.moveTo(8, j.cur[1] - 24); c.lineTo(352, j.cur[1] - 24); });
+      if (ph === 3) {
+        const cx = crateCol(j.k), top = j.cur[0] + 24, bot = j.cur[1] - 24;
+        if (j.lt >= 110 && j.lt < 170) {
+          dashed(c, flick(T), () => { c.moveTo(cx - 17, top); c.lineTo(cx - 17, bot); c.moveTo(cx + 17, top); c.lineTo(cx + 17, bot); });
+        } else if (j.lt >= 170 && j.lt < 214) {
+          const y = Math.min(bot - 16, top + 16 + (j.lt - 170) * 7.5);
+          c.fillStyle = th.spike; rr(c, cx - 16, y - 16, 32, 32, 4); c.fill(); c.fillStyle = th.edge; c.fillRect(cx - 16, y - 3, 32, 6);
+        }
+      }
+      press(c, j.pb); plate(c, j.ft);
+    },
+    intro(c, e) { press(c, lerp(-20, 80, e)); },
+    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.85; press(c, 80 - e * 150); c.restore(); },
+    bars: { 1: [["tell", "Tell", 0, 60], ["hit", "Slam and hold", 60, 170], ["rest", "Lifts", 170, 240]], 2: [["tell", "Tell", 0, 60], ["hit", "Jaw moves", 60, 100], ["rest", "Lane holds", 100, 240]], 3: [["tell", "Tell", 0, 60], ["hit", "Jaw", 60, 100], ["rest", "", 100, 110], ["tell", "Crate tell", 110, 170], ["hit", "Crate", 170, 214], ["rest", "", 214, 240]] },
+    len: { 1: 240, 2: 240, 3: 240 },
+    rep: { intro: 50, 1: 120, 2: 30, 3: 188, down: 30 },
+    from: ["Piston", "Lava Rise", "Crate Drop"],
+    blurb: "A spiked press as wide as the cage. It never moves across, only up and down, so it turns the whole room into a lane you have to stay in.",
+    phases: [
+      ["intro", "Arrival", "", "The press drops in under the ceiling and thuds to rest at 80 px.", "The whole 1.5 s hold.", "Any height below the press."],
+      [1, "Slam", "bounces 1–7", "Comes down to 250 or 320 px and holds for 1.5 s.", "A dashed line where its teeth will stop; the press shakes.", "The bottom band, under the line."],
+      [2, "Jaw", "bounces 8–14", "A spiked floor plate rises. Press and plate move as one, leaving a 230 px lane that shifts.", "Dashed lines at both edges of the next lane.", "Where the old and new lane overlap, then the new lane's middle."],
+      [3, "Jaw and crates", "bounces 15–20", "The jaw keeps moving and the press drops a crate through the lane.", "A dashed column and the crate on the press, 1 s before it falls.", "The lane; the column is picked from the seed and is never where every player is when it falls."],
+      ["down", "Boss down", "bounce 20", "The press cracks and lifts away; the plate sinks.", "", "Fly to the exit."],
+    ],
+    tiers: ["The lane narrows to 200 px; phase 3 drops two crates in different columns.", "The jaw moves every 3 s, and phase 1 slams twice per cycle."],
+  };
+})();
+
+/* ---------- The Watcher ---------- */
+const WATCH = (() => {
+  const ROWS = [200, 260, 320, 380, 440, 500, 560];
+  const P1 = [[0, 1, 4], [2, 3, 6], [0, 4, 5], [1, 5, 6], [1, 2, 6], [0, 3, 4], [2, 5, 6]];
+  const P3 = [[1, 4], [2, 5], [0, 3], [3, 6], [1, 5], [0, 4], [2, 6]];
+  const near = (from, ok) => { let best = from, bd = 99; for (let r = 0; r < 7; r++) if (ok(r) && Math.abs(r - from) < bd) { bd = Math.abs(r - from); best = r; } return best; };
+  const rows1 = [], A3 = [], B3 = [];
+  { let r = 3; for (let i = 0; i < 14; i++) { const k = i % 7; if (P1[k].includes(r)) r = near(r, q => !P1[k].includes(q)); if (i >= 7) rows1[k] = r; } }
+  { let a = 3; for (let i = 0; i < 14; i++) { const k = i % 7, n = (k + 1) % 7; if (P3[k].includes(a)) a = near(a, q => !P3[k].includes(q)); const b = near(a + 0.01, q => q !== a && !P3[k].includes(q) && !P3[n].includes(q)); if (i >= 7) { A3[k] = a; B3[k] = b; } a = b; } }
+  function eye(c, y, open, T, lookX) {
+    c.fillStyle = th.spike; c.fillRect(176, 30, 8, y - 30);
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; tri(c, 180 + Math.cos(a - 0.2) * 26, y + Math.sin(a - 0.2) * 26, 180 + Math.cos(a + 0.2) * 26, y + Math.sin(a + 0.2) * 26, 180 + Math.cos(a) * 40, y + Math.sin(a) * 40); }
+    c.fillStyle = th.spike; circle(c, 180, y, 30);
+    if (open > 0.05) {
+      c.fillStyle = th.top; c.beginPath(); c.ellipse(180, y, 20, 17 * open, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = th.spike; circle(c, 180 + clamp((lookX - 180) / 30, -7, 7), y + 2 * open, 7 * Math.min(1, open + 0.3));
+    } else { c.strokeStyle = th.top; c.lineWidth = 3; c.beginPath(); c.moveTo(162, y); c.lineTo(198, y); c.stroke(); }
+  }
+  function nubs(c) { c.fillStyle = th.spike; for (const y of ROWS) { rr(c, -6, y - 8, 12, 16, 4); c.fill(); rr(c, 354, y - 8, 12, 16, 4); c.fill(); } }
+  function beams(c, lit, lt, T) {
+    for (const r of lit) {
+      const y = ROWS[r];
+      if (lt < 60) dashed(c, flick(T), () => { c.moveTo(10, y); c.lineTo(350, y); });
+      else if (lt < 130) { c.fillStyle = th.spike; c.fillRect(6, y - 6, 348, 12); c.fillStyle = th.edge; c.fillRect(6, y - 1.5, 348, 3); }
+    }
+  }
+  function dart(c, laneT, lane, flyStart, lt, T) {
+    const side = birdDir(laneT), wx = side > 0 ? 360 : 0;
+    if (lt < flyStart) {
+      dashed(c, flick(T), () => { c.moveTo(14, lane); c.lineTo(346, lane); });
+      const g = 1 + 0.25 * Math.sin(T * 0.6); wallSpike(c, side, lane, g);
+    } else {
+      const tt = lt - flyStart, x = wx - side * (12 + tt * 10);
+      if (x > -40 && x < 400) tri(c, x + side * 34, lane - 10, x + side * 34, lane + 10, x, lane);
+    }
+  }
+  const laneAt = T => ys(WATCH, 2, T) + hop(T);
+  return {
+    id: "watcher", name: "The Watcher", tag: "THE WATCHER", seed: 37, downY: 112,
+    target(ph, T) {
+      const k = Math.floor(T / 240) % 7, lt = T % 240;
+      if (ph === 1) return ROWS[lt < 12 ? rows1[(k + 6) % 7] : rows1[k]];
+      if (ph === 2) { const h = Math.floor(T / 120); return h % 2 ? 260 : 430; }
+      return ROWS[lt < 135 ? A3[k] : B3[k]];
+    },
+    draw(c, ph, T) {
+      nubs(c);
+      const k = Math.floor(T / 240) % 7, lt = T % 240;
+      if (ph === 1) { beams(c, P1[k], lt, T); eye(c, 112, lt < 60 ? 0.5 : 0.25, T, birdX(T)); return; }
+      if (ph === 2) {
+        const h = Math.floor(T / 120), l2 = T % 120, t0 = h * 120;
+        dart(c, t0, laneAt(t0), 60, l2, T); eye(c, 112, 1, T, birdX(T)); return;
+      }
+      beams(c, P3[k], lt, T);
+      if (lt >= 130 && lt < 232) { const t0 = Math.floor(T / 240) * 240 + 130; dart(c, t0, ys(this, 3, t0) + hop(t0), 60, lt - 130, T); }
+      eye(c, 112, lt >= 130 ? 1 : 0.4, T, birdX(T));
+    },
+    intro(c, e, lt) { nubs(c); eye(c, lerp(10, 112, e), clamp((lt - 60) / 30, 0, 1), lt, 60); },
+    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.85; eye(c, 112 - e * 110, 0, 0, 180); c.restore(); },
+    bars: { 1: [["tell", "Tell", 0, 60], ["hit", "Beams", 60, 130], ["rest", "Dark", 130, 240]], 2: [["tell", "Mark", 0, 60], ["hit", "Dart", 60, 100], ["rest", "", 100, 120]], 3: [["tell", "Tell", 0, 60], ["hit", "Beams", 60, 130], ["tell", "Mark", 130, 190], ["hit", "Dart", 190, 230], ["rest", "", 230, 240]] },
+    len: { 1: 240, 2: 120, 3: 240 },
+    rep: { intro: 80, 1: 100, 2: 40, 3: 200, down: 30 },
+    from: ["Beam Gates", "Hunter Spike"],
+    blurb: "An eye on a stalk under the ceiling with beam emitters down both walls. It never touches you itself; it decides which heights are lit.",
+    phases: [
+      ["intro", "Arrival", "", "The eye lowers on its stalk and opens.", "The whole 1.5 s hold.", "Any height."],
+      [1, "Beams", "bounces 1–7", "Three of seven rows fire across the cage for 1.2 s.", "Those rows flicker as dashed lines.", "Any dark row; there is always one within a hop of the last safe row."],
+      [2, "Gaze", "bounces 8–14", "Marks your height, then a dart crosses that lane from the wall ahead. Twice every 4 s.", "Dashed lane at your height and a glowing spike on the wall.", "Any height 60 px off the marked lane."],
+      [3, "Beams and gaze", "bounces 15–20", "Two rows fire, then a gaze dart, in turns.", "Each attack has its own 1 s mark.", "A dark row that stays dark next cycle."],
+      ["down", "Boss down", "bounce 20", "The eye shuts and pulls up into the ceiling.", "", "Fly to the exit."],
+    ],
+    tiers: ["Four of seven rows fire (never four in a row), gaze darts come every 1.5 s.", "Twin darts, one from each wall, at the marked lane and one row off it."],
+  };
+})();
+
+/* ---------- Spike Serpent ---------- */
+const SERP = (() => {
+  const LANES = [200, 460, 300, 520, 240, 400, 180, 480, 340, 220, 500, 260, 440, 300];
+  function seg(c, x, y, r) { c.fillStyle = th.spike; circle(c, x, y, r); c.fillStyle = th.edge; circle(c, x - r * 0.3, y - r * 0.3, r * 0.32); }
+  function head(c, x, y, dir) {
+    c.fillStyle = th.spike; circle(c, x, y, 19);
+    tri(c, x - dir * 6, y - 16, x - dir * 16, y - 10, x - dir * 14, y - 30);
+    c.fillStyle = th.top; circle(c, x + dir * 6, y - 7, 4.5); circle(c, x + dir * 6, y + 7, 4.5);
+    c.fillStyle = th.spike; circle(c, x + dir * 7.5, y - 7, 2); circle(c, x + dir * 7.5, y + 7, 2);
+  }
+  function lunge(T) {
+    const h = Math.floor(T / 120) % 14, lh = T % 120, lane = LANES[h], side = h % 2 ? 1 : -1;
+    const ox = side > 0 ? 360 : 0, far = side > 0 ? 26 : 334, near = side > 0 ? 360 - 26 : 26;
+    let x = null;
+    if (lh < 60) x = side > 0 ? 382 - 48 * ease(lh / 40) : -22 + 48 * ease(lh / 40);
+    else if (lh < 84) x = lerp(near, far, ease((lh - 60) / 24));
+    else if (lh < 104) x = far;
+    else if (lh < 118) x = lerp(far, ox, ease((lh - 104) / 14));
+    return { lane, side, ox, x, lh };
+  }
+  function drawLunge(c, T) {
+    const L = lunge(T);
+    if (L.lh < 60) dashed(c, flick(T), () => { c.moveTo(14, L.lane); c.lineTo(346, L.lane); });
+    if (L.x === null) return;
+    const dir = -L.side;
+    for (let x = L.ox; dir > 0 ? x < L.x - 14 : x > L.x + 14; x += dir * 22) seg(c, x, L.lane, 12);
+    head(c, L.x, L.lane, dir);
+  }
+  return {
+    id: "serpent", name: "Spike Serpent", tag: "SPIKE SERPENT", seed: 53, downY: 320,
+    belt(ph) { return ph === 1 || ph === 3; },
+    scales(c, side, off) { const x = side > 0 ? 356 : 4; for (let y = 40 + wrap(off, 34); y < 610; y += 34) seg(c, x, y, 12); },
+    target(ph, T) {
+      if (ph === 1) { const b = Math.floor(T / CR); return 210 + Math.floor(hs(b * 7 + 3) * 250); }
+      const lane = LANES[Math.floor(T / 120) % 14]; return lane < 330 ? lane + 170 : lane - 170;
+    },
+    draw(c, ph, T) { if (ph !== 1) drawLunge(c, T); },
+    intro(c, e) { for (let i = 0; i < 12; i++) { const y = lerp(700, 120, e) + i * 30; if (y < 610) seg(c, 8, y, 12); } head(c, 22, lerp(670, 96, e), 1); },
+    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.85; for (let i = 0; i < 10; i++) seg(c, 60 + i * 24 + Math.sin(i) * e * 30, 300 + e * e * (200 + i * 30), 12); c.restore(); },
+    bars: { 1: [["tell", "Wall laid", 0, 8], ["hit", "Scales drift up", 8, 70]], 2: [["tell", "Tell", 0, 60], ["hit", "Lunge", 60, 84], ["hit", "Neck holds", 84, 104], ["rest", "Back", 104, 120]], 3: [["tell", "Tell", 0, 60], ["hit", "Lunge", 60, 84], ["hit", "Neck holds", 84, 104], ["rest", "Back", 104, 120]] },
+    len: { 1: 70, 2: 120, 3: 120 },
+    rep: { intro: 60, 1: 40, 2: 92, 3: 90, down: 30 },
+    from: ["Spike Belt", "Caterpillar Crawl", "Hunter Spike"],
+    blurb: "A snake that lives in the walls. Its scales are the wall spikes, and its head comes out to block a height from wall to wall.",
+    phases: [
+      ["intro", "Arrival", "", "Slides up out of the floor along the wall.", "The whole 1.5 s hold.", "Any height."],
+      [1, "Scales", "bounces 1–7", "The spikes on the wall ahead are its scales. They ride up 37 px per crossing, like Spike Belt.", "The gap is laid when you bounce and drifts at a steady speed.", "Aim for where the gap will be: a little under it."],
+      [2, "Lunge", "bounces 8–14", "The head pokes out of a wall, lunges across and its neck blocks that height wall to wall for 0.6 s.", "The head in the wall and a dashed lane.", "170 px above or below the lane."],
+      [3, "Scales and lunge", "bounces 15–20", "Drifting scales while the head lunges.", "Same lane tell; the scales show as in phase 1.", "Off the lane, and into the drifting gap."],
+      ["down", "Boss down", "bounce 20", "Falls apart segment by segment.", "", "Fly to the exit."],
+    ],
+    tiers: ["The neck holds 1 s and sways 20 px up and down.", "Two heads, one per wall, at heights at least 150 px apart."],
+  };
+})();
+
+const BOSSES = [WATCH, CRUSH, SAW, SERP];
+const PH = ["intro", 1, 2, 3, "down"];
+const PHNAME = { intro: "Arrival", 1: "Phase 1", 2: "Phase 2", 3: "Phase 3", down: "Down" };
+
+/* ---------- run strip ---------- */
+(function runStrip() {
+  const run = document.getElementById("run");
+  const rooms = []; for (let s = 80; s < 230; s += 10) { if (s === 110 || s === 210) continue; const boss = s === 100 || s === 200; rooms.push([s, boss ? s + 20 : s + 10, boss]); }
+  const row = document.createElement("div"); row.className = "rooms";
+  for (const [a, b, boss] of rooms) {
+    const d = document.createElement("div"); d.className = "room" + (boss ? " boss" : "");
+    d.innerHTML = `<b>${boss ? (a === 100 ? "Boss · tier 1" : "Boss · tier 2") : "Room"}</b><span>${a}–${b}</span>`; row.appendChild(d);
+  }
+  const ev = document.createElement("div"); ev.className = "events";
+  const mark = (p, html) => { const e = document.createElement("div"); e.className = "ev"; e.style.left = ((p - 80) / 150 * 100) + "%"; e.innerHTML = html; ev.appendChild(e); };
+  mark(100, '<span class="pill ink">Boss portal</span>');
+  mark(120, '<span><span class="pill calm">Calm</span> <span class="pill wild">Wild</span></span>');
+  mark(150, '<span><span class="pill calm">Calm</span> <span class="pill wild">Wild</span></span>');
+  mark(200, '<span class="pill ink">Boss portal</span>');
+  mark(220, '<span><span class="pill calm">Calm</span> <span class="pill wild">Wild</span></span>');
+  run.append(row, ev);
+})();
+
+/* ---------- boss rows ---------- */
+const root = document.getElementById("bosses");
+const cards = [];
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+for (const boss of BOSSES) {
+  const sec = document.createElement("section"); sec.className = "boss"; sec.id = boss.id;
+  sec.innerHTML = `
+    <div class="stage">
+      <canvas class="main" aria-label="${boss.name} boss room, animated mockup"></canvas>
+      <div class="ctl"><button type="button" class="play">Pause</button><div class="bar" aria-hidden="true"></div></div>
+      <div class="thumbs" role="tablist" aria-label="${boss.name} phases"></div>
+    </div>
+    <div class="info">
+      <span class="eyebrow">Boss concept</span>
+      <h2>${boss.name}</h2>
+      <div class="chips">${boss.from.map(f => `<span class="pill">${f}</span>`).join("")}</div>
+      <p>${boss.blurb}</p>
+      <div class="phases"></div>
+      <div class="tiers"><div><b>At 200:</b> ${boss.tiers[0]}</div><div><b>From 300:</b> ${boss.tiers[1]}</div></div>
+    </div>`;
+  root.appendChild(sec);
+  const card = { boss, sec, ph: 1, T: boss.rep[1], playing: !reduce, visible: true, main: sec.querySelector("canvas.main"), bar: sec.querySelector(".bar"), thumbs: [], phEls: [] };
+  const tl = sec.querySelector(".thumbs");
+  PH.forEach(ph => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "thumb"; b.setAttribute("role", "tab");
+    const cv = document.createElement("canvas"); cv.width = 120; cv.height = 213; b.append(cv, document.createTextNode(PHNAME[ph]));
+    b.addEventListener("click", () => select(card, ph)); tl.appendChild(b); card.thumbs.push([ph, b, cv]);
+  });
+  const pl = sec.querySelector(".phases");
+  for (const [ph, name, when, attack, tell, safe] of boss.phases) {
+    const d = document.createElement("button"); d.type = "button"; d.className = "ph";
+    d.innerHTML = `<div class="nm">${name}${when ? `<small>${when}</small>` : ""}</div>
+      <div class="ln"><i>Attack</i>${attack}</div>${tell ? `<div class="ln"><i>Tell</i>${tell}</div>` : ""}<div class="ln"><i>Safe</i>${safe}</div>`;
+    d.addEventListener("click", () => select(card, ph)); pl.appendChild(d); card.phEls.push([ph, d]);
+  }
+  const btn = sec.querySelector(".play");
+  btn.addEventListener("click", () => { card.playing = !card.playing; btn.textContent = card.playing ? "Pause" : "Play"; });
+  btn.textContent = card.playing ? "Pause" : "Play";
+  cards.push(card); select(card, 1);
+}
+function select(card, ph) {
+  card.ph = ph; card.T = card.boss.rep[ph];
+  for (const [p, b] of card.thumbs.map(([p, b]) => [p, b])) b.setAttribute("aria-selected", String(p === ph));
+  for (const [p, d] of card.phEls) d.setAttribute("aria-current", String(p === ph));
+  const bar = card.bar; bar.innerHTML = "";
+  const segs = card.boss.bars[ph];
+  if (segs) {
+    for (const [kind, label, a, b] of segs) { const s = document.createElement("div"); s.className = "s " + kind; s.style.flexGrow = String(b - a); s.textContent = label; bar.appendChild(s); }
+    const head = document.createElement("div"); head.className = "head"; bar.appendChild(head); card.head = head;
+  } else {
+    const s = document.createElement("div"); s.className = "s rest"; s.style.flexGrow = "1"; s.textContent = ph === "intro" ? "Portal hold 1.5 s, then go" : "Hazards stop · exit open"; bar.appendChild(s); card.head = null;
+  }
+  draw(card);
+}
+function sizeCanvas(cv) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.max(1, cv.clientWidth);
+  const bw = Math.round(w * dpr), bh = Math.round(w * 640 / 360 * dpr);
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  return bw / 360;
+}
+function draw(card) {
+  const cv = card.main, s = sizeCanvas(cv), c = cv.getContext("2d");
+  c.setTransform(s, 0, 0, s, 0, 0); render(c, card.boss, card.ph, Math.floor(card.T));
+  if (card.head) { const len = card.boss.len[card.ph]; card.head.style.left = `calc(${(wrap(Math.floor(card.T), len) / len) * 100}% - 1px)`; }
+}
+function drawThumbs() {
+  for (const card of cards) for (const [ph, , cv] of card.thumbs) { const c = cv.getContext("2d"); c.setTransform(120 / 360, 0, 0, 213 / 640, 0, 0); render(c, card.boss, ph, card.boss.rep[ph]); }
+}
+const io = "IntersectionObserver" in window ? new IntersectionObserver(es => { for (const e of es) { const cd = cards.find(k => k.sec === e.target); if (cd) cd.visible = e.isIntersecting; } }) : null;
+if (io) cards.forEach(cd => io.observe(cd.sec));
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  for (const card of cards) {
+    if (!card.playing || !card.visible) continue;
+    const loopLen = card.ph === "intro" ? 180 : card.ph === "down" ? 130 : LOOP;
+    card.T = wrap(card.T + dt * 60, loopLen); draw(card);
+  }
+  requestAnimationFrame(frame);
+}
+document.getElementById("worlds").addEventListener("click", e => {
+  const b = e.target.closest("button[data-w]"); if (!b) return;
+  th = WORLDS[b.dataset.w];
+  for (const x of document.querySelectorAll("#worlds button")) x.setAttribute("aria-pressed", String(x === b));
+  drawThumbs(); cards.forEach(draw);
+});
+window.addEventListener("resize", () => cards.forEach(draw));
+drawThumbs(); cards.forEach(draw); requestAnimationFrame(frame);
+if (document.fonts && document.fonts.load) {
+  Promise.all([document.fonts.load('900 40px "Archivo"'), document.fonts.load('800 11px "Archivo"'), document.fonts.load('700 14px "Archivo"')])
+    .then(() => { drawThumbs(); cards.forEach(draw); }).catch(() => {});
+}
+})();
+</script>
