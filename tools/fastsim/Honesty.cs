@@ -8,7 +8,7 @@ namespace FastSim;
 /// changes), and two fresh planners with the same own seed look once, one at
 /// the state and one at the fork. An honest planner makes the same plan.
 ///   --seeds n --cap ticks --every ticks --boss 1 (practice runs in the boss rooms) --room id (practice runs in the rooms whose id starts with it)
-///   --hideboss 0 --hidekeys 0 --ownanchor 1 (the fixes off / on, to show what the test finds without them)
+///   --hideboss 0 --hidekeys 0 --ownanchor 0 (the fixes off / on, to show what the test finds without them)
 /// anchor: how often the anchor a player can track from the walls is the room's own.
 /// seeds: the seed scan (every seed-bearing value must be replaced in a blind copy).
 /// rooms: practice runs per room, deaths per 100 points (to price a fix).
@@ -157,9 +157,9 @@ public static class Honesty
 
     static void configure(BlindPlanner p, Dictionary<string, string> opts)
     {
-        BlindPlanner.hide_boss = opts.GetValueOrDefault("hideboss", "1") != "0";
+        BlindPlanner.boss_blind = opts.GetValueOrDefault("hideboss", "1") != "0";
         BlindPlanner.hide_keys = opts.GetValueOrDefault("hidekeys", "1") != "0";
-        p.own_anchor = opts.GetValueOrDefault("ownanchor", "0") != "0";
+        p.own_anchor = opts.GetValueOrDefault("ownanchor", "1") != "0";
     }
 
     sealed class Tally
@@ -328,7 +328,7 @@ public static class Honesty
             for (long t = 0; t < cap && !sim.is_over() && sim.room.points < SimConfig.BOSS_POINTS; t++) sim.step(bot.decide(sim));
             res[i] = (sim.room.def.id, sim.is_over(), sim.room.points);
         });
-        Console.WriteLine($"honesty rooms [hideboss {(BlindPlanner.hide_boss ? 1 : 0)} ownanchor {opts.GetValueOrDefault("ownanchor", "0")} hidekeys {(BlindPlanner.hide_keys ? 1 : 0)}], {SimConfig.BOSS_POINTS} points per run:");
+        Console.WriteLine($"honesty rooms [hideboss {(BlindPlanner.boss_blind ? 1 : 0)} ownanchor {opts.GetValueOrDefault("ownanchor", "1")} hidekeys {(BlindPlanner.hide_keys ? 1 : 0)}], {SimConfig.BOSS_POINTS} points per run:");
         foreach (var g in res.GroupBy(r => r.room).OrderBy(g => g.Key))
             Console.WriteLine($"  {g.Key,-16} {g.Count(r => r.dead),4} deaths in {g.Count(),4} runs, {g.Sum(r => r.points),6} points = {100.0 * g.Count(r => r.dead) / Math.Max(1, g.Sum(r => r.points)):F3} per 100");
         Console.WriteLine($"  all              {res.Count(r => r.dead),4} deaths in {res.Length,4} runs, {res.Sum(r => r.points),6} points = {100.0 * res.Count(r => r.dead) / Math.Max(1, res.Sum(r => r.points)):F3} per 100");
@@ -433,7 +433,7 @@ public static class Honesty
                 }
             }
         });
-        string setup = $"hideboss {(BlindPlanner.hide_boss ? 1 : 0)} ownanchor {opts.GetValueOrDefault("ownanchor", "0")} hidekeys {(BlindPlanner.hide_keys ? 1 : 0)}";
+        string setup = $"hideboss {(BlindPlanner.boss_blind ? 1 : 0)} ownanchor {opts.GetValueOrDefault("ownanchor", "1")} hidekeys {(BlindPlanner.hide_keys ? 1 : 0)}";
         Console.WriteLine($"honesty {what}: {runs.Count} runs ({(boss ? "practice, boss rooms" : room_id != "" ? "practice, rooms " + room_id + "*" : "full runs")}), seeds {first + 1}..{first + seeds}, cap {cap}, a fork every {every} ticks [{setup}]");
         Console.WriteLine($"  anchor: tracked == the room's at {same}/{bounces} bounces ({100.0 * same / Math.Max(1, bounces):F1}%); " +
             $"within {GameSim.EXIT_STEER} points of an exit {near_same}/{near_bounces} ({100.0 * near_same / Math.Max(1, near_bounces):F1}%), " +

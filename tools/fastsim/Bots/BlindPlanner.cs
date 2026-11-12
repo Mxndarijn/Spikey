@@ -65,15 +65,14 @@ public sealed class BlindPlanner
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
-    /// Honesty switches (research/planner-review/01-honesty.md). hide_boss and hide_keys are on;
-    /// own_anchor is off until its cost is accepted.
-    /// hide_boss: a boss's seed (every later attack) is replaced in the copy;
-    ///   the attack already told on screen stays.
+    /// Honesty switches (research/planner-review/01-honesty.md), all on. The boss
+    /// seed is `boss_blind` (BossBlind).
     /// own_anchor: the copy's anchor_y is the planner's own, tracked from the
-    ///   walls it bounced off and the exit it took (never the room's planned exit).
+    ///   walls it bounced off and the exit it took, never the room's state.anchor_y
+    ///   (the user's ruling: the anchor comes only from walls already seen).
     /// hide_keys: a key chain's later keys (shown one at a time) are placed anew.
-    public static bool hide_boss = true, hide_keys = true;
-    public bool own_anchor = false;
+    public static bool hide_keys = true;
+    public bool own_anchor = true;
     public long anchor = SimConfig.BIRD_START_Y;
     long _seen_room = 0, _last_y;
     /// Tests: the memory was set by hand, don't update it from this tick's events.
@@ -462,19 +461,6 @@ public sealed class BlindPlanner
                     long far = own.next_below(Stalactite.REACH + Stalactite.MAX_STEP + 1);
                     long to = st.gap_y + (st.target_y > st.gap_y ? far : -far);
                     st.target_y = G.clampi(to, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
-                    break;
-                }
-                // A boss: every attack after the one being told comes from its seed.
-                case Boss boss when hide_boss:
-                {
-                    long k = -1, keep = -1;
-                    if (boss is BossCrusher bc && bc.phase == 1 && bc.clock() >= 0)
-                    {
-                        k = bc.clock() / BossCrusher.CYCLE;
-                        keep = bc.slam_of(k);
-                    }
-                    do boss.seed = own.next_u32();
-                    while (keep >= 0 && ((BossCrusher)boss).slam_of(k) != keep);
                     break;
                 }
                 // A key chain: where each later key appears is drawn at the room's start.

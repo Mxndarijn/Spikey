@@ -95,9 +95,9 @@ public static class Review
     {
         long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
         BlindPlanner.know_exits = L("knowexits", 0) != 0;
-        BlindPlanner.hide_boss = L("hideboss", 1) != 0;
+        BlindPlanner.boss_blind = L("hideboss", 1) != 0;
         BlindPlanner.hide_keys = L("hidekeys", 1) != 0;
-        bot.own_anchor = L("ownanchor", 0) != 0;
+        bot.own_anchor = L("ownanchor", 1) != 0;
         bot.horizon = L("h", bot.horizon);
         bot.past = L("past", bot.past);
         bot.replan = (int)L("k", bot.replan);

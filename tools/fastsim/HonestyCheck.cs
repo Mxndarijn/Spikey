@@ -21,20 +21,20 @@ static partial class Checks
         {
             var fails = new List<string>();
             var lines = new List<string>();
-            bool boss = BlindPlanner.hide_boss;
+            bool boss = BlindPlanner.boss_blind;
             try
             {
-                BlindPlanner.hide_boss = true;
+                BlindPlanner.boss_blind = true;
                 if (Honesty.seedscan(1, 600, lines) > 0) fails.AddRange(lines.Where(l => l.Contains("UNCHANGED")).Select(l => l.Trim()));
                 var open = new List<string>();
-                BlindPlanner.hide_boss = false;
+                BlindPlanner.boss_blind = false;
                 Honesty.seedscan(1, 600, open);
                 if (!open.Any(l => l.Contains("UNCHANGED") && l.Contains("Boss")))
                     fails.Add("the seed scan does not notice a boss seed left in the blind copy");
             }
             finally
             {
-                BlindPlanner.hide_boss = boss;
+                BlindPlanner.boss_blind = boss;
             }
             return result(fails, new JsonObject { ["scan"] = lines.FirstOrDefault() ?? "" });
         }
