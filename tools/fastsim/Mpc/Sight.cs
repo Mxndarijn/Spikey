@@ -226,8 +226,11 @@ public sealed partial class Sight
     }
 
     /// The warnings the game draws before a hazard strikes, as boxes of bird
-    /// positions to be out of. Only what is on screen now: where it glows and
-    /// how far the glow has got.
+    /// positions to be out of: the shared warnings layer (Hazard.warnings: only
+    /// what is on screen now), every hazard's kill boxes grown by the bird's size.
+    /// Bosses keep their own reading (boss_warnings: boxes per attack, tuned for the bot).
+    readonly List<long> _warn_buf = new();
+
     void warnings(GameSim sim, Hazard h, int at)
     {
         if (h is Boss boss)
@@ -236,22 +239,13 @@ public sealed partial class Sight
             return;
         }
         const float RP = (float)R / SimConfig.SUB, S = SimConfig.SUB;
-        if (h is Piston p && p.state() == Piston.State.GLOW)
+        _warn_buf.Clear();
+        h.warnings(sim, _warn_buf);
+        for (int k = 0; k + Hazard.WARN_SIZE <= _warn_buf.Count; k += Hazard.WARN_SIZE)
         {
-            int eta = (int)(Piston.IDLE_TICKS + p.glow_ticks - p.cycle_pos());
-            int dur = (int)(Piston.EXTEND_TICKS + Piston.HOLD_TICKS + Piston.RETRACT_TICKS);
-            float bx = p.base_x() / S, tip = (p.side == 0 ? p.base_x() + p.reach : p.base_x() - p.reach) / S;
-            warns.Add(new Warn(Math.Min(bx, tip) - RP, (p.y - Piston.HALF_H) / S - RP, Math.Max(bx, tip) + RP, (p.y + Piston.HALF_H) / S + RP, eta, dur));
-        }
-        else if (h is Beam b)
-        {
-            for (int i = 0; i < b.rows.Count; i++)
-            {
-                if (b.state(i) != Beam.State.WARN) continue;
-                int eta = (int)(b.warn_ticks - b.cycle_pos(i));
-                warns.Add(new Warn(sim.room.wall_left() / S - RP, (b.rows[i] - Beam.HALF_H) / S - RP,
-                    sim.room.wall_right() / S + RP, (b.rows[i] + Beam.HALF_H) / S + RP, eta, (int)Beam.ON_TICKS));
-            }
+            if (_warn_buf[k + 6] != Hazard.WARN_KILL) continue;
+            warns.Add(new Warn(_warn_buf[k] / S - RP, _warn_buf[k + 1] / S - RP, _warn_buf[k + 2] / S + RP, _warn_buf[k + 3] / S + RP,
+                (int)_warn_buf[k + 4], (int)_warn_buf[k + 5]));
         }
     }
 
