@@ -280,7 +280,10 @@ static func _room_key(sim: GameSim) -> Array:
 ## room came in from the other side and differed).
 func test_a_revived_run_meets_the_same_map() -> void:
 	var compared := 0
-	for seed_value: int in [4206176851, 77, 2024]:
+	# Seeds where the gap seeker gets past the revived room and that room's
+	# exit opens at the same room tick in both plays (else nothing after it is
+	# compared): found by a scan of seeds 20..139 after the room deck.
+	for seed_value: int in [4206176851, 53, 63, 85, 127]:
 		for digit: int in [4, 5]:
 			var a := _map(seed_value, -1, 0)
 			var r := _map(seed_value, 1, digit)

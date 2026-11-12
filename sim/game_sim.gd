@@ -556,7 +556,7 @@ func _go_through(side: int, kind: int, through_y: int) -> void:
 		next = RoomCatalog.pick_boss(_spine, state.bosses_met)
 		state.bosses_met |= RoomCatalog.boss_bit(next)
 	else:
-		next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y)
+		next = RoomCatalog.pick_next(_spine, state, room.index, season)
 	_seed_room()
 	# Lay the room out so a player who needs a moment to look can live: the
 	# check plays it on copies, and each retry skips one RNG draw.

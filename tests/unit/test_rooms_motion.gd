@@ -57,15 +57,15 @@ func test_rooms_are_in_the_catalog_in_order() -> void:
 		var i := RoomCatalog.index_of(id)
 		assert_true(i > last, "%s is after the previous motion room" % id)
 		last = i
+	# Unlock scores come from the measured difficulty (RoomPacing).
 	assert_eq(RoomCatalog.find("cloud").from_score, 10)
-	assert_eq(RoomCatalog.find("gates").from_score, 20)
-	assert_eq(RoomCatalog.find("crawl").from_score, 30)
+	assert_eq(RoomCatalog.find("gates").from_score, 50)
+	assert_eq(RoomCatalog.find("crawl").from_score, 20)
 	assert_eq(RoomCatalog.find("swing").group, "mid")
-	assert_eq(RoomCatalog.find("stalker").from_score, 40)
-	assert_eq(RoomCatalog.find("pinwheel").from_score, 40)
+	assert_eq(RoomCatalog.find("stalker").from_score, 30)
+	assert_eq(RoomCatalog.find("pinwheel").from_score, 90)
 	assert_eq(RoomCatalog.find("sawring").group, "late")
-	assert_eq(RoomCatalog.find("sawring").from_score, 80)
-	assert_eq(RoomCatalog.find("sawring").weight, 8)
+	assert_eq(RoomCatalog.find("sawring").from_score, 50)
 
 
 func test_rooms_spawn_their_hazards() -> void:

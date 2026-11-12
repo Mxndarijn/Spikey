@@ -32,7 +32,6 @@ func test_sky_rooms_spawn_their_hazards() -> void:
 			assert_true(kinds.size() == 2 or kinds.size() == 4, "rain has 2 or 4 drops")
 			kinds.resize(2)
 		assert_eq(kinds, SKY_ROOMS[id], "%s builds its hazards" % id)
-	assert_eq(RoomCatalog.find("rain").weight, 8)
 	assert_eq(RoomCatalog.find("orchard").group, "bonus")
 	assert_true(RoomCatalog.find("orchard").max_spikes <= 2, "orchard is a breather")
 

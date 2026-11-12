@@ -9,7 +9,8 @@ func test_catalog_ids_are_unique_and_first_room_is_open() -> void:
 	for def in RoomCatalog.all():
 		assert_false(seen.has(def.id), "room id %s is unique" % def.id)
 		seen[def.id] = true
-		assert_true(def.weight > 0, "%s can be picked" % def.id)
+		var picked := def.id != "open" and not def.boss
+		assert_eq(not def.pace.is_empty(), picked, "%s has a pick curve" % def.id)
 	assert_eq(RoomCatalog.all()[RoomCatalog.first_index()].id, "open")
 	assert_eq(RoomCatalog.find("open").from_score, 0)
 
@@ -31,12 +32,22 @@ func test_pick_respects_score_season_and_never_repeats() -> void:
 	for score in [10, 40, 90, 150]:
 		for season in [Seasons.NONE, Seasons.HALLOWEEN]:
 			var current := RoomCatalog.first_index()
+			var state := picker_state(score)
 			for i in 50:
-				var next := RoomCatalog.pick_next(rng, current, score, season)
+				var next := RoomCatalog.pick_next(rng, state, current, season)
 				var def := RoomCatalog.all()[next]
 				assert_ne(next, current, "a new room at score %d" % score)
 				assert_true(RoomCatalog.allowed(def, score, season), "%s allowed" % def.id)
 				current = next
+
+
+## A run state for RoomCatalog.pick_next at `score`, out of a portal at
+## `arrival_y` (WORLD_H: no room skips it).
+static func picker_state(score: int, arrival_y: int = SimConfig.WORLD_H) -> SimState:
+	var state := SimState.new()
+	state.score = score
+	state.anchor_y = arrival_y
+	return state
 
 
 ## Puts a fresh run straight into one room kind.
@@ -259,6 +270,7 @@ func test_the_open_first_room_never_comes_back() -> void:
 	var start := RoomCatalog.first_index()
 	var rng := SimRng.new(77)
 	for score in [10, 40, 120]:
+		var state := picker_state(score)
 		for i in 600:
-			var next := RoomCatalog.pick_next(rng, 3, score, Seasons.NONE)
+			var next := RoomCatalog.pick_next(rng, state, 3, Seasons.NONE)
 			assert_ne(next, start, "open is only the start")

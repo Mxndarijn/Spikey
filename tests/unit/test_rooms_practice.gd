@@ -86,7 +86,7 @@ func test_room_status_says_cleared_or_why_it_is_locked() -> void:
 	assert_eq(RoomInfo.status(p, RoomCatalog.find("open")), "Cleared 1 of 1")
 	assert_eq(RoomInfo.status(p, RoomCatalog.find("tide")), "Not cleared yet")
 	assert_eq(RoomInfo.status(p, RoomCatalog.find("piston")), "Not met yet", "reachable, not met")
-	assert_eq(RoomInfo.status(p, RoomCatalog.find("flip")), "Reach 90 points")
+	assert_eq(RoomInfo.status(p, RoomCatalog.find("pinwheel")), "Reach 90 points")
 	assert_eq(RoomInfo.status(p, RoomCatalog.find("pumpkin")), "October only")
 	assert_true(RoomInfo.is_open(p, RoomCatalog.find("tide")), "met rooms are open")
 	assert_false(RoomInfo.is_open(p, RoomCatalog.find("piston")), "unmet rooms are locked")

@@ -164,8 +164,12 @@ meet the same map again whichever they took: Wild pays `WILD_COINS` (5) and
 that one room has `WILD_SPIKES` more spikes on every wall after the arrival's
 (`SimState.route` says which exit led into the room). The next room is
 picked by the seed
-(`RoomCatalog.pick_next`: weighted, never the same room twice, only rooms whose
-`from_score` is reached and whose season matches the run's). The exit at
+(`RoomCatalog.pick_next`, a shuffle bag kept in `SimState.deck_lo/hi`: a drawn
+room waits until the bag refills, which it does once what is left weighs under
+`DECK_REFILL_PCT` of the allowed rooms; among the rest the pick is by each
+room's weight at this score, `RoomDef.pace`, a curve from its difficulty tier in
+`sim/rooms/room_pacing.gd`; never the current room, only rooms whose season
+matches the run's; `tools/room_odds.gd` prints the odds per score band). The exit at
 every 100 points leads into a boss room instead (no fork there; the boss's
 own exit, 20 bounces later, is the fork): see [BOSS_ROOMS.md](BOSS_ROOMS.md).
 
@@ -185,7 +189,10 @@ placed at room start keep off the bird's first, forced hop
 gaps close and clear the wall ahead near them; the open first room is only the
 start and never comes back.
 
-- `sim/rooms/room_def.gd` (RoomDef): what a room is: group, from_score, weight,
+- `sim/rooms/room_pacing.gd` (RoomPacing): each room's tier (from its measured
+  difficulty, docs/ROOM_DIFFICULTY.md) and so its unlock score and pick weight
+  over the score. Re-tier rooms there after re-measuring.
+- `sim/rooms/room_def.gd` (RoomDef): what a room is: group, from_score, pace,
   season, wall rules (spike count/gap, tide, blink, squeeze), gravity, speed,
   and the hazards it builds (factories, or variants drawn at room start).
   Double Trouble (two known hazards in one room) was taken out; its combo

@@ -50,6 +50,10 @@ var exit_b_kind := 0
 var route := 0
 ## Boss rooms met this run: bit i is the i-th boss (RoomCatalog.bosses()).
 var bosses_met := 0
+## The room deck (RoomCatalog.pick_next): bit i of deck_lo (bit i - 62 of
+## deck_hi from room 62 on) is set once room i has been drawn from this bag.
+var deck_lo := 0
+var deck_hi := 0
 ## Where the last coin was collected (the view flies it from there).
 var pickup_x := 0
 var pickup_y := 0
@@ -114,6 +118,8 @@ func assign(o: SimState) -> void:
 	exit_b_kind = o.exit_b_kind
 	route = o.route
 	bosses_met = o.bosses_met
+	deck_lo = o.deck_lo
+	deck_hi = o.deck_hi
 	pickup_x = o.pickup_x
 	pickup_y = o.pickup_y
 	arrival_hold = o.arrival_hold
@@ -168,6 +174,8 @@ func checksum() -> int:
 		plan_b_y_right,
 		plan_at,
 		bosses_met,
+		deck_lo,
+		deck_hi,
 	]:
 		h = SimHash.mix(h, v)
 	return h

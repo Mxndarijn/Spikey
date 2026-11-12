@@ -15,15 +15,19 @@ const CEILING_ARRIVAL := 170 * SimConfig.SUB
 var id := ""
 ## starter, mid, late, bonus, seasonal (for the picker's odds and the views).
 var group := "starter"
-## Lowest score at which the room can be picked.
+## Lowest score at which the room can be picked: the first score of `pace`
+## (RoomPacing.apply sets it).
 var from_score := 0
 ## Out of a portal the room isn't picked when the bird comes in at a height
 ## in one of these ranges (sub-units, from and to in pairs): a player holding
 ## height there for SimConfig.ARRIVAL_BLIND ticks (it hops about 60 px up)
 ## runs into the hazards however they are timed. Empty = any height.
 var arrival_skip := PackedInt32Array()
-## Relative pick chance among the rooms allowed at a score.
+## Not used by the picker any more (RoomPacing gives every room its curve).
 var weight := 10
+## Relative pick chance over the score (RoomPacing): score, weight pairs.
+## Empty = never picked by RoomCatalog.pick_next.
+var pace := PackedInt32Array()
 ## Season the room belongs to (Seasons.*), or Seasons.NONE for all year.
 var season := Seasons.NONE
 
@@ -71,6 +75,11 @@ func _init(p_id: String, p_group: String, p_from: int) -> void:
 func with(p_hazards: Array[Callable]) -> RoomDef:
 	hazards = p_hazards
 	return self
+
+
+## The room's pick weight at `score` (RoomPacing.weight of its curve).
+func weight_at(score: int) -> int:
+	return RoomPacing.weight(pace, score)
 
 
 ## Whether the room can be picked for a bird coming out of a portal at `y`:

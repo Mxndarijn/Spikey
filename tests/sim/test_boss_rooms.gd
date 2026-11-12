@@ -32,8 +32,11 @@ func _bounce(sim: GameSim) -> void:
 
 func test_the_usual_picker_never_picks_a_boss() -> void:
 	var rng := SimRng.new(5)
+	var state := SimState.new()
+	state.score = 400
+	state.anchor_y = SimConfig.WORLD_H
 	for i in 3000:
-		var next := RoomCatalog.pick_next(rng, -1, 400, Seasons.NONE)
+		var next := RoomCatalog.pick_next(rng, state, -1, Seasons.NONE)
 		assert_false(RoomCatalog.all()[next].boss)
 
 

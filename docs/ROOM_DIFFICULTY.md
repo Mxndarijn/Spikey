@@ -106,7 +106,8 @@ tell), the bird keeps the plan it had before for R = 0, 20, 40, 60 ticks, then S
   `too-hard` / `too-easy` (the band says a later / earlier group than today's; bonus and seasonal
   rooms above the mid band; bosses below the starter band).
 
-Recategorising is the user's call: the tool only suggests.
+Recategorising is the user's call: the tool only suggests. The picker uses these scores through each room's tier in
+`sim/rooms/room_pacing.gd` (unlock and weight over the score, [ROOM_PACING.md](ROOM_PACING.md)).
 
 ## Results
 
