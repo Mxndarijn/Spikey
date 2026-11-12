@@ -35,7 +35,7 @@ public static class HumanMain
         int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 16);
         int seeds = int.Parse(opt("seeds", "100"));
         long first = long.Parse(opt("first", "0"));
-        long cap = long.Parse(opt("cap", SimConfig.MAX_TICKS.ToString()));
+        long cap = long.Parse(opt("cap", BotCaps.RUN_CAP.ToString()));
         string bot = opt("bot", "human");
         var sw = Stopwatch.StartNew();
         switch (mode)
