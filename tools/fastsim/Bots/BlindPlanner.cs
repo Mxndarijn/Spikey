@@ -125,6 +125,29 @@ public sealed class BlindPlanner
         _last_b_kind = s.exit_b_kind;
     }
 
+    /// Plan reuse (0 = off): after a calm look the plan is followed for up to
+    /// `follow` ticks without a new look, as long as it still lives on a copy
+    /// made with the same guesses as that look (checked every `replan` ticks,
+    /// at the cost of one line instead of a whole search). Something new on
+    /// screen that the guess had wrong kills the line in the copy: then it looks.
+    public int follow = 0;
+    /// Lines may tap whenever the bird's upward speed is under this (the default
+    /// keeps taps about 12 ticks apart, so a line can't climb faster than 3.75 px a tick).
+    public long tap_below = SurvivalSearch.TAP_BELOW_VY;
+    /// When no line lives the whole look: play the line that lived longest in
+    /// that same search (it is already there) instead of searching again
+    /// to the wall and with 3/4, 9/16, ... of the look.
+    public bool longest = false;
+    byte[] _deep;
+    long _deep_len, _deep_cost;
+    /// Measurement only: look ahead on true copies (the hidden future as it will be).
+    /// Shows what the same search does with nothing to guess.
+    public bool peek = false;
+    public long follows, follow_fails;
+    long _guess;
+    int _since_look;
+    bool _calm;
+
     readonly SimRng _own;
     readonly Queue<bool> _plan = new();
     int _since = int.MaxValue;
@@ -142,6 +165,8 @@ public sealed class BlindPlanner
     /// The anchor the last look's copies used (-1 = the room's own).
     public long last_anchor = -1;
     public bool[] last_plan = Array.Empty<bool>();
+    /// Sim steps spent looking ahead (the planner's CPU cost; the game's own ticks are not counted).
+    public long steps;
 
     public BlindPlanner(long seed) => _own = new SimRng(977 * seed + 5);
 
@@ -158,14 +183,31 @@ public sealed class BlindPlanner
         }
 #if PROF
         long p0 = Prof.now();
-        if (_since >= _wait || _plan.Count == 0) { look(sim); last_plan = _plan.ToArray(); }
-        Prof.add(Prof.LOOK, p0);
-#else
+#endif
         if (_since >= _wait || _plan.Count == 0)
         {
-            look(sim);
-            last_plan = _plan.ToArray();
+            bool kept = false;
+            if (follow > 0 && _since != int.MaxValue && _calm && _plan.Count >= 24 && _since_look + _since < follow)
+            {
+                var rest = _plan.Select(b => (byte)(b ? 1 : 0)).ToArray();
+                kept = lives(peek ? sim.clone_deep() : blind_copy(sim, new SimRng(_guess), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen, boss_leak), rest, 0);
+                if (kept)
+                {
+                    follows++;
+                    _since_look += _since;
+                    _since = 0;
+                }
+                else follow_fails++;
+            }
+            if (!kept)
+            {
+                look(sim);
+                _since_look = 0;
+                last_plan = _plan.ToArray();
+            }
         }
+#if PROF
+        Prof.add(Prof.LOOK, p0);
 #endif
         _since++;
         bool tap = _plan.Count > 0 && _plan.Dequeue();
@@ -183,9 +225,13 @@ public sealed class BlindPlanner
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
         last_seed0 = seeds[0];
         last_anchor = own_anchor ? anchor : -1;
-        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen, boss_leak);
+        _guess = seeds[0];
+        _calm = false;
+        GameSim copy(int j) => peek ? sim.clone_deep() : blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen, boss_leak);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
+        _deep = null;
+        _deep_len = 0;
         beam(copy(0), want, bucket_px, speed_buckets);
         if (_found.Count == 0 && fine_px > 0)
         {
@@ -234,6 +280,11 @@ public sealed class BlindPlanner
                 return;
             }
         }
+        if (found == null && longest && _deep != null)
+        {
+            found = _deep;
+            last_look = 2;
+        }
         if (found == null && wall_look && to_wall + 26 < want)
         {
             foreach (var (px, sp) in new[] { (bucket_px, speed_buckets), (fine_px, fine_speeds), (2L, 40L) })
@@ -262,6 +313,7 @@ public sealed class BlindPlanner
         bool danger = last_look != 0 || last_agree < trials;
         if (last_look == 0 && last_agree < trials) split_looks++;
         _wait = danger ? replan_danger : replan;
+        _calm = !danger;
         _plan.Clear();
         if (found != null)
             foreach (byte b in found) _plan.Enqueue(b != 0);
@@ -290,7 +342,7 @@ public sealed class BlindPlanner
     }
 
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
-    static bool lives(GameSim c, byte[] taps, int shift)
+    bool lives(GameSim c, byte[] taps, int shift)
     {
 #if PROF
         long p0 = Prof.now();
@@ -302,6 +354,7 @@ public sealed class BlindPlanner
 #endif
         for (int t = 0; t < taps.Length; t++)
         {
+            steps++;
             int from = t - shift;
             c.step(from >= 0 && from < taps.Length && taps[from] != 0);
             if (c.is_over()) return false;
@@ -532,7 +585,7 @@ public sealed class BlindPlanner
             next.Clear();
             foreach (var e in frontier)
             {
-                bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY
+                bool can_tap = e.sim.state.vy * e.sim.room.gravity > tap_below
                                && (min_gap <= 0 || e.since >= min_gap);
                 long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
                 bool e_open = e.sim.state.exit_open;
@@ -549,6 +602,7 @@ public sealed class BlindPlanner
                     var s = a == 1 ? clone(e.sim) : e.sim;
                     s.step(a == 1);
 #endif
+                    steps++;
                     if (s.is_over())
                     {
                         drop(s);
@@ -591,7 +645,25 @@ public sealed class BlindPlanner
                     }
                 }
             }
-            if (next.Count == 0) return;
+            if (next.Count == 0)
+            {
+                if (longest && t > 0)
+                {
+                    var top = frontier[0];
+                    foreach (var e in frontier)
+                        if (e.cost < top.cost) top = e;
+                    if (t > _deep_len || (t == _deep_len && top.cost < _deep_cost))
+                    {
+                        var line = new List<byte>();
+                        for (int nd = top.parent; nd >= 0; nd = parents[nd]) line.Add(taps[nd]);
+                        line.Reverse();
+                        _deep = line.ToArray();
+                        _deep_len = t;
+                        _deep_cost = top.cost;
+                    }
+                }
+                return;
+            }
             layer.Add(parents.Count);
             frontier = new List<Node>(next.Count);
             foreach (var e in next)

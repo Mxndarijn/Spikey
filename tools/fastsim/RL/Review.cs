@@ -38,6 +38,8 @@ public static class Review
                 return Autopsy.fixtest(opts, threads);
             case "autopsy":
                 return Autopsy.run(opts, seeds, cap, threads);
+            case "rescue":
+                return rescue(opts, threads);
             case "blindcheck":
                 return blindcheck(seeds);
             case "trace":
@@ -136,6 +138,10 @@ public static class Review
         bot.bucket_px = L("bpx", bot.bucket_px);
         bot.speed_buckets = L("speeds", bot.speed_buckets);
         bot.fine_px = L("fine", bot.fine_px);
+        bot.follow = (int)L("follow", bot.follow);
+        bot.peek = L("peek", 0) != 0;
+        bot.longest = L("longest", 0) != 0;
+        if (L("anytap", 0) != 0) bot.tap_below = long.MinValue;
         return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
     }
 
@@ -158,6 +164,17 @@ public static class Review
         string out_path = opts.GetValueOrDefault("out", "");
         var clock = Stopwatch.StartNew();
         var rows = new string[seeds];
+        // --alt "name:key=value,key=value;name2:...": the rescue runs again with each other setup (same starts).
+        var alts = new List<(string name, Dictionary<string, string> opts)>();
+        foreach (string part in opts.GetValueOrDefault("alt", "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var o = new Dictionary<string, string>(opts);
+            string[] nv = part.Split(':');
+            foreach (string kv in nv[1].Split(',', StringSplitOptions.RemoveEmptyEntries)) o[kv.Split('=')[0]] = kv.Split('=')[1];
+            alts.Add((nv[0], o));
+        }
+        var alt_saved = new long[alts.Count];
+        long psteps = 0, pticks = 0;
         var res = new (long points, long ticks, bool dead, string room, string verdict, long chance, int rescued, string cause)[seeds];
         string setup = "";
         Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
@@ -187,6 +204,13 @@ public static class Review
                     drops = dn;
                     drop_tick = taps.Count;
                 }
+            }
+            Interlocked.Add(ref psteps, bot.steps);
+            Interlocked.Add(ref pticks, taps.Count);
+            if (opts.ContainsKey("taps"))
+            {
+                Directory.CreateDirectory(opts["taps"]);
+                File.WriteAllBytes(Path.Combine(opts["taps"], seed + ".taps"), taps.Select(b => (byte)(b ? 1 : 0)).ToArray());
             }
             string room = sim.room.def.id + "/" + sim.room.variant_id();
             if (!sim.is_over())
@@ -233,6 +257,25 @@ public static class Review
                     if (!c.is_over()) rescued++;
                 }
             }
+            string alt_cols = "";
+            for (int a = 0; a < alts.Count; a++)
+            {
+                int ok = 0;
+                if (chance >= 0)
+                {
+                    long from = Math.Min(max_back, chance + LEAD);
+                    for (int r = 0; r < RESCUES; r++)
+                    {
+                        var c = at(from);
+                        var b2 = new BlindPlanner(seed * 1000 + r + 7);
+                        configure(b2, alts[a].opts);
+                        for (long t = 0; t < from + AFTER && !c.is_over(); t++) c.step(b2.decide(c));
+                        if (!c.is_over()) ok++;
+                    }
+                }
+                Interlocked.Add(ref alt_saved[a], ok);
+                alt_cols += "\t" + ok;
+            }
             // Crates: `shown` = ticks before the death the last crate's column was marked.
             // A last chance before that means the run was lost before the player could see why.
             long shown = sim.room.hazards.OfType<CrateDrop>().Any() ? died - drop_tick : -1;
@@ -243,7 +286,9 @@ public static class Review
         long pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead);
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"death atlas, blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}, gameplay {SimConfig.GAMEPLAY_VERSION}");
-        sb.AppendLine($"{deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; {res.Count(r => !r.dead)} of {seeds} alive at the cap; median {Tiers.pct(res.Select(r => r.points), 0.5)}; {clock.Elapsed.TotalSeconds:F0} s");
+        sb.AppendLine($"{deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; {res.Count(r => !r.dead)} of {seeds} alive at the cap; median {Tiers.pct(res.Select(r => r.points), 0.5)}; {psteps / Math.Max(1, pticks)} search steps per tick; {clock.Elapsed.TotalSeconds:F0} s");
+        sb.AppendLine("scores: " + string.Join(" ", res.Select(r => r.points + (r.dead ? "" : "+"))));
+        if (alts.Count > 0) sb.AppendLine($"rescues (of {RESCUES} per death): same setup {res.Sum(r => r.rescued)}, " + string.Join(", ", alts.Select((a, k) => $"{a.name} {alt_saved[k]}")));
         sb.AppendLine("verdicts: " + string.Join(", ", res.Where(r => r.dead).GroupBy(r => r.verdict).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}")));
         sb.AppendLine("by room (deaths: mistake / hidden / unfair / unseen; median last chance in ticks before the death):");
         foreach (var g in res.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()))
@@ -256,6 +301,80 @@ public static class Review
         string text = sb.ToString();
         if (out_path != "") File.WriteAllText(out_path, text);
         Console.Write(out_path != "" ? string.Join("\n", text.Split('\n').TakeWhile(l => !l.StartsWith("seed\t"))) + "\n" : text);
+        return 0;
+    }
+
+    static List<(string name, Dictionary<string, string> opts)> parse_alts(Dictionary<string, string> opts)
+    {
+        var alts = new List<(string name, Dictionary<string, string> opts)>();
+        foreach (string part in opts.GetValueOrDefault("alt", "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var o = new Dictionary<string, string>(opts);
+            string[] nv = part.Split(':');
+            if (nv.Length > 1)
+                foreach (string kv in nv[1].Split(',', StringSplitOptions.RemoveEmptyEntries)) o[kv.Split('=')[0]] = kv.Split('=')[1];
+            alts.Add((nv[0], o));
+        }
+        return alts;
+    }
+
+    /// `rl review rescue --atlas file.tsv --taps dir --alt "name:key=value,..;name2:.."`:
+    /// every death of an atlas played again from LEAD ticks before its last
+    /// chance (--lead n for another start) by RESCUES fresh planners per setup.
+    /// A setup that saves deaths the atlas's own setup does not is a better
+    /// search (or, with peek=1, shows the death was a matter of knowledge).
+    static int rescue(Dictionary<string, string> opts, int threads)
+    {
+        long lead = long.Parse(opts.GetValueOrDefault("lead", LEAD.ToString()));
+        int tries = int.Parse(opts.GetValueOrDefault("tries", RESCUES.ToString()));
+        var alts = parse_alts(opts);
+        var rows = File.ReadAllLines(opts["atlas"]).SkipWhile(l => !l.StartsWith("seed\t")).Skip(1)
+            .Where(l => l.Trim() != "").Select(l => l.Split('\t')).Where(c => long.Parse(c[6]) >= 0).ToList();
+        var saved = new int[rows.Count, alts.Count];
+        var steps = new long[alts.Count];
+        var ticks = new long[alts.Count];
+        var clock = Stopwatch.StartNew();
+        Parallel.For(0, rows.Count * alts.Count, new ParallelOptions { MaxDegreeOfParallelism = threads }, job =>
+        {
+            int i = job / alts.Count, a = job % alts.Count;
+            long seed = long.Parse(rows[i][0]), died = long.Parse(rows[i][2]), chance = long.Parse(rows[i][6]);
+            byte[] taps = File.ReadAllBytes(Path.Combine(opts["taps"], seed + ".taps"));
+            long from = Math.Min(Math.Min(BACK, died - 1), chance + lead);
+            var start = new GameSim(seed);
+            for (int t = 0; t < died - from; t++) start.step(taps[t] != 0);
+            int ok = 0;
+            for (int r = 0; r < tries; r++)
+            {
+                var c = start.clone_deep();
+                var b2 = new BlindPlanner(seed * 1000 + r + 7);
+                configure(b2, alts[a].opts);
+                long n = 0;
+                for (; n < from + AFTER && !c.is_over(); n++) c.step(b2.decide(c));
+                if (!c.is_over()) ok++;
+                Interlocked.Add(ref steps[a], b2.steps);
+                Interlocked.Add(ref ticks[a], n);
+            }
+            saved[i, a] = ok;
+        });
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"rescue: {rows.Count} deaths with a last chance, {tries} tries each, start {lead} ticks before the last chance; {clock.Elapsed.TotalSeconds:F0} s");
+        for (int a = 0; a < alts.Count; a++)
+        {
+            int total = 0, half = 0, all = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                total += saved[i, a];
+                if (saved[i, a] * 2 >= tries) half++;
+                if (saved[i, a] == tries) all++;
+            }
+            sb.AppendLine($"  {alts[a].name,-12} saved {total,4} of {rows.Count * tries} tries = {100.0 * total / Math.Max(1, rows.Count * tries),5:F1}%; deaths saved in half or more tries {half}, in all {all}; {steps[a] / Math.Max(1, ticks[a])} search steps per tick");
+        }
+        sb.AppendLine("seed\tscore\troom\tverdict\tlast_chance\tlook" + string.Concat(alts.Select(a => "\t" + a.name)));
+        for (int i = 0; i < rows.Count; i++)
+            sb.AppendLine($"{rows[i][0]}\t{rows[i][1]}\t{rows[i][3]}\t{rows[i][5]}\t{rows[i][6]}\t{rows[i][8]}" + string.Concat(Enumerable.Range(0, alts.Count).Select(a => "\t" + saved[i, a])));
+        string text = sb.ToString();
+        if (opts.GetValueOrDefault("out", "") != "") File.WriteAllText(opts["out"], text);
+        Console.Write(string.Join("\n", text.Split('\n').TakeWhile(l => !l.StartsWith("seed\t"))) + "\n");
         return 0;
     }
 
@@ -438,7 +557,7 @@ public static class Review
         long first = L("first", 0);
         var clock = Stopwatch.StartNew();
         var res = new (long points, long ticks, bool dead, string room, int look, string cause)[seeds];
-        long looks = 0, fine = 0, shorter = 0, none = 0;
+        long looks = 0, fine = 0, shorter = 0, none = 0, psteps = 0;
         string setup = "";
         Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
         {
@@ -456,11 +575,13 @@ public static class Review
             Interlocked.Add(ref fine, bot.fine_looks);
             Interlocked.Add(ref shorter, bot.short_looks);
             Interlocked.Add(ref none, bot.no_looks);
+            Interlocked.Add(ref psteps, bot.steps);
             res[i] = (sim.state.score, ticks, sim.is_over(), sim.room.def.id + "/" + sim.room.variant_id(), bot.last_look,
                 sim.is_over() ? DeathCause.NAMES[sim.state.death_cause] : "");
         });
         long pts = res.Sum(r => r.points), deaths = res.Count(r => r.dead), all = res.Sum(r => r.ticks);
-        Console.WriteLine($"blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}: {deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; median of the runs {Tiers.pct(res.Select(r => r.points), 0.5)}, {res.Count(r => !r.dead)} alive at the cap; {all / clock.Elapsed.TotalSeconds / threads:F0} ticks/s per thread, {clock.Elapsed.TotalSeconds:F0} s");
+        Console.WriteLine($"blind planner [{setup}], seeds {first + 1}..{first + seeds}, cap {cap}: {deaths} deaths in {pts} points = {100.0 * deaths / Math.Max(1, pts):F3} per 100; median of the runs {Tiers.pct(res.Select(r => r.points), 0.5)}, {res.Count(r => !r.dead)} alive at the cap; {all / clock.Elapsed.TotalSeconds / threads:F0} ticks/s per thread, {psteps / Math.Max(1, all)} search steps per tick, {clock.Elapsed.TotalSeconds:F0} s");
+        if (opts.ContainsKey("scores")) Console.WriteLine("  scores: " + string.Join(" ", res.Select(r => r.points + (r.dead ? "" : "+"))));
         foreach (var (lo, hi) in new[] { (0L, 40L), (40, 100000) })
         {
             long played = res.Sum(r => Math.Clamp(r.points - lo, 0, hi - lo));
