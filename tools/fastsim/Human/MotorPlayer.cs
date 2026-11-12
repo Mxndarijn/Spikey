@@ -187,7 +187,8 @@ public sealed class MotorPlayer
         }
         bool lapse = t < _lapse_until;
         if (lapse) lapse_ticks++;
-        bool reacting = t < _tell_until;
+        // Reacting to a tell: the old plan is played on while it lasts (never an empty thumb).
+        bool reacting = t < _tell_until && planner.plan.Count > 0;
         if (reacting) tell_ticks++;
         planner.frozen = lapse || reacting;
         // Misjudged own height: the planner sees the bird `_bias` px off (drifts, ~1 s).
@@ -317,7 +318,10 @@ public sealed class MotorPlayer
             }
         }
         (_warned, _warned_now) = (_warned_now, _warned);
-        if (fresh && !new_room && MASK_TELLS && _m.react_mu >= 0 && t >= _tell_until && !planner.plan_lives(sim))
+        // Only a plan that was whole before the warning showed: a planner already
+        // in trouble (no full line at its last look) keeps looking every tick.
+        if (fresh && !new_room && MASK_TELLS && _m.react_mu >= 0 && t >= _tell_until && planner.last_look == 0
+            && planner.plan.Count > 0 && !planner.plan_lives(sim))
         {
             _tell_until = t + reaction();
             tell_reactions++;
