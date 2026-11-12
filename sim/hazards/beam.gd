@@ -153,3 +153,20 @@ func checksum(h: int) -> int:
 	if yields:
 		out = mix_all(out, skip)
 	return out
+
+
+## Each row that shows its dashed warning: the beam it turns into.
+func warnings(sim: GameSim, out: PackedInt64Array) -> void:
+	for i in rows.size():
+		if state(i) != State.WARN:
+			continue
+		add_warning(
+			out,
+			beam_left(sim, i),
+			rows[i] - HALF_H,
+			beam_right(sim, i),
+			rows[i] + HALF_H,
+			warn_ticks - cycle_pos(i),
+			ON_TICKS,
+			WARN_KILL
+		)

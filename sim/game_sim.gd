@@ -236,6 +236,17 @@ func checksum() -> int:
 	)
 
 
+## Every warning (tell) on screen now: Hazard.warnings() of each live hazard,
+## Hazard.WARN_SIZE ints per warning. The bots' one shared reading of what is
+## announced but not there yet. Reads only; not part of the checksum.
+func warnings() -> PackedInt64Array:
+	var out := PackedInt64Array()
+	for h: Hazard in room.hazards:
+		if h.alive:
+			h.warnings(self, out)
+	return out
+
+
 # --- Helpers for hazards ------------------------------------------------------
 
 

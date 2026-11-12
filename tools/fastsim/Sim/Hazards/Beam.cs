@@ -149,4 +149,14 @@ public class Beam : Hazard
         if (yields) out_ = mix_all(out_, skip);
         return out_;
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (state(i) != State.WARN) continue;
+            add_warning(out_, beam_left(sim, i), rows[i] - HALF_H, beam_right(sim, i), rows[i] + HALF_H,
+                warn_ticks - cycle_pos(i), ON_TICKS, WARN_KILL);
+        }
+    }
 }

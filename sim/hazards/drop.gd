@@ -277,3 +277,14 @@ func checksum(h: int) -> int:
 			_rng.state_checksum()
 		]
 	)
+
+
+## While the column is marked: the column the drop falls down (as wide as its
+## sway for WOBBLE), from the ceiling to the floor, for the fall. What comes
+## after the landing (shards, a grown floor spike) has no mark of its own.
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if phase != Phase.WARN:
+		return
+	var half := radius + (SWAY if style == Style.WOBBLE else 0)
+	var dur := (SimConfig.WORLD_H + radius - TOP) / speed + 1
+	add_warning(out, x - half, TOP - radius, x + half, SimConfig.WORLD_H, timer, dur, WARN_KILL)

@@ -11,6 +11,8 @@ extends SceneTree
 ##   run <name> <seed> <season> <practice> <actions> <checksums>
 ##     actions: 0 wait, 1 tap, r revive (between steps, no tick); one
 ##     checksum (GameSim.checksum()) after each action, comma separated.
+##     Then "w:<n>": the warnings on screen after each action
+##     (GameSim.warnings()), all mixed into one number.
 ##   search <name> <seed> <season> <practice> <ticks> <ok> <survived> <taps>
 ##     SurvivalSearch from a fresh sim; the C# search must find the same taps.
 ##   case <name> <setup> <driver> <actions> <checksums>
@@ -228,12 +230,14 @@ func _setup_case(name: String, text: String, ticks: int, hold: int) -> void:
 	var y0 := sim.state.y
 	var actions := ""
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	for t in ticks:
 		if sim.is_over():
 			if not sim.revive():
 				break
 			actions += "r"
 			sums.append(str(sim.checksum()))
+			w = _warn_mix(w, sim)
 			continue
 		var tap: bool
 		if t < hold:
@@ -244,7 +248,8 @@ func _setup_case(name: String, text: String, ticks: int, hold: int) -> void:
 		sim.step(tap)
 		actions += "1" if tap else "0"
 		sums.append(str(sim.checksum()))
-	_lines.append("case %s %s replay %s %s" % [name, text, actions, ",".join(sums)])
+		w = _warn_mix(w, sim)
+	_lines.append("case %s %s replay %s %s" % [name, text, actions, _sums(sums, w)])
 
 
 ## SimBots.gap_seeker as the points check plays it (revives included).
@@ -255,17 +260,20 @@ func _gap_case(name: String, text: String) -> void:
 	var bot := SimRng.new(7)
 	var actions := ""
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	while sim.state.tick < 1500:
 		if sim.is_over():
 			if not (sim.can_revive() and sim.revive()):
 				break
 			actions += "r"
 			sums.append(str(sim.checksum()))
+			w = _warn_mix(w, sim)
 		var tap := SimBots.gap_seeker(sim, bot)
 		sim.step(tap)
 		actions += "1" if tap else "0"
 		sums.append(str(sim.checksum()))
-	_lines.append("case %s %s gap %s %s" % [name, text, actions, ",".join(sums)])
+		w = _warn_mix(w, sim)
+	_lines.append("case %s %s gap %s %s" % [name, text, actions, _sums(sums, w)])
 
 
 ## ArrivalBench.play's player: holds `hold` ticks, then a PlannerBot.
@@ -279,6 +287,7 @@ func _planner_case(
 	var y0 := sim.state.y
 	var actions := ""
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	var n := 0
 	while n < hold + after and not sim.is_over():
 		var tap: bool
@@ -291,8 +300,9 @@ func _planner_case(
 		n += 1
 		actions += "1" if tap else "0"
 		sums.append(str(sim.checksum()))
+		w = _warn_mix(w, sim)
 	var driver := "planner:%d:%d:%d:%d:%d" % [bot_seed, horizon, rollouts, hold, after]
-	_lines.append("case %s %s %s %s %s" % [name, text, driver, actions, ",".join(sums)])
+	_lines.append("case %s %s %s %s %s" % [name, text, driver, actions, _sums(sums, w)])
 
 
 ## SimBots.random_tapper (as Checks.cs Runs plays it) until the run ends.
@@ -303,12 +313,14 @@ func _tap_case(name: String, text: String, bot_seed: int) -> void:
 	var bot := SimRng.new(bot_seed)
 	var actions := ""
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	while not sim.is_over() and sim.state.tick < 20000:
 		var tap := SimBots.random_tapper(sim, bot)
 		sim.step(tap)
 		actions += "1" if tap else "0"
 		sums.append(str(sim.checksum()))
-	_lines.append("case %s %s tap:%d %s %s" % [name, text, bot_seed, actions, ",".join(sums)])
+		w = _warn_mix(w, sim)
+	_lines.append("case %s %s tap:%d %s %s" % [name, text, bot_seed, actions, _sums(sums, w)])
 
 
 func _qsearch_case(name: String, text: String, ticks: int) -> void:
@@ -347,19 +359,22 @@ func _aim_case(name: String, seed_value: int, season: int, practice: int, ticks:
 	var rng := SimRng.new(seed_value)
 	var actions := ""
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	for t in ticks:
 		if sim.is_over():
 			if not sim.revive():
 				break
 			actions += "r"
 			sums.append(str(sim.checksum()))
+			w = _warn_mix(w, sim)
 			continue
 		var tap := PlannerBot.aim(sim, rng) or not sim.state.started
 		sim.step(tap)
 		actions += "1" if tap else "0"
 		sums.append(str(sim.checksum()))
+		w = _warn_mix(w, sim)
 	_lines.append(
-		"run %s %d %d %d %s %s" % [name, seed_value, season, practice, actions, ",".join(sums)]
+		"run %s %d %d %d %s %s" % [name, seed_value, season, practice, actions, _sums(sums, w)]
 	)
 
 
@@ -392,9 +407,25 @@ func _search_case(name: String, seed_value: int, season: int, practice: int, tic
 		return
 	var replay := GameSim.new(seed_value, season, practice)
 	var sums := PackedStringArray()
+	var w := SimHash.SEED
 	for b in search.best_inputs:
 		replay.step(b == 1)
 		sums.append(str(replay.checksum()))
+		w = _warn_mix(w, replay)
 	_lines.append(
-		"run %s %d %d %d %s %s" % [name, seed_value, season, practice, taps, ",".join(sums)]
+		"run %s %d %d %d %s %s" % [name, seed_value, season, practice, taps, _sums(sums, w)]
 	)
+
+
+## The checksums of a run or case, then " w:<n>": every tick's warnings
+## (GameSim.warnings) mixed into one number, so the C# copy must show the same tells.
+static func _sums(sums: PackedStringArray, w: int) -> String:
+	return "%s w:%d" % [",".join(sums), w]
+
+
+static func _warn_mix(w: int, sim: GameSim) -> int:
+	var all := sim.warnings()
+	var out := SimHash.mix(w, all.size())
+	for v: int in all:
+		out = SimHash.mix(out, v)
+	return out

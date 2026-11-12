@@ -79,3 +79,14 @@ func touch(sim: GameSim) -> void:
 
 func checksum(h: int) -> int:
 	return mix_all(h, [mode, a_y0, a_y1, a_dir, b_y0, b_y1, b_dir])
+
+
+## Gusty wind during its warning: each band, for the gust (a push, not a kill).
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if not warning():
+		return
+	var eta := GUST_CALM + GUST_WARN - posmod(t, GUST_PERIOD)
+	var dur := GUST_PERIOD - GUST_CALM - GUST_WARN
+	add_warning(out, 0, a_y0, SimConfig.WORLD_W, a_y1, eta, dur, WARN_PUSH)
+	if b_dir != 0:
+		add_warning(out, 0, b_y0, SimConfig.WORLD_W, b_y1, eta, dur, WARN_PUSH)

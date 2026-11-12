@@ -81,4 +81,10 @@ public class SplittingBouncer : Bouncer
             c.other = (Bouncer)other.clone_deep();
         return c;
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (other != null || t < SPLIT_AT) return;
+        add_warning(out_, x - radius, y - radius, x + radius, y + radius, WARN - warn, 1, WARN_KILL);
+    }
 }

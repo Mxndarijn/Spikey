@@ -151,4 +151,11 @@ public sealed class Bubble : Hazard
 
     public override long checksum(long h) =>
         mix_all(h, x, y, vy, next_x, G.B(carrying), lane, cooldown, since_pop, radius, G.B(spiked), wait, G.B(has_coin));
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (!spiked || wait <= 0 || wait > 3 * WARN) return;
+        long dur = (SimConfig.WORLD_H + radius - POP_TOP) / -vy + 1;
+        add_warning(out_, x - radius, POP_TOP - radius, x + radius, SimConfig.WORLD_H, wait, dur, WARN_KILL);
+    }
 }

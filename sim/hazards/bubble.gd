@@ -180,3 +180,15 @@ func checksum(h: int) -> int:
 			int(has_coin)
 		]
 	)
+
+
+## A spiked bubble waiting under the floor: its column, for the rise. Shown
+## from 3 * WARN steps before it rises (before that its glow is too faint to
+## tell the column: bubble_painter.gd).
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if not spiked or wait <= 0 or wait > 3 * WARN:
+		return
+	var dur := (SimConfig.WORLD_H + radius - POP_TOP) / -vy + 1
+	add_warning(
+		out, x - radius, POP_TOP - radius, x + radius, SimConfig.WORLD_H, wait, dur, WARN_KILL
+	)

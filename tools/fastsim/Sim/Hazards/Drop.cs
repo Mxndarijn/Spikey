@@ -245,4 +245,12 @@ public sealed class Drop : Hazard
     public override long checksum(long h) => mix_all(
         h, x, y, phase, timer, speed, gap, delay, warn, radius, style, column, base_x, fall_t,
         shard_t, shard_x, shard_dx, shard_y, shard_vy, _rng.state_checksum());
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (phase != Phase.WARN) return;
+        long half = radius + (style == Style.WOBBLE ? SWAY : 0);
+        long dur = (SimConfig.WORLD_H + radius - TOP) / speed + 1;
+        add_warning(out_, x - half, TOP - radius, x + half, SimConfig.WORLD_H, timer, dur, WARN_KILL);
+    }
 }

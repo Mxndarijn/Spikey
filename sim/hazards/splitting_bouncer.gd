@@ -81,3 +81,11 @@ func checksum(h: int) -> int:
 	if other != null:
 		out = other.checksum(out)
 	return out
+
+
+## While it shakes: the ball where it is now (the two halves start there). It
+## splits at the end of the shaking, or later, once the bird is CLEAR of it.
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if other != null or t < SPLIT_AT:
+		return
+	add_warning(out, x - radius, y - radius, x + radius, y + radius, WARN - warn, 1, WARN_KILL)

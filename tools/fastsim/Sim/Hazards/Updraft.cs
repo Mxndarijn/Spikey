@@ -101,4 +101,11 @@ public class Updraft : Hazard
     }
 
     public override long checksum(long h) => mix_all(h, x0, x1, lift, drift_min, drift_span, gust, phase);
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (gust != Gust.WARN) return;
+        long eta = GUST_OFF + GUST_WARN - gust_step();
+        add_warning(out_, x0, SimConfig.KILL_TOP, x1, SimConfig.KILL_BOTTOM, eta, GUST_ON, WARN_PUSH);
+    }
 }

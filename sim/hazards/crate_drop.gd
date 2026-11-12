@@ -236,3 +236,28 @@ func checksum(h: int) -> int:
 		out = mix_all(out, [col_b, y_b, vy_b, int(done), int(done_b)])
 	out = mix_all(out, heights)
 	return mix_all(out, coins)
+
+
+## While the marker shows: the column each marked crate falls down, from the
+## top of the room to its stack, for the fall. (The stack it leaves is a
+## thing on screen by then, not a warning.)
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if col < 0 or warn_left <= 0:
+		return
+	_warn_col(out, col)
+	if col_b >= 0:
+		_warn_col(out, col_b)
+
+
+func _warn_col(out: PackedInt64Array, c: int) -> void:
+	var land := stack_top(c) - crate_h
+	# Steps of the fall, as step() moves the crate.
+	var top := -crate_h
+	var speed := 0
+	var dur := 0
+	while top < land:
+		speed = mini(speed + FALL_ACCEL, MAX_FALL)
+		top += speed
+		dur += 1
+	var x := col_left(c)
+	add_warning(out, x, -crate_h, x + crate_w, stack_top(c), warn_left, dur, WARN_KILL)

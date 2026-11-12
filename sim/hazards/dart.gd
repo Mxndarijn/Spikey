@@ -192,3 +192,13 @@ func checksum(h: int) -> int:
 	if pair or lane_count != LANES or lanes_speed != LANES_SPEED or lanes_flash != LANES_FLASH:
 		out = mix_all(out, [int(pair), lane2_y, lane_count, lane_min, lanes_speed, lanes_flash])
 	return out
+
+
+## While the spike glows: every marked lane, wall to wall, for the flight.
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if state != State.GLOW:
+		return
+	var eta := (lanes_flash if lanes else GLOW_TICKS) - (t - since)
+	var dur := (SimConfig.WORLD_W + LENGTH) / (lanes_speed if lanes else SPEED) + 1
+	for ly: int in shot_lanes():
+		add_warning(out, 0, ly - HALF_H, SimConfig.WORLD_W, ly + HALF_H, eta, dur, WARN_KILL)

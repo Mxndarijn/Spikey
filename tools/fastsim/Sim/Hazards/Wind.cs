@@ -69,4 +69,13 @@ public class Wind : Hazard
     }
 
     public override long checksum(long h) => mix_all(h, mode, a_y0, a_y1, a_dir, b_y0, b_y1, b_dir);
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (!warning()) return;
+        long eta = GUST_CALM + GUST_WARN - G.posmod(t, GUST_PERIOD);
+        long dur = GUST_PERIOD - GUST_CALM - GUST_WARN;
+        add_warning(out_, 0, a_y0, SimConfig.WORLD_W, a_y1, eta, dur, WARN_PUSH);
+        if (b_dir != 0) add_warning(out_, 0, b_y0, SimConfig.WORLD_W, b_y1, eta, dur, WARN_PUSH);
+    }
 }

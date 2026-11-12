@@ -11,6 +11,12 @@ extends RefCounted
 ## - Public fields are what its painter (game/run/painters/<kind>_painter.gd)
 ##   draws. Looks (a room's skin) live in game/, never here.
 
+## Ints per warning in warnings(): x0, y0, x1, y1, eta, dur, kind.
+const WARN_SIZE := 7
+## Warning kinds: the box will kill, or it will only push the bird (air).
+const WARN_KILL := 0
+const WARN_PUSH := 1
+
 ## Painter key, e.g. "block". One painter per kind.
 var kind := ""
 ## False once the hazard is gone (a coin taken, a ball on the floor).
@@ -103,6 +109,32 @@ func wall_shift(_sim: GameSim, _side: int) -> int:
 ## it is a bounce, as if it weren't there. No RNG draws.
 func locks_exit(_sim: GameSim) -> bool:
 	return false
+
+
+## The warnings (tells) this hazard shows on screen right now: danger that is
+## announced but not there yet. Each is WARN_SIZE ints added to `out`: the box
+## the danger will cover (x0, y0, x1, y1, sub-units, not grown by the bird's
+## size; for a thing that moves, everywhere it passes), `eta` steps until it
+## starts, `dur` steps it lasts, and a kind (WARN_KILL, WARN_PUSH).
+## Only what the hazard's painter draws: nothing that is still hidden. Danger
+## that is already there is not a warning (kills() has it).
+## For the bots (one shared reading of every tell). It only reads: it changes
+## nothing, draws nothing from the RNG and is not part of the checksum.
+func warnings(_sim: GameSim, _out: PackedInt64Array) -> void:
+	pass
+
+
+## Adds one warning to `out` (helper for subclasses).
+static func add_warning(
+	out: PackedInt64Array, x0: int, y0: int, x1: int, y1: int, eta: int, dur: int, p_kind: int
+) -> void:
+	out.append(mini(x0, x1))
+	out.append(mini(y0, y1))
+	out.append(maxi(x0, x1))
+	out.append(maxi(y0, y1))
+	out.append(eta)
+	out.append(dur)
+	out.append(p_kind)
 
 
 func checksum(h: int) -> int:

@@ -155,4 +155,13 @@ public class Dart : Hazard
             out_ = mix_all(out_, G.B(pair), lane2_y, lane_count, lane_min, lanes_speed, lanes_flash);
         return out_;
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (state != State.GLOW) return;
+        long eta = (lanes ? lanes_flash : GLOW_TICKS) - (t - since);
+        long dur = (SimConfig.WORLD_W + LENGTH) / (lanes ? lanes_speed : SPEED) + 1;
+        add_warning(out_, 0, lane_y - HALF_H, SimConfig.WORLD_W, lane_y + HALF_H, eta, dur, WARN_KILL);
+        if (pair) add_warning(out_, 0, lane2_y - HALF_H, SimConfig.WORLD_W, lane2_y + HALF_H, eta, dur, WARN_KILL);
+    }
 }

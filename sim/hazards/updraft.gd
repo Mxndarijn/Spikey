@@ -126,3 +126,11 @@ func _place(center: int) -> void:
 
 func checksum(h: int) -> int:
 	return mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase])
+
+
+## A gusty vent during its warning: the column, for the gust (a push, not a kill).
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if gust != Gust.WARN:
+		return
+	var eta := GUST_OFF + GUST_WARN - gust_step()
+	add_warning(out, x0, SimConfig.KILL_TOP, x1, SimConfig.KILL_BOTTOM, eta, GUST_ON, WARN_PUSH)

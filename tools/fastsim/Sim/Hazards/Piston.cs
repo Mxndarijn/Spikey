@@ -200,4 +200,11 @@ public class Piston : Hazard
     }
 
     public override long checksum(long h) => mix_all(h, side, y, delay, half, G.B(skip));
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (state() != State.GLOW) return;
+        add_warning(out_, base_x(), y - HALF_H, _far_x(), y + HALF_H,
+            IDLE_TICKS + glow_ticks - cycle_pos(), EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS, WARN_KILL);
+    }
 }

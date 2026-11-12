@@ -241,3 +241,19 @@ func kills(sim: GameSim) -> bool:
 
 func checksum(h: int) -> int:
 	return mix_all(h, [side, y, delay, half, int(skip)])
+
+
+## While it glows: the whole reach of the slam, until it is back in the wall.
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if state() != State.GLOW:
+		return
+	add_warning(
+		out,
+		base_x(),
+		y - HALF_H,
+		_far_x(),
+		y + HALF_H,
+		IDLE_TICKS + glow_ticks - cycle_pos(),
+		EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS,
+		WARN_KILL
+	)

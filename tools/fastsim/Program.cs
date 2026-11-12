@@ -486,11 +486,14 @@ static class Parity
                 string actions = f[5];
                 var sums = f.Length > 6 && f[6].Length > 0 ? f[6].Split(',') : Array.Empty<string>();
                 var sim = new GameSim(seed, season, practice);
+                long w = SimHash.SEED;
+                var warns = new List<long>();
                 for (int i = 0; i < actions.Length; i++)
                 {
                     char a = actions[i];
                     if (a == 'r') sim.revive();
                     else sim.step(a == '1');
+                    w = warn_mix(w, sim, warns);
                     Interlocked.Increment(ref ticks);
                     if (sim.checksum() != long.Parse(sums[i]))
                     {
@@ -499,6 +502,7 @@ static class Parity
                         return;
                     }
                 }
+                if (warns_differ(f, w)) fails.Add($"{tag}: the state matches but the warnings (Hazard.warnings) differ somewhere in the run");
             }
             else if (f[0] == "search")
             {
@@ -557,6 +561,18 @@ static class Parity
         return sim;
     }
 
+    /// Every tick's warnings mixed into one number (tools/fastsim_parity.gd, _warn_mix).
+    static long warn_mix(long w, GameSim sim, List<long> warns)
+    {
+        sim.warnings(warns);
+        w = SimHash.mix(w, warns.Count);
+        foreach (long v in warns) w = SimHash.mix(w, v);
+        return w;
+    }
+
+    /// True when the line ends in "w:<n>" (the recorded warnings) and `w` is another number.
+    static bool warns_differ(string[] f, long w) => f[^1].StartsWith("w:") && long.Parse(f[^1][2..]) != w;
+
     /// Replays a `case` line; with a bot driver the C# bot must also choose
     /// every tap itself. Null when it matches, else where it differs.
     static string play_case(string[] f)
@@ -571,6 +587,8 @@ static class Parity
         long hold = d[0] == "planner" ? long.Parse(d[4]) : 0;
         long y0 = sim.state.y;
         long n = 0;
+        long w = SimHash.SEED;
+        var warns = new List<long>();
         for (int i = 0; i < actions.Length; i++)
         {
             char a = actions[i];
@@ -593,9 +611,11 @@ static class Parity
                 sim.step(a == '1');
                 n++;
             }
+            w = warn_mix(w, sim, warns);
             if (sim.checksum() != long.Parse(sums[i]))
                 return $"differs at action {i} ('{a}'), tick {sim.state.tick}, room {RoomCatalog.all()[(int)sim.state.room_kind].id}";
         }
+        if (warns_differ(f, w)) return "the state matches but the warnings (Hazard.warnings) differ somewhere in the case";
         // The bot must also stop where the GDScript one stopped.
         if (d[0] == "gap" && (sim.is_over() ? sim.can_revive() : sim.state.tick < 1500)) return "the gap run ended early";
         if (d[0] == "planner" && !sim.is_over() && n < hold + long.Parse(d[5])) return "the planner run ended early";

@@ -218,4 +218,27 @@ public sealed class CrateDrop : Hazard
         out_ = mix_all(out_, heights);
         return mix_all(out_, coins);
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (col < 0 || warn_left <= 0) return;
+        _warn_col(out_, col);
+        if (col_b >= 0) _warn_col(out_, col_b);
+    }
+
+    void _warn_col(List<long> out_, long c)
+    {
+        long land = stack_top(c) - crate_h;
+        long top = -crate_h;
+        long speed = 0;
+        long dur = 0;
+        while (top < land)
+        {
+            speed = G.mini(speed + FALL_ACCEL, MAX_FALL);
+            top += speed;
+            dur += 1;
+        }
+        long x = col_left(c);
+        add_warning(out_, x, -crate_h, x + crate_w, stack_top(c), warn_left, dur, WARN_KILL);
+    }
 }

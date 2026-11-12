@@ -185,6 +185,15 @@ public sealed class GameSim
         return false;
     }
 
+    /// Every warning (tell) on screen now: Hazard.warnings of each live hazard,
+    /// Hazard.WARN_SIZE numbers per warning, added to `out_` (cleared first).
+    public void warnings(List<long> out_)
+    {
+        out_.Clear();
+        for (int i = 0; i < room.hazards.Count; i++)
+            if (room.hazards[i].alive) room.hazards[i].warnings(this, out_);
+    }
+
     public long checksum() => SimHash.mix(SimHash.mix(room.checksum(state.checksum()), _rng.state_checksum()), _spine.state_checksum());
 
     // --- Helpers for hazards ---

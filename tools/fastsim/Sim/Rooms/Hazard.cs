@@ -22,6 +22,24 @@ public abstract class Hazard
     public virtual bool near_row(GameSim sim, long _y, long _half, long _from, long _to) => false;
     public virtual long wall_shift(GameSim sim, long side) => 0;
     public virtual bool locks_exit(GameSim sim) => false;
+    public const int WARN_SIZE = 7;
+    public const long WARN_KILL = 0, WARN_PUSH = 1;
+
+    /// The warnings (tells) on screen now, WARN_SIZE numbers each added to `out_`:
+    /// x0, y0, x1, y1, eta, dur, kind (see sim/rooms/hazard.gd). Reads only.
+    public virtual void warnings(GameSim sim, List<long> out_) { }
+
+    public static void add_warning(List<long> out_, long x0, long y0, long x1, long y1, long eta, long dur, long p_kind)
+    {
+        out_.Add(G.mini(x0, x1));
+        out_.Add(G.mini(y0, y1));
+        out_.Add(G.maxi(x0, x1));
+        out_.Add(G.maxi(y0, y1));
+        out_.Add(eta);
+        out_.Add(dur);
+        out_.Add(p_kind);
+    }
+
     public virtual long checksum(long h) => h;
 
     /// A deep copy. The default copies every plain field; a subclass with
