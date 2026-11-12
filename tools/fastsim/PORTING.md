@@ -7,8 +7,10 @@ one source of truth.
 
 **It must match `sim/` exactly.** `tools/fastsim_parity.gd` records runs in
 Godot (inputs plus a checksum every tick, in every room); `fastsim parity`
-replays them and stops at the first tick that differs. Run it after any sim
-change:
+replays them and stops at the first tick that differs. Each recorded run
+also ends in `w:<n>`, every tick's `GameSim.warnings()` mixed into one number:
+the C# hazards must show the same tells (they are not part of the checksum).
+Run it after any sim change:
 
     powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 parity
 
@@ -104,7 +106,9 @@ line. Keep names, order and structure the same.
   `touch(GameSim sim)`, `adjust_wall(GameSim sim, long side, long mask)`,
   `on_bounce(GameSim sim, SimRng rng)`,
   `on_flap(GameSim sim)`, `blocks_exit(GameSim sim, long side, long y)`,
-  `guards_edge(GameSim sim, bool top)`, `checksum(long h)`.
+  `guards_edge(GameSim sim, bool top)`, `checksum(long h)`,
+  `warnings(GameSim sim, List<long> out_)` (the GDScript `PackedInt64Array`
+  is a `List<long>`; add each warning with `add_warning`, as GDScript does).
   `Hazard.mix_all(h, a, b, c)` takes values directly (params) or a
   `List<long>`. A GDScript `mix_all(h, [a, b] + xs)` must mix in the same order.
 - `_init(...)` -> a constructor with the same defaults. Set `kind` as GDScript

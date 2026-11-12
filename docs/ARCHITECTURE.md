@@ -205,6 +205,16 @@ start and never comes back.
   view both read `GameSim.wall_shift`); `locks_exit` turns an open exit into a
   bounce (Locked Out). A hazard in a room with variants may read
   `room.variant_id()` in `setup()` instead of each variant adding its own.
+  A hazard that announces its danger (a glow, a marked column, a dashed line)
+  also reports that tell in `warnings()`: the box the danger will cover, the
+  steps until it starts (`eta`), the steps it lasts and whether it kills or
+  only pushes (`Hazard.WARN_SIZE` ints each; `GameSim.warnings()` gathers them).
+  That is the bots' one shared reading of tells (BlindPlanner's human
+  reaction, MPC Sight, the RL Observer; `docs/BOT_SIGHT.md`). It reports only
+  what the painter draws, reads only, draws nothing from the RNG and is not in
+  the checksum, so it never changes a run. A new hazard with a tell must add
+  it: the sight check's `warn` column and `tests/unit/test_warnings.gd` fail
+  otherwise.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
