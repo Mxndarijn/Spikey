@@ -115,12 +115,13 @@ public static class Review
         bot.aim_exit = L("aimexit", 1) != 0;
         bot.wall_look = L("walllook", 1) != 0;
         bot.full_speeds = L("fullspeeds", 1) != 0;
+        bot.aim_anchor = L("aimanchor", 0) != 0;
         bot.fine_speeds = L("finespeeds", bot.fine_speeds);
         bot.spike_margin = L("spikemargin", bot.spike_margin ? 1 : 0) != 0;
         bot.bucket_px = L("bpx", bot.bucket_px);
         bot.speed_buckets = L("speeds", bot.speed_buckets);
         bot.fine_px = L("fine", bot.fine_px);
-        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
+        return $"h {bot.horizon} past {bot.past} k {bot.replan}/{bot.replan_danger} n {bot.copies} lines {bot.lines} wobble {bot.wobble} part {bot.part} after {bot.after} band {bot.band} coarse {bot.coarse_px} mid {bot.mid_cost} tap {bot.tap_cost} margin {bot.margin}/{bot.margin_cost}{(bot.spike_margin ? " +spikes" : "")} fangs {bot.worst_fangs} rules {(bot.no_pingpong ? "P" : "-")}{(bot.keep_plan ? "K" : "-")}{(bot.bounce_look ? "B" : "-")}{(bot.wide_key ? "W" : "-")}{(bot.aim_exit ? "A" : "-")}{(bot.wall_look ? "L" : "-")}{(bot.full_speeds ? "S" : "-")}{(bot.aim_anchor ? "N" : "-")} buckets {bot.bucket_px}px x{bot.speed_buckets} fine {bot.fine_px}";
     }
 
     /// `rl review atlas`: every death of the BlindPlanner with a verdict.

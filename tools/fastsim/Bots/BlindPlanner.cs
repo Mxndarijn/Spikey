@@ -53,7 +53,9 @@ public sealed class BlindPlanner
     ///   very fine buckets before trying shorter looks.
     /// full_speeds: the speed buckets span the whole range of fall speeds
     ///   (before, every fall above 3.3 px a tick shared one bucket).
-    public bool wall_look = true, full_speeds = true;
+    /// aim_anchor: with no exit on screen the height cost pulls to the room's
+    ///   anchor (the next gaps are drawn around it) instead of the middle.
+    public bool wall_look = true, full_speeds = true, aim_anchor = false;
     public long wall_looks;
     public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
     public long kept_plans;
@@ -372,6 +374,7 @@ public sealed class BlindPlanner
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
         bool exit_shown = root.state.exit_open || root.state.exit_preview;
         if (aim_exit && exit_shown) mid = root.state.exit_a_y;
+        else if (aim_anchor) mid = root.state.anchor_y;
         var parents = new List<int>();
         var taps = new List<byte>();
         var frontier = new List<Node> { new Node { sim = root, parent = -1 } };
