@@ -294,6 +294,7 @@ public static class Review
         long looks = 0, nodes = 0;
         ArrivalMemo.on = opts.GetValueOrDefault("memo", "1") != "0";
         ArrivalMemo.verify = opts.GetValueOrDefault("memo", "1") == "2";
+        BlindPlanner.pool = opts.GetValueOrDefault("pool", "1") != "0";
         // Warm up the JIT (tiered PGO) so the first seeds do not count the compile.
         {
             var sim = new GameSim(999);
@@ -356,7 +357,7 @@ public static class Review
         Console.WriteLine($"  {all} ticks in {sec:F1} s = {all / sec:F0} ticks/s, {all / sec / threads:F0} per thread; {deaths} deaths in {pts} points; looks {looks} ({1000.0 * sec * threads / Math.Max(1, looks):F3} ms each)" + (world ? $", nodes {nodes} ({nodes / sec / threads / 1e6:F2} M/s/thread)" : ""));
         ulong all_fp = 0;
         foreach (var r in res) all_fp = (all_fp ^ r.taps) * 1099511628211UL;
-        Console.WriteLine($"  taps fingerprint {all_fp:x16} (same = same play); arrival memo {(ArrivalMemo.on ? "on" : "off")}: {ArrivalMemo.hits} hits, {ArrivalMemo.misses} misses{(ArrivalMemo.verify ? $", {ArrivalMemo.wrong} wrong" : "")}");
+        Console.WriteLine($"  taps fingerprint {all_fp:x16} (same = same play); arrival memo {(ArrivalMemo.on ? "on" : "off")}: {ArrivalMemo.hits} hits, {ArrivalMemo.misses} misses{(ArrivalMemo.verify ? $", {ArrivalMemo.wrong} wrong" : "")}; sim pool {(BlindPlanner.pool ? "on" : "off")}");
         Console.WriteLine($"  GC: {alloc / 1e9:F1} GB allocated ({alloc / Math.Max(1, all) / 1024.0:F0} KB/tick), gen0 {GC.CollectionCount(0) - g0} gen1 {GC.CollectionCount(1) - g1} gen2 {GC.CollectionCount(2) - g2}, pauses {pause:F1} s = {100 * pause / sec:F1}% of wall time");
         double busy = sec * threads * 1000;
         for (int k = 0; k < Prof.N; k++)

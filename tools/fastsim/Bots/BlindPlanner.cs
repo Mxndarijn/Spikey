@@ -506,6 +506,17 @@ public sealed class BlindPlanner
         return c;
     }
 
+    /// Reuse the sims of lines that died or lost their bucket (Bots/SimPool.cs); off = allocate every copy.
+    public static bool pool = true;
+    readonly Stack<GameSim> _pool = new();
+
+    GameSim clone(GameSim s) => pool && _pool.Count > 0 ? SimPool.copy(s, _pool.Pop()) : s.clone_deep();
+
+    void drop(GameSim s)
+    {
+        if (pool && _pool.Count < 4096) _pool.Push(s);
+    }
+
     struct Node
     {
         public GameSim sim;
@@ -556,18 +567,26 @@ public sealed class BlindPlanner
                 {
 #if PROF
                     long q0 = Prof.now();
-                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    var s = a == 1 ? clone(e.sim) : e.sim;
                     if (a == 1) Prof.add(Prof.CLONE, q0);
                     q0 = Prof.now();
                     s.step(a == 1);
                     Prof.add(Prof.STEP, q0);
 #else
-                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    var s = a == 1 ? clone(e.sim) : e.sim;
                     s.step(a == 1);
 #endif
-                    if (s.is_over()) continue;
+                    if (s.is_over())
+                    {
+                        drop(s);
+                        continue;
+                    }
                     // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
-                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
+                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1))
+                    {
+                        drop(s);
+                        continue;
+                    }
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
@@ -585,7 +604,12 @@ public sealed class BlindPlanner
                     var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost, since = a == 1 ? 1 : e.since + 1 };
                     if (slots.TryGetValue(key, out int at))
                     {
-                        if (cost < next[at].cost) next[at] = node;
+                        if (cost < next[at].cost)
+                        {
+                            drop(next[at].sim);
+                            next[at] = node;
+                        }
+                        else drop(s);
                     }
                     else
                     {
