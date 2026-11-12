@@ -66,9 +66,6 @@ static partial class Checks
         public static readonly Dictionary<(string cls, string bot, string what), string> KNOWN = new()
         {
             [("BossWatcher", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
-            [("BossWatcher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
-            [("BossCrusher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
-            [("BossSaw", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
             [("Beam", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("BossCrusher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
             [("BossSaw", "rl", "tell")] = "planner-next (RL tell input for every hazard)",

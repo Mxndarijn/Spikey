@@ -64,8 +64,7 @@ flight, each with the session fixing it. Remove an entry when its fix lands
 Gaps on 2026-11-12 (the check runs 112 rooms in about 10 s on 8 workers):
 - world / worldobs: boss models landed (World/ModelsBoss.cs); worldobs still
   sees only 41% of the Watcher's tells (frozen bot, no owner).
-- mpc: no boss tells (Sight reads only Piston and Beam warnings). Fix: the MPC
-  boss sight branch.
+- mpc: boss tells landed (Mpc/BossSight.cs); every boss cell is seen.
 - rl: no tell input at all (its grid is kills() now and 6 ticks back), so it is
   blind to every tell. Owner: planner-next.
 - worldobs tells (Beam, Dart, Drop, Firework, Piston), mpc tells (CrateDrop,
