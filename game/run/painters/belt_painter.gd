@@ -18,7 +18,8 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	for side in 2:
 		var x := 0.0 if side == 0 else RoomView.W - RAIL_W
 		var shift := HazardLayer.px(h.left_shift if side == 0 else h.right_shift)
-		c.draw_rect(Rect2(x, top, RAIL_W, span), Color(edge, 0.35))
+		# The rail runs band to band (the treads ride the slot span).
+		c.draw_rect(Rect2(x, 0.0, RAIL_W, RoomView.H), Color(edge, 0.35))
 		var k := 0.0
 		while k < span:
 			var y := top + fposmod(k + shift, span)

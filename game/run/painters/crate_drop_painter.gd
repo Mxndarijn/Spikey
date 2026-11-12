@@ -69,10 +69,31 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			_marker(c, h, h.col_b, theme, time)
 		return
 	if not h.done:
-		_crate(c, Rect2(HazardLayer.px(h.col_left(h.col)), HazardLayer.px(h.y), w, ch), look, gift)
+		_falling(
+			c, Rect2(HazardLayer.px(h.col_left(h.col)), HazardLayer.px(h.y), w, ch), look, gift
+		)
 	if h.col_b >= 0 and not h.done_b:
 		var xb := HazardLayer.px(h.col_left(h.col_b))
-		_crate(c, Rect2(xb, HazardLayer.px(h.y_b), w, ch), look, gift)
+		_falling(c, Rect2(xb, HazardLayer.px(h.y_b), w, ch), look, gift)
+
+
+## A falling crate comes out from behind the ceiling spikes: above the
+## ceiling's kill line (deadly anyway) it isn't drawn, so it never shows on top
+## of the spike row while it drops in.
+static func _falling(c: CanvasItem, r: Rect2, look: HazardLook, gift: bool) -> void:
+	var top := HazardLayer.px(SimConfig.KILL_TOP)
+	if r.end.y <= top:
+		return
+	if r.position.y >= top:
+		_crate(c, r, look, gift)
+		return
+	# Partly out: the visible slice keeps its rounded bottom and its planks.
+	var shown := Rect2(r.position.x, top, r.size.x, r.end.y - top)
+	HazardLayer.rock_box(c, shown, look)
+	var edge := Color(look.theme.spike_edge, 0.75)
+	var inner := shown.grow(-5.0)
+	if inner.size.y > 2.0 and not gift:
+		c.draw_rect(inner, edge, false, 2.0, true)
 
 
 ## 0..1: how far a floor spike from `left` to `right` (px) has sunk.

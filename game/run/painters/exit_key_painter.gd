@@ -32,7 +32,8 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			grow = clampf(float(h.t - h.born[i]) / POP_STEPS, 0.0, 1.0)
 		var p := HazardLayer.at(h.kx[i], h.ky[i]) + Vector2(0, bob if i % 2 == 0 else -bob)
 		_key(c, p, 0.4 + 0.6 * grow, UiTokens.COIN, UiTokens.COIN_EDGE)
-	_counter(c, h)
+	# Under the HUD score, which a practice or replay banner pushes down.
+	_counter(c, h, COUNTER_Y + look.score_top - HazardLook.RUN_SCORE_TOP)
 	if h.door_open and h.locked():
 		var x := LOCK_INSET if h.door_side == 0 else RoomView.W - LOCK_INSET
 		_lock(c, Vector2(x, HazardLayer.px(h.door_a_y)), h)
@@ -51,13 +52,13 @@ func _key(c: CanvasItem, p: Vector2, sc: float, fill: Color, edge: Color) -> voi
 
 ## A cream pill with one slot per key: grey while missing, gold once taken,
 ## then the count. With every key the pill turns mint.
-func _counter(c: CanvasItem, h: ExitKeyHazard) -> void:
+func _counter(c: CanvasItem, h: ExitKeyHazard, cy: float) -> void:
 	var w := h.count * SLOT_W + 52.0
-	var rect := Rect2(RoomView.W / 2.0 - w / 2.0, COUNTER_Y - COUNTER_H / 2.0, w, COUNTER_H)
+	var rect := Rect2(RoomView.W / 2.0 - w / 2.0, cy - COUNTER_H / 2.0, w, COUNTER_H)
 	var fill := UiTokens.SUCCESS if h.done() else UiTokens.PANEL
 	UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0).draw(c.get_canvas_item(), rect)
 	for i in h.count:
-		var p := Vector2(rect.position.x + 22.0 + i * SLOT_W, COUNTER_Y)
+		var p := Vector2(rect.position.x + 22.0 + i * SLOT_W, cy)
 		if i < h.got:
 			_key(c, p, 0.85, UiTokens.COIN, UiTokens.COIN_EDGE)
 		else:
@@ -65,7 +66,7 @@ func _counter(c: CanvasItem, h: ExitKeyHazard) -> void:
 	var text := "%d/%d" % [h.got, h.count]
 	c.draw_string(
 		GameFonts.wide(900, 100),
-		Vector2(rect.end.x - 40.0, COUNTER_Y + COUNTER_FONT * 0.36),
+		Vector2(rect.end.x - 40.0, cy + COUNTER_FONT * 0.36),
 		text,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		36.0,

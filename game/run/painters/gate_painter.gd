@@ -13,12 +13,13 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var theme := look.theme
 	var half := HazardLayer.px(h.HALF_W)
 	var cx := HazardLayer.px(h.x)
-	var top := HazardLayer.px(h.TOP)
-	var bottom := HazardLayer.px(h.BOTTOM)
 	var gap_top := HazardLayer.px(h.gap_top())
 	var gap_bottom := HazardLayer.px(h.gap_bottom())
-	HazardLayer.rock_box(c, Rect2(cx - half, top, half * 2.0, gap_top - top), look)
-	HazardLayer.rock_box(c, Rect2(cx - half, gap_bottom, half * 2.0, bottom - gap_bottom), look)
+	# The bars come out of the ceiling and floor bands themselves (the sim's
+	# bars stop at the kill lines, which are deadly anyway), so no spike or
+	# sky shows between a bar and its edge.
+	HazardLayer.anchored_bar(c, cx, half, gap_top, true, look)
+	HazardLayer.anchored_bar(c, cx, half, gap_bottom, false, look)
 	_teeth(c, cx, half, gap_top, 1.0, theme)
 	_teeth(c, cx, half, gap_bottom, -1.0, theme)
 

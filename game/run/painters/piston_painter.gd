@@ -45,7 +45,9 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 		return
 	var tip := base + dir * ext
 	var nose_x := tip - dir * minf(NOSE, ext)
-	var body := Rect2(minf(base, nose_x), y - half * 0.7, absf(nose_x - base), half * 1.4)
+	# The rod is as tall as the ram's hitbox (the sim kills over the whole
+	# HALF_H band), so nothing deadly sticks out beside a thinner drawing.
+	var body := Rect2(minf(base, nose_x), y - half, absf(nose_x - base), half * 2.0)
 	if body.size.x > 0.5:
 		HazardLayer.rock_box(c, body, look)
 	# Nose: a plate with teeth pointing into the room.

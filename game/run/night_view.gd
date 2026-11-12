@@ -129,8 +129,19 @@ func _draw_glow() -> void:
 		for y in ys:
 			var c := Vector2(ex, y / float(SimConfig.SUB))
 			draw_line(c - Vector2(0, half_h), c + Vector2(0, half_h), glow, GLOW_W * 2.0, true)
+	# Ceiling and floor: their spike rows outlined faintly, like the walls, so
+	# the dark shows spikes there and not a flat line through their tips.
 	var edge := Color(glow, EDGE_ALPHA)
-	var top := SimConfig.KILL_TOP / float(SimConfig.SUB)
-	var bottom := SimConfig.KILL_BOTTOM / float(SimConfig.SUB)
-	draw_line(Vector2(0, top), Vector2(RoomView.W, top), edge, GLOW_W)
-	draw_line(Vector2(0, bottom), Vector2(RoomView.W, bottom), edge, GLOW_W)
+	var left := _room.side_wall_x(0)
+	var right := _room.side_wall_x(1)
+	var count := int(RoomView.W / (RoomView.EDGE_SPIKE_HALF * 2.0))
+	var step := (right - left) / count
+	var eh := RoomView.EDGE_SPIKE_HALF * step / (RoomView.W / count)
+	for i in count:
+		var cx := left + step * (i + 0.5)
+		for row: Array in [[RoomView.BAND, 1.0], [RoomView.H - RoomView.BAND, -1.0]]:
+			var base := Vector2(cx, row[0])
+			var pts := RoomView.spike_points(
+				base, Vector2(0, row[1]), eh, RoomView.EDGE_SPIKE_DEPTH
+			)
+			draw_polyline(pts, edge, GLOW_W, true)

@@ -12,6 +12,7 @@ extends Node2D
 const PAINTER_DIR := "res://game/run/painters"
 const INK_EDGE := Color("#FFFFFF")
 const INK_LINE_W := 2.0
+const GUIDE_ALPHA := 0.22
 
 static var _painters: Dictionary[String, HazardPainter] = {}
 
@@ -20,6 +21,10 @@ var color_blind_spikes := false:
 	set(value):
 		color_blind_spikes = value
 		queue_redraw()
+
+## Where the HUD's run score starts (Hud.score_placed), for painters that
+## draw under it (the boss bar).
+var score_top := HazardLook.RUN_SCORE_TOP
 
 var _run: RunController
 var _theme: ThemeDef
@@ -62,6 +67,7 @@ func look() -> HazardLook:
 		skin = RoomSkins.of(_run.sim.room.def.id)
 	var out := HazardLook.new(drawn_theme(), _time, skin, color_blind_spikes)
 	out.sim = _run.sim if _run != null else null
+	out.score_top = score_top
 	return out
 
 
@@ -97,6 +103,13 @@ func _draw() -> void:
 		var p := painter(h.kind)
 		if p != null:
 			p.paint(self, h, hazard_look)
+
+
+## A safe guide line (a track, a rail, a ring something rides on): the
+## world's text ink, faint, so it reads on light and night skies alike and is
+## never mistaken for a hazard.
+static func guide(theme: ThemeDef) -> Color:
+	return Color(theme.ink, GUIDE_ALPHA)
 
 
 ## Sub-units to pixels.
@@ -141,5 +154,39 @@ static func rock_box(c: CanvasItem, rect: Rect2, look: HazardLook, alpha: float 
 		box.border_color = Color(INK_EDGE, alpha)
 		box.set_border_width_all(int(INK_LINE_W))
 		box.border_width_top = 3
+	box.anti_aliasing = true
+	box.draw(c.get_canvas_item(), rect)
+
+
+## A deadly bar fixed to the ceiling (`from_top`) or the floor: it runs from
+## the very edge of the cage, so no sky or spike shows between it and the
+## band, and only its free end is rounded.
+static func anchored_bar(
+	c: CanvasItem, x: float, half: float, free_y: float, from_top: bool, look: HazardLook
+) -> void:
+	var edge := 0.0 if from_top else RoomView.H
+	var rect := Rect2(x - half, minf(edge, free_y), half * 2.0, absf(free_y - edge))
+	if rect.size.y < 0.5:
+		return
+	var theme := look.theme
+	var box := StyleBoxFlat.new()
+	box.bg_color = theme.spike
+	var r := int(minf(8.0, rect.size.y / 2.0))
+	if from_top:
+		box.corner_radius_bottom_left = r
+		box.corner_radius_bottom_right = r
+	else:
+		box.corner_radius_top_left = r
+		box.corner_radius_top_right = r
+		box.border_color = Color(theme.spike_edge, 0.8)
+		box.border_width_top = 3
+	if look.ink:
+		box.border_color = INK_EDGE
+		box.border_width_left = int(INK_LINE_W)
+		box.border_width_right = int(INK_LINE_W)
+		if from_top:
+			box.border_width_bottom = int(INK_LINE_W)
+		else:
+			box.border_width_top = 3
 	box.anti_aliasing = true
 	box.draw(c.get_canvas_item(), rect)

@@ -9,6 +9,8 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var h := hazard as CrawlerHazard
 	var theme := look.theme
 	var time := look.time
+	if _first_crawler(h, look):
+		_track(c, look)
 	var r := HazardLayer.px(h.seg_radius)
 	var n: int = h.xs.size()
 	# Quicker crawlers bob quicker (Sprinters).
@@ -26,6 +28,32 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 		var head := HazardLayer.at(h.xs[0], h.ys[0])
 		var facing := (head - HazardLayer.at(h.xs[1], h.ys[1])).normalized()
 		_face(c, head, facing, r)
+
+
+## The path the crawlers walk is a rectangle inside the cage, clear of the
+## walls and edges: a faint dotted track (safe, never the spike colour) so they
+## walk on something instead of floating in the air.
+static func _track(c: CanvasItem, look: HazardLook) -> void:
+	var r := Rect2(
+		HazardLayer.at(CrawlerHazard.LEFT, CrawlerHazard.TOP),
+		HazardLayer.at(CrawlerHazard.W, CrawlerHazard.H)
+	)
+	var col := HazardLayer.guide(look.theme)
+	var corners := [
+		r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)
+	]
+	for i in 4:
+		c.draw_dashed_line(corners[i], corners[(i + 1) % 4], col, 3.0, 6.0, true, true)
+
+
+## Only the room's first crawler draws the track (a swarm shares one).
+static func _first_crawler(h: Hazard, look: HazardLook) -> bool:
+	if look.sim == null:
+		return true
+	for other in look.sim.room.hazards:
+		if other.kind == h.kind and other.alive:
+			return other == h
+	return true
 
 
 static func _segment(c: CanvasItem, p: Vector2, r: float, theme: ThemeDef, head: bool) -> void:

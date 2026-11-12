@@ -7,6 +7,9 @@ const PendulumHazard := preload("res://sim/hazards/pendulum.gd")
 
 ## Chain links per 20 px of chain (14 on the classic 280 px chain).
 const LINK_PX := 20.0
+## The bracket from the ceiling band down to the pivot: its rod and top plate.
+const MOUNT_W := 4.0
+const MOUNT_PLATE := 14.0
 
 
 func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
@@ -22,12 +25,18 @@ func _lantern(c: CanvasItem, pivot: Vector2, lamp: Vector2, r: float, look: Haza
 	var along := lamp - pivot
 	var chain_end := pivot + along * (1.0 - (r * 0.9) / along.length())
 	# Chain: safe, so it is drawn in the world accent, never the spike colour.
-	var link_col := Color(theme.world_accent, 0.85)
+	var link_col := theme.world_accent
 	var links := maxi(6, roundi(along.length() / LINK_PX))
 	for i in links:
 		var p := pivot.lerp(chain_end, (i + 0.5) / links)
-		c.draw_circle(p, 2.2, link_col, false, 1.4, true)
-	c.draw_circle(pivot, 4.0, link_col, true, -1.0, true)
+		c.draw_circle(p, 2.4, link_col, false, 2.0, true)
+	# The pivot hangs at the ceiling's kill line, among the spike tips: a short
+	# bracket runs up into the ceiling band so the chain hangs from something.
+	var mount := Color(theme.world_accent, 0.95)
+	c.draw_rect(Rect2(pivot.x - MOUNT_W / 2.0, 0.0, MOUNT_W, pivot.y), mount)
+	c.draw_rect(Rect2(pivot.x - MOUNT_PLATE / 2.0, 0.0, MOUNT_PLATE, RoomView.BAND + 3.0), mount)
+	c.draw_circle(pivot, 4.5, mount, true, -1.0, true)
+	c.draw_circle(pivot, 2.0, Color(theme.paper, 0.9), true, -1.0, true)
 	# Lantern: cap, body, glowing window.
 	var angle := along.angle() - PI / 2.0
 	c.draw_set_transform(lamp, angle, Vector2.ONE)

@@ -458,14 +458,22 @@ func _draw_score() -> void:
 ## The ceiling and floor spikes (their band is in the backdrop).
 func _draw_edges() -> void:
 	var count := int(W / (EDGE_SPIKE_HALF * 2.0))
-	var step := W / count
+	# Squeeze Box and Narrow move the side walls in: the row of 9 fits between
+	# them, so no spike is cut in half by a wall band.
+	var left := 0.0
+	var right := W
+	if _run != null and _run.sim != null and _run.sim.room != null:
+		left = side_wall_x(0)
+		right = side_wall_x(1)
+	var step := (right - left) / count
+	var half := EDGE_SPIKE_HALF * step / (W / count)
 	for i in count:
-		var cx := step * (i + 0.5)
-		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), EDGE_SPIKE_HALF, EDGE_SPIKE_DEPTH)
+		var cx := left + step * (i + 0.5)
+		_draw_spike(Vector2(cx, BAND), Vector2(0, 1), half, EDGE_SPIKE_DEPTH)
 		# A floor spike under a hazard that landed on it sinks into the floor.
 		var depth := EDGE_SPIKE_DEPTH * (1.0 - _floor_sink(cx - step / 2.0, cx + step / 2.0))
 		if depth > TIP_BACK + 1.0:
-			_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), EDGE_SPIKE_HALF, depth)
+			_draw_spike(Vector2(cx, H - BAND), Vector2(0, -1), half, depth)
 
 
 ## How far the floor spike from `left` to `right` has sunk (0..1), from the
