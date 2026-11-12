@@ -149,7 +149,10 @@ func test_a_crash_offers_a_free_revive_and_the_run_plays_on() -> void:
 	offer.revive_button().pressed.emit()
 	assert_false(offer.visible)
 	assert_false(main._run.sim.is_over(), "the bird is back")
-	assert_eq(main._run.sim.state.score, 12, "with its score")
+	var entry: SimState = main._run.sim._entry_state
+	assert_eq(main._run.sim.state.score, entry.score, "the room's points are gone")
+	assert_eq(main._run.sim.state.coins, entry.coins, "and its coins")
+	assert_eq(main._hud.run_coins_text(), str(entry.coins), "the counter shows them")
 	assert_eq(p.revives.left(DailyRevives.today()), DailyRevives.PER_DAY - 1)
 	assert_eq(
 		Profile.load_or_new(TEST_PATH).revives.left(DailyRevives.today()),

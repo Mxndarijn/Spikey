@@ -52,9 +52,17 @@ public sealed class SimState
     public long plan_a_kind_right = 0;
     public long plan_b_y_right = 0;
     public long plan_at = 0;
-    public long revive_gap = 0;
 
     public SimState copy() => (SimState)MemberwiseClone();
+
+    static readonly System.Reflection.FieldInfo[] FIELDS = typeof(SimState).GetFields(
+        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+    /// Every field set to `o`'s (GDScript SimState.assign).
+    public void assign(SimState o)
+    {
+        foreach (var f in FIELDS) f.SetValue(this, f.GetValue(o));
+    }
 
     public long checksum()
     {
@@ -95,7 +103,6 @@ public sealed class SimState
         h = SimHash.mix(h, plan_a_kind_right);
         h = SimHash.mix(h, plan_b_y_right);
         h = SimHash.mix(h, plan_at);
-        h = SimHash.mix(h, revive_gap);
         return h;
     }
 }

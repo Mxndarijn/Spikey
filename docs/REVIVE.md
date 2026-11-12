@@ -65,70 +65,64 @@ and restore must come from the store's purchase history.
 
 ## The rule: a revive restarts the room as the bird came into it
 
-After a revive the room is **exactly as it was when the bird came in**, and the
-bird is back at the portal it came through:
+After a revive the run is **exactly as it was when the bird came into the
+room**, points and coins included, and the bird is back at the portal it came
+through. The rest of the run is the one a player who never died in that room
+meets: the same rooms, variants, exits, spikes and coins (two players on one
+seed meet the same map, except where they make a real choice; a future 1v1
+mode needs this).
 
-1. Score, coins, flaps, room index, route and the RNG carry on. Nothing is
-   rolled back. Since every wall reseeds from the room's seed and its number
-   (next gameplay version, docs/ARCHITECTURE.md "Same seed, same run"), the walls
-   after a revive are the room's own again, and so are the room's planned exits
-   (`SimState.plan_*`, kept in `_entry_state`).
-2. The room is the copy `GameSim` kept when the bird came out of the portal
-   (`_entry_room`, taken by `_keep_entry` at the run start and after every
-   portal arrival, not in practice or inside an arrival check): the same
-   variant, the same hazards where they were then, the same wall spikes, the
-   tide, blink and point counters as they were.
-3. The bird is where it came in (`_entry_state`): that wall, that height, flying
-   the same way, level (`vy = 0`). It waits `SimConfig.ARRIVAL_HOLD` ticks with
-   the room frozen. In the first room that is where the run started.
-4. The exit always ends up on the wall the bird came in by, so a crossing and a
-   bounce come before it:
+1. Everything comes back from the moment the bird came out of the portal
+   (`_keep_entry`, at the run start and after every portal arrival, not in
+   practice or inside an arrival check): the whole `SimState` (`_entry_state`:
+   the bird's wall, height, way and speed, the score, the coins, the room's
+   coin, the exit and ghost, the planned exits, the anchor, the wall spikes),
+   the room (`_entry_room`: the variant, the hazards where they were then,
+   Coin Garden's room coins, Locked Out's key, the tide, blink and point
+   counters) and both RNGs (`_entry_rng`, `_entry_spine`).
+2. Only three things carry on: the tick (a revive takes no time, and the run
+   file counts ticks), the revive count, and the taps (`flaps`, for
+   achievements; it changes nothing in play).
+3. The bird waits `SimConfig.ARRIVAL_HOLD` ticks with the room frozen, then
+   flies on by itself (`started` is set, also in the first room, where the run
+   had waited for a first tap). Main counts 5, 4, 3, 2, 1 over it.
 
-| At death | After the revive |
-|---|---|
-| No exit | no exit; nothing is drawn from the RNG |
-| Exit open, either wall | still open, on the wall it came in by, at the room's planned exit for that wall (`ExitPlanner.use_plan`, the plan made when the room started). That wall is spiked everywhere else, but none level with the bird until its next bounce (`SimState.revive_gap`), so it comes out of its portal where it went in |
-| Ghost exit, either wall | still a ghost, on the wall it came in by, at the room's planned exit for that wall |
-
-Nothing about the exits is drawn or moved by a revive (next gameplay
-version): the room's planned exits (`SimState.plan_*`) come back with
-`_entry_state`, so every player of a seed meets the same exits, whenever and
-wherever they died. The bird comes back out of its portal with the frozen wait,
-so the arrival fairness (docs/ARCHITECTURE.md "Same seed, same run") covers the
-restart.
+So the points and coins collected in that room are gone: the score goes back
+down to what it was at the portal, and the coins too. A death on an odd score
+no longer flips the exit wall, and the walls of the room are rolled with the
+same score as before.
 
 Why this:
 
-- It looks like a real restart. The first version rebuilt the room from the
-  RNG, so the variant (and with it the number of spikes) could change and the
-  spikes ahead were rolled again: players saw the room change under the
-  countdown and took it for a glitch.
+- It looks like a real restart, and the replay of a revived run looks like a
+  run that never died: same score, same rooms after it.
+- The first version kept the score, the coins and the RNG. The walls after the
+  revive were then rolled with the higher score (more spikes), the ghost came
+  sooner, and a death on an odd score flipped the exit wall (the exit's wall
+  goes by score parity, `_maybe_open_exit`): the bird left by the other wall at
+  that wall's planned height, every later room was entered from the other side,
+  and room kinds, variants and exits differed for the rest of the run. FastSim
+  `sameseed` found it on 6 of 6 seeds with a death on a score ending in 5.
 - The arrival was already checked for fairness when the bird first came in
   (`_go_through` retries the layout until `ArrivalCheck` passes). The revive
-  replays that same arrival, with the room frozen for the hold first.
-- Why the exit moves: ahead of the bird, an open exit leaves one flight to line
-  up with it (from a low portal to a high exit is too far), and a ghost would
-  open under the bird as it bounced off that wall. Behind, an open exit is the
-  only spike-free spot on a wall that is spiked everywhere else, so the bird
-  comes out of it. A ghost is planned again even when it was already behind:
-  its old spot was picked among the hazards as they were then, and the room
-  as it came in can block it (a crawler back at its start, a gate's gap).
+  replays that same arrival, with a longer hold. An exit planned before the
+  death plays no part any more: the room is back to before it.
 - Continuing in place at the moment of death was ruled out from the start: the
-  hazard that killed the bird is still there, every hazard (19 kinds) would
-  have to honour an invulnerable bird, and the bird can be inside a spike or
-  below the floor when it dies.
+  hazard that killed the bird is still there, every hazard would have to
+  honour an invulnerable bird, and the bird can be inside a spike or below the
+  floor when it dies.
 
 Known side effects, accepted:
 
-- Coins and keys the room had when the bird came in are back, so a revive can
-  be worth a few extra coins. It is capped by one revive per run.
-- `room.points` is back to what it was at the portal (0), so rooms whose walls
-  get busier with points in the room start a little calmer.
-- The hazards' own revive code (Crawler `REVIVE_SHIFT`, Gate `REVIVE_REACH`,
-  Block's islands around an exit already there) ran when a revived room was
-  rebuilt with an exit planned. A room is never built with an exit planned
-  now, so that code never ran and has been removed (no RNG draw or checksum
-  changed).
+- Coins and keys the room had when the bird came in are back, and so is the
+  coin that was out then. The coins taken in the room are gone, so a revive is
+  never worth extra coins.
+- A room whose walls follow its hazards (Lava Rise, Locked Out's chain) can
+  show other spikes when the bird bounces at another tick or with the hazards
+  elsewhere, after a revive as for any two players. That is the room's own,
+  not the revive's.
+- Where a coin spawns depends on when the last one was taken (a coin appears
+  at a bounce only when none is out), a real choice of the player.
 
 ## Sim changes (`sim/`)
 
@@ -137,8 +131,9 @@ Known side effects, accepted:
 - `GAMEPLAY_VERSION` 14 -> 15. Runs without a revive play exactly as before,
   but the bump is still required: the checksum gains a field, and a version 14
   checker must leave revived runs pending instead of rejecting them.
-- The revive that restarts the room as the bird came in (this rule) needs a
-  `GAMEPLAY_VERSION` bump; the coordinator bumps it once everything for
+- The revive that restores the score, the coins and the RNGs (this rule, and
+  `SimState.revive_gap` gone from the checksum) needs a `GAMEPLAY_VERSION`
+  bump and new goldens; the coordinator bumps it once everything for
   `next-features-2` is merged. Runs without a revive play exactly as before.
 
 `SimState`
@@ -147,23 +142,19 @@ Known side effects, accepted:
 `GameSim`
 - `Event.REVIVE`, appended at the end of the enum.
 - `func can_revive() -> bool`: dead, not practice, `state.revives < MAX_REVIVES`.
-- `_entry_room` and `_entry_state`: the room (`SimCopy.copy_room`) and the
-  state copy kept by `_keep_entry()` at the run start and at the end of
-  `_arrive_in`. Never changed after; a revive copies the room again.
+- `_entry_room`, `_entry_state`, `_entry_rng` and `_entry_spine`: the room
+  (`SimCopy.copy_room`), the state copy and the two RNGs (`SimCopy.copy_rng`)
+  kept by `_keep_entry()` at the run start and at the end of `_arrive_in`.
+  Never changed after; a revive copies them again.
 - `func revive() -> bool`: returns false and changes nothing when
-  `can_revive()` is false. Otherwise, in this order (the order is part of the
-  rules):
-  1. `events.clear()`; `state.alive = true`; `death_cause = NONE`;
-     `state.revives += 1`.
-  2. `room` = a copy of `_entry_room`; `state.room_kind` from it.
-  3. `state.x`, `y`, `vx`, `left_spikes`, `right_spikes` from `_entry_state`;
-     `vy = 0`.
-  4. The exit, by the table above: `ExitPlanner.use_plan(behind, score)` for an
-     open exit (and `state.revive_gap = y`: no spike level with the bird on
-     that wall until it next bounces), `ExitPlanner.use_plan(behind, score + 1)`
-     for a ghost. No RNG draws. The room's plan checks the wall behind for this
-     timing too (`ExitPlanner.plan_room`, `GameSim._points_also`).
-  5. `state.arrival_hold = ARRIVAL_HOLD`; `events.append(Event.REVIVE)`.
+  `can_revive()` is false. Otherwise:
+  1. `events.clear()`; keep the tick, `revives + 1` and `flaps`.
+  2. `state.assign(_entry_state)` (in place, so whoever holds `sim.state` sees
+     it), then put back the tick, revives and flaps; `started = true`;
+     `arrival_hold = ARRIVAL_HOLD`.
+  3. `room` = a copy of `_entry_room`; `_rng` and `_spine` = copies of the
+     kept ones; `_free_lo`/`_free_hi` cleared.
+  4. `events.append(Event.REVIVE)`.
 - `revive()` does not advance `state.tick`. It is called between steps, while
   the sim is dead, so the time spent on the offer or in the ad is not part of
   the run.
@@ -175,7 +166,8 @@ revive is recorded as that value. The next step then runs at the same tick.
 
 - New field `revive_ticks: PackedInt32Array` (at most `MAX_REVIVES` entries),
   written to the dictionary as `"revives"`. `score`, `coins`, `end_tick` and
-  `checksum` are the final values, after the revive.
+  `checksum` are the final values, after the revive (the score can be lower
+  than the score at the death: the room's points went with the revive).
 - `from_sim(sim, taps, revive_ticks)`.
 - `simulate(seed, taps, season, revive_ticks = [])`: when the sim is over and
   the next revive tick equals `sim.state.tick`, call `sim.revive()` and carry
@@ -259,8 +251,18 @@ like Paused. `meta/profile.gd`: `free_revives_used` and the local date they
 belong to, `FREE_REVIVES_PER_DAY := 3`; spent only when Revive is pressed.
 
 Views: `revived` plays the `revive` sound and lifts the death low-pass
-(`AudioDirector`), shows the arrival portal and flash (`RoomView.on_revived`)
-and restarts the trail. Hazards are drawn from `sim.room.hazards`, so the fresh
+(`AudioDirector`, in the mood of the score the run went back to, and beating
+the best again plays the milestone again), shows the arrival portal and flash
+(`RoomView.on_revived`) and restarts the trail. The HUD score reads the sim
+every frame, so it shows the score going back down at once; the coin counter
+is set back too (`Hud.set_run_coins(coins, true)`, coins still flying are dropped).
+
+The score going back down needs nothing else: coins, the best score, the
+boards, the run file and Your runs only use the final `Replay` values at
+`_finish_run`, and nothing is banked during the run. The day's free revives
+count revives, not points. "Revived at N" on Game over and in Your runs is
+still the score at the death (`ReviveFlow.revived_at`), so it can be higher
+than the final score. Hazards are drawn from `sim.room.hazards`, so the fresh
 room shows by itself.
 
 Boards: `LeaderboardBoard.Entry.revived` puts a small ink heart next to the
@@ -274,24 +276,36 @@ Open points:
 ## Tests
 
 - `tests/unit/test_revive.gd`
-  - revive keeps score, coins and RNG state, bumps `revives`, emits `REVIVE`;
+  - revive puts back the score, the coins, the whole state and both RNGs as
+    the bird came in (only the tick, revives and flaps carry on), bumps
+    `revives`, emits `REVIVE`;
   - a second revive, a revive while alive and a revive in practice return
     false and change nothing (same checksum);
-  - the room, the bird and the walls are as the bird came in; no RNG draw
-    without an exit; the first room starts where the run did;
-  - the exit cases from the table: an open exit or a ghost ends up behind the
-    bird, an open exit is the portal the bird comes out of (no spike in it,
-    the bird lives through the hold).
+  - the room, the bird and the walls are as the bird came in; an exit at the
+    death goes back to the entry and the bird lives through the wait; the
+    first room starts where the run did and flies on after the wait;
+  - the room's planned exits never move;
+  - a revived run meets the same map as a run that never died there (rooms,
+    variants, plans and walls), on a death on an even and an odd score.
+- The `sameseed` FastSim check (`tools/fastsim/SameSeed.cs`): 24 seeds, a
+  death on a score ending in 4 and in 5 in room 2 or later, revived, against
+  the same PlannerBot with no death: the same rooms, variants, room seeds,
+  plans, ghosts and open exits, and the same walls (a bounce at another tick
+  in the room or with the hazards elsewhere checks only side and score; a room
+  whose exit opened at another tick ends the comparison, as Bumper Cloud and
+  wind move the exit for any two players). `fastsim sameseed <seed> --die 5
+  --onlyrevive 1` shows one seed in full.
 - `tests/unit/test_replay.gd` additions: a revived run verifies; the same run
   with the revive tick removed, moved by one, or doubled is rejected; the
   dictionary round trip keeps `revives`.
 - The `revive` FastSim check (`tools/fastsim/Checks.cs`, was
   `tests/sim/test_revive_survivable.gd`): for every room kind, all three exit
-  cases, both exit walls, both ways in and three portal heights (140, 300 and
-  480 px; 1764 cases), the bird comes in through a portal laid out as in a
-  real run (`BotSetups.came_in`), dies, is revived, and `SurvivalSearch` shows
-  that a survivor exists. The `crawl`, `gates` and `isles` revive searches
-  come in the same way (toward wall `seed % 2`).
+  cases at the death, both exit walls, both ways in and three portal heights
+  (140, 300 and 480 px; 1764 cases), the bird comes in through a portal laid
+  out as in a real run (`BotSetups.came_in`), dies, is revived, and
+  `SurvivalSearch` shows that a survivor exists. The `crawl`, `gates` and
+  `isles` searches through an exit behind a revived bird are gone: that exit
+  no longer comes back (their setups stay for the parity runs).
 - Two golden replays with a revive (`g*_revived_seed_*.json`, regenerated with
   the next version bump); the others
   were regenerated after the version bump and kept their taps, score and end

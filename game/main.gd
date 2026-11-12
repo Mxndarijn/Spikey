@@ -938,6 +938,8 @@ func _start_revive_countdown() -> void:
 ## The sim revived the bird (also in a replay of a revived run): it comes out
 ## of the portal it came into the room by, as at a portal arrival.
 func _on_revived() -> void:
+	# The score and coins are back to what they were when the bird came in.
+	_hud.set_run_coins(_run.sim.state.coins, true)
 	_room.on_revived()
 	# The crash effect may have turned the flyer into pieces: bring it back.
 	_crash.clear()

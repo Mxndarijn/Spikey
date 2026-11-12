@@ -328,12 +328,19 @@ func _on_died(_replay: Replay) -> void:
 	_set_mood(mood)
 
 
-## Back from a crash: the revive sound, and the music opens up again.
+## Back from a crash: the revive sound, and the music opens up again, in the
+## mood of the score the run went back to (the room's points are gone).
 func _on_revived() -> void:
 	play("revive")
 	_dead = false
 	_bounce_step = 0
-	_set_mood(mood)
+	if _run == null or _run.sim == null:
+		_set_mood(mood)
+		return
+	var s := _run.sim.state
+	# Beating the best again after the revive plays the milestone again.
+	_beat_best = best_score > 0 and s.score > best_score
+	_set_mood(mood_for(s.score, s.route))
 
 
 ## Every button in the game clicks: back and close buttons with a falling pop,

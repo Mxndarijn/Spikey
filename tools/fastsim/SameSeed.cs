@@ -124,6 +124,69 @@ public static class SameSeed
         return p;
     }
 
+    /// Bot seed 1 until room 2 or later with a score ending in `die`, then no
+    /// taps until the bird dies, a revive, and on with the bot.
+    public static Play RevivePlay(GameSim sim, long die, long max_ticks)
+    {
+        var bot = new PlannerBot(1);
+        bool dying = false, done = false;
+        return Record("R (revive)", sim, s =>
+        {
+            if (!done && !dying && s.state.room_index >= 2 && s.state.score % 10 == die && !s.state.exit_preview && s.state.arrival_hold == 0) dying = true;
+            if (dying && s.state.revives == 0) return false;
+            if (dying) { dying = false; done = true; }
+            return bot.decide(s);
+        }, true, max_ticks);
+    }
+
+    public static Play BotPlay(GameSim sim, long max_ticks)
+    {
+        var bot = new PlannerBot(1);
+        return Record("A", sim, s => bot.decide(s), false, max_ticks);
+    }
+
+    /// What differs in the map between a play and a revived play, in the rooms
+    /// both reached: what no player choice may change (room kind, variant,
+    /// seed, exit plan, ghost and open exit, hazards and spikes at arrival,
+    /// each wall's side and score, and its spikes and anchor where the bounce
+    /// came at the same tick in the room). Timing, the bird's height and coin
+    /// spawns (which wait for the last coin to be taken) are left out; so are
+    /// the spikes of a bounce at another tick or with the hazards elsewhere,
+    /// which a room whose walls follow its hazards (Lava Rise, Locked Out) may
+    /// change for any two players. A room whose exit
+    /// opened at another tick in the room (after its hold) was played another
+    /// way (Bumper Cloud, wind: docs/ARCHITECTURE.md "Same seed, same run"), so
+    /// the comparison ends with it: the rooms after it follow from that play.
+    public static List<string> MapDiffs(Play a, Play b)
+    {
+        var out_ = new List<string>();
+        foreach (var ra in a.rooms)
+        {
+            var rb = b.rooms.LastOrDefault(r => r.index == ra.index);
+            if (rb == null) continue;
+            bool played_apart = ra.open_tick >= 0 && rb.open_tick >= 0
+                && ra.open_tick - ra.arrive_tick - ra.hold != rb.open_tick - rb.arrive_tick - rb.hold;
+            string head = $"room {ra.index} {ra.kind}/{ra.variant}";
+            if (ra.kind != rb.kind) out_.Add($"{head}: room kind {ra.kind} vs {rb.kind}");
+            if (ra.variant != rb.variant) out_.Add($"{head}: variant {ra.variant} vs {rb.variant}");
+            if (ra.seed != rb.seed) out_.Add($"{head}: room seed {ra.seed} vs {rb.seed}");
+            if (ra.plan != rb.plan) out_.Add($"{head}: plan {ra.plan} vs {rb.plan}");
+            if (ra.hazards != rb.hazards) out_.Add($"{head}: hazards at arrival differ");
+            if (ra.spikes != rb.spikes) out_.Add($"{head}: arrival spikes {ra.spikes} vs {rb.spikes}");
+            if (played_apart) break;
+            if (ra.ghost != "" && rb.ghost != "" && ra.ghost != rb.ghost) out_.Add($"{head}: ghost {ra.ghost} vs {rb.ghost}");
+            if (ra.open != "" && rb.open != "" && ra.open != rb.open) out_.Add($"{head}: open {ra.open} vs {rb.open}");
+            foreach (var (k, wa) in a.walls)
+            {
+                if (!k.StartsWith($"{ra.index}:") || !b.walls.TryGetValue(k, out var wb)) continue;
+                bool timed = wa.in_room == wb.in_room && wa.hazards == wb.hazards;
+                if (wa.side != wb.side || wa.score != wb.score || timed && (wa.mask != wb.mask || wa.anchor != wb.anchor))
+                    out_.Add($"{head} wall {k.Split(':')[1]}: spikes {wa.mask:x}/{wb.mask:x} side {wa.side}/{wb.side} score {wa.score}/{wb.score} anchor {wa.anchor}/{wb.anchor}");
+            }
+        }
+        return out_;
+    }
+
     /// At an open fork on the wall ahead: flap to hold the Calm exit's height.
     static bool? Calm(GameSim sim)
     {
@@ -158,20 +221,9 @@ public static class SameSeed
             var bot = new PlannerBot(3);
             plays.Add(Record("C (calm)", start(), s => Calm(s) ?? bot.decide(s), false, ticks));
         }
-        // R: bot seed 1 until the middle of room 2 (score ends in 4), then no
-        // taps until the bird dies, a revive, and on with the bot (more revives
-        // allowed).
-        {
-            var bot = new PlannerBot(1);
-            bool dying = false, done = false;
-            plays.Add(Record("R (revive)", start(), s =>
-            {
-                if (!done && !dying && s.state.room_index >= 2 && s.state.score % 10 == die && !s.state.exit_preview && s.state.arrival_hold == 0) dying = true;
-                if (dying && s.state.revives == 0) return false;
-                if (dying) { dying = false; done = true; }
-                return bot.decide(s);
-            }, true, ticks + 600));
-        }
+        // R: bot seed 1 until the middle of room 2 (score ends in `die`), then
+        // no taps until the bird dies, a revive, and on with the bot.
+        plays.Add(RevivePlay(start(), die, ticks + 600));
         var outj = new JsonObject { ["seed"] = seed, ["season"] = season };
         var arr = new JsonArray();
         foreach (var p in plays)
@@ -248,5 +300,44 @@ public static class SameSeed
         if (opts.TryGetValue("out", out var file))
             File.WriteAllText(file, outj.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         return 0;
+    }
+}
+
+static partial class Checks
+{
+    /// A revive restarts the room as the bird came in, score and coins too, so
+    /// the rest of the run is the map a player who never died there meets:
+    /// PlannerBot without a death vs the same bot with a death and a revive
+    /// in room 2 or later, on an even and an odd score (docs/REVIVE.md).
+    public sealed class SameSeedRevive : Check
+    {
+        public override string name => "sameseed";
+        public override string test => "tools/fastsim/SameSeed.cs";
+        public const long SEEDS = 24;
+        public const long TICKS = 20000;
+
+        public override int count() => cases.Count;
+
+        protected override List<object> make()
+        {
+            var out_ = new List<object>();
+            for (long s = 0; s < SEEDS; s++)
+                foreach (long die in new long[] { 4, 5 }) out_.Add((4206176851L + s * 7919, die));
+            return out_;
+        }
+
+        public override JsonObject run(int n)
+        {
+            var (seed, die) = ((long, long))cases[n];
+            var a = SameSeed.BotPlay(new GameSim(seed), TICKS);
+            var r = SameSeed.RevivePlay(new GameSim(seed), die, TICKS + 600);
+            var fails = new List<string>();
+            if (r.revive_tick >= 0)
+                foreach (var d in SameSeed.MapDiffs(a, r)) fails.Add($"seed {seed}, death on a score ending in {die}: {d}");
+            return result(fails, new JsonObject { ["revived"] = r.revive_tick >= 0 ? 1 : 0 });
+        }
+
+        public override string summary(List<JsonNode> results) =>
+            $"{results.Count} plays ({SEEDS} seeds x deaths on an even and an odd score), {results.Sum(x => (long)x["revived"])} revived";
     }
 }
