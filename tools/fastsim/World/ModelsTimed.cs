@@ -801,13 +801,23 @@ public sealed class BubbleM : HazardModel
 }
 
 /// Stalactite: a column with spikes from the ceiling and floor and a gap that
-/// slides (3 px/substep) toward a target height drawn at each bounce (near the
-/// bird's height then). The target is hidden: the model sees the slide (from
-/// memory of the last tick) and guesses it stops near the bird's bounce height.
+/// slides (3 px/substep) toward a target height drawn at each bounce, within
+/// 40 px of the bird's height then. The target is hidden, so the model keeps
+/// the interval it can be in (narrowed by the way the gap is seen to slide,
+/// from memory of the last tick) and follows both ends: each spike is drawn at
+/// its most dangerous edge. When the gap stops, the interval is one height.
 public sealed class StalactiteM : HazardModel
 {
-    long x, gap_y, gap, half_w, est_target;
-    bool top, bottom, fixed_gap, moving_guess;
+    long x, gap_y, gap, half_w, lo, hi, pos_lo, pos_hi, partner_x;
+    bool top, bottom, fixed_gap, has_partner;
+
+    /// Extra spread for the column the bird meets second. The room allows up to
+    /// MAX_STEP (60 px) more, but drawing the worst case makes the pair look
+    /// impassable; replanning as the gap is seen to slide copes with the rest.
+    public static long FAR_EXTRA = 0;
+
+    /// The bird flying with `vx` meets the partner column first.
+    bool Far(long vx) => has_partner && (vx > 0 ? partner_x < x : partner_x > x);
 
     public StalactiteM(Stalactite h, Memory mem, int index)
     {
@@ -820,38 +830,70 @@ public sealed class StalactiteM : HazardModel
         bottom = h.bottom;
         fixed_gap = h.fixed_lo >= 0;
         random = !fixed_gap;
+        // Its next target is drawn near the bird's height at the bounce.
+        reactive = !fixed_gap;
         t = h.t;
-        est_target = gap_y;
-        if (!fixed_gap && mem != null && mem.gap_v.TryGetValue(index, out long v) && v != 0)
+        lo = hi = pos_lo = pos_hi = gap_y;
+        if (h.partner != null)
         {
-            moving_guess = true;
-            long guess = mem.bounce_y >= 0 ? Math.Clamp(mem.bounce_y, Stalactite.GAP_MIN, Stalactite.GAP_MAX) : gap_y;
-            if (Math.Sign(guess - gap_y) != Math.Sign(v)) guess = gap_y + Math.Sign(v) * Stalactite.REACH;
-            est_target = Math.Clamp(guess, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
+            has_partner = true;
+            partner_x = h.partner.x;
+        }
+        if (!fixed_gap && mem != null)
+        {
+            long v = mem.gap_v.TryGetValue(index, out long vv) ? vv : 0;
+            // The room draws the target around its anchor height (seen walls), not the bird's.
+            long by = mem.anchor;
+            bool fresh = mem.last_tick - mem.bounce_tick <= 2;
+            // The column the bird meets second after the bounce gets up to MAX_STEP more.
+            long spread = Stalactite.REACH + (Far(mem.bounce_vx) ? FAR_EXTRA : 0);
+            if (v != 0)
+            {
+                lo = by - spread;
+                hi = by + spread;
+                if (v > 0) lo = Math.Max(lo, gap_y + Stalactite.SLIDE);
+                else hi = Math.Min(hi, gap_y - Stalactite.SLIDE);
+                if (lo > hi) lo = hi = gap_y + Math.Sign(v) * Stalactite.SLIDE;
+            }
+            else if (fresh)
+            {
+                lo = Math.Min(gap_y, by - spread);
+                hi = Math.Max(gap_y, by + spread);
+            }
+            lo = Math.Clamp(lo, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
+            hi = Math.Clamp(hi, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
         }
         bodies = new Body[2];
         Place();
     }
 
+    static long Slide(long pos, long target) =>
+        pos < target ? Math.Min(pos + Stalactite.SLIDE, target) : Math.Max(pos - Stalactite.SLIDE, target);
+
     public override void Step(WorldModel w)
     {
-        if (gap_y < est_target) gap_y = Math.Min(gap_y + Stalactite.SLIDE, est_target);
-        else if (gap_y > est_target) gap_y = Math.Max(gap_y - Stalactite.SLIDE, est_target);
+        pos_lo = Slide(pos_lo, lo);
+        pos_hi = Slide(pos_hi, hi);
+        gap_y = (pos_lo + pos_hi) / 2;
         Place();
     }
 
     public override void OnBounce(WorldModel w)
     {
         if (fixed_gap) return;
-        est_target = Math.Clamp(w.bird.y, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
-        moving_guess = true;
+        // The bird's vx is already turned round here: this column is far if the bird meets the partner first.
+        bool far = Far(w.bird.vx);
+        long spread = Stalactite.REACH + (far ? FAR_EXTRA : 0);
+        lo = Math.Clamp(w.room.anchor - spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
+        hi = Math.Clamp(w.room.anchor + spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
     }
 
     void Place()
     {
-        bodies[0] = Body.Kill(Shape.Rect(x - half_w, 0, x + half_w, gap_y - gap / 2), top);
-        bodies[1] = Body.Kill(Shape.Rect(x - half_w, gap_y + gap / 2, x + half_w, SimConfig.WORLD_H), bottom);
-        bodies[0].guess = bodies[1].guess = moving_guess;
+        // The top spike reaches lowest when the gap goes to the high end, the bottom one highest at the low end.
+        bodies[0] = Body.Kill(Shape.Rect(x - half_w, 0, x + half_w, pos_hi - gap / 2), top);
+        bodies[1] = Body.Kill(Shape.Rect(x - half_w, pos_lo + gap / 2, x + half_w, SimConfig.WORLD_H), bottom);
+        bodies[0].guess = bodies[1].guess = lo != hi || pos_lo != pos_hi;
     }
 
     public override string Motion => fixed_gap ? "static" : "gap_slide_to_hidden_target";
@@ -862,7 +904,8 @@ public sealed class StalactiteM : HazardModel
         p["gap_y"] = Px(gap_y);
         p["gap"] = Px(gap);
         p["slide"] = Px(Stalactite.SLIDE);
-        p["target_guess"] = Px(est_target);
+        p["target_lo"] = Px(lo);
+        p["target_hi"] = Px(hi);
     }
 }
 

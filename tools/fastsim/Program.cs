@@ -16,6 +16,7 @@ using FastSim;
 //   fastsim combos [seeds] [arrivals]               Double Trouble fairness gate (Combos.cs)
 //   fastsim rl train|calibrate|measure|speed       the RL bot tiers (RL/, docs/RL_BOT.md)
 //   fastsim human measure|fit|baseline|runfile     human-model bots (Human/, docs/HUMAN_BOT.md)
+//   fastsim world errors|nopeek|runs|tiers|...     the world model and its planner (World/, docs/WORLD_MODEL.md)
 //   fastsim yardstick run|compare|list|humans      one measure for every bot (Yardstick/, docs/YARDSTICK.md)
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
