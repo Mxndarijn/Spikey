@@ -22,6 +22,9 @@ pub struct Wall {
     pub bird_y: i64,
     pub life: i64,
     pub hazards: String,
+    /// The hazards that move spikes (`has_adjust_wall`): with the score, the route, the
+    /// room's seed and the last wall, the only things a wall's spikes depend on.
+    pub adj: String,
     pub coin: String,
 }
 
@@ -103,6 +106,19 @@ impl SameSeed {
 
     fn hz_all(sim: &GameSim) -> String {
         Self::hz_of(sim, false)
+    }
+
+    /// The hazards that can move a wall's spikes: `adjust_wall` (`Hz::has_adjust_wall`), and
+    /// Piston and Stalactite, which clear spikes in `on_bounce`.
+    fn hz_adj(sim: &GameSim) -> String {
+        let parts: Vec<String> = sim
+            .room
+            .hazards
+            .iter()
+            .filter(|h| h.has_adjust_wall() || matches!(h, Hz::Piston(_) | Hz::Stalactite(_)))
+            .map(|h| format!("{}:{:x}", h.kind(), if h.alive() { h.checksum(0) & 0xffff } else { -1i64 }))
+            .collect();
+        parts.join(",")
     }
 
     fn hz_of(sim: &GameSim, skip_bird: bool) -> String {
@@ -218,6 +234,7 @@ impl SameSeed {
                         bird_y: st.y / SimConfig::SUB,
                         life,
                         hazards: Self::hz_all(&sim),
+                        adj: Self::hz_adj(&sim),
                         coin: String::new(),
                     };
                     p.walls.set(format!("{}:{}", st.room_index, sim.room.walls), w);
@@ -326,27 +343,46 @@ impl SameSeed {
                 out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
             }
             let prefix = format!("{}:", ra.index);
-            // Each wall's anchor follows the last one, so once a wall was met at
-            // another tick or with the hazards elsewhere (a key taken later), the
-            // later walls of the room may differ too: only side and score then.
-            let mut apart = false;
+            // A wall's spikes depend only on the room's seed and wall count (compared above),
+            // the score, the route's Wild bonus, the anchor and free run the last wall left,
+            // and the hazards that move spikes (`adj`, met at the same tick in the room when
+            // there are any). When all of those are the same, the spikes must be too. The
+            // first wall starts from the room's arrival anchor; each later one is in step
+            // when the last pair of walls came out the same (spikes and anchor), checked or not.
+            let mut synced = ra.anchor == rb.anchor;
             for (k, wa) in &a.walls.list {
                 if !k.starts_with(&prefix) {
                     continue;
                 }
-                let Some(wb) = b.walls.get(k) else { continue };
-                // A room entered by the other exit of a fork has more spikes on
-                // every wall after its arrival (WILD_SPIKES): a player's choice.
-                let timed = !apart && wa.in_room == wb.in_room && wa.hazards == wb.hazards && ra.route == rb.route;
-                apart = !timed;
+                let Some(wb) = b.walls.get(k) else {
+                    synced = false;
+                    continue;
+                };
                 // A bumper can turn the bird back (Bumper Cloud, Heart Bumpers), so in
-                // such a room the side a wall is met on is the player's doing: from
-                // there the plays are apart for the rest of the room.
+                // such a room the side a wall is met on is the player's doing: not a
+                // difference, and the plays are out of step until two walls match again.
                 if wa.side != wb.side && SameSeedRevive::turns_back(&ra.kind) {
-                    apart = true;
+                    synced = false;
                     continue;
                 }
-                if wa.side != wb.side || wa.score != wb.score || timed && (wa.mask != wb.mask || wa.anchor != wb.anchor) {
+                let first = k.split(':').nth(1) == Some("1");
+                let inputs = synced
+                    && wa.score == wb.score
+                    && wa.adj == wb.adj
+                    && (wa.adj.is_empty() || wa.in_room == wb.in_room);
+                let mut bad = wa.side != wb.side || wa.score != wb.score;
+                if inputs {
+                    if ra.route == rb.route || first {
+                        bad |= wa.mask != wb.mask || wa.anchor != wb.anchor;
+                    } else {
+                        // Entered by the other exit of a fork: the same wall, plus at most
+                        // WILD_SPIKES more on the Wild side (from its second wall on).
+                        let (calm, wild) =
+                            if ra.route == ExitKind::WILD { (wb.mask, wa.mask) } else { (wa.mask, wb.mask) };
+                        bad |= calm & !wild != 0 || (wild.count_ones() - calm.count_ones()) as i64 > SimConfig::WILD_SPIKES;
+                    }
+                }
+                if bad {
                     out_.push(format!(
                         "{} wall {}: spikes {:x}/{:x} side {}/{} score {}/{} anchor {}/{}",
                         head,
@@ -361,6 +397,7 @@ impl SameSeed {
                         wb.anchor
                     ));
                 }
+                synced = wa.mask == wb.mask && wa.anchor == wb.anchor;
             }
         }
         out_
@@ -699,10 +736,6 @@ pub fn run_mode(pos: &[String], opts: &crate::speed::Opts) -> i32 {
             }
             let mut wd: Vec<String> = Vec::new();
             let prefix = format!("{}:", ra.index);
-            // Each wall's anchor follows the last one, so once a wall was met at
-            // another tick or with the hazards elsewhere (a key taken later), the
-            // later walls of the room may differ too: only side and score then.
-            let mut apart = false;
             for (k, wa) in &a.walls.list {
                 if !k.starts_with(&prefix) {
                     continue;
