@@ -28,9 +28,9 @@ public sealed class WorldPlanner
         double misjudge_px, double slip, int min_gap = 0)
     {
         /// Every limit from one number: k = 1 is the planner with no limits (beast),
-        /// k = 0 the most limited player (reacts 24 ticks late to what it could not
-        /// foresee, tap timing error sigma 5 ticks, drops 5% of taps, looks 50 ticks
-        /// ahead, misreads its height by up to 24 px). Below k = 1 taps are at
+        /// k = 0 the most limited player (reacts 12 ticks late to what it could not
+        /// foresee, tap timing error sigma 3 ticks, drops 2% of taps, looks 80 ticks
+        /// ahead, misreads its height by up to 12 px). Below k = 1 taps are at
         /// least 8 ticks apart (a human's top tap rate). The tiers are k values calibrated to their target medians
         /// (`fastsim world calibrate`).
         public double k { get; init; } = 1;
@@ -38,16 +38,18 @@ public sealed class WorldPlanner
         public static Skill At(string name, double k)
         {
             double u = 1 - Math.Clamp(k, 0, 1);
-            return new Skill(name, (int)Math.Round(24 * u), 5 * u, 0.05 * u, (int)Math.Round(150 - 100 * u),
-                (long)Math.Round(6 - 5 * u), (int)Math.Round(16 + 240 * (1 - u) * (1 - u)), 24 * u, 0.15 * u,
+            return new Skill(name, (int)Math.Round(12 * u), 3 * u, 0.02 * u, (int)Math.Round(150 - 70 * u),
+                (long)Math.Round(6 - 4 * u), (int)Math.Round(32 + 224 * (1 - u) * (1 - u)), 12 * u, 0.08 * u,
                 u > 0 ? 8 : 0) { k = k };
         }
 
+        // k per tier from `fastsim world calibrate 48 --cap 30000` on gameplay 21+
+        // (seed-only generation): medians 32 / ~60 / 118 / 251 at k 0.81 / 0.868 / 0.922 / 0.99.
         public static readonly Skill BEAST = At("beast", 1);
-        public static readonly Skill EXPERT = At("expert", 0.85);
-        public static readonly Skill GOOD = At("good", 0.65);
-        public static readonly Skill NORMAL = At("normal", 0.45);
-        public static readonly Skill BEGINNER = At("beginner", 0.25);
+        public static readonly Skill EXPERT = At("expert", 0.99);
+        public static readonly Skill GOOD = At("good", 0.922);
+        public static readonly Skill NORMAL = At("normal", 0.868);
+        public static readonly Skill BEGINNER = At("beginner", 0.81);
         public static readonly Skill[] ALL = { BEGINNER, NORMAL, GOOD, EXPERT, BEAST };
 
         public static Skill Named(string n) => ALL.FirstOrDefault(s => s.name == n) ?? BEAST;
@@ -166,6 +168,8 @@ public sealed class WorldPlanner
         /// The path's taps (bit d = tap at depth d) and its length in ticks.
         public ulong a0, a1, a2;
         public int len;
+        /// Depth of the path's last tap (negative: a real tap that many ticks ago).
+        public long last_tap;
     }
 
     static int Bit(ulong[] a, long d) => (int)((a[d >> 6] >> (int)(d & 63)) & 1);
@@ -323,7 +327,7 @@ public sealed class WorldPlanner
             : WorldDesc.Gaps(room.Mask(ahead), Physics.Shift(w.hz, null, ahead), room.half_base).Select(g => g.mid).ToList();
         Array.Clear(last_causes);
         last_bounced_deaths = 0;
-        var nodes = new List<Node> { new Node { b = w.bird, grav = room.gravity, first = -1, own = own0 } };
+        var nodes = new List<Node> { new Node { b = w.bird, grav = room.gravity, first = -1, own = own0, last_tap = _last_tap - w.tick } };
         var done = new List<Node>();
         long[] deepest = { -1, -1 };
         long sbase = 0;
@@ -339,11 +343,14 @@ public sealed class WorldPlanner
                 for (int act = 0; act < 2; act++)
                 {
                     if (forced != null && act != Bit(forced, d)) continue;
+                    // A human can't tap faster than min_gap: plan only taps they can make.
+                    if (act == 1 && _sk.min_gap > 0 && d - node.last_tap < _sk.min_gap) continue;
                     var c = node;
                     if (d == 0) c.first = act;
                     c.len = (int)d + 1;
                     if (act == 1)
                     {
+                        c.last_tap = d;
                         if (d < 64) c.a0 |= 1UL << (int)d;
                         else if (d < 128) c.a1 |= 1UL << (int)(d - 64);
                         else c.a2 |= 1UL << (int)(d - 128);
