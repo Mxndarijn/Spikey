@@ -61,7 +61,7 @@ public class SawRing : Hazard
     public override void setup(GameSim sim, SimRng rng)
     {
         center_y = CENTER_Y;
-        long y = sim.state.y;
+        long y = sim.state.anchor_y;
         long clear = arrival_clear();
         if (sim.state.started && y - CENTER_Y > -clear && y - CENTER_Y < clear + HOP)
         {

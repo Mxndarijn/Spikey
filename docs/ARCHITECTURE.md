@@ -62,6 +62,40 @@ flowchart TD
 - **Own RNG**: `SimRng` is xoshiro128** on 32-bit masked ints, seeded from the run
   seed. The draw order is part of the gameplay rules. A cross-language reference
   test pins its output.
+- **Same seed, same run** (next gameplay version): two players of one seed who
+  take the same portals get the same rooms, variants, hazards, wall spikes and
+  exits, however they fly. Generation never reads the bird:
+  - A spine RNG (`GameSim._spine`) draws only each room's kind and seed, a fixed
+    number of draws per portal. The room's own RNG lays it out, and every wall
+    after the arrival's reseeds from the room seed and the wall's number
+    (`RoomRuntime.rng_seed`, `walls`). A coin taken or not, a revive, or any other
+    difference inside a room never reaches the next wall or room.
+  - `SimState.anchor_y` stands in for the bird's height wherever generation
+    used it: room and variant picks out of a portal, the free run near the
+    bird (`RoomRules.gap_reach`), hazards aimed at the arrival
+    (`FairLanes.entry_y`, `arrival_path`), on-bounce draws (Stalactite Run, Lava
+    Rise, Caterpillar Crawl) and short-reach exits. Out of a portal the anchor is
+    the centre of the exit taken (the bird is within `EXIT_FIT` of it). At a
+    bounce it moves to the point of that wall's free run nearest it, or nearest
+    the room's exit for the last `GameSim.EXIT_STEER` bounces. A new wall keeps
+    its free run within reach of every free spot of the wall before when they
+    are close enough together, else near the anchor.
+  - A room's exits are picked when it starts (`ExitPlanner.plan_room`, one per
+    wall, from the room seed). The ghost and the open exit only show them, and
+    their zone is reserved all room (`ExitPlanner.reserved`). Hazards that move
+    keep the way open for when the bird gets there (`GameSim.steps_to_exit`).
+  - Out of every portal the bird and room wait `SimConfig.PORTAL_HOLD` ticks
+    (0.5 s), part of the 1 s `ARRIVAL_BLIND`. Each layout try is checked for a
+    bird anywhere in the exit it came through (`GameSim.ARRIVAL_HEIGHTS`: the
+    centre, ±EXIT_FIT/2 and ±EXIT_FIT). When no try is fair at every height,
+    the room waits the whole `ARRIVAL_BLIND` instead (about 4% of arrivals,
+    mostly Shutter Gates). The arrival check then allows no arrival with no
+    way to live at 1 s (`ArrivalBench.MAX_NO_WAY = 0`, with the bird anywhere
+    in the exit, `ArrivalBench.OFFSETS`).
+  - Behaviour that follows the bird (Stalker, a Dart's aim, Echo) stays: it uses
+    no RNG that later generation shares.
+  - Tests: `tests/unit/test_same_seed.gd`, `tests/sim/test_exits_reachable.gd`, and
+    the FastSim check `reach`.
 - **World**: 360 × 640 logical pixels. Ceiling and floor are always deadly. Side
   walls have 13 spike slots stored as bitmasks (`left_spikes`, `right_spikes`).
 - **Loop**: bird flies sideways at constant speed, a tap sets an upward velocity,
@@ -85,7 +119,8 @@ random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
-same way (gameplay version 6), at full speed with no wait. Instead the room is
+same way (gameplay version 6), after a 0.5 s wait (`PORTAL_HOLD`, next version;
+see "Same seed, same run" above). The room is
 laid out for a player who is still reading it (gameplay version 18; it replaced
 a frozen wait and then a slow-motion entrance): `ArrivalCheck` plays the
 arrival on copies of the sim (`SimCopy`), the bird only holding its height for
@@ -163,6 +198,22 @@ start and never comes back.
 - `sim/fair_lanes.gd` (FairLanes): where a bird that just started or came out
   of a portal will fly; hazards placed at room start keep off it.
 - `sim/exit_planner.gd` (ExitPlanner): where exits go. GameSim decides when.
+  It never puts an exit where a hazard kills in its mouth already
+  (`ExitPlanner.in_mouth`) or says it would (`Hazard.blocks_exit`).
+- `sim/exit_zone.gd` (ExitZone): the mouths of a room's exits (the opening
+  plus a bird radius around it, three bird radii deep), on both walls, for the
+  whole room: the exits are planned from the room's seed when it starts
+  (`ExitPlanner.plan_room`), so they never depend on how anyone flies.
+  Hazards treat the mouths as part of the wall: balls bounce off them, the
+  Stalker stops at their edge, the Echo keeps out, darts, drops, crates and
+  sparks break on them, pistons move off their rows or sit the cycle out, and
+  beams stop short; fixed rams and swinging lanterns can't, so an exit never
+  goes where they reach (`blocks_exit`). Wall spikes may cover a mouth until
+  its exit's ghost shows. `tools/fastsim.ps1 -Mode check -Check exits` (every
+  variant, and full runs in every season, each played twice with different
+  taps) checks that both plays meet the same exits, that nothing ever kills in
+  or turns the bird back from a mouth, and that no spike reaches into a shown
+  exit's mouth; `tests/sim/test_exit_clear.gd` keeps a sample.
 - `game/run/hazard_layer.gd` + `game/run/painters/<kind>_painter.gd`: one
   `HazardPainter` per hazard kind, which casts the hazard to its own class and
   gets a `HazardLook` (world, clock, the room's skin, color-blind mode).

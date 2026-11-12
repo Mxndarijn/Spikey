@@ -142,6 +142,12 @@ const WILD_COINS := 3
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
 ## wait, taps ignored) after a revive.
 const ARRIVAL_HOLD := 60
+## Ticks (0.5 s) of the same frozen wait out of every portal: the room is laid
+## out from the seed alone (SimState.anchor_y), not for the bird's own height,
+## so the player gets half a second to look before the bird flies on. It counts
+## toward ARRIVAL_BLIND (ArrivalCheck steps through it). Where no layout is fair
+## for every bird in the exit, the wait is ARRIVAL_BLIND (GameSim._arrival_retries).
+const PORTAL_HOLD := 30
 ## Out of a portal the room is laid out so a player who doesn't react for
 ## ARRIVAL_BLIND ticks (only holding height) can still live ARRIVAL_FOLLOW
 ## ticks after that; up to ARRIVAL_TRIES layouts are tried (ArrivalCheck).

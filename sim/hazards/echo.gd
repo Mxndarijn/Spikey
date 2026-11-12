@@ -2,7 +2,8 @@ extends Hazard
 ## A shadow bird (Echo). The echo flies the bird's own path DELAY steps late;
 ## the mirror flies opposite the bird through the middle of the room. Either
 ## kills on touch. Hidden for the room's first DELAY steps, so a bird out of a
-## portal always gets its full reading time.
+## portal always gets its full reading time. The shadow never enters an
+## open or ghost exit's mouth (ExitZone): it flies along its edge.
 
 ## Variants (the room's variant id picks one).
 enum Mode { ECHO, MIRROR }
@@ -49,6 +50,7 @@ func step(sim: GameSim) -> void:
 		x = SimConfig.WORLD_W - sim.state.x
 		y = SimConfig.WORLD_H - sim.state.y
 		facing = -1 if sim.state.vx > 0 else 1
+		x = ExitZone.push_x(sim, x, y, RADIUS)
 		return
 	var old_x := xs[head]
 	facing = 1 if old_x >= x else -1
@@ -57,6 +59,7 @@ func step(sim: GameSim) -> void:
 	xs[head] = sim.state.x
 	ys[head] = sim.state.y
 	head = (head + 1) % DELAY
+	x = ExitZone.push_x(sim, x, y, RADIUS)
 
 
 func kills(sim: GameSim) -> bool:

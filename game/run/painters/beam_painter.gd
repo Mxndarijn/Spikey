@@ -14,6 +14,14 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var w := HazardLayer.px(SimConfig.WORLD_W)
 	for i in h.rows.size():
 		var y := HazardLayer.px(h.rows[i])
+		# A beam stops short of an exit's mouth (Beam.beam_left / beam_right).
+		var x0 := 0.0
+		var x1 := w
+		if look.sim != null:
+			if h.beam_left(look.sim, i) > look.sim.room.wall_left():
+				x0 = HazardLayer.px(h.beam_left(look.sim, i))
+			if h.beam_right(look.sim, i) < look.sim.room.wall_right():
+				x1 = HazardLayer.px(h.beam_right(look.sim, i))
 		var st: int = h.state(i)
 		var lit := 0.0
 		if st == h.State.WARN:
@@ -22,19 +30,19 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			var flick := 0.5 + 0.5 * sin(time * (14.0 + 30.0 * warn))
 			var col := Color(theme.spike, (0.3 + 0.5 * warn) * (0.5 + 0.5 * flick))
 			c.draw_dashed_line(
-				Vector2(EMITTER.x, y), Vector2(w - EMITTER.x, y), col, 2.0, 10.0, true, true
+				Vector2(x0 + EMITTER.x, y), Vector2(x1 - EMITTER.x, y), col, 2.0, 10.0, true, true
 			)
 			lit = warn
 		elif st == h.State.ON:
 			var half := HazardLayer.px(h.HALF_H)
 			var wobble := 1.0 + sin(time * 40.0 + i) * 0.08
-			var outer := Rect2(0, y - half * 1.8 * wobble, w, half * 3.6 * wobble)
+			var outer := Rect2(x0, y - half * 1.8 * wobble, x1 - x0, half * 3.6 * wobble)
 			c.draw_rect(outer, Color(theme.spike, 0.3), true)
-			c.draw_rect(Rect2(0, y - half, w, half * 2.0), theme.spike, true)
-			c.draw_line(Vector2(0, y), Vector2(w, y), Color(theme.spike_edge, 0.9), 2.0, true)
+			c.draw_rect(Rect2(x0, y - half, x1 - x0, half * 2.0), theme.spike, true)
+			c.draw_line(Vector2(x0, y), Vector2(x1, y), Color(theme.spike_edge, 0.9), 2.0, true)
 			lit = 1.0
-		_emitter(c, Vector2(0, y), 1.0, theme, lit)
-		_emitter(c, Vector2(w, y), -1.0, theme, lit)
+		_emitter(c, Vector2(x0, y), 1.0, theme, lit)
+		_emitter(c, Vector2(x1, y), -1.0, theme, lit)
 
 
 static func _emitter(c: CanvasItem, at: Vector2, dir: float, theme: ThemeDef, lit: float) -> void:

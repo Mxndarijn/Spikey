@@ -28,7 +28,9 @@ func test_exits_are_planned_near_the_gap() -> void:
 		var r := SimConfig.BIRD_RADIUS
 		sim.state.vx = SimConfig.SPEED_X if side == 0 else -SimConfig.SPEED_X
 		sim.state.x = r if side == 0 else SimConfig.WORLD_W - r
-		ExitPlanner.plan(sim, sim._rng, side, sim.state.score + SimConfig.POINTS_PER_ROOM)
+		# One point before the exit, as a ghost (or a revive) plans it.
+		sim.state.score = sim.next_exit_score() - 1
+		ExitPlanner.plan(sim, sim._rng, side, sim.state.score + 1)
 		# The gate next to that wall, when the bird passes it on its way back.
 		var last: Hazard = sim.room.hazards[mini(side, sim.room.hazards.size() - 1)]
 		var steps := sim.steps_to_wall(side) - absi(last.x - sim.state.x) / SimConfig.SPEED_X

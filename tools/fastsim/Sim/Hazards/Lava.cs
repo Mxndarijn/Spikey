@@ -89,7 +89,7 @@ public class Lava : Hazard
         }
         if (first_ok < 0 || last_ok - first_ok + 1 < RUN) return mask;
         long c0 = SimConfig.slot_center_y(0);
-        long near = (sim.state.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE;
+        long near = (sim.state.anchor_y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE;
         long mid = G.clampi(near, first_ok + 1, last_ok - 1);
         for (long slot = mid - 1; slot < mid + 2; slot++) mask &= ~(1L << (int)slot);
         return mask;
@@ -110,7 +110,7 @@ public class Lava : Hazard
 
     public override bool blocks_exit(GameSim sim, long side, long y)
     {
-        long worst = line_at(G.mini(rises_due(sim) + 1, MAX_RISES));
+        long worst = line_at(G.mini(rises_due(sim) + sim.points_to_exit(), MAX_RISES));
         return y > worst - EXIT_CLEAR;
     }
 

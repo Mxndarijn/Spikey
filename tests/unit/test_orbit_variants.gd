@@ -29,6 +29,7 @@ static func ids(id: String) -> Array[String]:
 static func put_bird(sim: GameSim, x: int, y: int) -> void:
 	sim.state.x = x
 	sim.state.y = y
+	sim.state.anchor_y = sim.state.y
 
 
 func test_rooms_have_their_variants() -> void:
@@ -145,6 +146,7 @@ func test_saw_rings_keep_off_a_bird_out_of_a_portal() -> void:
 			var sim := sim_in("sawring", v, y_px)
 			sim.state.started = true
 			sim.state.y = y_px * SUB
+			sim.state.anchor_y = sim.state.y
 			var ring: Hazard = sim.room.hazards[0]
 			ring.setup(sim, SimRng.new(y_px))
 			for step in SimConfig.ARRIVAL_HOLD:
@@ -224,6 +226,7 @@ func test_bats_keep_off_a_bird_out_of_a_portal() -> void:
 				sim.state.score = 40
 				sim.forced_variant = v
 				sim.state.y = y_px * SUB
+				sim.state.anchor_y = sim.state.y
 				sim._arrive_in(side, index)
 				var h: Hazard = sim.room.hazards[0]
 				var clear: int = h._arrival_clear(FairLanes.arrival_path(sim))
@@ -283,6 +286,7 @@ func test_double_burst_sends_a_second_ring_into_the_gaps() -> void:
 
 func test_cross_burst_throws_four_arms() -> void:
 	var sim := GameSim.new(9)
+	NoExits.clear(sim)
 	var f := _burst(Firework.Style.CROSS, 9)
 	assert_eq(f.spark_count(), Firework.ARMS * Firework.ARM_SPARKS)
 	for step in 20:

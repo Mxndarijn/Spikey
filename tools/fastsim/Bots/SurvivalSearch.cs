@@ -21,6 +21,9 @@ public sealed class SurvivalSearch
     public Dictionary<string, long> last_deaths = new();
     public long level;
     public long max_level = LEVELS.Length - 1;
+    /// FastSim checks only (no GDScript twin): end on a random survivor instead
+    /// of the best one, to play many different lines (Checks.Exits).
+    public Random pick = null;
 
     long _bucket_h, _bucket_vy, _speed_buckets;
     List<int> _parents = new();
@@ -113,8 +116,10 @@ public sealed class SurvivalSearch
             ticks_survived = t + 1;
         }
         var top = frontier[0];
-        foreach (var e in frontier)
-            if (_better(e.sim, top.sim)) top = e;
+        if (pick != null) top = frontier[pick.Next(frontier.Count)];
+        else
+            foreach (var e in frontier)
+                if (_better(e.sim, top.sim)) top = e;
         best = top.sim;
         best_inputs = _inputs_to(top.node);
         _parents = new List<int>();

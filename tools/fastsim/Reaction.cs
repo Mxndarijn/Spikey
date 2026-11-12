@@ -16,6 +16,8 @@ static class Reaction
     /// and in no room may more than MAX_EXTRA_PCT leave no way to live.
     public const long EARLY_DELAY = 45;
     public const long MAX_EXTRA_PCT = 2;
+    public const long MAX_NO_WAY = 0;
+    public static readonly long[] OFFSETS = { 0, -65, 65, -32, 32 };
 
     public static List<long> delays(string arg)
     {
@@ -39,7 +41,8 @@ static class Reaction
             if (def.fits_arrival(y * SimConfig.SUB) && (forced == null || forced.fits_arrival(y * SimConfig.SUB))) break;
             y = 130 + (y - 130 + 53) % 380;
         }
-        sim.state.y = y * SimConfig.SUB;
+        sim.state.anchor_y = y * SimConfig.SUB;
+        sim.state.y = GameSim._arrival_y(sim.state.anchor_y + OFFSETS[(int)(i / 2 % OFFSETS.Length)] * SimConfig.SUB);
         long side = i % 2;
         long skip = sim._arrival_retries(side, index);
         for (long k = 0; k < skip; k++) sim._rng.next_u32();
@@ -106,6 +109,7 @@ static class Reaction
                     sim.step(true);
                     sim.state.score = G.maxi(def.from_score, 10) + (k % 3) * 10;
                     sim.state.y = y * SimConfig.SUB;
+                    sim.state.anchor_y = sim.state.y;
                     long skip = sim._arrival_retries(side, index);
                     for (long j = 0; j < skip; j++) sim._rng.next_u32();
                     sim._arrive_in(side, index);
@@ -175,7 +179,7 @@ static class Reaction
                 var row = new JsonObject
                 {
                     ["room"] = RoomCatalog.all()[(int)sim.state.room_kind].id,
-                    ["y"] = sim.state.y / SimConfig.SUB, ["score"] = sim.state.score,
+                    ["y"] = sim.state.y / SimConfig.SUB, ["anchor"] = sim.state.anchor_y / SimConfig.SUB, ["variant"] = sim.room.variant_id(), ["hold"] = sim.state.arrival_hold, ["score"] = sim.state.score,
                 };
                 foreach (long d in ds)
                 {

@@ -9,7 +9,7 @@ namespace FastSim;
 public sealed class BlindPlanner
 {
     /// Ticks looked ahead at most, and at most `past` ticks past the next bounce.
-    public long horizon = 160, past = 40;
+    public long horizon = 200, past = 110;
     /// Ticks between looks when the last look was calm, and when it was not
     /// (no line in some guessed future, or only a fine / shorter line).
     public int replan = 4, replan_danger = 1;
@@ -19,14 +19,46 @@ public sealed class BlindPlanner
     public int copies = 1, lines = 1, wobble = 0;
     /// Lines differ when they part within this many ticks.
     public int part = 16;
+    /// Two-stage look (0 = off): the next wall is unknown until the bounce, so
+    /// the bird should reach this wall where most next walls stay reachable.
+    /// Stage one finds lines to just before the bounce, one per `band` px of
+    /// height there (`lines` of them). Stage two gives each of them `copies`
+    /// guessed futures and asks whether some line lives `after` ticks in each
+    /// (a coarse search). The line with the most futures alive is played.
+    public long after = 0, band = 40, coarse_px = 12, coarse_speeds = 4;
     /// Cost per tick of each px away from the middle height, and per tap (px).
     public long mid_cost = 1, tap_cost = 0;
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
-    public long margin = 0, margin_cost = 40;
+    public long margin = 16, margin_cost = 2000;
     /// The margin also counts the spikes of the wall ahead, the ceiling and the floor.
-    public bool spike_margin = false;
+    public bool spike_margin = true;
     /// The taps planned for the next ticks (read only; the human layer lands them with timing noise).
     public IReadOnlyCollection<bool> plan => _plan;
+    /// One-sided stalactite fangs re-aim at every bounce. In an imagined bounce
+    /// the planner takes the worst case: 1 = the column met first comes out as
+    /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
+    public int worst_fangs = 2;
+    /// Rules from the death traces (research/families/*.md), each with a switch:
+    /// no_pingpong: a line may not bounce twice on the same wall so that the
+    ///   exit opens there, unless its preview was on screen when the look began
+    ///   (its height is a guess until then; the wall fills with spikes around it).
+    /// keep_plan: when no line lives the whole look, the rest of the old plan
+    ///   stays if it still lives in the new copy.
+    /// bounce_look: a new look at every change of direction.
+    /// wide_key: the bucket also holds the flight direction and x (bumpers and
+    ///   wind send lines to different places at the same height).
+    /// aim_exit: the height cost pulls to an exit that is on screen instead of the middle.
+    /// wall_look: when no line lives the whole look, search to just past the
+    ///   wall ahead (the part with nothing to guess) with coarse, fine and
+    ///   very fine buckets before trying shorter looks.
+    /// full_speeds: the speed buckets span the whole range of fall speeds
+    ///   (before, every fall above 3.3 px a tick shared one bucket).
+    /// aim_anchor: with no exit on screen the height cost pulls to the room's
+    ///   anchor (the next gaps are drawn around it) instead of the middle.
+    public bool wall_look = true, full_speeds = false, aim_anchor = false;
+    public long wall_looks;
+    public bool no_pingpong = true, keep_plan = true, bounce_look = true, wide_key = true, aim_exit = true;
+    public long kept_plans;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
@@ -35,7 +67,8 @@ public sealed class BlindPlanner
     int _since = int.MaxValue;
     int _wait = 1;
     long _bounce_y = -1, _vx;
-    readonly List<(byte[] taps, long cost)> _found = new();
+    readonly List<(byte[] taps, long cost, GameSim sim)> _found = new();
+    public long two_stage_looks;
     /// How the last look ended: 0 = a line for the whole look, 1 = only with fine buckets, 2 = only a shorter look, 3 = none.
     public int last_look;
     /// In how many of the guessed futures the played line lived (of `copies`).
@@ -51,11 +84,14 @@ public sealed class BlindPlanner
         if (sim.state.vx != _vx)
         {
             if (_vx != 0) _bounce_y = sim.state.y;
+            if (_vx != 0 && bounce_look) _since = int.MaxValue;
             _vx = sim.state.vx;
         }
         if (_since >= _wait || _plan.Count == 0) look(sim);
         _since++;
-        return _plan.Count > 0 && _plan.Dequeue();
+        bool tap = _plan.Count > 0 && _plan.Dequeue();
+        // The sim ignores taps during the wait out of a portal: don't make them.
+        return tap && sim.state.arrival_hold == 0;
     }
 
     void look(GameSim sim)
@@ -67,6 +103,42 @@ public sealed class BlindPlanner
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
         GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y);
+        long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
+        if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
+        {
+            beam(copy(0), to_wall - 1, bucket_px, speed_buckets, band);
+            if (_found.Count > 0)
+            {
+                two_stage_looks++;
+                var cands = _found.ToList();
+                byte[] pick = null;
+                int pick_ok = -1;
+                long pick_cost = 0;
+                foreach (var (taps, cost, at) in cands)
+                {
+                    int ok = 0;
+                    for (int j = 0; j < n; j++)
+                    {
+                        beam(blind_copy(at, new SimRng(seeds[j] + 1), _bounce_y), after, coarse_px, coarse_speeds, 0, true);
+                        if (_found.Count > 0) ok++;
+                    }
+                    if (ok > pick_ok || (ok == pick_ok && cost < pick_cost))
+                    {
+                        pick = taps;
+                        pick_ok = ok;
+                        pick_cost = cost;
+                    }
+                    if (ok == n) break;
+                }
+                last_agree = pick_ok;
+                if (pick_ok < n) split_looks++;
+                _wait = pick_ok < n ? replan_danger : replan;
+                _plan.Clear();
+                foreach (byte b in pick) _plan.Enqueue(b != 0);
+                _since = 0;
+                return;
+            }
+        }
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
         beam(copy(0), want, bucket_px, speed_buckets);
         if (_found.Count == 0 && fine_px > 0)
@@ -86,7 +158,7 @@ public sealed class BlindPlanner
         else if (_found.Count > 0)
         {
             long best_cost = 0;
-            foreach (var (taps, cost) in _found)
+            foreach (var (taps, cost, _) in _found.ToList())
             {
                 int ok = 0;
                 for (int j = 0; j < n; j++)
@@ -103,10 +175,36 @@ public sealed class BlindPlanner
                 }
             }
         }
+        if (found == null && keep_plan && _plan.Count >= 8)
+        {
+            var rest = _plan.Select(b => (byte)(b ? 1 : 0)).ToArray();
+            if (lives(copy(0), rest, 0))
+            {
+                kept_plans++;
+                last_look = 2;
+                short_looks++;
+                _wait = replan_danger;
+                _since = 0;
+                return;
+            }
+        }
+        if (found == null && wall_look && to_wall + 26 < want)
+        {
+            foreach (var (px, sp) in new[] { (bucket_px, speed_buckets), (fine_px, fine_speeds), (2L, 40L) })
+            {
+                beam(copy(0), to_wall + 26, px, sp);
+                if (_found.Count == 0) continue;
+                found = _found[0].taps;
+                last_look = 2;
+                wall_looks++;
+                break;
+            }
+        }
         for (long t = want * 3 / 4; t >= 2 && found == null; t = t * 3 / 4)
         {
             last_look = 2;
             beam(copy(0), t, bucket_px, speed_buckets);
+            if (_found.Count == 0 && fine_px > 0 && keep_plan) beam(copy(0), t, fine_px, fine_speeds);
             if (_found.Count > 0) found = _found[0].taps;
         }
         if (last_look == 2) short_looks++;
@@ -122,6 +220,27 @@ public sealed class BlindPlanner
         if (found != null)
             foreach (byte b in found) _plan.Enqueue(b != 0);
         _since = 0;
+    }
+
+    /// After a bounce in a copy: one-sided fangs aim as far out as their rule
+    /// allows (within REACH of the anchor for the column met first, MAX_STEP
+    /// past that for the other when `both`).
+    static void fangs_out(GameSim c, bool both)
+    {
+        List<Stalactite> cols = null;
+        foreach (var hz in c.room.hazards)
+            if (hz is Stalactite st && st.fixed_lo < 0 && st.top != st.bottom) (cols ??= new()).Add(st);
+        if (cols == null) return;
+        cols.Sort((p, q) => c.state.vx > 0 ? p.x.CompareTo(q.x) : q.x.CompareTo(p.x));
+        long center = c.state.anchor_y, spread = Stalactite.REACH;
+        for (int i = 0; i < cols.Count; i++)
+        {
+            var st = cols[i];
+            if (i == 0 || both)
+                st.target_y = st.bottom ? Math.Max(Stalactite.GAP_MIN, center - spread) : Math.Min(Stalactite.GAP_MAX, center + spread);
+            center = st.target_y;
+            spread = Stalactite.MAX_STEP;
+        }
     }
 
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
@@ -142,9 +261,19 @@ public sealed class BlindPlanner
     {
         var c = sim.clone_deep();
         c._rng = new SimRng(own.next_u32());
+        // Seed-only generation: each wall reseeds from the room's seed, the
+        // spine picks the next rooms, and the exits are planned from the room's
+        // seed at room start. All three are hidden: replace them and plan again
+        // (plan_room keeps an exit already on screen as it is).
+        c.room.rng_seed = own.next_u32();
+        c._spine = new SimRng(own.next_u32());
+        if (c.state.plan_at != 0) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
         // MAX_STEP of that (the room's rule, which a player learns).
+        // On seed-only generation the room slides them to state.anchor_y (the
+        // exit taken or the open run on the last wall: on screen), so that is used.
+        bounce_y = c.state.anchor_y;
         if (bounce_y >= 0)
         {
             var cols = c.room.hazards.OfType<Stalactite>().Where(st => st.fixed_lo < 0).ToList();
@@ -158,8 +287,11 @@ public sealed class BlindPlanner
                     // Only the side it is seen sliding to.
                     if (st.target_y > st.gap_y) lo = Math.Max(lo, st.gap_y + 1);
                     else hi = Math.Min(hi, st.gap_y - 1);
-                    st.target_y = lo <= hi ? lo + own.next_below(hi - lo + 1)
-                        : st.gap_y + (st.target_y > st.gap_y ? 1 : -1) * own.next_below(Stalactite.SLIDE * 8 + 1);
+                    // A fang from one side only: the worst case (its tip as far out as it may go).
+                    if (lo > hi) st.target_y = st.gap_y + (st.target_y > st.gap_y ? 1 : -1) * own.next_below(Stalactite.SLIDE * 8 + 1);
+                    else if (st.bottom && !st.top) st.target_y = lo;
+                    else if (st.top && !st.bottom) st.target_y = hi;
+                    else st.target_y = lo + own.next_below(hi - lo + 1);
                 }
                 center = st.target_y;
                 spread = Stalactite.MAX_STEP;
@@ -231,13 +363,18 @@ public sealed class BlindPlanner
 
     /// Fills `_found` with up to `lines` lines that live `ticks` ticks,
     /// cheapest first: the cheapest of each family of lines that share their first `part` ticks.
-    void beam(GameSim root, long ticks, long bpx, long speeds)
+    /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
+    /// With `any`: stops at the first line found (only "is there one").
+    void beam(GameSim root, long ticks, long bpx, long speeds, long by_band = 0, bool any = false)
     {
         _found.Clear();
         var layer = new List<int>();
         long bh = bpx * SimConfig.SUB;
-        long bvy = -SimConfig.FLAP_VY * 2 / speeds;
+        long bvy = full_speeds ? (SimConfig.MAX_FALL_VY - SimConfig.FLAP_VY) / speeds + 1 : -SimConfig.FLAP_VY * 2 / speeds;
         long mid = (SimConfig.KILL_TOP + SimConfig.KILL_BOTTOM) / 2;
+        bool exit_shown = root.state.exit_open || root.state.exit_preview;
+        if (aim_exit && exit_shown) mid = root.state.exit_a_y;
+        else if (aim_anchor) mid = root.state.anchor_y;
         var parents = new List<int>();
         var taps = new List<byte>();
         var frontier = new List<Node> { new Node { sim = root, parent = -1 } };
@@ -250,17 +387,23 @@ public sealed class BlindPlanner
             foreach (var e in frontier)
             {
                 bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY;
+                long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
+                bool e_open = e.sim.state.exit_open;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
                 {
                     var s = a == 1 ? e.sim.clone_deep() : e.sim;
                     s.step(a == 1);
                     if (s.is_over()) continue;
+                    // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
+                    if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
+                    if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
                     if (margin > 0 && near_death(s)) cost += margin_cost;
                     long along = st.vy * s.room.gravity - SimConfig.FLAP_VY;
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;
+                    if (wide_key) key = (key * 64 + st.x / (16 * SimConfig.SUB)) * 2 + (st.vx > 0 ? 1 : 0);
                     var node = new Node { sim = s, parent = e.parent, tap = (byte)a, cost = cost };
                     if (slots.TryGetValue(key, out int at))
                     {
@@ -283,6 +426,11 @@ public sealed class BlindPlanner
                 frontier.Add(new Node { sim = e.sim, parent = parents.Count - 1, cost = e.cost });
             }
         }
+        if (any)
+        {
+            _found.Add((Array.Empty<byte>(), 0, null));
+            return;
+        }
         // The family of a line: its node `part` ticks in.
         long depth = Math.Min(part, ticks) - 1;
         int family_end = depth + 1 < layer.Count ? layer[(int)depth + 1] : parents.Count;
@@ -292,7 +440,9 @@ public sealed class BlindPlanner
         {
             if (e.sim.state.room_index != room) continue;
             int f = e.parent;
-            while (f >= family_end) f = parents[f];
+            if (by_band > 0) f = (int)(e.sim.state.y / (by_band * SimConfig.SUB));
+            else
+                while (f >= family_end) f = parents[f];
             if (!best.TryGetValue(f, out var have) || e.cost < have.cost) best[f] = e;
         }
         foreach (var e in best.Values.OrderBy(e => e.cost).Take(Math.Max(1, lines)))
@@ -300,12 +450,10 @@ public sealed class BlindPlanner
             var out_ = new List<byte>();
             for (int nd = e.parent; nd >= 0; nd = parents[nd]) out_.Add(taps[nd]);
             out_.Reverse();
-            _found.Add((out_.ToArray(), e.cost));
+            _found.Add((out_.ToArray(), e.cost, e.sim));
         }
     }
 
-    /// Whether a bird `m` (sub-units) above or below would touch a spike of the
-    /// wall ahead (once within spike reach), the ceiling or the floor.
     static bool near_spikes(GameSim s, long y, long m)
     {
         var st = s.state;

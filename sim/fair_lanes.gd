@@ -25,27 +25,29 @@ const ARRIVAL_PATH_MARGIN := 10 * SimConfig.SUB
 const ARRIVAL_PATH_MIN := SimConfig.ARRIVAL_BLIND + 15
 
 
-## Where the bird will be soon after the room starts: its height, or, before
-## the first tap (which is a flap), half a hop higher. Hazards that line a
-## gap up with the bird use this.
+## Where the bird will be soon after the room starts: out of a portal the
+## exit's height (SimState.anchor_y, the same for every player), or, before
+## the first tap (which is a flap), half a hop over the start. Hazards that
+## line a gap up with the bird use this.
 static func entry_y(sim: GameSim) -> int:
 	if sim.state.started:
-		return sim.state.y
+		return sim.state.anchor_y
 	return sim.state.y - FIRST_HOP / 2 * sim.room.gravity
 
 
 ## Out of a portal: where a player still reading the room flies, as x, y
-## pairs for ARRIVAL_PATH_TICKS steps. It holds the height it came in at,
-## tapping whenever it has sunk under it (as ArrivalCheck plays it), and turns
-## at the far wall.
+## pairs for ARRIVAL_PATH_TICKS steps. It holds the exit's height
+## (SimState.anchor_y), tapping whenever it has sunk under it (as ArrivalCheck
+## plays it), and turns at the far wall.
 static func arrival_path(sim: GameSim) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	var g := sim.room.gravity
-	var y := sim.state.y
+	var hold := sim.state.anchor_y
+	var y := hold
 	# It comes out flying level (_arrive).
 	var vy := 0
 	for k in ARRIVAL_PATH_TICKS:
-		if (y - sim.state.y) * g > 0 and vy * g >= 0:
+		if (y - hold) * g > 0 and vy * g >= 0:
 			vy = SimConfig.FLAP_VY * g
 		vy = clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
 		y += vy

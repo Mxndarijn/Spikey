@@ -97,7 +97,7 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 		# yet, so the gap ahead stays at the bird's height (set in setup).
 		near.target_y = near.gap_y
 	else:
-		near.target_y = _around(rng, sim.state.y, REACH)
+		near.target_y = _around(rng, sim.state.anchor_y, REACH)
 	if far != null:
 		far.target_y = _around(rng, near.target_y, MAX_STEP)
 	_clear_wall_ahead(sim, far if far != null else near)

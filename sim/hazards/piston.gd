@@ -10,6 +10,9 @@ extends Hazard
 ## Variants (Piston Press): a shorter ram (reach), the whole room to pick from
 ## (HALF_ALL), a ram that copies the height of the piston before it so both
 ## slam as one (follows), or a fixed height that never moves (fixed_y).
+##
+## A piston whose ram would reach into an open or ghost exit's mouth
+## (ExitZone) sits that cycle out.
 
 enum State { IDLE, GLOW, EXTEND, HOLD, RETRACT }
 
@@ -54,6 +57,9 @@ var follows := false
 var leader: Hazard = null
 ## A fixed centre height (sub-units), or -1 to pick one after each bounce.
 var fixed_y := -1
+## Sits out the rest of this cycle: fully out, the ram would reach into an
+## open or ghost exit's mouth (ExitZone).
+var skip := false
 
 
 func _init(
@@ -99,7 +105,7 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	_pick_y(rng)
 
 
-func on_bounce(_sim: GameSim, rng: SimRng) -> void:
+func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	if fixed_y >= 0:
 		return
 	if leader != null:
@@ -109,8 +115,19 @@ func on_bounce(_sim: GameSim, rng: SimRng) -> void:
 	# Always draw so the RNG order does not depend on the piston's state.
 	var old := y
 	_pick_y(rng)
-	if state() != State.IDLE:
+	_clear_row(sim)
+	if _cycle_state() != State.IDLE:
 		y = old
+
+
+## Moves a ram that may move off the rows of the room's exits (ExitZone) on
+## its wall (both walls for a pair that slams level), if there is room.
+func _clear_row(sim: GameSim) -> void:
+	if fixed_y >= 0 or leader != null:
+		return
+	var c := ExitZone.clear_y(sim, side if half != HALF_ALL else -1, y, HALF_H, y_lo, y_hi)
+	if c >= y_lo and c <= y_hi:
+		y = c
 
 
 func _pick_y(rng: SimRng) -> void:
@@ -129,7 +146,46 @@ func cycle_pos() -> int:
 	return posmod(t - delay, period())
 
 
+## Each step: a ram that would reach into an exit's mouth (ExitZone) stays in
+## the wall, glow and all, until its next cycle.
+func step(sim: GameSim) -> void:
+	# The room's exits are known from its first step (set up before them).
+	if t == 1:
+		_clear_row(sim)
+		if leader != null:
+			y = leader.y
+	if _cycle_state() == State.IDLE:
+		skip = false
+	elif not skip and _reaches_exit(sim):
+		skip = true
+
+
+## True if the ram, fully out at its height, would touch an exit's mouth.
+func _reaches_exit(sim: GameSim) -> bool:
+	return ExitZone.hits_rect(sim, base_x(), y - HALF_H, _far_x(), y + HALF_H)
+
+
+## The tip of the ram when fully out.
+func _far_x() -> int:
+	return base_x() + reach if side == 0 else base_x() - reach
+
+
+## A ram that never moves (a ladder rung), or one already in its cycle, would
+## have to sit out at an exit planned in its way, so the exit goes elsewhere.
+func blocks_exit(sim: GameSim, p_side: int, p_y: int) -> bool:
+	if fixed_y < 0 and (skip or _cycle_state() == State.IDLE):
+		return false
+	return ExitZone.rect_in_box(sim, p_side, p_y, base_x(), y - HALF_H, _far_x(), y + HALF_H)
+
+
 func state() -> State:
+	if skip:
+		return State.IDLE
+	return _cycle_state()
+
+
+## Where the cycle is, whether or not this one is sat out.
+func _cycle_state() -> State:
 	var p := cycle_pos()
 	if p < IDLE_TICKS:
 		return State.IDLE
@@ -184,4 +240,4 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [side, y, delay, half])
+	return mix_all(h, [side, y, delay, half, int(skip)])

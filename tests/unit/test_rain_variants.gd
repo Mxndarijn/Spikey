@@ -82,6 +82,7 @@ func test_hail_has_four_small_drops() -> void:
 ## Four fixed columns fall left to right, then right to left, and back.
 func test_sweep_goes_one_way_then_back() -> void:
 	var sim := rain("sweep")
+	NoExits.clear(sim)
 	var list := drops(sim)
 	assert_eq(list.size(), 4)
 	var passes: Array = []

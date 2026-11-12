@@ -7,7 +7,8 @@ extends Hazard
 ## Spike Rain's variants tune it (warning time, size, a fixed column) and pick
 ## a style: SHATTER breaks into two shards that skip along the floor, WOBBLE
 ## sways from side to side as it falls, STAKE lands on a floor spike's tip and
-## makes that spike grow for a while.
+## makes that spike grow for a while. A falling drop (or its shards) breaks on
+## an open or ghost exit's mouth (ExitZone).
 
 enum Phase { WAIT, WARN, FALL, STAKE }
 enum Style { PLAIN, SHATTER, WOBBLE, STAKE }
@@ -105,9 +106,17 @@ func setup(_sim: GameSim, rng: SimRng) -> void:
 	y = TOP
 
 
-func step(_sim: GameSim) -> void:
+func step(sim: GameSim) -> void:
 	if shard_t > 0:
 		_step_shards()
+		# Shards break on an exit's mouth (ExitZone), both at once.
+		var sx := shard_x - shard_dx
+		var sx2 := shard_x + shard_dx
+		if (
+			ExitZone.hits_circle(sim, sx, shard_y, SHARD_RADIUS)
+			or ExitZone.hits_circle(sim, sx2, shard_y, SHARD_RADIUS)
+		):
+			shard_t = 0
 	match phase:
 		Phase.WAIT:
 			timer -= 1
@@ -140,7 +149,8 @@ func step(_sim: GameSim) -> void:
 				y = SimConfig.KILL_BOTTOM - radius
 				phase = Phase.STAKE
 				timer = STAKE_STEPS
-			elif y - radius > SimConfig.WORLD_H:
+			elif y - radius > SimConfig.WORLD_H or ExitZone.hits_circle(sim, x, y, radius):
+				# Out of the room, or broken on an exit's mouth (ExitZone).
 				phase = Phase.WAIT
 				timer = gap
 		Phase.STAKE:
