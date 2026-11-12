@@ -1,29 +1,26 @@
 class_name ExitZone
 extends RefCounted
-## The mouths of a room's exits, which no hazard may kill in or fill, for the
-## whole room: where its exits will be is known from the room's start
-## (ExitPlanner.plan_room), on both walls, so a player who is slow or flies
-## another way meets the same room. A box
-## on the exit's wall: EXIT_HALF and a bird radius above and below the exit's
-## height, and three bird radii deep into the room (a bird touching the wall
-## in the opening, and the last bird radius of its way in). Hazards treat the
-## boxes as part of the wall: balls bounce off them, things that slide along a
-## wall stop at their edge, and shots, drops and sparks break on them.
-## ExitPlanner never puts an exit where a hazard is in its box already
-## (ExitPlanner.blocked). Every hazard asks the same questions here. No RNG
-## draws.
+## The mouths of a room's exits, which no hazard may kill in or fill once they
+## are drawn: from an exit's ghost (or its opening, with no ghost) until the
+## bird leaves the room. Where the exits go is planned from the room's seed
+## when it starts (ExitPlanner.plan_room), but that is hidden: until an exit
+## is drawn, hazards move as if it weren't there. Whatever is in its mouth when
+## it is drawn gets out at once (a ball bounces out, a slider jumps clear, a
+## shot or spark breaks, a ram pulls back). A box on the exit's wall: EXIT_HALF
+## and a bird radius above and below the exit's height, and three bird radii
+## deep into the room (a bird touching the wall in the opening, and the last
+## bird radius of its way in). ExitPlanner never plans an exit where a hazard
+## is in its box when the room starts (ExitPlanner.blocked). Every hazard asks
+## the same questions here. No RNG draws.
 
 ## How far a box reaches into the room from the wall.
 const DEPTH := 3 * SimConfig.BIRD_RADIUS
 ## Half a box's height.
 const HALF := SimConfig.EXIT_HALF + SimConfig.BIRD_RADIUS
 
-## How many boxes a room can have (box_y() is 0 for the ones it hasn't): the
-## room's planned exits (ExitPlanner.plan_room), first and fork exit on each
-## wall, reserved from the room's start, and the live exit (SimState.exit_*)
-## while it is open or a ghost, in case it is somewhere else (moved to the
-## bird for a revive).
-const BOXES := 6
+## How many boxes there can be (box_y() is 0 for the ones there aren't now):
+## the drawn exit (SimState.exit_*, a ghost or open), and its fork partner.
+const BOXES := 2
 
 
 static func count(_sim: GameSim) -> int:
@@ -31,27 +28,16 @@ static func count(_sim: GameSim) -> int:
 
 
 ## The wall box `i` is on: 0 = left, 1 = right.
-static func box_side(sim: GameSim, i: int) -> int:
-	if i < 4:
-		return 0 if i < 2 else 1
+static func box_side(sim: GameSim, _i: int) -> int:
 	return sim.state.exit_side
 
 
-## The exit height box `i` is around, or 0: no such box now.
+## The exit height box `i` is around, or 0: no such box now (no exit drawn).
 static func box_y(sim: GameSim, i: int) -> int:
 	var s := sim.state
-	match i:
-		0:
-			return s.plan_a_y_left
-		1:
-			return s.plan_b_y_left if s.plan_a_kind_left != SimState.ExitKind.NORMAL else 0
-		2:
-			return s.plan_a_y_right
-		3:
-			return s.plan_b_y_right if s.plan_a_kind_right != SimState.ExitKind.NORMAL else 0
 	if not s.exit_open and not s.exit_preview:
 		return 0
-	if i == 4:
+	if i == 0:
 		return s.exit_a_y
 	return s.exit_b_y if s.exit_b_kind != SimState.ExitKind.NORMAL else 0
 

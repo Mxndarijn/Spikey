@@ -25,6 +25,7 @@ public static partial class WorldCheck
         long cap = long.Parse(O("cap", SimConfig.MAX_TICKS.ToString()));
         long first = long.Parse(O("first", "0"));
         double minutes = double.Parse(O("minutes", "55"), System.Globalization.CultureInfo.InvariantCulture);
+        if (opts.ContainsKey("guess")) Physics.guess_margin = long.Parse(opts["guess"]) * SimConfig.SUB;
         switch (what)
         {
             case "runs":
@@ -54,6 +55,11 @@ public static partial class WorldCheck
                 long seed = long.Parse(pos.Count > 2 ? pos[2] : "1");
                 var sk = Skill(opts);
                 var sim = new GameSim(seed);
+                if (opts.ContainsKey("room"))
+                {
+                    long ri = RoomCatalog.index_of(opts["room"]);
+                    sim = new GameSim(seed, RoomCatalog.all()[(int)ri].season, ri, O("variant", ""));
+                }
                 var bot = new WorldPlanner(sk, seed);
                 var mem = new Memory();
                 var log = new List<string>();
@@ -61,13 +67,51 @@ public static partial class WorldCheck
                 {
                     bool tap = bot.Decide(sim, mem);
                     var st = sim.state;
-                    log.Add($"t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} mask {Convert.ToString(sim.wall_mask(st.vx > 0 ? 1 : 0), 2).PadLeft(13, '0')}");
+                    string stl = string.Join(" ", sim.room.hazards.OfType<Stalactite>().Select(q => $"[x{q.x / 64} g{q.gap_y / 64} T{q.target_y / 64} gap{q.gap / 64}]"));
+                    log.Add(stl + $" t{st.tick} x {st.x / 64.0:F0} y {st.y / 64.0:F1} vy {st.vy / 64.0:F2} tap {(tap ? 1 : 0)} done {bot.last_done} left {bot.last_left} deep w{bot.last_deep_wait} t{bot.last_deep_tap} best {bot.last_best:F0} causes {string.Join("/", bot.last_causes)} postb {bot.last_bounced_deaths} L {Convert.ToString(sim.wall_mask(0), 2).PadLeft(13, (char)48)} R {Convert.ToString(sim.wall_mask(1), 2).PadLeft(13, (char)48)} vx {st.vx} sc {st.score} ex {(st.exit_open ? 1 : 0)}{(st.exit_preview ? "p" : "")} side {st.exit_side} ey {st.exit_a_y / 64} hold {st.arrival_hold} room {st.room_index} anc {mem.anchor / 64}/{st.anchor_y / 64}");
                     sim.step(tap);
                 }
                 Console.WriteLine($"seed {seed}: score {sim.state.score} died {DeathCause.NAMES[sim.state.death_cause]} in {sim.room.def.id}/{sim.room.variant_id()} at tick {sim.state.tick}");
                 foreach (var l in log.Skip(Math.Max(0, log.Count - int.Parse(O("last", "70"))))) Console.WriteLine("  " + l);
                 return 0;
             }
+            case "practice":
+            {
+                // world practice <room id or *> [seeds] [ticks]: practice runs in every variant of the room(s).
+                string room = pos.Count > 2 ? pos[2] : "*";
+                int seeds = int.Parse(pos.Count > 3 ? pos[3] : "24");
+                long ticks = long.Parse(pos.Count > 4 ? pos[4] : "3600");
+                var sk = Skill(opts);
+                var list = Variants().Where(v => room == "*" || v.def.id == room || room.Split(',').Contains(v.def.id)).ToList();
+                var rows = new System.Collections.Concurrent.ConcurrentBag<(string label, double median, double mean, int deaths)>();
+                Parallel.ForEach(list, new ParallelOptions { MaxDegreeOfParallelism = threads }, v =>
+                {
+                    var pts = new List<long>();
+                    int deaths = 0;
+                    for (int i = 0; i < seeds; i++)
+                    {
+                        long seed = 7000 + 31 * i;
+                        var sim = new GameSim(seed, v.def.season, v.index, v.variant);
+                        var bot = new WorldPlanner(sk, seed);
+                        var mem = new Memory();
+                        long start = sim.state.score;
+                        while (!sim.is_over() && sim.state.tick < ticks) sim.step(bot.Decide(sim, mem));
+                        pts.Add(sim.state.score - start);
+                        if (sim.is_over()) deaths++;
+                    }
+                    rows.Add((v.variant == "" ? v.def.id : v.def.id + "/" + v.variant, Pct(pts, 0.5), pts.Average(), deaths));
+                });
+                var sorted = rows.OrderBy(r => r.median).ThenBy(r => r.mean).ToList();
+                var sb = new StringBuilder();
+                sb.AppendLine($"world practice ({sk.name}): {list.Count} variants x {seeds} seeds x {ticks} ticks; median / mean points, runs that died");
+                foreach (var r in sorted) sb.AppendLine($"  {r.label,-28} {r.median,5} {r.mean,6:F1}  died {r.deaths}/{seeds}");
+                sb.AppendLine($"  all: mean of medians {sorted.Average(r => r.median):F1}, deaths {sorted.Sum(r => r.deaths)}/{sorted.Count * seeds}");
+                Console.Write(sb.ToString());
+                if (O("out", "") != "") File.WriteAllText(O("out", ""), sb.ToString());
+                return 0;
+            }
+            case "calibrate":
+                return Calibrate(int.Parse(pos.Count > 2 ? pos[2] : "40"), first, cap, threads, minutes, O("only", ""), O("out", ""));
             case "describe":
                 return Describe(long.Parse(pos.Count > 2 ? pos[2] : "1"), long.Parse(pos.Count > 3 ? pos[3] : "300"));
             case "runfile":
@@ -84,6 +128,8 @@ public static partial class WorldCheck
                     if (tap) taps.Add(sim.state.tick);
                     sim.step(tap);
                 }
+                // A replay plays on to a death: end a capped run by not tapping any more.
+                for (int i = 0; i < 2000 && !sim.is_over(); i++) sim.step(false);
                 string out_ = O("out", "world_run.json");
                 RunFile.write(out_, sim, taps, name: "world planner (" + sk.name + ")");
                 Console.WriteLine($"world runfile: seed {seed}, skill {sk.name}, score {sim.state.score}, {sim.state.tick} ticks -> {out_}");
@@ -97,13 +143,16 @@ public static partial class WorldCheck
     static WorldPlanner.Skill Skill(Dictionary<string, string> opts)
     {
         var sk = WorldPlanner.Skill.Named(opts.GetValueOrDefault("skill", "beast"));
-        // Overrides for tuning: --delay 8 --jitter 3 ...
+        if (opts.ContainsKey("k"))
+            sk = WorldPlanner.Skill.At(sk.name, double.Parse(opts["k"], System.Globalization.CultureInfo.InvariantCulture));
+        // Overrides for tuning: --delay 8 --sigma 3 ...
         int I(string k, int d) => opts.ContainsKey(k) ? int.Parse(opts[k]) : d;
         double D(string k, double d) => opts.ContainsKey(k) ? double.Parse(opts[k], System.Globalization.CultureInfo.InvariantCulture) : d;
         return sk with
         {
             delay = I("delay", sk.delay),
-            jitter = I("jitter", sk.jitter),
+            sigma = D("sigma", sk.sigma),
+            min_gap = I("min_gap", sk.min_gap),
             miss = D("miss", sk.miss),
             horizon = I("horizon", sk.horizon),
             margin_px = I("margin", (int)sk.margin_px),
@@ -164,6 +213,36 @@ public static partial class WorldCheck
         Console.Write(sb.ToString());
         if (out_path != "") File.WriteAllText(out_path, sb.ToString());
         return sb.ToString();
+    }
+
+    /// Finds each tier's skill k for its target median by bisection (the median
+    /// rises with k), `seeds` full runs per try. Beast is k = 1 (no limits).
+    static int Calibrate(int seeds, long first, long cap, int threads, double minutes, string only, string out_path)
+    {
+        var sb = new StringBuilder();
+        var clock = Stopwatch.StartNew();
+        foreach (var (name, target) in TARGETS)
+        {
+            if (name == "beast" || (only != "" && only != name)) continue;
+            double lo = 0, hi = 1;
+            (double k, double med, RunResult[] runs) best = (-1, 0, null);
+            for (int it = 0; it < 7; it++)
+            {
+                double k = (lo + hi) / 2;
+                var sk = WorldPlanner.Skill.At(name, k);
+                var runs = Play(sk, first, seeds, cap, threads, minutes);
+                double med = Pct(runs.Select(r => r.points), 0.5);
+                Console.WriteLine($"  calibrate {name}: k {k:F4} median {med} (target {target}) [{clock.Elapsed.TotalMinutes:F1} min]");
+                if (best.runs == null || Math.Abs(Math.Log(Math.Max(med, 1) / target)) < Math.Abs(Math.Log(Math.Max(best.med, 1) / target)))
+                    best = (k, med, runs);
+                if (med < target) lo = k; else hi = k;
+                if (Math.Abs(med - target) <= target * 0.05) break;
+            }
+            sb.AppendLine($"{name}: k {best.k:F4} median {best.med} target {target}  ({WorldPlanner.Skill.At(name, best.k)})");
+        }
+        Console.Write(sb.ToString());
+        if (out_path != "") File.WriteAllText(out_path, sb.ToString());
+        return 0;
     }
 
     /// Prints the structured world the bot reads at one tick of a run.

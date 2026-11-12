@@ -24,6 +24,10 @@ public sealed class RoomModel
     public long[] blink = new long[2];
     public bool[] unknown = new bool[2];
 
+    /// The height the room draws the next wall's gap around (GameSim's anchor_y),
+    /// as the bot tracks it from walls it has seen (Memory.anchor).
+    public long anchor = SimConfig.BIRD_START_Y;
+
     public bool exit_open, exit_preview, exit_locked;
     public long exit_side, exit_a_y, exit_a_kind, exit_b_y, exit_b_kind;
     /// An exit will open or show after a predicted bounce, at a height not drawn yet.
@@ -163,4 +167,41 @@ public sealed class RoomModel
     }
 
     public bool ExitAhead(long side) => exit_open && exit_side == side;
+
+    /// Wall `side` as the room drew it (GameSim._drawn_mask): its spikes, or an
+    /// exit wall, with no blink pattern.
+    public long Drawn(long side)
+    {
+        if (exit_open && exit_side == side) return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~ExitSlots();
+        long mask = spikes[side];
+        if (exit_preview && exit_side == side) mask &= ~ExitSlots();
+        return mask;
+    }
+
+    /// GameSim._anchor_at_wall: the point of the wall's gaps (between the centres
+    /// of a gap's end slots) nearest the old anchor. Near an exit the room steers
+    /// toward the exit it planned, which the bot cannot see: that part is left out.
+    public static long NewAnchor(long mask, long anchor)
+    {
+        long best = anchor, best_d = -1, slot = 0;
+        while (slot < SimConfig.SLOT_COUNT)
+        {
+            if (RoomRules.has_slot(mask, slot))
+            {
+                slot++;
+                continue;
+            }
+            long lo = slot;
+            while (slot + 1 < SimConfig.SLOT_COUNT && !RoomRules.has_slot(mask, slot + 1)) slot++;
+            long y = Math.Clamp(anchor, SimConfig.slot_center_y(lo), SimConfig.slot_center_y(slot));
+            long d = Math.Abs(y - anchor);
+            if (best_d < 0 || d < best_d)
+            {
+                best = y;
+                best_d = d;
+            }
+            slot++;
+        }
+        return best;
+    }
 }
