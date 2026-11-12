@@ -7,6 +7,7 @@ extends TestCase
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
 const CrateDrop := preload("res://sim/hazards/crate_drop.gd")
+const Updraft := preload("res://sim/hazards/updraft.gd")
 
 const SUB := SimConfig.SUB
 const ALL := (1 << SimConfig.SLOT_COUNT) - 1
@@ -295,7 +296,6 @@ func test_no_wall_spike_in_a_piston_row() -> void:
 ## of the last wall's free run, and no higher than GUST_TOP; with the gust off
 ## on the way, the wall is left alone.
 func test_a_gust_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
-	const Updraft := preload("res://sim/hazards/updraft.gd")
 	var sim := RoomsTest.sim_in_room("updraft", 4, Seasons.NONE, "gust")
 	var air := _hazard(sim, "updraft")
 	var blown := 0
@@ -396,3 +396,24 @@ func test_the_near_stalactite_keeps_its_gap_after_a_bounce() -> void:
 				sim._bounce_score()
 				sim._new_wall(side)
 				assert_eq(near.target_y, keep, "%s seed %d bounce %d" % [variant, seed_value, n])
+
+
+## Updraft chimney (always on): every wall the bird flies to across it keeps a
+## free run where the lifted bird gets (the same window as a gust's).
+func test_a_chimney_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
+	var sim := RoomsTest.sim_in_room("updraft", 2, Seasons.NONE, "chimney")
+	var air := _hazard(sim, "updraft")
+	for low: int in [200 * SUB, 320 * SUB, 480 * SUB]:
+		air.last_low = low
+		sim.state.x = SimConfig.BIRD_RADIUS
+		sim.state.vx = SimConfig.SPEED_X
+		var ok := 0
+		for slot in SimConfig.SLOT_COUNT:
+			var y := SimConfig.slot_center_y(slot)
+			var hi: int = maxi(Updraft.GUST_TOP, low - Updraft.GUST_UP_REACH)
+			if y >= hi and y <= low + Updraft.GUST_DOWN_REACH:
+				ok |= 1 << slot
+		var need := mini(sim.room.def.gap, RoomRules.longest_gap(ALL & ~ok))
+		assert_true(air._gust_on_way(sim, 1), "the chimney lifts on the way")
+		var out: int = air.adjust_wall(sim, 1, ALL & ~(0b1111 << 9))
+		assert_true(_free_ok(out, ok) >= need, "low %d" % (low / SUB))

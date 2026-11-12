@@ -86,7 +86,8 @@ impl Updraft {
             let bx = sim.state.x + dir * k * SimConfig::SPEED_X;
             if bx >= self.x0
                 && bx <= self.x1
-                && G::posmod(self.base.t + k + self.phase, Self::GUST_PERIOD) >= Self::GUST_OFF + Self::GUST_WARN
+                && (self.gust == Gust::NONE
+                    || G::posmod(self.base.t + k + self.phase, Self::GUST_PERIOD) >= Self::GUST_OFF + Self::GUST_WARN)
             {
                 return true;
             }
@@ -133,7 +134,7 @@ impl Hazard for Updraft {
     /// lifts on the way (GUST_DOWN_REACH). No RNG draws.
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
         let mut out = mask;
-        if self.gust != Gust::NONE && self.lift > 0 && self._gust_on_way(sim, side) {
+        if self.lift > 0 && self.drift_span == 0 && self._gust_on_way(sim, side) {
             let low = if self.last_low >= 0 { self.last_low } else { sim.state.anchor_y };
             let mut ok = 0;
             for slot in 0..SimConfig::SLOT_COUNT {

@@ -29,8 +29,9 @@ const GUST_OFF := 60
 const GUST_WARN := SimConfig.ARRIVAL_BLIND
 const GUST_ON := 90
 const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
-## A gust throws the bird up as it crosses: a wall drawn while the gust will
-## blow on the bird's way there keeps a free run (the room's gap, or as much
+## A rising band (a gust, a chimney, a hover or soft lane; not a drifting one)
+## lifts the bird as it crosses: a wall drawn while it will lift the bird on
+## its way there keeps a free run (the room's gap, or as much
 ## of it as fits) from GUST_UP_REACH above to GUST_DOWN_REACH below the bottom
 ## of the last wall's free run (the gust cycle is on screen, so a player can
 ## come off that wall low), and no higher than GUST_TOP (a thrown bird would
@@ -113,7 +114,7 @@ func touch(sim: GameSim) -> void:
 ## x by its speed, so every player of a seed gets the same wall. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var out := mask
-	if gust != Gust.NONE and lift > 0 and _gust_on_way(sim, side):
+	if lift > 0 and drift_span == 0 and _gust_on_way(sim, side):
 		var low := last_low if last_low >= 0 else sim.state.anchor_y
 		var ok := 0
 		for slot in SimConfig.SLOT_COUNT:
@@ -130,15 +131,17 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	return out
 
 
-## True if the gust blows at some step the bird, flying straight to wall
-## `side`, is inside the band.
+## True if the band lifts the bird at some step it is inside it, flying
+## straight to wall `side` (a band without gusts always does; a gusty one when
+## its gust blows then).
 func _gust_on_way(sim: GameSim, side: int) -> bool:
 	var at := sim.steps_to_wall(side)
 	var dir := 1 if side == 1 else -1
 	for k in at + 1:
 		var bx := sim.state.x + dir * k * SimConfig.SPEED_X
-		if bx >= x0 and bx <= x1 and posmod(t + k + phase, GUST_PERIOD) >= GUST_OFF + GUST_WARN:
-			return true
+		if bx >= x0 and bx <= x1:
+			if gust == Gust.NONE or posmod(t + k + phase, GUST_PERIOD) >= GUST_OFF + GUST_WARN:
+				return true
 	return false
 
 
