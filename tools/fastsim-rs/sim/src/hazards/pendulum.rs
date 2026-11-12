@@ -39,6 +39,62 @@ impl Pendulum {
     pub const WALL_TO: i64 = 12;
     pub const WALL_STEP: i64 = 3;
     pub const MARGIN: i64 = 4 * SimConfig::SUB;
+    pub const MIN_CHAIN: i64 = 60 * SimConfig::SUB;
+    pub const SIDE_MIN: i64 = 40 * SimConfig::SUB;
+    pub const SIDE_MAX: i64 = 320 * SimConfig::SUB;
+    pub const FALLBACK_PHASES: i64 = 16;
+
+    pub fn fit_clear(&mut self, sim: &GameSim, p: &VariantParams) -> bool {
+        let widest = self.amplitude + G::absi(self.gust);
+        let c = SimTrig::cos_t(widest);
+        let s = SimTrig::sin_t(widest);
+        let mut main: Option<(i64, i64)> = None;
+        let mut w = 0;
+        for wind in [G::absi(self.winch), G::absi(self.winch) / 2, 0] {
+            main = self._clear_chain(sim, p, self.length, wind, self.pivot_x, c, s);
+            if main.is_some() {
+                w = wind;
+                break;
+            }
+        }
+        let Some(main) = main else { return false };
+        let mut twin = (self.twin_length, self.twin_x);
+        if self.has_twin() {
+            match self._clear_chain(sim, p, self.twin_length, 0, self.twin_x, c, s) {
+                Some(t) => twin = t,
+                None => return false,
+            }
+        }
+        self.length = main.0;
+        self.pivot_x = main.1;
+        self.twin_length = twin.0;
+        self.twin_x = twin.1;
+        self.winch = if self.winch >= 0 { w } else { -w };
+        self._place();
+        true
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn _clear_chain(&self, sim: &GameSim, p: &VariantParams, l: i64, w: i64, px: i64, c: i64, s: i64) -> Option<(i64, i64)> {
+        let up = p.hold_top(sim) - SimConfig::SUB - self.pivot_y - w - self.radius;
+        let down = ((p.hold_bottom(sim) + SimConfig::SUB + self.radius - self.pivot_y) * SimTrig::ONE + c - 1) / c + w;
+        let mut out_: Option<(i64, i64)> = None;
+        let mut best = -1;
+        for t in [G::mini(l, up), G::maxi(l, down), up, down] {
+            if t - w < Self::MIN_CHAIN || self.pivot_y + t + w + self.radius > SimConfig::KILL_BOTTOM {
+                continue;
+            }
+            let side = (t + w) * s / SimTrig::ONE + self.radius;
+            if Self::SIDE_MIN + side > Self::SIDE_MAX - side {
+                continue;
+            }
+            if best < 0 || G::absi(t - l) < best {
+                best = G::absi(t - l);
+                out_ = Some((t, G::clampi(px, Self::SIDE_MIN + side, Self::SIDE_MAX - side)));
+            }
+        }
+        out_
+    }
 
     /// C# defaults: p_pivot_x = PIVOT_X, p_length = LENGTH, p_radius = RADIUS,
     /// p_amplitude = AMPLITUDE, p_period = PERIOD.
@@ -265,6 +321,6 @@ impl Hazard for Pendulum {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.phase, self.angle, self.chain, self.x, self.y, self.x2, self.y2])
+        mix_all(h, &[self.phase, self.angle, self.chain, self.x, self.y, self.x2, self.y2, self.length, self.twin_length, self.winch, self.pivot_x, self.twin_x])
     }
 }

@@ -22,19 +22,9 @@ static func put_bird(sim: GameSim, x: int, y: int) -> void:
 
 ## A sim in Lantern Swing with variant `variant_id`'s lanterns set up.
 static func sim_in_swing(variant_id: String, seed_value: int) -> GameSim:
-	var sim := sim_in_room("swing", seed_value)
-	var def := sim.room.def
-	var rng := SimRng.new(seed_value + 2)
-	sim.room.hazards.clear()
-	for i in def.variants.size():
-		if def.variants[i].id != variant_id:
-			continue
-		sim.room.variant = i
-		for f: Callable in def.variants[i].hazards:
-			var h: Hazard = f.call()
-			sim.room.hazards.append(h)
-			h.setup(sim, rng)
-	return sim
+	# The variants are generated: build the room in that variant (practice).
+	var index := RoomCatalog.index_of("swing")
+	return GameSim.new(seed_value, Seasons.NONE, index, variant_id)
 
 
 ## Lantern centres of a pendulum: [x, y] pairs (two for a twin).

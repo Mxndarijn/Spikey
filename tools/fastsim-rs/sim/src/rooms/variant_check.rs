@@ -38,6 +38,17 @@ impl VariantCheck {
             c.state.x = FairLanes::arrival_x(sim, k + 1);
             c.state.y = y;
             c.state.vy = vy;
+            for i in 0..c.room.hazards.len() {
+                if c.room.hazards[i].alive() && c.room.hazards[i].has_touch() {
+                    c.with_hazard(i, |h, s| h.touch(s));
+                }
+            }
+            y = c.state.y;
+            vy = c.state.vy;
+            let r = SimConfig::BIRD_RADIUS;
+            if y - r <= SimConfig::KILL_TOP || y + r >= SimConfig::KILL_BOTTOM {
+                return false;
+            }
             for h in &c.room.hazards {
                 if !h.alive() {
                     continue;

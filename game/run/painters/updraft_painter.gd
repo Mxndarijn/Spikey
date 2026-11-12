@@ -25,6 +25,11 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	# not stop in mid-air a few px short of the ceiling and floor.
 	var top := RoomView.BAND
 	var bottom := RoomView.H - RoomView.BAND
+	# A generated column cut short of the bird's band ends where its air ends.
+	if h.y0 > SimConfig.KILL_TOP:
+		top = HazardLayer.px(h.y0)
+	if h.y1 < SimConfig.KILL_BOTTOM:
+		bottom = HazardLayer.px(h.y1)
 	var w := x1 - x0
 	var down := h.lift < 0
 	var strong := h.lift > SimConfig.GRAVITY

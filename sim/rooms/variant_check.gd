@@ -5,7 +5,9 @@ extends RefCounted
 ## fallback). Out of a portal a bird anywhere in the exit it came through
 ## (GameSim.ARRIVAL_HEIGHTS around the PLANNED height, SimState.anchor_y) that
 ## only holds its height for HOLD_STEPS moving steps (the reading time: the
-## room is frozen during the portal hold) touches nothing deadly. The way on
+## room is frozen during the portal hold) touches nothing deadly and is not
+## pushed into the ceiling or floor (what the hazards do to it, touch(), acts on
+## it: air lifts it, a bubble carries it). The way on
 ## from there is ArrivalCheck's (GameSim._arrival_retries), the exits are
 ## ExitPlanner's (blocks_exit) and the warnings are the hazards' own, as for
 ## every room. Plays copies only: no RNG draws, the room is left as it is.
@@ -46,6 +48,14 @@ static func _holds_at(sim: GameSim, hold: int, avoid_touch: bool, steps: int) ->
 		c.state.x = FairLanes.arrival_x(sim, k + 1)
 		c.state.y = y
 		c.state.vy = vy
+		for h in c.room.hazards:
+			if h.alive:
+				h.touch(c)
+		y = c.state.y
+		vy = c.state.vy
+		var r := SimConfig.BIRD_RADIUS
+		if y - r <= SimConfig.KILL_TOP or y + r >= SimConfig.KILL_BOTTOM:
+			return false
 		for h in c.room.hazards:
 			if not h.alive:
 				continue

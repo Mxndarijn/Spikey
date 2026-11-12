@@ -133,28 +133,25 @@ static func defs() -> Array[RoomDef]:
 	return out
 
 
-## Crate Drop's variants; Winter Gift Stack has the same ones with gifts,
-## GENERATED: gifts drop from the ceiling, so out of a portal the columns are
-## drawn again until the first gifts miss a bird holding its height for
+## Crate Drop's variants; Winter Gift Stack has the same ones with gifts. All
+## GENERATED: crates drop from the ceiling, so out of a portal the columns are
+## drawn again until the first crates miss a bird holding its height for
 ## FairLanes.ARRIVAL_PATH_TICKS (the first one falls after the reading time).
 static func crate_variants(gifts: bool) -> Array[RoomVariant]:
 	var shapes := [["classic", false, false], ["wide", true, false], ["pairs", false, true]]
 	var out: Array[RoomVariant] = []
 	for sh: Array in shapes:
 		var v := RoomVariant.new(sh[0])
-		if gifts:
-			v.generated(_gen_crates.bind(sh[1], sh[2]), false, FairLanes.ARRIVAL_PATH_TICKS)
-		else:
-			v.with([_crates.bind(false, sh[1], sh[2])])
+		v.generated(_gen_crates.bind(gifts, sh[1], sh[2]), false, FairLanes.ARRIVAL_PATH_TICKS)
 		out.append(v)
 	return out
 
 
-## Generated Gift Stack: the crates as hand made (they draw their columns).
-## The fallback holds the first gift back for the arrival path's length more,
-## its column marked all that time.
-static func _gen_crates(p: VariantParams, wide: bool, pair: bool) -> void:
-	var c: Hazard = p.add(_crates(true, wide, pair))
+## Generated Crate Drop / Gift Stack: the crates as hand made (they draw their
+## columns). The fallback holds the first crate back for the arrival path's
+## length more, its column marked all that time.
+static func _gen_crates(p: VariantParams, gifts: bool, wide: bool, pair: bool) -> void:
+	var c: Hazard = p.add(_crates(gifts, wide, pair))
 	if p.fallback and p.arriving:
 		c.warn_left += FairLanes.ARRIVAL_PATH_TICKS
 

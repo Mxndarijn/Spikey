@@ -35,26 +35,17 @@ impl CatalogMotion {
         out_.push(crawl);
 
         let mut swing = RoomDef::new("swing", "mid", 30);
+        let big: Vec<Factory> = vec![mk(|| Self::_big_lantern())];
+        let twin: Vec<Factory> = vec![mk(|| Self::_twin_lanterns())];
+        let chimes: Vec<Factory> = vec![mk(|| Self::_chime(0)), mk(|| Self::_chime(1)), mk(|| Self::_chime(2))];
+        let gusty: Vec<Factory> = vec![mk(|| Self::_gusty_lantern())];
+        let winch: Vec<Factory> = vec![mk(|| Self::_winch_lantern())];
         swing.variants = vec![
-            RoomVariant::new("big")
-                .with(vec![mk(|| Self::_big_lantern())])
-                .skipping(Self::_px_range(362, 428)),
-            RoomVariant::new("twin")
-                .with(vec![mk(|| Self::_twin_lanterns())])
-                .skipping(Self::_px_range(226, 380)),
-            RoomVariant::new("chimes")
-                .with(vec![
-                    mk(|| Self::_chime(0)),
-                    mk(|| Self::_chime(1)),
-                    mk(|| Self::_chime(2)),
-                ])
-                .skipping(Self::_px_range(192, 324)),
-            RoomVariant::new("gusty")
-                .with(vec![mk(|| Self::_gusty_lantern())])
-                .skipping(Self::_px_range(336, 392)),
-            RoomVariant::new("winch")
-                .with(vec![mk(|| Self::_winch_lantern())])
-                .skipping(Self::_px_range(240, 310)),
+            RoomVariant::new("big").generated(recipe(move |sim, p| Self::_gen_swing(sim, p, &big)), false, 0),
+            RoomVariant::new("twin").generated(recipe(move |sim, p| Self::_gen_swing(sim, p, &twin)), false, 0),
+            RoomVariant::new("chimes").generated(recipe(move |sim, p| Self::_gen_swing(sim, p, &chimes)), false, 0),
+            RoomVariant::new("gusty").generated(recipe(move |sim, p| Self::_gen_swing(sim, p, &gusty)), false, 0),
+            RoomVariant::new("winch").generated(recipe(move |sim, p| Self::_gen_swing(sim, p, &winch)), false, 0),
         ];
         out_.push(swing);
 
@@ -67,7 +58,7 @@ impl CatalogMotion {
         for shape in Self::PINWHEELS {
             pinwheel
                 .variants
-                .push(RoomVariant::new(shape).with(vec![mk(move || Self::_pinwheel(shape))]));
+                .push(RoomVariant::new(shape).generated(recipe(move |sim, p| Self::_gen_pinwheel(sim, p, shape)), false, 0));
         }
         out_.push(pinwheel);
 
@@ -113,6 +104,68 @@ impl CatalogMotion {
             _ => {}
         }
         ring.into()
+    }
+
+    fn _pend(sim: &mut GameSim, i: usize) -> &mut Pendulum {
+        match &mut sim.room.hazards[i] {
+            Hz::Pendulum(l) => l,
+            _ => unreachable!(),
+        }
+    }
+
+    fn _gen_swing(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+        let made = p.add_all(sim, factories);
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        for &i in &made {
+            VariantParams::edit(sim, i, |h, sim| {
+                if let Hz::Pendulum(l) = h {
+                    l.fit_clear(sim, p);
+                }
+            });
+        }
+        if VariantCheck::holds(sim, false, 0) {
+            return;
+        }
+        for k in 0..Pendulum::FALLBACK_PHASES {
+            for &i in &made {
+                let l = Self::_pend(sim, i);
+                l.phase = k * SimTrig::TURN / Pendulum::FALLBACK_PHASES;
+                l._place();
+            }
+            if VariantCheck::holds(sim, false, 0) {
+                return;
+            }
+        }
+    }
+
+    fn _gen_pinwheel(sim: &mut GameSim, p: &VariantParams, shape: &str) {
+        let r = p.add(sim, Self::_pinwheel(shape));
+        VariantParams::edit(sim, r, |h, sim| {
+            if let Hz::Rotor(w) = h {
+                w.place_for_arrival(sim, p);
+            }
+        });
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        let spots = match &sim.room.hazards[r] {
+            Hz::Rotor(w) => w.fallback_spots(sim, p),
+            _ => unreachable!(),
+        };
+        for cy in spots {
+            for k in 0..Rotor::GENERATE_SPINS {
+                if let Hz::Rotor(w) = &mut sim.room.hazards[r] {
+                    w.center_y = cy;
+                    w.phase = Rotor::fallback_angle(k);
+                    w._place();
+                }
+                if VariantCheck::holds(sim, false, 0) {
+                    return;
+                }
+            }
+        }
     }
 
     fn _pinwheel(shape: &str) -> Hz {

@@ -29,30 +29,14 @@ static func defs() -> Array[RoomDef]:
 	# - updown: a hover lane beside a downdraft (flap through the sink);
 	# - coins: today's soft column with three coins up its middle.
 	var updraft := RoomDef.new("updraft", "mid", 60)
-	var coins: Array[Callable] = [_air.bind(180, 60, Updraft.LIFT)]
-	for y_px: int in [220, 270, 320]:
-		coins.append(_coin.bind(180, y_px))
-	# Out of a portal high up, the hover lanes are skipped: a tap to hold height
-	# in one keeps rising (hover cancels gravity) into the ceiling.
-	var high := PackedInt32Array([0, 172 * SUB])
-	updraft.variants = [
-		RoomVariant.new("chimney").with([_air.bind(180, 50, Updraft.CHIMNEY)]),
-		(
-			RoomVariant
-			. new("twin")
-			. with([_air.bind(100, 40, Updraft.HOVER), _air.bind(260, 40, Updraft.HOVER)])
-			. skipping(high)
-		),
-		RoomVariant.new("drift").with([_drift.bind(70, 220, 50)]),
-		RoomVariant.new("gust").with([_gust]),
-		(
-			RoomVariant
-			. new("updown")
-			. with([_air.bind(120, 50, Updraft.HOVER), _air.bind(240, 50, -Updraft.HOVER)])
-			. skipping(high)
-		),
-		RoomVariant.new("coins").with(coins),
-	]
+	# Every variant is GENERATED (_gen_updraft): out of a portal the chimney's
+	# and the coin column's place is drawn until a bird holding its height is
+	# not carried into the ceiling (or, by a downdraft, the floor), and the safe
+	# fallback stops the air short of the bird's band: rising air starts below
+	# it, falling air stops above it. So no height is skipped any more.
+	updraft.variants = []
+	for shape: String in ["chimney", "twin", "drift", "gust", "updown", "coins"]:
+		updraft.variants.append(RoomVariant.new(shape).generated(_gen_updraft.bind(shape)))
 	out.append(updraft)
 
 	# Bubble Lift: rising bubbles carry the bird until a tap pops them.
@@ -97,52 +81,34 @@ static func defs() -> Array[RoomDef]:
 	var sweep: Array[Callable] = []
 	for i in 4:
 		sweep.append(_sweep.bind(30 + 12 * i, (45 + 90 * i) * SUB))
+	var classic_rain: Array[Callable] = [_drop.bind(30, 10 * SUB, 25), _drop.bind(70, 10 * SUB, 25)]
+	var drizzle: Array[Callable] = [
+		_rain.bind(30, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+		_rain.bind(135, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
+	]
+	var shatter: Array[Callable] = [
+		_rain.bind(30, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+		_rain.bind(85, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
+	]
+	var wobble: Array[Callable] = [
+		_rain.bind(30, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+		_rain.bind(90, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+	]
+	var stake: Array[Callable] = [
+		_rain.bind(30, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+		_rain.bind(140, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
+	]
+	# Every variant is GENERATED (_gen_rain), checked over the arrival path's
+	# length (the first drop falls after the reading time).
+	var hold := FairLanes.ARRIVAL_PATH_TICKS
 	rain.variants = [
-		RoomVariant.new("classic").with(
-			[_drop.bind(30, 10 * SUB, 25), _drop.bind(70, 10 * SUB, 25)]
-		),
-		(
-			RoomVariant
-			. new("drizzle")
-			. with(
-				[
-					_rain.bind(30, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
-					_rain.bind(135, 6 * SUB, 30, 75, Drop.RADIUS, Drop.Style.PLAIN),
-				]
-			)
-		),
-		RoomVariant.new("hail").with(hail),
-		RoomVariant.new("sweep").with(sweep),
-		(
-			RoomVariant
-			. new("shatter")
-			. with(
-				[
-					_rain.bind(30, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
-					_rain.bind(85, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
-				]
-			)
-		),
-		(
-			RoomVariant
-			. new("wobble")
-			. with(
-				[
-					_rain.bind(30, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
-					_rain.bind(90, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
-				]
-			)
-		),
-		(
-			RoomVariant
-			. new("stake")
-			. with(
-				[
-					_rain.bind(30, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
-					_rain.bind(140, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),
-				]
-			)
-		),
+		RoomVariant.new("classic").generated(_gen_rain.bind(classic_rain, false), false, hold),
+		RoomVariant.new("drizzle").generated(_gen_rain.bind(drizzle, false), false, hold),
+		RoomVariant.new("hail").generated(_gen_rain.bind(hail, false), false, hold),
+		RoomVariant.new("sweep").generated(_gen_rain.bind(sweep, true), false, hold),
+		RoomVariant.new("shatter").generated(_gen_rain.bind(shatter, false), false, hold),
+		RoomVariant.new("wobble").generated(_gen_rain.bind(wobble, false), false, hold),
+		RoomVariant.new("stake").generated(_gen_rain.bind(stake, false), false, hold),
 	]
 	out.append(rain)
 
@@ -175,6 +141,41 @@ static func defs() -> Array[RoomDef]:
 
 
 ## An air column centered at `x_px`, `half_px` wide each side, `lift` per step.
+## Generated Updraft. Out of a portal a gust starts at the top of its rest,
+## so the first gust comes 2 s in, after its warning. The columns keep their
+## hand-made places (moving the chimney or the coin column sideways was
+## measured: more early deaths, at the first wall bounce) and their own draws
+## (drift). The fallback cuts every column short of the hold band
+## (Updraft.clear_band).
+static func _gen_updraft(p: VariantParams, shape: String) -> void:
+	var cx := 180
+	var made: Array[Hazard] = []
+	match shape:
+		"chimney":
+			made.append(p.add(_air(cx, 50, Updraft.CHIMNEY)))
+		"twin":
+			made.append(p.add(_air(100, 40, Updraft.HOVER)))
+			made.append(p.add(_air(260, 40, Updraft.HOVER)))
+		"drift":
+			made.append(p.add(_drift(70, 220, 50)))
+		"gust":
+			var g: Hazard = p.add(_gust())
+			if p.arriving:
+				g.phase = 0
+				g._update()
+			made.append(g)
+		"updown":
+			made.append(p.add(_air(120, 50, Updraft.HOVER)))
+			made.append(p.add(_air(240, 50, -Updraft.HOVER)))
+		_:
+			made.append(p.add(_air(cx, 60, Updraft.LIFT)))
+			for y_px: int in [220, 270, 320]:
+				p.add(_coin(cx, y_px))
+	if p.fallback and p.arriving:
+		for h in made:
+			h.clear_band(p)
+
+
 static func _air(x_px: int, half_px: int, lift: int) -> Hazard:
 	return Updraft.new(x_px * SUB, half_px * SUB, lift)
 
@@ -234,5 +235,21 @@ static func _rain(
 
 
 ## Sweep: a fixed column, at today's speed and warning.
+## Generated Spike Rain: the drops as hand made (each draws its columns). Out
+## of a portal the sweep draws which end it starts from (its fixed columns, or
+## mirrored). The fallback starts every drop the arrival path's length later,
+## its column marked as usual when its turn comes.
+static func _gen_rain(p: VariantParams, factories: Array[Callable], sweep: bool) -> void:
+	var flip := false
+	if sweep and p.arriving and not p.fallback:
+		flip = p.rng.next_below(2) == 1
+	var made := p.add_all(factories)
+	for d in made:
+		if flip:
+			d.column = SimConfig.WORLD_W - d.column
+		if p.fallback and p.arriving:
+			d.timer += FairLanes.ARRIVAL_PATH_TICKS
+
+
 static func _sweep(delay: int, column: int) -> Hazard:
 	return Drop.new(delay, 10 * SUB, 60, Drop.WARN, Drop.RADIUS, Drop.Style.PLAIN, column)

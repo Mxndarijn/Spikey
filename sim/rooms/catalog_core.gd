@@ -105,17 +105,22 @@ static func defs() -> Array[RoomDef]:
 	# classic ball; two smaller ones in the upper and lower lanes; one that
 	# splits in two; one that speeds up per bounce; one that steers toward the
 	# bird's height; a heavy one that bounces off the floor in arcs.
+	# Every variant is GENERATED (_gen_bramble): the ball draws its start as
+	# before, the layout is checked and drawn again, and the fallback tries
+	# fixed start heights and headings until a bird holding its height is clear.
 	var bramble := RoomDef.new("bramble", "mid", 40)
-	bramble.variants = [
-		RoomVariant.new("classic").with([func() -> Hazard: return Bouncer.new()]),
-		RoomVariant.new("twin").with(
-			[_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)]
-		),
-		RoomVariant.new("split").with([func() -> Hazard: return SplittingBouncer.new()]),
-		RoomVariant.new("revup").with([func() -> Hazard: return RevvingBouncer.new()]),
-		RoomVariant.new("curious").with([func() -> Hazard: return CuriousBouncer.new()]),
-		RoomVariant.new("heavy").with([func() -> Hazard: return HeavyBouncer.new()]),
-	]
+	var balls := {
+		"classic": [func() -> Hazard: return Bouncer.new()],
+		"twin": [_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)],
+		"split": [func() -> Hazard: return SplittingBouncer.new()],
+		"revup": [func() -> Hazard: return RevvingBouncer.new()],
+		"curious": [func() -> Hazard: return CuriousBouncer.new()],
+		"heavy": [func() -> Hazard: return HeavyBouncer.new()],
+	}
+	for shape: String in balls:
+		var made: Array[Callable] = []
+		made.assign(balls[shape])
+		bramble.variants.append(RoomVariant.new(shape).generated(_gen_bramble.bind(made)))
 	out.append(bramble)
 
 	# Squeeze Box: every point here moves both walls in a step. Variants: as
@@ -219,6 +224,25 @@ static func _gen_isles(p: VariantParams, factories: Array[Callable]) -> void:
 		)
 		if near and b.y1 > p.hold_top() and b.y0 < p.hold_bottom():
 			b.alive = false
+
+
+## Generated Bramble Ball: the balls as hand made (each draws its start). The
+## fallback is a fixed search, no draws: start heights at fifths of each ball's
+## lane (Bouncer.y_range) x both ways up and down (the second ball the other
+## way), the first that passes VariantCheck, else the last tried.
+static func _gen_bramble(p: VariantParams, factories: Array[Callable]) -> void:
+	var made := p.add_all(factories)
+	if not p.fallback or not p.arriving:
+		return
+	for k in 5:
+		for sign: int in [1, -1]:
+			for i in made.size():
+				var b: Hazard = made[i]
+				var r: PackedInt32Array = b.y_range()
+				b.y = r[0] + (r[1] - r[0]) * k / 4
+				b.vy = absi(b.vy) * (sign if i % 2 == 0 else -sign)
+			if VariantCheck.holds(p.sim):
+				return
 
 
 static func _big_rock() -> Hazard:

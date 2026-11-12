@@ -99,21 +99,17 @@ impl CatalogMachines {
         let mut out_ = Vec::new();
         for (id, wide, pair) in shapes {
             let v = RoomVariant::new(id);
-            out_.push(if gifts {
-                v.generated(
-                    recipe(move |sim, p| Self::_gen_crates(sim, p, wide, pair)),
-                    false,
-                    FairLanes::ARRIVAL_PATH_TICKS,
-                )
-            } else {
-                v.with(vec![mk(move || Self::_crates(false, wide, pair))])
-            });
+            out_.push(v.generated(
+                recipe(move |sim, p| Self::_gen_crates(sim, p, gifts, wide, pair)),
+                false,
+                FairLanes::ARRIVAL_PATH_TICKS,
+            ));
         }
         out_
     }
 
-    fn _gen_crates(sim: &mut GameSim, p: &VariantParams, wide: bool, pair: bool) {
-        let c = p.add(sim, Self::_crates(true, wide, pair));
+    fn _gen_crates(sim: &mut GameSim, p: &VariantParams, gifts: bool, wide: bool, pair: bool) {
+        let c = p.add(sim, Self::_crates(gifts, wide, pair));
         if p.fallback && p.arriving {
             if let Hz::CrateDrop(cd) = &mut sim.room.hazards[c] {
                 cd.warn_left += FairLanes::ARRIVAL_PATH_TICKS;

@@ -50,6 +50,11 @@ var lift := LIFT
 ## and back, 1 px per step. 0 = it stays put.
 var drift_min := 0
 var drift_span := 0
+## The air acts from y0 down to y1 (the whole column by default). Generated
+## variants cut it short of a bird's band out of a portal: rising air starts
+## below it, falling air stops above it. The painter draws it to these lines.
+var y0 := SimConfig.KILL_TOP
+var y1 := SimConfig.KILL_BOTTOM
 ## Gust: NONE = always on; otherwise where in its cycle it is.
 var gust := Gust.NONE
 ## Steps into the cycle (drift or gust), drawn at setup.
@@ -100,7 +105,17 @@ func blowing() -> bool:
 
 
 func inside(sim: GameSim) -> bool:
-	return sim.state.x >= x0 and sim.state.x <= x1
+	return sim.state.x >= x0 and sim.state.x <= x1 and sim.state.y >= y0 and sim.state.y <= y1
+
+
+## Generated variants, out of a portal: keeps the air off the band a bird
+## holding its height sweeps (rising air starts below it, falling air stops
+## above it).
+func clear_band(p: VariantParams) -> void:
+	if lift > 0:
+		y0 = p.hold_bottom()
+	else:
+		y1 = p.hold_top()
 
 
 func touch(sim: GameSim) -> void:
@@ -174,7 +189,10 @@ func _place(center: int) -> void:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase, last_low])
+	var out := mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase, last_low])
+	if y0 != SimConfig.KILL_TOP or y1 != SimConfig.KILL_BOTTOM:
+		out = mix_all(out, [y0, y1])
+	return out
 
 
 ## A gusty vent during its warning: the column, for the gust (a push, not a kill).
@@ -182,4 +200,4 @@ func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
 	if gust != Gust.WARN:
 		return
 	var eta := GUST_OFF + GUST_WARN - gust_step()
-	add_warning(out, x0, SimConfig.KILL_TOP, x1, SimConfig.KILL_BOTTOM, eta, GUST_ON, WARN_PUSH)
+	add_warning(out, x0, y0, x1, y1, eta, GUST_ON, WARN_PUSH)

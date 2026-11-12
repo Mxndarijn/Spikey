@@ -202,3 +202,16 @@ impl Hazard for Bouncer {
         mix_all(h, &[self.x, self.y, self.vx, self.vy])
     }
 }
+
+impl Bouncer {
+    /// Generated Bramble Ball's fallback: [lowest y, highest y] it can start at in its lane.
+    pub fn y_range(&self) -> [i64; 2] {
+        let top = Self::MARGIN + self.radius;
+        let span = SimConfig::WORLD_H - 2 * top;
+        match self.lane {
+            Lane::UPPER => [top, top + span / 2 - 1],
+            Lane::LOWER => [top + span / 2, top + span - 1],
+            _ => [top, top + span - 1],
+        }
+    }
+}

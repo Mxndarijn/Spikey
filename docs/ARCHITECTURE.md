@@ -284,15 +284,22 @@ through `RoomRuntime._generate`:
 3. **Check** (`sim/rooms/variant_check.gd`, `VariantCheck.holds`): on
    copies, a bird at each `GameSim.ARRIVAL_HEIGHTS` height of the exit only
    holds its height for `HOLD_STEPS` moving steps (`ARRIVAL_BLIND`; longer
-   with `hold_steps`, e.g. Gift Stack, whose first gift falls after the
-   reading time) and touches nothing deadly (with `avoid_touch` not even a
-   bubble). No draws, the room is left as it is.
+   with `hold_steps`, e.g. Crate Drop and Spike Rain, whose first drop falls
+   after the reading time). What the hazards do to it acts on it (`touch`:
+   air lifts it, a bubble carries it), and it may touch nothing deadly, nor
+   the ceiling or floor (with `avoid_touch` not even a bubble). No draws, the
+   room is left as it is.
 4. **Retry**: on a fail the layout is thrown away and built again from the
    next draws, up to `RoomVariant.GENERATE_TRIES` (8) times. The last try is
-   the recipe's **safe fallback** (`p.fallback`), kept unchecked, safe by
+   the recipe's **safe fallback** (`p.fallback`), kept unchecked: safe by
    construction (islands in the band left out, crawlers moved to the far
-   edge, bubbles started under the floor, the first gift held back, the bee
-   wave at the far end of its range).
+   edge, bubbles started under the floor, the first crate or drop held back,
+   the bee wave at the far end of its range, Updraft's air cut short of the
+   band; a gust starts at the top of its rest), or a fixed search with no draws that keeps the first layout the
+   check passes (Pinwheel: heights clear of the band x starting angles, a
+   twin pair drawn closer; Lantern Swing: each chain moved to clear the band,
+   its pivot moved in to stay inside the room, the winch wound less; Bramble
+   Ball: start heights x headings).
 
 **Hard rule: a generated room is always the same for a seed.** A recipe (and
 its check and fallback) may only use the room's RNG, which is seeded from the
@@ -316,8 +323,10 @@ layout is drawn again), the planned exits stay reachable and clear
 closes), and every hazard keeps its own warnings. A generated variant needs
 no `arrival_skip`. Floating Isles is the reference recipe
 (`catalog_core.gd`, `_gen_isles`). Generated today: Floating Isles, Shutter
-Gates, Caterpillar Crawl and Crab Walk, Stalactite Run (classic, ceiling
-only, alternating), Bubble Lift, Echo (mirror), Gift Stack, Bee Line.
+Gates, Caterpillar Crawl and Crab Walk, Stalactite Run (every variant),
+Bubble Lift, Echo (mirror), Gift Stack, Bee Line, Updraft, Pinwheel, Lantern
+Swing, Crate Drop, Bramble Ball and Spike Rain (every variant). Hand made on
+purpose: Saw Ring, Piston Press, Beam Gates and the rest.
 `tests/unit/test_generated_variants.gd` checks the contract at every height;
 `fastsim-rs variants [arrivals] [rooms]` measures each variant's real share
 out of a portal, the full-wait rate and deaths within 2 s.

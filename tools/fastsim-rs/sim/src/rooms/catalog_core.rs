@@ -88,16 +88,19 @@ impl CatalogCore {
         out_.push(garden);
 
         let mut bramble = RoomDef::new("bramble", "mid", 40);
-        bramble.variants = vec![
-            RoomVariant::new("classic")
-                .with(vec![mk(|| Bouncer::new(Bouncer::RADIUS, Lane::ANY).into())]),
-            RoomVariant::new("twin")
-                .with(vec![mk(|| Self::_twin(Lane::UPPER)), mk(|| Self::_twin(Lane::LOWER))]),
-            RoomVariant::new("split").with(vec![mk(|| SplittingBouncer::new().into())]),
-            RoomVariant::new("revup").with(vec![mk(|| RevvingBouncer::new().into())]),
-            RoomVariant::new("curious").with(vec![mk(|| CuriousBouncer::new().into())]),
-            RoomVariant::new("heavy").with(vec![mk(|| HeavyBouncer::new().into())]),
+        let balls: Vec<(&'static str, Vec<Factory>)> = vec![
+            ("classic", vec![mk(|| Bouncer::new(Bouncer::RADIUS, Lane::ANY).into())]),
+            ("twin", vec![mk(|| Self::_twin(Lane::UPPER)), mk(|| Self::_twin(Lane::LOWER))]),
+            ("split", vec![mk(|| SplittingBouncer::new().into())]),
+            ("revup", vec![mk(|| RevvingBouncer::new().into())]),
+            ("curious", vec![mk(|| CuriousBouncer::new().into())]),
+            ("heavy", vec![mk(|| HeavyBouncer::new().into())]),
         ];
+        for (shape, made) in balls {
+            bramble.variants.push(
+                RoomVariant::new(shape).generated(recipe(move |sim, p| Self::_gen_bramble(sim, p, &made)), false, 0),
+            );
+        }
         out_.push(bramble);
 
         let mut squeeze = RoomDef::new("squeeze", "mid", 50);
@@ -173,6 +176,37 @@ impl CatalogCore {
         b.band = band;
         b.drift = drift;
         b.into()
+    }
+
+    fn _ball(h: &mut Hz) -> &mut Bouncer {
+        match h {
+            Hz::Bouncer(b) => b,
+            Hz::SplittingBouncer(s) => &mut s.b,
+            Hz::RevvingBouncer(r) => &mut r.b,
+            Hz::CuriousBouncer(c) => &mut c.b,
+            Hz::HeavyBouncer(h) => &mut h.b,
+            _ => unreachable!(),
+        }
+    }
+
+    fn _gen_bramble(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+        let made = p.add_all(sim, factories);
+        if !p.fallback || !p.arriving {
+            return;
+        }
+        for k in 0..5 {
+            for sign in [1i64, -1] {
+                for (n, &i) in made.iter().enumerate() {
+                    let b = Self::_ball(&mut sim.room.hazards[i]);
+                    let r = b.y_range();
+                    b.y = r[0] + (r[1] - r[0]) * k / 4;
+                    b.vy = G::absi(b.vy) * if n % 2 == 0 { sign } else { -sign };
+                }
+                if VariantCheck::holds(sim, false, 0) {
+                    return;
+                }
+            }
+        }
     }
 
     fn _gen_isles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {

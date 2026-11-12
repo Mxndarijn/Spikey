@@ -13,30 +13,11 @@ impl CatalogSky {
         let mut out_ = Vec::new();
 
         let mut updraft = RoomDef::new("updraft", "mid", 60);
-        let high: Vec<i64> = vec![0, 172 * SUB];
-        updraft.variants = vec![
-            RoomVariant::new("chimney").with(vec![mk(|| Self::_air(180, 50, Updraft::CHIMNEY))]),
-            RoomVariant::new("twin")
-                .with(vec![
-                    mk(|| Self::_air(100, 40, Updraft::HOVER)),
-                    mk(|| Self::_air(260, 40, Updraft::HOVER)),
-                ])
-                .skipping(high.clone()),
-            RoomVariant::new("drift").with(vec![mk(|| Self::_drift(70, 220, 50))]),
-            RoomVariant::new("gust").with(vec![mk(|| Self::_gust())]),
-            RoomVariant::new("updown")
-                .with(vec![
-                    mk(|| Self::_air(120, 50, Updraft::HOVER)),
-                    mk(|| Self::_air(240, 50, -Updraft::HOVER)),
-                ])
-                .skipping(high.clone()),
-            RoomVariant::new("coins").with(vec![
-                mk(|| Self::_air(180, 60, Updraft::LIFT)),
-                mk(|| Self::_coin(180, 220)),
-                mk(|| Self::_coin(180, 270)),
-                mk(|| Self::_coin(180, 320)),
-            ]),
-        ];
+        for shape in ["chimney", "twin", "drift", "gust", "updown", "coins"] {
+            updraft.variants.push(
+                RoomVariant::new(shape).generated(recipe(move |sim, p| Self::_gen_updraft(sim, p, shape)), false, 0),
+            );
+        }
         out_.push(updraft);
 
         let mut bubbles = RoomDef::new("bubbles", "mid", 50);
@@ -80,30 +61,38 @@ impl CatalogSky {
             let ii = i;
             sweep.push(mk(move || Self::_sweep(30 + 12 * ii, (45 + 90 * ii) * SUB)));
         }
-        rain.variants = vec![
-            RoomVariant::new("classic").with(vec![
-                mk(|| Self::_drop(30, 10 * SUB, 25)),
-                mk(|| Self::_drop(70, 10 * SUB, 25)),
-            ]),
-            RoomVariant::new("drizzle").with(vec![
-                mk(|| Self::_rain(30, 6 * SUB, 30, 75, Drop::RADIUS, Style::PLAIN)),
-                mk(|| Self::_rain(135, 6 * SUB, 30, 75, Drop::RADIUS, Style::PLAIN)),
-            ]),
-            RoomVariant::new("hail").with(hail),
-            RoomVariant::new("sweep").with(sweep),
-            RoomVariant::new("shatter").with(vec![
-                mk(|| Self::_rain(30, 10 * SUB, 40, 50, Drop::RADIUS, Style::SHATTER)),
-                mk(|| Self::_rain(85, 10 * SUB, 40, 50, Drop::RADIUS, Style::SHATTER)),
-            ]),
-            RoomVariant::new("wobble").with(vec![
-                mk(|| Self::_rain(30, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
-                mk(|| Self::_rain(90, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
-            ]),
-            RoomVariant::new("stake").with(vec![
-                mk(|| Self::_rain(30, 8 * SUB, 30, 60, 13 * SUB, Style::STAKE)),
-                mk(|| Self::_rain(140, 8 * SUB, 30, 60, 13 * SUB, Style::STAKE)),
-            ]),
+        let classic_rain: Vec<Factory> = vec![mk(|| Self::_drop(30, 10 * SUB, 25)), mk(|| Self::_drop(70, 10 * SUB, 25))];
+        let drizzle: Vec<Factory> = vec![
+            mk(|| Self::_rain(30, 6 * SUB, 30, 75, Drop::RADIUS, Style::PLAIN)),
+            mk(|| Self::_rain(135, 6 * SUB, 30, 75, Drop::RADIUS, Style::PLAIN)),
         ];
+        let shatter: Vec<Factory> = vec![
+            mk(|| Self::_rain(30, 10 * SUB, 40, 50, Drop::RADIUS, Style::SHATTER)),
+            mk(|| Self::_rain(85, 10 * SUB, 40, 50, Drop::RADIUS, Style::SHATTER)),
+        ];
+        let wobble: Vec<Factory> = vec![
+            mk(|| Self::_rain(30, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
+            mk(|| Self::_rain(90, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
+        ];
+        let stake: Vec<Factory> = vec![
+            mk(|| Self::_rain(30, 8 * SUB, 30, 60, 13 * SUB, Style::STAKE)),
+            mk(|| Self::_rain(140, 8 * SUB, 30, 60, 13 * SUB, Style::STAKE)),
+        ];
+        let hold = FairLanes::ARRIVAL_PATH_TICKS;
+        let sets: Vec<(&'static str, Vec<Factory>, bool)> = vec![
+            ("classic", classic_rain, false),
+            ("drizzle", drizzle, false),
+            ("hail", hail, false),
+            ("sweep", sweep, true),
+            ("shatter", shatter, false),
+            ("wobble", wobble, false),
+            ("stake", stake, false),
+        ];
+        for (id, fs, is_sweep) in sets {
+            rain.variants.push(
+                RoomVariant::new(id).generated(recipe(move |sim, p| Self::_gen_rain(sim, p, &fs, is_sweep)), false, hold),
+            );
+        }
         out_.push(rain);
 
         let mut orchard = RoomDef::new("orchard", "bonus", 30);
@@ -149,6 +138,48 @@ impl CatalogSky {
     }
 
     /// Bubble(lane): C# defaults p_radius = RADIUS, p_rise = RISE.
+    fn _gen_updraft(sim: &mut GameSim, p: &VariantParams, shape: &str) {
+        let cx = 180;
+        let mut made = Vec::new();
+        match shape {
+            "chimney" => made.push(p.add(sim, Self::_air(cx, 50, Updraft::CHIMNEY))),
+            "twin" => {
+                made.push(p.add(sim, Self::_air(100, 40, Updraft::HOVER)));
+                made.push(p.add(sim, Self::_air(260, 40, Updraft::HOVER)));
+            }
+            "drift" => made.push(p.add(sim, Self::_drift(70, 220, 50))),
+            "gust" => {
+                let g = p.add(sim, Self::_gust());
+                if p.arriving {
+                    if let Hz::Updraft(u) = &mut sim.room.hazards[g] {
+                        u.phase = 0;
+                        u._update();
+                    }
+                }
+                made.push(g);
+            }
+            "updown" => {
+                made.push(p.add(sim, Self::_air(120, 50, Updraft::HOVER)));
+                made.push(p.add(sim, Self::_air(240, 50, -Updraft::HOVER)));
+            }
+            _ => {
+                made.push(p.add(sim, Self::_air(cx, 60, Updraft::LIFT)));
+                for y_px in [220, 270, 320] {
+                    p.add(sim, Self::_coin(cx, y_px));
+                }
+            }
+        }
+        if p.fallback && p.arriving {
+            for i in made {
+                VariantParams::edit(sim, i, |h, sim| {
+                    if let Hz::Updraft(u) = h {
+                        u.clear_band(sim, p);
+                    }
+                });
+            }
+        }
+    }
+
     fn _gen_bubbles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
         let made = p.add_all(sim, factories);
         if !p.fallback || !p.arriving {
@@ -187,6 +218,24 @@ impl CatalogSky {
 
     fn _rain(delay: i64, speed: i64, gap: i64, warn: i64, radius: i64, style: i64) -> Hz {
         Drop::new(delay, speed, gap, warn, radius, style, -1).into()
+    }
+
+    fn _gen_rain(sim: &mut GameSim, p: &VariantParams, factories: &[Factory], sweep: bool) {
+        let mut flip = false;
+        if sweep && p.arriving && !p.fallback {
+            flip = sim._rng.next_below(2) == 1;
+        }
+        let made = p.add_all(sim, factories);
+        for i in made {
+            if let Hz::Drop(d) = &mut sim.room.hazards[i] {
+                if flip {
+                    d.column = SimConfig::WORLD_W - d.column;
+                }
+                if p.fallback && p.arriving {
+                    d.timer += FairLanes::ARRIVAL_PATH_TICKS;
+                }
+            }
+        }
     }
 
     fn _sweep(delay: i64, column: i64) -> Hz {

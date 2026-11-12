@@ -7,7 +7,21 @@ const Echo := preload("res://sim/hazards/echo.gd")
 const SUB := SimConfig.SUB
 ## Rooms whose variants are generated so that no height is skipped.
 const ROOMS: Array[String] = [
-	"isles", "gates", "crawl", "stalac", "bubbles", "echo", "gifts", "bees", "crabs"
+	"isles",
+	"gates",
+	"crawl",
+	"stalac",
+	"bubbles",
+	"echo",
+	"gifts",
+	"bees",
+	"crabs",
+	"updraft",
+	"pinwheel",
+	"swing",
+	"crates",
+	"bramble",
+	"rain",
 ]
 
 
@@ -125,13 +139,14 @@ func test_mirror_turns_round_a_height_away_from_the_arrival() -> void:
 		)
 
 
-## Static variants keep their hand-made factories.
+## Static variants keep their hand-made factories (Saw Ring, Piston Press and
+## Beam Gates stay hand made).
 func test_static_variants_stay_static() -> void:
-	var v := RoomCatalog.find("swing").variants[0]
-	assert_eq(v.id, "big")
-	assert_eq(v.kind, RoomVariant.Kind.STATIC)
-	assert_eq(v.hazards.size(), 1)
-	assert_eq(RoomCatalog.find("crates").variants[0].kind, RoomVariant.Kind.STATIC)
+	for id: String in ["sawring", "piston"]:
+		for v in RoomCatalog.find(id).variants:
+			assert_eq(v.kind, RoomVariant.Kind.STATIC, "%s/%s" % [id, v.id])
+			assert_false(v.hazards.is_empty(), "%s/%s has its factories" % [id, v.id])
+	assert_true(RoomCatalog.find("beams").variants.is_empty(), "beams has no variants")
 
 
 ## The hard rule: a generated layout uses only the room RNG (from the run seed

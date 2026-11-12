@@ -58,18 +58,22 @@ static func defs() -> Array[RoomDef]:
 	# their own beats; a gusty swing that grows and shrinks; a winch that winds
 	# the chain up and down. Every lantern stays inside x 40..320 px (clear of
 	# a bird at either wall) and moves slower than the bird.
-	# Each variant skips the portal heights where a bird holding height meets a
-	# lantern at the bottom of its swing however it is timed
-	# (tests/unit/test_arrival_check.gd); some variant fits every height.
+	# Every variant is GENERATED (_gen_swing): the lanterns time their swing
+	# to the arrival as before, the layout is checked and drawn again, and the
+	# fallback moves every chain shorter or longer so the whole swing clears the
+	# band a bird holding its height sweeps. So no height is skipped any more.
 	var swing := RoomDef.new("swing", "mid", 30)
+	var big: Array[Callable] = [_big_lantern]
+	var twin: Array[Callable] = [_twin_lanterns]
+	var chimes: Array[Callable] = [_chime.bind(0), _chime.bind(1), _chime.bind(2)]
+	var gusty: Array[Callable] = [_gusty_lantern]
+	var winch: Array[Callable] = [_winch_lantern]
 	swing.variants = [
-		RoomVariant.new("big").with([_big_lantern]).skipping(_px_range(362, 428)),
-		RoomVariant.new("twin").with([_twin_lanterns]).skipping(_px_range(226, 380)),
-		RoomVariant.new("chimes").with([_chime.bind(0), _chime.bind(1), _chime.bind(2)]).skipping(
-			_px_range(192, 324)
-		),
-		RoomVariant.new("gusty").with([_gusty_lantern]).skipping(_px_range(336, 392)),
-		RoomVariant.new("winch").with([_winch_lantern]).skipping(_px_range(240, 310)),
+		RoomVariant.new("big").generated(_gen_swing.bind(big)),
+		RoomVariant.new("twin").generated(_gen_swing.bind(twin)),
+		RoomVariant.new("chimes").generated(_gen_swing.bind(chimes)),
+		RoomVariant.new("gusty").generated(_gen_swing.bind(gusty)),
+		RoomVariant.new("winch").generated(_gen_swing.bind(winch)),
 	]
 	out.append(swing)
 
@@ -83,8 +87,10 @@ static func defs() -> Array[RoomDef]:
 	# wheel, three blades, a twin pair, one that rocks back and forth, one off
 	# to one side, one whose blades grow and shrink.
 	var pinwheel := RoomDef.new("pinwheel", "mid", 40)
+	# Every variant is GENERATED (_gen_pinwheel): out of a portal the wheel sits
+	# clear of the band a bird holding its height anywhere in the exit sweeps.
 	for shape: String in PINWHEELS:
-		pinwheel.variants.append(RoomVariant.new(shape).with([_pinwheel.bind(shape)]))
+		pinwheel.variants.append(RoomVariant.new(shape).generated(_gen_pinwheel.bind(shape)))
 	out.append(pinwheel)
 
 	# Saw Ring: saws circle the middle; the ring grows and shrinks on a beat.
@@ -99,6 +105,25 @@ static func defs() -> Array[RoomDef]:
 	out.append(sawring)
 
 	return out
+
+
+## Generated Pinwheel: the variant's wheel as hand made (it draws its start
+## angle and way round), moved clear of the hold band (Rotor.place_for_arrival).
+## The fallback is a fixed search, no draws: the first of the wheel's
+## fallback_spots x GENERATE_SPINS starting angles that passes VariantCheck,
+## else the last one tried.
+static func _gen_pinwheel(p: VariantParams, shape: String) -> void:
+	var r: Hazard = p.add(_pinwheel(shape))
+	r.place_for_arrival(p)
+	if not p.fallback or not p.arriving:
+		return
+	for cy: int in r.fallback_spots(p):
+		for k in Rotor.GENERATE_SPINS:
+			r.center_y = cy
+			r.phase = Rotor.fallback_angle(k)
+			r._place()
+			if VariantCheck.holds(p.sim):
+				return
 
 
 ## One Pinwheel variant. Most use the trimmed wheel (blades 64 px, 14 wide,
@@ -233,6 +258,27 @@ static func _sprinter(lane: int) -> Hazard:
 	return Crawler.new(lane).sprinter()
 
 
+## Generated Lantern Swing: the lanterns as hand made (each draws its swing
+## and times it to the arrival path). The fallback is a fixed search, no draws:
+## each lantern moves to the nearest chain that keeps its whole swing off the
+## hold band (Pendulum.fit_clear); if that is not enough (VariantCheck), the
+## hand-made lanterns at FALLBACK_PHASES swing phases.
+static func _gen_swing(p: VariantParams, factories: Array[Callable]) -> void:
+	var made := p.add_all(factories)
+	if not p.fallback or not p.arriving:
+		return
+	for h in made:
+		h.fit_clear(p)
+	if VariantCheck.holds(p.sim):
+		return
+	for k in Pendulum.FALLBACK_PHASES:
+		for h in made:
+			h.phase = k * SimTrig.TURN / Pendulum.FALLBACK_PHASES
+			h._place()
+		if VariantCheck.holds(p.sim):
+			return
+
+
 ## Lantern Swing, big: a 330 px chain, a 28 px lantern, about 20 degrees each
 ## way, 3.5 s a swing.
 static func _big_lantern() -> Hazard:
@@ -263,8 +309,3 @@ static func _gusty_lantern() -> Hazard:
 ## Lantern Swing, winch: the chain winds between 200 and 330 px every 7 s.
 static func _winch_lantern() -> Hazard:
 	return Pendulum.new(180 * SUB, 265 * SUB, 24 * SUB, 50, 180).winding(65 * SUB, 420)
-
-
-## A from-to range of heights in pixels, as sub-units.
-static func _px_range(from_px: int, to_px: int) -> PackedInt32Array:
-	return PackedInt32Array([from_px * SUB, to_px * SUB])

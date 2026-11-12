@@ -65,9 +65,11 @@ func test_rooms_are_not_picked_at_heights_they_skip() -> void:
 	for def: RoomDef in RoomCatalog.all():
 		if def.skips_heights():
 			skipping += 1
-	assert_true(skipping >= 4, "rooms that skip heights: %d" % skipping)
-	for id: String in ["swing"]:
-		assert_true(picked_elsewhere.has(id), "%s is still picked at other heights" % id)
+	assert_true(skipping >= 1, "rooms that skip heights: %d" % skipping)
+	for def: RoomDef in RoomCatalog.all():
+		var in_season := def.season == Seasons.NONE or def.season == Seasons.SPRING
+		if def.skips_heights() and in_season and not def.boss and def.from_score <= 200:
+			assert_true(picked_elsewhere.has(def.id), "%s is still picked elsewhere" % def.id)
 
 
 ## Bee Line and Bat Loop time themselves out of a portal: at every height
@@ -93,36 +95,23 @@ func test_moving_hazards_keep_off_a_bird_holding_height() -> void:
 				)
 
 
-## Lantern Swing times its lanterns out of a portal: in every variant, at
-## every height that variant can be drawn at, a bird holding height stays
-## clear of every lantern for the reading time and a bit.
+## Lantern Swing is generated round the arrival: in every variant, at every
+## height, a bird holding its height anywhere in the exit stays clear of every
+## lantern for the reading time (VariantCheck).
 func test_swing_lanterns_keep_off_a_bird_holding_height() -> void:
 	var index := RoomCatalog.index_of("swing")
 	var def: RoomDef = RoomCatalog.all()[index]
-	for v in def.variants.size():
-		var variant: RoomVariant = def.variants[v]
-		for y_px in range(120, 521, 10):
-			if not variant.fits_arrival(y_px * SimConfig.SUB):
-				continue
+	for variant: RoomVariant in def.variants:
+		for y_px in range(120, 521, 40):
 			for side in 2:
 				var sim := _sim_at(40, 900 + y_px + side)
+				sim.forced_variant = variant.id
 				sim.state.y = y_px * SimConfig.SUB
 				sim.state.anchor_y = sim.state.y
 				sim._arrive_in(side, index)
-				# Set this variant's lanterns up as the room would.
-				var rng := SimRng.new(y_px * 3 + side)
-				sim.room.hazards.clear()
-				for f: Callable in variant.hazards:
-					var h: Hazard = f.call()
-					sim.room.hazards.append(h)
-					h.setup(sim, rng)
-				var path := FairLanes.arrival_path(sim)
-				for h: Hazard in sim.room.hazards:
-					var clear: int = h._arrival_clear(path)
-					assert_true(
-						clear >= FairLanes.ARRIVAL_PATH_MIN,
-						"%s at %d px, side %d: clear %d steps" % [variant.id, y_px, side, clear]
-					)
+				assert_true(
+					VariantCheck.holds(sim), "%s at %d px, side %d" % [variant.id, y_px, side]
+				)
 
 
 ## Out of a portal a room only draws variants that fit the bird's height, and

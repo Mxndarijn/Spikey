@@ -77,13 +77,13 @@ func test_chimney_carries_the_bird_up() -> void:
 	assert_eq(vy_after(in_variant("chimney"), 40, 0, 30), 30 * SimConfig.GRAVITY, "normal outside")
 
 
-## Out of a portal high up, the hover-lane variants aren't drawn: a tap to hold
-## height in a hover lane keeps rising into the ceiling.
-func test_hover_lanes_skip_high_portal_arrivals() -> void:
+## Generated: every variant fits every portal height (the hover lanes stop
+## short of a high bird's band instead of being skipped there).
+func test_every_variant_fits_every_portal_height() -> void:
 	for v in RoomCatalog.find("updraft").variants:
-		var hover: bool = v.id == "twin" or v.id == "updown"
-		assert_eq(v.fits_arrival(130 * SUB), not hover, "%s at 130 px" % v.id)
-		assert_true(v.fits_arrival(180 * SUB), "%s at 180 px" % v.id)
+		assert_eq(v.kind, RoomVariant.Kind.GENERATED, v.id)
+		for y_px: int in [130, 180, 320, 500]:
+			assert_true(v.fits_arrival(y_px * SUB), "%s at %d px" % [v.id, y_px])
 
 
 func test_twin_lanes_hover_and_the_middle_is_still_air() -> void:

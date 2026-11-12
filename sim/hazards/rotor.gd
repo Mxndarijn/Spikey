@@ -25,6 +25,11 @@ const ROCK_EASE := 24
 const ROCK_RUN := 150
 const ROCK_PAUSE := 18
 const ROCK_HALF := 2 * ROCK_EASE + ROCK_RUN + ROCK_PAUSE
+## Generated Pinwheel's fallback: starting angles tried at each spot.
+const GENERATE_SPINS := 8
+## Generated twin Pinwheel: its hubs come no closer than this to the middle
+## height when they are drawn together to clear the band.
+const MIN_SPREAD_Y := 24 * SimConfig.SUB
 ## Breathe: hold short, grow, hold long, shrink (steps each, like Saw Ring).
 const BREATHE_HOLD := 60
 const BREATHE_MOVE := 60
@@ -116,6 +121,62 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			right = sim.state.vx > 0
 		center_x = CENTER_X + (lean if right else -lean)
 	_place()
+
+
+## Generated Pinwheel, out of a portal: moves the wheel (every hub's whole
+## reach) fully above or below the band a bird holding its height anywhere in
+## the exit sweeps (VariantParams.hold_top / hold_bottom), on the side nearer
+## the middle that fits in the cage. Neither fits (a tall twin pair round a
+## middle arrival): it stays where setup put it, and the check and retry (new
+## spin draws) or the fallback (fallback_spots) find a way. No RNG.
+func place_for_arrival(p: VariantParams) -> void:
+	if not p.arriving:
+		return
+	var sy := spread_y if hubs == 2 else 0
+	var above := p.hold_top() - sy - reach()
+	var below := p.hold_bottom() + sy + reach()
+	var first := above if absi(above - CENTER_Y) <= absi(below - CENTER_Y) else below
+	var second := below if first == above else above
+	if _fits(first):
+		center_y = first
+	elif _fits(second):
+		center_y = second
+	elif hubs == 2:
+		# A twin pair too tall for either side: its hubs move closer together
+		# (no closer than MIN_SPREAD_Y) to fit the roomier side.
+		var room_above := p.hold_top() - SimConfig.KILL_TOP
+		var room_below := SimConfig.KILL_BOTTOM - p.hold_bottom()
+		var fit := (maxi(room_above, room_below) - 2 * reach()) / 2
+		if fit >= MIN_SPREAD_Y:
+			spread_y = mini(spread_y, fit)
+			if room_above >= room_below:
+				center_y = p.hold_top() - spread_y - reach()
+			else:
+				center_y = p.hold_bottom() + spread_y + reach()
+	_place()
+
+
+## Generated Pinwheel's fallback: wheel heights to try, in order (the two
+## clear of the band, the middle, then the highest and lowest that fit),
+## each with GENERATE_SPINS starting angles (fallback_angle).
+func fallback_spots(p: VariantParams) -> PackedInt32Array:
+	var sy := spread_y if hubs == 2 else 0
+	var lo := SimConfig.KILL_TOP + sy + reach()
+	var hi := SimConfig.KILL_BOTTOM - sy - reach()
+	return PackedInt32Array(
+		[
+			clampi(p.hold_top() - sy - reach(), lo, hi),
+			clampi(p.hold_bottom() + sy + reach(), lo, hi),
+			CENTER_Y,
+			lo,
+			hi
+		]
+	)
+
+
+## The `k`th of GENERATE_SPINS evenly spread starting angles.
+static func fallback_angle(k: int) -> int:
+	return k * SimTrig.TURN / GENERATE_SPINS
 
 
 ## True when every blade at centre height `cy` stays between the ceiling and
@@ -223,4 +284,4 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [phase, dir, angle, center_x, center_y, blade_length])
+	return mix_all(h, [phase, dir, angle, center_x, center_y, blade_length, spread_y])

@@ -62,6 +62,19 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 	vx = SPEED_X if bird_left else -SPEED_X
 
 
+## Generated Bramble Ball's fallback: the start heights it can take in its
+## lane, [lowest y, highest y] (as setup draws them).
+func y_range() -> PackedInt32Array:
+	var top := MARGIN + radius
+	var span := SimConfig.WORLD_H - 2 * top
+	match lane:
+		Lane.UPPER:
+			return PackedInt32Array([top, top + span / 2 - 1])
+		Lane.LOWER:
+			return PackedInt32Array([top + span / 2, top + span - 1])
+	return PackedInt32Array([top, top + span - 1])
+
+
 func step(sim: GameSim) -> void:
 	move(sim)
 

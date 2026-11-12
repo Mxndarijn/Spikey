@@ -15,6 +15,8 @@ pub struct Updraft {
     pub base: Base,
     pub x0: i64,
     pub x1: i64,
+    pub y0: i64,
+    pub y1: i64,
     pub half_w: i64,
     pub lift: i64,
     pub drift_min: i64,
@@ -45,6 +47,8 @@ impl Updraft {
             base: Base::new("updraft"),
             x0: 0,
             x1: 0,
+            y0: SimConfig::KILL_TOP,
+            y1: SimConfig::KILL_BOTTOM,
             half_w: p_half_w,
             lift: p_lift,
             drift_min: 0,
@@ -74,7 +78,15 @@ impl Updraft {
     }
 
     pub fn inside(&self, sim: &GameSim) -> bool {
-        sim.state.x >= self.x0 && sim.state.x <= self.x1
+        sim.state.x >= self.x0 && sim.state.x <= self.x1 && sim.state.y >= self.y0 && sim.state.y <= self.y1
+    }
+
+    pub fn clear_band(&mut self, sim: &GameSim, p: &VariantParams) {
+        if self.lift > 0 {
+            self.y0 = p.hold_bottom(sim);
+        } else {
+            self.y1 = p.hold_top(sim);
+        }
     }
 
     /// True if the gust blows at some step the bird, flying straight to wall
@@ -99,7 +111,7 @@ impl Updraft {
         G::posmod(self.base.t + self.phase, Self::GUST_PERIOD)
     }
 
-    fn _update(&mut self) {
+    pub fn _update(&mut self) {
         if self.drift_span > 0 {
             let center =
                 self.drift_min + SimTrig::ping_pong(self.base.t + self.phase, self._drift_period(), self.drift_span);
@@ -181,10 +193,14 @@ impl Hazard for Updraft {
             return;
         }
         let eta = Self::GUST_OFF + Self::GUST_WARN - self.gust_step();
-        add_warning(out_, self.x0, SimConfig::KILL_TOP, self.x1, SimConfig::KILL_BOTTOM, eta, Self::GUST_ON, WARN_PUSH);
+        add_warning(out_, self.x0, self.y0, self.x1, self.y1, eta, Self::GUST_ON, WARN_PUSH);
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.x0, self.x1, self.lift, self.drift_min, self.drift_span, self.gust, self.phase, self.last_low])
+        let out_ = mix_all(h, &[self.x0, self.x1, self.lift, self.drift_min, self.drift_span, self.gust, self.phase, self.last_low]);
+        if self.y0 != SimConfig::KILL_TOP || self.y1 != SimConfig::KILL_BOTTOM {
+            return mix_all(out_, &[self.y0, self.y1]);
+        }
+        out_
     }
 }

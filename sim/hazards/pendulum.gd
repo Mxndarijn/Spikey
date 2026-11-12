@@ -26,6 +26,12 @@ const WALL_FROM := -30
 const WALL_TO := 12
 const WALL_STEP := 3
 const MARGIN := 4 * SimConfig.SUB
+## Generated Lantern Swing's fallback: chains stay at least this long, lanterns
+## inside x SIDE_MIN..SIDE_MAX, and swing phases tried when no length fits.
+const MIN_CHAIN := 60 * SimConfig.SUB
+const SIDE_MIN := 40 * SimConfig.SUB
+const SIDE_MAX := 320 * SimConfig.SUB
+const FALLBACK_PHASES := 16
 
 var pivot_x := PIVOT_X
 var pivot_y := PIVOT_Y
@@ -97,6 +103,64 @@ func with_twin(p_x: int, p_length: int) -> Hazard:
 
 func has_twin() -> bool:
 	return twin_length > 0
+
+
+## Generated Lantern Swing's fallback: gives each lantern (the twin too) the
+## chain nearest its own that keeps its whole swing (widest swing, whole winch)
+## off the band a bird holding its height sweeps, above it or below it, inside
+## the cage, its pivot moved in if the swing would leave SIDE_MIN..SIDE_MAX. If
+## winding makes that impossible, the winch winds half as far, then not at
+## all. Changes nothing and returns false if no chain works. No RNG.
+func fit_clear(p: VariantParams) -> bool:
+	var widest := amplitude + absi(gust)
+	var c := SimTrig.cos_t(widest)
+	var s := SimTrig.sin_t(widest)
+	var main := PackedInt32Array()
+	var w := 0
+	for wind: int in [absi(winch), absi(winch) / 2, 0]:
+		main = _clear_chain(p, length, wind, pivot_x, c, s)
+		if not main.is_empty():
+			w = wind
+			break
+	if main.is_empty():
+		return false
+	var twin := PackedInt32Array([twin_length, twin_x])
+	if has_twin():
+		twin = _clear_chain(p, twin_length, 0, twin_x, c, s)
+		if twin.is_empty():
+			return false
+	length = main[0]
+	pivot_x = main[1]
+	twin_length = twin[0]
+	twin_x = twin[1]
+	winch = w if winch >= 0 else -w
+	_place()
+	return true
+
+
+## The chain nearest `l` (winding `w` either way) that keeps this lantern's
+## swing clear of the hold band, and the pivot x for it (`px`, moved in when
+## the swing would leave SIDE_MIN..SIDE_MAX), as [chain, x]; empty if none.
+func _clear_chain(p: VariantParams, l: int, w: int, px: int, c: int, s: int) -> PackedInt32Array:
+	# Above the band: the lowest point (chain + winch + radius) over its top;
+	# any chain this long or shorter is clear.
+	var up := p.hold_top() - SimConfig.SUB - pivot_y - w - radius
+	# Below the band: the highest point ((chain - winch) * cos - radius) under
+	# it; any chain this long or longer is clear.
+	var down := ((p.hold_bottom() + SimConfig.SUB + radius - pivot_y) * SimTrig.ONE + c - 1) / c + w
+	# The valid one nearest `l` (the first of equals, in this order).
+	var out := PackedInt32Array()
+	var best := -1
+	for t: int in [mini(l, up), maxi(l, down), up, down]:
+		if t - w < MIN_CHAIN or pivot_y + t + w + radius > SimConfig.KILL_BOTTOM:
+			continue
+		var side := (t + w) * s / SimTrig.ONE + radius
+		if SIDE_MIN + side > SIDE_MAX - side:
+			continue
+		if best < 0 or absi(t - l) < best:
+			best = absi(t - l)
+			out = PackedInt32Array([t, clampi(px, SIDE_MIN + side, SIDE_MAX - side)])
+	return out
 
 
 func setup(sim: GameSim, rng: SimRng) -> void:
@@ -258,4 +322,6 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [phase, angle, chain, x, y, x2, y2])
+	return mix_all(
+		h, [phase, angle, chain, x, y, x2, y2, length, twin_length, winch, pivot_x, twin_x]
+	)

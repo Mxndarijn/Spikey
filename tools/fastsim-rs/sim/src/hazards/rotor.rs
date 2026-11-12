@@ -223,6 +223,57 @@ impl Hazard for Rotor {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.phase, self.dir, self.angle, self.center_x, self.center_y, self.blade_length])
+        mix_all(h, &[self.phase, self.dir, self.angle, self.center_x, self.center_y, self.blade_length, self.spread_y])
+    }
+}
+
+impl Rotor {
+    pub const GENERATE_SPINS: i64 = 8;
+    pub const MIN_SPREAD_Y: i64 = 24 * SimConfig::SUB;
+
+    pub fn place_for_arrival(&mut self, sim: &GameSim, p: &VariantParams) {
+        if !p.arriving {
+            return;
+        }
+        let sy = if self.hubs == 2 { self.spread_y } else { 0 };
+        let above = p.hold_top(sim) - sy - self.reach();
+        let below = p.hold_bottom(sim) + sy + self.reach();
+        let first = if G::absi(above - Self::CENTER_Y) <= G::absi(below - Self::CENTER_Y) { above } else { below };
+        let second = if first == above { below } else { above };
+        if self._fits(first) {
+            self.center_y = first;
+        } else if self._fits(second) {
+            self.center_y = second;
+        } else if self.hubs == 2 {
+            let room_above = p.hold_top(sim) - SimConfig::KILL_TOP;
+            let room_below = SimConfig::KILL_BOTTOM - p.hold_bottom(sim);
+            let fit = (G::maxi(room_above, room_below) - 2 * self.reach()) / 2;
+            if fit >= Self::MIN_SPREAD_Y {
+                self.spread_y = G::mini(self.spread_y, fit);
+                if room_above >= room_below {
+                    self.center_y = p.hold_top(sim) - self.spread_y - self.reach();
+                } else {
+                    self.center_y = p.hold_bottom(sim) + self.spread_y + self.reach();
+                }
+            }
+        }
+        self._place();
+    }
+
+    pub fn fallback_spots(&self, sim: &GameSim, p: &VariantParams) -> [i64; 5] {
+        let sy = if self.hubs == 2 { self.spread_y } else { 0 };
+        let lo = SimConfig::KILL_TOP + sy + self.reach();
+        let hi = SimConfig::KILL_BOTTOM - sy - self.reach();
+        [
+            G::clampi(p.hold_top(sim) - sy - self.reach(), lo, hi),
+            G::clampi(p.hold_bottom(sim) + sy + self.reach(), lo, hi),
+            Self::CENTER_Y,
+            lo,
+            hi,
+        ]
+    }
+
+    pub fn fallback_angle(k: i64) -> i64 {
+        k * SimTrig::TURN / Self::GENERATE_SPINS
     }
 }
