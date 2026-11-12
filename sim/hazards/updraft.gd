@@ -31,8 +31,10 @@ const GUST_ON := 90
 const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
 ## A gust throws the bird up as it crosses: a wall drawn while the gust will
 ## blow on the bird's way there keeps its free run (the room's gap) no more
-## than this below the anchor.
-const GUST_DOWN_REACH := 120 * SUB
+## than GUST_DOWN_REACH below the anchor, and its centre no higher than
+## GUST_TOP (a thrown bird would not get back down from the ceiling).
+const GUST_DOWN_REACH := 40 * SUB
+const GUST_TOP := 160 * SUB
 
 ## Band edges, sub-units (they move when the band drifts).
 var x0 := 0
@@ -108,7 +110,8 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 		return mask
 	var ok := 0
 	for slot in SimConfig.SLOT_COUNT:
-		if SimConfig.slot_center_y(slot) <= sim.state.anchor_y + GUST_DOWN_REACH:
+		var y := SimConfig.slot_center_y(slot)
+		if y >= GUST_TOP and y <= sim.state.anchor_y + GUST_DOWN_REACH:
 			ok |= 1 << slot
 	return RoomRules.keep_run(mask, sim.room.def.gap, ok)
 
