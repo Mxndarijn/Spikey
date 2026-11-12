@@ -34,6 +34,10 @@ public sealed class BlindPlanner
     public bool spike_margin = false;
     /// The taps planned for the next ticks (read only; the human layer lands them with timing noise).
     public IReadOnlyCollection<bool> plan => _plan;
+    /// One-sided stalactite fangs re-aim at every bounce. In an imagined bounce
+    /// the planner takes the worst case: 1 = the column met first comes out as
+    /// far as the rule allows, 2 = both columns do. 0 = whatever the copy draws.
+    public int worst_fangs = 1;
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
@@ -166,6 +170,27 @@ public sealed class BlindPlanner
         if (found != null)
             foreach (byte b in found) _plan.Enqueue(b != 0);
         _since = 0;
+    }
+
+    /// After a bounce in a copy: one-sided fangs aim as far out as their rule
+    /// allows (within REACH of the anchor for the column met first, MAX_STEP
+    /// past that for the other when `both`).
+    static void fangs_out(GameSim c, bool both)
+    {
+        List<Stalactite> cols = null;
+        foreach (var hz in c.room.hazards)
+            if (hz is Stalactite st && st.fixed_lo < 0 && st.top != st.bottom) (cols ??= new()).Add(st);
+        if (cols == null) return;
+        cols.Sort((p, q) => c.state.vx > 0 ? p.x.CompareTo(q.x) : q.x.CompareTo(p.x));
+        long center = c.state.anchor_y, spread = Stalactite.REACH;
+        for (int i = 0; i < cols.Count; i++)
+        {
+            var st = cols[i];
+            if (i == 0 || both)
+                st.target_y = st.bottom ? Math.Max(Stalactite.GAP_MIN, center - spread) : Math.Min(Stalactite.GAP_MAX, center + spread);
+            center = st.target_y;
+            spread = Stalactite.MAX_STEP;
+        }
     }
 
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
@@ -309,11 +334,13 @@ public sealed class BlindPlanner
             foreach (var e in frontier)
             {
                 bool can_tap = e.sim.state.vy * e.sim.room.gravity > SurvivalSearch.TAP_BELOW_VY;
+                long vx0 = e.sim.state.vx, room0 = e.sim.state.room_index;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
                 {
                     var s = a == 1 ? e.sim.clone_deep() : e.sim;
                     s.step(a == 1);
                     if (s.is_over()) continue;
+                    if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
                     if (margin > 0 && near_death(s)) cost += margin_cost;
