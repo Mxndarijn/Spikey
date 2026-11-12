@@ -86,6 +86,7 @@ if (mode == "human") return FastSim.Human.HumanMain.run(pos, opts);
 if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
 if (mode == "mpc") return FastSim.Mpc.MpcRun.run(pos, opts);
+if (mode == "honesty") return Honesty.run(pos, opts);
 if (mode == "sameseed") return SameSeed.run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));

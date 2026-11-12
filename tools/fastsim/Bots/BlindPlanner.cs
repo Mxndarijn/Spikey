@@ -65,6 +65,73 @@ public sealed class BlindPlanner
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
+    /// Honesty switches (research/planner-review/01-honesty.md), off = as before.
+    /// hide_boss: a boss's seed (every later attack) is replaced in the copy;
+    ///   the attack already told on screen stays.
+    /// own_anchor: the copy's anchor_y is the planner's own, tracked from the
+    ///   walls it bounced off and the exit it took (never the room's planned exit).
+    /// hide_keys: a key chain's later keys (shown one at a time) are placed anew.
+    public static bool hide_boss = false, hide_keys = false;
+    public bool own_anchor = false;
+    public long anchor = SimConfig.BIRD_START_Y;
+    long _seen_room = 0, _last_y;
+    /// Tests: the memory was set by hand, don't update it from this tick's events.
+    public bool skip_observe = false;
+    bool _last_open;
+    long _last_a, _last_b, _last_b_kind;
+    readonly long[] _last_drawn = new long[2];
+
+    static long drawn(SimState s, long side)
+    {
+        long slots = ExitPlanner.slots(s);
+        if (s.exit_open && s.exit_side == side) return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~slots;
+        long mask = side == 0 ? s.left_spikes : s.right_spikes;
+        if (s.exit_preview && s.exit_side == side) mask &= ~slots;
+        return mask;
+    }
+
+    /// GameSim._anchor_at_wall without the pull to the planned exit.
+    public static long anchor_after(long mask, long anchor)
+    {
+        long best = anchor, best_d = -1, slot = 0;
+        while (slot < SimConfig.SLOT_COUNT)
+        {
+            if (RoomRules.has_slot(mask, slot)) { slot++; continue; }
+            long lo = slot;
+            while (slot + 1 < SimConfig.SLOT_COUNT && !RoomRules.has_slot(mask, slot + 1)) slot++;
+            long y = Math.Clamp(anchor, SimConfig.slot_center_y(lo), SimConfig.slot_center_y(slot));
+            long d = Math.Abs(y - anchor);
+            if (best_d < 0 || d < best_d) { best = y; best_d = d; }
+            slot++;
+        }
+        return best;
+    }
+
+    /// Called once per tick before the tap: what the player saw happen in the last tick.
+    public void observe(GameSim sim)
+    {
+        var s = sim.state;
+        if (s.room_index != _seen_room)
+        {
+            _seen_room = s.room_index;
+            if (_last_open)
+            {
+                bool a = Math.Abs(_last_y - _last_a) <= SimConfig.EXIT_FIT || _last_b_kind == ExitKind.NORMAL;
+                long door = _last_b_kind != ExitKind.NORMAL ? SimConfig.FORK_DOOR_Y : (a ? _last_a : _last_b);
+                anchor = GameSim._arrival_y(door);
+            }
+        }
+        else if (sim.events.Contains(Event.BOUNCE))
+            anchor = anchor_after(_last_drawn[s.vx > 0 ? 0 : 1], anchor);
+        _last_y = s.y;
+        _last_drawn[0] = drawn(s, 0);
+        _last_drawn[1] = drawn(s, 1);
+        _last_open = s.exit_open;
+        _last_a = s.exit_a_y;
+        _last_b = s.exit_b_y;
+        _last_b_kind = s.exit_b_kind;
+    }
+
     readonly SimRng _own;
     readonly Queue<bool> _plan = new();
     int _since = int.MaxValue;
@@ -82,6 +149,7 @@ public sealed class BlindPlanner
 
     public bool decide(GameSim sim)
     {
+        if (!skip_observe) observe(sim);
         if (!sim.state.started) return true;
         // The height at the last bounce: a player remembers it (stalactite gaps slide to it).
         if (sim.state.vx != _vx)
@@ -111,7 +179,7 @@ public sealed class BlindPlanner
         int n = Math.Max(1, copies);
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
-        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal);
+        GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
         if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
         {
@@ -299,21 +367,30 @@ public sealed class BlindPlanner
         };
     }
 
-    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0)
+    /// `own_anchor`: the planner's own room anchor, tracked from walls it saw (-1 = keep the copy's).
+    public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1, int reveal = 0, long own_anchor = -1)
     {
 #if PROF
         long p0 = Prof.now();
-        var c = blind_copy_(sim, own, bounce_y);
+        var c = blind_copy_(sim, own, bounce_y, reveal, own_anchor);
         Prof.add(Prof.BLIND, p0);
         return c;
     }
 
-    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y)
+    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y, int reveal, long own_anchor)
     {
 #endif
         var c = sim.clone_deep();
         c.memo_arrivals = true;
         bool R(int bit) => (reveal & bit) != 0;
+        if (own_anchor >= 0) c.state.anchor_y = own_anchor;
+        // The run's seed and the room as entered (kept for a revive, with both RNGs) hold the
+        // true draws. A look never revives: the copy does not carry them.
+        c.seed_value = 0;
+        c._entry_room = null;
+        c._entry_state = null;
+        c._entry_rng = null;
+        c._entry_spine = null;
         { var x = own.next_u32(); if (!R(Reveal.RNG)) c._rng = new SimRng(x); }
         // Seed-only generation: each wall reseeds from the room's seed, the
         // spine picks the next rooms, and the exits are planned from the room's
@@ -386,6 +463,27 @@ public sealed class BlindPlanner
                     st.target_y = G.clampi(to, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
                     break;
                 }
+                // A boss: every attack after the one being told comes from its seed.
+                case Boss boss when hide_boss:
+                {
+                    long k = -1, keep = -1;
+                    if (boss is BossCrusher bc && bc.phase == 1 && bc.clock() >= 0)
+                    {
+                        k = bc.clock() / BossCrusher.CYCLE;
+                        keep = bc.slam_of(k);
+                    }
+                    do boss.seed = own.next_u32();
+                    while (keep >= 0 && ((BossCrusher)boss).slam_of(k) != keep);
+                    break;
+                }
+                // A key chain: where each later key appears is drawn at the room's start.
+                case ExitKey ek when hide_keys && ek.mode == ExitKey.Mode.CHAIN:
+                    for (long i = ek.got + 1; i < ek.count; i++)
+                    {
+                        ek.chain_off[i] = ExitKey.KEY_OFF_MIN + own.next_below(ExitKey.CHAIN_OFF_MAX - ExitKey.KEY_OFF_MIN + 1);
+                        ek.chain_d[i] = ExitKey.CHAIN_D_MIN + own.next_below(ExitKey.CHAIN_D_MAX - ExitKey.CHAIN_D_MIN + 1);
+                    }
+                    break;
                 // The second ball's column before it drops in.
                 case KeepyBall kb when kb.waiting > 0 && c.room.t < KeepyBall.SECOND_DROP:
                     kb.x = KeepyBall.MIN_X + own.next_below(KeepyBall.MAX_X - KeepyBall.MIN_X + 1);
