@@ -32,11 +32,11 @@ public static class BossRuns
 
     static Func<GameSim, bool> make(string bot, long seed)
     {
-        BlindPlanner honest(bool blind) => new BlindPlanner(seed) { horizon = 200, past = 110, margin = 10, boss_blind = blind };
+        BlindPlanner honest(bool blind) => new BlindPlanner(seed) { horizon = 200, past = 110, margin = 10, boss_leak = !blind };
         MotorPlayer human(string tier, bool blind)
         {
             var mp = new MotorPlayer(MotorTiers.of(tier), seed);
-            mp.planner.boss_blind = blind;
+            mp.planner.boss_leak = !blind;
             return mp;
         }
         return bot switch
@@ -144,7 +144,7 @@ public static class BossRuns
     }
 
     record Tell(long tick, long phase, string kind, GameSim sim, byte[] plan);
-    record FairRow(string boss, long seed, long tick, long phase, string kind, long react, int verdict, long y);
+    public record FairRow(string boss, long seed, long tick, long phase, string kind, long react, int verdict, long y);
 
     static string tell_kind(Boss b)
     {
@@ -157,6 +157,55 @@ public static class BossRuns
         return "other";
     }
 
+    /// One boss room on one seed: a row per (tell, reaction) with its verdict
+    /// (1 = a way through, 0 = no way after the reaction, -1/-2 = the old plan
+    /// dies within the reaction, by the boss / by the edge or spikes).
+    public static List<FairRow> fair_rows(string boss, long seed, long tier, long[] reacts)
+    {
+        var rows = new List<FairRow>();
+        var sim = arrive(boss, seed, tier);
+        long room = sim.state.room_index;
+        var bp = new BlindPlanner(seed) { horizon = 200, past = 110, margin = 10 };
+        var tells = new List<Tell>();
+        long key = BossBlind.tell_key(boss_of(sim));
+        for (long t = 0; t < CAP && !sim.is_over() && sim.state.room_index == room; t++)
+        {
+            sim.step(bp.decide(sim));
+            if (sim.is_over() || sim.state.room_index != room) break;
+            var b = boss_of(sim);
+            long k = BossBlind.tell_key(b);
+            if (k != key && b.down_at < 0)
+            {
+                string kind = tell_kind(b);
+                if (kind != "other") tells.Add(new(sim.state.tick, b.phase, kind, sim.clone_deep(), bp.plan.Select(x => (byte)(x ? 1 : 0)).ToArray()));
+            }
+            key = k;
+        }
+        for (int i = 0; i < tells.Count; i++)
+        {
+            var tl = tells[i];
+            long next = i + 1 < tells.Count ? tells[i + 1].tick : tl.tick + 240;
+            foreach (long r in reacts)
+            {
+                var c = tl.sim.clone_deep();
+                int verdict = 1;
+                for (long u = 0; u < r && verdict == 1; u++)
+                {
+                    c.step(u < tl.plan.Length && tl.plan[u] != 0);
+                    if (c.is_over()) verdict = c.state.death_cause == DeathCause.HAZARD ? -1 : -2;
+                }
+                if (verdict == 1)
+                {
+                    long h = Math.Max(30, next + 59 - (tl.tick + r));
+                    var ss = new SurvivalSearch();
+                    if (!ss.run(c, h)) verdict = 0;
+                }
+                rows.Add(new(boss, seed, tl.tick, tl.phase, tl.kind, r, verdict, tl.sim.state.y / SimConfig.SUB));
+            }
+        }
+        return rows;
+    }
+
     static int fair(string[] bosses, int seeds, long first, long tier, ParallelOptions po, Dictionary<string, string> opts)
     {
         var reacts = opts.GetValueOrDefault("react", "0,20,40,60").Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray();
@@ -165,47 +214,7 @@ public static class BossRuns
         var clock = System.Diagnostics.Stopwatch.StartNew();
         Parallel.ForEach(work, po, w =>
         {
-            var (boss, seed) = w;
-            var sim = arrive(boss, seed, tier);
-            long room = sim.state.room_index;
-            var bp = new BlindPlanner(seed) { horizon = 200, past = 110, margin = 10, boss_blind = true };
-            var tells = new List<Tell>();
-            long key = BossBlind.tell_key(boss_of(sim));
-            for (long t = 0; t < CAP && !sim.is_over() && sim.state.room_index == room; t++)
-            {
-                sim.step(bp.decide(sim));
-                if (sim.is_over() || sim.state.room_index != room) break;
-                var b = boss_of(sim);
-                long k = BossBlind.tell_key(b);
-                if (k != key && b.down_at < 0)
-                {
-                    string kind = tell_kind(b);
-                    if (kind != "other") tells.Add(new(sim.state.tick, b.phase, kind, sim.clone_deep(), bp.plan.Select(x => (byte)(x ? 1 : 0)).ToArray()));
-                }
-                key = k;
-            }
-            for (int i = 0; i < tells.Count; i++)
-            {
-                var tl = tells[i];
-                long next = i + 1 < tells.Count ? tells[i + 1].tick : tl.tick + 240;
-                foreach (long r in reacts)
-                {
-                    var c = tl.sim.clone_deep();
-                    int verdict = 1;
-                    for (long u = 0; u < r && verdict == 1; u++)
-                    {
-                        c.step(u < tl.plan.Length && tl.plan[u] != 0);
-                        if (c.is_over()) verdict = c.state.death_cause == DeathCause.HAZARD ? -1 : -2;
-                    }
-                    if (verdict == 1)
-                    {
-                        long h = Math.Max(30, next + 59 - (tl.tick + r));
-                        var ss = new SurvivalSearch();
-                        if (!ss.run(c, h)) verdict = 0;
-                    }
-                    rows.Add(new(boss, seed, tl.tick, tl.phase, tl.kind, r, verdict, tl.sim.state.y / SimConfig.SUB));
-                }
-            }
+            foreach (var row in fair_rows(w.bo, w.Item2, tier, reacts)) rows.Add(row);
         });
         Console.WriteLine($"boss fair: tier {tier}, seeds {first}..{first + seeds - 1}, {clock.Elapsed.TotalSeconds:F0} s");
         Console.WriteLine("verdict per tell: no way = SurvivalSearch finds no line after the reaction; dead in react = the old plan hits the boss within the reaction");
