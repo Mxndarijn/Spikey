@@ -65,13 +65,14 @@ public sealed class BlindPlanner
     /// Buckets: one survivor per height (px) and speed bucket; the finer set is tried when the first finds no line.
     public long bucket_px = 8, speed_buckets = 6, fine_px = 3, fine_speeds = 12;
 
-    /// Honesty switches (research/planner-review/01-honesty.md), off = as before.
+    /// Honesty switches (research/planner-review/01-honesty.md). hide_boss and hide_keys are on;
+    /// own_anchor is off until its cost is accepted.
     /// hide_boss: a boss's seed (every later attack) is replaced in the copy;
     ///   the attack already told on screen stays.
     /// own_anchor: the copy's anchor_y is the planner's own, tracked from the
     ///   walls it bounced off and the exit it took (never the room's planned exit).
     /// hide_keys: a key chain's later keys (shown one at a time) are placed anew.
-    public static bool hide_boss = false, hide_keys = false;
+    public static bool hide_boss = true, hide_keys = true;
     public bool own_anchor = false;
     public long anchor = SimConfig.BIRD_START_Y;
     long _seen_room = 0, _last_y;

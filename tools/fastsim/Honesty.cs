@@ -8,7 +8,7 @@ namespace FastSim;
 /// changes), and two fresh planners with the same own seed look once, one at
 /// the state and one at the fork. An honest planner makes the same plan.
 ///   --seeds n --cap ticks --every ticks --boss 1 (practice runs in the boss rooms) --room id (practice runs in the rooms whose id starts with it)
-///   --hideboss 1 --ownanchor 1 --hidekeys 1 (the fixes, to show the test passes with them)
+///   --hideboss 0 --hidekeys 0 --ownanchor 1 (the fixes off / on, to show what the test finds without them)
 /// anchor: how often the anchor a player can track from the walls is the room's own.
 /// seeds: the seed scan (every seed-bearing value must be replaced in a blind copy).
 /// rooms: practice runs per room, deaths per 100 points (to price a fix).
@@ -157,8 +157,8 @@ public static class Honesty
 
     static void configure(BlindPlanner p, Dictionary<string, string> opts)
     {
-        BlindPlanner.hide_boss = opts.GetValueOrDefault("hideboss", "0") != "0";
-        BlindPlanner.hide_keys = opts.GetValueOrDefault("hidekeys", "0") != "0";
+        BlindPlanner.hide_boss = opts.GetValueOrDefault("hideboss", "1") != "0";
+        BlindPlanner.hide_keys = opts.GetValueOrDefault("hidekeys", "1") != "0";
         p.own_anchor = opts.GetValueOrDefault("ownanchor", "0") != "0";
     }
 
