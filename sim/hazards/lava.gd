@@ -246,7 +246,8 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 ## Puts ice on the wall the bird just left (its next spikes come after this,
 ## so adjust_wall keeps the ice's slots clear): in a slot STONE_CLEAR or more
 ## above where the line is heading, STONE_EDGE or more below the ceiling and
-## ICE_AWAY or more from the bird's height. One draw, only when it appears.
+## ICE_AWAY or more from the anchor (never the bird's own height, so every
+## player of a seed gets the same ice). One draw, only when it appears.
 func _place_ice(sim: GameSim, rng: SimRng) -> void:
 	if ice_on or rises < STONE_AFTER:
 		return
@@ -273,7 +274,7 @@ func _place_ice(sim: GameSim, rng: SimRng) -> void:
 
 func _ice_fits(sim: GameSim, slot: int, lo: int, hi: int) -> bool:
 	var cy := SimConfig.slot_center_y(slot)
-	return cy >= lo and cy <= hi and absi(cy - sim.state.y) >= ICE_AWAY
+	return cy >= lo and cy <= hi and absi(cy - sim.state.anchor_y) >= ICE_AWAY
 
 
 ## Floats a raft up every RAFT_EVERY points once the line has risen

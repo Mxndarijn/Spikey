@@ -119,8 +119,10 @@ Known side effects, accepted:
   never worth extra coins.
 - A room whose walls follow its hazards (Lava Rise, Locked Out's chain) can
   show other spikes when the bird bounces at another tick or with the hazards
-  elsewhere, after a revive as for any two players. That is the room's own,
-  not the revive's.
+  elsewhere, after a revive as for any two players. In Lava Rise that is a
+  real choice: the line rises one step per point, the same for everyone, and
+  only cooling it (stone, ice, raft) moves it back. (Cold Wall's ice slot once
+  read the bird's own height; it reads the anchor now.)
 - Where a coin spawns depends on when the last one was taken (a coin appears
   at a bounce only when none is out), a real choice of the player.
 

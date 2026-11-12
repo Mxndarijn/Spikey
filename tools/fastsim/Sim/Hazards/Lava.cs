@@ -249,7 +249,7 @@ public class Lava : Hazard
     bool _ice_fits(GameSim sim, long slot, long lo, long hi)
     {
         long cy = SimConfig.slot_center_y(slot);
-        return cy >= lo && cy <= hi && G.absi(cy - sim.state.y) >= ICE_AWAY;
+        return cy >= lo && cy <= hi && G.absi(cy - sim.state.anchor_y) >= ICE_AWAY;
     }
 
     void _place_raft(GameSim sim, SimRng rng)

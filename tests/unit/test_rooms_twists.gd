@@ -200,7 +200,7 @@ func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
 	var sim := _started("lava", 13)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.COLD
-	sim.state.y = 300 * SUB
+	sim.state.anchor_y = 300 * SUB
 	sim.state.vx = -SimConfig.SPEED_X
 	for p in Lava.STONE_AFTER - 1:
 		sim.room.points += 1
@@ -212,13 +212,31 @@ func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
 	assert_false(l.stone_on, "and no stone")
 	assert_eq(l.ice_side, 1, "on the wall the bird just left")
 	var cy := SimConfig.slot_center_y(l.ice_slot)
-	assert_true(absi(cy - sim.state.y) >= Lava.ICE_AWAY, "away from the bird")
+	assert_true(absi(cy - sim.state.anchor_y) >= Lava.ICE_AWAY, "away from the anchor")
 	assert_true(cy <= l.line_at(l.rises) - Lava.STONE_CLEAR, "clear of the lava")
 	assert_true(cy >= SimConfig.KILL_TOP + Lava.STONE_EDGE, "clear of the ceiling")
 	var all := (1 << SimConfig.SLOT_COUNT) - 1
 	var mask: int = l.adjust_wall(sim, 1, all)
 	for slot in range(maxi(l.ice_slot - 1, 0), mini(l.ice_slot + 2, SimConfig.SLOT_COUNT)):
 		assert_false(RoomRules.has_slot(mask, slot), "no spike on or next to the ice")
+
+
+## Generation never reads the bird: at any height, the same ice slot.
+func test_the_ice_slot_never_depends_on_the_birds_height() -> void:
+	var slots := {}
+	for y: int in [120, 300, 480]:
+		var sim := _started("lava", 13)
+		var l: Lava = sim.room.hazards[0]
+		l.mode = Lava.Mode.COLD
+		sim.state.anchor_y = 300 * SUB
+		sim.state.y = y * SUB
+		sim.state.vx = -SimConfig.SPEED_X
+		for p in Lava.STONE_AFTER:
+			sim.room.points += 1
+			l.on_bounce(sim, SimRng.new(5))
+		assert_true(l.ice_on, "ice at bird height %d" % y)
+		slots[l.ice_slot] = true
+	assert_eq(slots.size(), 1, "one slot for every bird height")
 
 
 func test_bouncing_on_the_ice_sinks_the_lava() -> void:
