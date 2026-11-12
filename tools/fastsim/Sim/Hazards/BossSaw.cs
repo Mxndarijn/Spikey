@@ -10,7 +10,7 @@ public class BossSaw : Boss
     public static readonly long[] RING_YS = { 260 * SimConfig.SUB, 380 * SimConfig.SUB };
     public const long CYCLE = 240;
     public const long CYCLE_FAST = 180;
-    public const long TELL = 60;
+    public const long TELL = SimConfig.WARN_TICKS;
     public const long JUMP = 30;
     public const long RING_OUT = TELL + JUMP;
     public const long RING_HOLD = 120;

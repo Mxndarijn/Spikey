@@ -79,6 +79,9 @@ const GAMEPLAY_VERSION := 21
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
+## Every beam (Beam Gates, the Watcher) and every boss tell (the Crusher's slam,
+## jaw and crates, the Saw King's hops and ring) warns this long first: 2 s.
+const WARN_TICKS := 2 * TICKS_PER_SECOND
 const SUB := 64
 
 # World: 360 x 640 logical pixels.

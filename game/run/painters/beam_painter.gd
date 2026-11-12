@@ -28,7 +28,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			var warn: float = h.warn_progress(i) / float(SimTrig.ONE)
 			# Flickers faster as the beam is about to fire.
 			var flick := 0.5 + 0.5 * sin(time * (14.0 + 30.0 * warn))
-			var col := Color(theme.spike, (0.3 + 0.5 * warn) * (0.5 + 0.5 * flick))
+			var col := Color(theme.spike, (0.55 + 0.4 * warn) * (0.7 + 0.3 * flick))
 			c.draw_dashed_line(
 				Vector2(x0 + EMITTER.x, y), Vector2(x1 - EMITTER.x, y), col, 2.0, 10.0, true, true
 			)

@@ -297,6 +297,7 @@ static partial class Checks
             ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
             ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),
             ("ghostdoors", 1150), ("piston", 1150), ("stalac", 1150), ("crates", 1150), ("gifts", 1150),
+            ("beams", 1150),
             ("boss_watcher", 1950), ("boss_crusher", 1950), ("boss_saw", 1950),
         };
 

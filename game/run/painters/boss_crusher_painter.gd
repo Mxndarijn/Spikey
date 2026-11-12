@@ -18,7 +18,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 	var w := HazardLayer.px(SimConfig.WORLD_W)
 	var teeth := HazardLayer.px(h.TEETH)
 	if h.telling and h.down_at < 0:
-		var flick := 0.45 + 0.35 * sin(time * 24.0)
+		var flick := 0.6 + 0.3 * sin(time * 24.0)
 		var col := Color(theme.spike, flick)
 		if h.phase == 1:
 			_dash(c, HazardLayer.px(h.slam_y) + teeth, w, col)
@@ -103,7 +103,7 @@ func _crate(c: CanvasItem, h: BossCrusher, i: int, look: HazardLook) -> void:
 	if st == h.Crate.MARK:
 		var top := HazardLayer.px(h.press_y + h.TEETH)
 		var bottom := HazardLayer.px(h.plate_y - h.TEETH)
-		var col := Color(theme.spike, 0.45 + 0.35 * sin(look.time * 24.0))
+		var col := Color(theme.spike, 0.6 + 0.3 * sin(look.time * 24.0))
 		c.draw_dashed_line(
 			Vector2(x - half, top), Vector2(x - half, bottom), col, 2.0, 8.0, true, true
 		)

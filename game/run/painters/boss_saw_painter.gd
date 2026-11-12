@@ -23,7 +23,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			reach = HazardLayer.px(h.ring_max() + h.BLADE_R) + 10.0
 		elif h.phase == 3:
 			reach = HazardLayer.px(h.RING_HOP + h.BLADE_R) + 10.0
-		var col := Color(theme.spike, 0.45 + 0.3 * sin(look.time * 22.0))
+		var col := Color(theme.spike, 0.6 + 0.3 * sin(look.time * 22.0))
 		_dashed_circle(c, Vector2(x, HazardLayer.px(h.to_y)), reach, col)
 	var gone := BossBar.down_time(h)
 	var a := clampf(1.0 - gone / 0.9, 0.0, 1.0)

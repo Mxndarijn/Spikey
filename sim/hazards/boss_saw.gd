@@ -17,7 +17,7 @@ const RING_YS: Array[int] = [260 * SimConfig.SUB, 380 * SimConfig.SUB]
 const CYCLE := 240
 ## Phase 3's cycle from tier 2.
 const CYCLE_FAST := 180
-const TELL := 60
+const TELL := SimConfig.WARN_TICKS
 const JUMP := 30
 ## Phase 2: blades swing out after the drift, hold, swing back in.
 const RING_OUT := TELL + JUMP

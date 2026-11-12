@@ -1,8 +1,8 @@
 extends "res://sim/hazards/boss.gd"
 ## The Watcher (boss): an eye in the ceiling with beam emitters down both walls.
 ## Phase 1: some of the ROWS fire across the cage (BEAM_ON steps) after a
-## dashed warning (TELL steps). Phase 2, the gaze: the bird's height is marked,
-## the spike on the wall ahead glows, and TELL steps later a dart flies across
+## dashed warning (BEAM_TELL steps). Phase 2, the gaze: the bird's height is marked,
+## the spike on the wall ahead glows, and GAZE_TELL steps later a dart flies across
 ## that lane. Phase 3: fewer rows, then a gaze dart, each cycle.
 ## Tier 2 lights one more row; tier 3 gazes faster. A cycle never lights more
 ## than MAX_RUN rows in a row, so a dark row is always within reach.
@@ -20,7 +20,11 @@ const ROWS: Array[int] = [
 	560 * SimConfig.SUB,
 ]
 const CYCLE := 240
-const TELL := 60
+## Beams warn as long as every tell (SimConfig.WARN_TICKS).
+const BEAM_TELL := SimConfig.WARN_TICKS
+## The gaze dart is not a beam: it keeps its 1 s mark (phase 3 marks at GAZE_AT
+## and must fly before the cycle ends).
+const GAZE_TELL := 60
 const BEAM_ON := 70
 ## Half the thickness of a live beam's deadly core.
 const HALF_H := 6 * SimConfig.SUB
@@ -98,9 +102,9 @@ func boss_step(sim: GameSim) -> void:
 		if _lit_k != k:
 			_lit_k = k
 			lit = lit_rows(phase, k)
-		if beam_t < TELL:
+		if beam_t < BEAM_TELL:
 			beam = Beam.WARN
-		elif beam_t < TELL + BEAM_ON:
+		elif beam_t < BEAM_TELL + BEAM_ON:
 			beam = Beam.ON
 	var g := c % gaze_every() if phase == 2 else (c % CYCLE) - GAZE_AT
 	if phase != 1:
@@ -114,7 +118,7 @@ func _gaze(sim: GameSim, g: int) -> void:
 		dart_side = 1 if sim.state.vx > 0 else 0
 	if dart == Dart.MARK:
 		dart_t = g
-		if g >= TELL:
+		if g >= GAZE_TELL:
 			dart = Dart.FLY
 			dart_x = sim.room.wall_right() if dart_side == 1 else sim.room.wall_left()
 	elif dart == Dart.FLY:
@@ -151,7 +155,7 @@ func safe_y(y: int, steps: int) -> bool:
 	if c < 0:
 		return true
 	var lt := c % CYCLE
-	if lt < TELL or lt >= TELL + BEAM_ON:
+	if lt < BEAM_TELL or lt >= BEAM_TELL + BEAM_ON:
 		return true
 	var mask := lit_rows(phase, c / CYCLE)
 	for i in ROWS.size():
