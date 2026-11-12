@@ -57,6 +57,8 @@ public static class RlMain
                 case "measure":
                     return Tiers.measure(dir, O("tier", "all"), int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
                         long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads, O("out", ""));
+                case "review":
+                    return Review.run(pos.Count > 2 ? pos[2] : "", dir, opts);
                 case "imitate":
                 {
                     var t = new Imitation(dir) { threads = threads };

@@ -28,6 +28,8 @@ public sealed class Run
     /// Rooms entered ("id" or "id/variant"), the first one included.
     public Dictionary<string, int> visits = new();
     public int taps_played;
+    /// Taps made while the bird waits at a portal, which the game ignores.
+    public int taps_held;
 
     public double seconds => Math.Max(1, ticks - start_tick) / (double)SimConfig.TICKS_PER_SECOND;
     public double taps_per_s => Math.Max(0, taps_played - 1) / seconds;
@@ -77,7 +79,9 @@ public sealed class Run
                 long b = (sim.state.y - SimConfig.KILL_TOP) / BAND_H;
                 run.bands[Math.Clamp(b, 0, BANDS - 1)]++;
             }
-            if (tap)
+            // A tap during the portal wait (arrival_hold) does nothing in the game: not counted.
+            if (tap && sim.state.arrival_hold > 0) run.taps_held++;
+            else if (tap)
             {
                 run.taps_played++;
                 if (last_tap >= 0 && sim.state.started) run.intervals.Add((int)(t - last_tap));
