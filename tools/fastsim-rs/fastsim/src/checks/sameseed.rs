@@ -92,15 +92,25 @@ pub struct Play {
 pub struct SameSeed;
 
 impl SameSeed {
-    /// The hazards' states, but for those that follow the bird by design: the
-    /// Echo's shadow flies the bird's own path, and a coin is taken by
-    /// whoever flies through it (as coin spawns, a player's choice).
+    /// The hazards' states at a room's arrival, but for those that follow the
+    /// bird by design: the Echo's shadow flies the bird's own path, and a coin
+    /// is taken by whoever flies through it (as coin spawns, a player's choice).
+    /// At a wall every hazard counts (`hz_all`): a wall that follows a hazard the
+    /// bird changed is not compared.
     fn hz(sim: &GameSim) -> String {
+        Self::hz_of(sim, true)
+    }
+
+    fn hz_all(sim: &GameSim) -> String {
+        Self::hz_of(sim, false)
+    }
+
+    fn hz_of(sim: &GameSim, skip_bird: bool) -> String {
         let parts: Vec<String> = sim
             .room
             .hazards
             .iter()
-            .filter(|h| h.kind() != "echo" && h.kind() != "coin")
+            .filter(|h| !skip_bird || (h.kind() != "echo" && h.kind() != "coin"))
             .map(|h| format!("{}:{:x}", h.kind(), if h.alive() { h.checksum(0) & 0xffff } else { -1i64 }))
             .collect();
         parts.join(",")
@@ -207,7 +217,7 @@ impl SameSeed {
                         anchor: st.anchor_y / SimConfig::SUB,
                         bird_y: st.y / SimConfig::SUB,
                         life,
-                        hazards: Self::hz(&sim),
+                        hazards: Self::hz_all(&sim),
                         coin: String::new(),
                     };
                     p.walls.set(format!("{}:{}", st.room_index, sim.room.walls), w);
@@ -321,7 +331,9 @@ impl SameSeed {
                     continue;
                 }
                 let Some(wb) = b.walls.get(k) else { continue };
-                let timed = wa.in_room == wb.in_room && wa.hazards == wb.hazards;
+                // A room entered by the other exit of a fork has more spikes on
+                // every wall after its arrival (WILD_SPIKES): a player's choice.
+                let timed = wa.in_room == wb.in_room && wa.hazards == wb.hazards && ra.route == rb.route;
                 if wa.side != wb.side || wa.score != wb.score || timed && (wa.mask != wb.mask || wa.anchor != wb.anchor) {
                     out_.push(format!(
                         "{} wall {}: spikes {:x}/{:x} side {}/{} score {}/{} anchor {}/{}",
