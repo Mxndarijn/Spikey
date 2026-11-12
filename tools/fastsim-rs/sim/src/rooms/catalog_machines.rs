@@ -112,7 +112,11 @@ impl CatalogMachines {
         let c = p.add(sim, Self::_crates(gifts, wide, pair));
         if p.fallback && p.arriving {
             if let Hz::CrateDrop(cd) = &mut sim.room.hazards[c] {
-                cd.warn_left += FairLanes::ARRIVAL_PATH_TICKS;
+                if cd.col == CrateDrop::WAIT {
+                    cd.wait_warn += FairLanes::ARRIVAL_PATH_TICKS;
+                } else {
+                    cd.warn_left += FairLanes::ARRIVAL_PATH_TICKS;
+                }
             }
         }
     }

@@ -149,11 +149,15 @@ static func crate_variants(gifts: bool) -> Array[RoomVariant]:
 
 ## Generated Crate Drop / Gift Stack: the crates as hand made (they draw their
 ## columns). The fallback holds the first crate back for the arrival path's
-## length more, its column marked all that time.
+## length more, its column marked all that time (the first crate is picked on
+## the room's first step: its warning is still to come, CrateDrop.WAIT).
 static func _gen_crates(p: VariantParams, gifts: bool, wide: bool, pair: bool) -> void:
 	var c: Hazard = p.add(_crates(gifts, wide, pair))
 	if p.fallback and p.arriving:
-		c.warn_left += FairLanes.ARRIVAL_PATH_TICKS
+		if c.col == CrateDrop.WAIT:
+			c.wait_warn += FairLanes.ARRIVAL_PATH_TICKS
+		else:
+			c.warn_left += FairLanes.ARRIVAL_PATH_TICKS
 
 
 static func _crates(gifts: bool, wide: bool, pair: bool) -> Hazard:
