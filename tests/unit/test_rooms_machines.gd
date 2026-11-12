@@ -24,6 +24,19 @@ static func _advance(sim: GameSim, steps: int) -> void:
 		sim.room.step(sim)
 
 
+## Steps the room `steps` times with the bird flying across and back as in
+## the game (only its x: crates pick their columns by where it will be).
+static func _fly(sim: GameSim, steps: int) -> void:
+	var r := SimConfig.BIRD_RADIUS
+	for i in steps:
+		sim.room.step(sim)
+		sim.state.x += sim.state.vx
+		if sim.state.vx > 0 and sim.state.x + r >= sim.room.wall_right():
+			sim.state.vx = -sim.state.vx
+		elif sim.state.vx < 0 and sim.state.x - r <= sim.room.wall_left():
+			sim.state.vx = -sim.state.vx
+
+
 ## A sim in room `id` playing its classic variant (rooms without variants
 ## just play).
 static func _classic(id: String, seed_value: int) -> GameSim:
@@ -34,6 +47,18 @@ static func _classic(id: String, seed_value: int) -> GameSim:
 static func _bird(sim: GameSim, x: int, y: int) -> void:
 	sim.state.x = x
 	sim.state.y = y
+
+
+## Steps the room until a crate lands and returns its column (the first mark
+## can move on the room's first step, or wait for a fair column: CrateDrop.WAIT).
+static func _land_first(sim: GameSim, cd: Hazard) -> int:
+	var before: Array[int] = cd.heights.duplicate()
+	for i in 3000:
+		sim.room.step(sim)
+		for c in cd.cols:
+			if cd.heights[c] > before[c]:
+				return c
+	return -1
 
 
 func test_machine_rooms_are_in_the_catalog_in_order() -> void:
@@ -179,6 +204,9 @@ func test_court_pads_slide() -> void:
 func test_crates_warn_fall_and_kill() -> void:
 	var sim := _classic("crates", 7)
 	var cd: Hazard = _hazards(sim, "crate_drop")[0]
+	assert_eq(cd.col, CrateDrop.WAIT, "nothing is marked before the room's first step")
+	while cd.col == CrateDrop.WAIT:
+		_fly(sim, 1)
 	var col: int = cd.col
 	assert_true(col >= 0 and cd.warn_left > 0, "the first crate is marked before it falls")
 	# During the warning the crate is not deadly even right under the marker.
@@ -205,7 +233,7 @@ func test_crates_always_leave_a_path() -> void:
 		var sim := _classic("crates", s)
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
 		for i in 6000:
-			sim.room.step(sim)
+			_fly(sim, 1)
 			if i % 200 == 0:
 				for c in CrateDrop.COLS:
 					assert_true(cd.heights[c] <= CrateDrop.MAX_HEIGHT, "column height capped")
@@ -236,9 +264,7 @@ func test_gift_stack_puts_a_coin_on_each_new_stack() -> void:
 	sim.room.start(def, 0, sim, SimRng.new(8))
 	var cd: Hazard = sim.room.hazards[0]
 	assert_true(cd.gifts, "Gift Stack crates carry gifts")
-	var col: int = cd.col
-	while cd.heights[col] == 0:
-		sim.room.step(sim)
+	var col := _land_first(sim, cd)
 	assert_eq(cd.coins[col], 1, "a coin sits on the new stack")
 	_bird(sim, cd.col_center(col), cd.coin_y(col))
 	assert_false(cd.kills(sim), "the coin spot is safe")

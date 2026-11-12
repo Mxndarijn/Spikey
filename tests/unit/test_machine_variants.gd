@@ -36,6 +36,18 @@ static func _bounce(sim: GameSim, seed_value: int) -> void:
 		h.on_bounce(sim, rng)
 
 
+## Steps the room until a crate lands and returns its column (the first mark
+## can move on the room's first step, or wait for a fair column: CrateDrop.WAIT).
+static func _land_first(sim: GameSim, cd: Hazard) -> int:
+	var before: Array[int] = cd.heights.duplicate()
+	for i in 3000:
+		sim.room.step(sim)
+		for c in cd.cols:
+			if cd.heights[c] > before[c]:
+				return c
+	return -1
+
+
 func test_rooms_have_their_variants() -> void:
 	var want := {
 		"piston": ["classic", "double-slam", "ladder"],
@@ -227,7 +239,7 @@ func test_crate_variants_cap_their_stacks_and_stay_off_the_walls() -> void:
 				assert_true(cd.col_left(0) >= SimConfig.SPIKE_DEPTH, "clear of the left wall")
 				var right: int = cd.col_left(cd.cols - 1) + cd.crate_w
 				assert_true(right <= SimConfig.WORLD_W - SimConfig.SPIKE_DEPTH, "and the right")
-				_advance(sim, 6000)
+				_fly(sim, 6000)
 				var lowest_top := SimConfig.WORLD_H
 				for c in cd.cols:
 					assert_true(cd.heights[c] <= cd.max_height, "column height capped")
@@ -243,9 +255,7 @@ func test_wide_crates_are_bigger() -> void:
 	var cd: Hazard = _hazards(sim, "crate_drop")[0]
 	assert_true(cd.crate_w >= 60 * SUB, "wide crates")
 	assert_true(cd.cols < CrateDrop.COLS, "in fewer columns")
-	var col: int = cd.col
-	while cd.heights[col] == 0:
-		sim.room.step(sim)
+	var col := _land_first(sim, cd)
 	# The whole width of the stack kills, right to its edges.
 	var x0: int = cd.col_left(col)
 	for x: int in [x0 + SUB, x0 + cd.crate_w / 2, x0 + cd.crate_w - SUB]:
@@ -259,10 +269,13 @@ func test_pairs_drop_two_crates_at_once_in_different_columns() -> void:
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
 		var pairs := 0
 		for _r in 6:
+			# Marked once a fair column is free (CrateDrop.WAIT before).
+			for _i in 600:
+				if cd.col != CrateDrop.WAIT:
+					break
+				_fly(sim, 1)
 			if cd.col < 0:
 				break
-			# The columns are final once the warning is over (the first pair can be
-			# marked again on the room's first step: exits, fairness).
 			while cd.warn_left > 0:
 				sim.room.step(sim)
 			var a: int = cd.col
@@ -289,9 +302,7 @@ func test_gift_variants_put_a_coin_on_new_stacks() -> void:
 	for v: String in ["wide", "pairs"]:
 		var sim := _sim("gifts", v, 6)
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
-		var col: int = cd.col
-		while cd.heights[col] == 0:
-			sim.room.step(sim)
+		var col := _land_first(sim, cd)
 		assert_eq(cd.coins[col], 1, "%s: a coin on the new stack" % v)
 		_bird(sim, cd.col_center(col), cd.coin_y(col))
 		assert_false(cd.kills(sim), "%s: the coin spot is safe" % v)
@@ -307,9 +318,7 @@ func test_floor_spikes_sink_only_under_a_stack() -> void:
 		var cd: Hazard = _hazards(sim, "crate_drop")[0]
 		var painter := CratePainter.new()
 		painter._track_landings(cd, 0.0)
-		var col: int = cd.col
-		while cd.heights[col] == 0:
-			sim.room.step(sim)
+		var col := _land_first(sim, cd)
 		painter._track_landings(cd, 1.0)
 		var left := HazardLayer.px(cd.col_left(col))
 		var right := left + HazardLayer.px(cd.crate_w)
@@ -345,6 +354,19 @@ func test_floor_spikes_sink_only_under_a_stack() -> void:
 static func _advance(sim: GameSim, steps: int) -> void:
 	for i in steps:
 		sim.room.step(sim)
+
+
+## Steps the room `steps` times with the bird flying across and back as in
+## the game (only its x: crates pick their columns by where it will be).
+static func _fly(sim: GameSim, steps: int) -> void:
+	var r := SimConfig.BIRD_RADIUS
+	for i in steps:
+		sim.room.step(sim)
+		sim.state.x += sim.state.vx
+		if sim.state.vx > 0 and sim.state.x + r >= sim.room.wall_right():
+			sim.state.vx = -sim.state.vx
+		elif sim.state.vx < 0 and sim.state.x - r <= sim.room.wall_left():
+			sim.state.vx = -sim.state.vx
 
 
 ## A still column next to a wall keeps that wall's exit inside its gap; a

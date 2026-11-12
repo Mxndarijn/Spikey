@@ -111,7 +111,7 @@ func test_crates_are_marked_fair_whenever_a_fair_column_is_free() -> void:
 			var drops: int = cd.drops
 			var rng := SimRng.new(seed_value)
 			for i in 1500:
-				if sim.is_over() or cd.col < 0:
+				if sim.is_over() or cd.col == -1:
 					break
 				# Keep the bird alive and in the middle: only x matters here.
 				sim.state.y = 320 * SUB
@@ -119,8 +119,10 @@ func test_crates_are_marked_fair_whenever_a_fair_column_is_free() -> void:
 				var before_x := sim.state.x
 				var before_vx := sim.state.vx
 				sim.step(rng.next_below(9) == 0)
-				if cd.drops != drops and cd.t > 1:
+				if cd.drops != drops:
 					drops = cd.drops
+					# The warning it got (it counts down from the next step).
+					var warn: int = cd.warn_left
 					marks += 1
 					# Judge the mark from where the bird was when it was made.
 					var now_x := sim.state.x
@@ -129,14 +131,11 @@ func test_crates_are_marked_fair_whenever_a_fair_column_is_free() -> void:
 					sim.state.vx = before_vx
 					var any_fair := false
 					for c in cd.cols:
-						if (
-							cd.heights[c] < cd.max_height
-							and cd._fair_col(sim, c, CrateDrop.WARN_TICKS)
-						):
+						if cd.heights[c] < cd.max_height and cd._fair_col(sim, c, warn):
 							any_fair = true
 					if any_fair:
 						assert_true(
-							cd._fair_col(sim, cd.col, CrateDrop.WARN_TICKS),
+							cd._fair_col(sim, cd.col, warn),
 							"%s seed %d step %d column %d" % [variant, seed_value, i, cd.col]
 						)
 					sim.state.x = now_x

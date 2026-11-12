@@ -246,29 +246,18 @@ impl Hazard for CrateDrop {
 
     fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
         self.salt = rng.next_u32();
-        self._next_drop(None, Self::START_DELAY + Self::WARN_TICKS);
+        self.col = Self::WAIT;
+        self.wait_warn = Self::START_DELAY + Self::WARN_TICKS;
     }
 
     fn step(&mut self, sim: &mut GameSim) {
         if self.col == Self::WAIT {
             let warn = self.wait_warn;
             self._next_drop(Some(sim), warn);
+            return;
         }
         if self.col < 0 {
             return;
-        }
-        if self.base.t == 1
-            && (self._col_in_exit(sim, self.col)
-                || (self.col_b >= 0 && self._col_in_exit(sim, self.col_b))
-                || !self._fair_col(sim, self.col, self.warn_left)
-                || (self.col_b >= 0 && !self._fair_col(sim, self.col_b, self.warn_left)))
-        {
-            self.drops -= 1;
-            let warn = self.warn_left;
-            self._next_drop(Some(sim), warn);
-            if self.col < 0 {
-                return;
-            }
         }
         if self.warn_left > 0 {
             self.warn_left -= 1;

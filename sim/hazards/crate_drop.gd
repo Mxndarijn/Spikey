@@ -99,12 +99,14 @@ func _init(
 	coins.fill(0)
 
 
+## The first crate is picked on the room's first step, once its exits and the
+## bird are known (WAIT until then: nothing is marked before it is final).
 func setup(_sim: GameSim, rng: SimRng) -> void:
 	salt = rng.next_u32()
-	_next_drop(null, START_DELAY + WARN_TICKS)
+	col = WAIT
+	wait_warn = START_DELAY + WARN_TICKS
 
 
-## `sim` null: before the room's exits are known (setup).
 func _next_drop(sim: GameSim, warn: int) -> void:
 	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1, warn)
 	col_b = -1
@@ -185,25 +187,11 @@ func _col_in_exit(sim: GameSim, c: int) -> bool:
 
 func step(sim: GameSim) -> void:
 	if col == WAIT:
+		# Its warning counts down from the next step, as after a landing.
 		_next_drop(sim, wait_warn)
+		return
 	if col < 0:
 		return
-	# The first crate was marked before the room's exits and the bird were
-	# known: mark it again (the same pick, now past the exits and fair) if it
-	# would fall through an exit's mouth or be unfair to the bird (_fair_col).
-	if (
-		t == 1
-		and (
-			_col_in_exit(sim, col)
-			or col_b >= 0 and _col_in_exit(sim, col_b)
-			or not _fair_col(sim, col, warn_left)
-			or col_b >= 0 and not _fair_col(sim, col_b, warn_left)
-		)
-	):
-		drops -= 1
-		_next_drop(sim, warn_left)
-		if col < 0:
-			return
 	if warn_left > 0:
 		warn_left -= 1
 		return
