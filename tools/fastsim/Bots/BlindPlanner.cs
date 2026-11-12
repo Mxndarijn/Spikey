@@ -90,7 +90,13 @@ public sealed class BlindPlanner
             if (_vx != 0 && bounce_look) _since = int.MaxValue;
             _vx = sim.state.vx;
         }
+#if PROF
+        long p0 = Prof.now();
         if (_since >= _wait || _plan.Count == 0) look(sim);
+        Prof.add(Prof.LOOK, p0);
+#else
+        if (_since >= _wait || _plan.Count == 0) look(sim);
+#endif
         _since++;
         bool tap = _plan.Count > 0 && _plan.Dequeue();
         // The sim ignores taps during the wait out of a portal: don't make them.
@@ -249,6 +255,14 @@ public sealed class BlindPlanner
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
     static bool lives(GameSim c, byte[] taps, int shift)
     {
+#if PROF
+        long p0 = Prof.now();
+        try { return lives_(c, taps, shift); } finally { Prof.add(Prof.LIVES, p0); }
+    }
+
+    static bool lives_(GameSim c, byte[] taps, int shift)
+    {
+#endif
         for (int t = 0; t < taps.Length; t++)
         {
             int from = t - shift;
@@ -272,7 +286,18 @@ public sealed class BlindPlanner
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
     public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1)
     {
+#if PROF
+        long p0 = Prof.now();
+        var c = blind_copy_(sim, own, bounce_y);
+        Prof.add(Prof.BLIND, p0);
+        return c;
+    }
+
+    static GameSim blind_copy_(GameSim sim, SimRng own, long bounce_y)
+    {
+#endif
         var c = sim.clone_deep();
+        c.memo_arrivals = true;
         c._rng = new SimRng(own.next_u32());
         // Seed-only generation: each wall reseeds from the room's seed, the
         // spine picks the next rooms, and the exits are planned from the room's
@@ -382,6 +407,14 @@ public sealed class BlindPlanner
     /// With `any`: stops at the first line found (only "is there one").
     void beam(GameSim root, long ticks, long bpx, long speeds, long by_band = 0, bool any = false)
     {
+#if PROF
+        long p0 = Prof.now();
+        try { beam_(root, ticks, bpx, speeds, by_band, any); } finally { Prof.add(Prof.BEAM, p0); }
+    }
+
+    void beam_(GameSim root, long ticks, long bpx, long speeds, long by_band, bool any)
+    {
+#endif
         _found.Clear();
         var layer = new List<int>();
         long bh = bpx * SimConfig.SUB;
@@ -407,15 +440,30 @@ public sealed class BlindPlanner
                 bool e_open = e.sim.state.exit_open;
                 for (int a = can_tap ? 1 : 0; a >= 0; a--)
                 {
+#if PROF
+                    long q0 = Prof.now();
+                    var s = a == 1 ? e.sim.clone_deep() : e.sim;
+                    if (a == 1) Prof.add(Prof.CLONE, q0);
+                    q0 = Prof.now();
+                    s.step(a == 1);
+                    Prof.add(Prof.STEP, q0);
+#else
                     var s = a == 1 ? e.sim.clone_deep() : e.sim;
                     s.step(a == 1);
+#endif
                     if (s.is_over()) continue;
                     // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
                     if (no_pingpong && !exit_shown && s.state.exit_open && !e_open && s.state.exit_side == (s.state.vx > 0 ? 0 : 1)) continue;
                     if (worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0)) fangs_out(s, worst_fangs > 1);
                     var st = s.state;
                     long cost = e.cost + Math.Abs(st.y - mid) / SimConfig.SUB * mid_cost + a * tap_cost;
+#if PROF
+                    long q1 = Prof.now();
                     if (margin > 0 && near_death(s)) cost += margin_cost;
+                    Prof.add(Prof.NEAR, q1);
+#else
+                    if (margin > 0 && near_death(s)) cost += margin_cost;
+#endif
                     long along = st.vy * s.room.gravity - SimConfig.FLAP_VY;
                     long speed = G.clampi(along / bvy, 0, speeds - 1);
                     long key = (st.room_index * 1000 + st.y / bh) * speeds + speed;

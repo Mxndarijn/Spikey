@@ -27,6 +27,8 @@ public sealed class GameSim
     public SimRng _rng;
     public SimRng _spine;
     public bool _checking = false;
+    /// Bots only, never in the game: a planner copy remembers arrival checks (Bots/ArrivalMemo.cs).
+    public bool memo_arrivals = false;
     /// The room, the whole state and both RNGs as the bird came in, for a revive. Never changed after
     /// it is taken, so clones share it (GDScript's SimCopy copies it).
     public long _arrival_wait = SimConfig.PORTAL_HOLD;
@@ -78,6 +80,7 @@ public sealed class GameSim
         c._spine = _spine.Clone();
         c._arrival_wait = _arrival_wait;
         c._checking = _checking;
+        c.memo_arrivals = memo_arrivals;
         c._entry_room = _entry_room;
         c._entry_state = _entry_state;
         c._entry_rng = _entry_rng;
@@ -229,6 +232,25 @@ public sealed class GameSim
 
     void _substep()
     {
+#if PROF
+        long p0 = Prof.now();
+        room.step(this);
+        Prof.add(Prof.HZSTEP, p0);
+        _move();
+        p0 = Prof.now();
+        _check_spikes();
+        if (!state.alive) { Prof.add(Prof.COLLIDE, p0); return; }
+        _check_hazards();
+        Prof.add(Prof.COLLIDE, p0);
+        if (!state.alive) return;
+        _check_coin();
+        p0 = Prof.now();
+        _check_walls();
+        Prof.add(Prof.WALLS, p0);
+        p0 = Prof.now();
+        _check_ceiling_floor();
+        Prof.add(Prof.COLLIDE, p0);
+#else
         room.step(this);
         _move();
         _check_spikes();
@@ -238,6 +260,7 @@ public sealed class GameSim
         _check_coin();
         _check_walls();
         _check_ceiling_floor();
+#endif
     }
 
     void _move()
@@ -343,7 +366,13 @@ public sealed class GameSim
             through = state.exit_b_y;
         }
         if (kind < 0) return false;
+#if PROF
+        long p0 = Prof.now();
         _go_through(side, kind, through);
+        Prof.add(Prof.EXIT, p0);
+#else
+        _go_through(side, kind, through);
+#endif
         return true;
     }
 
@@ -469,7 +498,7 @@ public sealed class GameSim
         }
         else next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y);
         _seed_room();
-        long skip = _arrival_retries(side, next);
+        long skip = memo_arrivals ? ArrivalMemo.retries(this, side, next) : _arrival_retries(side, next);
         for (long i = 0; i < skip; i++) _rng.next_u32();
         _arrive_in(side, next);
     }
@@ -621,7 +650,14 @@ public sealed class GameSim
         _free_hi = -1;
         long bonus = room.spike_bonus(side);
         if (state.route == ExitKind.WILD && room.walls > 1 && !_checking) bonus += SimConfig.WILD_SPIKES;
+#if PROF
+        long p0 = Prof.now();
+#endif
         long mask = RoomRules.generate_wall(_rng, state.score, room.def, target, bonus, reach);
+#if PROF
+        Prof.add(Prof.GEN, p0);
+        p0 = Prof.now();
+#endif
         for (int i = 0; i < room.hazards.Count; i++)
             if (room.hazards[i].alive) mask = room.hazards[i].adjust_wall(this, side, mask);
         if (side == 0) state.left_spikes = mask;
@@ -629,6 +665,9 @@ public sealed class GameSim
         room.on_wall_generated(side, mask, this, _rng);
         for (int i = 0; i < room.hazards.Count; i++)
             if (room.hazards[i].alive) room.hazards[i].on_bounce(this, _rng);
+#if PROF
+        Prof.add(Prof.ONWALL, p0);
+#endif
         if (room.def.bounce_coin && !is_practice()) _spawn_coin();
     }
 

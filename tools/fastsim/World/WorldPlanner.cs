@@ -112,7 +112,13 @@ public sealed class WorldPlanner
         var s = sim.state;
         if (!s.started) return true;
         if (mem.last_tick != s.tick) mem.Observe(sim);
+#if PROF
+        long p0 = Prof.now();
         var now = WorldModel.Read(sim, mem);
+        Prof.add(Prof.W_READ, p0);
+#else
+        var now = WorldModel.Read(sim, mem);
+#endif
         // A new misjudgement at every wall.
         if (_last_vx != 0 && Math.Sign(_last_vx) != Math.Sign(s.vx) && _sk.misjudge_px > 0)
         {
@@ -317,7 +323,15 @@ public sealed class WorldPlanner
         if (room.exit_preview && !room.exit_open && room.exit_side == 1 - ahead
             && (room.score + 1) % SimConfig.POINTS_PER_ROOM == 0)
             next_exit = room.exit_b_kind == ExitKind.WILD ? room.exit_b_y : room.exit_a_y;
+#if PROF
+        long p0 = Prof.now();
         var tl = Build(w, substeps, next_exit);
+        Prof.add(Prof.W_BUILD, p0);
+        p0 = Prof.now();
+        try {
+#else
+        var tl = Build(w, substeps, next_exit);
+#endif
         long margin = _sk.margin_px * SimConfig.SUB;
         var scratch = new WorldModel { room = room, hz = Array.Empty<HazardModel>() };
         var own0 = w.CopyHazards(h => h.reactive);
@@ -382,7 +396,13 @@ public sealed class WorldPlanner
                             h.Step(scratch);
                         }
                         var r = new SubResult { bounced = -1 };
+#if PROF
+                        long q0 = Prof.now();
                         Physics.Substep(scratch, ref c.b, c.grav, tl.hz[s], c.own, margin, ref r, true);
+                        Prof.add(Prof.W_SUB, q0);
+#else
+                        Physics.Substep(scratch, ref c.b, c.grav, tl.hz[s], c.own, margin, ref r, true);
+#endif
                         nodes_expanded++;
                         if (r.dead)
                         {
@@ -487,6 +507,9 @@ public sealed class WorldPlanner
         _plan_cost = best;
         _plan_tick = w.tick;
         return pick == 1;
+#if PROF
+        } finally { Prof.add(Prof.W_SEARCH, p0); }
+#endif
     }
 
     public const double GAP_PULL = 0.5;

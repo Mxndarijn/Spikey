@@ -28,6 +28,8 @@ public sealed class RoomRuntime
     public long walls = 0;
     public long entry_score = 0;
 
+    [ThreadStatic] static Dictionary<Hazard, Hazard> _map;
+
     public RoomRuntime clone_deep()
     {
         var c = (RoomRuntime)MemberwiseClone();
@@ -40,9 +42,12 @@ public sealed class RoomRuntime
         }
         if (partners)
         {
-            var map = new Dictionary<Hazard, Hazard>(ReferenceEqualityComparer.Instance);
+            // One map per thread, reused (planner searches clone rooms millions of times).
+            var map = _map ??= new Dictionary<Hazard, Hazard>(ReferenceEqualityComparer.Instance);
+            map.Clear();
             for (int i = 0; i < hazards.Count; i++) map[hazards[i]] = c.hazards[i];
             foreach (var h in c.hazards) h.remap(map);
+            map.Clear();
         }
         return c;
     }
