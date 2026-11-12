@@ -158,6 +158,50 @@ without replaying the easy first rooms.
   `bot` deaths), with a Wilson CI; `infinite` is true when no `bot` death is
   left. Pass the judge's output with `-Fair`.
 
+## Tier calibration (`tools/calibrate_tiers.ps1`, `measure median`)
+
+```
+powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1                       # all four tiers
+powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Tiers good -Budget 600
+powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Exe <engine> -Verify
+```
+
+Every human tier plays by the same rules (`MotorTiers.shared`, `tools/fastsim/Human/MotorPlayer.cs`):
+only what is on screen, the 8-tick thumb gap with jitter, a little hesitation, the cage
+middle when nothing forces otherwise, a loosely varying preferred height and one small tap
+scatter. No lapses, no mistakes on purpose. A tier has two knobs only:
+
+- **reaction** to new things (new spikes, new hazards, a new warning that breaks the plan), ticks;
+- **search level** 0..5 (`MotorTiers.LEVELS`): 16 px x 3 speed buckets up to 4 px x 12 with free tap timing.
+
+The bot `tier:react=R,level=L` plays those knobs. The script fits each tier to its target
+(30 / 60 / 120 / 250, within +-15%; it aims for +-8%):
+
+1. From the tier's start point it moves the level finer while the tier is too weak even at
+   the fastest reaction (11 ticks, the human floor), coarser while it is too strong at 60.
+2. Inside that level it brackets the target by reaction and closes in by secant steps on
+   log(median).
+3. A last evaluation with twice the budget at the chosen knobs; the result goes to
+   `tools/fastsim/Human/tiers.json`, which the `human:<tier>` bots then play. With `-Verify`
+   each tier then plays the holdout once (full runs, `measure report`).
+
+Each evaluation is one `measure median`: room trials over every stratum (ramp and plateau,
+Neyman) from one shared bank of the default BlindPlanner, the death rate per score band
+(`@b0`, `@b10`, `@b20`, `@b30`, then the plateau from 40 on), and the median of the
+piecewise constant survival those rates give, with an interval from 4 000 draws of the
+rates. Trials of the same knobs pile up in one file, so asking again refines. The bank is
+remade whenever `sim/` changes (its name holds the last sim commit): a room fix moves every tier.
+
+Caveats: a weak tier's trials start from a strong bot's room entries (the doc's caveat on
+banks), strata under 0.2% of visits take the bank bot's rate, and the plateau is one rate
+from 40 points on, so expert's median (past 160 points) leans on that.
+
+**For any engine** (the Rust port): the script needs only
+`<exe> measure median --bank <bank.json> --bot tier:react=<R>,level=<L> --budget <cpu s>
+--threads <n> --out <trials.tsv> --json <out.json>` writing at least `{"median", "lo", "hi"}`
+(null for "past every band"), and `<exe> measure bank --bot blind --first 10000 --seeds
+<n> --points 400 --threads <n> --out <bank.json>`. Pass the engine with `-Exe`.
+
 ## Leak check over whole runs (`report`, `leakrun`)
 
 `measure leak`: the bot plays whole runs on seeds 900 001+ (to 400 points),

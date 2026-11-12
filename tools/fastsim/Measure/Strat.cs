@@ -47,6 +47,8 @@ public static class Strat
     {
         "plateau" => plateau(key),
         "ramp" => !plateau(key),
+        // One score class ("@b0", "@b10", "@b20", "@b30", "@p", "@t1"...).
+        _ when range.StartsWith('@') => key.EndsWith(range),
         _ => true,
     };
 

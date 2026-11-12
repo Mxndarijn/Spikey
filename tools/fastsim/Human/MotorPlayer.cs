@@ -13,7 +13,8 @@ public sealed record Motor(
     long min_gap,      // ticks between two presses at least (7.7 taps per second -> 8)
     long cancel,       // a planned tap can still be held back until this many ticks before it lands
     bool fine = false, // a finer search (4 px x 12 speed buckets, ~3.6x slower): more careful thinking
-    Persona p = null)  // the human habits on top (attention, misjudgement, panic, fatigue...); null = none
+    Persona p = null,  // the human habits on top (attention, misjudgement, panic, fatigue...); null = none
+    int level = -1)    // search fineness (MotorTiers.LEVELS; -1 = by `fine`)
 {
     /// Isaksen: reaction about 288 ms (17 ticks) to new things, at most 7.7 taps/s.
     public static Motor at(double sigma) => new(sigma, 13, 2, 4, 8, 5);
@@ -113,6 +114,13 @@ public sealed class MotorPlayer
         {
             bp.bucket_px = 4;
             bp.speed_buckets = 12;
+        }
+        if (m.level >= 0)
+        {
+            var (px, speeds, tap_free) = MotorTiers.LEVELS[m.level];
+            bp.bucket_px = px;
+            bp.speed_buckets = speeds;
+            bp.tap_free = tap_free;
         }
         bp.follow = FOLLOW;
         return bp;
@@ -375,8 +383,66 @@ public static class MotorTiers
 
     public static Motor of(string tier)
     {
+        if (!BlindPlanner.know_exits && CALIBRATED.TryGetValue(tier, out var c)) return shared(c.react, c.level);
         var (sg, re, fine) = (BlindPlanner.know_exits ? TIER_KNOWN_EXITS : TIER)[tier];
         return Motor.at(sg) with { react_mu = re, react_tau = re < 0 ? 0 : 4, fine = fine };
+    }
+
+    // ---------------------------------------------------- calibrated tiers
+
+    /// The human rules every calibrated tier shares (the user's ruling, 2026-11-12): only what
+    /// is on screen, the 8-tick thumb gap with jitter (no metronome), a little hesitation, the
+    /// cage middle when nothing forces otherwise, a loosely varying preferred height, and the
+    /// same small tap scatter. No lapses, no mistakes on purpose. A tier differs from the next
+    /// only by its two knobs: the reaction to new things and the search fineness.
+    public const double SHARED_SIGMA = 0.4;
+    public static readonly Persona SHARED = new(hes_p: 0.03, hes_tau: 4, pref_sd: 20, gap_sd: 1.5);
+
+    /// Search fineness, coarse to fine: (bucket px, speed buckets, free tap timing). Level 2
+    /// is BlindPlanner's default; level 5 is the strongest measured search (4 px x 12 with
+    /// tap_free: about half the deaths of level 2 on short screens, 1.4x its CPU).
+    public static readonly (long px, long speeds, bool tap_free)[] LEVELS =
+    {
+        (16, 3, false), (12, 4, false), (8, 6, false), (6, 8, false), (4, 12, false), (4, 12, true),
+    };
+    public const int DEFAULT_LEVEL = 2;
+
+    public static string level_text(int l) => $"{LEVELS[l].px} px x {LEVELS[l].speeds}{(LEVELS[l].tap_free ? ", free taps" : "")}";
+
+    /// A tier at these knobs: `react` the mean reaction to new things (ticks, ex-Gaussian with
+    /// sd 2 and a tail of 4), `level` the search fineness (LEVELS).
+    public static Motor shared(double react, int level)
+    {
+        if (level < 0 || level >= LEVELS.Length) throw new ArgumentException($"search level {level}: 0..{LEVELS.Length - 1}");
+        return new Motor(SHARED_SIGMA, Math.Max(0, react - 4), 2, 4, 8, 5, false, SHARED, level);
+    }
+
+    /// The fitted knobs per tier (tools/fastsim/Human/tiers.json, written by
+    /// tools/calibrate_tiers.ps1). Empty when there is no file: the old TIER table plays.
+    public static readonly Dictionary<string, (double react, int level)> CALIBRATED = load_calibrated();
+
+    public static string calibrated_file
+    {
+        get
+        {
+            for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+            {
+                string p = Path.Combine(d.FullName, "Human", "tiers.json");
+                if (File.Exists(p)) return p;
+                if (File.Exists(Path.Combine(d.FullName, "FastSim.csproj"))) return p;
+            }
+            return Path.Combine(AppContext.BaseDirectory, "tiers.json");
+        }
+    }
+
+    static Dictionary<string, (double, int)> load_calibrated()
+    {
+        var res = new Dictionary<string, (double, int)>();
+        string f = calibrated_file;
+        if (!File.Exists(f)) return res;
+        var j = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(f))!["tiers"]!.AsObject();
+        foreach (var (tier, v) in j) res[tier] = ((double)v!["react"]!, (int)v["level"]!);
+        return res;
     }
 
     [System.Runtime.CompilerServices.ModuleInitializer]

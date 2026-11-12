@@ -32,7 +32,24 @@ public static class MBots
                 return b.decide;
             });
         }
-        return Bots.find(name) ?? throw new ArgumentException($"no bot '{name}' (blind[:k=v,...] or a yardstick bot)");
+        if (name.StartsWith("tier:"))
+        {
+            // A human tier at given knobs: tier:react=R,level=L (Human/MotorPlayer.cs, MotorTiers.shared).
+            double react = 17;
+            int level = Human.MotorTiers.DEFAULT_LEVEL;
+            foreach (var kv in name[5..].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var p = kv.Split('=');
+                if (p.Length != 2) throw new ArgumentException($"bad knob '{kv}' in '{name}' (want react=R,level=L)");
+                if (p[0] == "react") react = double.Parse(p[1], CultureInfo.InvariantCulture);
+                else if (p[0] == "level") level = int.Parse(p[1]);
+                else throw new ArgumentException($"unknown knob '{p[0]}' in '{name}' (react, level)");
+            }
+            var m = Human.MotorTiers.shared(react, level);
+            return new BotSpec(name, $"MotorPlayer, shared human rules, {m}, search level {level} ({Human.MotorTiers.level_text(level)})",
+                Copies.SCRAMBLED, seed => new Human.MotorPlayer(m, seed).decide);
+        }
+        return Bots.find(name) ?? throw new ArgumentException($"no bot '{name}' (blind[:k=v,...], tier:react=R,level=L or a yardstick bot)");
     }
 }
 

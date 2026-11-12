@@ -48,6 +48,8 @@ public static class MeasureMain
                     return late_runs(opts, threads);
                 case "report":
                     return report(opts, threads);
+                case "median":
+                    return median(opts, threads);
                 case "leak":
                 {
                     var bot = MBots.find(O("bot", "blind"));
@@ -75,7 +77,7 @@ public static class MeasureMain
                     return errs.Count == 0 ? 0 : 1;
                 }
             }
-            Console.Error.WriteLine("measure: bank, trials, estimate, confirm, runs, report, leak, check");
+            Console.Error.WriteLine("measure: bank, trials, estimate, confirm, runs, report, median, leak, check");
             return 2;
         }
         catch (Exception e) when (e is ArgumentException or FileNotFoundException or InvalidDataException)
@@ -332,6 +334,83 @@ public static class MeasureMain
         var (lo, hi) = Survival.poisson_ci(d);
         Console.WriteLine($"{bot.name}, {all.Count} runs from {from} points: {100.0 * d / Math.Max(1, pts):F4} [{100 * lo / Math.Max(1, pts):F4}, {100 * hi / Math.Max(1, pts):F4}] per 100 past {from}, {d} deaths in {pts} points, {set.alive} alive at the cap, {all.Sum(t => t.ms) / 1000:F0} CPU s");
         Console.WriteLine(Survival.text(Survival.describe(set, 500)));
+        return 0;
+    }
+
+    /// The score bands of the median model: the ramp's four classes, then the plateau.
+    public static readonly (string range, long from, long to)[] BANDS =
+    {
+        ("@b0", 0, 10), ("@b10", 10, 20), ("@b20", 20, 30), ("@b30", 30, 40), ("plateau", 40, long.MaxValue),
+    };
+
+    /// The score where a run with these death rates per 100 points (one per band) is
+    /// alive with chance 1/2: survival exp(-sum of rate x points in each band).
+    public static double median_of(double[] per100)
+    {
+        double h = Math.Log(2);
+        for (int i = 0; i < BANDS.Length; i++)
+        {
+            double rate = Math.Max(1e-9, per100[i] / 100), span = BANDS[i].to - BANDS[i].from;
+            if (rate * span >= h) return BANDS[i].from + h / rate;
+            h -= rate * span;
+        }
+        return double.PositiveInfinity;
+    }
+
+    /// `median --bank B --bot X --budget S [--out T.tsv] [--json J]`: the KM median a bot
+    /// would get on full runs, from room trials (docs/BOT_TESTING.md, "Tier calibration").
+    /// S more CPU seconds of trials over every stratum, ramp and plateau (Neyman), the death
+    /// rate per band from the stratified estimator, then the median of the piecewise
+    /// constant survival those rates give; its interval from 4000 draws of the rates
+    /// (each lognormal by its own CI). Trials pile up in T, so a second call refines.
+    static int median(Dictionary<string, string> opts, int threads)
+    {
+        var bank = Bank.load(opts["bank"]);
+        var bot = MBots.find(opts.GetValueOrDefault("bot", "blind"));
+        string path = opts.GetValueOrDefault("out", Path.ChangeExtension(opts["bank"], null).Replace(".bank", "") + ".median.tsv");
+        double budget = double.Parse(opts.GetValueOrDefault("budget", "300"), System.Globalization.CultureInfo.InvariantCulture) * 1000;
+        var bots = new List<BotSpec> { bot };
+        var pools = new Strat.Pools(bank, "all");
+        var have = load_arms(path, bank, bots);
+        foreach (var t in have.SelectMany(x => x)) pools.mark_used(t.seed, t.tick, t.k);
+        pools.grow(8, threads);
+        var arms = budget > 0 ? batch(bank, "all", bots, have, pools, budget, threads, path) : have;
+        var prior = Strat.bank_prior(bank).ToDictionary(kv => kv.Key, kv => (kv.Value.p, kv.Value.l));
+        var est = BANDS.Select(b => Strat.estimate(bank, arms[0], b.range, prior)).ToArray();
+        double med = median_of(est.Select(e => e.q).ToArray());
+        var rng = new Random(4711);
+        var draws = new List<double>();
+        for (int i = 0; i < 4000; i++)
+        {
+            var q = est.Select(e =>
+            {
+                double u = 1.0 - rng.NextDouble(), v = rng.NextDouble();
+                double g = Math.Sqrt(-2 * Math.Log(u)) * Math.Cos(2 * Math.PI * v);
+                return e.q * Math.Exp(g * e.se_log);
+            }).ToArray();
+            draws.Add(median_of(q));
+        }
+        draws.Sort();
+        double lo = draws[(int)(0.025 * draws.Count)], hi = draws[(int)(0.975 * draws.Count) - 1];
+        double cpu = arms[0].Where(t => t.k >= 0).Sum(t => t.ms) / 1000;
+        JsonNode R(double v) => double.IsInfinity(v) ? null : Math.Round(v, 1);
+        var o = new JsonObject
+        {
+            ["bot"] = bot.name, ["about"] = bot.about, ["median"] = R(med), ["lo"] = R(lo), ["hi"] = R(hi),
+            ["trials"] = arms[0].Count(t => t.k >= 0), ["deaths"] = arms[0].Count(t => t.k >= 0 && t.died), ["cpu_s"] = Math.Round(cpu),
+            ["bank"] = opts["bank"], ["gameplay_version"] = SimConfig.GAMEPLAY_VERSION,
+            ["bands"] = new JsonArray(BANDS.Zip(est).Select(x => (JsonNode)new JsonObject
+            {
+                ["range"] = x.First.range, ["per100"] = Math.Round(x.Second.q, 4), ["lo"] = Math.Round(x.Second.lo, 4),
+                ["hi"] = Math.Round(x.Second.hi, 4), ["trials"] = x.Second.trials, ["deaths"] = x.Second.deaths,
+                ["imputed_share"] = Math.Round(x.Second.imputed_share, 3),
+            }).ToArray()),
+        };
+        Console.WriteLine($"{bot.name}: median {(double.IsInfinity(med) ? "past every band" : med.ToString("F0"))} " +
+            $"[{(double.IsInfinity(lo) ? "inf" : lo.ToString("F0"))}, {(double.IsInfinity(hi) ? "inf" : hi.ToString("F0"))}], " +
+            $"{o["trials"]} trials, {o["deaths"]} deaths, {cpu:F0} CPU s");
+        foreach (var e in est) Console.WriteLine("  " + e.text());
+        if (opts.ContainsKey("json")) File.WriteAllText(opts["json"], o.ToJsonString(PRETTY) + Environment.NewLine);
         return 0;
     }
 
