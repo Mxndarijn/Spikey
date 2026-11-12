@@ -1043,11 +1043,25 @@ impl GameSim {
         }
     }
 
-    fn _edge_guarded(&self, top: bool) -> bool {
-        for h in &self.room.hazards {
-            if h.alive() && h.guards_edge(self, top) {
-                return true;
+    /// EdgePad.guards_edge pushes the bird (C# changes state in it), so it runs
+    /// taken out (`guards_edge_mut`); every other hazard's guards_edge is read-only.
+    fn _edge_guarded(&mut self, top: bool) -> bool {
+        let mut i = 0;
+        while i < self.room.hazards.len() {
+            if self.room.hazards[i].alive() {
+                let hit = if matches!(self.room.hazards[i], Hz::EdgePad(_)) {
+                    self.with_hazard(i, |h, sim| match h {
+                        Hz::EdgePad(p) => p.guards_edge_mut(sim, top),
+                        _ => unreachable!(),
+                    })
+                } else {
+                    self.room.hazards[i].guards_edge(self, top)
+                };
+                if hit {
+                    return true;
+                }
             }
+            i += 1;
         }
         false
     }

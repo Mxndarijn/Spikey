@@ -1,10 +1,59 @@
-//! STUB: to be ported from Sim/Rooms/CatalogTwists.cs
+//! Port of sim/rooms/catalog_twists.gd (Sim/Rooms/CatalogTwists.cs). Order is part of the rules.
 use crate::prelude::*;
 
 pub struct CatalogTwists;
 
 impl CatalogTwists {
+    pub const SUB: i64 = SimConfig::SUB;
+
     pub fn defs() -> Vec<RoomDef> {
-        Vec::new()
+        const SUB: i64 = CatalogTwists::SUB;
+        let mut out_ = Vec::new();
+
+        // Wind(), Belt(), ExitKey(), Echo(): C# default p_mode = -1.
+        let mut wind = RoomDef::new("crosswind", "starter", 10);
+        wind.hazards.push(mk(|| Wind::new(-1).into()));
+        wind.variants = vec![
+            RoomVariant::new("steady"),
+            RoomVariant::new("split"),
+            RoomVariant::new("gusty"),
+        ];
+        out_.push(wind);
+
+        let mut belt = RoomDef::new("belt", "starter", 20);
+        belt.hazards.push(mk(|| Belt::new(-1).into()));
+        belt.variants = vec![
+            RoomVariant::new("up"),
+            RoomVariant::new("counter"),
+            RoomVariant::new("switchback"),
+        ];
+        out_.push(belt);
+
+        let mut lock_ = RoomDef::new("lockexit", "mid", 40);
+        lock_.hazards.push(mk(|| ExitKey::new(-1).into()));
+        lock_.variants = vec![
+            RoomVariant::new("classic").sized(1, 1, 1),
+            RoomVariant::new("orbit").sized(1, 1, 1),
+            RoomVariant::new("trio").sized(1, 1, 1),
+            RoomVariant::new("quad").sized(1, 1, 1),
+            RoomVariant::new("chain").sized(1, 1, 1),
+        ];
+        out_.push(lock_);
+
+        let mut lava = RoomDef::new("lava", "mid", 50);
+        lava.max_spikes = 6;
+        lava.hazards.push(mk(|| Lava::new().into()));
+        lava.variants =
+            vec![RoomVariant::new("lava"), RoomVariant::new("cold"), RoomVariant::new("rafts")];
+        out_.push(lava);
+
+        let mut echo = RoomDef::new("echo", "late", 80);
+        echo.weight = 8;
+        echo.arrival_skip = vec![280 * SUB, 360 * SUB];
+        echo.hazards.push(mk(|| Echo::new(-1).into()));
+        echo.variants = vec![RoomVariant::new("echo"), RoomVariant::new("mirror")];
+        out_.push(echo);
+
+        out_
     }
 }
