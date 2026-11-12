@@ -168,3 +168,34 @@ func checksum(h: int) -> int:
 	return mix_all(
 		super(h), [lit, beam, beam_t, dart, dart_lane, dart_side, dart_x, dart_t, _lit_k]
 	)
+
+
+## The rows that show their dashed warning, and the lane the gaze has marked.
+func warnings(sim: GameSim, out: PackedInt64Array) -> void:
+	if down_at >= 0 or clock() < 0:
+		return
+	if beam == Beam.WARN:
+		for i in ROWS.size():
+			if (lit >> i) & 1 == 1:
+				add_warning(
+					out,
+					sim.room.wall_left(),
+					ROWS[i] - HALF_H,
+					sim.room.wall_right(),
+					ROWS[i] + HALF_H,
+					BEAM_TELL - beam_t,
+					BEAM_ON,
+					WARN_KILL
+				)
+	if dart == Dart.MARK:
+		var dur := (SimConfig.WORLD_W + DART_LEN) / DART_SPEED + 1
+		add_warning(
+			out,
+			0,
+			dart_lane - DART_HALF,
+			SimConfig.WORLD_W,
+			dart_lane + DART_HALF,
+			GAZE_TELL - dart_t,
+			dur,
+			WARN_KILL
+		)

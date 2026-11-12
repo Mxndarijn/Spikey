@@ -246,4 +246,28 @@ public class BossCrusher : Boss
             crate_y[1],
             crate[1],
             _k);
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (down_at >= 0 || clock() < 0) return;
+        long lt = clock() % CYCLE;
+        long x0 = sim.room.wall_left();
+        long x1 = sim.room.wall_right();
+        if (telling && phase == 1)
+        {
+            long dur = LIFT_AT - SLAM_AT + (slam_y - PRESS_REST) / LIFT + 1;
+            add_warning(out_, x0, SimConfig.KILL_TOP, x1, slam_y + BITE, SLAM_AT - lt, dur, WARN_KILL);
+        }
+        else if (telling)
+        {
+            long top = lane_to - lane_half() - TEETH + BITE;
+            long bottom = lane_to + lane_half() + TEETH - BITE;
+            add_warning(out_, x0, SimConfig.KILL_TOP, x1, top, TELL - lt, CYCLE, WARN_KILL);
+            add_warning(out_, x0, bottom, x1, SimConfig.KILL_BOTTOM, TELL - lt, CYCLE, WARN_KILL);
+        }
+        for (int i = 0; i < 2; i++)
+            if (crate[i] == Crate.MARK)
+                add_warning(out_, crate_x[i] - CRATE_HALF, lane_to - lane_half(), crate_x[i] + CRATE_HALF, lane_to + lane_half(),
+                    CRATE_FALL - lt, (2 * lane_half()) / CRATE_SPEED + 2, WARN_KILL);
+    }
 }

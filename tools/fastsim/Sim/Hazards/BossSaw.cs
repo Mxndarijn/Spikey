@@ -192,4 +192,24 @@ public class BossSaw : Boss
             out_ = mix_all(out_, blade_x[(int)i], blade_y[(int)i]);
         return out_;
     }
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (down_at >= 0 || clock() < 0 || !telling) return;
+        long lt = clock() % cycle();
+        long top = G.mini(from_y, to_y);
+        long bottom = G.maxi(from_y, to_y);
+        if (lt < TELL)
+        {
+            long r = KING_R + (phase == 3 ? RING_HOP + BLADE_R : 0);
+            add_warning(out_, KING_X - r, top - r, KING_X + r, bottom + r, TELL - lt, cycle() - TELL, WARN_KILL);
+        }
+        if (phase == 2)
+        {
+            long far = ring_max() + BLADE_R;
+            long eta = RING_OUT - lt + (RING_SHOW + RING_SPEED - 1) / RING_SPEED;
+            long dur = RING_IN - RING_OUT + ring_max() / RING_SPEED;
+            add_warning(out_, KING_X - far, to_y - far, KING_X + far, to_y + far, eta, dur, WARN_KILL);
+        }
+    }
 }

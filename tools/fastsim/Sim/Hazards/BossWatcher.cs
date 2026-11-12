@@ -175,4 +175,19 @@ public class BossWatcher : Boss
 
     public override long checksum(long h) =>
         mix_all(base.checksum(h), lit, beam, beam_t, dart, dart_lane, dart_side, dart_x, dart_t, _lit_k);
+
+    public override void warnings(GameSim sim, List<long> out_)
+    {
+        if (down_at >= 0 || clock() < 0) return;
+        if (beam == Beam.WARN)
+            for (int i = 0; i < ROWS.Length; i++)
+                if (((lit >> i) & 1) == 1)
+                    add_warning(out_, sim.room.wall_left(), ROWS[i] - HALF_H, sim.room.wall_right(), ROWS[i] + HALF_H,
+                        BEAM_TELL - beam_t, BEAM_ON, WARN_KILL);
+        if (dart == Dart.MARK)
+        {
+            long dur = (SimConfig.WORLD_W + DART_LEN) / DART_SPEED + 1;
+            add_warning(out_, 0, dart_lane - DART_HALF, SimConfig.WORLD_W, dart_lane + DART_HALF, GAZE_TELL - dart_t, dur, WARN_KILL);
+        }
+    }
 }

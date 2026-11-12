@@ -252,3 +252,35 @@ func checksum(h: int) -> int:
 			_k
 		]
 	)
+
+
+## While the next line is shown: everything above where the press's teeth will
+## stop (phase 1: until it has lifted again; the jaw: until the next lane) and,
+## for the jaw, everything below where the plate's teeth will stop. A marked
+## crate: its column through the lane the jaw is moving to, for the fall.
+func warnings(sim: GameSim, out: PackedInt64Array) -> void:
+	if down_at >= 0 or clock() < 0:
+		return
+	var lt := clock() % CYCLE
+	var x0 := sim.room.wall_left()
+	var x1 := sim.room.wall_right()
+	if telling and phase == 1:
+		var dur := LIFT_AT - SLAM_AT + (slam_y - PRESS_REST) / LIFT + 1
+		add_warning(out, x0, SimConfig.KILL_TOP, x1, slam_y + BITE, SLAM_AT - lt, dur, WARN_KILL)
+	elif telling:
+		var top := lane_to - lane_half() - TEETH + BITE
+		var bottom := lane_to + lane_half() + TEETH - BITE
+		add_warning(out, x0, SimConfig.KILL_TOP, x1, top, TELL - lt, CYCLE, WARN_KILL)
+		add_warning(out, x0, bottom, x1, SimConfig.KILL_BOTTOM, TELL - lt, CYCLE, WARN_KILL)
+	for i in 2:
+		if crate[i] == Crate.MARK:
+			add_warning(
+				out,
+				crate_x[i] - CRATE_HALF,
+				lane_to - lane_half(),
+				crate_x[i] + CRATE_HALF,
+				lane_to + lane_half(),
+				CRATE_FALL - lt,
+				(2 * lane_half()) / CRATE_SPEED + 2,
+				WARN_KILL
+			)

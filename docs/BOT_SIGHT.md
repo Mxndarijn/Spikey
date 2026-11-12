@@ -36,7 +36,7 @@ From that:
 | `mpc` | MPC bot | `Sight` shapes (moved on as Planner does) and warnings: does one cover the points? |
 | `rl` | RL bot | `Observer.frame`: does the frame change when the hazard is taken away? |
 
-| `warn` | no bot: the shared warnings layer | `Hazard.warnings()` of that hazard, read at the look: does a kill box cover the danger points at the onset tick? Asked on pure tells only. |
+| `warn` | no bot: the shared warnings layer | `Hazard.warnings()` of that hazard, read at the look: does a kill box cover the danger points at the onset tick? |
 
 `warn` is what `Hazard.warnings()` (`sim/rooms/hazard.gd`) reports: the tells
 the painters draw, as boxes with an eta and a duration. The other eyes should

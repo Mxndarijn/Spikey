@@ -89,6 +89,8 @@ static partial class Checks
             [("Firework", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
             [("Lava", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
             [("Stalker", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Stalker", "warn", "tell")] = "no painted tell: the Stalker changes walls when the bird bounces (a rule), so Hazard.warnings has nothing to report",
+            [("Lava", "warn", "tell")] = "no painted tell: the line and its rafts glide (motion on screen), so Hazard.warnings has nothing to report",
             [("Firework", "mpc", "deadly")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
         };
 
@@ -498,12 +500,12 @@ static partial class Checks
                             s2.room.hazards[i].alive = false;
                             if (cells.Any(c => in_rl_grid(sim, c))) seen[4] = !same(f_all, rl_frame(s2));
                         }
-                        // warn: the shared warnings layer, on pure tells (nothing of the hazard kills yet).
-                        if (tell && pure)
+                        // warn: the shared warnings layer, on every tell.
+                        if (tell)
                         {
                             var wl = new List<long>();
                             h.warnings(sim, wl);
-                            seen[5] = half(cells, c => warned(wl, c, j)); if (Environment.GetEnvironmentVariable("WDBG") == "1" && seen[5] == false) Console.Error.WriteLine($"WDBG {label} {key} t {t} j {j} lead {lead} warns [{string.Join(",", wl)}] cells {string.Join(" ", cells.Select(c => cx(c % COLS) / SimConfig.SUB + ":" + cy(c / COLS) / SimConfig.SUB))} h: {string.Join(" ", h.GetType().GetFields().Where(f => f.FieldType == typeof(long) || f.FieldType == typeof(bool)).Select(f => f.Name + "=" + f.GetValue(h)))}");
+                            seen[5] = half(cells, c => warned(wl, c, j));
                         }
                         for (int b = 0; b < BOTS.Length; b++)
                         {

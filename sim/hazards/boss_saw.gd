@@ -187,3 +187,24 @@ func checksum(h: int) -> int:
 	for i in blades:
 		out = mix_all(out, [blade_x[i], blade_y[i]])
 	return out
+
+
+## While the warning ring shows: the way the saw jumps and where it lands (with
+## its blade ring in phase 3), until its next jump; in phase 2 also the reach
+## of the blades it swings out there.
+func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
+	if down_at >= 0 or clock() < 0 or not telling:
+		return
+	var lt := clock() % cycle()
+	var top := mini(from_y, to_y)
+	var bottom := maxi(from_y, to_y)
+	if lt < TELL:
+		var r := KING_R + (RING_HOP + BLADE_R if phase == 3 else 0)
+		add_warning(
+			out, KING_X - r, top - r, KING_X + r, bottom + r, TELL - lt, cycle() - TELL, WARN_KILL
+		)
+	if phase == 2:
+		var far := ring_max() + BLADE_R
+		var eta := RING_OUT - lt + (RING_SHOW + RING_SPEED - 1) / RING_SPEED
+		var dur := RING_IN - RING_OUT + ring_max() / RING_SPEED
+		add_warning(out, KING_X - far, to_y - far, KING_X + far, to_y + far, eta, dur, WARN_KILL)
