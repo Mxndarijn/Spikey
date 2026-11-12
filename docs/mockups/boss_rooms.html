@@ -162,7 +162,7 @@ ol.qs b { font-weight: 800; }
   <section style="display:flex;flex-direction:column;gap:16px" aria-label="Open questions">
     <h2>Open questions</h2>
     <ol class="qs">
-      <li><b>Which bosses first?</b> Suggestion: The Watcher and The Crusher. They reuse Beam Gates, Hunter Spike, Piston and Lava Rise almost as they are. Saw King next, Spike Serpent last (it needs a new lunge hazard).</li>
+      <li><b>Which bosses first?</b> Suggestion: The Watcher and The Crusher. They reuse Beam Gates, Hunter Spike, Piston and Lava Rise almost as they are. The Gatekeeper and The Shade next: they reuse Shutter Gates and Echo but need their own boss rules. Saw King last.</li>
       <li><b>Length:</b> 20 bounces (proposed, three phases, two rooms long) or 10 (keeps the 10-point cadence, about 12 s, two phases)?</li>
       <li><b>Reward:</b> coins 15 / 20 / 25 plus a trophy, or also a boss-only cosmetic, for example a crown hat for breaking all four?</li>
       <li><b>Fork:</b> boss exit becomes the Calm/Wild fork (option A), or one plain exit if fork-choice drops forks. With option A, forks sit at 120 and 150, close together; should 150 go?</li>
@@ -289,20 +289,18 @@ function hud(c, s) {
 }
 
 /* ---------- shared phase plumbing ---------- */
-function ys(boss, ph, T) { let s = 0; for (let i = 0; i < 24; i++) s += boss.target(ph, wrap(T - i)); return s / 24; }
+function ys(boss, ph, T) { const n = boss.smooth || 24; let s = 0; for (let i = 0; i < n; i++) s += boss.target(ph, wrap(T - i)); return s / n; }
 function walls(c, boss, ph, T) {
   const b = Math.floor(T / CR), side = birdDir(T), tIn = T - b * CR;
-  const belt = boss.belt ? boss.belt(ph) : false;
   const ya = ys(boss, ph, (b + 1) * CR - 1);
-  const center = belt ? ya + 37 : ya;
+  const center = ya;
   const n = 3 + (boss.extraSpikes || 0);
   const cand = [];
   for (let s = 0; s < 13; s++) if (Math.abs(slotY(s) - center) >= 74) cand.push(s);
   cand.sort((p, q) => hs(b * 131 + p + boss.seed) - hs(b * 131 + q + boss.seed));
-  const grow = clamp(tIn / 8, 0, 1), off = belt ? -tIn * 37 / 70 : 0;
-  if (belt) boss.scales(c, side, off);
-  for (const s of cand.slice(0, belt ? n + 2 : n)) {
-    const cy = slotY(s) + off; if (cy < 54 || cy > 588) continue; wallSpike(c, side, cy, grow);
+  const grow = clamp(tIn / 8, 0, 1);
+  for (const s of cand.slice(0, n)) {
+    const cy = slotY(s); if (cy < 54 || cy > 588) continue; wallSpike(c, side, cy, grow);
   }
 }
 function scoreOf(ph, T) {
@@ -590,62 +588,166 @@ const WATCH = (() => {
   };
 })();
 
-/* ---------- Spike Serpent ---------- */
-const SERP = (() => {
-  const LANES = [200, 460, 300, 520, 240, 400, 180, 480, 340, 220, 500, 260, 440, 300];
-  function seg(c, x, y, r) { c.fillStyle = th.spike; circle(c, x, y, r); c.fillStyle = th.edge; circle(c, x - r * 0.3, y - r * 0.3, r * 0.32); }
-  function head(c, x, y, dir) {
-    c.fillStyle = th.spike; circle(c, x, y, 19);
-    tri(c, x - dir * 6, y - 16, x - dir * 16, y - 10, x - dir * 14, y - 30);
-    c.fillStyle = th.top; circle(c, x + dir * 6, y - 7, 4.5); circle(c, x + dir * 6, y + 7, 4.5);
-    c.fillStyle = th.spike; circle(c, x + dir * 7.5, y - 7, 2); circle(c, x + dir * 7.5, y + 7, 2);
-  }
-  function lunge(T) {
-    const h = Math.floor(T / 120) % 14, lh = T % 120, lane = LANES[h], side = h % 2 ? 1 : -1;
-    const ox = side > 0 ? 360 : 0, far = side > 0 ? 26 : 334, near = side > 0 ? 360 - 26 : 26;
-    let x = null;
-    if (lh < 60) x = side > 0 ? 382 - 48 * ease(lh / 40) : -22 + 48 * ease(lh / 40);
-    else if (lh < 84) x = lerp(near, far, ease((lh - 60) / 24));
-    else if (lh < 104) x = far;
-    else if (lh < 118) x = lerp(far, ox, ease((lh - 104) / 14));
-    return { lane, side, ox, x, lh };
-  }
-  function drawLunge(c, T) {
-    const L = lunge(T);
-    if (L.lh < 60) dashed(c, flick(T), () => { c.moveTo(14, L.lane); c.lineTo(346, L.lane); });
-    if (L.x === null) return;
-    const dir = -L.side;
-    for (let x = L.ox; dir > 0 ? x < L.x - 14 : x > L.x + 14; x += dir * 22) seg(c, x, L.lane, 12);
-    head(c, L.x, L.lane, dir);
-  }
-  return {
-    id: "serpent", name: "Spike Serpent", tag: "SPIKE SERPENT", seed: 53, downY: 320,
-    belt(ph) { return ph === 1 || ph === 3; },
-    scales(c, side, off) { const x = side > 0 ? 356 : 4; for (let y = 40 + wrap(off, 34); y < 610; y += 34) seg(c, x, y, 12); },
-    target(ph, T) {
-      if (ph === 1) { const b = Math.floor(T / CR); return 210 + Math.floor(hs(b * 7 + 3) * 250); }
-      const lane = LANES[Math.floor(T / 120) % 14]; return lane < 330 ? lane + 170 : lane - 170;
-    },
-    draw(c, ph, T) { if (ph !== 1) drawLunge(c, T); },
-    intro(c, e) { for (let i = 0; i < 12; i++) { const y = lerp(700, 120, e) + i * 30; if (y < 610) seg(c, 8, y, 12); } head(c, 22, lerp(670, 96, e), 1); },
-    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.85; for (let i = 0; i < 10; i++) seg(c, 60 + i * 24 + Math.sin(i) * e * 30, 300 + e * e * (200 + i * 30), 12); c.restore(); },
-    bars: { 1: [["tell", "Wall laid", 0, 8], ["hit", "Scales drift up", 8, 70]], 2: [["tell", "Tell", 0, 60], ["hit", "Lunge", 60, 84], ["hit", "Neck holds", 84, 104], ["rest", "Back", 104, 120]], 3: [["tell", "Tell", 0, 60], ["hit", "Lunge", 60, 84], ["hit", "Neck holds", 84, 104], ["rest", "Back", 104, 120]] },
-    len: { 1: 70, 2: 120, 3: 120 },
-    rep: { intro: 60, 1: 40, 2: 92, 3: 90, down: 30 },
-    from: ["Spike Belt", "Caterpillar Crawl", "Hunter Spike"],
-    blurb: "A snake that lives in the walls. Its scales are the wall spikes, and its head comes out to block a height from wall to wall.",
-    phases: [
-      ["intro", "Arrival", "", "Slides up out of the floor along the wall.", "The whole 1.5 s hold.", "Any height."],
-      [1, "Scales", "bounces 1–7", "The spikes on the wall ahead are its scales. They ride up 37 px per crossing, like Spike Belt.", "The gap is laid when you bounce and drifts at a steady speed.", "Aim for where the gap will be: a little under it."],
-      [2, "Lunge", "bounces 8–14", "The head pokes out of a wall, lunges across and its neck blocks that height wall to wall for 0.6 s.", "The head in the wall and a dashed lane.", "170 px above or below the lane."],
-      [3, "Scales and lunge", "bounces 15–20", "Drifting scales while the head lunges.", "Same lane tell; the scales show as in phase 1.", "Off the lane, and into the drifting gap."],
-      ["down", "Boss down", "bounce 20", "Falls apart segment by segment.", "", "Fly to the exit."],
-    ],
-    tiers: ["The neck holds 1 s and sways 20 px up and down.", "Two heads, one per wall, at heights at least 150 px apart."],
+/* ---------- The Gatekeeper ---------- */
+const GATE = (() => {
+  const XS = { 1: [180], 2: [120, 240], 3: [100, 180, 260] };
+  const GAPS = {
+    1: [[200], [420], [300], [480], [240], [380], [160]],
+    2: [[220, 280], [400, 340], [300, 360], [460, 400], [200, 260], [350, 410], [260, 200]],
+    3: [[200, 240, 280], [420, 380, 340], [300, 340, 380], [460, 420, 380], [250, 290, 250], [380, 340, 300], [220, 260, 300]],
   };
+  const cache = new Map();
+  const DUR = { 1: 20, 2: 20, 3: 12 };
+  function slideStart(ph, k) {
+    const key = ph * 10 + k; if (cache.has(key)) return cache.get(key);
+    const lo = Math.min(...XS[ph]) - 36, hi = Math.max(...XS[ph]) + 36; let s = k * 240 + 60;
+    for (let t = k * 240 + 60; t <= k * 240 + 200; t++) {
+      let ok = true; for (let d = 0; d <= DUR[ph]; d++) { const x = birdX(t + d); if (x > lo && x < hi) { ok = false; break; } }
+      if (ok) { s = t; break; }
+    }
+    cache.set(key, s); return s;
+  }
+  function gapAt(ph, gi, T) {
+    T = wrap(T); const k = Math.floor(T / 240) % 7, s = slideStart(ph, k);
+    const prev = GAPS[ph][(k + 6) % 7][gi], cur = GAPS[ph][k][gi];
+    return { c: T < s ? prev : lerp(prev, cur, ease((T - s) / DUR[ph])), tell: T >= s - 60 && T < s, next: cur };
+  }
+  function gate(c, gx, gc, look, dy = 0) {
+    const x0 = gx - 20, top = gc - 55 + dy, bot = gc + 55 + dy;
+    c.fillStyle = th.spike; c.fillRect(x0, 30 + dy, 40, top - 30 - dy); c.fillRect(x0, bot, 40, 640 - bot);
+    c.fillStyle = th.edge; c.fillRect(x0 + 6, 30 + dy, 4, top - 30 - dy); c.fillRect(x0 + 6, bot, 4, 640 - bot);
+    tri(c, x0 + 20, top, x0, top, x0 + 10, top + 6); tri(c, x0 + 40, top, x0 + 20, top, x0 + 30, top + 6);
+    tri(c, x0, bot, x0 + 20, bot, x0 + 10, bot - 6); tri(c, x0 + 20, bot, x0 + 40, bot, x0 + 30, bot - 6);
+    c.fillStyle = th.top; circle(c, gx - 9, top - 24, 5.5); circle(c, gx + 9, top - 24, 5.5);
+    c.fillStyle = th.spike; circle(c, gx - 9 + look, top - 23, 2.4); circle(c, gx + 9 + look, top - 23, 2.4);
+  }
+  const G = {
+    id: "gate", name: "The Gatekeeper", tag: "THE GATEKEEPER", seed: 67, downY: 300, smooth: 6,
+    target(ph, T) {
+      const xs = XS[ph], x = birdX(T), d = birdDir(T), order = d > 0 ? xs : [...xs].reverse();
+      const at = gx => gapAt(ph, xs.indexOf(gx), T + (gx - x) / (4 * d)).c;
+      const first = order[0], last = order[order.length - 1];
+      if (d > 0 ? x > last : x < last) {
+        if (Math.abs(x - last) <= 40) return at(last);
+        const wx = d > 0 ? 320 : 40;
+        return gapAt(ph, xs.indexOf(last), T + Math.abs(wx - x) / 4 + Math.abs(wx - last) / 4).c;
+      }
+      if (d > 0 ? x <= first : x >= first) return at(first);
+      for (let i = 0; i + 1 < order.length; i++) {
+        const a = order[i], b = order[i + 1];
+        if ((x - a) * (x - b) <= 0) return lerp(at(a), at(b), (x - a) / (b - a));
+      }
+      return at(first);
+    },
+    draw(c, ph, T) {
+      const xs = XS[ph];
+      xs.forEach((gx, gi) => {
+        const g = gapAt(ph, gi, T);
+        if (g.tell) dashed(c, flick(T), () => { c.rect(gx - 24, g.next - 55, 48, 110); });
+        gate(c, gx, g.c, birdX(T) > gx ? 2 : -2);
+      });
+    },
+    intro(c, e) { gate(c, 180, 300, 0, (1 - e) * 560); },
+    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.85; gate(c, 180, 300, 0, e * 520); c.restore(); },
+    bars: { 1: [["tell", "Gap shown", 0, 60], ["hit", "Gap moves", 60, 90], ["rest", "Holds", 90, 240]], 2: [["tell", "Gaps shown", 0, 60], ["hit", "Gaps move", 60, 80], ["rest", "Hold", 80, 240]], 3: [["tell", "Gaps shown", 0, 60], ["hit", "Gaps move", 60, 90], ["rest", "Hold", 90, 240]] },
+    len: { 1: 240, 2: 240, 3: 240 },
+    rep: { intro: 60, 1: 100, 2: 100, 3: 100, down: 30 },
+    from: ["Shutter Gates", "Ghost Doors"],
+    blurb: "Living shutter gates with eyes. The gap in each gate is its mouth, and the keeper decides where the mouth opens next. You fly through it, never round it.",
+    phases: [
+      ["intro", "Arrival", "", "One gate rises out of the floor in the middle of the cage, its mouth open at mid height.", "The whole 1.5 s hold.", "Through the open mouth."],
+      [1, "One gate", "bounces 1–7", "A gate in the middle of the cage. Its 110 px gap jumps to a new height every cycle.", "A dashed outline of the new gap. It snaps there only while you are out by the wall, never while you are between or in the gates.", "Through the gap."],
+      [2, "Two gates", "bounces 8–14", "Gates at 120 and 240 px, their gaps up to 60 px apart.", "Each gate shows its own next gap.", "Gap to gap: one hop up or one drop down between the gates."],
+      [3, "Staircase", "bounces 15–20", "Three gates 80 px apart with the gaps in steps.", "The same dashed outlines.", "Follow the stairs, at most 40 px a gate."],
+      ["down", "Boss down", "bounce 20", "The gates sink into the floor.", "", "Fly to the exit."],
+    ],
+    tiers: ["Gaps 96 px tall; the staircase can turn at the middle gate.", "Gaps drift 20 px up and down while you fly between gates, as in Shutter Gates."],
+  };
+  G.rep[1] = slideStart(1, 0) - 30; G.rep[2] = slideStart(2, 0) - 30; G.rep[3] = slideStart(3, 0) - 30;
+  return G;
 })();
 
-const BOSSES = [WATCH, CRUSH, SAW, SERP];
+/* ---------- The Shade ---------- */
+const SHADE = (() => {
+  const LANES = [200, 460, 300, 520, 240, 400, 180, 480, 340, 220, 500, 260, 440, 300];
+  const band = T => { const b = Math.floor(T / CR); return b % 2 ? 410 + Math.floor(hs(b * 5 + 1) * 50) : 210 + Math.floor(hs(b * 5 + 2) * 50); };
+  function shadow(c, x, y, dir) {
+    c.fillStyle = th.spike; circle(c, x, y, 16);
+    c.beginPath(); c.moveTo(x + 13 * dir, y - 2); c.lineTo(x + 23 * dir, y + 2); c.lineTo(x + 13 * dir, y + 7); c.closePath(); c.fill();
+    c.fillStyle = th.edge; circle(c, x + 6 * dir, y - 4, 3.2);
+  }
+  function body(c, x, y, dir, glow, wing = 0) {
+    c.fillStyle = th.spike;
+    c.beginPath(); c.moveTo(x - 20 * dir, y - 4); c.lineTo(x - 58 * dir, y - 22 - wing); c.lineTo(x - 30 * dir, y + 14); c.closePath(); c.fill();
+    c.beginPath(); c.ellipse(x, y, 40, 22, 0, 0, Math.PI * 2); c.fill();
+    circle(c, x + 30 * dir, y - 10, 16);
+    c.beginPath(); c.moveTo(x + 42 * dir, y - 14); c.lineTo(x + 60 * dir, y - 8); c.lineTo(x + 42 * dir, y - 2); c.closePath(); c.fill();
+    c.fillStyle = th.top; circle(c, x + 34 * dir, y - 13, glow ? 5.5 : 3.5);
+    c.fillStyle = th.edge; c.beginPath(); c.ellipse(x - 6 * dir, y + 4, 18, 7, 0, 0, Math.PI * 2); c.fill();
+  }
+  function perch(c, y, glow) {
+    c.fillStyle = th.spike; c.fillRect(120, y + 18, 120, 6);
+    c.save(); c.translate(180, y); c.fillStyle = th.spike;
+    c.beginPath(); c.ellipse(0, 0, 34, 24, 0, 0, Math.PI * 2); c.fill();
+    tri(c, -30, -6, -10, -6, -40, 22); tri(c, 10, -6, 30, -6, 40, 22);
+    c.fillStyle = th.spike; circle(c, 0, -26, 17);
+    c.beginPath(); c.moveTo(-6, -18); c.lineTo(6, -18); c.lineTo(0, -6); c.closePath(); c.fill();
+    c.fillStyle = th.top; circle(c, -7, -29, glow ? 5 : 3.5); circle(c, 7, -29, glow ? 5 : 3.5);
+    c.restore();
+  }
+  const Y = (ph, T) => ys(SHADE, ph, T) + hop(T);
+  function trail(c, ph, T) {
+    c.save(); c.setLineDash([6, 8]); c.lineWidth = 3; c.lineCap = "round"; c.strokeStyle = hexA(th.spike, 0.4); c.beginPath();
+    for (let i = 0; i <= 60; i += 3) { const t = T - i, x = birdX(t), y = Y(ph, wrap(t)); if (i === 0) c.moveTo(x, y); else c.lineTo(x, y); }
+    c.stroke(); c.restore();
+  }
+  const S = {
+    id: "shade", name: "The Shade", tag: "THE SHADE", seed: 79, downY: 130,
+    target(ph, T) {
+      if (ph === 2) { const lane = LANES[Math.floor(T / 120) % 14]; return lane < 330 ? lane + 170 : lane - 170; }
+      return band(T);
+    },
+    draw(c, ph, T) {
+      if (ph === 2) {
+        const h = Math.floor(T / 120) % 14, lh = T % 120, lane = LANES[h], side = h % 2 ? 1 : -1, dir = -side;
+        if (lh < 60) {
+          dashed(c, flick(T), () => { c.moveTo(14, lane); c.lineTo(346, lane); });
+          body(c, side > 0 ? 372 : -12, lane, dir, true);
+        } else if (lh < 96) {
+          const x = side > 0 ? lerp(372, -12, (lh - 60) / 36) : lerp(-12, 372, (lh - 60) / 36);
+          body(c, x, lane, dir, true, Math.sin(lh * 0.6) * 10);
+        }
+        c.save(); c.globalAlpha = 0.35; perch(c, 130, false); c.restore();
+        return;
+      }
+      perch(c, 130, false);
+      trail(c, ph, T);
+      const te = T - 60; shadow(c, birdX(te), Y(ph, wrap(te)), birdDir(te));
+      if (ph === 3) {
+        dashed(c, 0.4, () => { c.moveTo(160, 320); c.lineTo(200, 320); });
+        shadow(c, 360 - birdX(T), 640 - Y(ph, T), -birdDir(T));
+      }
+    },
+    intro(c, e) { perch(c, lerp(-60, 130, e), e > 0.9); },
+    down(c, e) { c.save(); c.globalAlpha = 1 - e * 0.9; perch(c, 130 - e * 200, false); c.restore(); },
+    bars: { 1: [["hit", "Echo flies your path, 1 s behind", 0, 140]], 2: [["tell", "Waits on wall", 0, 60], ["hit", "Swoop", 60, 96], ["rest", "", 96, 120]], 3: [["hit", "Echo and mirror, always in view", 0, 140]] },
+    len: { 1: 140, 2: 120, 3: 140 },
+    rep: { intro: 70, 1: 60, 2: 74, 3: 40, down: 30 },
+    from: ["Echo", "Hunter Spike"],
+    blurb: "A big shadow bird on a perch under the ceiling. It copies how you fly, so the danger comes from your own path: fly the same line twice and you meet yourself.",
+    phases: [
+      ["intro", "Arrival", "", "Lands on its perch under the ceiling.", "The whole 1.5 s hold. Its echo only starts 1 s after you can move.", "Any height below the perch."],
+      [1, "Echo", "bounces 1–7", "A shadow bird flies your exact path 1 s behind you.", "Your last second is drawn as a dashed trail: that is where it flies.", "A new height each crossing, 60 px or more from the last."],
+      [2, "Swoop", "bounces 8–14", "The Shade leaves its perch and swoops wall to wall along one height, twice every 4 s.", "It waits in the wall at that height with its eyes lit, over a dashed lane.", "170 px above or below the lane."],
+      [3, "Echo and mirror", "bounces 15–20", "The echo again, plus a mirror shadow flying opposite you through the middle.", "Both are always in view; the dash in the middle marks where the mirror meets you.", "A new height each crossing, and 40 px or more off the middle."],
+      ["down", "Boss down", "bounce 20", "The shadows fade and the Shade flies off.", "", "Fly to the exit."],
+    ],
+    tiers: ["Phase 2 swoops three times per 4 s; the echo is 0.8 s behind.", "Two echoes, 1 s and 2 s behind you."],
+  };
+  return S;
+})();
+
+const BOSSES = [WATCH, CRUSH, GATE, SHADE, SAW];
 const PH = ["intro", 1, 2, 3, "down"];
 const PHNAME = { intro: "Arrival", 1: "Phase 1", 2: "Phase 2", 3: "Phase 3", down: "Down" };
 

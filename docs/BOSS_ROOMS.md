@@ -45,15 +45,18 @@ Nothing in `sim/` or `game/` changes until the user picks.
 | The Watcher | Beam Gates, Hunter Spike | 3 of 7 beam rows fire | gaze: dart along your marked height | 2 rows + gaze |
 | The Crusher | Piston, Lava Rise, Crate Drop | press slams to 250/320 px | jaw: press + floor plate leave a moving 230 px lane | jaw + crate through the lane |
 | Saw King | Saw Ring, Pinwheel, Bramble Ball | hops between 3 heights | blade ring swings out, safe band top or bottom | hops with a blade ring |
-| Spike Serpent | Spike Belt, Caterpillar Crawl, Hunter Spike | wall spikes are its scales, drift 37 px per crossing | head lunges across, neck blocks a height | scales + lunge |
+| The Gatekeeper | Shutter Gates, Ghost Doors | one gate, its 110 px gap jumps each cycle | two gates, gaps up to 60 px apart | three gates, gaps in 40 px steps |
+| The Shade | Echo, Hunter Spike | a shadow flies your path 1 s behind | the Shade swoops wall to wall along a marked height | echo + mirror shadow |
 
 Each tell is at least 1 s: dashed lines, rings or columns in the spike colour
-(the one danger colour), flickering.
+(the one danger colour), flickering. The Gatekeeper's gaps only snap to
+their new height while the bird is out by a wall, never between the gates.
 
 ## Open questions
 
-1. Which bosses first (suggested: The Watcher and The Crusher, then Saw King,
-   then Spike Serpent, which needs a new lunge hazard).
+1. Which bosses first (suggested: The Watcher and The Crusher, then The
+   Gatekeeper and The Shade, then Saw King). Spike Serpent was dropped by the
+   user.
 2. 20 bounces or 10.
 3. Reward size and whether a boss-only cosmetic joins it.
 4. Fork placement (depends on fork-choice); with option A forks sit at 120
