@@ -81,54 +81,15 @@ impl SightCheck {
     pub const MIN_SAMPLES: i64 = 4;
     pub const DEFAULT_TICKS: i64 = 1150;
 
-    /// C# BOTS is { "blind", "world", "worldobs", "mpc", "rl" }; only blind is ported.
+    /// The BlindPlanner (the world, worldobs, mpc and rl eyes were retired with C# FastSim).
     pub const BOTS: [&'static str; 1] = ["blind"];
 
     /// Hazard classes that are only a base (never placed themselves).
     pub const BASES: [(&'static str, &'static str); 1] = [("Boss", "base of the boss hazards")];
 
-    /// Blind cells allowed while their fix is in flight: (class, bot, "tell" or "deadly") -> fix
-    /// session. As in C#; none is for blind, so with only blind ported none is used.
-    pub const KNOWN: [(&'static str, &'static str, &'static str, &'static str); 38] = [
-        ("BossWatcher", "world", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossWatcher", "world", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossWatcher", "worldobs", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossWatcher", "worldobs", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossCrusher", "world", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossCrusher", "world", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossCrusher", "worldobs", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossCrusher", "worldobs", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossSaw", "world", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossSaw", "world", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossSaw", "worldobs", "tell", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossSaw", "worldobs", "deadly", "world-model boss models (claude/blissful-bhaskara-76b7f8)"),
-        ("BossWatcher", "mpc", "tell", "MPC boss sight (claude/hopeful-feynman-f47783)"),
-        ("BossCrusher", "mpc", "tell", "MPC boss sight (claude/hopeful-feynman-f47783)"),
-        ("BossSaw", "mpc", "tell", "MPC boss sight (claude/hopeful-feynman-f47783)"),
-        ("Beam", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("BossCrusher", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("BossSaw", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("BossWatcher", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("CrateDrop", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Dart", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Drop", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Firework", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Lava", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Piston", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Stalker", "rl", "tell", "planner-next (RL tell input for every hazard)"),
-        ("Beam", "worldobs", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Dart", "worldobs", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Drop", "worldobs", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Firework", "worldobs", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Piston", "worldobs", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("CrateDrop", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Dart", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Drop", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Firework", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Lava", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Stalker", "mpc", "tell", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-        ("Firework", "mpc", "deadly", "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)"),
-    ];
+    /// Blind cells allowed while their fix is in flight: (class, bot, "tell" or "deadly", fix
+    /// session). Empty: every hazard is seen (the entries for the retired bots went with them).
+    pub const KNOWN: [(&'static str, &'static str, &'static str, &'static str); 0] = [];
 
     fn known(cls: &str, bot: &str, what: &str) -> bool {
         Self::KNOWN.iter().any(|k| k.0 == cls && k.1 == bot && k.2 == what)

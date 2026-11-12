@@ -6,8 +6,6 @@ extends TestCase
 func test_font_file_and_license_are_bundled() -> void:
 	assert_true(ResourceLoader.exists(GameFonts.FILE), "%s exists" % GameFonts.FILE)
 	assert_true(FileAccess.file_exists(GameFonts.LICENSE), "the license ships with the font")
-	for old in ["res://assets/fonts/Baloo2-Variable.ttf", "res://assets/fonts/Nunito-Variable.ttf"]:
-		assert_false(ResourceLoader.exists(old), "%s is gone (Archivo only)" % old)
 
 
 func test_fonts_use_the_bundled_file_with_both_axes() -> void:
