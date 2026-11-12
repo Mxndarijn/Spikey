@@ -284,14 +284,7 @@ const ROOMS := {
 		"jungle",
 		"cols"
 	],
-	"pegs":
-	[
-		"Peg Field",
-		"Spiked pegs dot the room, a hop apart. Thread your way between them.",
-		2,
-		"sunset",
-		"ball"
-	],
+	"pegs": ["Peg Field", "Spiked pegs dot the room. Thread between them.", 2, "sunset", "ball"],
 }
 
 

@@ -67,6 +67,20 @@ Bumper.alive	game/run/painters/bumper_painter.gd
 Bumper.radius	game/run/painters/bumper_painter.gd
 Bumper.x	game/run/painters/bumper_painter.gd
 Bumper.y	game/run/painters/bumper_painter.gd
+CaveDrip.alive	game/run/painters/cave_drip_painter.gd
+CaveDrip.eta	game/run/painters/cave_drip_painter.gd
+CaveDrip.falling	game/run/painters/cave_drip_painter.gd
+CaveDrip.tip_y	game/run/painters/cave_drip_painter.gd
+CaveDrip.x	game/run/painters/cave_drip_painter.gd
+CaveDrip.y	game/run/painters/cave_drip_painter.gd
+CaveRock.alive	game/run/painters/cave_rock_painter.gd
+CaveRock.bot_x	game/run/painters/cave_rock_painter.gd
+CaveRock.bot_y	game/run/painters/cave_rock_painter.gd
+CaveRock.isle_bot	game/run/painters/cave_rock_painter.gd
+CaveRock.isle_top	game/run/painters/cave_rock_painter.gd
+CaveRock.isle_x	game/run/painters/cave_rock_painter.gd
+CaveRock.top_x	game/run/painters/cave_rock_painter.gd
+CaveRock.top_y	game/run/painters/cave_rock_painter.gd
 CrateDrop.alive	game/run/painters/crate_drop_painter.gd
 CrateDrop.coins	game/run/painters/crate_drop_painter.gd
 CrateDrop.col	game/run/painters/crate_drop_painter.gd
@@ -115,6 +129,7 @@ Echo.alive	game/run/painters/echo_painter.gd
 Echo.facing	game/run/painters/echo_painter.gd
 Echo.head	game/run/painters/echo_painter.gd
 Echo.mode	game/run/painters/echo_painter.gd
+Echo.pivot_y	game/run/painters/echo_painter.gd
 Echo.shown	game/run/painters/echo_painter.gd
 Echo.x	game/run/painters/echo_painter.gd
 Echo.xs	game/run/painters/echo_painter.gd
@@ -176,6 +191,9 @@ OrchardSpawner.alive	game/run/painters/orchard_spawner_painter.gd
 OrchardSpawner.live	game/run/painters/orchard_spawner_painter.gd
 OrchardSpawner.xs	game/run/painters/orchard_spawner_painter.gd
 OrchardSpawner.ys	game/run/painters/orchard_spawner_painter.gd
+Peg.alive	game/run/painters/peg_painter.gd
+Peg.x	game/run/painters/peg_painter.gd
+Peg.y	game/run/painters/peg_painter.gd
 Pendulum.alive	game/run/painters/pendulum_painter.gd
 Pendulum.has_twin()	game/run/painters/pendulum_painter.gd
 Pendulum.pivot_x	game/run/painters/pendulum_painter.gd
@@ -272,6 +290,8 @@ Updraft.gust_step()	game/run/painters/updraft_painter.gd
 Updraft.lift	game/run/painters/updraft_painter.gd
 Updraft.x0	game/run/painters/updraft_painter.gd
 Updraft.x1	game/run/painters/updraft_painter.gd
+Updraft.y0	game/run/painters/updraft_painter.gd
+Updraft.y1	game/run/painters/updraft_painter.gd
 Wind.a_dir	game/run/painters/wind_painter.gd
 Wind.a_y0	game/run/painters/wind_painter.gd
 Wind.a_y1	game/run/painters/wind_painter.gd

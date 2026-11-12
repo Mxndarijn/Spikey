@@ -57,7 +57,7 @@ const DRIP_FIRST := 90
 const BAT_XS: Array[Array] = [[110, 210], [110, 210], [70, 150, 230]]
 const BAT_SWAY := 6 * SUB
 const BAT_PERIOD: Array[int] = [480, 420, 360]
-const BAT_ROOM := 32 * SUB
+const BAT_ROOM := 48 * SUB
 ## A bat keeps this much more than the two radii from the bird out of a portal.
 const BAT_MARGIN := 4 * SUB
 

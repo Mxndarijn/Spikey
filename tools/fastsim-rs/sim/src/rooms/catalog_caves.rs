@@ -34,7 +34,7 @@ impl CatalogCaves {
     pub const BAT_XS: [&'static [i64]; 3] = [&[110, 210], &[110, 210], &[70, 150, 230]];
     pub const BAT_SWAY: i64 = 6 * Self::SUB;
     pub const BAT_PERIOD: [i64; 3] = [480, 420, 360];
-    pub const BAT_ROOM: i64 = 32 * Self::SUB;
+    pub const BAT_ROOM: i64 = 48 * Self::SUB;
     pub const BAT_MARGIN: i64 = 4 * Self::SUB;
     pub const PEG_COUNT: [i64; 3] = [6, 8, 10];
     pub const PEG_APART: i64 = 128 * Self::SUB;
