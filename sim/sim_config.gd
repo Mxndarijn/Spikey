@@ -75,7 +75,15 @@ extends RefCounted
 ##     seed, every key reachable) and a key chain; Two keys is retired. A revive
 ##     restarts the room as the bird entered it, at its portal, and plans the
 ##     exit again, instead of rebuilding the room from the RNG.
-const GAMEPLAY_VERSION := 21
+## 22: Seed-only maps (same seed, same map; exits fixed from the seed, always on
+##     the right wall, hazards respect an exit's mouth once drawn), 2 s warnings
+##     for beams and bosses, boss rooms every 100 points, forks lead to the same
+##     room (Wild adds spikes), a revive resets the room, room fixes for fair
+##     ways through (Double Trouble removed), room pacing (difficulty tiers,
+##     weights by score, a shuffle-bag picker), generated variants built at room
+##     start, Lava Rise variants, new rooms Cave Tunnel, Peg Field and Buttons,
+##     and a remade Crowded.
+const GAMEPLAY_VERSION := 22
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60

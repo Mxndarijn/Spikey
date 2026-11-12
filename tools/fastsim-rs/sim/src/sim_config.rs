@@ -4,7 +4,7 @@ use crate::g::G;
 pub struct SimConfig;
 
 impl SimConfig {
-    pub const GAMEPLAY_VERSION: i64 = 21;
+    pub const GAMEPLAY_VERSION: i64 = 22;
     pub const MAX_REVIVES: i64 = 1;
     pub const TICKS_PER_SECOND: i64 = 60;
     pub const WARN_TICKS: i64 = 2 * Self::TICKS_PER_SECOND;
