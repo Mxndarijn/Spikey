@@ -1,8 +1,10 @@
 extends "res://sim/hazards/bouncer.gd"
 ## Splitting Bramble: a big, slow ball that shakes for a second (the warning)
 ## and then bursts into two small, quick balls flying apart up and down. It
-## only splits while it is well away from the bird; until then it keeps
-## shaking.
+## only splits while it is well away from the bird across the room (in x, which
+## no tap changes, so it splits at the same step for every player of a seed);
+## until then it keeps shaking. Split, both balls fly straight, so a wall keeps
+## its way past them (Bouncer.adjust_wall).
 
 const Bouncer := preload("res://sim/hazards/bouncer.gd")
 
@@ -14,7 +16,7 @@ const SMALL_RADIUS := 14 * SimConfig.SUB
 ## Steps before the shaking starts, and how long it shakes at least.
 const SPLIT_AT := 240
 const WARN := 60
-## It splits only this far (centre to centre) from the bird.
+## It splits only this far from the bird across the room (in x).
 const CLEAR := 120 * SimConfig.SUB
 
 ## Steps it has shaken so far (0..WARN), for the painter.
@@ -43,9 +45,7 @@ func step(sim: GameSim) -> void:
 	warn = mini(t - SPLIT_AT, WARN)
 	if warn < WARN:
 		return
-	var dx := x - sim.state.x
-	var dy := y - sim.state.y
-	if dx * dx + dy * dy < CLEAR * CLEAR:
+	if absi(x - sim.state.x) < CLEAR:
 		return
 	_split()
 
@@ -71,9 +71,18 @@ func kills(sim: GameSim) -> bool:
 	return other != null and other.kills(sim)
 
 
-## Its path isn't a straight bounce, so it can't say ahead where it will be.
+## Before the split its path isn't a straight bounce, so it can't say ahead
+## where it will be; split, both balls fly straight.
 func straight_path() -> bool:
-	return false
+	return other != null
+
+
+## Split: a way past both balls (Bouncer.adjust_wall for each).
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	var out := super.adjust_wall(sim, side, mask)
+	if other != null:
+		out = other.adjust_wall(sim, side, out)
+	return out
 
 
 func checksum(h: int) -> int:

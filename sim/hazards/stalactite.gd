@@ -15,9 +15,10 @@ const HALF_W := 22 * SimConfig.SUB
 ## Range of the gap's centre.
 const GAP_MIN := 150 * SimConfig.SUB
 const GAP_MAX := 490 * SimConfig.SUB
-## After a bounce, the column the bird meets first gets its gap within REACH
-## of the bird's height (it has about half a second to get there), and the
-## other column within MAX_STEP of that, so there is always a way through.
+## After a bounce, the column the bird meets first keeps its gap (it is too
+## close to the wall to move fairly; a lone column, and both once the exit
+## shows, move within REACH of the anchor), and the other column moves toward
+## the anchor, within MAX_STEP of the first, so there is always a way through.
 ## Out of a portal (a bounce at room step 0) the first gap stays at the bird's
 ## height instead, since the player hasn't seen the room yet.
 const REACH := 40 * SimConfig.SUB
@@ -97,9 +98,21 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 		# yet, so the gap ahead stays at the bird's height (set in setup).
 		near.target_y = near.gap_y
 	else:
-		near.target_y = _around(rng, sim.state.anchor_y, REACH)
+		# The near column is about 20 steps from the wall: too close to move
+		# after the bounce for a player who reacts in about 1 s. With a partner
+		# it keeps its gap (the bird came through it on the way to the wall),
+		# except once the exit (or its ghost) shows, when both steer to it; the
+		# draw stays, so the RNG order does too.
+		var drawn := _around(rng, sim.state.anchor_y, REACH)
+		if far == null or sim.state.exit_open or sim.state.exit_preview:
+			near.target_y = drawn
 	if far != null:
-		far.target_y = _around(rng, near.target_y, MAX_STEP)
+		# The far column walks toward the anchor (which steers to the exit),
+		# within MAX_STEP of the near one.
+		var n: int = near.target_y
+		far.target_y = clampi(
+			_around(rng, sim.state.anchor_y, MAX_STEP), n - MAX_STEP, n + MAX_STEP
+		)
 	_clear_wall_ahead(sim, far if far != null else near)
 
 

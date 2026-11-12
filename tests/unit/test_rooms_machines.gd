@@ -323,19 +323,20 @@ func test_stalactites_move_on_bounce() -> void:
 	# Past the room's first step: a bounce at step 0 is a portal entry.
 	_advance(sim, 1)
 	var moved := false
+	# The column met first keeps its gap; the other one moves (Stalactite.on_bounce).
 	for n in 8:
-		var before: int = rocks[0].target_y
+		var before: Array[int] = [rocks[0].target_y, rocks[1].target_y]
 		var rng := SimRng.new(100 + n)
 		for h in rocks:
 			h.on_bounce(sim, rng)
-		if rocks[0].target_y != before:
+		if rocks[0].target_y != before[0] or rocks[1].target_y != before[1]:
 			moved = true
 		for h in rocks:
 			assert_between(h.target_y, 150 * SUB, 490 * SUB, "gap stays in the room")
 		assert_true(absi(rocks[1].target_y - rocks[0].target_y) <= 120 * SUB, "gaps stay reachable")
 	assert_true(moved, "gaps get new heights after bounces")
 	# The gap slides to its new height rather than jumping.
-	var r: Hazard = rocks[0]
+	var r: Hazard = rocks[0] if rocks[0].gap_y != rocks[0].target_y else rocks[1]
 	var start: int = r.gap_y
 	sim.room.step(sim)
 	assert_true(absi(r.gap_y - start) <= 3 * SUB, "slides smoothly")

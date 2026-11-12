@@ -26,11 +26,16 @@ const FALL_ACCEL := 20
 const MAX_FALL := 9 * SimConfig.SUB
 ## Gap between a stack's top and the coin sitting on it.
 const COIN_LIFT := 4 * SimConfig.SUB
-## A column isn't marked if the bird, flying on, first reaches its crate's
-## kill range from the end of the warning to FAIR_SPAN steps later: it could
-## neither pass under the falling crate and out before it lands, nor have had
-## time to climb over it. When every free column is like that, the usual pick.
+## A column isn't marked if the bird, flying on, comes into its crate's kill
+## range (on any pass: also back from the wall) from the end of the warning to
+## FAIR_SPAN steps later: it could neither pass under the falling crate and out
+## before it lands, nor have had time to climb over it. When every free column
+## is like that, no crate is marked yet (WAIT): the pick is tried again every
+## step until one is fair (the bird's x doesn't depend on taps, so every player
+## of a seed waits as long).
 const FAIR_SPAN := 50
+## `col` while waiting for a fair column.
+const WAIT := -2
 
 ## Columns, their width and the crates' size; stacks never get taller than
 ## max_height crates. The columns sit in the middle of the room.
@@ -43,8 +48,10 @@ var max_height := MAX_HEIGHT
 ## Two crates fall at once (the second one is crate "b").
 var pair := false
 
-## Column of the crate being dropped, or -1 once every column is full.
+## Column of the crate being dropped, -1 once every column is full, or WAIT.
 var col := -1
+## The warning the next crate gets once a fair column is found (WAIT).
+var wait_warn := 0
 ## Top of the falling crate and its speed, sub-units.
 var y := 0
 var vy := 0
@@ -101,6 +108,9 @@ func setup(_sim: GameSim, rng: SimRng) -> void:
 func _next_drop(sim: GameSim, warn: int) -> void:
 	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1, warn)
 	col_b = -1
+	if col == WAIT:
+		wait_warn = warn
+		return
 	if pair and col >= 0:
 		# The second crate falls about half the room away.
 		col_b = _free_col(sim, (col + cols / 2) % cols, col, warn)
@@ -116,8 +126,9 @@ func _next_drop(sim: GameSim, warn: int) -> void:
 
 ## The first column from `start` on (wrapping) that is not full, not `skip`,
 ## not falling through an exit's mouth (ExitZone) and fair to a bird `warn`
-## steps before the crate falls (_fair_col); without a fair one, the first of
-## the others.
+## steps before the crate falls (_fair_col); WAIT if there are such columns but
+## none is fair (a pair's second crate takes the first of them instead); -1 if
+## there are none.
 func _free_col(sim: GameSim, start: int, skip: int, warn: int) -> int:
 	var first := -1
 	for i in cols:
@@ -127,20 +138,22 @@ func _free_col(sim: GameSim, start: int, skip: int, warn: int) -> int:
 				return c
 			if first < 0:
 				first = c
+	if first >= 0 and skip < 0:
+		return WAIT
 	return first
 
 
-## False if the bird first reaches column c's kill range in x while its crate,
+## False if the bird comes into column c's kill range in x while its crate,
 ## warned for `warn` steps, falls (FAIR_SPAN).
 func _fair_col(sim: GameSim, c: int, warn: int) -> bool:
-	var e := entry_steps(sim, c, warn + FAIR_SPAN + 1)
-	return e < warn or e > warn + FAIR_SPAN
+	return entry_steps(sim, c, warn + FAIR_SPAN + 1, warn) > warn + FAIR_SPAN
 
 
-## Steps until the bird, flying on (its x doesn't depend on taps), first
-## overlaps column c's crate in x, widened by the bird's radius; `limit` if not
+## Steps until the bird, flying on (its x doesn't depend on taps), first comes
+## into column c's crate in x (widened by the bird's radius) at `from` steps or
+## later (inside already at step 0 counts as coming in then); `limit` if not
 ## before then.
-func entry_steps(sim: GameSim, c: int, limit: int) -> int:
+func entry_steps(sim: GameSim, c: int, limit: int, from: int = 0) -> int:
 	var r := SimConfig.BIRD_RADIUS
 	var lo := col_left(c) - r
 	var hi := col_left(c) + crate_w + r
@@ -148,9 +161,12 @@ func entry_steps(sim: GameSim, c: int, limit: int) -> int:
 	var vx := sim.state.vx
 	var left := sim.room.wall_left()
 	var right := sim.room.wall_right()
+	var was_in := false
 	for s in limit:
-		if x >= lo and x <= hi:
+		var is_in := x >= lo and x <= hi
+		if is_in and not was_in and s >= from:
 			return s
+		was_in = is_in
 		x += vx
 		if vx > 0 and x + r >= right:
 			x = 2 * (right - r) - x
@@ -168,6 +184,8 @@ func _col_in_exit(sim: GameSim, c: int) -> bool:
 
 
 func step(sim: GameSim) -> void:
+	if col == WAIT:
+		_next_drop(sim, wait_warn)
 	if col < 0:
 		return
 	# The first crate was marked before the room's exits and the bird were
@@ -282,7 +300,7 @@ func touch(sim: GameSim) -> void:
 
 
 func checksum(h: int) -> int:
-	var out := mix_all(h, [col, y, vy, warn_left, drops, salt, int(gifts)])
+	var out := mix_all(h, [col, y, vy, warn_left, drops, salt, int(gifts), wait_warn])
 	if pair:
 		out = mix_all(out, [col_b, y_b, vy_b, int(done), int(done_b)])
 	out = mix_all(out, heights)

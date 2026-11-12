@@ -74,19 +74,24 @@ func test_twins_take_the_upper_and_lower_lanes() -> void:
 		assert_true(upper.x != lower.x, "they never start on top of each other")
 
 
+## Steps the room `n` times with the bird across the room from the ball.
+static func run_far(sim: GameSim, h: Hazard, n: int) -> void:
+	for i in n:
+		sim.state.x = 0 if h.x > SimConfig.WORLD_W / 2 else SimConfig.WORLD_W
+		sim.room.step(sim)
+
+
 func test_splitting_bramble_warns_then_splits_away_from_the_bird() -> void:
 	var sim := bramble("split")
 	var h: SplittingBouncer = sim.room.hazards[0]
 	# Keep the bird far from the ball: on the far side, out of reach.
-	sim.state.x = 0
-	sim.state.y = -SimConfig.WORLD_H
-	run_hazards(sim, SplittingBouncer.SPLIT_AT)
+	run_far(sim, h, SplittingBouncer.SPLIT_AT)
 	assert_false(h.is_split(), "whole before the warning")
 	assert_eq(h.warn, 0, "no shaking yet")
-	run_hazards(sim, SplittingBouncer.WARN - 1)
+	run_far(sim, h, SplittingBouncer.WARN - 1)
 	assert_false(h.is_split(), "still whole while shaking")
 	assert_true(h.warn > 0, "shaking")
-	run_hazards(sim, 2)
+	run_far(sim, h, 2)
 	assert_true(h.is_split(), "split after the warning")
 	assert_eq(h.radius, SplittingBouncer.SMALL_RADIUS)
 	assert_eq(h.other.radius, SplittingBouncer.SMALL_RADIUS)
@@ -95,16 +100,18 @@ func test_splitting_bramble_warns_then_splits_away_from_the_bird() -> void:
 	assert_true(absi(h.y - h.other.y) > 0, "and move apart")
 
 
+## The split waits while the bird is near the ball across the room (in x,
+## which no tap changes), however high or low the bird flies: every player of
+## a seed sees it split at the same step.
 func test_splitting_bramble_waits_while_the_bird_is_close() -> void:
 	var sim := bramble("split")
 	var h: SplittingBouncer = sim.room.hazards[0]
 	for i in SplittingBouncer.SPLIT_AT + SplittingBouncer.WARN + 120:
-		sim.state.x = h.x
-		sim.state.y = h.y + SplittingBouncer.CLEAR / 2
+		sim.state.x = h.x + SplittingBouncer.CLEAR / 2
+		sim.state.y = -SimConfig.WORLD_H if i % 2 == 0 else 2 * SimConfig.WORLD_H
 		sim.room.step(sim)
-	assert_false(h.is_split(), "never splits right next to the bird")
-	sim.state.y = -SimConfig.WORLD_H
-	run_hazards(sim, 1)
+	assert_false(h.is_split(), "never splits with the bird nearby across the room")
+	run_far(sim, h, 1)
 	assert_true(h.is_split(), "splits once the bird is clear")
 
 

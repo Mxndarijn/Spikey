@@ -112,3 +112,59 @@ public static class BossTell
         return 0;
     }
 }
+
+/// `rl review entrytrace --rooms bramble/split --first 23`: plays SurvivalSearch's
+/// longest line from one difficulty entry (Diff.Cases.arrive) and prints the bird,
+/// the walls and the balls every few steps. Tool only.
+public static class EntryTrace
+{
+    public static int run(Dictionary<string, string> opts)
+    {
+        long first = long.Parse(opts.GetValueOrDefault("first", "0"));
+        long every = long.Parse(opts.GetValueOrDefault("every", "10"));
+        long from = long.Parse(opts.GetValueOrDefault("from", "0"));
+        // --practice room/variant --first seed: a practice start (the passable check's) instead.
+        GameSim sim;
+        long cap;
+        if (opts.TryGetValue("practice", out var pv))
+        {
+            var parts = pv.Split('/');
+            sim = Checks.Setups.practice(parts[0], first, parts.Length > 1 ? parts[1] : "classic");
+            cap = long.Parse(opts.GetValueOrDefault("cap", "1500"));
+        }
+        else
+        {
+            var t = FastSim.Diff.Cases.all(opts["rooms"])[0];
+            sim = FastSim.Diff.Cases.arrive(t, first);
+            cap = t.cap;
+        }
+        var ss = new SurvivalSearch();
+        bool lived = ss.run(sim.clone_deep(), cap);
+        Console.WriteLine($"lived {lived}, {ss.best_inputs.Length} steps, survived {ss.ticks_survived}");
+        if (!lived)
+        {
+            // The longest line: a search that only has to live one step short of where all died.
+            long upto = ss.ticks_survived - 1;
+            ss = new SurvivalSearch();
+            ss.run(sim.clone_deep(), upto);
+        }
+        var c = sim.clone_deep();
+        for (int u = 0; u < ss.best_inputs.Length + 40 && !c.is_over(); u++)
+        {
+            long vx0 = c.state.vx;
+            c.step(u < ss.best_inputs.Length && ss.best_inputs[u] == 1);
+            bool bounce = c.state.vx != vx0;
+            if ((u >= from && u % every == 0) || bounce || c.is_over())
+            {
+                var balls = string.Join(" ", c.room.hazards.OfType<Bouncer>().SelectMany(b => b is SplittingBouncer sb && sb.other != null ? new Bouncer[] { b, sb.other } : new Bouncer[] { b })
+                    .Select(b => $"({b.x / SimConfig.SUB},{b.y / SimConfig.SUB} r{b.radius / SimConfig.SUB})"));
+                foreach (var st in c.room.hazards.OfType<Stalactite>()) balls += $" col{st.x / SimConfig.SUB}:{st.gap_y / SimConfig.SUB}->{st.target_y / SimConfig.SUB}";
+                if (c.state.exit_open || c.state.exit_preview) balls += $" exit {(c.state.exit_open ? "open" : "ghost")} {c.state.exit_a_y / SimConfig.SUB}";
+                var cd = c.room.hazards.OfType<CrateDrop>().FirstOrDefault();
+                if (cd != null) balls += $" crates h[{string.Join(",", cd.heights)}] col {cd.col} y {cd.y / SimConfig.SUB} warn {cd.warn_left}";
+                Console.WriteLine($"{u,4}{(bounce ? "B" : " ")} y {c.state.y / SimConfig.SUB} x {c.state.x / SimConfig.SUB} score {c.state.score} anchor {c.state.anchor_y / SimConfig.SUB} L {Convert.ToString(c.wall_mask(0), 2).PadLeft(13, (char)48)} R {Convert.ToString(c.wall_mask(1), 2).PadLeft(13, (char)48)} {balls}{(c.is_over() ? " DEAD " + DeathCause.NAMES[c.state.death_cause] : "")}");
+            }
+        }
+        return 0;
+    }
+}

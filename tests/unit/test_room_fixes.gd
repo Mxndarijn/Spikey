@@ -353,3 +353,44 @@ func test_the_gaze_dart_mark_covers_a_reaction() -> void:
 	var across: int = (SimConfig.WORLD_W + Watcher.DART_LEN) / Watcher.DART_SPEED
 	assert_true(Watcher.GAZE_TELL + across <= Watcher.GAZE_FAST)
 	assert_true(Watcher.GAZE_AT + Watcher.GAZE_TELL < Watcher.CYCLE)
+
+
+## Crate Drop: the bird's later passes count too (back from the wall), not
+## only its first one through a column.
+func test_crates_skip_a_column_the_bird_comes_back_into_while_it_falls() -> void:
+	var sim := RoomsTest.sim_in_room("crates", 1, Seasons.NONE, "wide")
+	var cd := _hazard(sim, "crate_drop")
+	# The planner review's gifts/wide entry 11: x 254 flying left; column 1 is
+	# crossed before the crate falls, then met again 81 steps on, from the wall.
+	sim.state.x = 254 * SUB
+	sim.state.vx = -SimConfig.SPEED_X
+	var warn := CrateDrop.WARN_TICKS
+	assert_true(cd.entry_steps(sim, 1, 400) < warn, "first pass before the fall")
+	var again: int = cd.entry_steps(sim, 1, 400, warn)
+	assert_true(again <= warn + CrateDrop.FAIR_SPAN, "back in at %d" % again)
+	assert_false(cd._fair_col(sim, 1, warn))
+
+
+## Stalactite Run: after a bounce the column the bird meets first keeps its
+## gap (it is about 20 steps from the wall); only the far one moves.
+func test_the_near_stalactite_keeps_its_gap_after_a_bounce() -> void:
+	for variant: String in ["classic", "floor", "ceiling-only"]:
+		for seed_value in range(1, 6):
+			var sim := RoomsTest.sim_in_room("stalac", seed_value, Seasons.NONE, variant)
+			var cols: Array[Hazard] = []
+			for h in sim.room.hazards:
+				if h.kind == "stalactite":
+					cols.append(h)
+			for n in 6:
+				for _k in 50:
+					sim.room.step(sim)
+				var side := 0 if sim.state.vx > 0 else 1
+				sim.state.vx = -sim.state.vx
+				var near: Hazard = cols[0]
+				for h in cols:
+					if (h.x < near.x) == (sim.state.vx > 0):
+						near = h
+				var keep: int = near.target_y
+				sim._bounce_score()
+				sim._new_wall(side)
+				assert_eq(near.target_y, keep, "%s seed %d bounce %d" % [variant, seed_value, n])
