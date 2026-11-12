@@ -37,7 +37,9 @@ func test_warnings_count_down_and_come_true() -> void:
 		var ok: int = _true.get(kind, 0)
 		var bad: int = _false.get(kind, 0)
 		# A slam or crate that an exit's mouth stops (ExitZone) never lands: rare.
-		assert_true(ok >= 1 and bad * 10 <= ok, "%s warnings come true (%d of %d)" % [kind, ok, ok + bad])
+		assert_true(
+			ok >= 1 and bad * 10 <= ok, "%s warnings come true (%d of %d)" % [kind, ok, ok + bad]
+		)
 
 
 func test_warnings_change_nothing() -> void:
