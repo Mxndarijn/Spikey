@@ -272,7 +272,9 @@ impl SameSeed {
                         life,
                         hazards: Self::hz_all(&sim),
                         adj: Self::hz_adj(&sim),
-                        gen: Self::gen_inputs(&sim, side, drawn[(1 - side) as usize]),
+                        // A room's first wall is drawn with no wall bounced off (the free run is
+                        // only kept from a bounce in the room).
+                        gen: Self::gen_inputs(&sim, side, if e == Event::ROOM_CHANGE { 0 } else { drawn[(1 - side) as usize] }),
                         coin: String::new(),
                     };
                     p.walls.set(format!("{}:{}", st.room_index, sim.room.walls), w);
@@ -343,15 +345,27 @@ impl SameSeed {
         Self::record("A", sim, |s| Some(bot.decide(s)), false, max_ticks)
     }
 
-    /// What differs in the map between a play and a revived play, in the rooms both reached (see
-    /// SameSeed.cs MapDiffs).
-    pub fn map_diffs(a: &Play, b: &Play) -> Vec<String> {
+    /// The Calm play: bot seed 1, and it takes the Calm exit at every fork (`calm`).
+    pub fn calm_play(sim: GameSim, max_ticks: i64) -> Play {
+        let mut bot = PlannerBot::new(1, PlannerBot::HORIZON, PlannerBot::ROLLOUTS);
+        Self::record("C (calm)", sim, |s| Some(Self::calm(s).unwrap_or_else(|| bot.decide(s))), false, max_ticks)
+    }
+
+    /// What differs in the map between two plays of one seed, in the rooms both reached (see
+    /// SameSeed.cs MapDiffs). The fork rule: only the room right after a Calm/Wild choice
+    /// (the two plays came in by different exits) may differ, past its first wall (the door
+    /// both exits lead to is one, and the arrival is laid out as for Calm); every other room
+    /// must be the same: its layout, exits, walls and coins. `revive`: a revived play, whose
+    /// comparison ends at the first room the two plays opened the exit at a different time
+    /// in (SameSeed.cs). `stats`: walls compared, walls in all, coins compared.
+    pub fn map_diffs(a: &Play, b: &Play, revive: bool, stats: &mut [i64; 3]) -> Vec<String> {
         let mut out_ = Vec::new();
         for ra in &a.rooms {
             let Some(rb) = b.rooms.iter().rev().find(|r| r.index == ra.index) else { continue };
             let played_apart = ra.open_tick >= 0
                 && rb.open_tick >= 0
                 && ra.open_tick - ra.arrive_tick - ra.hold != rb.open_tick - rb.arrive_tick - rb.hold;
+            let fork_room = ra.route != rb.route;
             let head = format!("room {} {}/{}", ra.index, ra.kind, ra.variant);
             if ra.kind != rb.kind {
                 out_.push(format!("{}: room kind {} vs {}", head, ra.kind, rb.kind));
@@ -371,14 +385,19 @@ impl SameSeed {
             if ra.spikes != rb.spikes {
                 out_.push(format!("{}: arrival spikes {} vs {}", head, ra.spikes, rb.spikes));
             }
-            if played_apart {
+            if ra.anchor != rb.anchor {
+                out_.push(format!("{}: arrival anchor {} vs {}", head, ra.anchor, rb.anchor));
+            }
+            if revive && played_apart {
                 break;
             }
-            if !ra.ghost.is_empty() && !rb.ghost.is_empty() && ra.ghost != rb.ghost {
-                out_.push(format!("{}: ghost {} vs {}", head, ra.ghost, rb.ghost));
-            }
-            if !ra.open.is_empty() && !rb.open.is_empty() && ra.open != rb.open {
-                out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
+            if !fork_room {
+                if !ra.ghost.is_empty() && !rb.ghost.is_empty() && ra.ghost != rb.ghost {
+                    out_.push(format!("{}: ghost {} vs {}", head, ra.ghost, rb.ghost));
+                }
+                if !ra.open.is_empty() && !rb.open.is_empty() && ra.open != rb.open {
+                    out_.push(format!("{}: open {} vs {}", head, ra.open, rb.open));
+                }
             }
             let prefix = format!("{}:", ra.index);
             // In a room whose bounces don't score (Buttons) the score follows the player's
@@ -395,24 +414,35 @@ impl SameSeed {
                     continue;
                 }
                 let Some(wb) = b.walls.get(k) else { continue };
+                let first = k.split(':').nth(1) == Some("1");
+                if fork_room && !first {
+                    continue;
+                }
+                stats[1] += 1;
                 // A bumper can turn the bird back (Bumper Cloud, Heart Bumpers), so in such a
                 // room the side a wall is met on is the player's doing, not a difference.
                 let side_ok = wa.side == wb.side || SameSeedRevive::turns_back(&ra.kind);
-                let first = k.split(':').nth(1) == Some("1");
                 let inputs = wa.gen == wb.gen
                     && (!scored || wa.score == wb.score)
                     && wa.adj == wb.adj
                     && (wa.adj.is_empty() || wa.in_room == wb.in_room);
                 let mut bad = !side_ok || scored && wa.score != wb.score;
                 if inputs {
-                    if ra.route == rb.route || first {
-                        bad |= wa.mask != wb.mask || wa.anchor != wb.anchor;
-                    } else {
-                        // Entered by the other exit of a fork: the same wall, plus at most
-                        // WILD_SPIKES more on the Wild side (from its second wall on).
-                        let (calm, wild) =
-                            if ra.route == ExitKind::WILD { (wb.mask, wa.mask) } else { (wa.mask, wb.mask) };
-                        bad |= calm & !wild != 0 || (wild.count_ones() - calm.count_ones()) as i64 > SimConfig::WILD_SPIKES;
+                    stats[0] += 1;
+                    bad |= wa.mask != wb.mask || wa.anchor != wb.anchor;
+                    // The coin comes from the wall's RNG after the hazards' bounce draws, so
+                    // with the same hazards it must land on the same spot (when both spawned).
+                    if !wa.coin.is_empty() && !wb.coin.is_empty() && wa.hazards == wb.hazards {
+                        stats[2] += 1;
+                        if wa.coin != wb.coin {
+                            out_.push(format!(
+                                "{} wall {}: coin {} vs {}",
+                                head,
+                                k.split(':').nth(1).unwrap_or(""),
+                                wa.coin,
+                                wb.coin
+                            ));
+                        }
                     }
                 }
                 if bad {
@@ -456,7 +486,8 @@ impl SameSeedRevive {
     fn make() -> Vec<(i64, i64)> {
         let mut out_ = Vec::new();
         for s in 0..Self::SEEDS {
-            for die in [4i64, 5] {
+            // A death on an even and an odd score, and (-1) the Calm play.
+            for die in [4i64, 5, -1] {
                 out_.push((4206176851i64 + s * 7919, die));
             }
         }
@@ -564,23 +595,56 @@ impl Check for SameSeedRevive {
             return result(fails, json!({ "generated": 1 }));
         }
         let a = SameSeed::bot_play(GameSim::new(seed), Self::TICKS);
-        let r = SameSeed::revive_play(GameSim::new(seed), die, Self::TICKS + 600);
+        let mut st = [0i64; 3];
         let mut fails = Vec::new();
+        if die < 0 {
+            // PlannerBot aims for the Wild exit at a fork; the Calm play takes the Calm one.
+            let c = SameSeed::calm_play(GameSim::new(seed), Self::TICKS);
+            for d in SameSeed::map_diffs(&a, &c, false, &mut st) {
+                fails.push(format!("seed {}, Wild vs Calm: {}", seed, d));
+            }
+            let (mut forks, mut after) = (0, 0);
+            for ra in &a.rooms {
+                let Some(rc) = c.rooms.iter().find(|r| r.index == ra.index) else { continue };
+                if ra.route != rc.route {
+                    forks += 1;
+                    if c.rooms.iter().any(|r| r.index == ra.index + 1) && a.rooms.iter().any(|r| r.index == ra.index + 1) {
+                        after += 1;
+                    }
+                }
+            }
+            return result(
+                fails,
+                json!({ "fork": 1, "forks": forks, "after": after, "walls": st[0], "all": st[1], "coins": st[2] }),
+            );
+        }
+        let r = SameSeed::revive_play(GameSim::new(seed), die, Self::TICKS + 600);
         if r.revive_tick >= 0 {
-            for d in SameSeed::map_diffs(&a, &r) {
+            for d in SameSeed::map_diffs(&a, &r, true, &mut st) {
                 fails.push(format!("seed {}, death on a score ending in {}: {}", seed, die, d));
             }
         }
-        result(fails, json!({ "revived": if r.revive_tick >= 0 { 1 } else { 0 } }))
+        result(
+            fails,
+            json!({ "revived": if r.revive_tick >= 0 { 1 } else { 0 }, "walls": st[0], "all": st[1], "coins": st[2] }),
+        )
     }
 
     fn summary(&self, results: &[Value]) -> String {
         let gen = results.iter().map(|r| i(&r["generated"])).sum::<i64>();
+        let fork = results.iter().map(|r| i(&r["fork"])).sum::<i64>();
+        let sum = |k: &str| results.iter().map(|r| i(&r[k])).sum::<i64>();
         format!(
-            "{} plays ({} seeds x deaths on an even and an odd score), {} revived; {} generated variants x {} exits x {} seeds: same layout for two bird heights and for Calm / Wild",
-            results.len() as i64 - gen,
+            "{} plays ({} seeds x deaths on an even and an odd score), {} revived; {} Calm plays vs Wild-seeking plays: {} forks taken apart, {} rooms after them; {} of {} walls and {} coins compared; {} generated variants x {} exits x {} seeds: same layout for two bird heights and for Calm / Wild",
+            results.len() as i64 - gen - fork,
             Self::SEEDS,
-            results.iter().map(|r| i(&r["revived"])).sum::<i64>(),
+            sum("revived"),
+            fork,
+            sum("forks"),
+            sum("after"),
+            sum("walls"),
+            sum("all"),
+            sum("coins"),
             gen / Self::GEN_ANCHORS.len() as i64,
             Self::GEN_ANCHORS.len(),
             Self::GEN_SEEDS

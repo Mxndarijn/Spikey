@@ -292,10 +292,14 @@ Open points:
 - The `sameseed` FastSim check (`tools/fastsim-rs/fastsim/src/checks/sameseed.rs`): 24 seeds, a
   death on a score ending in 4 and in 5 in room 2 or later, revived, against
   the same PlannerBot with no death: the same rooms, variants, room seeds,
-  plans, ghosts and open exits, and the same walls (a bounce at another tick
-  in the room or with the hazards elsewhere checks only side and score; a room
-  whose exit opened at another tick ends the comparison, as Bumper Cloud and
-  wind move the exit for any two players). `fastsim-rs sameseed <seed> --die 5
+  plans, ghosts and open exits, and the same walls and coins: walls are matched
+  by number and compared whenever what their spikes are drawn from is the same
+  (score, anchor, the wall bounced off, the side's bonus, the exit state, and
+  the spike-moving hazards at the same tick); a room whose exit opened at
+  another tick ends the comparison, as Bumper Cloud and wind move the exit for
+  any two players. The same seeds also play the Calm exit at every fork against
+  the Wild-seeking bot: the room right after a fork may differ past its first
+  wall, every other room must be the same. `fastsim-rs sameseed <seed> --die 5
   --onlyrevive 1` shows one seed in full.
 - `tests/unit/test_replay.gd` additions: a revived run verifies; the same run
   with the revive tick removed, moved by one, or doubled is rejected; the

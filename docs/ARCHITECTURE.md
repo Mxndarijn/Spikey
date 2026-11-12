@@ -64,7 +64,9 @@ flowchart TD
   test pins its output.
 - **Same seed, same run** (next gameplay version): two players of one seed who
   take the same portals get the same rooms, variants, hazards, wall spikes and
-  exits, however they fly. Generation never reads the bird:
+  exits, however they fly. At a Calm/Wild fork only the room right after it
+  may differ (Wild's extra spikes); both exits lead to one door, so every room
+  after that is the same again. Generation never reads the bird:
   - A spine RNG (`GameSim._spine`) draws only each room's kind and seed, a fixed
     number of draws per portal. The room's own RNG lays it out, and every wall
     after the arrival's reseeds from the room seed and the wall's number
