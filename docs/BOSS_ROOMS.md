@@ -108,3 +108,15 @@ their new height while the bird is out by a wall, never between the gates.
 5. Seeded boss order or a fixed order.
 6. Full restart on revive or a phase checkpoint.
 7. 3 wall spikes per wall at tier 1.
+
+## Fairness gate (`fastsim check bossfair`)
+
+`tools/fastsim/Bots/BossFairCheck.cs`, in the FastSim checks: every boss
+room, tiers 1 and 3, seeds 1..20. The honest planner plays; at every new
+tell the bird keeps its old plan for 60 ticks (1 s), then SurvivalSearch
+must find a way through the told attack. A tell fails when there is no way
+through, or the old plan is hit by the boss within that second.
+`BossFair.KNOWN` lists the cases that still fail, one per (boss, tier, seed,
+tell), each with the fix owner. On 2026-11-12 (2 s tells): 6 of 1159 tells,
+all owned by room-fixes. The tool behind it: `fastsim boss fair --react
+0,20,40,60 --tier 1|3 --seeds n` (`Bots/BossRuns.cs`).

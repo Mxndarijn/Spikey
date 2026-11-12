@@ -17,9 +17,16 @@ static partial class Checks
         public const int SEEDS = 20;
         public static readonly long[] TIERS = { 1, 3 };
 
-        /// Unfair tells allowed while their fix is in flight: (boss, tell kind, phase) -> owner.
-        public static readonly Dictionary<(string boss, string kind, long phase), string> KNOWN = new()
+        /// Unfair tells allowed while their fix is in flight: (boss, tier, seed, tell kind, phase) -> owner.
+        /// One entry per case, so any other unfair tell still fails. Remove an entry when its fix lands.
+        public static readonly Dictionary<(string boss, long tier, long seed, string kind, long phase), string> KNOWN = new()
         {
+            [("boss_watcher", 3, 3, "dart", 3)] = "room-fixes (hit during the reaction)",
+            [("boss_watcher", 3, 19, "rows", 3)] = "room-fixes (no way through)",
+            [("boss_crusher", 3, 1, "jaw", 2)] = "room-fixes (no way through)",
+            [("boss_crusher", 3, 2, "jaw", 3)] = "room-fixes (no way through)",
+            [("boss_saw", 1, 10, "hop", 3)] = "room-fixes (no way through)",
+            [("boss_saw", 3, 6, "hop", 3)] = "room-fixes (hit during the reaction)",
         };
 
         public override int count() => cases.Count;
@@ -35,8 +42,9 @@ static partial class Checks
             var tells = new JsonArray();
             foreach (var r in rows)
             {
-                tells.Add(new JsonArray(r.kind, r.phase, r.verdict));
-                if ((r.verdict == 0 || r.verdict == -1) && !KNOWN.ContainsKey((boss, r.kind, r.phase)))
+                bool known = KNOWN.ContainsKey((boss, tier, seed, r.kind, r.phase));
+                tells.Add(new JsonArray(r.kind, r.phase, r.verdict, known));
+                if ((r.verdict == 0 || r.verdict == -1) && !KNOWN.ContainsKey((boss, tier, seed, r.kind, r.phase)))
                     fails.Add($"{boss} tier {tier} seed {seed}: {r.kind} tell (phase {r.phase}) at tick {r.tick} is unfair at R={REACT} ({(r.verdict == 0 ? "no way through" : "hit during the reaction")})");
             }
             return result(fails, new JsonObject { ["boss"] = boss, ["tells"] = tells });
@@ -44,9 +52,9 @@ static partial class Checks
 
         public override string summary(List<JsonNode> results)
         {
-            var all = results.SelectMany(r => r["tells"].AsArray().Select(t => ((string)r["boss"], (string)t[0], (long)t[1], (int)t[2]))).ToList();
-            int bad = all.Count(t => t.Item4 == 0 || t.Item4 == -1);
-            var known = all.Count(t => (t.Item4 == 0 || t.Item4 == -1) && KNOWN.ContainsKey((t.Item1, t.Item2, t.Item3)));
+            var all = results.SelectMany(r => r["tells"].AsArray().Select(t => ((int)t[2], (bool)t[3]))).ToList();
+            int bad = all.Count(t => t.Item1 == 0 || t.Item1 == -1);
+            int known = all.Count(t => (t.Item1 == 0 || t.Item1 == -1) && t.Item2);
             return $"{all.Count} boss tells (3 bosses, tiers 1 and 3, seeds 1..{SEEDS}), {bad} unfair at R={REACT}" + (known > 0 ? $" ({known} known)" : "");
         }
     }
