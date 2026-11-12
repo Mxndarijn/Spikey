@@ -37,9 +37,11 @@ docs/HUMAN_BOT.md) and the honest BlindPlanner play every entry. A clear is a ro
 
 An item-response (Rasch) fit over all clears gives every bot a skill and every room a
 difficulty `b`: P(clear) = 1 / (1 + e^-(skill - b)). The skill a room needs for 90% clears is
-`b + ln 9`, read on the tier scale (1 beginner, 2 normal, 3 good, 4 expert, 5 beast, linear in
-between). **Skill score = 20 x that**: 20 means a beginner clears it 9 times in 10, 60 a good
-player, 100 a beast. The fit uses every tier at once, so a room that every bot clears still
+`b + ln 9`, read on a tier scale that is linear through beginner = 1 and good = 3. **Skill
+score = 20 x that**: 20 means a beginner clears it 9 times in 10, 40 a normal player (normal
+lands there by itself, so the scale is linear), 60 a good player. Expert and beast clear little
+more than good in a single room (their edge is in long runs), so they land just above 60 (about
+66 and 71 on the 2026-11-12 run); a room above about 70 needs more than any bot tier has. The fit uses every tier at once, so a room that every bot clears still
 gets a sensible number, and noise in one tier is smoothed by the others.
 
 ### 2. The tube: every way through (exact knowledge)
@@ -87,8 +89,7 @@ tell), the bird keeps the plan it had before for R = 0, 20, 40, 60 ticks, then S
 - **Analytic**: a ridge regression of the bot skill on the tube and reaction measures
   (standardised, logs of the px and tick measures), checked leave-one-out. It is the score the
   analytic measures alone would give.
-- **Score** = the mean of skill and analytic (0 to about 120 on the same scale: 20 beginner ...
-  100 beast).
+- **Score** = the mean of skill and analytic, on the same scale (clamped to 0..130).
 - **Sub-scores** (0-100, rank among all rooms scored, 100 hardest): space (band), precision (tap
   windows), reaction (fail rates), busy (new things per second, route choice, few ways).
 

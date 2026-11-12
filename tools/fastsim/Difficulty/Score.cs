@@ -8,8 +8,9 @@ namespace FastSim.Diff;
 ///
 /// Skill (bots): an item-response fit over every bot's clears, P(clear) =
 ///   1 / (1 + e^-(skill_bot - b_room)). The skill a room needs for 90% clears is
-///   b_room + ln 9, read on the tier scale: 1 beginner, 2 normal, 3 good, 4 expert,
-///   5 beast (between tiers: linear). The score is 20 x that (20 beginner ... 100 beast).
+///   b_room + ln 9, read on a tier scale through beginner = 1 and good = 3 (linear).
+///   The score is 20 x that: 20 beginner, 40 normal, 60 good; expert and beast land
+///   where their fitted skill puts them (report.json "tier_scores").
 /// Analytic: a ridge fit of that skill on the exact-knowledge and reaction measures
 ///   (tube, react), leave-one-out; it scores rooms the bots didn't play too.
 /// Score: the mean of the two (either one alone when the other is missing).
@@ -203,17 +204,14 @@ public static class Score
         return th;
     }
 
-    /// Skill `x` on the tier scale (1 beginner .. 5 beast), linear between the
-    /// fitted tier skills and past the ends.
+    /// Skill `x` on the tier scale, linear through beginner = 1 and good = 3 (the
+    /// two tiers that differ most per room; normal lands at 2 by itself). Expert and
+    /// beast clear little more than good in a single room, so they sit just above 3
+    /// and are not used as anchors.
     public static double tier_needed(double x, Dictionary<string, double> th)
     {
-        var pts = new List<double>();
-        foreach (var t in TIERS)
-            if (th.TryGetValue(t, out var v)) pts.Add(pts.Count == 0 ? v : Math.Max(v, pts[^1] + 1e-3));
-        if (pts.Count < 2) return double.NaN;
-        int i = 0;
-        while (i < pts.Count - 2 && x > pts[i + 1]) i++;
-        return 1 + i + (x - pts[i]) / (pts[i + 1] - pts[i]);
+        if (!th.TryGetValue("beginner", out var lo) || !th.TryGetValue("good", out var hi) || hi <= lo) return double.NaN;
+        return 1 + 2 * (x - lo) / (hi - lo);
     }
 
     /// The analytic measures used to predict the skill a room needs.
@@ -360,6 +358,7 @@ public static class Score
         return new JsonObject
         {
             ["theta"] = new JsonObject(theta.Select(kv => KeyValuePair.Create(kv.Key, num(kv.Value)))),
+            ["tier_scores"] = new JsonObject(theta.Select(kv => KeyValuePair.Create(kv.Key, num(20 * tier_needed(kv.Value, theta))))),
             ["weights"] = w == null ? null : new JsonObject(names.Select((n, j) => KeyValuePair.Create(n, num(w[j])))),
             ["loo_r"] = num(loo),
             ["spearman"] = new JsonObject(corr.Select(kv => KeyValuePair.Create(kv.Key, num(kv.Value)))),
@@ -379,6 +378,8 @@ public static class Score
         sb.AppendLine("# Room difficulty");
         sb.AppendLine();
         sb.AppendLine("Bot skills (item-response fit): " + string.Join(", ", theta.OrderBy(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value:F2}")));
+        sb.AppendLine("On the score scale (a room this bot clears 9 in 10 times needs at most): " +
+            string.Join(", ", theta.OrderBy(kv => kv.Value).Select(kv => $"{kv.Key} {20 * tier_needed(kv.Value - Math.Log(9) + Math.Log(9), theta):F0}")));
         sb.AppendLine($"Analytic fit, leave-one-out r with the bot skill: {P(loo, "F2")}");
         sb.AppendLine("Spearman of each measure with the bot skill:");
         foreach (var kv in corr.OrderByDescending(kv => Math.Abs(kv.Value))) sb.AppendLine($"  {kv.Key,-18} {kv.Value,6:F2}");
