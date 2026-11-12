@@ -73,11 +73,11 @@ public static class Tells
     {
         string tier = opt("tier", "good");
         var m = MotorTiers.of(tier);
+        if (opt("human", "0") == "1" && MotorTiers.HUMAN.TryGetValue(tier, out var hm)) m = hm;
         if (opt("sigma", "") != "") m = m with { sigma = double.Parse(opt("sigma", "0")) };
         if (opt("react", "") != "") m = m with { react_mu = double.Parse(opt("react", "13")) };
         if (opt("fine", "") != "") m = m with { fine = opt("fine", "0") == "1" };
         string ps = opt("persona", "");
-        if (opt("human", "0") == "1" && MotorTiers.HUMAN.TryGetValue(tier, out var hm)) m = hm;
         if (ps != "") m = m with { p = parse(ps) };
         return m;
     }
