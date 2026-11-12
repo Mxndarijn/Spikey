@@ -202,7 +202,10 @@ Per set:
   every run, knows the first rooms are easier, and extends the last band past the
   cap), and the old `rate` median (one constant rate; it reads 20-25% low for bots
   whose deaths are on the ramp, so it is not a tier number).
-- The survival curve (chance to score more than 10, 20, ... 1000) with log-log Greenwood
+- The cap each set was played with (bot runs use `cap=216000`, 60 minutes, about 2 400
+  points, since 2026-11-12; older sets use 108 000). Compare sets only at the same cap,
+  or on plateau rates.
+- The survival curve (chance to score more than 10, 20, ... 2400) with log-log Greenwood
   limits, the share alive at the cap (Wilson interval), and the mean score up to the
   lowest survivor's score (restricted mean).
 - Deaths per 100 points by band, each with its interval. A death at exactly a band's

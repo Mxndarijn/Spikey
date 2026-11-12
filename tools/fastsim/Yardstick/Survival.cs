@@ -269,7 +269,7 @@ public static class Survival
 
     /// Bands for the piecewise model: fine where the rate climbs (the first
     /// rooms), coarse on the plateau; the last band runs on past the cap.
-    public static readonly long[] PEM_BANDS = { 0, 5, 10, 15, 20, 30, 40, 60, 80, 120, 160, 240, 320, 480, 640 };
+    public static readonly long[] PEM_BANDS = { 0, 5, 10, 15, 20, 30, 40, 60, 80, 120, 160, 240, 320, 480, 640, 960, 1440 };
 
     /// The median of a model with one death chance per point in each band:
     /// the first score where the chance to have survived falls to 0.5. Uses
@@ -369,7 +369,9 @@ public static class Survival
     /// (bot-review.md), so "deaths per 100 from 40 on" is a skill number that
     /// does not depend on the ramp.
     public const long PLATEAU = 40;
-    public static readonly long[] CURVE_AT = { 10, 20, 40, 80, 160, 320, 640, 1000 };
+    /// Scores to print the curve at. The bot cap is 216 000 ticks (60 min, about 2 400
+    /// points) since 2026-11-12; 30-minute sets (108 000) stop near 1 200.
+    public static readonly long[] CURVE_AT = { 10, 20, 40, 80, 160, 320, 640, 1000, 1500, 2000, 2400 };
 
     public static JsonObject describe(Set set, int reps)
     {
@@ -387,7 +389,13 @@ public static class Survival
         {
             var s = at(steps, t, n);
             int risk = runs.Count(r => r.points >= t);
-            curve.Add(new JsonObject { ["score"] = t, ["survive"] = R(s.s, 4), ["lo"] = R(s.lo, 4), ["hi"] = R(s.hi, 4), ["at_risk"] = risk });
+            // Past the highest score anyone reached (the cap) the curve is unknown, not 0.
+            bool known = runs.Max(r => r.points) >= t;
+            curve.Add(new JsonObject
+            {
+                ["score"] = t, ["survive"] = known ? R(s.s, 4) : null, ["lo"] = known ? R(s.lo, 4) : null,
+                ["hi"] = known ? R(s.hi, 4) : null, ["at_risk"] = risk,
+            });
         }
         var bands = new JsonArray();
         for (int i = 0; i < Stats.SCORE_BANDS.Length; i++)
@@ -408,6 +416,7 @@ public static class Survival
         {
             ["name"] = set.name,
             ["source"] = set.source,
+            ["cap_ticks"] = set.cap,
             ["runs"] = n,
             ["deaths"] = set.deaths,
             ["alive_at_cap"] = set.alive,
@@ -503,7 +512,7 @@ public static class Survival
     public static string text(JsonObject d)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"{d["name"]}: {d["runs"]} runs, {d["deaths"]} deaths, {d["alive_at_cap"]} alive at the cap ({ci(d["alive_share"]!, "p", "0.###")})"
+        sb.AppendLine($"{d["name"]} (cap {d["cap_ticks"]} ticks): {d["runs"]} runs, {d["deaths"]} deaths, {d["alive_at_cap"]} alive at the cap ({ci(d["alive_share"]!, "p", "0.###")})"
             + ((bool)d["survivor_points_approx"]! ? "  [survivors' points spread evenly: atlas file]" : ""));
         sb.AppendLine($"  deaths/100 pt      {ci(d["per_100"]!, "all", "0.###")}   from {PLATEAU}: {ci(d["per_100_plateau"]!, "rate", "0.###")} ({d["per_100_plateau"]!["deaths"]} deaths)");
         sb.AppendLine($"  median: raw {ci(d["raw_median"]!)}  KM {ci(d["km_median"]!)}  piecewise {ci(d["pem_median"]!)}  rate {ci(d["rate_median"]!)}");
