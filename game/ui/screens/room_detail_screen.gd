@@ -154,7 +154,7 @@ func _card() -> Control:
 	return outer
 
 
-## "Mid-game, from 30 points" (seasonal rooms: "October only, ...").
+## "Middle, from 30 points" (seasonal rooms: "October only, ...").
 func _where() -> String:
 	if _def == null:
 		return ""

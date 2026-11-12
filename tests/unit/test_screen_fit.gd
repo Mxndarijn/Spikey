@@ -108,7 +108,7 @@ func test_rooms_open_on_groups_then_one_group() -> void:
 	var opened: Array[String] = []
 	rooms.group_opened.connect(func(g: String) -> void: opened.append(g))
 	rooms.group_cards()[1].pressed.emit()
-	assert_eq(opened, ["mid"], "a card opens its group")
+	assert_eq(opened, [RoomInfo.GROUPS[1]], "a card opens its group")
 	rooms.free()
 	for g in RoomInfo.GROUPS:
 		var one := RoomsScreen.new(_profile(), g)

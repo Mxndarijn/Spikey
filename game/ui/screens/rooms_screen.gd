@@ -3,7 +3,7 @@ extends Control
 ## Every room kind, for practice (minimal kit), in two steps. First the room
 ## groups: a back arrow, the title and how many rooms the player has cleared in
 ## real runs (a check and the number), how many rooms are open, and a card per
-## group (RoomGroupCard; Seasonal across the width). A group then opens on its
+## group (RoomGroupCard, two per row). A group then opens on its
 ## own: the group's name as the title, its "5 of 8 open" line and a scrolling
 ## two-column grid of flat paper room cards. A room opens for practice once a
 ## real run has met it.

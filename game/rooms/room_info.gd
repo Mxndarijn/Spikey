@@ -5,16 +5,33 @@ extends RefCounted
 ## (glyph) on its card. Cosmetic only: when a room can appear and how it plays
 ## live in sim/rooms/ (RoomDef). Text comes from the room ideas page.
 
-## Card groups, in screen order. Seasonal rooms go under "seasonal" whatever
-## their sim group, so the season is the first thing you see.
-const GROUPS: Array[String] = ["starter", "mid", "late", "bonus", "seasonal"]
+## Card groups, in screen order: the room's difficulty tier (RoomPacing, from
+## its measured difficulty, which also sets when it shows up), then Bonus.
+## Seasonal rooms go under "seasonal" whatever their tier, so the season is the
+## first thing you see.
+const GROUPS: Array[String] = [
+	"easy", "steady", "middle", "hard", "harder", "hardest", "bonus", "seasonal"
+]
 const GROUP_NAMES := {
-	"starter": "Starter",
-	"mid": "Mid-game",
-	"late": "Late-game",
+	"easy": "Easy",
+	"steady": "Steady",
+	"middle": "Middle",
+	"hard": "Hard",
+	"harder": "Harder",
+	"hardest": "Hardest",
 	"bonus": "Bonus",
 	"seasonal": "Seasonal",
 }
+## Each tier's curve (RoomPacing) and its card group.
+const TIER_GROUPS := [
+	[RoomPacing.EASY, "easy"],
+	[RoomPacing.STEADY, "steady"],
+	[RoomPacing.MIDDLE, "middle"],
+	[RoomPacing.HARD, "hard"],
+	[RoomPacing.HARDER, "harder"],
+	[RoomPacing.HARDEST, "hardest"],
+	[RoomPacing.BONUS, "bonus"],
+]
 ## When each season's rooms show up in runs (Seasons.* index).
 const SEASON_NAMES := ["October", "December", "February", "Spring", "Summer", "New Year"]
 
@@ -283,11 +300,20 @@ static func glyph(id: String) -> String:
 	return ROOMS[id][4] if ROOMS.has(id) else ""
 
 
-## Which card group the room sits in. Bosses sit with the late-game rooms.
+## Which card group the room sits in: its tier. Bosses sit with the hardest
+## rooms, the open first room with the easy ones.
 static func group(def: RoomDef) -> String:
 	if def.boss:
-		return "late"
-	return "seasonal" if def.season != Seasons.NONE else def.group
+		return "hardest"
+	if def.season != Seasons.NONE:
+		return "seasonal"
+	if not RoomPacing.TIERS.has(def.id):
+		return "easy"
+	var tier: Array = RoomPacing.TIERS[def.id]
+	for pair: Array in TIER_GROUPS:
+		if pair[0] == tier:
+			return pair[1]
+	return "easy"
 
 
 static func season_name(def: RoomDef) -> String:

@@ -1,6 +1,6 @@
 class_name RoomGroupCard
 extends Button
-## One room group on the Rooms screen ("Starter"), a flat paper card: three
+## One room group on the Rooms screen ("Easy"), a flat paper card: three
 ## small rooms from the group side by side, the group's name and how many of
 ## its rooms are open ("7 of 8"), a bar for that, and one line about the group
 ## (its difficulty, or the score its first room shows up at). A group with no
