@@ -15,9 +15,11 @@ const BATCHES: Array[Script] = [
 	preload("res://sim/rooms/catalog_seasonal.gd"),
 	preload("res://sim/rooms/catalog_combo.gd"),
 	preload("res://sim/rooms/catalog_twists.gd"),
+	preload("res://sim/rooms/catalog_boss.gd"),
 ]
 
 static var _all: Array[RoomDef] = []
+static var _bosses: Array[int] = []
 
 
 static func all() -> Array[RoomDef]:
@@ -30,6 +32,38 @@ static func all() -> Array[RoomDef]:
 
 static func release() -> void:
 	_all.clear()
+	_bosses.clear()
+
+
+## Indexes of the boss rooms, in catalog order.
+static func bosses() -> Array[int]:
+	if _bosses.is_empty():
+		var list := all()
+		for i in list.size():
+			if list[i].boss:
+				_bosses.append(i)
+	return _bosses
+
+
+## Picks the boss room for a boss portal: one RNG draw among the bosses not
+## met yet this run (bit i of `met` is bosses()[i]); all of them once every
+## one has been met.
+static func pick_boss(rng: SimRng, met: int) -> int:
+	var list := bosses()
+	var open: Array[int] = []
+	for i in list.size():
+		if (met >> i) & 1 == 0:
+			open.append(i)
+	if open.is_empty():
+		for i in list.size():
+			open.append(i)
+	return list[open[rng.next_below(open.size())]]
+
+
+## The bosses_met bit of boss room `index` (0 for any other room).
+static func boss_bit(index: int) -> int:
+	var i := bosses().find(index)
+	return 0 if i < 0 else 1 << i
 
 
 ## The room every run starts in.
@@ -73,7 +107,13 @@ static func pick_next(
 	for i in list.size():
 		var w := 0
 		var fits := list[i].fits_arrival(arrival_y)
-		if i != current and i != start and fits and allowed(list[i], score, season):
+		if (
+			i != current
+			and i != start
+			and fits
+			and not list[i].boss
+			and allowed(list[i], score, season)
+		):
 			w = list[i].weight
 		weights.append(w)
 		total += w

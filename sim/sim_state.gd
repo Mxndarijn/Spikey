@@ -47,6 +47,8 @@ var exit_b_kind := 0
 ## The exit kind taken into this room: CALM or WILD in the room behind a fork,
 ## NORMAL everywhere else.
 var route := 0
+## Boss rooms met this run: bit i is the i-th boss (RoomCatalog.bosses()).
+var bosses_met := 0
 ## Where the last coin was collected (the view flies it from there).
 var pickup_x := 0
 var pickup_y := 0
@@ -110,6 +112,7 @@ func assign(o: SimState) -> void:
 	exit_b_y = o.exit_b_y
 	exit_b_kind = o.exit_b_kind
 	route = o.route
+	bosses_met = o.bosses_met
 	pickup_x = o.pickup_x
 	pickup_y = o.pickup_y
 	arrival_hold = o.arrival_hold
@@ -163,6 +166,7 @@ func checksum() -> int:
 		plan_a_kind_right,
 		plan_b_y_right,
 		plan_at,
+		bosses_met,
 	]:
 		h = SimHash.mix(h, v)
 	return h

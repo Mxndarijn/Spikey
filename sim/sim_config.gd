@@ -147,6 +147,15 @@ const WILD_COINS := 5
 ## Extra spikes per wall in the room behind a Wild exit (every wall after the
 ## arrival's, so the arrival layout is the same for Calm and Wild).
 const WILD_SPIKES := 3
+## Boss rooms: the exit at every BOSS_EVERY points leads into one (RoomDef.boss,
+## RoomCatalog.pick_boss). A boss room's exit opens after BOSS_POINTS bounces
+## there (none at the usual POINTS_PER_ROOM), and a boss's exit is the fork
+## (ExitPlanner.is_fork). Out of its portal the room waits BOSS_HOLD ticks.
+const BOSS_EVERY := 100
+const BOSS_POINTS := 20
+const BOSS_HOLD := 90
+## Coins paid when a boss breaks, by tier (score / BOSS_EVERY: 1, 2, 3 and up).
+const BOSS_COINS: Array[int] = [15, 20, 25]
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
 ## wait, taps ignored) after a revive.
 const ARRIVAL_HOLD := 60
@@ -169,6 +178,12 @@ const ARRIVAL_EDGE := 84 * SUB
 
 # Safety cap for replays (30 minutes of play).
 const MAX_TICKS := 60 * 60 * 30
+
+
+## A boss room's tier for the score it was entered at: 1 at the first
+## BOSS_EVERY points, 2 at the second, 3 from the third on.
+static func boss_tier(entry_score: int) -> int:
+	return clampi(entry_score / BOSS_EVERY, 1, BOSS_COINS.size())
 
 
 static func slot_center_y(slot: int) -> int:

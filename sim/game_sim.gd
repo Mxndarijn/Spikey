@@ -15,7 +15,8 @@ enum Event {
 	COIN,
 	EXIT_OPEN,
 	EXIT_PREVIEW,
-	REVIVE
+	REVIVE,
+	BOSS_DOWN
 }
 
 ## How hard a bumper shoves the bird (vertical speed, sub-units per step): a bit
@@ -408,26 +409,48 @@ func _take_exit(side: int) -> bool:
 ## it. The exit then opens there at the ghost's exact height(s), even if the
 ## bird got turned back (Bumper Cloud) and bounced on the ghost's wall itself.
 ## With no ghost (a practice room starting one point short) it opens on
-## `side`, as before. Every FORK_EVERY points it is a fork: a Calm and a Wild
-## exit, one in each half, in a random order.
+## `side`, as before. At a fork (ExitPlanner.is_fork) it is a Calm and a Wild
+## exit, one in each half, in a random order. In a boss room the exit opens
+## after SimConfig.BOSS_POINTS bounces there instead, and the boss breaks.
 func _maybe_open_exit(side: int) -> void:
 	if state.exit_open:
 		return
-	var every := SimConfig.POINTS_PER_ROOM
 	if state.exit_preview:
-		if state.score % every == 0:
+		if _exit_due(state.score):
 			state.exit_preview = false
 			state.exit_open = true
 			events.append(Event.EXIT_OPEN)
+			_boss_down()
 		return
-	if (state.score + 1) % every == 0:
+	if _exit_due(state.score + 1):
 		state.exit_preview = true
 		ExitPlanner.use_plan(self, 1 - side, state.score + 1)
 		events.append(Event.EXIT_PREVIEW)
-	elif state.score % every == 0:
+	elif _exit_due(state.score):
 		state.exit_open = true
 		ExitPlanner.use_plan(self, side, state.score)
 		events.append(Event.EXIT_OPEN)
+		_boss_down()
+
+
+## Whether an exit opens at score `at` in this room: every POINTS_PER_ROOM
+## points, or in a boss room BOSS_POINTS after it was entered.
+func _exit_due(at: int) -> bool:
+	if room.def.boss:
+		return at == room.entry_score + SimConfig.BOSS_POINTS
+	return at % SimConfig.POINTS_PER_ROOM == 0
+
+
+## The exit of a boss room just opened: the boss breaks (its hazard stops) and
+## pays its coins (none in practice).
+func _boss_down() -> void:
+	if not room.def.boss:
+		return
+	events.append(Event.BOSS_DOWN)
+	if not is_practice():
+		collect_coin(
+			state.x, state.y, SimConfig.BOSS_COINS[SimConfig.boss_tier(room.entry_score) - 1]
+		)
 
 
 ## The score the next exit opens at: now if one is open, else the next
@@ -435,6 +458,8 @@ func _maybe_open_exit(side: int) -> void:
 func next_exit_score() -> int:
 	if state.exit_open:
 		return state.score
+	if room.def != null and room.def.boss:
+		return room.entry_score + SimConfig.BOSS_POINTS
 	var every := SimConfig.POINTS_PER_ROOM
 	return (state.score / every + 1) * every
 
@@ -507,7 +532,12 @@ func _go_through(side: int, kind: int, through_y: int) -> void:
 	state.y = _arrival_y(state.y)
 	state.anchor_y = _arrival_y(door)
 	var next := practice_room
-	if not is_practice():
+	if is_practice():
+		pass
+	elif _boss_due():
+		next = RoomCatalog.pick_boss(_spine, state.bosses_met)
+		state.bosses_met |= RoomCatalog.boss_bit(next)
+	else:
 		next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y)
 	_seed_room()
 	# Lay the room out so a player who needs a moment to look can live: the
@@ -515,6 +545,12 @@ func _go_through(side: int, kind: int, through_y: int) -> void:
 	for i in _arrival_retries(side, next):
 		_rng.next_u32()
 	_arrive_in(side, next)
+
+
+## Whether the exit just taken leads into a boss room: the one at every
+## BOSS_EVERY points (never out of a boss room itself).
+func _boss_due() -> bool:
+	return state.score > 0 and state.score % SimConfig.BOSS_EVERY == 0 and not room.def.boss
 
 
 ## Far enough from the ceiling and floor to hop while reading the room.
@@ -600,6 +636,9 @@ func _arrive_in(side: int, next: int) -> void:
 	_arrive(side, Event.ROOM_CHANGE)
 	ExitPlanner.plan_room(self, next_exit_score())
 	state.arrival_hold = _arrival_wait
+	# A boss comes in while the bird waits (its own attacks wait longer still).
+	if room.def.boss:
+		state.arrival_hold = maxi(state.arrival_hold, SimConfig.BOSS_HOLD)
 	_arrival_wait = SimConfig.PORTAL_HOLD
 	_keep_entry()
 
