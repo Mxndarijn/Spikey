@@ -27,9 +27,11 @@ public static class HumanMain
         HumanBot.WIDTH = long.Parse(opt("width", "0"));
         HumanBot.ESCALATE = int.Parse(opt("escalate", "2"));
         HumanBot.GAPMID = opt("gapmid", "0") == "1";
+        MotorPlayer.MASK_SPIKES = opt("mask", "both") is "both" or "spikes";
+        MotorPlayer.MASK_HAZARDS = opt("mask", "both") is "both" or "hazards";
         HumanBot.BMARGIN = double.Parse(opt("bmargin", "-1"));
         string mode = pos.Count > 1 ? pos[1] : "measure";
-        int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 4);
+        int threads = Math.Clamp(int.Parse(opt("threads", "4")), 1, 16);
         int seeds = int.Parse(opt("seeds", "100"));
         long first = long.Parse(opt("first", "0"));
         long cap = long.Parse(opt("cap", SimConfig.MAX_TICKS.ToString()));
@@ -101,6 +103,19 @@ public static class HumanMain
                                   $"doomed at the bounce {got.Count(x => x.StartsWith("DOOMED"))}");
                 return 0;
             }
+            case "motortrace":
+            {
+                long seed = long.Parse(opt("seed", "3"));
+                var m = Motor.at(double.Parse(opt("sigma", "0.5"))) with { react_mu = double.Parse(opt("react", "13")) };
+                var mp = new MotorPlayer(m, seed);
+                var lines = new List<string>();
+                mp.log = lines.Add;
+                var sim = new GameSim(seed);
+                var tr = Trace.play(sim, mp.decide, cap, false);
+                foreach (var l in lines.Skip(Math.Max(0, lines.Count - int.Parse(opt("last", "100"))))) Console.WriteLine(l);
+                Console.WriteLine($"{tr.points} points, {tr.cause} in {tr.room}");
+                return 0;
+            }
             case "train-reflex":
             {
                 var best = ReflexTrainer.train(int.Parse(opt("gens", "20")), int.Parse(opt("pop", "16")),
@@ -143,6 +158,24 @@ public static class HumanMain
 
     public static Func<GameSim, bool> decider(string bot, double s, long seed)
     {
+        if (bot == "motor")
+        {
+            double sg = O.ContainsKey("sigma") ? double.Parse(opt("sigma", "0"))
+                : MotorTiers.SIGMA.GetValueOrDefault(opt("tier", "beast"), 0);
+            var m = Motor.at(sg);
+            if (O.ContainsKey("react")) m = m with { react_mu = double.Parse(opt("react", "13")) };
+            if (O.ContainsKey("gap")) m = m with { min_gap = long.Parse(opt("gap", "8")) };
+            var bp = MotorPlayer.make_planner(seed, sg);
+            if (O.ContainsKey("lines")) bp.lines = int.Parse(opt("lines", "1"));
+            if (O.ContainsKey("wobble")) bp.wobble = int.Parse(opt("wobble", "0"));
+            if (O.ContainsKey("copies")) bp.copies = int.Parse(opt("copies", "1"));
+            if (O.ContainsKey("margin")) bp.margin = long.Parse(opt("margin", "10"));
+            if (O.ContainsKey("smargin")) bp.spike_margin = opt("smargin", "1") == "1";
+            if (O.ContainsKey("mcost")) bp.margin_cost = long.Parse(opt("mcost", "40"));
+            if (O.ContainsKey("midcost")) bp.mid_cost = long.Parse(opt("midcost", "1"));
+            var mp = new MotorPlayer(m, seed, bp);
+            return mp.decide;
+        }
         if (bot == "reflex")
         {
             var p = new ReflexBot(reflex_weights(), s >= 1 && !O.ContainsKey("set") ? null : with_overrides(Skill.at(s)), seed);
@@ -236,7 +269,7 @@ public static class HumanMain
         long ticks = runs.Sum(r => r.ticks);
         Console.WriteLine($"{what}: {runs.Count} runs, median {Humanness.med(pts)}, p25 {Humanness.pct(pts, 0.25)}, " +
                           $"p90 {Humanness.pct(pts, 0.9)}, mean {pts.Average():F1}, alive at cap {runs.Count(r => !r.dead)}, " +
-                          $"points/death {pts.Sum() / (double)Math.Max(1, runs.Count(r => r.dead)):F0}, " +
+                          $"deaths/100pt {100.0 * runs.Count(r => r.dead) / Math.Max(1, pts.Sum()):F3}, rate median {rate_median(runs):F0}, " +
                           $"{sw.Elapsed.TotalSeconds:F0}s ({ticks / Math.Max(0.001, sw.Elapsed.TotalSeconds):F0} ticks/s)");
         Console.WriteLine("  " + Humanness.of(runs));
         var deaths = runs.Where(r => r.dead).GroupBy(r => r.room).OrderByDescending(g => g.Count()).Take(8)
@@ -248,6 +281,13 @@ public static class HumanMain
         if (O.ContainsKey("debug"))
             foreach (var r in runs.Where(r => r.dead && r.cause.StartsWith("SPIKE")))
                 Console.WriteLine($"    seed {r.seed} {r.room}: bounce y {r.bounce_y}, death y {r.death_y}, gap {r.gap_y}, {r.since_bounce}t after bounce");
+    }
+
+    /// The median a run would reach at this death rate per point (the yardstick's measure).
+    public static double rate_median(IList<Trace> runs)
+    {
+        double d = runs.Count(r => r.dead) / (double)Math.Max(1, runs.Sum(r => r.points));
+        return d <= 0 ? double.PositiveInfinity : Math.Log(0.5) / Math.Log(1 - d);
     }
 
     static void dump(string path, IList<Trace> runs)
