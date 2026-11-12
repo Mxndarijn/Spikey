@@ -734,6 +734,7 @@ pub const UPDRAFT: &[F] = &[
     F { name: "drift_span", ty: Ty::Long, readonly: false },
     F { name: "gust", ty: Ty::Long, readonly: false },
     F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "last_low", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -2853,9 +2854,10 @@ fn updraft_get(x: &Updraft, i: usize) -> V {
         5 => V::I(x.drift_span),
         6 => V::I(x.gust),
         7 => V::I(x.phase),
-        8 => V::S(x.base.kind),
-        9 => V::B(x.base.alive),
-        10 => V::I(x.base.t),
+        8 => V::I(x.last_low),
+        9 => V::S(x.base.kind),
+        10 => V::B(x.base.alive),
+        11 => V::I(x.base.t),
         _ => panic!("Updraft: no field {}", i),
     }
 }
@@ -2870,8 +2872,9 @@ fn updraft_set(x: &mut Updraft, i: usize, v: &V) {
         5 => x.drift_span = v.i(),
         6 => x.gust = v.i(),
         7 => x.phase = v.i(),
-        9 => x.base.alive = v.b(),
-        10 => x.base.t = v.i(),
+        8 => x.last_low = v.i(),
+        10 => x.base.alive = v.b(),
+        11 => x.base.t = v.i(),
         _ => panic!("Updraft: field {} is not a transplant candidate", i),
     }
 }

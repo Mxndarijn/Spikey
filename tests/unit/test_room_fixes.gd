@@ -291,8 +291,9 @@ func test_no_wall_spike_in_a_piston_row() -> void:
 
 
 ## Updraft gust: a wall drawn while the gust blows on the bird's way keeps a
-## whole free run no lower than GUST_DOWN_REACH below the anchor and no higher
-## than GUST_TOP; with the gust off on the way, the wall is left alone.
+## whole free run from GUST_UP_REACH above to GUST_DOWN_REACH below the bottom
+## of the last wall's free run, and no higher than GUST_TOP; with the gust off
+## on the way, the wall is left alone.
 func test_a_gust_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
 	const Updraft := preload("res://sim/hazards/updraft.gd")
 	var sim := RoomsTest.sim_in_room("updraft", 4, Seasons.NONE, "gust")
@@ -302,11 +303,13 @@ func test_a_gust_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
 		air.t = k
 		sim.state.x = SimConfig.BIRD_RADIUS
 		sim.state.vx = SimConfig.SPEED_X
-		sim.state.anchor_y = 300 * SUB
+		var low := 300 * SUB
+		air.last_low = low
 		var ok := 0
 		for slot in SimConfig.SLOT_COUNT:
 			var y := SimConfig.slot_center_y(slot)
-			if y >= Updraft.GUST_TOP and y <= sim.state.anchor_y + Updraft.GUST_DOWN_REACH:
+			var hi: int = maxi(Updraft.GUST_TOP, low - Updraft.GUST_UP_REACH)
+			if y >= hi and y <= low + Updraft.GUST_DOWN_REACH:
 				ok |= 1 << slot
 		# The usual wall: its gap low down, out of the lifted bird's reach.
 		var mask := ALL & ~(0b1111 << 9)

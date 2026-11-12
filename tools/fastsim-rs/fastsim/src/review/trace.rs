@@ -56,7 +56,17 @@ pub fn trace(opts: &Opts, cap: i64) -> i32 {
     let seed = l(opts, "seed", 1);
     let last = l(opts, "last", 150);
     let every = l(opts, "every", 10);
-    let mut sim = GameSim::new(seed);
+    // --room id [--variant v]: start in that room (a practice start, as `fair --room`).
+    let only = opts.get("room").cloned().unwrap_or_default();
+    let only_v = opts.get("variant").cloned().unwrap_or_else(|| "classic".to_string());
+    let start = |seed: i64| -> GameSim {
+        if only.is_empty() {
+            GameSim::new(seed)
+        } else {
+            crate::setups::Setups::practice(&only, seed, &only_v)
+        }
+    };
+    let mut sim = start(seed);
     let mut bot = BlindPlanner::new(seed);
     println!("trace seed {} [{}]", seed, configure(&mut bot, opts));
     let mut taps: Vec<bool> = Vec::new();
@@ -69,7 +79,8 @@ pub fn trace(opts: &Opts, cap: i64) -> i32 {
             sim.step(b != 0);
         }
     } else {
-        while !sim.is_over() && (taps.len() as i64) < cap {
+        let room0 = sim.state.room_index;
+        while !sim.is_over() && (taps.len() as i64) < cap && (only.is_empty() || sim.state.room_index == room0) {
             let tap = bot.decide(&sim);
             taps.push(tap);
             sim.step(tap);
@@ -87,7 +98,7 @@ pub fn trace(opts: &Opts, cap: i64) -> i32 {
         room_name(&sim),
         DeathCause::NAMES[sim.state.death_cause as usize]
     );
-    sim = GameSim::new(seed);
+    sim = start(seed);
     bot = BlindPlanner::new(seed);
     configure(&mut bot, opts);
     for t in 0..died {

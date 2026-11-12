@@ -30,9 +30,12 @@ const GUST_WARN := SimConfig.ARRIVAL_BLIND
 const GUST_ON := 90
 const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
 ## A gust throws the bird up as it crosses: a wall drawn while the gust will
-## blow on the bird's way there keeps its free run (the room's gap) no more
-## than GUST_DOWN_REACH below the anchor, and its centre no higher than
-## GUST_TOP (a thrown bird would not get back down from the ceiling).
+## blow on the bird's way there keeps a free run (the room's gap, or as much
+## of it as fits) from GUST_UP_REACH above to GUST_DOWN_REACH below the bottom
+## of the last wall's free run (the gust cycle is on screen, so a player can
+## come off that wall low), and no higher than GUST_TOP (a thrown bird would
+## not get back down from the ceiling).
+const GUST_UP_REACH := 160 * SUB
 const GUST_DOWN_REACH := 40 * SUB
 const GUST_TOP := 160 * SUB
 
@@ -50,6 +53,9 @@ var drift_span := 0
 var gust := Gust.NONE
 ## Steps into the cycle (drift or gust), drawn at setup.
 var phase := 0
+## Bottom (centre of its lowest slot) of the free run of the last wall drawn,
+## or -1 before the room's first wall.
+var last_low := -1
 
 
 func _init(
@@ -106,14 +112,22 @@ func touch(sim: GameSim) -> void:
 ## lifts on the way (GUST_DOWN_REACH). The gust is fixed by time and the bird's
 ## x by its speed, so every player of a seed gets the same wall. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
-	if gust == Gust.NONE or lift <= 0 or not _gust_on_way(sim, side):
-		return mask
-	var ok := 0
+	var out := mask
+	if gust != Gust.NONE and lift > 0 and _gust_on_way(sim, side):
+		var low := last_low if last_low >= 0 else sim.state.anchor_y
+		var ok := 0
+		for slot in SimConfig.SLOT_COUNT:
+			var y := SimConfig.slot_center_y(slot)
+			if y >= maxi(GUST_TOP, low - GUST_UP_REACH) and y <= low + GUST_DOWN_REACH:
+				ok |= 1 << slot
+		var all := (1 << SimConfig.SLOT_COUNT) - 1
+		var need := mini(sim.room.def.gap, RoomRules.longest_gap(all & ~ok))
+		out = RoomRules.keep_run(mask, need, ok)
+	var run := RoomRules.longest_gap_mask(out)
 	for slot in SimConfig.SLOT_COUNT:
-		var y := SimConfig.slot_center_y(slot)
-		if y >= GUST_TOP and y <= sim.state.anchor_y + GUST_DOWN_REACH:
-			ok |= 1 << slot
-	return RoomRules.keep_run(mask, sim.room.def.gap, ok)
+		if (run >> slot) & 1 == 1:
+			last_low = SimConfig.slot_center_y(slot)
+	return out
 
 
 ## True if the gust blows at some step the bird, flying straight to wall
@@ -157,7 +171,7 @@ func _place(center: int) -> void:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase])
+	return mix_all(h, [x0, x1, lift, drift_min, drift_span, gust, phase, last_low])
 
 
 ## A gusty vent during its warning: the column, for the gust (a push, not a kill).

@@ -21,6 +21,7 @@ pub struct Updraft {
     pub drift_span: i64,
     pub gust: i64,
     pub phase: i64,
+    pub last_low: i64,
 }
 
 impl Updraft {
@@ -34,6 +35,7 @@ impl Updraft {
     pub const GUST_WARN: i64 = SimConfig::ARRIVAL_BLIND;
     pub const GUST_ON: i64 = 90;
     pub const GUST_PERIOD: i64 = Self::GUST_OFF + Self::GUST_WARN + Self::GUST_ON;
+    pub const GUST_UP_REACH: i64 = 160 * Self::SUB;
     pub const GUST_DOWN_REACH: i64 = 40 * Self::SUB;
     pub const GUST_TOP: i64 = 160 * Self::SUB;
 
@@ -49,6 +51,7 @@ impl Updraft {
             drift_span: 0,
             gust: Gust::NONE,
             phase: 0,
+            last_low: -1,
         };
         u._place(p_center);
         u
@@ -129,17 +132,27 @@ impl Hazard for Updraft {
     /// Gusts: keeps the wall the bird flies to within reach of a bird the gust
     /// lifts on the way (GUST_DOWN_REACH). No RNG draws.
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
-        if self.gust == Gust::NONE || self.lift <= 0 || !self._gust_on_way(sim, side) {
-            return mask;
+        let mut out = mask;
+        if self.gust != Gust::NONE && self.lift > 0 && self._gust_on_way(sim, side) {
+            let low = if self.last_low >= 0 { self.last_low } else { sim.state.anchor_y };
+            let mut ok = 0;
+            for slot in 0..SimConfig::SLOT_COUNT {
+                let y = SimConfig::slot_center_y(slot);
+                if y >= G::maxi(Self::GUST_TOP, low - Self::GUST_UP_REACH) && y <= low + Self::GUST_DOWN_REACH {
+                    ok |= 1i64 << slot;
+                }
+            }
+            let all = (1i64 << SimConfig::SLOT_COUNT) - 1;
+            let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(all & !ok));
+            out = RoomRules::keep_run(mask, need, ok);
         }
-        let mut ok = 0;
+        let run = RoomRules::longest_gap_mask(out);
         for slot in 0..SimConfig::SLOT_COUNT {
-            let y = SimConfig::slot_center_y(slot);
-            if y >= Self::GUST_TOP && y <= sim.state.anchor_y + Self::GUST_DOWN_REACH {
-                ok |= 1i64 << slot;
+            if (run >> slot) & 1 == 1 {
+                self.last_low = SimConfig::slot_center_y(slot);
             }
         }
-        RoomRules::keep_run(mask, sim.room.def().gap, ok)
+        out
     }
 
     fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
@@ -171,6 +184,6 @@ impl Hazard for Updraft {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.x0, self.x1, self.lift, self.drift_min, self.drift_span, self.gust, self.phase])
+        mix_all(h, &[self.x0, self.x1, self.lift, self.drift_min, self.drift_span, self.gust, self.phase, self.last_low])
     }
 }
