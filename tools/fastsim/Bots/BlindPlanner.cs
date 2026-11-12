@@ -256,6 +256,11 @@ public sealed class BlindPlanner
     }
 
     /// A copy of `sim` with every hidden random value replaced by `own`'s.
+    /// Measurement only: copies keep the room's true planned exits (hazards
+    /// treat those mouths as walls from the room's start, ExitZone, before
+    /// they are drawn). True = the planner knows where the exits will be.
+    public static bool know_exits = false;
+
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
     public static GameSim blind_copy(GameSim sim, SimRng own, long bounce_y = -1)
     {
@@ -267,7 +272,7 @@ public sealed class BlindPlanner
         // (plan_room keeps an exit already on screen as it is).
         c.room.rng_seed = own.next_u32();
         c._spine = new SimRng(own.next_u32());
-        if (c.state.plan_at != 0) ExitPlanner.plan_room(c, c.state.plan_at);
+        if (c.state.plan_at != 0 && !know_exits) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
         // MAX_STEP of that (the room's rule, which a player learns).
