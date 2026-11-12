@@ -33,6 +33,12 @@ public static class DiffMain
                 var tube = new Tube { log = Console.WriteLine };
                 var r = tube.run(Cases.arrive(t, long.Parse(opts.GetValueOrDefault("first", "0"))), t.cap);
                 Console.WriteLine($"way {r.way} first_exit {r.first_exit} band min {r.band_min} p10 {r.band_p10} window {r.line_window} med {r.line_window_med}");
+                // A second opinion on the way through: SurvivalSearch (finer buckets, escalating), to the exit.
+                var at = Cases.arrive(t, long.Parse(opts.GetValueOrDefault("first", "0")));
+                var ss = new SurvivalSearch();
+                bool lived = ss.run(at, t.cap);
+                bool out_ = lived && Cases.cleared(ss.best, at.state.room_index);
+                Console.WriteLine($"survival search: {(out_ ? "gets through" : lived ? "lives to the cap but is still in the room" : $"all die by tick {ss.ticks_survived} ({string.Join(", ", ss.last_deaths.Select(kv => kv.Key + " " + kv.Value))})")}");
                 return 0;
             }
         }

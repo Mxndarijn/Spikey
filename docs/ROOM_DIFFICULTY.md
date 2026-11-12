@@ -74,8 +74,8 @@ tell), the bird keeps the plan it had before for R = 0, 20, 40, 60 ticks, then S
 (exact knowledge) looks for a way to live until the next new thing plus 1 s.
 
 - `fail20/40/60`: of the new things with a way at R = 0, the share with no way (or a death in the
-  old plan) at R. `fails20 > 0` means some new thing left no way through for a player who reacts
-  in a third of a second: **unfair** at a human reaction.
+  old plan) at R. More than 2% (`Reaction.MAX_EXTRA_PCT`, at least 2 cases) means new things often leave
+  no way through for a player who reacts in a third of a second: **unfair** at a human reaction.
 - `doomed0`: the share already without a way at R = 0 (the planner's own mistakes, or a room that
   dooms the bird before it shows what will kill it).
 - Holding the old plan for 60 ticks right after a bounce leaves only ~20 ticks before the next
@@ -94,11 +94,12 @@ tell), the bird keeps the plan it had before for R = 0, 20, 40, 60 ticks, then S
 
 ## Categories and flags
 
-- **Bands**: the two cut points on the score (starter | mid | late) that agree best with today's
-  groups of the starter, mid and late rooms. Bonus, seasonal and boss rooms are placed by the
-  same bands but keep their group.
+- **Bands** on the tier scale: starter up to 40 (a normal player clears it 9 times in 10), mid
+  up to 60 (a good player), late above. The report also gives the two cut points that would
+  agree best with today's groups (degenerate when today's late rooms are no harder than the mid
+  ones). Bonus, seasonal and boss rooms are placed by the same bands but keep their group.
 - Flags: `no-way` (an entry with no way through even with exact knowledge), `unfair-react`
-  (`fails20 > 0`), `slow-react` (`fail40` over twice the 90th percentile of the starter rooms),
+  (`fail20` over 2%, at least 2 cases), `slow-react` (`fail40` over twice the 90th percentile of the starter rooms),
   `too-hard` / `too-easy` (the band says a later / earlier group than today's; bonus and seasonal
   rooms above the mid band; bosses below the starter band).
 

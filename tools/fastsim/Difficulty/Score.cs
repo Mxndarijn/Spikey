@@ -321,7 +321,8 @@ public static class Score
     {
         var f = new List<string>();
         if (r.f.GetValueOrDefault("no_way_entries") > 0) f.Add("no-way");
-        if (r.f.GetValueOrDefault("fails20") > 0) f.Add("unfair-react");
+        // Reaction.MAX_EXTRA_PCT: at most 2% of cases may die that a quick reaction survives.
+        if (r.f.GetValueOrDefault("fails20") >= 2 && r.f.GetValueOrDefault("fail20") * 100 > Reaction.MAX_EXTRA_PCT) f.Add("unfair-react");
         else if (r.f.GetValueOrDefault("fail40") > bands.fail40_limit) f.Add("slow-react");
         string sug = bands.category(r);
         if (sug != null && sug != r.group && Bands.ORDER.Contains(r.group))
@@ -362,7 +363,8 @@ public static class Score
             ["weights"] = w == null ? null : new JsonObject(names.Select((n, j) => KeyValuePair.Create(n, num(w[j])))),
             ["loo_r"] = num(loo),
             ["spearman"] = new JsonObject(corr.Select(kv => KeyValuePair.Create(kv.Key, num(kv.Value)))),
-            ["bands"] = new JsonObject { ["starter_max"] = num(bands.lo), ["mid_max"] = num(bands.hi), ["fail40_limit"] = num(bands.fail40_limit), ["agree"] = num(bands.agree) },
+            ["bands"] = new JsonObject { ["starter_max"] = num(bands.lo), ["mid_max"] = num(bands.hi), ["fail40_limit"] = num(bands.fail40_limit), ["agree"] = num(bands.agree),
+                ["fit_starter_max"] = num(bands.fit_lo), ["fit_mid_max"] = num(bands.fit_hi), ["fit_agree"] = num(bands.fit_agree) },
             ["group_median"] = new JsonObject(rooms.Where(r => !double.IsNaN(r.score)).GroupBy(r => r.group)
                 .Select(g => KeyValuePair.Create(g.Key, num(median(g.Select(r => r.score)))))),
             ["rooms"] = arr,
@@ -380,7 +382,8 @@ public static class Score
         sb.AppendLine($"Analytic fit, leave-one-out r with the bot skill: {P(loo, "F2")}");
         sb.AppendLine("Spearman of each measure with the bot skill:");
         foreach (var kv in corr.OrderByDescending(kv => Math.Abs(kv.Value))) sb.AppendLine($"  {kv.Key,-18} {kv.Value,6:F2}");
-        sb.AppendLine($"Bands: starter <= {bands.lo:F0} < mid <= {bands.hi:F0} < late; agreement with today's groups {bands.agree:P0}");
+        sb.AppendLine($"Bands: starter <= {bands.lo:F0} < mid <= {bands.hi:F0} < late; agreement with today's groups {bands.agree:P0} " +
+            $"(best-fitting cuts {bands.fit_lo:F0} / {bands.fit_hi:F0} would agree {bands.fit_agree:P0})");
         sb.AppendLine("Median score per group: " + string.Join(", ", rooms.Where(r => !double.IsNaN(r.score)).GroupBy(r => r.group)
             .Select(g => $"{g.Key} {median(g.Select(r => r.score)):F0}")));
         sb.AppendLine();
@@ -438,16 +441,19 @@ public static class Sub
     }
 }
 
-/// Category bands on the score: the two cut points (starter | mid | late) that
-/// agree best with today's groups (starter, mid, late rooms only); bonus,
-/// seasonal and boss rooms are placed by the same bands but keep their group.
+/// Category bands on the tier scale: starter up to 40 (a normal player clears it 9
+/// times in 10), mid up to 60 (a good player), late above. `agree` is the share of
+/// today's starter, mid and late rooms already in their band; `fit_lo`/`fit_hi` the
+/// two cut points that would agree best (for the report only: when today's late rooms
+/// are no harder than the mid ones, that fit is degenerate). Bonus, seasonal and boss
+/// rooms are placed by the same bands but keep their group.
 public static class Bands
 {
     public static readonly string[] ORDER = { "starter", "mid", "late" };
 
     public sealed class Result
     {
-        public double lo, hi, agree, fail40_limit;
+        public double lo, hi, agree, fail40_limit, fit_lo, fit_hi, fit_agree;
         public string category(Score.Room r)
         {
             if (double.IsNaN(r.score)) return null;
@@ -463,14 +469,17 @@ public static class Bands
         var st = rooms.Where(r => r.group == "starter" && r.f.ContainsKey("fail40")).Select(r => r.f["fail40"]).OrderBy(x => x).ToList();
         res.fail40_limit = st.Count == 0 ? 0.05 : Math.Max(0.02, 2 * st[(int)(0.9 * (st.Count - 1))]);
         if (rs.Count == 0) return res;
+        string band(double x, double lo, double hi) => x <= lo ? "starter" : x <= hi ? "mid" : "late";
         var cuts = rs.Select(r => r.score).Distinct().OrderBy(x => x).ToList();
         int best = -1;
         foreach (var lo in cuts)
             foreach (var hi in cuts.Where(h => h > lo))
             {
-                int ok = rs.Count(r => (r.score <= lo ? "starter" : r.score <= hi ? "mid" : "late") == r.group);
-                if (ok > best) { best = ok; res.lo = lo; res.hi = hi; }
+                int ok = rs.Count(r => band(r.score, lo, hi) == r.group);
+                if (ok > best) { best = ok; res.fit_lo = lo; res.fit_hi = hi; }
             }
+        res.fit_agree = best / (double)rs.Count;
+        best = rs.Count(r => band(r.score, res.lo, res.hi) == r.group);
         res.agree = best / (double)rs.Count;
         return res;
     }
