@@ -93,6 +93,33 @@ replays (needs the user's OK) the bands should be refit from them.
 
 At most 4 threads (`--threads`), BelowNormal priority.
 
-## Results
+## Results (yardstick, seeds 1..400, full cap, first death ends the run)
 
-(See the end of this file, filled in after the runs.)
+| bot | median | p90 | rate median | tier (rate) | deaths/100 pt | alive at cap | looks human |
+|---|---|---|---|---|---|---|---|
+| human:beginner | 41 | 77 | 32 | beginner | 2.14 | 0 | bottom quarter 1%, 1.4 taps/s, 0% taps < 8 ticks apart, timing sd 2.8 |
+| human:normal | 66 | 148 | 55 | normal | 1.26 | 0 | same habits, timing sd 2.4 |
+| human:good | 125 | 340 | 115 | good | 0.60 | 0 | same, timing sd 2.6 |
+| human:expert | 192 | 581 | 182 | expert | 0.38 | 2 | same, timing sd 2.5 |
+| human:beast | 210 | 681 | 209 | expert (claims beast) | 0.33 | 6 | same |
+| reflex (approach B, ES-tuned rules, no copies) | 23 | 50 | 18 | below beginner | 3.7 | 0 | looks-human 87/100 (my score) |
+| HumanBot (first try, real copies, no limits) | ~330 | ~650 | - | - | 0.21-0.29 | - | 89/100 (my score); used hidden draws |
+| rl:beast (for comparison) | 42 | 78 | 32 | beginner | 2.1 | 0 | bottom quarter 62%, 66% taps < 8 ticks apart |
+
+Deaths per 100 points by score band (0..10 / 10..20 / 20..40 / 40..80 / 80..160 / 160..320 / 320+):
+beginner 0.25 / 1.27 / 2.35 / 4.20 / 3.45 / 9.38 / -; normal 0.08 / 0.57 / 1.03 / 1.73 / 1.89 / 2.01 / 2.53;
+good 0 / 0.05 / 0.28 / 0.81 / 0.73 / 0.70 / 0.76; expert 0 / 0.05 / 0.23 / 0.56 / 0.33 / 0.42 / 0.44;
+beast 0 / 0.08 / 0.22 / 0.50 / 0.31 / 0.35 / 0.36.
+
+Beast misses its target: it is the planner itself with only the 8-tick tap gap, and the planner core
+(the review's) sits at ~0.33 deaths per 100 points; beast needs ~0.14.
+
+Findings on the way:
+- A tap 1 tick off moves the bird up to ~17 px, so tap timing is the big skill lever. A planner that
+  assumes exact taps threads one-slot gaps and dies at once with noise; a margin that counts spikes,
+  with a cost that beats the pull to mid height, fixed most of it.
+- Reacting ~17 ticks late to new wall spikes more than halves the rate median of a perfect thumb
+  (251 -> ~120): the bird runs out of time to reach a far gap. In Flappy Bird (Isaksen) reaction barely
+  mattered because pipes show far ahead; here new spikes appear only ~90 ticks before the wall.
+- The bot never goes for coins (a person would); it does not hug the floor (1% of the time in the
+  bottom quarter).
