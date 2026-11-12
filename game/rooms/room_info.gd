@@ -256,29 +256,11 @@ const ROOMS := {
 	],
 	"echo": ["Echo", "A shadow bird flies your path one second behind you.", 4, "ice", "flip"],
 	"boss_watcher":
-	[
-		"The Watcher",
-		"Boss. Beams light whole rows, then its gaze marks you.",
-		5,
-		"star",
-		"beam"
-	],
+	["The Watcher", "Boss. Beams light whole rows, then its gaze marks you.", 5, "star", "beam"],
 	"boss_crusher":
-	[
-		"The Crusher",
-		"Boss. A press slams down, then a jaw leaves a lane.",
-		5,
-		"lava",
-		"blocks"
-	],
+	["The Crusher", "Boss. A press slams down, then a jaw leaves a lane.", 5, "lava", "blocks"],
 	"boss_saw":
-	[
-		"Saw King",
-		"Boss. A huge saw hops between heights, then spins blades.",
-		5,
-		"sunset",
-		"ball"
-	],
+	["Saw King", "Boss. A huge saw hops between heights, then spins blades.", 5, "sunset", "ball"],
 }
 
 
