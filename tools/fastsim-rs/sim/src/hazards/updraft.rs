@@ -34,6 +34,8 @@ impl Updraft {
     pub const GUST_WARN: i64 = SimConfig::ARRIVAL_BLIND;
     pub const GUST_ON: i64 = 90;
     pub const GUST_PERIOD: i64 = Self::GUST_OFF + Self::GUST_WARN + Self::GUST_ON;
+    pub const GUST_DOWN_REACH: i64 = 40 * Self::SUB;
+    pub const GUST_TOP: i64 = 160 * Self::SUB;
 
     /// C# defaults: p_center = WORLD_W / 2, p_half_w = HALF_W, p_lift = LIFT.
     pub fn new(p_center: i64, p_half_w: i64, p_lift: i64) -> Updraft {
@@ -72,6 +74,23 @@ impl Updraft {
         sim.state.x >= self.x0 && sim.state.x <= self.x1
     }
 
+    /// True if the gust blows at some step the bird, flying straight to wall
+    /// `side`, is inside the band.
+    pub fn _gust_on_way(&self, sim: &GameSim, side: i64) -> bool {
+        let at = sim.steps_to_wall(side);
+        let dir = if side == 1 { 1 } else { -1 };
+        for k in 0..at + 1 {
+            let bx = sim.state.x + dir * k * SimConfig::SPEED_X;
+            if bx >= self.x0
+                && bx <= self.x1
+                && G::posmod(self.base.t + k + self.phase, Self::GUST_PERIOD) >= Self::GUST_OFF + Self::GUST_WARN
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn gust_step(&self) -> i64 {
         G::posmod(self.base.t + self.phase, Self::GUST_PERIOD)
     }
@@ -106,6 +125,22 @@ impl Updraft {
 
 impl Hazard for Updraft {
     impl_base!();
+
+    /// Gusts: keeps the wall the bird flies to within reach of a bird the gust
+    /// lifts on the way (GUST_DOWN_REACH). No RNG draws.
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        if self.gust == Gust::NONE || self.lift <= 0 || !self._gust_on_way(sim, side) {
+            return mask;
+        }
+        let mut ok = 0;
+        for slot in 0..SimConfig::SLOT_COUNT {
+            let y = SimConfig::slot_center_y(slot);
+            if y >= Self::GUST_TOP && y <= sim.state.anchor_y + Self::GUST_DOWN_REACH {
+                ok |= 1i64 << slot;
+            }
+        }
+        RoomRules::keep_run(mask, sim.room.def().gap, ok)
+    }
 
     fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
         if self.drift_span > 0 {

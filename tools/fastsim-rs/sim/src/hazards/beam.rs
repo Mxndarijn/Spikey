@@ -31,6 +31,10 @@ impl Beam {
     pub const HALF_H: i64 = 6 * SimConfig::SUB;
     pub const YIELD_GAP: i64 = 2 * SimConfig::BIRD_RADIUS + 8 * SimConfig::SUB;
     pub const YIELD_LEAD: i64 = 20;
+    pub const WALL_FROM: i64 = -6;
+    pub const WALL_TO: i64 = 30;
+    pub const WALL_STEP: i64 = 6;
+    pub const MARGIN: i64 = 4 * SimConfig::SUB;
 
     /// C# defaults: count = ROWS, p_warn = WARN_TICKS, p_yields = false.
     pub fn new(count: i64, p_warn: i64, p_yields: bool) -> Beam {
@@ -112,6 +116,17 @@ impl Beam {
             self.rows[i as usize] + Self::HALF_H,
         )
     }
+
+    /// True if row i's beam is live `steps` from now (a turn it might sit out
+    /// counts as live).
+    pub fn live_in(&self, i: i64, steps: i64) -> bool {
+        let at = self.base.t + steps;
+        if at < self.delays[i as usize] {
+            return false;
+        }
+        let p = G::posmod(at - self.delays[i as usize], Self::PERIOD);
+        p >= self.warn_ticks && p < self.warn_ticks + Self::ON_TICKS
+    }
 }
 
 impl Hazard for Beam {
@@ -167,6 +182,33 @@ impl Hazard for Beam {
                 }
             }
         }
+    }
+
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        let at = sim.steps_to_wall(side);
+        let reach = Self::HALF_H + SimConfig::BIRD_RADIUS + Self::MARGIN;
+        let mut blocked = 0;
+        for i in 0..self.rows.len() as i64 {
+            let mut live = false;
+            let mut d = Self::WALL_FROM;
+            while d < Self::WALL_TO + 1 {
+                if self.live_in(i, at + d) {
+                    live = true;
+                }
+                d += Self::WALL_STEP;
+            }
+            if !live {
+                continue;
+            }
+            for slot in 0..SimConfig::SLOT_COUNT {
+                if G::absi(SimConfig::slot_center_y(slot) - self.rows[i as usize]) < reach {
+                    blocked |= 1i64 << slot;
+                }
+            }
+        }
+        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        RoomRules::keep_run(mask, need, safe)
     }
 
     fn kills(&self, sim: &GameSim) -> bool {

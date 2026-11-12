@@ -22,7 +22,7 @@ impl RoomRules {
         if def.reach > 0 {
             return def.reach;
         }
-        if !def.hazards.is_empty() || !def.combos.is_empty() {
+        if !def.hazards.is_empty() || !def.combos.is_empty() || def.squeeze {
             return Self::GAP_REACH;
         }
         // Rooms that keep their hazards only in variants count too.
@@ -118,5 +118,45 @@ impl RoomRules {
             out_ |= 1i64 << slot;
         }
         out_
+    }
+
+    /// `mask` if it has a run of `need` free slots all in `ok` (a slot mask);
+    /// else `mask` with the run of `need` slots of `ok` nearest the middle of its
+    /// free run cleared (unchanged if `ok` has no such run). No RNG draws.
+    pub fn keep_run(mask: i64, need: i64, ok: i64) -> i64 {
+        let all = (1i64 << SimConfig::SLOT_COUNT) - 1;
+        if need <= 0 || Self::longest_gap(mask | (all & !ok)) >= need {
+            return mask;
+        }
+        let free = Self::longest_gap_mask(mask);
+        let mut mid = 0;
+        let mut n = 0;
+        for slot in 0..SimConfig::SLOT_COUNT {
+            if ((free >> slot) & 1) == 1 {
+                mid += SimConfig::slot_center_y(slot);
+                n += 1;
+            }
+        }
+        if n > 0 {
+            mid /= n;
+        }
+        let mut best = -1;
+        let mut best_d = 0;
+        let span = (1i64 << need) - 1;
+        for start in 0..SimConfig::SLOT_COUNT - need + 1 {
+            if ((ok >> start) & span) != span {
+                continue;
+            }
+            let y = SimConfig::slot_center_y(start) + (need - 1) * SimConfig::SLOT_SIZE / 2;
+            let d = G::absi(y - mid);
+            if best < 0 || d < best_d {
+                best = start;
+                best_d = d;
+            }
+        }
+        if best < 0 {
+            return mask;
+        }
+        mask & !(span << best)
     }
 }

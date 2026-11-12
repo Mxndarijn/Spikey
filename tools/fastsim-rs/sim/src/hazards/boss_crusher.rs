@@ -277,8 +277,20 @@ impl BossKind for BossCrusher {
             if k > self._k && self.jaw && lt >= Self::TELL {
                 spread = G::mini((lt - Self::TELL) * Self::JAW_SPEED, Self::LANE_STEP_MAX[(self.boss.tier - 1) as usize]);
             }
-            top = G::maxi(top, lane - self.lane_half() - Self::TEETH + spread);
-            bottom = G::mini(bottom, lane + self.lane_half() + Self::TEETH - spread);
+            if self.jaw && k == self._k && self.lane_from >= 0 {
+                // This cycle the jaw keeps the last lane until TELL, then slides to
+                // the new one as boss_step moves it.
+                let moved = G::maxi(lt - Self::TELL, 0);
+                let half = self.lane_half() + Self::TEETH;
+                let press = Self::_toward(self.lane_from - half, lane - half, moved * Self::JAW_SPEED, moved * Self::LIFT);
+                let plate =
+                    Self::_toward(self.lane_from + half, lane + half, moved * Self::JAW_SPEED, moved * Self::JAW_SPEED);
+                top = G::maxi(top, press);
+                bottom = G::mini(bottom, plate);
+            } else {
+                top = G::maxi(top, lane - self.lane_half() - Self::TEETH + spread);
+                bottom = G::mini(bottom, lane + self.lane_half() + Self::TEETH - spread);
+            }
         }
         let r = SimConfig::BIRD_RADIUS + Boss::MARGIN;
         y - r > top + Self::BITE && y + r < bottom - Self::BITE

@@ -3,7 +3,7 @@
 //! thresholds, messages and output lines as C#. C# shares the cases out over worker processes
 //! (--jobs); here they run on the rayon pool (--jobs is global), results kept by case index.
 //!   fastsim-rs check [all|passable,arrival,yardstick,sight,blind_seeds] [--filter x] [--jobs N]
-//! Not ported (left out of the list): points, revive, pairs, keys, crawl, gates, isles, rescued,
+//! Not ported (left out of the list): points, revive, keys, crawl, gates, isles, rescued,
 //! runs, rlbot, exits, reach, mpcbot, sameseed.
 use std::cmp::Ordering;
 use std::sync::OnceLock;
@@ -22,7 +22,6 @@ pub mod reach;
 pub mod keys;
 pub mod points;
 pub mod revive;
-pub mod pairs;
 pub mod searches;
 pub mod runs;
 pub mod exits;
@@ -105,7 +104,6 @@ pub fn all() -> &'static Vec<Box<dyn Check>> {
             Box::new(arrival::Arrival::default()),
             Box::new(points::Points::default()),
             Box::new(revive::Revive::default()),
-            Box::new(pairs::Pairs::default()),
             Box::new(keys::Keys::default()),
             Box::new(searches::Crawl::default()),
             Box::new(searches::Gates::default()),

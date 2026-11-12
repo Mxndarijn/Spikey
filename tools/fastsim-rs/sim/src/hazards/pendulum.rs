@@ -35,6 +35,10 @@ impl Pendulum {
     pub const PERIOD: i64 = 180;
     pub const ARRIVAL_TRIES: i64 = 32;
     pub const SWING_STEP: i64 = 4 * SimConfig::SUB;
+    pub const WALL_FROM: i64 = -30;
+    pub const WALL_TO: i64 = 12;
+    pub const WALL_STEP: i64 = 3;
+    pub const MARGIN: i64 = 4 * SimConfig::SUB;
 
     /// C# defaults: p_pivot_x = PIVOT_X, p_length = LENGTH, p_radius = RADIUS,
     /// p_amplitude = AMPLITUDE, p_period = PERIOD.
@@ -136,6 +140,12 @@ impl Pendulum {
         }
         px + far >= ExitZone::left_on(sim, 1)
     }
+
+    pub fn _near(ax: i64, ay: i64, bx: i64, by: i64, reach: i64) -> bool {
+        let dx = ax - bx;
+        let dy = ay - by;
+        dx * dx + dy * dy < reach * reach
+    }
 }
 
 impl Hazard for Pendulum {
@@ -214,6 +224,37 @@ impl Hazard for Pendulum {
             a += 1;
         }
         false
+    }
+
+    /// Keeps a way past the lanterns on the wall the bird flies to. No RNG draws.
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        let at = sim.steps_to_wall(side);
+        let r = SimConfig::BIRD_RADIUS;
+        let edge = if side == 1 { sim.room.wall_right() - r } else { sim.room.wall_left() + r };
+        let into = if side == 1 { -1 } else { 1 };
+        let reach = self.radius + r + Self::MARGIN;
+        let keep = self.base.t;
+        let mut blocked = 0;
+        let mut d = Self::WALL_FROM;
+        while d < Self::WALL_TO + 1 {
+            self.base.t = keep + at + d;
+            self._place();
+            let bx = edge + into * G::absi(d) * SimConfig::SPEED_X;
+            for slot in 0..SimConfig::SLOT_COUNT {
+                let sy = SimConfig::slot_center_y(slot);
+                if Self::_near(bx, sy, self.x, self.y, reach)
+                    || (self.has_twin() && Self::_near(bx, sy, self.x2, self.y2, reach))
+                {
+                    blocked |= 1i64 << slot;
+                }
+            }
+            d += Self::WALL_STEP;
+        }
+        self.base.t = keep;
+        self._place();
+        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        RoomRules::keep_run(mask, need, safe)
     }
 
     fn kills(&self, sim: &GameSim) -> bool {

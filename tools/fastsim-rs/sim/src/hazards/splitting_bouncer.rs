@@ -67,9 +67,7 @@ impl Hazard for SplittingBouncer {
         if self.warn < Self::WARN {
             return;
         }
-        let dx = self.b.x - sim.state.x;
-        let dy = self.b.y - sim.state.y;
-        if dx * dx + dy * dy < Self::CLEAR * Self::CLEAR {
+        if G::absi(self.b.x - sim.state.x) < Self::CLEAR {
             return;
         }
         self._split();
@@ -85,7 +83,26 @@ impl Hazard for SplittingBouncer {
         }
     }
 
-    // straight_path() is false: near_row stays the Hazard default (false).
+    // straight_path() is `other != null`: before the split near_row and
+    // adjust_wall do nothing; split, both balls fly straight.
+    fn near_row(&self, sim: &GameSim, p_y: i64, half: i64, from: i64, to: i64) -> bool {
+        if self.other.is_none() {
+            return false;
+        }
+        self.b.near_row_straight(sim, p_y, half, from, to)
+    }
+
+    /// Split: a way past both balls (Bouncer.adjust_wall for each).
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        if self.other.is_none() {
+            return mask;
+        }
+        let mut out_ = self.b.adjust_wall_straight(sim, side, mask);
+        if let Some(other) = &mut self.other {
+            out_ = other.adjust_wall_straight(sim, side, out_);
+        }
+        out_
+    }
 
     fn warnings(&self, _sim: &GameSim, out_: &mut Vec<i64>) {
         if self.other.is_some() || self.b.base.t < Self::SPLIT_AT {

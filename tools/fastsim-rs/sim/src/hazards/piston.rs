@@ -75,6 +75,23 @@ impl Piston {
         }
     }
 
+    /// No wall spike shares the ram's row on its own wall: the slots whose spike
+    /// would touch the ram's body are cleared. No RNG draws.
+    fn _clear_spikes(&self, sim: &mut GameSim) {
+        let reach = Self::HALF_H + SimConfig::SPIKE_HALF_BASE;
+        let mut mask = if self.side == 0 { sim.state.left_spikes } else { sim.state.right_spikes };
+        for slot in 0..SimConfig::SLOT_COUNT {
+            if G::absi(SimConfig::slot_center_y(slot) - self.y) < reach {
+                mask &= !(1i64 << slot);
+            }
+        }
+        if self.side == 0 {
+            sim.state.left_spikes = mask;
+        } else {
+            sim.state.right_spikes = mask;
+        }
+    }
+
     fn _clear_row(&mut self, sim: &GameSim) {
         if self.fixed_y >= 0 || self.leader.is_some() {
             return;
@@ -222,10 +239,12 @@ impl Hazard for Piston {
 
     fn on_bounce(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
         if self.fixed_y >= 0 {
+            self._clear_spikes(sim);
             return;
         }
         if let Some(l) = self.leader {
             self.y = Self::_leader_y(sim, l);
+            self._clear_spikes(sim);
             return;
         }
         // Always draw so the RNG order does not depend on the piston state.
@@ -235,6 +254,7 @@ impl Hazard for Piston {
         if self._cycle_state() != State::IDLE {
             self.y = old;
         }
+        self._clear_spikes(sim);
     }
 
     fn step(&mut self, sim: &mut GameSim) {

@@ -17,7 +17,7 @@ new warnings, Trace, Atlas), the yardstick, the test protocol (`measure`, incl.
 bench, and every check but four (below).
 Retired with C# FastSim, not ported: WorldPlanner, MPC, RL, HumanBot and Reflex,
 honest-v1, the checks rlbot, rlboss, mpcbot and mpcboss, `combos` (Double
-Trouble is being removed), and research switches that were off by default
+Trouble was removed), and research switches that were off by default
 (`longest`, `peek`, `aim_wall`, `mid_visible`, `mc_samples`). Their research is
 in the git history (`docs/ARCHITECTURE.md`, Retired bots).
 

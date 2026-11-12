@@ -547,7 +547,16 @@ impl GameSim {
                 continue;
             }
             let cy = SimConfig::slot_center_y(slot) + shift;
-            if G::absi(self.state.y - cy) > hb + SimConfig::BIRD_RADIUS {
+            let mut lo = cy - hb;
+            let mut hi = cy + hb;
+            // The top and bottom spikes reach the ceiling and floor lines with their
+            // base, so no lane is left between them and the edge.
+            if slot == 0 {
+                lo = G::mini(lo, SimConfig::KILL_TOP);
+            } else if slot == SimConfig::SLOT_COUNT - 1 {
+                hi = G::maxi(hi, SimConfig::KILL_BOTTOM);
+            }
+            if self.state.y < lo - SimConfig::BIRD_RADIUS || self.state.y > hi + SimConfig::BIRD_RADIUS {
                 continue;
             }
             let tip_x = base_x + dir * depth;
@@ -556,9 +565,9 @@ impl GameSim {
                 self.state.y,
                 SimConfig::BIRD_RADIUS,
                 base_x,
-                cy - hb,
+                lo,
                 base_x,
-                cy + hb,
+                hi,
                 tip_x,
                 cy,
             ) {

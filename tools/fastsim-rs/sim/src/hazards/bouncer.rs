@@ -25,6 +25,8 @@ impl Bouncer {
     pub const SPEED_Y: i64 = 2 * SimConfig::SUB + 32;
     pub const MARGIN: i64 = 44 * SimConfig::SUB;
     pub const TWIN_RADIUS: i64 = 15 * SimConfig::SUB;
+    pub const ESCORT_MARGIN: i64 = 4 * SimConfig::SUB;
+    pub const ESCORT_REACT: i64 = SimConfig::ARRIVAL_BLIND;
 
     /// C# defaults: p_radius = RADIUS, p_lane = Lane.ANY.
     pub fn new(p_radius: i64, p_lane: i64) -> Bouncer {
@@ -93,7 +95,8 @@ impl Bouncer {
         SimConfig::WORLD_H - Self::MARGIN - self.radius
     }
 
-    /// Bouncer.near_row for a straight path (the subclasses' straight_path() is false).
+    /// Bouncer.near_row for a straight path (the subclasses' straight_path() is false,
+    /// SplittingBouncer's true once split).
     pub fn near_row_straight(&self, sim: &GameSim, p_y: i64, half: i64, from: i64, to: i64) -> bool {
         // C# moves itself and restores the fields after; a copy is the same.
         let mut c = self.clone();
@@ -106,6 +109,53 @@ impl Bouncer {
             }
         }
         out_
+    }
+
+    /// Bouncer.adjust_wall for a straight path (the subclasses' straight_path()
+    /// is false, SplittingBouncer's true once split). Keeps a way past a ball that
+    /// escorts the bird to the wall it flies to. No RNG draws.
+    pub fn adjust_wall_straight(&mut self, sim: &GameSim, side: i64, mask: i64) -> i64 {
+        let at = sim.steps_to_wall(side);
+        let dir = if side == 1 { 1 } else { -1 };
+        let near = self.radius + SimConfig::BIRD_RADIUS + Self::ESCORT_MARGIN;
+        let keep_x = self.x;
+        let keep_y = self.y;
+        let keep_vx = self.vx;
+        let keep_vy = self.vy;
+        let mut start = -1;
+        let mut start_y = 0;
+        for k in 1..at + 1 {
+            self.move_(sim);
+            if G::absi(self.x - (sim.state.x + dir * k * SimConfig::SPEED_X)) < near {
+                if start < 0 {
+                    start = k;
+                    start_y = self.y;
+                }
+            } else {
+                start = -1;
+            }
+        }
+        let end_y = self.y;
+        self.x = keep_x;
+        self.y = keep_y;
+        self.vx = keep_vx;
+        self.vy = keep_vy;
+        if start < 0 {
+            return mask;
+        }
+        let above = sim.state.anchor_y < start_y;
+        let mut blocked = 0;
+        for slot in 0..SimConfig::SLOT_COUNT {
+            let sy = SimConfig::slot_center_y(slot);
+            if G::absi(sy - end_y) < near {
+                blocked |= 1i64 << slot;
+            } else if start <= Self::ESCORT_REACT && (sy < end_y) != above {
+                blocked |= 1i64 << slot;
+            }
+        }
+        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        RoomRules::keep_run(mask, need, safe)
     }
 }
 
@@ -142,6 +192,10 @@ impl Hazard for Bouncer {
 
     fn near_row(&self, sim: &GameSim, p_y: i64, half: i64, from: i64, to: i64) -> bool {
         self.near_row_straight(sim, p_y, half, from, to)
+    }
+
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        self.adjust_wall_straight(sim, side, mask)
     }
 
     fn checksum(&self, h: i64) -> i64 {

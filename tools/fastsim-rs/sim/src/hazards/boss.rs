@@ -117,54 +117,19 @@ impl Boss {
     }
 
     pub fn adjust_wall<K: BossKind>(k: &mut K, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
-        let mut mask = mask;
         if k.boss().down_at >= 0 {
             return mask;
         }
         let at = sim.steps_to_wall(side);
-        let free = RoomRules::longest_gap_mask(mask);
-        let mut mid = 0;
-        let mut n = 0;
+        let mut blocked = 0;
         for slot in 0..SimConfig::SLOT_COUNT {
-            if !RoomRules::has_slot(mask, slot) {
-                let y = SimConfig::slot_center_y(slot);
-                if Self::_safe_span(k, y, at) {
-                    return mask;
-                }
-                if ((free >> slot) & 1) == 1 {
-                    mid += y;
-                    n += 1;
-                }
-                if slot + 1 < SimConfig::SLOT_COUNT && !RoomRules::has_slot(mask, slot + 1) {
-                    if Self::_safe_span(k, y + SimConfig::SLOT_SIZE / 2, at) {
-                        return mask;
-                    }
-                }
+            if !Self::_safe_span(k, SimConfig::slot_center_y(slot), at) {
+                blocked |= 1i64 << slot;
             }
         }
-        if n > 0 {
-            mid /= n;
-        }
-        let mut best = -1;
-        let mut best_d = 0;
-        for slot in 0..SimConfig::SLOT_COUNT {
-            let y = SimConfig::slot_center_y(slot);
-            if !Self::_safe_span(k, y, at) {
-                continue;
-            }
-            let d = G::absi(y - mid);
-            if best < 0 || d < best_d {
-                best = slot;
-                best_d = d;
-            }
-        }
-        if best < 0 {
-            return mask;
-        }
-        for slot in G::maxi(best - 1, 0)..G::mini(best + 2, SimConfig::SLOT_COUNT) {
-            mask &= !(1i64 << slot);
-        }
-        mask
+        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        RoomRules::keep_run(mask, need, safe)
     }
 
     pub fn _safe_span<K: BossKind>(k: &K, y: i64, at: i64) -> bool {

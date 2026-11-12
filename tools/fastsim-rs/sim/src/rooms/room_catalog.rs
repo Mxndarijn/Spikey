@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use crate::rooms::room_def::RoomDef;
 use crate::rooms::seasons::Seasons;
 use crate::rooms::{
-    catalog_boss::CatalogBoss, catalog_combo::CatalogCombo, catalog_core::CatalogCore,
+    catalog_boss::CatalogBoss, catalog_core::CatalogCore,
     catalog_machines::CatalogMachines, catalog_motion::CatalogMotion, catalog_seasonal::CatalogSeasonal,
     catalog_sky::CatalogSky, catalog_twists::CatalogTwists,
 };
@@ -62,7 +62,6 @@ impl RoomCatalog {
             list.extend(CatalogMachines::defs());
             list.extend(CatalogSky::defs());
             list.extend(CatalogSeasonal::defs());
-            list.extend(CatalogCombo::defs());
             list.extend(CatalogTwists::defs());
             list.extend(CatalogBoss::defs());
             list

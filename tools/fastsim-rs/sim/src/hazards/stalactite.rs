@@ -137,20 +137,35 @@ impl Hazard for Stalactite {
                 swapped = true;
             }
         }
-        let near_target = if self.base.t == 0 {
-            if swapped { Self::_partner(sim, self.partner.unwrap()).gap_y } else { self.gap_y }
-        } else {
-            Self::_around(rng, sim.state.anchor_y, Self::REACH)
-        };
-        if swapped {
-            Self::_partner_mut(sim, self.partner.unwrap()).target_y = near_target;
-        } else {
-            self.target_y = near_target;
-        }
-        let mut column_target_y = near_target;
         let far_exists = swapped || self.partner.is_some();
+        if self.base.t == 0 {
+            // Just came out of a portal into this room: the gap ahead stays at
+            // the bird's height (set in setup).
+            if swapped {
+                let p = Self::_partner_mut(sim, self.partner.unwrap());
+                p.target_y = p.gap_y;
+            } else {
+                self.target_y = self.gap_y;
+            }
+        } else {
+            // With a partner the near column keeps its gap, except once the exit
+            // (or its ghost) shows; the draw stays, so the RNG order does too.
+            let drawn = Self::_around(rng, sim.state.anchor_y, Self::REACH);
+            if !far_exists || sim.state.exit_open || sim.state.exit_preview {
+                if swapped {
+                    Self::_partner_mut(sim, self.partner.unwrap()).target_y = drawn;
+                } else {
+                    self.target_y = drawn;
+                }
+            }
+        }
+        let near_target = if swapped { Self::_partner(sim, self.partner.unwrap()).target_y } else { self.target_y };
+        let mut column_target_y = near_target;
         if far_exists {
-            let far_target = Self::_around(rng, near_target, Self::MAX_STEP);
+            // The far column walks toward the anchor, within MAX_STEP of the near one.
+            let n = near_target;
+            let far_target =
+                G::clampi(Self::_around(rng, sim.state.anchor_y, Self::MAX_STEP), n - Self::MAX_STEP, n + Self::MAX_STEP);
             if swapped {
                 self.target_y = far_target;
             } else {

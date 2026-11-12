@@ -54,7 +54,6 @@ proves the sim, the bots and the start sims (`tests/support/bot_setups.gd` =
 | `arrival` | `arrival.rs` | `tests/sim/test_arrival_reaction.gd` | out of a portal, no 0.75 s reaction is killed with no way to live; at 1 s at most `ArrivalBench.MAX_EXTRA_PCT` of arrivals over every room and variant (32 each) |
 | `points` | `points.rs` | `tests/sim/test_room_points_cap.gd` | no room stay pays more than `POINTS_PER_ROOM`, every variant, revives included |
 | `revive` | `revive.rs` | `tests/sim/test_revive_survivable.gd` | after a revive in every room, every exit case, both walls, both ways in and three portal heights, a way to live on |
-| `pairs` | `pairs.rs` | `tests/sim/test_double_trouble.gd` | every Double Trouble pair has a way through |
 | `keys` | `keys.rs` | (new, named `tests/unit/test_locked_out.gd:test_every_key_can_be_taken`) | Locked Out, every variant, 12 seeds each: SurvivalSearch takes every key before it leaves through the exit |
 | `crawl` | `searches.rs` | searches of `tests/sim/test_crawl_passable.gd` | through the first portal on the seeds a crawler once blocked; from a revive through the hard exits |
 | `gates` | `searches.rs` | searches of `tests/sim/test_gates_passable.gd` | the portal is reachable: once impossible seeds, quick runs before an exit, after a revive at every height |

@@ -268,14 +268,12 @@ pub struct Rescued {
 }
 
 impl Rescued {
-    pub const CASES: [(&'static str, i64, i64); 4] = [
+    pub const CASES: [(&'static str, i64, i64); 3] = [
         // Gravity Flip (the search itself used to mix up flipped speeds).
         ("flip", 1000, 300),
         // Saw Ring: wide rings left no way to the wall gap.
         ("sawring", 1000, 600),
         ("sawring", 1154, 900),
-        // Double Trouble: four full-width beams plus the bouncing ball.
-        ("double", 1077, 520),
     ];
 
     fn cases(&self) -> &Vec<Option<S>> {

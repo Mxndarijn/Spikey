@@ -15,6 +15,7 @@ pub struct CrateDrop {
     pub pair: bool,
 
     pub col: i64,
+    pub wait_warn: i64,
     pub y: i64,
     pub vy: i64,
     pub done: bool,
@@ -42,6 +43,8 @@ impl CrateDrop {
     pub const FALL_ACCEL: i64 = 20;
     pub const MAX_FALL: i64 = 9 * SimConfig::SUB;
     pub const COIN_LIFT: i64 = 4 * SimConfig::SUB;
+    pub const FAIR_SPAN: i64 = 50;
+    pub const WAIT: i64 = -2;
 
     /// C# defaults: p_gifts = false, p_cols = COLS, p_col_w = COL_W,
     /// p_crate_w = CRATE, p_crate_h = CRATE, p_max_height = MAX_HEIGHT,
@@ -65,6 +68,7 @@ impl CrateDrop {
             max_height: Self::MAX_HEIGHT,
             pair: false,
             col: -1,
+            wait_warn: 0,
             y: 0,
             vy: 0,
             done: false,
@@ -97,10 +101,14 @@ impl CrateDrop {
     }
 
     pub fn _next_drop(&mut self, sim: Option<&GameSim>, warn: i64) {
-        self.col = self._free_col(sim, G::posmod(SimHash::mix(self.salt, self.drops), self.cols), -1);
+        self.col = self._free_col(sim, G::posmod(SimHash::mix(self.salt, self.drops), self.cols), -1, warn);
         self.col_b = -1;
+        if self.col == Self::WAIT {
+            self.wait_warn = warn;
+            return;
+        }
         if self.pair && self.col >= 0 {
-            self.col_b = self._free_col(sim, (self.col + self.cols / 2) % self.cols, self.col);
+            self.col_b = self._free_col(sim, (self.col + self.cols / 2) % self.cols, self.col, warn);
         }
         self.drops += 1;
         self.y = -self.crate_h;
@@ -112,7 +120,12 @@ impl CrateDrop {
         self.warn_left = warn;
     }
 
-    pub fn _free_col(&self, sim: Option<&GameSim>, start: i64, skip: i64) -> i64 {
+    /// The first column from `start` on (wrapping) that is not full, not `skip`,
+    /// not falling through an exit's mouth and fair (_fair_col); WAIT if there
+    /// are such columns but none is fair (a pair's second crate takes the first
+    /// of them instead); -1 if there are none.
+    pub fn _free_col(&self, sim: Option<&GameSim>, start: i64, skip: i64, warn: i64) -> i64 {
+        let mut first = -1;
         for i in 0..self.cols {
             let c = (start + i) % self.cols;
             if c != skip
@@ -122,10 +135,58 @@ impl CrateDrop {
                     Some(s) => !self._col_in_exit(s, c),
                 })
             {
-                return c;
+                let fair = match sim {
+                    None => true,
+                    Some(s) => self._fair_col(s, c, warn),
+                };
+                if fair {
+                    return c;
+                }
+                if first < 0 {
+                    first = c;
+                }
             }
         }
-        -1
+        if first >= 0 && skip < 0 {
+            return Self::WAIT;
+        }
+        first
+    }
+
+    /// False if the bird comes into column c's kill range in x while its crate,
+    /// warned for `warn` steps, falls (FAIR_SPAN).
+    pub fn _fair_col(&self, sim: &GameSim, c: i64, warn: i64) -> bool {
+        self.entry_steps(sim, c, warn + Self::FAIR_SPAN + 1, warn) > warn + Self::FAIR_SPAN
+    }
+
+    /// Steps until the bird, flying on, first comes into column c's crate in x
+    /// at `from` steps or later; `limit` if not before then. GDScript default:
+    /// from = 0.
+    pub fn entry_steps(&self, sim: &GameSim, c: i64, limit: i64, from: i64) -> i64 {
+        let r = SimConfig::BIRD_RADIUS;
+        let lo = self.col_left(c) - r;
+        let hi = self.col_left(c) + self.crate_w + r;
+        let mut x = sim.state.x;
+        let mut vx = sim.state.vx;
+        let left = sim.room.wall_left();
+        let right = sim.room.wall_right();
+        let mut was_in = false;
+        for s in 0..limit {
+            let is_in = x >= lo && x <= hi;
+            if is_in && !was_in && s >= from {
+                return s;
+            }
+            was_in = is_in;
+            x += vx;
+            if vx > 0 && x + r >= right {
+                x = 2 * (right - r) - x;
+                vx = -vx;
+            } else if vx < 0 && x - r <= left {
+                x = 2 * (left + r) - x;
+                vx = -vx;
+            }
+        }
+        limit
     }
 
     fn _col_in_exit(&self, sim: &GameSim, c: i64) -> bool {
@@ -189,11 +250,18 @@ impl Hazard for CrateDrop {
     }
 
     fn step(&mut self, sim: &mut GameSim) {
+        if self.col == Self::WAIT {
+            let warn = self.wait_warn;
+            self._next_drop(Some(sim), warn);
+        }
         if self.col < 0 {
             return;
         }
         if self.base.t == 1
-            && (self._col_in_exit(sim, self.col) || (self.col_b >= 0 && self._col_in_exit(sim, self.col_b)))
+            && (self._col_in_exit(sim, self.col)
+                || (self.col_b >= 0 && self._col_in_exit(sim, self.col_b))
+                || !self._fair_col(sim, self.col, self.warn_left)
+                || (self.col_b >= 0 && !self._fair_col(sim, self.col_b, self.warn_left)))
         {
             self.drops -= 1;
             let warn = self.warn_left;
@@ -291,7 +359,7 @@ impl Hazard for CrateDrop {
     fn checksum(&self, h: i64) -> i64 {
         let mut out_ = mix_all(
             h,
-            &[self.col, self.y, self.vy, self.warn_left, self.drops, self.salt, G::b(self.gifts)],
+            &[self.col, self.y, self.vy, self.warn_left, self.drops, self.salt, G::b(self.gifts), self.wait_warn],
         );
         if self.pair {
             out_ = mix_all(out_, &[self.col_b, self.y_b, self.vy_b, G::b(self.done), G::b(self.done_b)]);

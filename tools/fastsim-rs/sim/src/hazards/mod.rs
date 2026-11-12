@@ -310,7 +310,18 @@ impl Hz {
     pub fn has_adjust_wall(&self) -> bool {
         matches!(
             self,
-            Hz::BossCrusher(_) | Hz::BossSaw(_) | Hz::BossWatcher(_) | Hz::Crawler(_) | Hz::ExitKey(_) | Hz::Gate(_) | Hz::Lava(_)
+            Hz::Beam(_)
+                | Hz::BossCrusher(_)
+                | Hz::BossSaw(_)
+                | Hz::BossWatcher(_)
+                | Hz::Bouncer(_)
+                | Hz::Crawler(_)
+                | Hz::ExitKey(_)
+                | Hz::Gate(_)
+                | Hz::Lava(_)
+                | Hz::Pendulum(_)
+                | Hz::SplittingBouncer(_)
+                | Hz::Updraft(_)
         )
     }
 }
