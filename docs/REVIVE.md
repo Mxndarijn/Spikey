@@ -87,8 +87,15 @@ bird is back at the portal it came through:
 | At death | After the revive |
 |---|---|
 | No exit | no exit; nothing is drawn from the RNG |
-| Exit open, either wall | still open, moved to the portal the bird comes out of: the wall it came in by, at the spike slot nearest its height (`ExitPlanner.at_bird`; at a fork the exit on the bird's side of the split moves, the other stays). Where a hazard blocks that height (Shutter Gates), it is planned again on that wall (`ExitPlanner.plan`) and the bird comes out just clear of the spike tips |
-| Ghost exit, either wall | still a ghost, planned again on the wall it came in by (`ExitPlanner.plan`, the same score), among the hazards as they are after the revive |
+| Exit open, either wall | still open, on the wall it came in by, at the room's planned exit for that wall (`ExitPlanner.use_plan`, the plan made when the room started). That wall is spiked everywhere else, but none level with the bird until its next bounce (`SimState.revive_gap`), so it comes out of its portal where it went in |
+| Ghost exit, either wall | still a ghost, on the wall it came in by, at the room's planned exit for that wall |
+
+Nothing about the exits is drawn or moved by a revive (next gameplay
+version): the room's planned exits (`SimState.plan_*`) come back with
+`_entry_state`, so every player of a seed meets the same exits, whenever and
+wherever they died. The bird comes back out of its portal with the frozen wait,
+so the arrival fairness (docs/ARCHITECTURE.md "Same seed, same run") covers the
+restart.
 
 Why this:
 
@@ -151,10 +158,11 @@ Known side effects, accepted:
   2. `room` = a copy of `_entry_room`; `state.room_kind` from it.
   3. `state.x`, `y`, `vx`, `left_spikes`, `right_spikes` from `_entry_state`;
      `vy = 0`.
-  4. The exit, by the table above: `ExitPlanner.at_bird(behind)` for an open
-     exit (if it returns false, `ExitPlanner.plan(behind, score)` and the bird
-     moves `max_spike_depth() + 1` sub-unit off the wall),
-     `ExitPlanner.plan(behind, score + 1)` for a ghost.
+  4. The exit, by the table above: `ExitPlanner.use_plan(behind, score)` for an
+     open exit (and `state.revive_gap = y`: no spike level with the bird on
+     that wall until it next bounces), `ExitPlanner.use_plan(behind, score + 1)`
+     for a ghost. No RNG draws. The room's plan checks the wall behind for this
+     timing too (`ExitPlanner.plan_room`, `GameSim._points_also`).
   5. `state.arrival_hold = ARRIVAL_HOLD`; `events.append(Event.REVIVE)`.
 - `revive()` does not advance `state.tick`. It is called between steps, while
   the sim is dead, so the time spent on the offer or in the ad is not part of

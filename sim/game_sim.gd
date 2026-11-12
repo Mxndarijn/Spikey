@@ -67,6 +67,11 @@ var _checking := false
 ## ARRIVAL_BLIND when no layout was fair for every bird in the exit at the
 ## short wait (_arrival_retries). Reset after each arrival.
 var _arrival_wait := SimConfig.PORTAL_HOLD
+## While ExitPlanner plans: points_to_exit() as if this many points were left
+## (-1 = the real count), and a second count the plan must also be clear for
+## (-1 = none; see ExitPlanner.plan_room).
+var _points_override := -1
+var _points_also := -1
 ## The free part of the wall just bounced off, top and bottom (-1 = none
 ## known): set by _anchor_at_wall for the _new_wall right after it.
 var _free_lo := -1
@@ -183,22 +188,33 @@ func revive() -> bool:
 	# An exit always ends up on the wall the bird came in by, so a crossing and
 	# a bounce come before it. Ahead, an open one would leave a single flight to
 	# line up with it and a ghost would open under the bird as it bounced there.
-	# An open exit is the portal the bird comes out of (that wall is spiked
-	# everywhere but the exit). Where a hazard blocks that height (Shutter
-	# Gates), it is planned again on that wall and the bird comes out just
-	# clear of the spike tips. A ghost is planned again behind the bird, among
-	# the hazards as they are now (where it was, one could block it).
+	# It is the room's own planned exit for that wall (ExitPlanner.plan_room,
+	# kept in _entry_state), so a revive changes nothing about where the exits
+	# are: the same for every player of the seed, whenever they died. With an
+	# open exit that wall is spiked everywhere but the exit, so the bird comes
+	# out just clear of the spike tips.
 	var behind := 0 if state.vx > 0 else 1
+	state.revive_gap = 0
 	if state.exit_open:
-		if not ExitPlanner.at_bird(self, behind):
-			ExitPlanner.plan(self, _rng, behind, state.score)
-			var clear := room.max_spike_depth() + SimConfig.SUB
-			state.x += clear if behind == 0 else -clear
+		ExitPlanner.use_plan(self, behind, state.score)
+		# That wall is spiked everywhere but the exit: none level with the
+		# bird until it next bounces, so it comes out of its portal as it did.
+		state.revive_gap = state.y
 	elif state.exit_preview:
-		ExitPlanner.plan(self, _rng, behind, state.score + 1)
+		ExitPlanner.use_plan(self, behind, state.score + 1)
 	state.arrival_hold = SimConfig.ARRIVAL_HOLD
 	events.append(Event.REVIVE)
 	return true
+
+
+## The wall slots whose spikes would be level with a bird at height `y`.
+func _slots_level_with(y: int) -> int:
+	var reach := room.spike_half_base() + SimConfig.BIRD_RADIUS
+	var out := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if absi(y - SimConfig.slot_center_y(slot)) <= reach:
+			out |= 1 << slot
+	return out
 
 
 ## The spikes a wall shows right now. A wall with an open exit is spiked
@@ -207,7 +223,10 @@ func revive() -> bool:
 ## ghost's slots, so the ghost never sits on a spike.
 func wall_mask(side: int) -> int:
 	if state.exit_open and state.exit_side == side:
-		return ((1 << SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state)
+		var open := ((1 << SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state)
+		if state.revive_gap > 0:
+			open &= ~_slots_level_with(state.revive_gap)
+		return open
 	var mask := room.wall_mask(side, state.left_spikes if side == 0 else state.right_spikes)
 	if state.exit_preview and state.exit_side == side:
 		mask &= ~ExitPlanner.slots(state)
@@ -358,6 +377,7 @@ func _check_walls() -> void:
 	if state.vx > 0 and state.x + r >= right:
 		if _take_exit(1):
 			return
+		state.revive_gap = 0
 		_anchor_at_wall(1)
 		state.x = 2 * (right - r) - state.x
 		state.vx = -SimConfig.SPEED_X
@@ -369,6 +389,7 @@ func _check_walls() -> void:
 	elif state.vx < 0 and state.x - r <= left:
 		if _take_exit(0):
 			return
+		state.revive_gap = 0
 		_anchor_at_wall(0)
 		state.x = 2 * (left + r) - state.x
 		state.vx = SimConfig.SPEED_X
@@ -445,6 +466,8 @@ func next_exit_score() -> int:
 
 ## Bounces still to score before the next exit opens.
 func points_to_exit() -> int:
+	if _points_override >= 0:
+		return _points_override
 	return next_exit_score() - state.score
 
 

@@ -140,17 +140,14 @@ public sealed class GameSim
         state.left_spikes = _entry_state.left_spikes;
         state.right_spikes = _entry_state.right_spikes;
         long behind = state.vx > 0 ? 0 : 1;
+        state.revive_gap = 0;
         if (state.exit_open)
         {
-            if (!ExitPlanner.at_bird(this, behind))
-            {
-                ExitPlanner.plan(this, _rng, behind, state.score);
-                long clear = room.max_spike_depth() + SimConfig.SUB;
-                state.x += behind == 0 ? clear : -clear;
-            }
+            ExitPlanner.use_plan(this, behind, state.score);
+            state.revive_gap = state.y;
         }
         else if (state.exit_preview)
-            ExitPlanner.plan(this, _rng, behind, state.score + 1);
+            ExitPlanner.use_plan(this, behind, state.score + 1);
         state.arrival_hold = SimConfig.ARRIVAL_HOLD;
         events.Add(Event.REVIVE);
         return true;
@@ -159,7 +156,11 @@ public sealed class GameSim
     public long wall_mask(long side)
     {
         if (state.exit_open && state.exit_side == side)
-            return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state);
+        {
+            long open = ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state);
+            if (state.revive_gap > 0) open &= ~_slots_level_with(state.revive_gap);
+            return open;
+        }
         long mask = room.wall_mask(side, side == 0 ? state.left_spikes : state.right_spikes);
         if (state.exit_preview && state.exit_side == side) mask &= ~ExitPlanner.slots(state);
         return mask;
@@ -306,6 +307,7 @@ public sealed class GameSim
         if (state.vx > 0 && state.x + r >= right)
         {
             if (_take_exit(1)) return;
+            state.revive_gap = 0;
             _anchor_at_wall(1);
             state.x = 2 * (right - r) - state.x;
             state.vx = -SimConfig.SPEED_X;
@@ -318,6 +320,7 @@ public sealed class GameSim
         else if (state.vx < 0 && state.x - r <= left)
         {
             if (_take_exit(0)) return;
+            state.revive_gap = 0;
             _anchor_at_wall(0);
             state.x = 2 * (left + r) - state.x;
             state.vx = SimConfig.SPEED_X;
@@ -386,7 +389,19 @@ public sealed class GameSim
         return (state.score / every + 1) * every;
     }
 
-    public long points_to_exit() => next_exit_score() - state.score;
+    public long _points_override = -1;
+    public long _points_also = -1;
+
+    public long points_to_exit() => _points_override >= 0 ? _points_override : next_exit_score() - state.score;
+
+    long _slots_level_with(long y)
+    {
+        long reach = room.spike_half_base() + SimConfig.BIRD_RADIUS;
+        long out_ = 0;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+            if (G.absi(y - SimConfig.slot_center_y(slot)) <= reach) out_ |= 1L << (int)slot;
+        return out_;
+    }
 
     public long steps_to_exit(long side)
     {

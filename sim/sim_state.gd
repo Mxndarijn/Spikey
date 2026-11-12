@@ -72,6 +72,10 @@ var plan_a_kind_right := 0
 var plan_b_y_right := 0
 ## The exit score the plan is for.
 var plan_at := 0
+## After a revive with the exit open on the wall the bird came in by: the
+## bird's height there (0 = none), kept free of spikes until its next bounce,
+## so it comes out of its portal where it went in (GameSim.revive).
+var revive_gap := 0
 
 
 func copy() -> SimState:
@@ -114,6 +118,7 @@ func copy() -> SimState:
 	s.plan_a_kind_right = plan_a_kind_right
 	s.plan_b_y_right = plan_b_y_right
 	s.plan_at = plan_at
+	s.revive_gap = revive_gap
 	return s
 
 
@@ -156,6 +161,7 @@ func checksum() -> int:
 		plan_a_kind_right,
 		plan_b_y_right,
 		plan_at,
+		revive_gap,
 	]:
 		h = SimHash.mix(h, v)
 	return h

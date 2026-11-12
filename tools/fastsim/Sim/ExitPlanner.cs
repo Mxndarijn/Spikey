@@ -54,9 +54,12 @@ public static class ExitPlanner
         s.plan_b_y_left = 0;
         s.plan_a_y_right = 0;
         s.plan_b_y_right = 0;
+        long heading = s.vx > 0 ? 1 : 0;
         for (long side = 0; side < 2; side++)
         {
+            sim._points_also = side != heading ? 1 : -1;
             plan(sim, rng, side, at);
+            sim._points_also = -1;
             if (side == 0)
             {
                 s.plan_a_y_left = s.exit_a_y;
@@ -180,22 +183,18 @@ public static class ExitPlanner
         return SimConfig.slot_center_y(open[(int)rng.next_below(open.Count)]);
     }
 
-    public static bool at_bird(GameSim sim, long side)
+    public static bool blocked(GameSim sim, long y)
     {
-        var s = sim.state;
-        s.exit_side = side;
-        long c0 = SimConfig.slot_center_y(0);
-        long slot = G.clampi((s.y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE, 0, SimConfig.SLOT_COUNT - 1);
-        long y = SimConfig.slot_center_y(slot);
-        if (blocked(sim, y)) return false;
-        if (s.exit_b_kind != ExitKind.NORMAL && s.y >= SimConfig.FORK_SPLIT_Y)
-            s.exit_b_y = y;
-        else
-            s.exit_a_y = y;
-        return true;
+        if (_blocked_now(sim, y)) return true;
+        if (sim._points_also < 0) return false;
+        long keep = sim._points_override;
+        sim._points_override = sim._points_also;
+        bool out_ = _blocked_now(sim, y);
+        sim._points_override = keep;
+        return out_;
     }
 
-    public static bool blocked(GameSim sim, long y)
+    static bool _blocked_now(GameSim sim, long y)
     {
         if (sim.room.def.reach > 0 && G.absi(y - sim.state.anchor_y) > sim.room.def.reach) return true;
         for (int i = 0; i < sim.room.hazards.Count; i++)
