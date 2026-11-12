@@ -72,54 +72,55 @@ var plan_a_kind_right := 0
 var plan_b_y_right := 0
 ## The exit score the plan is for.
 var plan_at := 0
-## After a revive with the exit open on the wall the bird came in by: the
-## bird's height there (0 = none), kept free of spikes until its next bounce,
-## so it comes out of its portal where it went in (GameSim.revive).
-var revive_gap := 0
 
 
 func copy() -> SimState:
 	var s := SimState.new()
-	s.tick = tick
-	s.started = started
-	s.alive = alive
-	s.death_cause = death_cause
-	s.x = x
-	s.y = y
-	s.vx = vx
-	s.vy = vy
-	s.score = score
-	s.room_index = room_index
-	s.room_kind = room_kind
-	s.left_spikes = left_spikes
-	s.right_spikes = right_spikes
-	s.coin_active = coin_active
-	s.coin_x = coin_x
-	s.coin_y = coin_y
-	s.coins = coins
-	s.flaps = flaps
-	s.exit_open = exit_open
-	s.exit_preview = exit_preview
-	s.exit_side = exit_side
-	s.exit_a_y = exit_a_y
-	s.exit_a_kind = exit_a_kind
-	s.exit_b_y = exit_b_y
-	s.exit_b_kind = exit_b_kind
-	s.route = route
-	s.pickup_x = pickup_x
-	s.pickup_y = pickup_y
-	s.arrival_hold = arrival_hold
-	s.revives = revives
-	s.anchor_y = anchor_y
-	s.plan_a_y_left = plan_a_y_left
-	s.plan_a_kind_left = plan_a_kind_left
-	s.plan_b_y_left = plan_b_y_left
-	s.plan_a_y_right = plan_a_y_right
-	s.plan_a_kind_right = plan_a_kind_right
-	s.plan_b_y_right = plan_b_y_right
-	s.plan_at = plan_at
-	s.revive_gap = revive_gap
+	s.assign(self)
 	return s
+
+
+## Sets every field to `o`'s (a revive puts the entry state back in place, so
+## whoever holds this state sees it).
+func assign(o: SimState) -> void:
+	tick = o.tick
+	started = o.started
+	alive = o.alive
+	death_cause = o.death_cause
+	x = o.x
+	y = o.y
+	vx = o.vx
+	vy = o.vy
+	score = o.score
+	room_index = o.room_index
+	room_kind = o.room_kind
+	left_spikes = o.left_spikes
+	right_spikes = o.right_spikes
+	coin_active = o.coin_active
+	coin_x = o.coin_x
+	coin_y = o.coin_y
+	coins = o.coins
+	flaps = o.flaps
+	exit_open = o.exit_open
+	exit_preview = o.exit_preview
+	exit_side = o.exit_side
+	exit_a_y = o.exit_a_y
+	exit_a_kind = o.exit_a_kind
+	exit_b_y = o.exit_b_y
+	exit_b_kind = o.exit_b_kind
+	route = o.route
+	pickup_x = o.pickup_x
+	pickup_y = o.pickup_y
+	arrival_hold = o.arrival_hold
+	revives = o.revives
+	anchor_y = o.anchor_y
+	plan_a_y_left = o.plan_a_y_left
+	plan_a_kind_left = o.plan_a_kind_left
+	plan_b_y_left = o.plan_b_y_left
+	plan_a_y_right = o.plan_a_y_right
+	plan_a_kind_right = o.plan_a_kind_right
+	plan_b_y_right = o.plan_b_y_right
+	plan_at = o.plan_at
 
 
 func checksum() -> int:
@@ -161,7 +162,6 @@ func checksum() -> int:
 		plan_a_kind_right,
 		plan_b_y_right,
 		plan_at,
-		revive_gap,
 	]:
 		h = SimHash.mix(h, v)
 	return h

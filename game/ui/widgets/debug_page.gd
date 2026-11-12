@@ -16,8 +16,8 @@ extends VBoxContainer
 signal changed
 ## The room picker: practise room `id` with `variant` ("" = random).
 signal practice_requested(id: String, variant: String)
-## The seed picker: play the run with seed `seed_value` again, as practice.
-signal seed_requested(seed_value: int)
+## The seed picker: play the run with seed `seed_value` in `season` again, as practice.
+signal seed_requested(seed_value: int, season: int)
 
 const APP := "App"
 const ADS := "Ads"

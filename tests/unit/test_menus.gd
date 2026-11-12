@@ -297,7 +297,15 @@ func test_game_over_shows_best_stats_and_its_dock() -> void:
 	hud.show_game_over(64, 92, false, 64, 92, 6, 14, 4000000000)
 	assert_false(hud.is_new_best_showing(), "no ribbon without a new best")
 	assert_true(hud.game_over._seed.visible, "the seed shows, for reporting a run")
-	assert_eq(hud.game_over._seed.text, "Seed 4000000000 · v%d" % SimConfig.GAMEPLAY_VERSION)
+	var code := SeedCode.current(4000000000, Seasons.NONE)
+	assert_eq(hud.game_over._seed.text, "Seed %s · v%d" % [code, SimConfig.GAMEPLAY_VERSION])
+	hud.show_game_over(64, 92, false, 64, 92, 6, 14, 4000000000, -1, Seasons.HALLOWEEN)
+	code = SeedCode.current(4000000000, Seasons.HALLOWEEN)
+	assert_eq(
+		hud.game_over._seed.text,
+		"Seed %s · Halloween · v%d" % [code, SimConfig.GAMEPLAY_VERSION],
+		"a seasonal run shows its season"
+	)
 	assert_true(
 		hud.game_over._seed.offset_top >= hud.game_over._stats.offset_bottom,
 		"the seed sits under the stats"

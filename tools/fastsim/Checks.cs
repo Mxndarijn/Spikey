@@ -23,6 +23,8 @@ using FastSim;
 ///   reach     tests/sim/test_exits_reachable.gd: every exit can still be taken when
 ///             it opens, on many different lines (seed 3392377610's room 3, v21)
 ///   mpcbot    the MPC bot never copies or steps the sim (Mpc/MpcCheck.cs)
+///   sameseed  after a revive the run meets the map of a run that never died
+///             (SameSeed.cs, docs/REVIVE.md)
 /// (CheckSearches.cs has the last five.) ArrivalBench's thresholds are pinned
 /// by tests/unit/test_fastsim_checks.gd.
 ///
@@ -33,7 +35,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)

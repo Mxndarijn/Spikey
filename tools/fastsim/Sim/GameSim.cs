@@ -27,13 +27,15 @@ public sealed class GameSim
     public SimRng _rng;
     public SimRng _spine;
     public bool _checking = false;
-    /// The room and the bird as they came in, for a revive. Never changed after
+    /// The room, the whole state and both RNGs as the bird came in, for a revive. Never changed after
     /// it is taken, so clones share it (GDScript's SimCopy copies it).
     public long _arrival_wait = SimConfig.PORTAL_HOLD;
     public long _free_lo = -1;
     public long _free_hi = -1;
     public RoomRuntime _entry_room = null;
     public SimState _entry_state = null;
+    public SimRng _entry_rng = null;
+    public SimRng _entry_spine = null;
 
     GameSim() { }
 
@@ -78,6 +80,8 @@ public sealed class GameSim
         c._checking = _checking;
         c._entry_room = _entry_room;
         c._entry_state = _entry_state;
+        c._entry_rng = _entry_rng;
+        c._entry_spine = _entry_spine;
         return c;
     }
 
@@ -127,28 +131,20 @@ public sealed class GameSim
     {
         if (!can_revive()) return false;
         events.Clear();
-        state.alive = true;
-        state.death_cause = DeathCause.NONE;
-        state.revives += 1;
-        room = _entry_room.clone_deep();
-        state.room_kind = room.index;
-        state.x = _entry_state.x;
-        state.y = _entry_state.y;
-        state.vx = _entry_state.vx;
-        state.vy = 0;
-        state.anchor_y = _entry_state.anchor_y;
-        state.left_spikes = _entry_state.left_spikes;
-        state.right_spikes = _entry_state.right_spikes;
-        long behind = state.vx > 0 ? 0 : 1;
-        state.revive_gap = 0;
-        if (state.exit_open)
-        {
-            ExitPlanner.use_plan(this, behind, state.score);
-            state.revive_gap = state.y;
-        }
-        else if (state.exit_preview)
-            ExitPlanner.use_plan(this, behind, state.score + 1);
+        long tick = state.tick;
+        long revives = state.revives + 1;
+        long flaps = state.flaps;
+        state.assign(_entry_state);
+        state.tick = tick;
+        state.revives = revives;
+        state.flaps = flaps;
+        state.started = true;
         state.arrival_hold = SimConfig.ARRIVAL_HOLD;
+        room = _entry_room.clone_deep();
+        _rng = _entry_rng.Clone();
+        _spine = _entry_spine.Clone();
+        _free_lo = -1;
+        _free_hi = -1;
         events.Add(Event.REVIVE);
         return true;
     }
@@ -158,7 +154,6 @@ public sealed class GameSim
         if (state.exit_open && state.exit_side == side)
         {
             long open = ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~ExitPlanner.slots(state);
-            if (state.revive_gap > 0) open &= ~_slots_level_with(state.revive_gap);
             return open;
         }
         long mask = room.wall_mask(side, side == 0 ? state.left_spikes : state.right_spikes);
@@ -307,7 +302,6 @@ public sealed class GameSim
         if (state.vx > 0 && state.x + r >= right)
         {
             if (_take_exit(1)) return;
-            state.revive_gap = 0;
             _anchor_at_wall(1);
             state.x = 2 * (right - r) - state.x;
             state.vx = -SimConfig.SPEED_X;
@@ -320,7 +314,6 @@ public sealed class GameSim
         else if (state.vx < 0 && state.x - r <= left)
         {
             if (_take_exit(0)) return;
-            state.revive_gap = 0;
             _anchor_at_wall(0);
             state.x = 2 * (left + r) - state.x;
             state.vx = SimConfig.SPEED_X;
@@ -393,15 +386,6 @@ public sealed class GameSim
     public long _points_also = -1;
 
     public long points_to_exit() => _points_override >= 0 ? _points_override : next_exit_score() - state.score;
-
-    long _slots_level_with(long y)
-    {
-        long reach = room.spike_half_base() + SimConfig.BIRD_RADIUS;
-        long out_ = 0;
-        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
-            if (G.absi(y - SimConfig.slot_center_y(slot)) <= reach) out_ |= 1L << (int)slot;
-        return out_;
-    }
 
     public long steps_to_exit(long side)
     {
@@ -538,6 +522,8 @@ public sealed class GameSim
         if (is_practice() || _checking) return;
         _entry_room = room.clone_deep();
         _entry_state = state.copy();
+        _entry_rng = _rng.Clone();
+        _entry_spine = _spine.Clone();
     }
 
     void _arrive(long side, int ev)

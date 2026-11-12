@@ -123,7 +123,7 @@ func _process(delta: float) -> void:
 
 ## Shows the run's result. `previous_best` shows as "was 87" on a new best;
 ## `rooms` is how many rooms this run cleared; `rank` today's place (0 while
-## unknown); `seed_value` -1 hides the seed; `revived_at` the score the run
+## unknown); `seed_line` the seed (seed_text; "" hides it); `revived_at` the score the run
 ## was revived at (-1: it wasn't). `still`: reduced motion (no count-up).
 func show_result(
 	score: int,
@@ -133,7 +133,7 @@ func show_result(
 	previous_best: int,
 	rooms: int,
 	rank: int,
-	seed_value: int,
+	seed_line: String,
 	revived_at: int,
 	still: bool
 ) -> void:
@@ -162,8 +162,8 @@ func show_result(
 	)
 	_stats.offset_top = 356.0 if is_new_best else 330.0
 	_stats.offset_bottom = _stats.offset_top + _stats.get_combined_minimum_size().y
-	_seed.text = seed_text(seed_value)
-	_seed.visible = seed_value >= 0
+	_seed.text = seed_line
+	_seed.visible = not seed_line.is_empty()
 	_seed.offset_top = _stats.offset_bottom + 14.0
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
 	visible = true
@@ -201,9 +201,15 @@ static func final_score_size(score: int) -> int:
 	)
 
 
-## "Seed 123456 · v11": the seed and gameplay version replay the run exactly.
-static func seed_text(seed_value: int) -> String:
-	return "Seed %d · v%d" % [seed_value, SimConfig.GAMEPLAY_VERSION]
+## "Seed ES8SS-62G0N · v21", "Seed RS8SS-62H0N · Halloween · v21": the code
+## (SeedCode) holds the seed, season and version, so it replays the run exactly.
+static func seed_text(
+	seed_value: int, season: int = Seasons.NONE, version: int = SimConfig.GAMEPLAY_VERSION
+) -> String:
+	var shown := "Seed " + SeedCode.encode(seed_value, season, version)
+	if season != Seasons.NONE:
+		shown += " · " + SeasonCalendar.display_name(season)
+	return shown + " · v%d" % version
 
 
 ## "Best 92"; on a new best just "was 87" (the ribbon says New best).

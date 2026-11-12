@@ -68,8 +68,10 @@ flowchart TD
   - A spine RNG (`GameSim._spine`) draws only each room's kind and seed, a fixed
     number of draws per portal. The room's own RNG lays it out, and every wall
     after the arrival's reseeds from the room seed and the wall's number
-    (`RoomRuntime.rng_seed`, `walls`). A coin taken or not, a revive, or any other
-    difference inside a room never reaches the next wall or room.
+    (`RoomRuntime.rng_seed`, `walls`). A coin taken or not, or any other
+    difference inside a room never reaches the next wall or room. A revive puts
+    the whole run back as the bird came into the room, score, coins and RNGs
+    included ([REVIVE.md](REVIVE.md)), so it never reaches them either.
   - `SimState.anchor_y` stands in for the bird's height wherever generation
     used it: room and variant picks out of a portal, the free run near the
     bird (`RoomRules.gap_reach`), hazards aimed at the arrival

@@ -17,8 +17,8 @@ signal changed
 signal closed
 ## The debug page's room picker: practise room `id` with `variant`.
 signal practice_requested(id: String, variant: String)
-## The debug page's seed picker: play seed `seed_value` as practice.
-signal seed_requested(seed_value: int)
+## The debug page's seed picker: play seed `seed_value` in `season` as practice.
+signal seed_requested(seed_value: int, season: int)
 
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
