@@ -88,7 +88,7 @@ pub fn speed(opts: &Opts) -> i32 {
                 sim.step(tap);
                 ticks += 1;
             }
-            sim::prof::flush();
+            sim::prof::idle();
             (sim.state.score, ticks, sim.is_over(), fp, bot.looks)
         })
         .collect();
@@ -118,8 +118,9 @@ pub fn speed(opts: &Opts) -> i32 {
         if verify { format!(", {} wrong", arrival_memo::WRONG.load(Ordering::Relaxed)) } else { String::new() }
     );
     let busy = sec * threads as f64;
-    for (name, s, n) in sim::prof::totals() {
-        println!("  prof {name:12} {:5.1}% of thread time, {n} calls, {:.2} us each", 100.0 * s / busy, 1e6 * s / n as f64);
+    let _ = busy;
+    for (name, share) in sim::prof::totals() {
+        println!("  prof {name:12} {:5.1}% of samples", 100.0 * share);
     }
     if opts.contains_key("perseed") {
         for (i, r) in res.iter().enumerate() {
@@ -168,5 +169,51 @@ pub fn bench() -> i32 {
     println!("copy      {:8.2} us", copy_t * 1e6 / copies as f64);
     println!("step      {:8.2} us", step_t * 1e6 / steps as f64);
     println!("(sink {})", sink & 1);
+    0
+}
+
+/// `simspeed`: the sim alone (no planner), as C# `fastsim simspeed`: gap-seeker
+/// runs (a revive, then a fresh run) until each seed has played `cap` ticks.
+pub fn simspeed(opts: &Opts) -> i32 {
+    use crate::bots::SimBots;
+    let seeds = l(opts, "seeds", 64);
+    let cap = l(opts, "cap", 20000);
+    let threads = rayon::current_num_threads();
+    let clock = Instant::now();
+    let res: Vec<(i64, i64)> = (0..seeds)
+        .into_par_iter()
+        .map(|i| {
+            let seed = i + 1;
+            let (mut ticks, mut fp, mut k) = (0i64, SimHash::SEED, 0i64);
+            let mut rng = SimRng::new(seed * 31 + 7);
+            let mut sim = GameSim::new(seed);
+            while ticks < cap {
+                if sim.is_over() {
+                    fp = SimHash::mix(fp, sim.checksum());
+                    if sim.can_revive() {
+                        sim.revive();
+                    } else {
+                        k += 1;
+                        sim = GameSim::new(seed + 1000 * k);
+                    }
+                    continue;
+                }
+                let tap = SimBots::gap_seeker(&sim, &mut rng);
+                sim.step(tap);
+                ticks += 1;
+            }
+            (ticks, SimHash::mix(fp, sim.checksum()))
+        })
+        .collect();
+    let sec = clock.elapsed().as_secs_f64();
+    let all: i64 = res.iter().map(|r| r.0).sum();
+    let mut fp = SimHash::SEED;
+    for r in &res {
+        fp = SimHash::mix(fp, r.1);
+    }
+    println!(
+        "simspeed seeds {seeds} cap {cap} threads {threads}: {all} ticks in {sec:.2} s = {:.0} ticks/s; fingerprint {fp}",
+        all as f64 / sec
+    );
     0
 }

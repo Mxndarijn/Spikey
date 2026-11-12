@@ -45,6 +45,7 @@ fn main() {
         "parity" => parity::run(rest.get(1).map(|s| s.as_str()).unwrap_or("parity.txt")),
         "speed" => speed::speed(&opts),
         "bench" => speed::bench(),
+        "simspeed" => speed::simspeed(&opts),
         "check" => checks::run(&rest[1..], &opts),
         "human" => human::run(&rest[1..], &opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),

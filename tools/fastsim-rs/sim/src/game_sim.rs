@@ -457,22 +457,26 @@ impl GameSim {
     // --- One step ---
 
     fn _substep(&mut self) {
-        let p0 = crate::prof::now();
+        let p0 = crate::prof::enter(crate::prof::HZSTEP);
         self.room_step();
-        crate::prof::add(crate::prof::HZSTEP, p0);
+        crate::prof::leave(p0);
         self._move();
+        let p0 = crate::prof::enter(crate::prof::SPIKES);
         self._check_spikes();
+        crate::prof::leave(p0);
         if !self.state.alive {
             return;
         }
+        let p0 = crate::prof::enter(crate::prof::KILLS);
         self._check_hazards();
+        crate::prof::leave(p0);
         if !self.state.alive {
             return;
         }
         self._check_coin();
-        let p0 = crate::prof::now();
+        let p0 = crate::prof::enter(crate::prof::WALLS);
         self._check_walls();
-        crate::prof::add(crate::prof::WALLS, p0);
+        crate::prof::leave(p0);
         self._check_ceiling_floor();
     }
 
@@ -746,9 +750,9 @@ impl GameSim {
             );
         }
         self._seed_room();
-        let p0 = crate::prof::now();
+        let p0 = crate::prof::enter(crate::prof::ARRIVAL);
         let skip = if self.memo_arrivals { ArrivalMemo::retries(self, side, next) } else { self._arrival_retries(side, next) };
-        crate::prof::add(crate::prof::ARRIVAL, p0);
+        crate::prof::leave(p0);
         for _ in 0..skip {
             self._rng.next_u32();
         }

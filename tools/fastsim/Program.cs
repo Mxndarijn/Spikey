@@ -119,6 +119,8 @@ if (mode == "scan")
     return Reaction.scan(P(1, "ghostdoors"), long.Parse(P(2, "45")), long.Parse(P(3, "4")));
 if (mode == "combos")
     return Combos.run(int.Parse(P(1, "256")), int.Parse(P(2, "240")), jobs);
+if (mode == "simspeed")
+    return SimSpeed.run(int.Parse(opts.GetValueOrDefault("seeds", "64")), long.Parse(opts.GetValueOrDefault("cap", "20000")), jobs);
 if (mode == "bench")
 {
     Bench.run();
@@ -667,5 +669,41 @@ static class Bench
         foreach (byte b in search.best_inputs) taps = (taps * 31 + b + 1) & 0x7FFFFFFF;
         Console.WriteLine($"planner checksum {play.state.checksum()}  tick {play.state.tick} score {play.state.score}");
         Console.WriteLine($"search checksum  {taps}  inputs {search.best_inputs.Length}");
+    }
+}
+
+/// `simspeed`: the sim alone (no planner): gap-seeker runs (a revive, then a
+/// fresh run) until each seed has played `cap` ticks. Ticks/s and a checksum
+/// fingerprint, the same in tools/fastsim-rs (`fastsim-rs simspeed`).
+static class SimSpeed
+{
+    public static int run(int seeds, long cap, int jobs)
+    {
+        var res = new (long ticks, long fp)[seeds];
+        var clock = Stopwatch.StartNew();
+        Parallel.For(0, seeds, new ParallelOptions { MaxDegreeOfParallelism = jobs }, i =>
+        {
+            long seed = i + 1, ticks = 0, fp = SimHash.SEED, k = 0;
+            var rng = new SimRng(seed * 31 + 7);
+            var sim = new GameSim(seed);
+            while (ticks < cap)
+            {
+                if (sim.is_over())
+                {
+                    fp = SimHash.mix(fp, sim.checksum());
+                    if (sim.can_revive()) sim.revive();
+                    else sim = new GameSim(seed + 1000 * ++k);
+                    continue;
+                }
+                sim.step(SimBots.gap_seeker(sim, rng));
+                ticks++;
+            }
+            res[i] = (ticks, SimHash.mix(fp, sim.checksum()));
+        });
+        double sec = clock.Elapsed.TotalSeconds;
+        long all = res.Sum(r => r.ticks), fp = SimHash.SEED;
+        foreach (var r in res) fp = SimHash.mix(fp, r.fp);
+        Console.WriteLine($"simspeed seeds {seeds} cap {cap} threads {jobs}: {all} ticks in {sec:F2} s = {all / sec:F0} ticks/s; fingerprint {fp}");
+        return 0;
     }
 }

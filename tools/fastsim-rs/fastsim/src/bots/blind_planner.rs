@@ -301,9 +301,9 @@ impl BlindPlanner {
             self._vx = sim.state.vx;
         }
         if self._since >= self._wait || self._plan.is_empty() {
-            let p0 = sim::prof::now();
+            let p0 = sim::prof::enter(sim::prof::LOOK);
             self.look(sim);
-            sim::prof::add(sim::prof::LOOK, p0);
+            sim::prof::leave(p0);
         }
         self._since = self._since.wrapping_add(1);
         let tap = !self._plan.is_empty() && self._plan.pop_front().unwrap();
@@ -312,9 +312,9 @@ impl BlindPlanner {
     }
 
     fn copy(&self, sim: &GameSim, seed: i64) -> GameSim {
-        let p0 = sim::prof::now();
+        let p0 = sim::prof::enter(sim::prof::BLIND);
         let c = Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal, if self.own_anchor { self.anchor } else { -1 });
-        sim::prof::add(sim::prof::BLIND, p0);
+        sim::prof::leave(p0);
         c
     }
 
@@ -709,9 +709,9 @@ impl BlindPlanner {
     /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
     /// With `any`: stops at the first line found (only "is there one").
     fn beam(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
-        let p0 = sim::prof::now();
+        let p0 = sim::prof::enter(sim::prof::BEAM);
         self.beam_(root, ticks, bpx, speeds, by_band, any);
-        sim::prof::add(sim::prof::BEAM, p0);
+        sim::prof::leave(p0);
     }
 
     fn beam_(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
@@ -749,7 +749,7 @@ impl BlindPlanner {
                 let mut wait_sim = Some(e.sim);
                 let a_from: i64 = if can_tap { 1 } else { 0 };
                 for a in (0..=a_from).rev() {
-                    let q0 = sim::prof::now();
+                    let q0 = sim::prof::enter(sim::prof::CLONE);
                     let mut s = if a == 1 {
                         let src = wait_sim.as_ref().unwrap();
                         let c = match pool.pop() {
@@ -759,14 +759,14 @@ impl BlindPlanner {
                             }
                             None => Box::new(src.clone_deep()),
                         };
-                        sim::prof::add(sim::prof::CLONE, q0);
                         c
                     } else {
                         wait_sim.take().unwrap()
                     };
-                    let q0 = sim::prof::now();
+                    sim::prof::leave(q0);
+                    let q0 = sim::prof::enter(sim::prof::STEP);
                     s.step(a == 1);
-                    sim::prof::add(sim::prof::STEP, q0);
+                    sim::prof::leave(q0);
                     if s.is_over() {
                         pool.push(s);
                         continue;
@@ -781,16 +781,7 @@ impl BlindPlanner {
                         pool.push(s);
                         continue;
                     }
-                    if self.worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0) {
-                        Self::fangs_out(&mut s, self.worst_fangs > 1);
-                    }
-                    let mut cost = e.cost + G::absi(s.state.y - mid) / SimConfig::SUB * self.mid_cost + a * self.tap_cost;
-                    let q1 = sim::prof::now();
-                    let near = self.margin > 0 && self.near_death(&mut s);
-                    sim::prof::add(sim::prof::NEAR, q1);
-                    if near {
-                        cost += self.margin_cost;
-                    }
+                    let q2 = sim::prof::enter(sim::prof::KEEP);
                     let st = &s.state;
                     let along = st.vy * s.room.gravity - SimConfig::FLAP_VY;
                     let speed = G::clampi(along / bvy, 0, speeds - 1);
@@ -798,9 +789,32 @@ impl BlindPlanner {
                     if self.wide_key {
                         key = (key * 64 + st.x / (16 * SimConfig::SUB)) * 2 + if st.vx > 0 { 1 } else { 0 };
                     }
+                    let mut cost = e.cost + G::absi(st.y - mid) / SimConfig::SUB * self.mid_cost + a * self.tap_cost;
+                    let held = slots.get(&key).copied();
+                    // Rust only, exact: the margin only adds cost, so a line that already costs no
+                    // less than the one holding its bucket loses either way; skip its fang re-aim
+                    // and near-death look (neither changes the key or the outcome).
+                    if let Some(at) = held {
+                        if self.margin_cost >= 0 && cost >= next[at].cost {
+                            pool.push(s);
+                            sim::prof::leave(q2);
+                            continue;
+                        }
+                    }
+                    sim::prof::leave(q2);
+                    if self.worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0) {
+                        Self::fangs_out(&mut s, self.worst_fangs > 1);
+                    }
+                    let q1 = sim::prof::enter(sim::prof::NEAR);
+                    let near = self.margin > 0 && self.near_death(&mut s);
+                    sim::prof::leave(q1);
+                    if near {
+                        cost += self.margin_cost;
+                    }
+                    let q2 = sim::prof::enter(sim::prof::KEEP);
                     let since = if a == 1 { 1 } else { e.since + 1 };
                     let node = Node { sim: s, parent: e.parent, tap: a as u8, cost, since };
-                    if let Some(&at) = slots.get(&key) {
+                    if let Some(at) = held {
                         if cost < next[at].cost {
                             let old = std::mem::replace(&mut next[at], node);
                             pool.push(old.sim);
@@ -811,6 +825,7 @@ impl BlindPlanner {
                         slots.insert(key, next.len());
                         next.push(node);
                     }
+                    sim::prof::leave(q2);
                 }
             }
             if next.is_empty() {

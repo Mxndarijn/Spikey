@@ -1,74 +1,105 @@
-//! Profiling timers (Bots/Prof.cs), only with `--features prof`: per-thread
-//! nanosecond totals and counts per section. Without the feature every call is
-//! empty and compiles away.
-#[cfg(feature = "prof")]
-use std::cell::RefCell;
+//! A sampling profiler for the bots (Bots/Prof.cs in spirit), only with
+//! `--features prof`. Each thread stores the section it is in (`enter` /
+//! `leave`, one relaxed store each); a sampler thread looks at every worker
+//! about every 20 us and counts. Without the feature every call is empty.
+pub const OTHER: u8 = 0;
+pub const ARRIVAL: u8 = 1;
+pub const STEP: u8 = 2;
+pub const CLONE: u8 = 3;
+pub const BLIND: u8 = 4;
+pub const BEAM: u8 = 5;
+pub const NEAR: u8 = 6;
+pub const LOOK: u8 = 7;
+pub const HZSTEP: u8 = 8;
+pub const WALLS: u8 = 9;
+pub const KILLS: u8 = 10;
+pub const SPIKES: u8 = 11;
+pub const KEEP: u8 = 12;
+pub const N: usize = 13;
+pub const NAMES: [&str; N] = [
+    "other", "arrival", "step", "clone", "blind_copy", "beam", "near_death", "look", "hazard step", "walls",
+    "kills+touch", "spikes", "beam keep",
+];
 
-pub const ARRIVAL: usize = 0;
-pub const STEP: usize = 1;
-pub const CLONE: usize = 2;
-pub const BLIND: usize = 3;
-pub const BEAM: usize = 4;
-pub const NEAR: usize = 5;
-pub const LOOK: usize = 6;
-pub const HZSTEP: usize = 7;
-pub const WALLS: usize = 8;
-pub const N: usize = 9;
-pub const NAMES: [&str; N] = ["arrival", "step", "clone", "blind_copy", "beam", "near_death", "look", "hazard step", "walls"];
-
 #[cfg(feature = "prof")]
-thread_local! {
-    static T: RefCell<[(u64, u64); N]> = const { RefCell::new([(0, 0); N]) };
+mod imp {
+    use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    pub struct Shared {
+        pub slots: Mutex<Vec<Arc<AtomicU8>>>,
+        pub counts: Vec<AtomicU64>,
+    }
+
+    pub fn shared() -> &'static Shared {
+        static S: OnceLock<Shared> = OnceLock::new();
+        static STARTED: AtomicBool = AtomicBool::new(false);
+        let s = S.get_or_init(|| Shared { slots: Mutex::new(Vec::new()), counts: (0..super::N).map(|_| AtomicU64::new(0)).collect() });
+        if !STARTED.swap(true, Ordering::SeqCst) {
+            std::thread::spawn(|| {
+                let s = shared();
+                loop {
+                    let t0 = std::time::Instant::now();
+                    while t0.elapsed().as_micros() < 20 {
+                        std::hint::spin_loop();
+                    }
+                    let slots = s.slots.lock().unwrap();
+                    for a in slots.iter() {
+                        let k = a.load(Ordering::Relaxed) as usize;
+                        if k != 255 {
+                            s.counts[k].fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                }
+            });
+        }
+        s
+    }
+
+    thread_local! {
+        pub static MINE: Arc<AtomicU8> = {
+            let a = Arc::new(AtomicU8::new(255));
+            shared().slots.lock().unwrap().push(a.clone());
+            a
+        };
+    }
 }
 
-#[cfg(feature = "prof")]
-static TOTAL: std::sync::Mutex<[(u64, u64); N]> = std::sync::Mutex::new([(0, 0); N]);
-
+/// Enters section `k`; returns the section to go back to.
 #[inline(always)]
-pub fn now() -> u64 {
+pub fn enter(_k: u8) -> u8 {
     #[cfg(feature = "prof")]
     {
-        use std::sync::OnceLock;
-        static START: OnceLock<std::time::Instant> = OnceLock::new();
-        START.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
+        use std::sync::atomic::Ordering;
+        return imp::MINE.with(|m| m.swap(_k, Ordering::Relaxed));
     }
     #[cfg(not(feature = "prof"))]
     0
 }
 
 #[inline(always)]
-pub fn add(_k: usize, _since: u64) {
+pub fn leave(_prev: u8) {
     #[cfg(feature = "prof")]
     {
-        let d = now() - _since;
-        T.with(|t| {
-            let mut t = t.borrow_mut();
-            t[_k].0 += d;
-            t[_k].1 += 1;
-        });
+        use std::sync::atomic::Ordering;
+        imp::MINE.with(|m| m.store(_prev, Ordering::Relaxed));
     }
 }
 
-/// Adds this thread's timers to the process totals.
-pub fn flush() {
-    #[cfg(feature = "prof")]
-    T.with(|t| {
-        let mut t = t.borrow_mut();
-        let mut all = TOTAL.lock().unwrap();
-        for k in 0..N {
-            all[k].0 += t[k].0;
-            all[k].1 += t[k].1;
-            t[k] = (0, 0);
-        }
-    });
+/// This thread is idle (not counted).
+pub fn idle() {
+    leave(255);
 }
 
-/// (name, seconds, count) per section with a count.
-pub fn totals() -> Vec<(&'static str, f64, u64)> {
+/// (name, share of samples) per section with samples.
+pub fn totals() -> Vec<(&'static str, f64)> {
     #[cfg(feature = "prof")]
     {
-        let all = TOTAL.lock().unwrap();
-        return (0..N).filter(|&k| all[k].1 > 0).map(|k| (NAMES[k], all[k].0 as f64 / 1e9, all[k].1)).collect();
+        use std::sync::atomic::Ordering;
+        let s = imp::shared();
+        let c: Vec<u64> = s.counts.iter().map(|a| a.load(Ordering::Relaxed)).collect();
+        let all: u64 = c.iter().sum::<u64>().max(1);
+        return (0..N).filter(|&k| c[k] > 0).map(|k| (NAMES[k], c[k] as f64 / all as f64)).collect();
     }
     #[cfg(not(feature = "prof"))]
     Vec::new()
