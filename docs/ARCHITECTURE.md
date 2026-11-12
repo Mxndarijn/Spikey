@@ -188,11 +188,10 @@ start and never comes back.
 - `sim/rooms/room_def.gd` (RoomDef): what a room is: group, from_score, weight,
   season, wall rules (spike count/gap, tide, blink, squeeze), gravity, speed,
   and the hazards it builds (factories, or variants drawn at room start).
-  Double Trouble's pairs are variants that follow the combo rules in
-  `sim/rooms/catalog_combo.gd`, checked by `tests/sim/test_double_trouble.gd`
-  and the `pairs` FastSim check.
+  Double Trouble (two known hazards in one room) was taken out; its combo
+  support (`RoomDef.combos`, `Piston.share_band`, `Beam.yields`) is unused.
 - `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
-  seasonal, combo, twists). `RoomCatalog.BATCHES` fixes the order; append new
+  seasonal, twists, boss). `RoomCatalog.BATCHES` fixes the order; append new
   batches at the end.
 - `sim/rooms/room_runtime.gd` (RoomRuntime): the live room: steps, points,
   wall position and spike masks over time, steps per tick (fast/slow rooms).
@@ -400,7 +399,7 @@ heading. About 20 s at `-Jobs 8`.
    every test that plays a bot, with the rules and thresholds the GDScript
    tests they replaced had, on more seeds: every variant passable, the portal
    reaction benchmark, the points cap, revives in every room and exit case,
-   Double Trouble pairs, the crawl, gates and isles searches, the once
+   the crawl, gates and isles searches, the once
    impossible rooms, and random-tapper and gap-seeker runs (the list:
    `tools/fastsim-rs/PORTING.md`). `-TestFilter` picks the checks it names or
    whose old test path it matches; `-FastSimJobs` sets the workers (default

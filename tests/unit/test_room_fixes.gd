@@ -258,3 +258,34 @@ func test_beams_never_cut_the_whole_free_run() -> void:
 				assert_true(_free_ok(out, safe) >= need, "seed %d step %d" % [seed_value, k])
 				checked += 1
 	assert_true(checked > 50)
+
+
+## Piston Press: no wall spike shares a ram's row on its own wall (it would
+## poke out above or below the ram).
+func test_no_wall_spike_in_a_piston_row() -> void:
+	const Piston := preload("res://sim/hazards/piston.gd")
+	var reach := Piston.HALF_H + SimConfig.SPIKE_HALF_BASE
+	var bounces := 0
+	for variant: String in ["classic", "double-slam", "ladder"]:
+		for seed_value in range(1, 7):
+			var sim := RoomsTest.sim_in_room("piston", seed_value, Seasons.NONE, variant)
+			for i in 40:
+				# Hazards run on, then the bird bounces as GameSim does.
+				for _k in 37 + i % 23:
+					sim.room.step(sim)
+				var side := 0 if sim.state.vx > 0 else 1
+				sim.state.vx = -sim.state.vx
+				sim._bounce_score()
+				sim._new_wall(side)
+				bounces += 1
+				for h in sim.room.hazards:
+					if h.kind != "piston":
+						continue
+					var mask: int = sim.state.left_spikes if h.side == 0 else sim.state.right_spikes
+					for slot in SimConfig.SLOT_COUNT:
+						if RoomRules.has_slot(mask, slot):
+							assert_true(
+								absi(SimConfig.slot_center_y(slot) - h.y) >= reach,
+								"%s seed %d step %d slot %d" % [variant, seed_value, i, slot]
+							)
+	assert_true(bounces > 20, "%d bounces" % bounces)

@@ -206,7 +206,6 @@ func test_all_picked_rooms_exist() -> void:
 		"bubbles",
 		"hunter",
 		"midnight",
-		"double",
 		"sawring",
 		"flip",
 		"blink",
@@ -251,16 +250,9 @@ func test_eggs_sit_next_to_their_islands() -> void:
 				)
 
 
-func test_double_trouble_picks_a_pair() -> void:
-	var kinds := {}
-	for s in 40:
-		var sim := sim_in_room("double", s)
-		assert_eq(sim.room.hazards.size(), 2, "two hazards")
-		var pair: Array[String] = []
-		for h in sim.room.hazards:
-			pair.append(h.kind)
-		kinds[",".join(pair)] = true
-	assert_true(kinds.size() >= 3, "different pairs show up (%d)" % kinds.size())
+## Double Trouble was taken out of the game.
+func test_double_trouble_is_gone() -> void:
+	assert_eq(RoomCatalog.index_of("double"), -1)
 
 
 func test_the_open_first_room_never_comes_back() -> void:

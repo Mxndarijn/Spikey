@@ -91,7 +91,7 @@ func test_rooms_screens_fit() -> void:
 	_fits(RoomsScreen.new(p), "rooms")
 	for g in RoomInfo.GROUPS:
 		_fits(RoomsScreen.new(p, g), "rooms (%s)" % g)
-	for id in ["piston", "pumpkin", "double"]:
+	for id in ["piston", "pumpkin", "beams"]:
 		_fits(RoomDetailScreen.new(p, id), "room detail (%s)" % id)
 
 

@@ -107,10 +107,12 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 
 func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	if fixed_y >= 0:
+		_clear_spikes(sim)
 		return
 	if leader != null:
 		# The leader has already moved (or kept still): stay level with it.
 		y = leader.y
+		_clear_spikes(sim)
 		return
 	# Always draw so the RNG order does not depend on the piston's state.
 	var old := y
@@ -118,6 +120,23 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	_clear_row(sim)
 	if _cycle_state() != State.IDLE:
 		y = old
+	_clear_spikes(sim)
+
+
+## No wall spike shares the ram's row on its own wall (it would poke out above
+## or below the ram): the slots whose spike would touch the ram's body are
+## cleared. Done here, not in adjust_wall: the ram only takes its new height
+## after the wall is drawn. No RNG draws.
+func _clear_spikes(sim: GameSim) -> void:
+	var reach := HALF_H + SimConfig.SPIKE_HALF_BASE
+	var mask := sim.state.left_spikes if side == 0 else sim.state.right_spikes
+	for slot in SimConfig.SLOT_COUNT:
+		if absi(SimConfig.slot_center_y(slot) - y) < reach:
+			mask &= ~(1 << slot)
+	if side == 0:
+		sim.state.left_spikes = mask
+	else:
+		sim.state.right_spikes = mask
 
 
 ## Moves a ram that may move off the rows of the room's exits (ExitZone) on

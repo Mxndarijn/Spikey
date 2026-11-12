@@ -42,7 +42,7 @@ func test_every_variant_is_drawn() -> void:
 		assert_true(seen.has(shape), "%s is drawn" % shape)
 
 
-func test_pinwheel_is_smaller_and_double_trouble_keeps_the_big_wheel() -> void:
+func test_pinwheel_is_smaller_than_the_original_wheel() -> void:
 	var big := Rotor.new()
 	assert_eq(big.reach(), 88 * SUB, "the original wheel")
 	var trim: Hazard = sim_with("trim").room.hazards[0]

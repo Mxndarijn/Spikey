@@ -162,8 +162,6 @@ const ROOMS := {
 	["Orchard Drop", "Coins tumble from the sky. You are the basket.", 2, "autumn", "rain"],
 	"keepy":
 	["Keepy-Uppy", "Keep a bouncy ball, or two, in the air with your head.", 2, "sugar", "ball"],
-	"double":
-	["Double Trouble", "Two hazards you already know, sharing one room.", 5, "sunset", "ball"],
 	"pumpkin":
 	[
 		"Pumpkin Bounce",

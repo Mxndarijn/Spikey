@@ -13,7 +13,6 @@ const BATCHES: Array[Script] = [
 	preload("res://sim/rooms/catalog_machines.gd"),
 	preload("res://sim/rooms/catalog_sky.gd"),
 	preload("res://sim/rooms/catalog_seasonal.gd"),
-	preload("res://sim/rooms/catalog_combo.gd"),
 	preload("res://sim/rooms/catalog_twists.gd"),
 	preload("res://sim/rooms/catalog_boss.gd"),
 ]
