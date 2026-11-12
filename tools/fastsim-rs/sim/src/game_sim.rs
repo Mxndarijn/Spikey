@@ -173,7 +173,7 @@ impl GameSim {
     }
 
     /// `clone_deep` into an existing sim, reusing its buffers (no allocation once warm).
-    pub fn clone_into(&self, c: &mut GameSim) {
+    pub fn copy_into(&self, c: &mut GameSim) {
         c.seed_value = self.seed_value;
         c.season = self.season;
         c.practice_room = self.practice_room;
@@ -245,7 +245,8 @@ impl GameSim {
             self.state.flaps += 1;
             let mut i = 0;
             while i < self.room.hazards.len() {
-                if self.room.hazards[i].alive() {
+                let h = &self.room.hazards[i];
+                if h.alive() && h.has_on_flap() {
                     self.with_hazard(i, |h, sim| h.on_flap(sim));
                 }
                 i += 1;
@@ -439,7 +440,9 @@ impl GameSim {
             if self.room.hazards[i].alive() {
                 let t = self.room.t;
                 self.room.hazards[i].base_mut().t = t;
-                self.with_hazard(i, |h, sim| h.step(sim));
+                if self.room.hazards[i].has_step() {
+                    self.with_hazard(i, |h, sim| h.step(sim));
+                }
             }
             i += 1;
         }
@@ -448,7 +451,9 @@ impl GameSim {
     // --- One step ---
 
     fn _substep(&mut self) {
+        let p0 = crate::prof::now();
         self.room_step();
+        crate::prof::add(crate::prof::HZSTEP, p0);
         self._move();
         self._check_spikes();
         if !self.state.alive {
@@ -459,7 +464,9 @@ impl GameSim {
             return;
         }
         self._check_coin();
+        let p0 = crate::prof::now();
         self._check_walls();
+        crate::prof::add(crate::prof::WALLS, p0);
         self._check_ceiling_floor();
     }
 
@@ -483,7 +490,8 @@ impl GameSim {
         }
         let mut i = 0;
         while i < self.room.hazards.len() {
-            if self.room.hazards[i].alive() {
+            let h = &self.room.hazards[i];
+            if h.alive() && h.has_touch() {
                 self.with_hazard(i, |h, sim| h.touch(sim));
             }
             i += 1;
@@ -732,7 +740,9 @@ impl GameSim {
             );
         }
         self._seed_room();
+        let p0 = crate::prof::now();
         let skip = if self.memo_arrivals { ArrivalMemo::retries(self, side, next) } else { self._arrival_retries(side, next) };
+        crate::prof::add(crate::prof::ARRIVAL, p0);
         for _ in 0..skip {
             self._rng.next_u32();
         }
@@ -907,7 +917,8 @@ impl GameSim {
         let mut mask = RoomRules::generate_wall(&mut self._rng, self.state.score, def, target, bonus, reach);
         let mut i = 0;
         while i < self.room.hazards.len() {
-            if self.room.hazards[i].alive() {
+            let h = &self.room.hazards[i];
+            if h.alive() && h.has_adjust_wall() {
                 mask = self.with_hazard(i, |h, sim| h.adjust_wall(sim, side, mask));
             }
             i += 1;
@@ -921,7 +932,8 @@ impl GameSim {
         self.room.on_wall_generated(side, mask, score, &mut self._rng);
         let mut i = 0;
         while i < self.room.hazards.len() {
-            if self.room.hazards[i].alive() {
+            let h = &self.room.hazards[i];
+            if h.alive() && h.has_on_bounce() {
                 self.with_hazard_rng(i, |h, sim, rng| h.on_bounce(sim, rng));
             }
             i += 1;

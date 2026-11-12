@@ -267,3 +267,47 @@ impl Hz {
         }
     }
 }
+
+/// Which hazard types override a mutating method (the rest keep the trait's
+/// no-op), so GameSim can skip taking them out of the room for nothing. Keep in
+/// step with the hazard files: a missing entry silently skips that method (the
+/// parity check catches it); an extra entry only costs time.
+impl Hz {
+    #[inline]
+    pub fn has_step(&self) -> bool {
+        !matches!(self, Hz::SpikeBall(_) | Hz::Wind(_))
+    }
+    #[inline]
+    pub fn has_touch(&self) -> bool {
+        matches!(
+            self,
+            Hz::Bubble(_)
+                | Hz::Bumper(_)
+                | Hz::CoinPickup(_)
+                | Hz::CrateDrop(_)
+                | Hz::ExitKey(_)
+                | Hz::KeepyBall(_)
+                | Hz::Lava(_)
+                | Hz::OrbitCoin(_)
+                | Hz::OrchardSpawner(_)
+                | Hz::PadCoin(_)
+                | Hz::Updraft(_)
+                | Hz::Wind(_)
+        )
+    }
+    #[inline]
+    pub fn has_on_flap(&self) -> bool {
+        matches!(self, Hz::Bubble(_))
+    }
+    #[inline]
+    pub fn has_on_bounce(&self) -> bool {
+        matches!(self, Hz::Belt(_) | Hz::Bubble(_) | Hz::ExitKey(_) | Hz::Lava(_) | Hz::Piston(_) | Hz::Stalactite(_))
+    }
+    #[inline]
+    pub fn has_adjust_wall(&self) -> bool {
+        matches!(
+            self,
+            Hz::BossCrusher(_) | Hz::BossSaw(_) | Hz::BossWatcher(_) | Hz::Crawler(_) | Hz::ExitKey(_) | Hz::Gate(_) | Hz::Lava(_)
+        )
+    }
+}

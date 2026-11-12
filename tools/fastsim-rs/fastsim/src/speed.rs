@@ -88,6 +88,7 @@ pub fn speed(opts: &Opts) -> i32 {
                 sim.step(tap);
                 ticks += 1;
             }
+            sim::prof::flush();
             (sim.state.score, ticks, sim.is_over(), fp, bot.looks)
         })
         .collect();
@@ -116,6 +117,10 @@ pub fn speed(opts: &Opts) -> i32 {
         arrival_memo::MISSES.load(Ordering::Relaxed),
         if verify { format!(", {} wrong", arrival_memo::WRONG.load(Ordering::Relaxed)) } else { String::new() }
     );
+    let busy = sec * threads as f64;
+    for (name, s, n) in sim::prof::totals() {
+        println!("  prof {name:12} {:5.1}% of thread time, {n} calls, {:.2} us each", 100.0 * s / busy, 1e6 * s / n as f64);
+    }
     if opts.contains_key("perseed") {
         for (i, r) in res.iter().enumerate() {
             println!("  seed {} score {} ticks {} dead {} fp {:016x}", first + i as i64 + 1, r.0, r.1, r.2, r.3);

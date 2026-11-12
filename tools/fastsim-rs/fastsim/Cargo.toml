@@ -12,3 +12,6 @@ sim = { path = "../sim" }
 rayon = "1"
 mimalloc = { version = "0.1", default-features = false }
 serde_json = { version = "1", features = ["preserve_order"] }
+
+[features]
+prof = ["sim/prof"]

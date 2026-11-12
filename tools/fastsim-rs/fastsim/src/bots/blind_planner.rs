@@ -52,10 +52,10 @@ impl Reveal {
 }
 
 /// (taps, cost, the sim at the line's end).
-type Found = (Vec<u8>, i64, Option<GameSim>);
+type Found = (Vec<u8>, i64, Option<Box<GameSim>>);
 
 struct Node {
-    sim: GameSim,
+    sim: Box<GameSim>,
     parent: i32,
     tap: u8,
     cost: i64,
@@ -132,6 +132,8 @@ pub struct BlindPlanner {
     _bounce_y: i64,
     _vx: i64,
     _found: Vec<Found>,
+    /// Spare sims for the beam's copies (Rust only: copies reuse their buffers; no effect on play).
+    _pool: Vec<Box<GameSim>>,
     pub two_stage_looks: i64,
     /// How the last look ended: 0 = a line for the whole look, 1 = only with fine buckets, 2 = only a shorter look, 3 = none.
     pub last_look: i32,
@@ -199,6 +201,7 @@ impl BlindPlanner {
             _bounce_y: -1,
             _vx: 0,
             _found: Vec::new(),
+            _pool: Vec::new(),
             two_stage_looks: 0,
             last_look: 0,
             last_agree: 0,
@@ -298,7 +301,9 @@ impl BlindPlanner {
             self._vx = sim.state.vx;
         }
         if self._since >= self._wait || self._plan.is_empty() {
+            let p0 = sim::prof::now();
             self.look(sim);
+            sim::prof::add(sim::prof::LOOK, p0);
         }
         self._since = self._since.wrapping_add(1);
         let tap = !self._plan.is_empty() && self._plan.pop_front().unwrap();
@@ -307,7 +312,10 @@ impl BlindPlanner {
     }
 
     fn copy(&self, sim: &GameSim, seed: i64) -> GameSim {
-        Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal, if self.own_anchor { self.anchor } else { -1 })
+        let p0 = sim::prof::now();
+        let c = Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal, if self.own_anchor { self.anchor } else { -1 });
+        sim::prof::add(sim::prof::BLIND, p0);
+        c
     }
 
     fn look(&mut self, sim: &GameSim) {
@@ -701,6 +709,12 @@ impl BlindPlanner {
     /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
     /// With `any`: stops at the first line found (only "is there one").
     fn beam(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
+        let p0 = sim::prof::now();
+        self.beam_(root, ticks, bpx, speeds, by_band, any);
+        sim::prof::add(sim::prof::BEAM, p0);
+    }
+
+    fn beam_(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
         self._found.clear();
         let mut layer: Vec<usize> = Vec::new();
         let bh = bpx * SimConfig::SUB;
@@ -719,7 +733,8 @@ impl BlindPlanner {
         let mut parents: Vec<i32> = Vec::new();
         let mut taps: Vec<u8> = Vec::new();
         let since0 = root.state.tick - self.last_press;
-        let mut frontier: Vec<Node> = vec![Node { sim: root, parent: -1, tap: 0, cost: 0, since: since0 }];
+        let mut pool = std::mem::take(&mut self._pool);
+        let mut frontier: Vec<Node> = vec![Node { sim: Box::new(root), parent: -1, tap: 0, cost: 0, since: since0 }];
         let mut slots: FxMap<i64, usize> = FxMap::default();
         let mut next: Vec<Node> = Vec::new();
         for _t in 0..ticks {
@@ -734,13 +749,26 @@ impl BlindPlanner {
                 let mut wait_sim = Some(e.sim);
                 let a_from: i64 = if can_tap { 1 } else { 0 };
                 for a in (0..=a_from).rev() {
+                    let q0 = sim::prof::now();
                     let mut s = if a == 1 {
-                        wait_sim.as_ref().unwrap().clone_deep()
+                        let src = wait_sim.as_ref().unwrap();
+                        let c = match pool.pop() {
+                            Some(mut b) => {
+                                src.copy_into(&mut b);
+                                b
+                            }
+                            None => Box::new(src.clone_deep()),
+                        };
+                        sim::prof::add(sim::prof::CLONE, q0);
+                        c
                     } else {
                         wait_sim.take().unwrap()
                     };
+                    let q0 = sim::prof::now();
                     s.step(a == 1);
+                    sim::prof::add(sim::prof::STEP, q0);
                     if s.is_over() {
+                        pool.push(s);
                         continue;
                     }
                     // The exit opened on the wall the bird just bounced off, at a height nobody has seen.
@@ -750,13 +778,17 @@ impl BlindPlanner {
                         && !e_open
                         && s.state.exit_side == (if s.state.vx > 0 { 0 } else { 1 })
                     {
+                        pool.push(s);
                         continue;
                     }
                     if self.worst_fangs > 0 && (s.state.vx != vx0 || s.state.room_index != room0) {
                         Self::fangs_out(&mut s, self.worst_fangs > 1);
                     }
                     let mut cost = e.cost + G::absi(s.state.y - mid) / SimConfig::SUB * self.mid_cost + a * self.tap_cost;
-                    if self.margin > 0 && self.near_death(&mut s) {
+                    let q1 = sim::prof::now();
+                    let near = self.margin > 0 && self.near_death(&mut s);
+                    sim::prof::add(sim::prof::NEAR, q1);
+                    if near {
                         cost += self.margin_cost;
                     }
                     let st = &s.state;
@@ -770,7 +802,10 @@ impl BlindPlanner {
                     let node = Node { sim: s, parent: e.parent, tap: a as u8, cost, since };
                     if let Some(&at) = slots.get(&key) {
                         if cost < next[at].cost {
-                            next[at] = node;
+                            let old = std::mem::replace(&mut next[at], node);
+                            pool.push(old.sim);
+                        } else {
+                            pool.push(node.sim);
                         }
                     } else {
                         slots.insert(key, next.len());
@@ -779,6 +814,7 @@ impl BlindPlanner {
                 }
             }
             if next.is_empty() {
+                self._pool = pool;
                 return;
             }
             layer.push(parents.len());
@@ -790,6 +826,8 @@ impl BlindPlanner {
         }
         if any {
             self._found.push((Vec::new(), 0, None));
+            pool.extend(frontier.into_iter().map(|e| e.sim));
+            self._pool = pool;
             return;
         }
         // The family of a line: its node `part` ticks in.
@@ -828,7 +866,7 @@ impl BlindPlanner {
         best.sort_by_key(|&i| frontier[i].cost);
         best.truncate(self.lines.max(1) as usize);
         let heads: Vec<(i32, i64)> = best.iter().map(|&i| (frontier[i].parent, frontier[i].cost)).collect();
-        let mut sims: Vec<Option<GameSim>> = frontier.into_iter().map(|e| Some(e.sim)).collect();
+        let mut sims: Vec<Option<Box<GameSim>>> = frontier.into_iter().map(|e| Some(e.sim)).collect();
         for (k, &i) in best.iter().enumerate() {
             let (parent, cost) = heads[k];
             let mut out_ = Vec::new();
@@ -841,6 +879,9 @@ impl BlindPlanner {
             out_.reverse();
             self._found.push((out_, cost, sims[i].take()));
         }
+        pool.extend(sims.into_iter().flatten());
+        pool.truncate(4096);
+        self._pool = pool;
     }
 
     fn near_spikes(s: &GameSim, y: i64, m: i64) -> bool {

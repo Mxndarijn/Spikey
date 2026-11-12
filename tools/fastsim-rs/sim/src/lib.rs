@@ -11,6 +11,7 @@ pub mod fair_lanes;
 pub mod g;
 pub mod game_sim;
 pub mod hazards;
+pub mod prof;
 pub mod rooms;
 pub mod sim_config;
 pub mod sim_math;
