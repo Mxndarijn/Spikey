@@ -1374,6 +1374,9 @@ public static class Models
         CoinPickup c => new CoinM(c),
         OrchardSpawner o => new OrchardM(o),
         ExitKey e => new ExitKeyM(e),
+        BossWatcher b => new WatcherM(b),
+        BossCrusher b => new CrusherM(b),
+        BossSaw b => new SawKingM(b),
         _ => new UnknownM(h),
     };
 
@@ -1393,5 +1396,6 @@ public static class Models
         typeof(Echo), typeof(Stalker), typeof(Beam), typeof(Piston), typeof(Dart), typeof(Drop), typeof(Firework),
         typeof(CrateDrop), typeof(Bubble), typeof(Stalactite), typeof(Lava), typeof(KeepyBall), typeof(CoinPickup),
         typeof(OrbitCoin), typeof(PadCoin), typeof(OrchardSpawner), typeof(ExitKey),
+        typeof(BossWatcher), typeof(BossCrusher), typeof(BossSaw),
     };
 }

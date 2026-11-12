@@ -183,3 +183,21 @@ Beast isn't strong enough yet to stand apart from expert: at k 1 the
 remaining deaths come from model errors (hidden exit mouths, stalactite
 targets, random lanes), not from human limits, so removing the limits
 gains nothing.
+
+### Boss rooms (ModelsBoss.cs, not yet measured in full runs)
+
+The Watcher, Crusher and Saw King, built from what's on screen: the phase
+follows the room's points (STAGGER late), each boss's cycle clock, and the
+telegraphs (lit beam rows while they warn, the dart lane marked at the
+bird's height, the slam height and the next jaw lane while the Crusher shakes,
+crate columns once marked, the king's next height while it tells). Hidden
+draws are not read (.seed, draw(), lit_rows(), slam_of(),
+_next_lane(), hop_to(), _pick_column(), safe_y() are in the no-peek
+scan). Not yet shown: beam rows and crates are left out, the slam is taken at
+its deepest, jaws and the king are guessed to stay. All three are reactive
+(their phase follows the points the path scores; the gaze aims at the bird).
+astsim world errors 6 3600 --room boss_* (tier 1 practice runs), +60 ticks:
+kill zone missed 0% for all three, falsely predicted 0.6% (Watcher), 2.7%
+(Crusher), 3.1% (Saw King). Before this the bosses fell through to
+UnknownM (no bodies) and beast died in the first boss room (median 102 at cap
+20k, every run dead by 110).
