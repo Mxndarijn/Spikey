@@ -81,6 +81,7 @@ func test_nothing_spawns_on_the_bird() -> void:
 func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
 	assert_between(Piston.GLOW_TICKS, 25, 40, "the glow lasts about half a second")
 	var sim := _classic("piston", 3)
+	NoExits.clear(sim)
 	var p: Hazard = _hazards(sim, "piston")[0]
 	var reach_x: int = p.base_x() + (60 * SUB if p.side == 0 else -60 * SUB)
 	_bird(sim, reach_x, p.y)
@@ -365,6 +366,7 @@ func test_stalactites_shift_after_a_real_wall_bounce() -> void:
 
 func test_hunter_aims_at_bird_height_glows_then_fires() -> void:
 	var sim := RoomsTest.sim_in_room("hunter", 13)
+	NoExits.clear(sim)
 	var d: Hazard = _hazards(sim, "dart")[0]
 	_bird(sim, 40 * SUB, 250 * SUB)
 	while d.state == Dart.State.IDLE:

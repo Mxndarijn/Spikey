@@ -181,6 +181,13 @@ func test_lava_keeps_exits_out_of_its_reach() -> void:
 	var sim := _started("lava", 12)
 	var l: Lava = sim.room.hazards[0]
 	l.rises = 4
+	# The room's exits are picked when it starts: the line rises with every
+	# point still to score before the exit opens.
+	var at_start := l.line_at(mini(4 + sim.points_to_exit(), Lava.MAX_RISES))
+	assert_true(l.blocks_exit(sim, 1, at_start), "no exit where the lava will be")
+	assert_false(l.blocks_exit(sim, 1, at_start - Lava.EXIT_CLEAR - SUB), "above it is fine")
+	# One point before the exit (a revive plans it again then).
+	sim.state.score = sim.next_exit_score() - 1
 	var worst := l.line_at(5)
 	assert_true(l.blocks_exit(sim, 1, worst), "no exit in the lava")
 	assert_false(l.blocks_exit(sim, 1, worst - Lava.EXIT_CLEAR - SUB), "above it is fine")

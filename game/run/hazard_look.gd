@@ -12,6 +12,9 @@ var time := 0.0
 var skin := ""
 ## Color-blind spikes: deadly shapes get a white outline.
 var ink := false
+## The run being drawn (read only), for painters whose shapes depend on more
+## than their hazard (a beam stopping at an exit's mouth). Null in previews.
+var sim: GameSim = null
 
 
 func _init(

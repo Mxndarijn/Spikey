@@ -1,7 +1,8 @@
 extends Hazard
 ## A spiked ball that flies in straight lines and bounces off the walls,
 ## ceiling and floor (Bramble Ball; Pumpkin Bounce is the same with a skin).
-## It never reads the bird, so its path is fixed once it starts.
+## It never reads the bird, so its path is fixed once it starts. It bounces
+## off an open or ghost exit's mouth (ExitZone) as off the wall.
 ##
 ## Bramble's other variants extend it: Twin Brambles uses two smaller ones in
 ## the upper and lower lanes; Splitting, Rev-Up, Curious and Heavy Bramble are
@@ -72,15 +73,24 @@ func move(sim: GameSim) -> bool:
 func bounce_sides(sim: GameSim) -> bool:
 	var left := sim.room.wall_left() + radius
 	var right := sim.room.wall_right() - radius
+	var out := false
 	if x < left:
 		x = 2 * left - x
 		vx = absi(vx)
-		return true
-	if x > right:
+		out = true
+	elif x > right:
 		x = 2 * right - x
 		vx = -absi(vx)
-		return true
-	return false
+		out = true
+	# An open or ghost exit's mouth is part of the wall (ExitZone).
+	var b := ExitZone.bounce(sim, x, y, vx, vy, radius)
+	if not b.is_empty():
+		x = b[0]
+		y = b[1]
+		vx = b[2]
+		vy = b[3]
+		out = true
+	return out
 
 
 func bounce_top() -> bool:

@@ -54,6 +54,28 @@ var pickup_y := 0
 var arrival_hold := 0
 ## Revives used this run (GameSim.revive), at most SimConfig.MAX_REVIVES.
 var revives := 0
+## Where generation thinks the bird is: it never reads the bird's real height,
+## so every player of a seed gets the same rooms, variants, spikes and hazards
+## (GameSim._set_anchor). Out of a portal it is the centre of the exit taken
+## (the bird is within EXIT_FIT of it); at a bounce, the point of the free run
+## on that wall nearest the last anchor (a bird that follows the anchors
+## always has a fair way on).
+var anchor_y := SimConfig.BIRD_START_Y
+## The room's exits, picked when the room starts (ExitPlanner.plan_room): for
+## each wall (0 = left), the first exit's height and kind and, at a fork, the
+## second exit's height (its kind is the other one).
+var plan_a_y_left := 0
+var plan_a_kind_left := 0
+var plan_b_y_left := 0
+var plan_a_y_right := 0
+var plan_a_kind_right := 0
+var plan_b_y_right := 0
+## The exit score the plan is for.
+var plan_at := 0
+## After a revive with the exit open on the wall the bird came in by: the
+## bird's height there (0 = none), kept free of spikes until its next bounce,
+## so it comes out of its portal where it went in (GameSim.revive).
+var revive_gap := 0
 
 
 func copy() -> SimState:
@@ -88,6 +110,15 @@ func copy() -> SimState:
 	s.pickup_y = pickup_y
 	s.arrival_hold = arrival_hold
 	s.revives = revives
+	s.anchor_y = anchor_y
+	s.plan_a_y_left = plan_a_y_left
+	s.plan_a_kind_left = plan_a_kind_left
+	s.plan_b_y_left = plan_b_y_left
+	s.plan_a_y_right = plan_a_y_right
+	s.plan_a_kind_right = plan_a_kind_right
+	s.plan_b_y_right = plan_b_y_right
+	s.plan_at = plan_at
+	s.revive_gap = revive_gap
 	return s
 
 
@@ -122,6 +153,15 @@ func checksum() -> int:
 		arrival_hold,
 		int(exit_preview),
 		revives,
+		anchor_y,
+		plan_a_y_left,
+		plan_a_kind_left,
+		plan_b_y_left,
+		plan_a_y_right,
+		plan_a_kind_right,
+		plan_b_y_right,
+		plan_at,
+		revive_gap,
 	]:
 		h = SimHash.mix(h, v)
 	return h

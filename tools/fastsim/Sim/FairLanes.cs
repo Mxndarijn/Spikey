@@ -14,7 +14,7 @@ public static class FairLanes
 
     public static long entry_y(GameSim sim)
     {
-        if (sim.state.started) return sim.state.y;
+        if (sim.state.started) return sim.state.anchor_y;
         return sim.state.y - FIRST_HOP / 2 * sim.room.gravity;
     }
 
@@ -22,11 +22,12 @@ public static class FairLanes
     {
         var out_ = new List<long>((int)(2 * ARRIVAL_PATH_TICKS));
         long g = sim.room.gravity;
-        long y = sim.state.y;
+        long hold = sim.state.anchor_y;
+        long y = hold;
         long vy = 0;
         for (long k = 0; k < ARRIVAL_PATH_TICKS; k++)
         {
-            if ((y - sim.state.y) * g > 0 && vy * g >= 0) vy = SimConfig.FLAP_VY * g;
+            if ((y - hold) * g > 0 && vy * g >= 0) vy = SimConfig.FLAP_VY * g;
             vy = G.clampi(vy + SimConfig.GRAVITY * g, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY);
             y += vy;
             out_.Add(arrival_x(sim, k + 1));
@@ -58,7 +59,8 @@ public static class FairLanes
         if (sim.state.started) return out_;
         long g = SimConfig.GRAVITY * sim.room.gravity;
         long x = sim.state.x;
-        long y = sim.state.y;
+        long hold = sim.state.anchor_y;
+        long y = hold;
         long vy = SimConfig.FLAP_VY * sim.room.gravity;
         for (long i = 0; i < START_PATH; i++)
         {

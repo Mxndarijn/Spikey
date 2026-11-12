@@ -93,7 +93,7 @@ func hub_clear() -> int:
 func setup(sim: GameSim, rng: SimRng) -> void:
 	center_x = CENTER_X
 	center_y = CENTER_Y
-	var y := sim.state.y
+	var y := sim.state.anchor_y
 	var top := -spread_y if hubs == 2 else 0
 	var bottom := spread_y if hubs == 2 else 0
 	var clear := hub_clear()

@@ -199,8 +199,8 @@ public class Block : Hazard
     {
         var st = sim.state;
         if (!st.started) return false;
-        long up = st.y - ARRIVAL_UP * sim.room.gravity;
-        long down = st.y + ARRIVAL_DOWN * sim.room.gravity;
+        long up = st.anchor_y - (ARRIVAL_UP + SimConfig.EXIT_FIT) * sim.room.gravity;
+        long down = st.anchor_y + (ARRIVAL_DOWN + SimConfig.EXIT_FIT) * sim.room.gravity;
         long top = G.mini(up, down);
         long bottom = G.maxi(up, down);
         if (by1 > top && by0 < bottom)

@@ -8,6 +8,7 @@ extends Hazard
 ## Styles (Firework Burst variants): RING as above; DOUBLE bursts a second ring
 ## ECHO steps after the first, turned half a spark so it fills the gaps; CROSS
 ## throws four arms of three sparks (up, down, left, right) instead of a ring.
+## A spark that reaches an open or ghost exit's mouth (ExitZone) breaks there.
 
 enum Phase { PAD, CLIMB, BURST, REST }
 enum Style { RING, DOUBLE, CROSS }
@@ -45,6 +46,8 @@ var spread := 0
 ## Extra steps on the pad before the first launch.
 var delay := 0
 var style: int = Style.RING
+## Bit i set: spark i broke on an open or ghost exit's mouth (ExitZone).
+var spent := 0
 var _rng := SimRng.new()
 
 
@@ -65,12 +68,13 @@ func _load() -> void:
 	phase = Phase.PAD
 	timer = PAD
 	spread = 0
+	spent = 0
 	x = MIN_X + _rng.next_below(MAX_X - MIN_X + 1)
 	burst_y = MIN_BURST_Y + _rng.next_below(MAX_BURST_Y - MIN_BURST_Y + 1)
 	y = PAD_Y
 
 
-func step(_sim: GameSim) -> void:
+func step(sim: GameSim) -> void:
 	match phase:
 		Phase.PAD:
 			timer -= 1
@@ -86,6 +90,12 @@ func step(_sim: GameSim) -> void:
 		Phase.BURST:
 			timer += 1
 			spread += SPARK_SPEED
+			for i in spark_count():
+				if (
+					spark_live(i)
+					and ExitZone.hits_circle(sim, spark_x(i), spark_y(i), SPARK_RADIUS)
+				):
+					spent |= 1 << i
 			if timer >= burst_steps():
 				phase = Phase.REST
 				timer = REST
@@ -127,7 +137,7 @@ func spark_alpha() -> int:
 ## 0..1024 how bright spark `i` is (0 before it is out and once it is gone).
 func spark_alpha_of(i: int) -> int:
 	var age := spark_age(i)
-	if phase != Phase.BURST or age < 0:
+	if phase != Phase.BURST or age < 0 or spent & (1 << i) != 0:
 		return 0
 	if age < SPARK_DEADLY:
 		return SimTrig.ONE
@@ -137,7 +147,7 @@ func spark_alpha_of(i: int) -> int:
 ## Whether spark `i` is out and still bright (it kills).
 func spark_live(i: int) -> bool:
 	var age := spark_age(i)
-	return phase == Phase.BURST and age >= 0 and age < SPARK_DEADLY
+	return phase == Phase.BURST and age >= 0 and age < SPARK_DEADLY and spent & (1 << i) == 0
 
 
 ## SimTrig angle spark `i` flies at.
@@ -186,7 +196,9 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	var out := mix_all(h, [x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum()])
+	var out := mix_all(
+		h, [x, y, burst_y, phase, timer, spread, delay, _rng.state_checksum(), spent]
+	)
 	if style != Style.RING:
 		out = mix_all(out, [style])
 	return out

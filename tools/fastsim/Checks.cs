@@ -19,6 +19,9 @@ using FastSim;
 ///   rescued   was tests/sim/test_rooms_survivable.gd
 ///   runs      was tests/sim/test_bot_runs.gd
 ///   rlbot     the RL bot only reads the sim (RL/RlCheck.cs)
+///   exits     nothing in an open or ghost exit's mouth (ExitChecks.cs; tests/sim/test_exit_clear.gd)
+///   reach     tests/sim/test_exits_reachable.gd: every exit can still be taken when
+///             it opens, on many different lines (seed 3392377610's room 3, v21)
 /// (CheckSearches.cs has the last five.) ArrivalBench's thresholds are pinned
 /// by tests/unit/test_fastsim_checks.gd.
 ///
@@ -29,7 +32,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Yardstick(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)
@@ -192,6 +195,84 @@ static partial class Checks
         List<object> _cases;
         protected List<object> cases => _cases ??= make();
         protected abstract List<object> make();
+    }
+
+    /// The exit at 40 of seed 3392377610 (v21): in Stalactite Run's floor
+    /// variant the fangs followed the bird, the exit could be planned anywhere,
+    /// and a bird that was high when the exit opened low had no way in. Now
+    /// the exits are planned at room start and the fangs and walls steer to
+    /// them: on several random lines per seed (a slow and a fast player alike)
+    /// the exit can always still be taken once its ghost shows.
+    public sealed class Reach : Check
+    {
+        public override string name => "reach";
+        public override string test => "tests/sim/test_exits_reachable.gd:test_every_exit_can_be_reached_when_it_opens";
+        public const long SEEDS_EACH = 8;
+        public const int LINES = 3;
+        public static readonly string[] ROOMS = { "stalac", "gates", "crates", "gifts", "lava", "isles" };
+
+        public override int count() => cases.Count;
+
+        protected override List<object> make()
+        {
+            var out_ = new List<object>();
+            foreach (var id in ROOMS)
+            {
+                var def = RoomCatalog.all()[(int)RoomCatalog.index_of(id)];
+                var ids = def.variants.Count == 0 ? new List<string> { "" } : def.variants.Select(v => v.id).ToList();
+                foreach (var v in ids)
+                    for (long s = 0; s < SEEDS_EACH; s++) out_.Add((id, v, 1000 + s * 61));
+            }
+            return out_;
+        }
+
+        /// Plays random surviving lines until `until`, at most `max` ticks.
+        static bool advance(GameSim sim, Random rnd, Func<GameSim, bool> until, long max)
+        {
+            long done = 0;
+            while (!until(sim) && done < max)
+            {
+                var s = new SurvivalSearch { pick = rnd };
+                if (!s.run(sim, 360)) return false;
+                int n = Math.Min(120, s.best_inputs.Length);
+                for (int i = 0; i < n && !until(sim); i++)
+                {
+                    sim.step(s.best_inputs[i] == 1);
+                    done++;
+                }
+            }
+            return until(sim);
+        }
+
+        public override JsonObject run(int n)
+        {
+            var (id, variant, seed_value) = ((string, string, long))cases[n];
+            var fails = new List<string>();
+            int opened = 0;
+            for (int line = 0; line < LINES; line++)
+            {
+                var sim = Setups.practice(id, seed_value, variant == "" ? "classic" : variant);
+                // From the ghost: the player sees where the exit opens one
+                // bounce ahead. Some line must go through it, with two more
+                // crossings to spare (solid islands turn the bird round). A
+                // bird that only lives by bouncing over the top spike of the
+                // exit's wall doesn't count.
+                if (!advance(sim, new Random((int)seed_value * 7 + line), g => g.state.exit_preview, 1500)) continue;
+                opened++;
+                long room = sim.state.room_index;
+                long crossing = (sim.room.wall_right() - sim.room.wall_left()) / SimConfig.SPEED_X;
+                var s = new SurvivalSearch();
+                s.run(sim, sim.steps_to_exit(sim.state.exit_side) + 2 * crossing + SimConfig.PORTAL_HOLD + 10);
+                if (s.best == null || s.best.state.room_index == room)
+                    fails.Add($"{id}/{variant} seed {seed_value} line {line}: no way into the exit at {sim.state.exit_a_y / SimConfig.SUB} px from the ghost (bird at {sim.state.y / SimConfig.SUB} px)");
+            }
+            var r = result(fails);
+            r["opened"] = opened;
+            return r;
+        }
+
+        public override string summary(List<JsonNode> results) =>
+            $"{results.Sum(r => (int)r["opened"])} ghosts shown on {LINES} random lines per seed, {SEEDS_EACH} seeds per variant of {string.Join(", ", ROOMS)}";
     }
 
     /// tests/sim/test_variants_passable.gd: SurvivalSearch gets through each
@@ -378,7 +459,7 @@ static partial class Checks
         {
             long total = results.Sum(r => (long)r["total"]);
             long no_way = results.Sum(r => (long)r["no_way"]);
-            if (no_way * 100 > Reaction.MAX_EXTRA_PCT * total)
+            if (no_way > Reaction.MAX_NO_WAY)
             {
                 var worst = results.Where(r => (long)r["no_way"] > 0).OrderByDescending(r => (long)r["no_way"])
                     .Take(12).Select(r => $"{r["id"]} {r["no_way"]}");
@@ -391,7 +472,7 @@ static partial class Checks
         {
             long total = results.Sum(r => (long)r["total"]);
             long no_way = results.Sum(r => (long)r["no_way"]);
-            return $"{results.Count} rooms/variants x {COUNT} arrivals, no way to live at 1 s in {no_way} of {total} ({100.0 * no_way / Math.Max(1, total):F2}%, limit {Reaction.MAX_EXTRA_PCT}%)";
+            return $"{results.Count} rooms/variants x {COUNT} arrivals, no way to live at 1 s in {no_way} of {total} ({100.0 * no_way / Math.Max(1, total):F2}%, must be {Reaction.MAX_NO_WAY}), the bird anywhere in the exit";
         }
     }
 

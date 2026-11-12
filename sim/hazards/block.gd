@@ -239,8 +239,10 @@ func _blocks_arrival(sim: GameSim, bx0: int, by0: int, bx1: int, by1: int) -> bo
 	var st := sim.state
 	if not st.started:
 		return false
-	var up := st.y - ARRIVAL_UP * sim.room.gravity
-	var down := st.y + ARRIVAL_DOWN * sim.room.gravity
+	# The exit's height, and the exit's reach either way: every bird that
+	# came through it (SimState.anchor_y).
+	var up := st.anchor_y - (ARRIVAL_UP + SimConfig.EXIT_FIT) * sim.room.gravity
+	var down := st.anchor_y + (ARRIVAL_DOWN + SimConfig.EXIT_FIT) * sim.room.gravity
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
 	if by1 > top and by0 < bottom:

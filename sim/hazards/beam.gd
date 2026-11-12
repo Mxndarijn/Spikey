@@ -3,7 +3,8 @@ extends Hazard
 ## own beat. A dashed warning flickers before a beam turns on; live beams kill.
 ## Beams take turns (one starts every PERIOD / row count steps and each stays on for
 ## a little more than that), so at most two are on at once and the other rows
-## are always open.
+## are always open. A beam stops short of an open or ghost exit's mouth
+## (ExitZone).
 
 enum State { OFF, WARN, ON }
 
@@ -116,12 +117,33 @@ func live_count() -> int:
 	return n
 
 
+## Where row i's beam starts (left end); it stops short of an exit's mouth
+## (ExitZone) on the left wall it would cross.
+func beam_left(sim: GameSim, i: int) -> int:
+	if _crosses_exit(sim, i, 0):
+		return ExitZone.right_on(sim, 0) + 1
+	return sim.room.wall_left()
+
+
+## Where row i's beam ends (right end), short of a mouth on the right wall.
+func beam_right(sim: GameSim, i: int) -> int:
+	if _crosses_exit(sim, i, 1):
+		return ExitZone.left_on(sim, 1) - 1
+	return sim.room.wall_right()
+
+
+func _crosses_exit(sim: GameSim, i: int, side: int) -> bool:
+	return ExitZone.hits_rect_on(
+		sim, side, sim.room.wall_left(), rows[i] - HALF_H, sim.room.wall_right(), rows[i] + HALF_H
+	)
+
+
 func kills(sim: GameSim) -> bool:
-	var left := sim.room.wall_left()
-	var right := sim.room.wall_right()
 	for i in rows.size():
 		if state(i) == State.ON:
-			if sim.bird_touches_rect(left, rows[i] - HALF_H, right, rows[i] + HALF_H):
+			var y0 := rows[i] - HALF_H
+			var y1 := rows[i] + HALF_H
+			if sim.bird_touches_rect(beam_left(sim, i), y0, beam_right(sim, i), y1):
 				return true
 	return false
 

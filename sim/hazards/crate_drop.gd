@@ -7,6 +7,9 @@ extends Hazard
 ##
 ## Variants: bigger crates in fewer columns (cols, col_w, crate_w, crate_h,
 ## max_height), or two crates falling at once in different columns (pair).
+##
+## No crate falls down a column through an open or ghost exit's mouth
+## (ExitZone); one already falling when the exit appears breaks on it.
 
 const COLS := 7
 ## Column 0 starts here; columns are COL_W wide, clear of the wall spikes.
@@ -86,15 +89,16 @@ func _init(
 
 func setup(_sim: GameSim, rng: SimRng) -> void:
 	salt = rng.next_u32()
-	_next_drop(START_DELAY + WARN_TICKS)
+	_next_drop(null, START_DELAY + WARN_TICKS)
 
 
-func _next_drop(warn: int) -> void:
-	col = _free_col(posmod(SimHash.mix(salt, drops), cols), -1)
+## `sim` null: before the room's exits are known (setup).
+func _next_drop(sim: GameSim, warn: int) -> void:
+	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1)
 	col_b = -1
 	if pair and col >= 0:
 		# The second crate falls about half the room away.
-		col_b = _free_col((col + cols / 2) % cols, col)
+		col_b = _free_col(sim, (col + cols / 2) % cols, col)
 	drops += 1
 	y = -crate_h
 	vy = 0
@@ -105,21 +109,40 @@ func _next_drop(warn: int) -> void:
 	warn_left = warn
 
 
-## The first column from `start` on (wrapping) that is not full and not `skip`.
-func _free_col(start: int, skip: int) -> int:
+## The first column from `start` on (wrapping) that is not full, not `skip`
+## and not falling through an exit's mouth (ExitZone).
+func _free_col(sim: GameSim, start: int, skip: int) -> int:
 	for i in cols:
 		var c := (start + i) % cols
-		if c != skip and heights[c] < max_height:
+		if c != skip and heights[c] < max_height and (sim == null or not _col_in_exit(sim, c)):
 			return c
 	return -1
 
 
-func step(_sim: GameSim) -> void:
+## True if a crate falling down column c touches an open or ghost exit's mouth.
+func _col_in_exit(sim: GameSim, c: int) -> bool:
+	var x := col_left(c)
+	return ExitZone.hits_rect(sim, x, -crate_h, x + crate_w, FLOOR)
+
+
+func step(sim: GameSim) -> void:
 	if col < 0:
 		return
+	# The first crate was marked before the room's exits were known: mark it
+	# again (the same pick, now past the exits) if it would fall through one.
+	if t == 1 and (_col_in_exit(sim, col) or col_b >= 0 and _col_in_exit(sim, col_b)):
+		drops -= 1
+		_next_drop(sim, warn_left)
+		if col < 0:
+			return
 	if warn_left > 0:
 		warn_left -= 1
 		return
+	# A crate breaks on an exit's mouth that opened in its way (ExitZone).
+	if not done and _crate_in_exit(sim, col, y):
+		done = true
+	if col_b >= 0 and not done_b and _crate_in_exit(sim, col_b, y_b):
+		done_b = true
 	if not done:
 		vy = mini(vy + FALL_ACCEL, MAX_FALL)
 		y += vy
@@ -137,7 +160,12 @@ func step(_sim: GameSim) -> void:
 			_land(col_b)
 			done_b = true
 	if done and (col_b < 0 or done_b):
-		_next_drop(WARN_TICKS)
+		_next_drop(sim, WARN_TICKS)
+
+
+func _crate_in_exit(sim: GameSim, c: int, top: int) -> bool:
+	var x := col_left(c)
+	return ExitZone.hits_rect(sim, x, top, x + crate_w, top + crate_h)
 
 
 func _land(c: int) -> void:
@@ -148,6 +176,13 @@ func _land(c: int) -> void:
 
 func falling() -> bool:
 	return col >= 0 and warn_left == 0
+
+
+## No exit level with where the tallest stack can reach (a slot over its top):
+## the columns run close to both walls, so a bird can't dip under a stack
+## into a low exit.
+func blocks_exit(_sim: GameSim, _side: int, y: int) -> bool:
+	return y > FLOOR - max_height * crate_h - SimConfig.SLOT_SIZE
 
 
 func col_left(c: int) -> int:

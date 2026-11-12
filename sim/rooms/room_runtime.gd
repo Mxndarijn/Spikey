@@ -40,6 +40,13 @@ var blink_right := 0
 ## Which way gravity pulls right now: the room's gravity_sign, turned round on
 ## every wall bounce in Flip-flop.
 var gravity := 1
+## The room's own RNG seed, drawn from the run's spine (GameSim._spine) when
+## the room is entered. Every wall after the first draws from an RNG seeded
+## from it and the wall's number (GameSim._new_wall), so what a player does
+## in the room never changes what comes later.
+var rng_seed := 0
+## Walls generated in this room so far (the arrival's wall is 0).
+var walls := 0
 
 
 func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
@@ -55,14 +62,16 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	blink_left = 0
 	blink_right = 0
 	gravity = def.gravity_sign
+	walls = 0
 	hazards.clear()
 	var list: Array[Callable] = def.hazards.duplicate()
 	# The variant is drawn first, then the combo: this order is part of the rules.
-	# Out of a portal only variants that fit the bird's height are drawn
-	# (RoomVariant.arrival_skip); none fitting = any.
+	# Out of a portal only variants that fit the arrival height are drawn
+	# (RoomVariant.arrival_skip); none fitting = any. The height is the exit's
+	# (SimState.anchor_y), never the bird's, so every player gets the same.
 	var drawn: Array[int] = []
 	if sim.state.started:
-		drawn = def.arrival_variants(sim.state.y)
+		drawn = def.arrival_variants(sim.state.anchor_y)
 	if drawn.is_empty():
 		for i in def.variants.size():
 			drawn.append(i)
@@ -271,7 +280,9 @@ func checksum(h: int) -> int:
 			tide_salt,
 			blink_left,
 			blink_right,
-			gravity
+			gravity,
+			rng_seed,
+			walls
 		]
 	)
 	for hz in hazards:

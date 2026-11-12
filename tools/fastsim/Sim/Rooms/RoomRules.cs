@@ -26,14 +26,14 @@ public static class RoomRules
 
     [ThreadStatic] static long[] _candidates;
 
-    public static long generate_wall(SimRng rng, long score, RoomDef def, long bird_y = -1, long bonus = 0)
+    public static long generate_wall(SimRng rng, long score, RoomDef def, long bird_y = -1, long bonus = 0, long p_reach = -1)
     {
         long n = spike_count(score, def, bonus);
         if (n == 0) return 0;
         long gap = def.gap;
         long lo = 0;
         long hi = SimConfig.SLOT_COUNT - gap;
-        long reach = gap_reach(def);
+        long reach = p_reach < 0 ? gap_reach(def) : p_reach;
         if (bird_y >= 0 && reach > 0)
         {
             long first = hi;

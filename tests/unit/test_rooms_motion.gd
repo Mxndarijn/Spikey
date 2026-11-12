@@ -266,6 +266,7 @@ func test_stalker_rides_the_wall_ahead_and_kills() -> void:
 
 func test_stalker_chases_at_a_capped_speed() -> void:
 	var sim := sim_at_wall("stalker", 9, true, 300)
+	NoExits.clear(sim)
 	var s: Hazard = sim.room.hazards[0]
 	s.y = s.MIN_Y
 	sim.state.y = s.MAX_Y

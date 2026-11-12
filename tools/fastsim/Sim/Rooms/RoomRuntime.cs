@@ -24,6 +24,8 @@ public sealed class RoomRuntime
     public long blink_left = 0;
     public long blink_right = 0;
     public long gravity = 1;
+    public long rng_seed = 0;
+    public long walls = 0;
 
     public RoomRuntime clone_deep()
     {
@@ -58,10 +60,11 @@ public sealed class RoomRuntime
         blink_left = 0;
         blink_right = 0;
         gravity = def.gravity_sign;
+        walls = 0;
         hazards.Clear();
         var list = new List<Func<Hazard>>(def.hazards);
         var drawn = new List<long>();
-        if (sim.state.started) drawn = def.arrival_variants(sim.state.y);
+        if (sim.state.started) drawn = def.arrival_variants(sim.state.anchor_y);
         if (drawn.Count == 0)
             for (int i = 0; i < def.variants.Count; i++) drawn.Add(i);
         if (drawn.Count > 1) variant = drawn[(int)rng.next_below(drawn.Count)];
@@ -217,7 +220,7 @@ public sealed class RoomRuntime
 
     public long checksum(long h)
     {
-        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right, gravity);
+        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right, gravity, rng_seed, walls);
         foreach (var hz in hazards)
         {
             out_ = SimHash.mix(out_, G.B(hz.alive));

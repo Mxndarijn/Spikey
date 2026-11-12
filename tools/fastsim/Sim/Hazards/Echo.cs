@@ -47,6 +47,7 @@ public class Echo : Hazard
             x = SimConfig.WORLD_W - sim.state.x;
             y = SimConfig.WORLD_H - sim.state.y;
             facing = sim.state.vx > 0 ? -1 : 1;
+            x = ExitZone.push_x(sim, x, y, RADIUS);
             return;
         }
         long old_x = xs[(int)head];
@@ -56,6 +57,7 @@ public class Echo : Hazard
         xs[(int)head] = sim.state.x;
         ys[(int)head] = sim.state.y;
         head = (head + 1) % DELAY;
+        x = ExitZone.push_x(sim, x, y, RADIUS);
     }
 
     public override bool kills(GameSim sim) => shown && sim.bird_touches_circle(x, y, RADIUS);

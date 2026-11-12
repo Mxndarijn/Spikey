@@ -1,7 +1,8 @@
 extends Hazard
 ## A pair of spikes on a rail (Stalker Rail). It sits on the wall the bird is
 ## heading to and slides toward the bird's height at a capped speed, so the
-## bird can always outfly it.
+## bird can always outfly it. It stops at the edge of an open or ghost
+## exit's mouth (ExitZone).
 
 ## One spike of the pair: as deep and wide as a wall spike.
 const DEPTH := SimConfig.SPIKE_DEPTH
@@ -35,7 +36,11 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 func step(sim: GameSim) -> void:
 	side = 1 if sim.state.vx > 0 else 0
 	var target := clampi(sim.state.y, MIN_Y, MAX_Y)
+	var old := y
 	y += clampi(target - y, -MAX_SPEED, MAX_SPEED)
+	# It never slides into an exit's mouth (ExitZone): it waits at its edge.
+	# Put in one by a jump to the other wall, it jumps clear of it.
+	y = ExitZone.stop_y(sim, side, old, y, HALF_H, MIN_Y, MAX_Y)
 	x = base_x(sim)
 
 
