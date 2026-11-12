@@ -17,8 +17,8 @@
   5b. FastSim-RS parity: tools/fastsim-rs (the Rust copy, docs/FASTSIM_RS.md)
      replays the same recording; skipped cleanly when cargo is not installed
   6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
-     seeker, random tapper: tools/fastsim/Checks.cs), in -FastSimJobs worker
-     processes
+     seeker, random tapper: tools/fastsim-rs checks, C# FastSim without cargo),
+     one process with -FastSimJobs threads
 
   The steps run side by side where they can: lint, format and the FastSim
   checks (which need no Godot) start at once; once the import is done, the
@@ -142,7 +142,7 @@ $cargoBin = Join-Path $HOME ".cargo/bin"
 if (Test-Path $cargoBin) { $env:PATH = "$cargoBin" + [IO.Path]::PathSeparator + $env:PATH }
 $hasCargo = [bool](Get-Command cargo -ErrorAction SilentlyContinue)
 $fastsimRsBuilt = $false
-if ($hasCargo -and $runParity) {
+if ($hasCargo) {
     & powershell -ExecutionPolicy Bypass -File (Join-Path $fastsimRs "build.ps1") -NoSlot 2>&1 | Out-Null
     $fastsimRsBuilt = $LASTEXITCODE -eq 0
 }
@@ -154,7 +154,8 @@ if ($gdlint -and $gdformat) {
     Start-Step "lint" $gdlint $gdDirs
     Start-Step "format" $gdformat (@("--check", "--line-length", "100") + $gdDirs)
 }
-if ($fastsimBuilt) {
+# The bot checks run on FastSim-RS when it built (fastsim.ps1 picks it), else on C#.
+if ($fastsimRsBuilt -or $fastsimBuilt) {
     $fa = @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "check", "-NoBuild", "-Jobs", $FastSimJobs)
     if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
     Start-Step "checks" "powershell" $fa
@@ -249,10 +250,10 @@ if ($runParity) {
 # 6. Every bot test, on FastSim (tools/fastsim/Checks.cs). With a
 # -TestFilter only the checks it names or whose old test it matches.
 Write-Step "FastSim checks"
-if (-not $hasDotnet) {
-    Write-Host "dotnet not installed: install the .NET 9 SDK" -ForegroundColor Red
-    $failed += "fastsim checks (dotnet not installed)"
-} elseif (-not $fastsimBuilt) {
+if (-not $fastsimRsBuilt -and -not $hasDotnet) {
+    Write-Host "neither cargo nor dotnet installed (docs/FASTSIM_RS.md)" -ForegroundColor Red
+    $failed += "fastsim checks (no FastSim)"
+} elseif (-not $fastsimRsBuilt -and -not $fastsimBuilt) {
     $failed += "fastsim checks (FastSim build failed)"
 } else {
     if ((Show-Step "checks") -ne 0) { $failed += "fastsim checks" }

@@ -100,9 +100,22 @@ pub fn all() -> &'static Vec<Box<dyn Check>> {
     static ALL: OnceLock<Vec<Box<dyn Check>>> = OnceLock::new();
     ALL.get_or_init(|| {
         vec![
+            // C#'s Checks.ALL order, without the checks of the frozen RL and MPC bots.
             Box::new(passable::Passable::default()),
             Box::new(arrival::Arrival::default()),
+            Box::new(points::Points::default()),
+            Box::new(revive::Revive::default()),
+            Box::new(pairs::Pairs::default()),
+            Box::new(keys::Keys::default()),
+            Box::new(searches::Crawl::default()),
+            Box::new(searches::Gates::default()),
+            Box::new(searches::Isles::default()),
+            Box::new(searches::Rescued::default()),
+            Box::new(runs::Runs::default()),
+            Box::new(exits::Exits::default()),
+            Box::new(reach::Reach::default()),
             Box::new(Yardstick),
+            Box::new(sameseed::SameSeedRevive::default()),
             Box::new(sight::SightCheck::default()),
             Box::new(honesty::BlindSeeds),
             Box::new(crate::boss::check::BossFair),

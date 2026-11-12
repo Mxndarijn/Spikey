@@ -77,12 +77,14 @@ param(
 )
 
 # FastSim-RS (the Rust copy) runs the modes and checks it has ported, by
-# default: bench, difficulty, runfile, and -Mode check when every check asked for is
-# ported. Everything else (and -CSharp) runs on C# FastSim. -Mode parity always
+# default: bench, difficulty, runfile, and -Mode check (all, or a list of ported
+# checks; C# also has rlbot, rlboss, mpcbot and mpcboss for the frozen RL and MPC
+# bots: -CSharp). Everything else (and -CSharp) runs on C# FastSim. -Mode parity always
 # checks C# FastSim; tools/fastsim-rs/parity.ps1 checks the Rust copy.
-$rsChecks = @("passable", "arrival", "sight", "blind_seeds", "yardstick", "bossfair", "difficulty")
+$rsChecks = @("passable", "arrival", "points", "revive", "pairs", "keys", "crawl", "gates", "isles", "rescued", "runs", "exits", "reach", "yardstick", "sameseed", "sight", "blind_seeds", "bossfair", "difficulty")
 $rsMode = $Mode -in @("bench", "difficulty", "runfile")
-if ($Mode -eq "check" -and $Check -ne "all") {
+if ($Mode -eq "check" -and $Check -eq "all") { $rsMode = $true }
+elseif ($Mode -eq "check") {
     $rsMode = @($Check.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -notin $rsChecks }).Count -eq 0
 }
 if ($rsMode -and -not $CSharp) {
