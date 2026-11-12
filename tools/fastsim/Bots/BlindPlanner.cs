@@ -371,8 +371,6 @@ public sealed class BlindPlanner
                 case Drop dr: dr._rng.reseed(own.next_u32()); break;
                 case Firework fw: fw._rng.reseed(own.next_u32()); break;
                 case OrchardSpawner os: os._rng.reseed(own.next_u32()); break;
-                // A boss's seed: every attack it has not shown yet.
-                case Boss bs: blind_boss(bs, own); break;
                 // Where the bubble comes back after its next pop.
                 case Bubble b:
                     b.next_x = Bubble.MIN_X + own.next_below(Bubble.MAX_X - Bubble.MIN_X + 1);
@@ -415,25 +413,6 @@ public sealed class BlindPlanner
             }
         }
         return c;
-    }
-
-    /// A new seed for a boss. Most attacks on screen are kept in the boss's
-    /// fields; the Crusher's slam height in phase 1 is drawn from the seed
-    /// every step, so a seed is drawn that gives the slam on screen.
-    static void blind_boss(Boss bs, SimRng own)
-    {
-        long keep = -1;
-        if (bs is BossCrusher c && c.down_at < 0 && c.phase == 1 && c.clock() >= 0)
-            keep = c.clock() / BossCrusher.CYCLE;
-        long was = bs.seed;
-        for (int tries = 0; tries < 64; tries++)
-        {
-            bs.seed = own.next_u32();
-            if (keep < 0) return;
-            var cr = (BossCrusher)bs;
-            if (cr.slam_of(keep) == cr.slam_y) return;
-        }
-        bs.seed = was;
     }
 
     struct Node

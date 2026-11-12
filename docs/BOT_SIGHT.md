@@ -59,6 +59,23 @@ when fewer than half of its looks are seen (`-`: fewer than 4 looks).
 `SightCheck.KNOWN` lists blind cells that are allowed while their fix is in
 flight, each with the session fixing it. Remove an entry when its fix lands
 (the matrix then shows the cell as seen).
+`SightCheck.KNOWN_LEAKS` does the same for hidden-value reads (eye, scene).
+
+Gaps on 2026-11-12 (the check runs 112 rooms in about 10 s on 8 workers):
+- world / worldobs: no boss models (WorldModel makes bosses UnknownM). Fix:
+  the world-model boss models branch.
+- mpc: no boss tells (Sight reads only Piston and Beam warnings). Fix: the MPC
+  boss sight branch.
+- rl: no tell input at all (its grid is kills() now and 6 ticks back), so it is
+  blind to every tell. Owner: planner-next.
+- worldobs tells (Beam, Dart, Drop, Firework, Piston), mpc tells (CrateDrop,
+  Dart, Drop, Firework, Lava, Stalker), mpc Firework danger, and
+  Models.Read hidden reads in bubbles/spiky, keepy/two-balls and
+  double/bramble_beams: WorldPlanner and MPC are frozen and retire at the
+  Rust switch, so these have no owner.
+
+The bar (MIN_RATE 0.5, MIN_SAMPLES 4) separates the matrix cleanly: blind
+cells read 0–33% (Firework mpc danger 43%), seen cells 58% or more.
 
 ## Running it alone
 

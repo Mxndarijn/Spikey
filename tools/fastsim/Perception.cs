@@ -65,6 +65,52 @@ static partial class Checks
         /// Blind cells allowed while their fix is in flight: (class, bot, "tell" or "deadly") -> fix session.
         public static readonly Dictionary<(string cls, string bot, string what), string> KNOWN = new()
         {
+            [("BossWatcher", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossWatcher", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossWatcher", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossWatcher", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossCrusher", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossCrusher", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossCrusher", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossCrusher", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossSaw", "world", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossSaw", "world", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossSaw", "worldobs", "tell")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossSaw", "worldobs", "deadly")] = "world-model boss models (claude/blissful-bhaskara-76b7f8)",
+            [("BossWatcher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
+            [("BossCrusher", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
+            [("BossSaw", "mpc", "tell")] = "MPC boss sight (claude/hopeful-feynman-f47783)",
+            [("Beam", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("BossCrusher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("BossSaw", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("BossWatcher", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("CrateDrop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Dart", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Drop", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Firework", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Lava", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Piston", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Stalker", "rl", "tell")] = "planner-next (RL tell input for every hazard)",
+            [("Beam", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Dart", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Drop", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Firework", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Piston", "worldobs", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("CrateDrop", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Dart", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Drop", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Firework", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Lava", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Stalker", "mpc", "tell")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("Firework", "mpc", "deadly")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+        };
+
+        /// Hidden-value reads allowed while their fix is in flight: (eye, scene label) -> owner.
+        public static readonly Dictionary<(string eye, string scene), string> KNOWN_LEAKS = new()
+        {
+            [("world (Models.Read)", "bubbles/spiky")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("world (Models.Read)", "keepy/two-balls")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
+            [("world (Models.Read)", "double/bramble_beams")] = "frozen bot: no owner, retired at the Rust switch (BOT_PLAN.md)",
         };
 
         public static List<Type> classes() => typeof(Hazard).Assembly.GetTypes()
@@ -492,7 +538,8 @@ static partial class Checks
                 if (t % 200 == 0) log($"pass 2 tick {t}");
             }
             // One message per eye and room.
-            fails.AddRange(leaks.GroupBy(l => l[..l.IndexOf(" (tick")]).Select(g => g.First()));
+            fails.AddRange(leaks.GroupBy(l => l[..l.IndexOf(" (tick")]).Select(g => g.First())
+                .Where(l => !KNOWN_LEAKS.ContainsKey((l[..l.IndexOf(" reads")], label))));
 
             var stats = new JsonObject();
             foreach (var (k, ta) in tally)
