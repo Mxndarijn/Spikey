@@ -82,6 +82,7 @@ CrateDrop.warn_left	game/run/painters/crate_drop_painter.gd
 CrateDrop.y	game/run/painters/crate_drop_painter.gd
 CrateDrop.y_b	game/run/painters/crate_drop_painter.gd
 Crawler.alive	game/run/painters/crawler_painter.gd
+Crawler.kind	game/run/painters/crawler_painter.gd
 Crawler.seg_radius	game/run/painters/crawler_painter.gd
 Crawler.speed	game/run/painters/crawler_painter.gd
 Crawler.xs	game/run/painters/crawler_painter.gd
