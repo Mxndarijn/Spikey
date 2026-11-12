@@ -535,6 +535,12 @@ public sealed class BlindPlanner
         { var x = own.next_u32(); if (!R(Reveal.WALLSEED)) c.room.rng_seed = x; }
         { var x = own.next_u32(); if (!R(Reveal.SPINE)) c._spine = new SimRng(x); }
         if (know_walls) c.room.rng_seed = true_seed;
+        // Each wall's draws come from the room's seed and how many walls the room
+        // has drawn. With a seed of its own the count tells the copy nothing, but
+        // its guesses would still change with it: keep only what the rules ask of
+        // it (none yet, the first, later ones), so no look depends on a count the
+        // screen does not show.
+        if (!know_walls && !R(Reveal.WALLSEED)) c.room.walls = Math.Min(c.room.walls, 2);
         if (c.state.plan_at != 0 && !know_exits && !R(Reveal.EXITS)) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within
