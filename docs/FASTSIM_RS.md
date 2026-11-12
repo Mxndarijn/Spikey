@@ -5,12 +5,23 @@ itself a line-by-line copy of `sim/`. It runs the same bots, with the same
 results, faster on the same CPU. It is a tool only: the game and the server run
 the GDScript sim, the one source of truth.
 
-C# FastSim stays until the switch, which is a separate step (coordinator's OK).
+Rust is the default for bot runs; C# FastSim stays as the fallback (`-CSharp`).
 Ported: the sim, BlindPlanner (blind_copy and every honesty rule: boss_blind,
-own_anchor, hide_keys, the arrival memo), the human tiers (MotorPlayer, Trace,
-Atlas), the yardstick (runs, stats, compare, timing, leak) and the checks
-`passable`, `arrival`, `sight` (the BlindPlanner column) and `blind_seeds`.
+own_anchor, hide_keys, boss_unseen/boss_leak, the arrival memo), the human tiers
+(MotorPlayer, Trace, Atlas), the yardstick (runs, stats, survival, compare,
+timing, leak), the test protocol (`measure`: bank, trials, estimate, confirm,
+runs, report, the whole-run leak check; docs/BOT_TESTING.md files), the review
+tools (`rl review fair|autopsy|exposure|bouncefair|fixtest`), `boss run|fair`,
+`difficulty`, and the checks `passable`, `arrival`, `sight` (the BlindPlanner
+column), `blind_seeds`, `yardstick`, `bossfair` and `difficulty`.
 Not ported: WorldPlanner, MPC, RL, HumanBot/Reflex, honest-v1, and the other checks.
+
+`tools/yardstick.ps1` runs on Rust by default (every mode, the protocol modes
+included); bots only C# has (rl:*, world:*, mpc*, honest-v1) switch to C# on
+their own. `tools/fastsim.ps1` uses Rust for `-Mode bench`, `-Mode difficulty`
+and `-Mode check` when every check asked for is ported (`-Check all` and
+check.ps1's checks stay on C#). `-CSharp` forces C# in both scripts.
+`tools/fastsim-rs/exe.ps1` builds the binary and prints its path.
 
 ## Layout
 
@@ -40,6 +51,14 @@ the thread count for every mode.
     fastsim-rs yardstick run --bot honest,human:good --seeds 8 --out <dir>   (= C# yardstick)
     fastsim-rs human measure|fit|baseline|deaths|atlas|motortrace --bot motor ...
     fastsim-rs bench                                    copy / step time (Program.cs Bench)
+    fastsim-rs measure bank|trials|estimate|confirm|runs|report|leak|check ...   (= C# measure)
+    fastsim-rs rl review fair|autopsy|exposure|bouncefair|fixtest ...           (= C#)
+    fastsim-rs boss run|fair ...    fastsim-rs difficulty list|measure|score|show ...
+
+Options are C#'s; `--threads` is read where C# reads it, but one pool (`--jobs`)
+runs everything. `measure/fields.rs` lists every SimState, RoomRuntime and hazard
+field for the leak check (C# uses reflection): regenerate it with the scripts in
+`measure/gen/` when a sim type gains or loses a field.
 
 `tools/check.ps1` runs the Rust parity as its own step ("FastSim-RS parity",
 beside the C# one) and skips it cleanly when cargo is not installed.
