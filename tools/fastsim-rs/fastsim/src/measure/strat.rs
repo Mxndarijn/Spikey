@@ -133,6 +133,8 @@ impl Strat {
         match range {
             "plateau" => Self::plateau(key),
             "ramp" => !Self::plateau(key),
+            // One score class ("@b0", "@b10", "@b20", "@b30", "@p", "@t1"...).
+            _ if range.starts_with('@') => key.ends_with(range),
             _ => true,
         }
     }

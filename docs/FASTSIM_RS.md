@@ -5,29 +5,26 @@ itself a line-by-line copy of `sim/`. It runs the same bots, with the same
 results, faster on the same CPU. It is a tool only: the game and the server run
 the GDScript sim, the one source of truth.
 
-Rust is the default for bot runs; C# FastSim stays as the fallback (`-CSharp`).
-Ported: the sim, BlindPlanner (blind_copy and every honesty rule: boss_blind,
-own_anchor, hide_keys, boss_unseen/boss_leak, the arrival memo), the human tiers
-(MotorPlayer, Trace, Atlas), the yardstick (runs, stats, survival, compare,
-timing, leak), the test protocol (`measure`: bank, trials, estimate, confirm,
-runs, report, the whole-run leak check; docs/BOT_TESTING.md files), the review
-tools (`rl review fair|autopsy|exposure|bouncefair|fixtest`), `boss run|fair`,
-`difficulty`, and the checks `passable`, `arrival`, `sight` (the BlindPlanner
-column), `blind_seeds`, `yardstick`, `bossfair` and `difficulty`.
-Not ported: WorldPlanner, MPC, RL, HumanBot/Reflex, honest-v1, and the other checks.
-Also ported: `Hazard.warnings` / `GameSim.warnings` (the parity checks the
-recorded warnings too), BlindPlanner's plan reuse (`follow`), `tap_free`,
-`frozen`, `mid_offset`, `plan_lives` and the wall-count rule of `blind_copy`, and
-the calibrated human tiers (`MotorTiers.shared`, `LEVELS`, the Persona habits,
-the reaction to new warnings, `Human/tiers.json`). C# only, research switches
-that are off by default: `longest`, `peek`, `aim_wall`, `mid_visible`,
-`mc_samples`, the `steps` counter.
+Rust is the default for every bot run; C# FastSim stays as the fallback
+(`-CSharp`) until it is removed. Ported: the sim (with `Hazard.warnings` /
+`GameSim.warnings`), BlindPlanner (blind_copy and every honesty rule, plan reuse,
+`tap_free`, `frozen`, `mid_offset`, `plan_lives`, the `steps` counter), the human
+tiers (MotorPlayer with the calibrated tiers, Persona habits and the reaction to
+new warnings, Trace, Atlas), the yardstick, the test protocol (`measure`, incl.
+`median`, `visibility` and the `tier:react=R,level=L` bots), the review tools
+(`rl review fair|autopsy|exposure|bouncefair|fixtest|honest|atlas|trace|horizon|blindcheck`),
+`boss run|fair`, `difficulty`, `honesty plan|anchor|rooms|seeds`, `sameseed`, the
+`fastsim` modes search, searchruns, rooms, runs, reaction, odds, scan, runfile and
+bench, and every check but four (below).
+Not ported (frozen, they go with C# FastSim): WorldPlanner, MPC, RL, HumanBot and
+Reflex, honest-v1, the checks rlbot, rlboss, mpcbot and mpcboss, `combos` (Double
+Trouble is being removed), and C#-only research switches that are off by default
+(`longest`, `peek`, `aim_wall`, `mid_visible`, `mc_samples`).
 
-`tools/yardstick.ps1` runs on Rust by default (every mode, the protocol modes
-included); bots only C# has (rl:*, world:*, mpc*, honest-v1) switch to C# on
-their own. `tools/fastsim.ps1` uses Rust for `-Mode bench`, `-Mode difficulty`
-and `-Mode check` when every check asked for is ported (`-Check all` and
-check.ps1's checks stay on C#). `-CSharp` forces C# in both scripts.
+`tools/yardstick.ps1`, `tools/fastsim.ps1` and `tools/calibrate_tiers.ps1` run on
+Rust by default; bots only C# has (rl:*, world:*, mpc*, honest-v1) switch to C#
+on their own, and `-CSharp` forces C#. `fastsim.ps1 -Mode parity` checks C#
+FastSim; `tools/fastsim-rs/parity.ps1` checks the Rust copy.
 `tools/fastsim-rs/exe.ps1` builds the binary and prints its path.
 
 ## Layout
@@ -58,8 +55,10 @@ the thread count for every mode.
     fastsim-rs yardstick run --bot honest,human:good --seeds 8 --out <dir>   (= C# yardstick)
     fastsim-rs human measure|fit|baseline|deaths|atlas|motortrace --bot motor ...
     fastsim-rs bench                                    copy / step time (Program.cs Bench)
-    fastsim-rs measure bank|trials|estimate|confirm|runs|report|leak|check ...   (= C# measure)
-    fastsim-rs rl review fair|autopsy|exposure|bouncefair|fixtest ...           (= C#)
+    fastsim-rs measure bank|trials|estimate|confirm|runs|report|median|leak|visibility|check ...
+    fastsim-rs rl review fair|autopsy|exposure|bouncefair|fixtest|honest|atlas|trace|horizon|blindcheck ...
+    fastsim-rs search|searchruns|rooms|runs|reaction|odds|scan ...   fastsim-rs runfile <seed> [bot] --out f
+    fastsim-rs honesty plan|anchor|rooms|seeds ...   fastsim-rs sameseed ...
     fastsim-rs boss run|fair ...    fastsim-rs difficulty list|measure|score|show ...
 
 Options are C#'s; `--threads` is read where C# reads it, but one pool (`--jobs`)

@@ -7,21 +7,24 @@
 #
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Tiers good,expert -Budget 600
-#   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Exe <rust binary>   # any engine with `measure median`
+#   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -CSharp              # on C# FastSim instead of FastSim-RS
+#   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Exe <engine>        # any engine with `measure median`
 #   powershell -ExecutionPolicy Bypass -File tools/calibrate_tiers.ps1 -Verify              # then full holdout runs per tier
 #
 # Each evaluation is `<exe> measure median --bank B --bot tier:react=R,level=L --budget S
 # --threads T --out <trials> --json <out>`: room trials from a shared bank, the KM median
 # the stratified death rates give, and its interval. Any engine that takes that command
-# and writes that JSON ({"median", "lo", "hi", ...}) can run this script (FastSim now, the
-# Rust port once it has it). Every evaluation takes a CPU slot (VARIANT_RULES.md) and frees it.
+# and writes that JSON ({"median", "lo", "hi", ...}) can run this script: FastSim-RS by
+# default (tools/fastsim-rs, the same trials and numbers as C#), C# FastSim with -CSharp or
+# when cargo is missing. Every evaluation takes a CPU slot (VARIANT_RULES.md) and frees it.
 param(
     [string]$Tiers = "beginner,normal,good,expert",
     # CPU seconds of trials per evaluation; the last evaluation of each tier gets 2x more.
     [double]$Budget = 300,
     [int]$Threads = 4,
-    # The engine (default: FastSim, built here).
+    # The engine (default: FastSim-RS, built here; C# FastSim with -CSharp or without cargo).
     [string]$Exe = "",
+    [switch]$CSharp,
     # The shared bank (full runs of the default BlindPlanner on dev seeds); made if missing.
     [string]$Bank = "",
     [int]$BankSeeds = 160,
@@ -43,6 +46,7 @@ $start = @{ beginner = @(24, 1); normal = @(20, 2); good = @(15, 3); expert = @(
 $reactMin = 11; $reactMax = 60; $levels = 6
 $fit = 0.15; $aim = 0.08
 
+if (-not $Exe -and -not $CSharp) { $Exe = & (Join-Path $root "tools/fastsim-rs/exe.ps1") }
 if (-not $Exe) {
     $proj = Join-Path $root "tools/fastsim/FastSim.csproj"
     & dotnet build $proj -c Release -nologo -v q | Out-Null
@@ -50,6 +54,8 @@ if (-not $Exe) {
     $Exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim.exe"
     if (-not (Test-Path $Exe)) { $Exe = Join-Path $root "tools/fastsim/bin/Release/net9.0/FastSim" }
 }
+# fastsim-rs runs everything on one thread pool (--jobs); --threads is read too (C# ignores --jobs).
+$jobs = @("--jobs", $Threads)
 $mdir = Join-Path $Out "measure"
 New-Item -ItemType Directory -Force $mdir | Out-Null
 # One bank per state of the sim: a room fix makes a new one.
@@ -64,7 +70,7 @@ function With-Slot([scriptblock]$body) {
 
 if (-not (Test-Path $Bank)) {
     Write-Host "making the bank $Bank (BlindPlanner, dev seeds 10001..$(10000 + $BankSeeds), to 400 points)"
-    With-Slot { & $Exe measure bank --bot blind --first 10000 --seeds $BankSeeds --points 400 --threads $Threads --out $Bank | Out-Host }
+    With-Slot { & $Exe measure bank --bot blind --first 10000 --seeds $BankSeeds --points 400 --threads $Threads @jobs --out $Bank | Out-Host }
     if (-not (Test-Path $Bank)) { Write-Host "no bank made" -ForegroundColor Red; exit 2 }
 }
 
@@ -76,7 +82,7 @@ function Eval-Median([string]$tier, [double]$react, [int]$level, [double]$budget
     $bot = "tier:react=$([Math]::Round($react, 1).ToString([Globalization.CultureInfo]::InvariantCulture)),level=$level"
     $trials = Join-Path $mdir "calib-$simRev-$tier.median.tsv"
     $json = Join-Path $mdir "calib-$simRev-$tier.last.json"
-    With-Slot { & $Exe measure median --bank $Bank --bot $bot --budget $budget --threads $Threads --out $trials --json $json | Out-Null }
+    With-Slot { & $Exe measure median --bank $Bank --bot $bot --budget $budget --threads $Threads @jobs --out $trials --json $json | Out-Null }
     $j = Get-Content $json -Raw | ConvertFrom-Json
     $m = if ($null -eq $j.median) { 1e6 } else { [double]$j.median }
     $lo = if ($null -eq $j.lo) { 1e6 } else { [double]$j.lo }
@@ -152,6 +158,6 @@ if ($Verify) {
     foreach ($tier in $result.Keys) {
         Say "== verify $tier on the holdout (full runs)"
         $t = "human-$tier"
-        With-Slot { & $Exe measure report --bot "human:$tier" --claimed $tier --threads $Threads --out (Join-Path $mdir "$t.holdout.bank.json") --json (Join-Path $mdir "$t.report.json") | Out-Host }
+        With-Slot { & $Exe measure report --bot "human:$tier" --claimed $tier --threads $Threads @jobs --out (Join-Path $mdir "$t.holdout.bank.json") --json (Join-Path $mdir "$t.report.json") | Out-Host }
     }
 }

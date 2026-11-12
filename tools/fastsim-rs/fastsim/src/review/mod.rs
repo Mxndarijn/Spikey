@@ -1,9 +1,12 @@
 //! `fastsim-rs rl review <what>`: port of RL/Review.cs `run` for the modes that do
 //! not need the RL policy: fair (RL/Fairness.cs), exposure, bouncefair, fixtest and
-//! autopsy (RL/Autopsy.cs). Same options, same printed text (docs/BOT_TESTING.md).
+//! autopsy (RL/Autopsy.cs), horizon and honest (honest.rs), atlas (atlas.rs), trace
+//! (trace.rs) and blindcheck (blindcheck.rs). Same options, same printed text
+//! (docs/BOT_TESTING.md).
 //!
-//! Not ported: horizon, honest, atlas, blindcheck, trace, speed (use `fastsim-rs speed`),
-//! sens and shape (RL policy), and `rl deaths` (RL/Deaths.cs, RL policy).
+//! Not ported: rescue, speed (use `fastsim-rs speed`), sens and shape (RL policy), and
+//! `rl deaths` (RL/Deaths.cs, RL policy). The BlindPlanner's `steps` counter (search steps
+//! per tick in honest and atlas) is C# only: printed as "?".
 //! `--threads` is not read: every mode runs on rayon's global pool (`--jobs N`).
 use std::cmp::Ordering;
 
@@ -12,8 +15,12 @@ use sim::prelude::*;
 use crate::bots::BlindPlanner;
 use crate::speed::Opts;
 
+pub mod atlas;
 pub mod autopsy;
+pub mod blindcheck;
 pub mod fairness;
+pub mod honest;
+pub mod trace;
 
 /// C# `Environment.NewLine` (what `StringBuilder.AppendLine` and `Console.WriteLine` end with).
 pub const NL: &str = if cfg!(windows) { "\r\n" } else { "\n" };
@@ -33,7 +40,20 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
         "bouncefair" => autopsy::bouncefair(opts, seeds),
         "fixtest" => autopsy::fixtest(opts),
         "autopsy" => autopsy::run(opts, seeds, cap),
-        "horizon" | "honest" | "atlas" | "blindcheck" | "trace" | "speed" | "sens" | "shape" => {
+        "horizon" => {
+            for h in o("h", "20,40,60,90").split(',') {
+                honest::horizon(h.parse().expect("--h"), o("k", "4").parse().expect("--k"), o("cut", "0") == "1", seeds, cap);
+            }
+            0
+        }
+        "honest" => {
+            honest::honest(opts, seeds, cap);
+            0
+        }
+        "atlas" => atlas::atlas(opts, seeds, cap),
+        "blindcheck" => blindcheck::blindcheck(seeds),
+        "trace" => trace::trace(opts, cap),
+        "rescue" | "speed" | "sens" | "shape" => {
             eprintln!("rl review {what}: not ported to Rust (use C# FastSim)");
             2
         }
@@ -56,7 +76,7 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.fine_px = l(opts, "fine", bot.fine_px);
     let f = |b: bool, c: &str| if b { c.to_string() } else { "-".to_string() };
     format!(
-        "h {} past {} k {}/{} n {} lines {} wobble {} part {} mid {} tap {} margin {}/{}{} fangs {} rules {}{}{}{}{}{}{}{} buckets {}px x{} fine {}",
+        "h {} past {} k {}/{} n {} lines {} wobble {} part {} mid {} tap {} margin {}/{}{} fangs {} rules {}{}{}{}{}{}{}{} buckets {}px x{} fine {}{}{}{}",
         bot.horizon,
         bot.past,
         bot.replan,
@@ -81,7 +101,11 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
         f(bot.aim_anchor, "N"),
         bot.bucket_px,
         bot.speed_buckets,
-        bot.fine_px
+        bot.fine_px,
+        // C# also prints " longest", " aimwall" and " midvisible": research switches only C# has.
+        if bot.follow > 0 { format!(" follow {}", bot.follow) } else { String::new() },
+        if bot.tap_free { " tapfree" } else { "" },
+        if bot.aim_anchor { " aimanchor" } else { "" }
     )
 }
 
@@ -129,4 +153,11 @@ pub fn crate_drop(sim: &GameSim) -> Option<&CrateDrop> {
         Hz::CrateDrop(cd) => Some(cd),
         _ => None,
     })
+}
+
+/// C# `x.ToString("F<n>")` on .NET 9: the exact value of the double, ties to even (`2.5` ->
+/// "2", `81.25` -> "81.2"), which is what Rust's `{:.n}` does. (yardstick::fmt_num rounds
+/// ties away from zero.)
+pub fn fixed(x: f64, n: usize) -> String {
+    format!("{:.*}", n, x)
 }

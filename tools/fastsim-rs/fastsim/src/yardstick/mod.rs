@@ -594,7 +594,17 @@ pub fn fmt_num(x: f64, fmt: &str) -> String {
     let exact = if fmt.starts_with('F') { format!("{:.1100}", x.abs()) } else { sig15_plain(x.abs(), decimals + 2) };
     let (ip, fp) = exact.split_once('.').unwrap();
     let mut digits: Vec<u8> = ip.bytes().chain(fp.bytes().take(decimals)).map(|b| b - b'0').collect();
-    if fp.as_bytes()[decimals] >= b'5' {
+    // Round up: custom formats on a 5 or more (half away from zero); "F" formats
+    // (.NET 9: the exact value) above half, and on an exact half to an even digit.
+    let rest = &fp.as_bytes()[decimals..];
+    let up = if fmt.starts_with('F') {
+        let half_up = rest[0] > b'5' || (rest[0] == b'5' && rest[1..].iter().any(|&d| d != b'0'));
+        let tie = rest[0] == b'5' && rest[1..].iter().all(|&d| d == b'0');
+        half_up || (tie && digits.last().is_some_and(|d| d % 2 == 1))
+    } else {
+        rest[0] >= b'5'
+    };
+    if up {
         let mut i = digits.len();
         loop {
             if i == 0 {

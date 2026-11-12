@@ -151,6 +151,8 @@ pub struct BlindPlanner {
     pub short_looks: i64,
     pub no_looks: i64,
     pub split_looks: i64,
+    /// Sim steps spent looking ahead (the planner's CPU cost; the game's own ticks are not counted).
+    pub steps: i64,
     /// Human layer: `frozen` = no new looks (the old plan runs on while the
     /// player takes in a new warning), `mid_offset` = px added to the height the
     /// cost pulls to (a player's preferred height).
@@ -234,6 +236,7 @@ impl BlindPlanner {
             short_looks: 0,
             no_looks: 0,
             split_looks: 0,
+            steps: 0,
             frozen: false,
             mid_offset: 0,
             follow: 0,
@@ -256,7 +259,7 @@ impl BlindPlanner {
         }
         let rest: Vec<u8> = self._plan.iter().map(|&b| b as u8).collect();
         let mut c = self.copy(sim, self._guess);
-        Self::lives(&mut c, &rest, 0)
+        self.lives_counted(&mut c, &rest, 0)
     }
 
     /// The taps planned for the next ticks (read only).
@@ -357,7 +360,7 @@ impl BlindPlanner {
             {
                 let rest: Vec<u8> = self._plan.iter().map(|&b| b as u8).collect();
                 let mut c = self.copy(sim, self._guess);
-                kept = Self::lives(&mut c, &rest, 0);
+                kept = self.lives_counted(&mut c, &rest, 0);
                 if kept {
                     self.follows += 1;
                     self._since_look += self._since;
@@ -435,7 +438,7 @@ impl BlindPlanner {
                             continue;
                         }
                         let mut c = self.copy(sim, seeds[j]);
-                        if Self::lives(&mut c, &taps, w * self.wobble) {
+                        if self.lives_counted(&mut c, &taps, w * self.wobble) {
                             ok += 1;
                         }
                     }
@@ -450,7 +453,7 @@ impl BlindPlanner {
         if found.is_none() && self.keep_plan && self._plan.len() >= 8 {
             let rest: Vec<u8> = self._plan.iter().map(|&b| b as u8).collect();
             let mut c = self.copy(sim, seeds[0]);
-            if Self::lives(&mut c, &rest, 0) {
+            if self.lives_counted(&mut c, &rest, 0) {
                 self.kept_plans += 1;
                 self.last_look = 2;
                 self.short_looks += 1;
@@ -544,6 +547,20 @@ impl BlindPlanner {
                 spread = Stalactite::MAX_STEP;
             }
         }
+    }
+
+    /// `lives`, counting the steps (C#'s instance `lives` adds to `steps`).
+    fn lives_counted(&mut self, c: &mut GameSim, taps: &[u8], shift: i32) -> bool {
+        let n = taps.len() as i32;
+        for t in 0..n {
+            self.steps += 1;
+            let from = t - shift;
+            c.step(from >= 0 && from < n && taps[from as usize] != 0);
+            if c.is_over() {
+                return false;
+            }
+        }
+        true
     }
 
     /// Whether the bird lives through `taps` on `c`, with every tap `shift` ticks late (early if negative).
@@ -835,6 +852,7 @@ impl BlindPlanner {
                     sim::prof::leave(q0);
                     let q0 = sim::prof::enter(sim::prof::STEP);
                     s.step(a == 1);
+                    self.steps += 1;
                     sim::prof::leave(q0);
                     if s.is_over() {
                         pool.push(s);

@@ -13,8 +13,8 @@
 //!
 //! The visible checksum only has to tell two sims apart the way C#'s does (A vs B), so its
 //! value differs from C#'s; which fields and methods it covers is the same.
-//! Not ported: `Visibility.generate` (`measure visibility`: rebuilding visible.tsv from the
-//! GDScript painters needs C# reflection over methods); the file is read as data.
+//! `Visibility.generate` (`measure visibility`, rebuilding visible.tsv from the GDScript
+//! painters) is in visibility.rs, with the methods C# finds by reflection in methods.rs.
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;

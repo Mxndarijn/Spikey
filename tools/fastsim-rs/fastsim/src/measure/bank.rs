@@ -11,6 +11,7 @@ use sim::prelude::*;
 
 use super::{as_f64, as_i64, json_compact, strat::Strat};
 use crate::bots::BlindPlanner;
+use crate::human::motor_player::{MotorPlayer, MotorTiers};
 use crate::speed::Opts;
 use crate::yardstick::bots::{BotSpec, Bots, Copies, Decide};
 use crate::yardstick::runs::Run;
@@ -49,7 +50,51 @@ impl MBots {
                 }),
             });
         }
-        Bots::find(name).ok_or_else(|| format!("no bot '{}' (blind[:k=v,...] or a yardstick bot)", name))
+        if let Some(rest) = name.strip_prefix("tier:") {
+            // A human tier at given knobs: tier:react=R,level=L (human/motor_player.rs, MotorTiers::shared).
+            let mut react: f64 = 17.0;
+            let mut level: i32 = MotorTiers::DEFAULT_LEVEL;
+            for kv in rest.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                let p: Vec<&str> = kv.split('=').collect();
+                if p.len() != 2 {
+                    return Err(format!("bad knob '{}' in '{}' (want react=R,level=L)", kv, name));
+                }
+                if p[0] == "react" {
+                    react = super::parse(p[1], "react");
+                } else if p[0] == "level" {
+                    level = super::parse(p[1], "level");
+                } else {
+                    return Err(format!("unknown knob '{}' in '{}' (react, level)", p[0], name));
+                }
+            }
+            if level < 0 || level as usize >= MotorTiers::LEVELS.len() {
+                return Err(format!("search level {}: 0..{}", level, MotorTiers::LEVELS.len() - 1));
+            }
+            let m = MotorTiers::shared(react, level);
+            return Ok(BotSpec {
+                name: name.to_string(),
+                about: format!(
+                    "MotorPlayer, shared human rules, {}, search level {} ({})",
+                    m,
+                    level,
+                    MBots::level_text(level)
+                ),
+                copies: Copies::SCRAMBLED,
+                make: Arc::new(move |seed: i64| -> Decide {
+                    let mut mp = MotorPlayer::new(m, seed, None);
+                    Box::new(move |sim: &GameSim| mp.decide(sim))
+                }),
+            });
+        }
+        Bots::find(name).ok_or_else(|| {
+            format!("no bot '{}' (blind[:k=v,...], tier:react=R,level=L or a yardstick bot)", name)
+        })
+    }
+
+    /// C# `MotorTiers.level_text(l)`: "16 px x 3", ", free taps" for free tap timing.
+    pub fn level_text(l: i32) -> String {
+        let (px, speeds, tap_free) = MotorTiers::LEVELS[l as usize];
+        format!("{} px x {}{}", px, speeds, if tap_free { ", free taps" } else { "" })
     }
 }
 

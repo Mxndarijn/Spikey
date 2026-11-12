@@ -1,6 +1,6 @@
 //! Checks.SameSeedRevive (SameSeed.cs), `fastsim check sameseed`, and the parts of SameSeed it
-//! uses (Record, RevivePlay, BotPlay, MapDiffs). The `fastsim sameseed` research mode itself is
-//! not ported.
+//! uses (Record, RevivePlay, BotPlay, MapDiffs), and the `fastsim sameseed` research mode
+//! (SameSeed.run: `run_mode`).
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -401,8 +401,248 @@ impl Check for SameSeedRevive {
     }
 }
 
-/// `fastsim sameseed ...` (SameSeed.run, the research mode). STUB: being ported.
-pub fn run_mode(_pos: &[String], _opts: &crate::speed::Opts) -> i32 {
-    eprintln!("sameseed: not ported yet");
-    2
+impl SameSeed {
+    /// At an open fork on the wall ahead: flap to hold the Calm exit's height.
+    fn calm(sim: &GameSim) -> Option<bool> {
+        let s = &sim.state;
+        let heading = if s.vx > 0 { 1 } else { 0 };
+        if !s.exit_open || s.exit_side != heading || s.exit_b_kind == ExitKind::NORMAL {
+            return None;
+        }
+        let target = if s.exit_a_kind == ExitKind::CALM { s.exit_a_y } else { s.exit_b_y };
+        let margin = 6 * SimConfig::SUB;
+        if sim.room.gravity < 0 {
+            return Some(s.y < target - margin && s.vy <= 0);
+        }
+        Some(s.y > target + margin && s.vy >= 0)
+    }
+
+    /// `JsonSerializer.SerializeToNode(p, IncludeFields)`: the fields in declaration order.
+    fn play_json(p: &Play) -> Value {
+        let rooms: Vec<Value> = p
+            .rooms
+            .iter()
+            .map(|r| {
+                json!({
+                    "index": r.index, "life": r.life, "arrive_tick": r.arrive_tick, "hold": r.hold,
+                    "route": r.route, "bird_y": r.bird_y, "anchor": r.anchor,
+                    "kind": r.kind, "variant": r.variant, "seed": r.seed, "plan": r.plan,
+                    "hazards": r.hazards, "spikes": r.spikes, "ghost": r.ghost, "open": r.open,
+                    "taken": r.taken, "ghost_tick": r.ghost_tick, "open_tick": r.open_tick,
+                    "taken_tick": r.taken_tick,
+                })
+            })
+            .collect();
+        let mut walls = serde_json::Map::new();
+        for (k, w) in &p.walls.list {
+            walls.insert(
+                k.clone(),
+                json!({
+                    "tick": w.tick, "in_room": w.in_room, "score": w.score, "side": w.side,
+                    "mask": w.mask, "anchor": w.anchor, "bird_y": w.bird_y, "life": w.life,
+                    "hazards": w.hazards, "coin": w.coin,
+                }),
+            );
+        }
+        json!({
+            "name": p.name, "start_tick": p.start_tick, "revive_tick": p.revive_tick,
+            "death_tick": p.death_tick, "death": p.death, "rooms": rooms, "walls": Value::Object(walls),
+        })
+    }
+}
+
+/// `fastsim sameseed <seed> [season] [ticks] --out file.json` (SameSeed.run; pos[0] = the seed):
+/// plays one seed several ways (different taps, and one play with a revive) and lists what
+/// differs between the plays: rooms, variants, room seeds, exits (planned, ghost, open, taken),
+/// wall spikes, anchors, hazard states at each bounce and coin spawns. A research tool: it never
+/// changes the sim.
+pub fn run_mode(pos: &[String], opts: &crate::speed::Opts) -> i32 {
+    let seed: i64 = pos.first().map(|s| s.as_str()).unwrap_or("3392377610").parse().expect("seed");
+    let season: i64 = pos.get(1).map(|s| s.as_str()).unwrap_or("-1").parse().expect("season");
+    let ticks: i64 = pos.get(2).map(|s| s.as_str()).unwrap_or("20000").parse().expect("ticks");
+    let start = || GameSim::with(seed, season, -1, "");
+
+    let die: i64 = opts.get("die").map(|s| s.as_str()).unwrap_or("4").parse().expect("--die");
+    let only_r = opts.contains_key("onlyrevive");
+    let mut plays: Vec<Play> = Vec::new();
+    // A, B: PlannerBot with two bot seeds (it aims for the Wild exit at a fork).
+    let ab: &[(&str, i64)] = if only_r { &[("A", 1)] } else { &[("A", 1), ("B", 2)] };
+    for &(nm, bs) in ab {
+        let mut bot = PlannerBot::new(bs, PlannerBot::HORIZON, PlannerBot::ROLLOUTS);
+        plays.push(SameSeed::record(nm, start(), |s| Some(bot.decide(s)), false, ticks));
+    }
+    // C: bot seed 3, and it takes the Calm exit at every fork.
+    if !only_r {
+        let mut bot = PlannerBot::new(3, PlannerBot::HORIZON, PlannerBot::ROLLOUTS);
+        plays.push(SameSeed::record(
+            "C (calm)",
+            start(),
+            |s| Some(SameSeed::calm(s).unwrap_or_else(|| bot.decide(s))),
+            false,
+            ticks,
+        ));
+    }
+    // R: bot seed 1 until the middle of room 2 (score ends in `die`), then no taps until the bird
+    // dies, a revive, and on with the bot.
+    plays.push(SameSeed::revive_play(start(), die, ticks + 600));
+    let mut arr: Vec<Value> = Vec::new();
+    for p in &plays {
+        println!(
+            "== play {}: {} rooms, {} walls, death {} at {}, revive at {}",
+            p.name,
+            p.rooms.len(),
+            p.walls.list.len(),
+            p.death,
+            p.death_tick,
+            p.revive_tick
+        );
+        for r in &p.rooms {
+            println!(
+                "  room {} life {} {}/{} seed {} in@{} hold {} route {} anchor {} bird {} plan [{}] ghost@{} {} open@{} {} taken@{}",
+                r.index,
+                r.life,
+                r.kind,
+                r.variant,
+                r.seed,
+                r.arrive_tick,
+                r.hold,
+                r.route,
+                r.anchor,
+                r.bird_y,
+                r.plan,
+                r.ghost_tick,
+                r.ghost,
+                r.open_tick,
+                r.open,
+                r.taken_tick
+            );
+        }
+        arr.push(SameSeed::play_json(p));
+    }
+
+    // Diffs against play A.
+    let mut diffs: Vec<Value> = Vec::new();
+    let a = &plays[0];
+    for p in plays.iter().skip(1) {
+        println!("-- A vs {}", p.name);
+        let (mut same_walls, mut diff_walls, mut cmp_walls) = (0, 0, 0);
+        for ra in &a.rooms {
+            let Some(rb) = p.rooms.iter().rev().find(|r| r.index == ra.index) else { continue };
+            let mut fields: Vec<String> = Vec::new();
+            if ra.kind != rb.kind {
+                fields.push(format!("room kind {} vs {}", ra.kind, rb.kind));
+            }
+            if ra.variant != rb.variant {
+                fields.push(format!("variant {} vs {}", ra.variant, rb.variant));
+            }
+            if ra.seed != rb.seed {
+                fields.push(format!("room seed {} vs {}", ra.seed, rb.seed));
+            }
+            if ra.plan != rb.plan {
+                fields.push(format!("plan {} vs {}", ra.plan, rb.plan));
+            }
+            if ra.arrive_tick != rb.arrive_tick {
+                fields.push(format!("arrive tick {} vs {}", ra.arrive_tick, rb.arrive_tick));
+            }
+            if rb.life != ra.life {
+                fields.push("after a revive".to_string());
+            }
+            if ra.hold != rb.hold {
+                fields.push(format!("hold {} vs {}", ra.hold, rb.hold));
+            }
+            if ra.hazards != rb.hazards {
+                fields.push("hazards at arrival differ".to_string());
+            }
+            if ra.spikes != rb.spikes {
+                fields.push(format!("arrival spikes {} vs {}", ra.spikes, rb.spikes));
+            }
+            if ra.bird_y != rb.bird_y {
+                fields.push(format!("bird y at portal {} vs {}", ra.bird_y, rb.bird_y));
+            }
+            if ra.ghost != rb.ghost && !ra.ghost.is_empty() && !rb.ghost.is_empty() {
+                fields.push(format!("ghost {} vs {}", ra.ghost, rb.ghost));
+            }
+            if ra.ghost_tick >= 0 && rb.ghost_tick >= 0 && ra.ghost_tick - ra.arrive_tick != rb.ghost_tick - rb.arrive_tick {
+                fields.push(format!(
+                    "ghost tick in room {} vs {}",
+                    ra.ghost_tick - ra.arrive_tick,
+                    rb.ghost_tick - rb.arrive_tick
+                ));
+            }
+            if ra.open != rb.open && !ra.open.is_empty() && !rb.open.is_empty() {
+                fields.push(format!("open {} vs {}", ra.open, rb.open));
+            }
+            if ra.open_tick >= 0 && rb.open_tick >= 0 && ra.open_tick - ra.arrive_tick != rb.open_tick - rb.arrive_tick {
+                fields.push(format!(
+                    "open tick in room {} vs {}",
+                    ra.open_tick - ra.arrive_tick,
+                    rb.open_tick - rb.arrive_tick
+                ));
+            }
+            let mut wd: Vec<String> = Vec::new();
+            let prefix = format!("{}:", ra.index);
+            for (k, wa) in &a.walls.list {
+                if !k.starts_with(&prefix) {
+                    continue;
+                }
+                let Some(wb) = p.walls.get(k) else { continue };
+                cmp_walls += 1;
+                let mut f: Vec<String> = Vec::new();
+                if wa.mask != wb.mask {
+                    f.push(format!("spikes {:x} vs {:x}", wa.mask, wb.mask));
+                }
+                if wa.in_room != wb.in_room {
+                    f.push(format!("tick in room {} vs {}", wa.in_room, wb.in_room));
+                }
+                if wa.score != wb.score {
+                    f.push(format!("score {} vs {}", wa.score, wb.score));
+                }
+                if wa.side != wb.side {
+                    f.push(format!("side {} vs {}", wa.side, wb.side));
+                }
+                if wa.anchor != wb.anchor {
+                    f.push(format!("anchor {} vs {}", wa.anchor, wb.anchor));
+                }
+                if wa.coin != wb.coin {
+                    f.push(format!("coin {} vs {}", wa.coin, wb.coin));
+                }
+                if wa.hazards != wb.hazards {
+                    let ha: Vec<&str> = wa.hazards.split(',').collect();
+                    let hb: Vec<&str> = wb.hazards.split(',').collect();
+                    let mut kinds: Vec<&str> = Vec::new();
+                    for q in 0..ha.len().min(hb.len()) {
+                        if ha[q] != hb[q] {
+                            let kind = ha[q].split(':').next().unwrap_or("");
+                            // Distinct (first-seen order).
+                            if !kinds.contains(&kind) {
+                                kinds.push(kind);
+                            }
+                        }
+                    }
+                    f.push(format!("hazard state differs: {}", kinds.join("+")));
+                }
+                if f.is_empty() {
+                    same_walls += 1;
+                } else {
+                    diff_walls += 1;
+                    wd.push(format!("wall {} (score {}): {}", k.split(':').nth(1).unwrap_or(""), wa.score, f.join("; ")));
+                }
+            }
+            let head = format!("room {} {}/{}", ra.index, ra.kind, ra.variant);
+            println!("  {}: {}", head, if fields.is_empty() { "same".to_string() } else { fields.join("; ") });
+            for w in &wd {
+                println!("    {}", w);
+            }
+            diffs.push(json!({
+                "vs": p.name, "room": ra.index, "kind": ra.kind, "variant": ra.variant,
+                "room_diffs": fields, "wall_diffs": wd,
+            }));
+        }
+        println!("  walls compared {}: same {}, differ {}", cmp_walls, same_walls, diff_walls);
+    }
+    let outj = json!({ "seed": seed, "season": season, "plays": arr, "diffs": diffs });
+    if let Some(file) = opts.get("out") {
+        std::fs::write(file, crate::yardstick::json_pretty(&outj)).expect("--out");
+    }
+    0
 }

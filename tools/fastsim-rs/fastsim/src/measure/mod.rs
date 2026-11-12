@@ -1,4 +1,4 @@
-//! Port of Measure/MeasureMain.cs: `fastsim measure <bank|trials|estimate|confirm|runs|report|leak|check>`
+//! Port of Measure/MeasureMain.cs: `fastsim measure <bank|trials|estimate|confirm|runs|report|median|leak|visibility|check>`
 //! (tools/yardstick.ps1 -Mode quick|confirm|report|leakrun, docs/BOT_TESTING.md).
 //!
 //! The files (`*.bank.json`, `*.trials.tsv`) are the C# ones byte for byte (but for the CPU
@@ -6,12 +6,14 @@
 //! C# enumerates keep their insertion order (`OrdMap`), allocation uses .NET's PriorityQueue
 //! (`PriorityQueue` here) and `System.Random` is `DotnetRandom` with the same seeds.
 //! `--threads` is read but not used: every mode runs on rayon's global pool (`--jobs N`).
-//! Not ported: `measure visibility` (rebuilds visible.tsv; C# only).
+//! `measure visibility` (visibility.rs) rebuilds visible.tsv from the GDScript painters as C# does.
 pub mod bank;
 pub mod fields;
 pub mod leak_run;
+pub mod methods;
 pub mod strat;
 pub mod tier;
+pub mod visibility;
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -364,6 +366,8 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
     let pos = if pos.first().map(|s| s.as_str()) == Some("measure") { &pos[1..] } else { pos };
     let what = pos.first().map(|s| s.as_str()).unwrap_or("");
     let o_ = |k: &str, d: &str| opts.get(k).cloned().unwrap_or_else(|| d.to_string());
+    // C# Math.Clamp(int.Parse(threads), 1, 64): the batch size of `median`'s first rooms.
+    let threads: i32 = parse::<i32>(&o_("threads", "16"), "threads").clamp(1, 64);
     let res: Result<i32, String> = (|| match what {
         "bank" => {
             let bot = MBots::find(&o_("bot", "blind"))?;
@@ -393,6 +397,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
         "confirm" => confirm(opts),
         "runs" => late_runs(opts),
         "report" => report(opts),
+        "median" => median(opts, threads),
         "leak" => {
             let bot = MBots::find(&o_("bot", "blind"))?;
             let o = LeakRun::check(&bot, opts, true)?;
@@ -402,7 +407,10 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             }
             Ok(if o["leaks"].as_str() == Some("no") { 0 } else { 1 })
         }
-        "visibility" => Err("measure visibility: not ported to Rust (C# `fastsim measure visibility --write`)".into()),
+        "visibility" => {
+            // Rebuilds Measure/visible.tsv from game/run (the painters) and the sim's sources.
+            visibility::run(opts.get("root"), opts.contains_key("write"))
+        }
         "check" => {
             let errs = self_test();
             for e in &errs {
@@ -416,7 +424,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             Ok(if errs.is_empty() { 0 } else { 1 })
         }
         _ => {
-            eprintln!("measure: bank, trials, estimate, confirm, runs, report, leak, check");
+            eprintln!("measure: bank, trials, estimate, confirm, runs, report, median, leak, check");
             Ok(2)
         }
     })();
@@ -902,6 +910,283 @@ fn late_runs(opts: &Opts) -> Result<i32, String> {
     Ok(0)
 }
 
+/// The score bands of the median model: the ramp's four classes, then the plateau.
+pub const BANDS: [(&str, i64, i64); 5] =
+    [("@b0", 0, 10), ("@b10", 10, 20), ("@b20", 20, 30), ("@b30", 30, 40), ("plateau", 40, i64::MAX)];
+
+/// The score where a run with these death rates per 100 points (one per band) is
+/// alive with chance 1/2: survival exp(-sum of rate x points in each band).
+pub fn median_of(per100: &[f64]) -> f64 {
+    let mut h = 2f64.ln();
+    for (i, b) in BANDS.iter().enumerate() {
+        let rate = nmax(1e-9, per100[i] / 100.0);
+        let span = (b.2 - b.1) as f64;
+        if rate * span >= h {
+            return b.1 as f64 + h / rate;
+        }
+        h -= rate * span;
+    }
+    f64::INFINITY
+}
+
+/// One band's estimate in `median` (C#'s tuple: q, se_log, trials, deaths, imputed, pts).
+#[derive(Clone, Copy, Debug)]
+struct BandEst {
+    q: f64,
+    se_log: f64,
+    trials: i32,
+    deaths: i32,
+    imputed: f64,
+    pts: i64,
+}
+
+/// `median --bank B --bot X --budget S [--out T.tsv] [--json J]`: the KM median a bot
+/// would get on full runs, from trials (docs/BOT_TESTING.md, "Tier calibration").
+/// S more CPU seconds, an equal share per score band: the first room (0..10 points,
+/// which no room entry starts) from fresh runs on their own seeds, played until the
+/// first room change; the other ramp bands and the plateau from room trials of their
+/// strata (Neyman inside each band). The death rate per band, then the median of the
+/// piecewise constant survival those rates give; its interval from 4000 draws of the
+/// rates (each lognormal by its own CI). Trials pile up in T (and T.start.tsv for the
+/// first room), so a second call refines.
+fn median(opts: &Opts, threads: i32) -> Result<i32, String> {
+    let bank_path = need(opts, "bank")?;
+    let bank = Bank::load(bank_path)?;
+    let bot = MBots::find(opts.get("bot").map(|s| s.as_str()).unwrap_or("blind"))?;
+    let path = opts.get("out").cloned().unwrap_or_else(|| beside_bank(bank_path, ".median.tsv"));
+    let budget: f64 = parse::<f64>(opts.get("budget").map(|s| s.as_str()).unwrap_or("300"), "budget") * 1000.0;
+    let bots = vec![bot.clone()];
+    let mut arms = load_arms(&path, &bank, &bots);
+    let prior = prior_pl(&bank);
+    let share = budget / BANDS.len() as f64;
+    // The first room: fresh runs.
+    let start_path = no_ext(&path) + ".start.tsv";
+    let mut starts = load_starts(&start_path, &bot.name);
+    if budget > 0.0 {
+        starts = first_rooms(&bot, starts, share, threads, &start_path)?;
+    }
+    // The rest: room trials per band.
+    let mut b = 1;
+    while b < BANDS.len() && budget > 0.0 {
+        let mut pools = Pools::new(&bank, BANDS[b].0);
+        for t in arms.iter().flatten() {
+            pools.mark_used(t.seed, t.tick, t.k);
+        }
+        pools.grow(8);
+        arms = batch(&bank, BANDS[b].0, &bots, arms, &mut pools, share, &path)?;
+        b += 1;
+    }
+    let mut est: Vec<BandEst> = Vec::with_capacity(BANDS.len());
+    {
+        let d = starts.iter().filter(|x| x.died).count() as i32;
+        let pts: i64 = starts.iter().map(|x| x.points).sum();
+        est.push(BandEst {
+            q: 100.0 * d as f64 / 1.max(pts) as f64,
+            se_log: 1.0 / nmax(0.5, d as f64).sqrt(),
+            trials: starts.len() as i32,
+            deaths: d,
+            imputed: 0.0,
+            pts,
+        });
+    }
+    for band in BANDS.iter().skip(1) {
+        let e = Strat::estimate(&bank, &arms[0], band.0, Some(&prior));
+        let se = if e.se_log.is_finite() && e.se_log > 0.0 { e.se_log } else { 1.0 };
+        let pts: i64 = arms[0]
+            .iter()
+            .filter(|t| t.kind == "room" && !t.censored && Strat::in_range(&t.key, band.0))
+            .map(|t| t.points)
+            .sum();
+        est.push(BandEst {
+            q: if e.q.is_finite() { e.q } else { 0.0 },
+            se_log: se,
+            trials: e.trials,
+            deaths: e.deaths,
+            imputed: e.imputed_share,
+            pts,
+        });
+    }
+    let med = median_of(&est.iter().map(|e| e.q).collect::<Vec<f64>>());
+    let mut rng = DotnetRandom::new(4711);
+    let mut draws: Vec<f64> = Vec::with_capacity(4000);
+    for _ in 0..4000 {
+        let q: Vec<f64> = est
+            .iter()
+            .map(|e| {
+                let u = 1.0 - rng.next_double();
+                let v = rng.next_double();
+                let g = (-2.0 * u.ln()).sqrt() * (2.0 * std::f64::consts::PI * v).cos();
+                // A band with no deaths yet: drawn around the half-death level of its points (Jeffreys).
+                if e.deaths == 0 {
+                    return 100.0 * 0.5 / 1.max(e.pts) as f64 * (g * 1.4 - 0.98).exp();
+                }
+                e.q * (g * e.se_log).exp()
+            })
+            .collect();
+        draws.push(median_of(&q));
+    }
+    draws.sort_by(|a, b| dotnet_cmp(*a, *b));
+    let lo = draws[(0.025 * draws.len() as f64) as usize];
+    let hi = draws[(0.975 * draws.len() as f64) as usize - 1];
+    let mut arm_ms = 0.0;
+    for t in arms[0].iter().filter(|t| t.k >= 0) {
+        arm_ms += t.ms;
+    }
+    let mut start_ms = 0.0;
+    for x in &starts {
+        start_ms += x.ms;
+    }
+    let cpu = (arm_ms + start_ms) / 1000.0;
+    let r = |v: f64, digits: i32| -> Value { if v.is_finite() { jf(round(v, digits)) } else { Value::Null } };
+    let trials = arms[0].iter().filter(|t| t.k >= 0).count() as i32 + starts.len() as i32;
+    let deaths =
+        arms[0].iter().filter(|t| t.k >= 0 && t.died).count() as i32 + starts.iter().filter(|x| x.died).count() as i32;
+    let bands: Vec<Value> = BANDS
+        .iter()
+        .zip(est.iter())
+        .map(|(b, e)| {
+            json!({
+                "range": b.0, "per100": r(e.q, 4), "se_log": r(e.se_log, 3),
+                "trials": e.trials, "deaths": e.deaths, "imputed_share": r(e.imputed, 3),
+            })
+        })
+        .collect();
+    let o = json!({
+        "bot": bot.name, "about": bot.about, "median": r(med, 1), "lo": r(lo, 1), "hi": r(hi, 1),
+        "trials": trials, "deaths": deaths, "cpu_s": jf(round(cpu, 0)),
+        "bank": bank_path, "gameplay_version": SimConfig::GAMEPLAY_VERSION,
+        "bands": bands,
+    });
+    let f = |v: f64| -> String { if v.is_finite() { fmt_num(v, "F0") } else { "inf".to_string() } };
+    println!(
+        "{}: median {} [{}, {}], {} trials, {} deaths, {} CPU s",
+        bot.name,
+        f(med),
+        f(lo),
+        f(hi),
+        trials,
+        deaths,
+        fmt_num(cpu, "F0")
+    );
+    for (b, e) in BANDS.iter().zip(est.iter()) {
+        println!(
+            "  {:<8} {} per 100 (+-{}%), {} trials, {} deaths, imputed {}%",
+            b.0,
+            fmt_num(e.q, "F4"),
+            fmt_num(100.0 * 1.96 * e.se_log, "F0"),
+            e.trials,
+            e.deaths,
+            fmt_num(100.0 * e.imputed, "F0")
+        );
+    }
+    if let Some(p) = opts.get("json") {
+        let nl = if cfg!(windows) { "\r\n" } else { "\n" };
+        std::fs::write(p, json_pretty(&o) + nl).map_err(|e| format!("{}: {}", p, e))?;
+    }
+    Ok(0)
+}
+
+/// One fresh run of `first_rooms` (C# record Start).
+#[derive(Clone, Debug)]
+pub struct Start {
+    pub bot: String,
+    pub seed: i64,
+    pub died: bool,
+    pub points: i64,
+    pub ms: f64,
+}
+
+fn load_starts(path: &str, bot: &str) -> Vec<Start> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+    let num = |s: &str| -> i64 { s.parse().unwrap_or_else(|_| panic!("{}: bad number '{}'", path, s)) };
+    text.trim_start_matches('\u{feff}')
+        .lines()
+        .skip(1)
+        .map(|l| l.split('\t').collect::<Vec<&str>>())
+        .filter(|c| c.len() >= 5 && c[0] == bot)
+        .map(|c| Start {
+            bot: c[0].to_string(),
+            seed: num(c[1]),
+            died: c[2] == "1",
+            points: num(c[3]),
+            ms: c[4].parse().unwrap_or_else(|_| panic!("{}: bad number '{}'", path, c[4])),
+        })
+        .collect()
+}
+
+/// Fresh runs on seeds of their own (dev seeds from 60 001), each to its first room
+/// change or its death, until `budget_ms` more CPU is spent.
+fn first_rooms(
+    bot: &BotSpec,
+    have: Vec<Start>,
+    budget_ms: f64,
+    threads: i32,
+    path: &str,
+) -> Result<Vec<Start>, String> {
+    use rayon::prelude::*;
+    use std::io::Write;
+    let mut all = have;
+    let mut next: i64 =
+        if all.is_empty() { 0 } else { all.iter().map(|x| x.seed).max().unwrap() - (SeedSets::DEV + 50_000) };
+    let mut spent = 0.0;
+    if !std::path::Path::new(path).exists() {
+        std::fs::write(path, "bot\tseed\tdied\tpoints\tms\n").map_err(|e| format!("{}: {}", path, e))?;
+    }
+    let nl = if cfg!(windows) { "\r\n" } else { "\n" };
+    while spent < budget_ms {
+        let n = threads * 4;
+        let got: Vec<Start> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let seed = SeedSets::DEV + 50_000 + next + 1 + i as i64;
+                let clock = Instant::now();
+                let mut sim = GameSim::new(seed);
+                let mut decide = (bot.make)(seed);
+                let mut ticks: i64 = 0;
+                while !sim.is_over() && sim.state.room_index == 0 && ticks < 20_000 {
+                    let tap = decide(&sim);
+                    sim.step(tap);
+                    ticks += 1;
+                }
+                Start {
+                    bot: bot.name.clone(),
+                    seed,
+                    died: sim.is_over(),
+                    points: sim.state.score.min(10),
+                    ms: clock.elapsed().as_secs_f64() * 1000.0,
+                }
+            })
+            .collect();
+        next += n as i64;
+        let mut s = 0.0;
+        for x in &got {
+            s += x.ms;
+        }
+        spent += s;
+        let mut text = String::new();
+        for x in &got {
+            text.push_str(&format!(
+                "{}\t{}\t{}\t{}\t{}{}",
+                x.bot,
+                x.seed,
+                if x.died { "1" } else { "0" },
+                x.points,
+                fmt_num(x.ms, "F1"),
+                nl
+            ));
+        }
+        all.extend(got);
+        let mut f =
+            std::fs::OpenOptions::new().append(true).create(true).open(path).map_err(|e| format!("{}: {}", path, e))?;
+        f.write_all(text.as_bytes()).map_err(|e| format!("{}: {}", path, e))?;
+    }
+    log_line(&format!("first room: {} fresh runs, {} deaths", all.len(), all.iter().filter(|x| x.died).count()));
+    Ok(all)
+}
+
 /// `report --bot X [--fair F] [--claimed tier]`: the holdout (seeds 1..400,
 /// the bots' cap), run once per release candidate. KM median with CI and
 /// the tier verdict; beast and infinite by the plateau rate and the share
@@ -946,7 +1231,6 @@ fn report(opts: &Opts) -> Result<i32, String> {
 
 /// Checks the estimator on made-up trials with known answers, the file
 /// round trips, and that a redraw from a bank entry enters a room.
-/// (Not ported: the check that visible.tsv matches the drawing code; C# `check yardstick` has it.)
 pub fn self_test() -> Vec<String> {
     let mut errs: Vec<String> = Vec::new();
     // A bank with two strata: A (share 0.75, p 0.02) and B (share 0.25, p 0.2), 10 points a visit.
@@ -1069,9 +1353,26 @@ pub fn self_test() -> Vec<String> {
             }
         }
     }
-    // The visible list is there (C# also checks it against the drawing code: `measure visibility`).
-    if leak_run::Visibility::visible().is_empty() {
-        errs.push(format!("no visible list at {}", leak_run::Visibility::file()));
+    // The visible list matches the drawing code (rebuild: measure visibility --write).
+    let root = visibility::default_root();
+    if root.join("game").join("run").is_dir() {
+        match visibility::generate(&root) {
+            Ok(want) => {
+                let have: Vec<String> = std::fs::read_to_string(leak_run::Visibility::file())
+                    .map(|t| {
+                        t.trim_start_matches('\u{feff}')
+                            .lines()
+                            .filter(|l| !l.starts_with('#') && !l.is_empty())
+                            .map(|l| l.to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if want != have {
+                    errs.push("tools/fastsim/Measure/visible.tsv is stale: run `fastsim measure visibility --write`".into());
+                }
+            }
+            Err(e) => errs.push(format!("visible list: {}", e)),
+        }
     }
     // The whole-run leak check, calibrated: the gap seeker sees only the screen
     // (no leak), PlannerBot steps copies of the real sim (it must leak).

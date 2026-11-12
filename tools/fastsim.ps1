@@ -10,6 +10,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity            # check it still matches sim/
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode reaction          # reaction benchmark, 60 arrivals per room
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode odds -Seeds 360   # survival by reaction time in real runs
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode scan -Room gates -Delays 45 -Seeds 4   # entry heights with no way to live
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode combos            # Double Trouble fairness gate, every pair
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode parity -Quick     # faster, fewer cases
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode check             # the check's bot tests (Checks.cs)
@@ -27,7 +28,7 @@
 #   already there are kept: a stopped run carries on). score: -In TSVs, -Out a
 #   report name (writes .md and .json).
 #
-# -Variant (search, rooms, reaction): play that room variant id instead of the
+# -Variant (search, rooms, reaction, scan): play that room variant id instead of the
 #   one the RNG draws ("all": each variant of each matching room in turn, one
 #   report line "room/variant" each). The draw still happens, so the rest of
 #   the run's RNG is as in a normal run. Without -Variant nothing changes.
@@ -46,7 +47,7 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check", "runfile", "difficulty")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "scan", "combos", "check", "runfile", "difficulty")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
@@ -77,12 +78,33 @@ param(
 )
 
 # FastSim-RS (the Rust copy) runs the modes and checks it has ported, by
-# default: bench, difficulty, runfile, and -Mode check (all, or a list of ported
+# default: bench, difficulty, runfile, search, searchruns, rooms, runs, reaction,
+# odds, scan, and -Mode check (all, or a list of ported
 # checks; C# also has rlbot, rlboss, mpcbot and mpcboss for the frozen RL and MPC
 # bots: -CSharp). Everything else (and -CSharp) runs on C# FastSim. -Mode parity always
 # checks C# FastSim; tools/fastsim-rs/parity.ps1 checks the Rust copy.
 $rsChecks = @("passable", "arrival", "points", "revive", "pairs", "keys", "crawl", "gates", "isles", "rescued", "runs", "exits", "reach", "yardstick", "sameseed", "sight", "blind_seeds", "bossfair", "difficulty")
-$rsMode = $Mode -in @("bench", "difficulty", "runfile")
+$rsMode = $Mode -in @("bench", "difficulty", "runfile", "search", "searchruns", "rooms", "runs", "reaction", "odds", "scan")
+# The positional arguments of the sweep modes (the same for C# and Rust).
+function Get-SweepArgs {
+    $a = @($Mode)
+    switch ($Mode) {
+        "search" { $a += @($(if ($Seeds) { $Seeds } else { 64 }), $Room, $(if ($Ticks) { $Ticks } else { 1500 })) }
+        "searchruns" { $a += @($(if ($Seeds) { $Seeds } else { 64 }), $(if ($Ticks) { $Ticks } else { 16000 })) }
+        "rooms" { $a += @($(if ($Seeds) { $Seeds } else { 4 }), $Room) }
+        "runs" { $a += @($(if ($Seeds) { $Seeds } else { 4 })) }
+        "reaction" { $a += @($(if ($Seeds) { $Seeds } else { 60 }), $Room); if ($Delays) { $a += $Delays } }
+        "odds" { $a += @($(if ($Seeds) { $Seeds } else { 180 })); if ($Delays) { $a += $Delays } }
+        # One room (default ghostdoors), one reaction time (-Delays, default 45), -Seeds layouts (default 4).
+        "scan" { $a += @($(if ($Room -ne "*") { $Room } else { "ghostdoors" }), $(if ($Delays) { $Delays } else { 45 }), $(if ($Seeds) { $Seeds } else { 4 })) }
+        # Arrivals for the portal check: -Ticks (default 240).
+        "combos" { $a += @($(if ($Seeds) { $Seeds } else { 256 }), $(if ($Ticks) { $Ticks } else { 240 })) }
+    }
+    $a += @("--priority", $Priority.ToLower())
+    if ($Out) { $a += @("--out", $Out) }
+    if ($Variant) { $a += @("--variant", $Variant) }
+    return , $a
+}
 if ($Mode -eq "check" -and $Check -eq "all") { $rsMode = $true }
 elseif ($Mode -eq "check") {
     $rsMode = @($Check.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -notin $rsChecks }).Count -eq 0
@@ -93,6 +115,7 @@ if ($rsMode -and -not $CSharp) {
         $ra = @()
         if ($Mode -eq "check") { $ra = @("check", $Check); if ($Filter) { $ra += @("--filter", $Filter) } }
         elseif ($Mode -eq "bench") { $ra = @("bench") }
+        elseif ($Mode -notin @("difficulty", "runfile")) { $ra = Get-SweepArgs }
         elseif ($Mode -eq "runfile") {
             if (-not $Out) { Write-Host "-Mode runfile needs -Out <file.json>" -ForegroundColor Red; exit 2 }
             $ra = @("runfile", $Seed, $(if ($Seeds) { $Seeds } else { 1 }), "--out", [IO.Path]::GetFullPath($Out))
@@ -210,20 +233,7 @@ if ($Mode -eq "runfile") {
     exit $LASTEXITCODE
 }
 
-$a = @($Mode)
-switch ($Mode) {
-    "search" { $a += @($(if ($Seeds) { $Seeds } else { 64 }), $Room, $(if ($Ticks) { $Ticks } else { 1500 })) }
-    "searchruns" { $a += @($(if ($Seeds) { $Seeds } else { 64 }), $(if ($Ticks) { $Ticks } else { 16000 })) }
-    "rooms" { $a += @($(if ($Seeds) { $Seeds } else { 4 }), $Room) }
-    "runs" { $a += @($(if ($Seeds) { $Seeds } else { 4 })) }
-    "reaction" { $a += @($(if ($Seeds) { $Seeds } else { 60 }), $Room); if ($Delays) { $a += $Delays } }
-    "odds" { $a += @($(if ($Seeds) { $Seeds } else { 180 })); if ($Delays) { $a += $Delays } }
-    # Arrivals for the portal check: -Ticks (default 240).
-    "combos" { $a += @($(if ($Seeds) { $Seeds } else { 256 }), $(if ($Ticks) { $Ticks } else { 240 })) }
-}
-$a += @("--priority", $Priority.ToLower())
+$a = Get-SweepArgs
 if ($Jobs -gt 0) { $a += @("--jobs", $Jobs) }
-if ($Out) { $a += @("--out", $Out) }
-if ($Variant) { $a += @("--variant", $Variant) }
 & $exe @a
 exit $LASTEXITCODE
