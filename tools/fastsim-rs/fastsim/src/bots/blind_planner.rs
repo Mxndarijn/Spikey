@@ -16,6 +16,10 @@ use crate::bots::survival_search::SurvivalSearch;
 /// Measurement only: copies keep the room's true planned exits. True = the planner knows where the exits will be.
 pub static KNOW_EXITS: AtomicBool = AtomicBool::new(false);
 /// Boss rooms: the copy gets its own boss seed (BossBlind). False = a leak; measuring only.
+/// Measurement only: the copy keeps the room's true wall seed (knows every next wall).
+pub static KNOW_WALLS: AtomicBool = AtomicBool::new(false);
+/// Measurement only: the copy is a plain copy (knows everything).
+pub static KNOW_ALL: AtomicBool = AtomicBool::new(false);
 pub static BOSS_BLIND: AtomicBool = AtomicBool::new(true);
 /// A key chain's later keys (shown one at a time) are placed anew in the copy.
 pub static HIDE_KEYS: AtomicBool = AtomicBool::new(true);
@@ -76,11 +80,6 @@ pub struct BlindPlanner {
     pub wobble: i32,
     /// Lines differ when they part within this many ticks.
     pub part: i32,
-    /// Two-stage look (0 = off).
-    pub after: i64,
-    pub band: i64,
-    pub coarse_px: i64,
-    pub coarse_speeds: i64,
     /// Cost per tick of each px away from the middle height, and per tap (px).
     pub mid_cost: i64,
     pub tap_cost: i64,
@@ -138,7 +137,11 @@ pub struct BlindPlanner {
     _found: Vec<Found>,
     /// Spare sims for the beam's copies (Rust only: copies reuse their buffers; no effect on play).
     _pool: Vec<Box<GameSim>>,
-    pub two_stage_looks: i64,
+    /// The last look's first guessed-future seed and the plan it left (read by the autopsy).
+    pub last_seed0: i64,
+    /// The anchor the last look's copies used (-1 = the room's own).
+    pub last_anchor: i64,
+    pub last_plan: Vec<bool>,
     /// How the last look ended: 0 = a line for the whole look, 1 = only with fine buckets, 2 = only a shorter look, 3 = none.
     pub last_look: i32,
     /// In how many of the guessed futures the played line lived (of `copies`).
@@ -161,10 +164,6 @@ impl BlindPlanner {
             lines: 1,
             wobble: 0,
             part: 16,
-            after: 0,
-            band: 40,
-            coarse_px: 12,
-            coarse_speeds: 4,
             mid_cost: 1,
             tap_cost: 0,
             margin: 16,
@@ -208,7 +207,9 @@ impl BlindPlanner {
             _vx: 0,
             _found: Vec::new(),
             _pool: Vec::new(),
-            two_stage_looks: 0,
+            last_seed0: 0,
+            last_anchor: -1,
+            last_plan: Vec::new(),
             last_look: 0,
             last_agree: 0,
             looks: 0,
@@ -309,6 +310,7 @@ impl BlindPlanner {
         if self._since >= self._wait || self._plan.is_empty() {
             let p0 = sim::prof::enter(sim::prof::LOOK);
             self.look(sim);
+            self.last_plan = self._plan.iter().copied().collect();
             sim::prof::leave(p0);
         }
         self._since = self._since.wrapping_add(1);
@@ -343,55 +345,16 @@ impl BlindPlanner {
             seeds[j] = self._own.next_u32();
         }
         let to_wall = sim.steps_to_wall(heading);
-        if self.after > 0 && to_wall >= 3 && to_wall - 1 <= self.horizon {
-            let c0 = self.copy(sim, seeds[0]);
-            self.beam(c0, to_wall - 1, self.bucket_px, self.speed_buckets, self.band, false);
-            if !self._found.is_empty() {
-                self.two_stage_looks += 1;
-                let cands = std::mem::take(&mut self._found);
-                let mut pick: Option<Vec<u8>> = None;
-                let mut pick_ok = -1;
-                let mut pick_cost = 0;
-                for (taps, cost, at) in cands {
-                    let at = at.expect("a stage-one line keeps its sim");
-                    let mut ok = 0;
-                    for j in 0..n as usize {
-                        let c = Self::blind_copy(&at, SimRng::new(seeds[j] + 1), self._bounce_y, self.reveal, -1, self.boss_unseen, self.boss_leak);
-                        self.beam(c, self.after, self.coarse_px, self.coarse_speeds, 0, true);
-                        if !self._found.is_empty() {
-                            ok += 1;
-                        }
-                    }
-                    if ok > pick_ok || (ok == pick_ok && cost < pick_cost) {
-                        pick = Some(taps);
-                        pick_ok = ok;
-                        pick_cost = cost;
-                    }
-                    if ok == n {
-                        break;
-                    }
-                }
-                self.last_agree = pick_ok;
-                if pick_ok < n {
-                    self.split_looks += 1;
-                }
-                self._wait = if pick_ok < n { self.replan_danger } else { self.replan };
-                self._plan.clear();
-                for b in pick.unwrap() {
-                    self._plan.push_back(b != 0);
-                }
-                self._since = 0;
-                return;
-            }
-        }
+        self.last_seed0 = seeds[0];
+        self.last_anchor = if self.own_anchor { self.anchor } else { -1 };
         // Lines from the first guessed future (fine buckets when the coarse ones find none).
         let c0 = self.copy(sim, seeds[0]);
-        self.beam(c0, want, self.bucket_px, self.speed_buckets, 0, false);
+        self.beam(c0, want, self.bucket_px, self.speed_buckets);
         if self._found.is_empty() && self.fine_px > 0 {
             self.last_look = 1;
             self.fine_looks += 1;
             let c0 = self.copy(sim, seeds[0]);
-            self.beam(c0, want, self.fine_px, self.fine_speeds, 0, false);
+            self.beam(c0, want, self.fine_px, self.fine_speeds);
         }
         let mut found: Option<Vec<u8>> = None;
         self.last_agree = 0;
@@ -437,7 +400,7 @@ impl BlindPlanner {
         if found.is_none() && self.wall_look && to_wall + 26 < want {
             for (px, sp) in [(self.bucket_px, self.speed_buckets), (self.fine_px, self.fine_speeds), (2, 40)] {
                 let c0 = self.copy(sim, seeds[0]);
-                self.beam(c0, to_wall + 26, px, sp, 0, false);
+                self.beam(c0, to_wall + 26, px, sp);
                 if self._found.is_empty() {
                     continue;
                 }
@@ -451,10 +414,10 @@ impl BlindPlanner {
         while t >= 2 && found.is_none() {
             self.last_look = 2;
             let c0 = self.copy(sim, seeds[0]);
-            self.beam(c0, t, self.bucket_px, self.speed_buckets, 0, false);
+            self.beam(c0, t, self.bucket_px, self.speed_buckets);
             if self._found.is_empty() && self.fine_px > 0 && self.keep_plan {
                 let c0 = self.copy(sim, seeds[0]);
-                self.beam(c0, t, self.fine_px, self.fine_speeds, 0, false);
+                self.beam(c0, t, self.fine_px, self.fine_speeds);
             }
             if !self._found.is_empty() {
                 found = Some(self._found[0].0.clone());
@@ -548,6 +511,10 @@ impl BlindPlanner {
         boss_leak: bool,
     ) -> GameSim {
         let mut c = sim.clone_deep();
+        c.memo_arrivals = true;
+        if KNOW_ALL.load(Ordering::Relaxed) {
+            return c;
+        }
         if own_anchor >= 0 {
             c.state.anchor_y = own_anchor;
         }
@@ -558,7 +525,7 @@ impl BlindPlanner {
         c._entry_state = None;
         c._entry_rng = SimRng::default();
         c._entry_spine = SimRng::default();
-        c.memo_arrivals = true;
+        let true_seed = c.room.rng_seed;
         let r = |bit: i32| (reveal & bit) != 0;
         {
             let x = own.next_u32();
@@ -580,6 +547,9 @@ impl BlindPlanner {
             if !r(Reveal::SPINE) {
                 c._spine = SimRng::new(x);
             }
+        }
+        if KNOW_WALLS.load(Ordering::Relaxed) {
+            c.room.rng_seed = true_seed;
         }
         if c.state.plan_at != 0 && !KNOW_EXITS.load(Ordering::Relaxed) && !r(Reveal::EXITS) {
             let at = c.state.plan_at;
@@ -732,13 +702,13 @@ impl BlindPlanner {
     /// cheapest first: the cheapest of each family of lines that share their first `part` ticks.
     /// With `by_band` > 0: the cheapest line per `by_band` px of end height instead.
     /// With `any`: stops at the first line found (only "is there one").
-    fn beam(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
+    fn beam(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64) {
         let p0 = sim::prof::enter(sim::prof::BEAM);
-        self.beam_(root, ticks, bpx, speeds, by_band, any);
+        self.beam_(root, ticks, bpx, speeds);
         sim::prof::leave(p0);
     }
 
-    fn beam_(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64, by_band: i64, any: bool) {
+    fn beam_(&mut self, root: GameSim, ticks: i64, bpx: i64, speeds: i64) {
         self._found.clear();
         let mut layer: Vec<usize> = Vec::new();
         let bh = bpx * SimConfig::SUB;
@@ -863,12 +833,6 @@ impl BlindPlanner {
                 frontier.push(Node { sim: e.sim, parent: parents.len() as i32 - 1, tap: 0, cost: e.cost, since: e.since });
             }
         }
-        if any {
-            self._found.push((Vec::new(), 0, None));
-            pool.extend(frontier.into_iter().map(|e| e.sim));
-            self._pool = pool;
-            return;
-        }
         // The family of a line: its node `part` ticks in.
         let depth = (self.part as i64).min(ticks) - 1;
         let family_end =
@@ -882,12 +846,8 @@ impl BlindPlanner {
                 continue;
             }
             let mut f = e.parent;
-            if by_band > 0 {
-                f = (e.sim.state.y / (by_band * SimConfig::SUB)) as i32;
-            } else {
-                while f >= family_end {
-                    f = parents[f as usize];
-                }
+            while f >= family_end {
+                f = parents[f as usize];
             }
             match best_at.get(&f) {
                 Some(&slot) => {

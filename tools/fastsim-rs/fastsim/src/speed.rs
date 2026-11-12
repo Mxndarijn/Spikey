@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use sim::arrival_memo;
 use sim::prelude::*;
 
-use crate::bots::blind_planner::{BlindPlanner, BOSS_BLIND, HIDE_KEYS, KNOW_EXITS};
+use crate::bots::blind_planner::{BlindPlanner, BOSS_BLIND, HIDE_KEYS, KNOW_ALL, KNOW_EXITS, KNOW_WALLS};
 use crate::bots::PlannerBot;
 
 pub type Opts = HashMap<String, String>;
@@ -23,6 +23,8 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     KNOW_EXITS.store(l(opts, "knowexits", 0) != 0, Ordering::Relaxed);
     BOSS_BLIND.store(l(opts, "hideboss", 1) != 0, Ordering::Relaxed);
     HIDE_KEYS.store(l(opts, "hidekeys", 1) != 0, Ordering::Relaxed);
+    KNOW_WALLS.store(l(opts, "knowwalls", 0) != 0, Ordering::Relaxed);
+    KNOW_ALL.store(l(opts, "knowall", 0) != 0, Ordering::Relaxed);
     bot.own_anchor = l(opts, "ownanchor", 1) != 0;
     bot.horizon = l(opts, "h", bot.horizon);
     bot.past = l(opts, "past", bot.past);
@@ -32,9 +34,6 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.lines = l(opts, "lines", bot.lines as i64) as i32;
     bot.wobble = l(opts, "wobble", bot.wobble as i64) as i32;
     bot.part = l(opts, "part", bot.part as i64) as i32;
-    bot.after = l(opts, "after", bot.after);
-    bot.band = l(opts, "band", bot.band);
-    bot.coarse_px = l(opts, "coarse", bot.coarse_px);
     bot.mid_cost = l(opts, "mid", bot.mid_cost);
     bot.tap_cost = l(opts, "tap", bot.tap_cost);
     bot.margin = l(opts, "margin", bot.margin);
