@@ -227,6 +227,7 @@ public sealed class WorldPlanner
     static RoomModel AfterBounce(RoomModel pre, int side)
     {
         var r = pre.Copy();
+        r.anchor = RoomModel.NewAnchor(pre.Drawn(side), pre.anchor);
         r.spikes[side] = 0;
         r.unknown[side] = false;
         bool was_open = r.exit_open;
@@ -398,9 +399,12 @@ public sealed class WorldPlanner
                                 c.bounced = true;
                                 c.bounce_d = d;
                                 c.back = r.bounced != ahead;
-                                c.cost += next_exit >= 0 ? EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB : MIDDLE_COST * Math.Abs(c.b.y - MID_Y) / SimConfig.SUB;
+                                // The next gap is drawn around the room's anchor: be near it.
+                                var view = c.back ? tl.after_back[s] : tl.after[s];
+                                c.cost += next_exit >= 0 ? EXIT_PULL * Math.Abs(c.b.y - next_exit) / SimConfig.SUB : MIDDLE_COST * Math.Abs(c.b.y - view.anchor) / SimConfig.SUB;
                             }
                             scratch.bird = c.b;
+                            scratch.room = c.back ? tl.after_back[s] : tl.after[s];
                             foreach (var h in c.own)
                                 if (h.alive) h.OnBounce(scratch);
                         }

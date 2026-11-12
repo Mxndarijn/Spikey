@@ -842,7 +842,8 @@ public sealed class StalactiteM : HazardModel
         if (!fixed_gap && mem != null)
         {
             long v = mem.gap_v.TryGetValue(index, out long vv) ? vv : 0;
-            long by = mem.bounce_y >= 0 ? mem.bounce_y : gap_y;
+            // The room draws the target around its anchor height (seen walls), not the bird's.
+            long by = mem.anchor;
             bool fresh = mem.last_tick - mem.bounce_tick <= 2;
             // The column the bird meets second after the bounce gets up to MAX_STEP more.
             long spread = Stalactite.REACH + (Far(mem.bounce_vx) ? FAR_EXTRA : 0);
@@ -883,8 +884,8 @@ public sealed class StalactiteM : HazardModel
         // The bird's vx is already turned round here: this column is far if the bird meets the partner first.
         bool far = Far(w.bird.vx);
         long spread = Stalactite.REACH + (far ? FAR_EXTRA : 0);
-        lo = Math.Clamp(w.bird.y - spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
-        hi = Math.Clamp(w.bird.y + spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
+        lo = Math.Clamp(w.room.anchor - spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
+        hi = Math.Clamp(w.room.anchor + spread, Stalactite.GAP_MIN, Stalactite.GAP_MAX);
     }
 
     void Place()

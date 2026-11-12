@@ -105,6 +105,7 @@ public sealed class WorldModel
             list.Add(m);
         }
         w.hz = list.ToArray();
+        if (mem != null) w.room.anchor = mem.anchor;
         Models.Link(w);
         return w;
     }
@@ -235,6 +236,7 @@ public sealed class WorldModel
     {
         bounced = true;
         bounce_side = side;
+        room.anchor = RoomModel.NewAnchor(room.Drawn(side), room.anchor);
         if (room.flip_flop) room.gravity = -room.gravity;
         room.spikes[side] = 0;
         room.unknown[side] = false;
@@ -472,13 +474,43 @@ public sealed class Memory
     public long bounce_tick = -1000;
     /// The bird's sideways speed just after the last bounce.
     public long bounce_vx;
-    long _last_vx;
+    /// The room's anchor height, tracked from the walls the bird bounced off
+    /// (RoomModel.NewAnchor) and the exit it came through.
+    public long anchor = SimConfig.BIRD_START_Y;
+    long _last_vx, _last_y;
+    readonly long[] _last_drawn = new long[2];
+    bool _last_exit_open;
+    long _last_exit_a, _last_exit_b, _last_exit_b_kind;
+
+    static long Drawn(SimState s, long side)
+    {
+        long reach = SimConfig.EXIT_HALF + SimConfig.SPIKE_HALF_BASE;
+        long slots = 0;
+        for (long slot = 0; slot < SimConfig.SLOT_COUNT; slot++)
+        {
+            long cy = SimConfig.slot_center_y(slot);
+            if (Math.Abs(cy - s.exit_a_y) < reach) slots |= 1L << (int)slot;
+            if (s.exit_b_kind != ExitKind.NORMAL && Math.Abs(cy - s.exit_b_y) < reach) slots |= 1L << (int)slot;
+        }
+        if (s.exit_open && s.exit_side == side) return ((1L << (int)SimConfig.SLOT_COUNT) - 1) & ~slots;
+        long mask = side == 0 ? s.left_spikes : s.right_spikes;
+        if (s.exit_preview && s.exit_side == side) mask &= ~slots;
+        return mask;
+    }
 
     public void Observe(GameSim sim)
     {
         var s = sim.state;
         if (s.room_index != room_index)
         {
+            // Came through an exit: the room anchors at the exit's height.
+            if (room_index >= 0 && _last_exit_open)
+            {
+                long through = Math.Abs(_last_y - _last_exit_a) <= SimConfig.EXIT_FIT || _last_exit_b_kind == ExitKind.NORMAL
+                    ? _last_exit_a : _last_exit_b;
+                anchor = Math.Clamp(through, SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE,
+                    SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE);
+            }
             room_index = s.room_index;
             gap.Clear();
             gap_v.Clear();
@@ -486,13 +518,27 @@ public sealed class Memory
             bounce_tick = -1000;
             last_tick = -1;
         }
-        if (_last_vx != 0 && Math.Sign(_last_vx) != Math.Sign(s.vx))
+        // A wall bounce (a bumper also turns the bird round, but not at a wall).
+        bool flipped = _last_vx != 0 && Math.Sign(_last_vx) != Math.Sign(s.vx);
+        long r = SimConfig.BIRD_RADIUS;
+        bool at_wall = s.x - r <= sim.room.wall_left() + SimConfig.SPEED_X * 3
+            || s.x + r >= sim.room.wall_right() - SimConfig.SPEED_X * 3;
+        if (flipped && at_wall)
         {
+            long side = _last_vx > 0 ? 1 : 0;
+            anchor = RoomModel.NewAnchor(_last_drawn[side], anchor);
             bounce_y = s.y;
             bounce_tick = s.tick;
             bounce_vx = s.vx;
         }
         _last_vx = s.vx;
+        _last_y = s.y;
+        _last_drawn[0] = Drawn(s, 0);
+        _last_drawn[1] = Drawn(s, 1);
+        _last_exit_open = s.exit_open;
+        _last_exit_a = s.exit_a_y;
+        _last_exit_b = s.exit_b_y;
+        _last_exit_b_kind = s.exit_b_kind;
         long dt = sim.room.t - last_t;
         for (int i = 0; i < sim.room.hazards.Count; i++)
         {
