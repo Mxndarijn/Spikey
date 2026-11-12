@@ -26,6 +26,8 @@ public static class Review
             case "honest":
                 honest(opts, seeds, cap, threads);
                 return 0;
+            case "fair":
+                return Fairness.run(opts, seeds, cap, threads);
             case "atlas":
                 return atlas(opts, seeds, cap, threads);
             case "exposure":
