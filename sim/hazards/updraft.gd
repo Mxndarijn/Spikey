@@ -29,6 +29,10 @@ const GUST_OFF := 60
 const GUST_WARN := SimConfig.ARRIVAL_BLIND
 const GUST_ON := 90
 const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
+## A gust throws the bird up as it crosses: a wall drawn while the gust will
+## blow on the bird's way there keeps its free run (the room's gap) no more
+## than this below the anchor.
+const GUST_DOWN_REACH := 120 * SUB
 
 ## Band edges, sub-units (they move when the band drifts).
 var x0 := 0
@@ -94,6 +98,31 @@ func touch(sim: GameSim) -> void:
 	if blowing() and inside(sim):
 		var vy := sim.state.vy - lift
 		sim.state.vy = clampi(vy, -SimConfig.MAX_FALL_VY, SimConfig.MAX_FALL_VY)
+
+
+## Gusts: keeps the wall the bird flies to within reach of a bird the gust
+## lifts on the way (GUST_DOWN_REACH). The gust is fixed by time and the bird's
+## x by its speed, so every player of a seed gets the same wall. No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	if gust == Gust.NONE or lift <= 0 or not _gust_on_way(sim, side):
+		return mask
+	var ok := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if SimConfig.slot_center_y(slot) <= sim.state.anchor_y + GUST_DOWN_REACH:
+			ok |= 1 << slot
+	return RoomRules.keep_run(mask, sim.room.def.gap, ok)
+
+
+## True if the gust blows at some step the bird, flying straight to wall
+## `side`, is inside the band.
+func _gust_on_way(sim: GameSim, side: int) -> bool:
+	var at := sim.steps_to_wall(side)
+	var dir := 1 if side == 1 else -1
+	for k in at + 1:
+		var bx := sim.state.x + dir * k * SimConfig.SPEED_X
+		if bx >= x0 and bx <= x1 and posmod(t + k + phase, GUST_PERIOD) >= GUST_OFF + GUST_WARN:
+			return true
+	return false
 
 
 ## Steps into the gust cycle (0 .. GUST_PERIOD - 1).

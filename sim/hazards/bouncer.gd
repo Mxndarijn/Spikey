@@ -20,6 +20,12 @@ const SPEED_Y := 2 * SimConfig.SUB + 32
 const MARGIN := 44 * SimConfig.SUB
 ## Twin Brambles' ball size.
 const TWIN_RADIUS := 15 * SimConfig.SUB
+## adjust_wall: the ball escorts the bird when it stays within this of it in x
+## (beyond both sizes) all the way to the wall; when that began no more than
+## ESCORT_REACT steps after the bounce, the bird is held on its side of the
+## ball (the anchor's) and the free run stays there.
+const ESCORT_MARGIN := 4 * SimConfig.SUB
+const ESCORT_REACT := SimConfig.ARRIVAL_BLIND
 
 var radius := RADIUS
 var lane: int = Lane.ANY
@@ -147,6 +153,51 @@ func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
 	vx = keep_vx
 	vy = keep_vy
 	return out
+
+
+## Keeps a way past a ball that escorts the bird to the wall it flies to (its
+## path is fixed, the bird's x too): a free run as wide as the room's gap (or
+## the widest the ball leaves) clear of the ball as the bird gets there, and on
+## the anchor's side of it when the escort began within ESCORT_REACT steps.
+## No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	if not straight_path():
+		return mask
+	var at := sim.steps_to_wall(side)
+	var dir := 1 if side == 1 else -1
+	var near := radius + SimConfig.BIRD_RADIUS + ESCORT_MARGIN
+	var keep_x := x
+	var keep_y := y
+	var keep_vx := vx
+	var keep_vy := vy
+	var start := -1
+	var start_y := 0
+	for k in range(1, at + 1):
+		move(sim)
+		if absi(x - (sim.state.x + dir * k * SimConfig.SPEED_X)) < near:
+			if start < 0:
+				start = k
+				start_y = y
+		else:
+			start = -1
+	var end_y := y
+	x = keep_x
+	y = keep_y
+	vx = keep_vx
+	vy = keep_vy
+	if start < 0:
+		return mask
+	var above := sim.state.anchor_y < start_y
+	var blocked := 0
+	for slot in SimConfig.SLOT_COUNT:
+		var sy := SimConfig.slot_center_y(slot)
+		if absi(sy - end_y) < near:
+			blocked |= 1 << slot
+		elif start <= ESCORT_REACT and (sy < end_y) != above:
+			blocked |= 1 << slot
+	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	return RoomRules.keep_run(mask, need, safe)
 
 
 func checksum(h: int) -> int:

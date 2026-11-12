@@ -22,7 +22,9 @@ static func spike_count(score: int, def: RoomDef, bonus: int = 0) -> int:
 static func gap_reach(def: RoomDef) -> int:
 	if def.reach > 0:
 		return def.reach
-	if not def.hazards.is_empty() or not def.combos.is_empty():
+	# Squeeze Box: the walls close in, so a crossing can be too short to reach
+	# a free run anywhere on the wall.
+	if not def.hazards.is_empty() or not def.combos.is_empty() or def.squeeze:
 		return GAP_REACH
 	# Rooms that keep their hazards only in variants count too.
 	for variant: RoomVariant in def.variants:
@@ -105,3 +107,35 @@ static func longest_gap_mask(mask: int) -> int:
 	for slot in range(best_end - best + 1, best_end + 1):
 		out |= 1 << slot
 	return out
+
+
+## `mask` if it has a run of `need` free slots all in `ok` (a slot mask);
+## else `mask` with the run of `need` slots of `ok` nearest the middle of its
+## free run cleared (unchanged if `ok` has no such run). No RNG draws.
+static func keep_run(mask: int, need: int, ok: int) -> int:
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	if need <= 0 or longest_gap(mask | (all & ~ok)) >= need:
+		return mask
+	var free := longest_gap_mask(mask)
+	var mid := 0
+	var n := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if (free >> slot) & 1 == 1:
+			mid += SimConfig.slot_center_y(slot)
+			n += 1
+	if n > 0:
+		mid /= n
+	var best := -1
+	var best_d := 0
+	var span := (1 << need) - 1
+	for start in SimConfig.SLOT_COUNT - need + 1:
+		if (ok >> start) & span != span:
+			continue
+		var y := SimConfig.slot_center_y(start) + (need - 1) * SimConfig.SLOT_SIZE / 2
+		var d := absi(y - mid)
+		if best < 0 or d < best_d:
+			best = start
+			best_d = d
+	if best < 0:
+		return mask
+	return mask & ~(span << best)

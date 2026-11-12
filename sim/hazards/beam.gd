@@ -27,6 +27,13 @@ const HALF_H := 6 * SimConfig.SUB
 const YIELD_GAP := 2 * SimConfig.BIRD_RADIUS + 8 * SimConfig.SUB
 ## ...from this many steps before the beam turns on until it turns off.
 const YIELD_LEAD := 20
+## adjust_wall: a bird at a free height of the wall it flies to must be clear
+## of every live beam (by MARGIN) from WALL_FROM to WALL_TO steps around its
+## arrival there (sampled every WALL_STEP).
+const WALL_FROM := -6
+const WALL_TO := 30
+const WALL_STEP := 6
+const MARGIN := 4 * SimConfig.SUB
 
 ## Centre height of each row's beam.
 var rows: Array[int] = []
@@ -136,6 +143,38 @@ func _crosses_exit(sim: GameSim, i: int, side: int) -> bool:
 	return ExitZone.hits_rect_on(
 		sim, side, sim.room.wall_left(), rows[i] - HALF_H, sim.room.wall_right(), rows[i] + HALF_H
 	)
+
+
+## True if row i's beam is live `steps` from now (a turn it might sit out
+## counts as live).
+func live_in(i: int, steps: int) -> bool:
+	var at := t + steps
+	if at < delays[i]:
+		return false
+	var p := posmod(at - delays[i], PERIOD)
+	return p >= warn_ticks and p < warn_ticks + ON_TICKS
+
+
+## Keeps a way past the beams on the wall the bird flies to: a free run as wide
+## as the room's gap (or the widest the beams leave) whose heights no live beam
+## crosses around the bird's arrival (WALL_FROM..WALL_TO). No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	var at := sim.steps_to_wall(side)
+	var reach := HALF_H + SimConfig.BIRD_RADIUS + MARGIN
+	var blocked := 0
+	for i in rows.size():
+		var live := false
+		for d in range(WALL_FROM, WALL_TO + 1, WALL_STEP):
+			if live_in(i, at + d):
+				live = true
+		if not live:
+			continue
+		for slot in SimConfig.SLOT_COUNT:
+			if absi(SimConfig.slot_center_y(slot) - rows[i]) < reach:
+				blocked |= 1 << slot
+	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	return RoomRules.keep_run(mask, need, safe)
 
 
 func kills(sim: GameSim) -> bool:

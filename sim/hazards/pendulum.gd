@@ -19,6 +19,13 @@ const PERIOD := 180
 const ARRIVAL_TRIES := 32
 ## Chain lengths blocks_exit() tries apart, for a winch.
 const SWING_STEP := 4 * SimConfig.SUB
+## adjust_wall: a bird at a free height of the wall it flies to must stay
+## clear of the lanterns (by MARGIN) from WALL_FROM to WALL_TO steps around
+## its arrival there (sampled every WALL_STEP), flying in and back out.
+const WALL_FROM := -30
+const WALL_TO := 12
+const WALL_STEP := 3
+const MARGIN := 4 * SimConfig.SUB
 
 var pivot_x := PIVOT_X
 var pivot_y := PIVOT_Y
@@ -209,6 +216,39 @@ func _may_reach(sim: GameSim, side: int, px: int, chain_len: int) -> bool:
 	if side == 0:
 		return px - far <= ExitZone.right_on(sim, 0)
 	return px + far >= ExitZone.left_on(sim, 1)
+
+
+## Keeps a way past the lanterns on the wall the bird flies to: a free run as
+## wide as the room's gap (or the widest the lanterns leave) whose heights no
+## lantern swings in front of around the bird's arrival (WALL_FROM..WALL_TO).
+## The swing is fixed by time, so this reads no bird but its x. No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	var at := sim.steps_to_wall(side)
+	var r := SimConfig.BIRD_RADIUS
+	var edge := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var into := -1 if side == 1 else 1
+	var reach := radius + r + MARGIN
+	var keep := t
+	var blocked := 0
+	for d in range(WALL_FROM, WALL_TO + 1, WALL_STEP):
+		t = keep + at + d
+		_place()
+		var bx := edge + into * absi(d) * SimConfig.SPEED_X
+		for slot in SimConfig.SLOT_COUNT:
+			var sy := SimConfig.slot_center_y(slot)
+			if _near(bx, sy, x, y, reach) or has_twin() and _near(bx, sy, x2, y2, reach):
+				blocked |= 1 << slot
+	t = keep
+	_place()
+	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	return RoomRules.keep_run(mask, need, safe)
+
+
+static func _near(ax: int, ay: int, bx: int, by: int, reach: int) -> bool:
+	var dx := ax - bx
+	var dy := ay - by
+	return dx * dx + dy * dy < reach * reach
 
 
 func kills(sim: GameSim) -> bool:

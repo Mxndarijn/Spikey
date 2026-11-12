@@ -110,44 +110,23 @@ static func x_after(sim: GameSim, steps: int) -> int:
 	return lo + (pos if pos <= span else 2 * span - pos)
 
 
-## Keeps a way to live on the wall the bird flies to: when no free height of
-## `mask` is safe around the bird's arrival (safe_y), the three slots around
-## the safe slot nearest the free run are cleared. No RNG draws.
+## Keeps a way to live on the wall the bird flies to: a run of free slots
+## whose centres are all safe around the bird's arrival (safe_y), as wide as
+## the room's gap, or as the widest band the boss leaves safe when that is
+## narrower. A wall without one gets the safe run of that width nearest its
+## free run cleared, so the way through is never a single hole in the boss's
+## reach. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if down_at >= 0:
 		return mask
 	var at := sim.steps_to_wall(side)
-	var free := RoomRules.longest_gap_mask(mask)
-	var mid := 0
-	var n := 0
+	var blocked := 0
 	for slot in SimConfig.SLOT_COUNT:
-		if not RoomRules.has_slot(mask, slot):
-			var y := SimConfig.slot_center_y(slot)
-			if _safe_span(y, at):
-				return mask
-			if (free >> slot) & 1 == 1:
-				mid += y
-				n += 1
-			if slot + 1 < SimConfig.SLOT_COUNT and not RoomRules.has_slot(mask, slot + 1):
-				if _safe_span(y + SimConfig.SLOT_SIZE / 2, at):
-					return mask
-	if n > 0:
-		mid /= n
-	var best := -1
-	var best_d := 0
-	for slot in SimConfig.SLOT_COUNT:
-		var y := SimConfig.slot_center_y(slot)
-		if not _safe_span(y, at):
-			continue
-		var d := absi(y - mid)
-		if best < 0 or d < best_d:
-			best = slot
-			best_d = d
-	if best < 0:
-		return mask
-	for slot in range(maxi(best - 1, 0), mini(best + 2, SimConfig.SLOT_COUNT)):
-		mask &= ~(1 << slot)
-	return mask
+		if not _safe_span(SimConfig.slot_center_y(slot), at):
+			blocked |= 1 << slot
+	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	return RoomRules.keep_run(mask, need, safe)
 
 
 func _safe_span(y: int, at: int) -> bool:

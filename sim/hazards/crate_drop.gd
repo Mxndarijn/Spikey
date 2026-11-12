@@ -26,6 +26,11 @@ const FALL_ACCEL := 20
 const MAX_FALL := 9 * SimConfig.SUB
 ## Gap between a stack's top and the coin sitting on it.
 const COIN_LIFT := 4 * SimConfig.SUB
+## A column isn't marked if the bird, flying on, first reaches its crate's
+## kill range from the end of the warning to FAIR_SPAN steps later: it could
+## neither pass under the falling crate and out before it lands, nor have had
+## time to climb over it. When every free column is like that, the usual pick.
+const FAIR_SPAN := 50
 
 ## Columns, their width and the crates' size; stacks never get taller than
 ## max_height crates. The columns sit in the middle of the room.
@@ -94,11 +99,11 @@ func setup(_sim: GameSim, rng: SimRng) -> void:
 
 ## `sim` null: before the room's exits are known (setup).
 func _next_drop(sim: GameSim, warn: int) -> void:
-	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1)
+	col = _free_col(sim, posmod(SimHash.mix(salt, drops), cols), -1, warn)
 	col_b = -1
 	if pair and col >= 0:
 		# The second crate falls about half the room away.
-		col_b = _free_col(sim, (col + cols / 2) % cols, col)
+		col_b = _free_col(sim, (col + cols / 2) % cols, col, warn)
 	drops += 1
 	y = -crate_h
 	vy = 0
@@ -109,14 +114,51 @@ func _next_drop(sim: GameSim, warn: int) -> void:
 	warn_left = warn
 
 
-## The first column from `start` on (wrapping) that is not full, not `skip`
-## and not falling through an exit's mouth (ExitZone).
-func _free_col(sim: GameSim, start: int, skip: int) -> int:
+## The first column from `start` on (wrapping) that is not full, not `skip`,
+## not falling through an exit's mouth (ExitZone) and fair to a bird `warn`
+## steps before the crate falls (_fair_col); without a fair one, the first of
+## the others.
+func _free_col(sim: GameSim, start: int, skip: int, warn: int) -> int:
+	var first := -1
 	for i in cols:
 		var c := (start + i) % cols
 		if c != skip and heights[c] < max_height and (sim == null or not _col_in_exit(sim, c)):
-			return c
-	return -1
+			if sim == null or _fair_col(sim, c, warn):
+				return c
+			if first < 0:
+				first = c
+	return first
+
+
+## False if the bird first reaches column c's kill range in x while its crate,
+## warned for `warn` steps, falls (FAIR_SPAN).
+func _fair_col(sim: GameSim, c: int, warn: int) -> bool:
+	var e := entry_steps(sim, c, warn + FAIR_SPAN + 1)
+	return e < warn or e > warn + FAIR_SPAN
+
+
+## Steps until the bird, flying on (its x doesn't depend on taps), first
+## overlaps column c's crate in x, widened by the bird's radius; `limit` if not
+## before then.
+func entry_steps(sim: GameSim, c: int, limit: int) -> int:
+	var r := SimConfig.BIRD_RADIUS
+	var lo := col_left(c) - r
+	var hi := col_left(c) + crate_w + r
+	var x := sim.state.x
+	var vx := sim.state.vx
+	var left := sim.room.wall_left()
+	var right := sim.room.wall_right()
+	for s in limit:
+		if x >= lo and x <= hi:
+			return s
+		x += vx
+		if vx > 0 and x + r >= right:
+			x = 2 * (right - r) - x
+			vx = -vx
+		elif vx < 0 and x - r <= left:
+			x = 2 * (left + r) - x
+			vx = -vx
+	return limit
 
 
 ## True if a crate falling down column c touches an open or ghost exit's mouth.
@@ -128,9 +170,18 @@ func _col_in_exit(sim: GameSim, c: int) -> bool:
 func step(sim: GameSim) -> void:
 	if col < 0:
 		return
-	# The first crate was marked before the room's exits were known: mark it
-	# again (the same pick, now past the exits) if it would fall through one.
-	if t == 1 and (_col_in_exit(sim, col) or col_b >= 0 and _col_in_exit(sim, col_b)):
+	# The first crate was marked before the room's exits and the bird were
+	# known: mark it again (the same pick, now past the exits and fair) if it
+	# would fall through an exit's mouth or be unfair to the bird (_fair_col).
+	if (
+		t == 1
+		and (
+			_col_in_exit(sim, col)
+			or col_b >= 0 and _col_in_exit(sim, col_b)
+			or not _fair_col(sim, col, warn_left)
+			or col_b >= 0 and not _fair_col(sim, col_b, warn_left)
+		)
+	):
 		drops -= 1
 		_next_drop(sim, warn_left)
 		if col < 0:

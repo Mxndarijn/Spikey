@@ -1,0 +1,260 @@
+extends TestCase
+## Rooms keep a fair way through for a player who reacts in about 1 s
+## (planner review, fairness): the boss's wall keeps a whole safe free run,
+## crates aren't marked where the bird can neither pass under nor over them,
+## Squeeze Box steers its free runs, and the top and bottom wall spikes leave
+## no lane by the ceiling or floor.
+
+const RoomsTest := preload("res://tests/unit/test_rooms.gd")
+const CrateDrop := preload("res://sim/hazards/crate_drop.gd")
+
+const SUB := SimConfig.SUB
+const ALL := (1 << SimConfig.SLOT_COUNT) - 1
+
+
+static func _hazard(sim: GameSim, kind: String) -> Hazard:
+	for h in sim.room.hazards:
+		if h.kind == kind:
+			return h
+	return null
+
+
+## Longest run of slots that are free in `mask` and set in `ok`.
+static func _free_ok(mask: int, ok: int) -> int:
+	return RoomRules.longest_gap(mask | (ALL & ~ok))
+
+
+func test_keep_run_clears_a_run_inside_the_allowed_slots_near_the_free_run() -> void:
+	var ok := 0b0000_0011_1111_0
+	# Free run at slots 9..12, outside `ok`.
+	var mask := ALL & ~(0b1111 << 9)
+	var out := RoomRules.keep_run(mask, 4, ok)
+	assert_true(_free_ok(out, ok) >= 4, "a run of 4 inside ok")
+	assert_eq(out & ~ok, mask & ~ok, "nothing cleared outside ok")
+	# The cleared run is the one nearest the old free run (slots 3..6).
+	assert_eq(out & ok, ok & ~(0b1111 << 3))
+	assert_eq(RoomRules.keep_run(out, 4, ok), out, "already fine: unchanged")
+	assert_eq(RoomRules.keep_run(mask, 7, ok), mask, "ok too narrow: unchanged")
+
+
+func test_a_boss_wall_keeps_a_whole_safe_free_run() -> void:
+	var checked := 0
+	for id: String in ["boss_watcher", "boss_crusher", "boss_saw"]:
+		for seed_value in range(1, 5):
+			var sim := RoomsTest.sim_in_room(id, seed_value)
+			var boss := _hazard(sim, id)
+			for p: int in [1, 2, 3]:
+				boss.phase = p
+				for k: int in range(0, 600, 23):
+					boss.t = boss.phase_start + k
+					sim.state.x = (60 + k % 240) * SUB
+					sim.state.vx = SimConfig.SPEED_X if k % 2 == 0 else -SimConfig.SPEED_X
+					var side := 1 if sim.state.vx > 0 else 0
+					var at := sim.steps_to_wall(side)
+					var safe := 0
+					var widest := 0
+					var run := 0
+					for slot in SimConfig.SLOT_COUNT:
+						if boss._safe_span(SimConfig.slot_center_y(slot), at):
+							safe |= 1 << slot
+							run += 1
+							widest = maxi(widest, run)
+						else:
+							run = 0
+					var need := mini(sim.room.def.gap, widest)
+					# The usual wall: a gap of 4, elsewhere.
+					for gap_start: int in [0, 4, 9]:
+						var mask := ALL & ~(0b1111 << gap_start)
+						var out: int = boss.adjust_wall(sim, side, mask)
+						assert_true(
+							_free_ok(out, safe) >= need,
+							"%s seed %d phase %d step %d gap %d" % [id, seed_value, p, k, gap_start]
+						)
+						assert_eq(out & ~mask, 0, "it only clears spikes")
+						checked += 1
+	assert_true(checked > 100)
+
+
+func test_a_boss_wall_with_a_safe_gap_is_left_alone() -> void:
+	var sim := RoomsTest.sim_in_room("boss_saw", 3)
+	var boss := _hazard(sim, "boss_saw")
+	# Phase 1: the Saw King's ring doesn't reach the walls (safe_y true).
+	boss.phase = 1
+	var mask := ALL & ~(0b1111 << 5)
+	assert_eq(boss.adjust_wall(sim, 1, mask), mask)
+
+
+## The planner review's trace (seed 126): wide crates, outer column 0, the
+## bird at x 286 flying right, 15 steps before the right bounce. It reaches
+## the column 71 steps after the mark: too late to pass under, too early to
+## be over the crate. That column is skipped when another one is fair.
+func test_wide_crates_skip_a_column_the_bird_reaches_while_it_falls() -> void:
+	var sim := RoomsTest.sim_in_room("crates", 1, Seasons.NONE, "wide")
+	var cd := _hazard(sim, "crate_drop")
+	sim.state.x = 286 * SUB
+	sim.state.vx = SimConfig.SPEED_X
+	var warn := CrateDrop.WARN_TICKS
+	var e: int = cd.entry_steps(sim, 0, 400)
+	assert_true(e >= warn and e <= warn + CrateDrop.FAIR_SPAN, "entered at %d" % e)
+	assert_false(cd._fair_col(sim, 0, warn))
+	var picked: int = cd._free_col(sim, 0, -1, warn)
+	assert_true(picked != 0, "another column")
+	assert_true(cd._fair_col(sim, picked, warn))
+
+
+func test_crates_are_marked_fair_whenever_a_fair_column_is_free() -> void:
+	var marks := 0
+	for variant: String in ["classic", "wide", "pairs"]:
+		for seed_value in range(1, 6):
+			var sim := RoomsTest.sim_in_room("crates", seed_value, Seasons.NONE, variant)
+			var cd := _hazard(sim, "crate_drop")
+			var drops: int = cd.drops
+			var rng := SimRng.new(seed_value)
+			for i in 1500:
+				if sim.is_over() or cd.col < 0:
+					break
+				# Keep the bird alive and in the middle: only x matters here.
+				sim.state.y = 320 * SUB
+				sim.state.vy = 0
+				var before_x := sim.state.x
+				var before_vx := sim.state.vx
+				sim.step(rng.next_below(9) == 0)
+				if cd.drops != drops and cd.t > 1:
+					drops = cd.drops
+					marks += 1
+					# Judge the mark from where the bird was when it was made.
+					var now_x := sim.state.x
+					var now_vx := sim.state.vx
+					sim.state.x = before_x
+					sim.state.vx = before_vx
+					var any_fair := false
+					for c in cd.cols:
+						if (
+							cd.heights[c] < cd.max_height
+							and cd._fair_col(sim, c, CrateDrop.WARN_TICKS)
+						):
+							any_fair = true
+					if any_fair:
+						assert_true(
+							cd._fair_col(sim, cd.col, CrateDrop.WARN_TICKS),
+							"%s seed %d step %d column %d" % [variant, seed_value, i, cd.col]
+						)
+					sim.state.x = now_x
+					sim.state.vx = now_vx
+	assert_true(marks > 20, "%d marks" % marks)
+
+
+func test_squeeze_box_keeps_its_free_runs_in_reach() -> void:
+	assert_eq(RoomRules.gap_reach(RoomCatalog.find("squeeze")), RoomRules.GAP_REACH)
+
+
+## A bird skimming the ceiling or floor line by a wall used to slip past a
+## spike in the top or bottom slot.
+func test_no_lane_past_the_top_and_bottom_wall_spikes() -> void:
+	var sim := GameSim.new(5)
+	var r := SimConfig.BIRD_RADIUS
+	var right := sim.room.wall_right()
+	sim.state.x = right - r
+	var cases := [[0, SimConfig.KILL_TOP + r + 2 * SUB], [12, SimConfig.KILL_BOTTOM - r - 2 * SUB]]
+	for case: Array in cases:
+		var slot: int = case[0]
+		sim.state.y = case[1]
+		sim.state.right_spikes = 1 << slot
+		assert_true(sim._hits_wall(1, right, -1), "slot %d spiked: no lane" % slot)
+		sim.state.right_spikes = ALL & ~(1 << slot)
+		assert_false(sim._hits_wall(1, right, -1), "slot %d free: the way is open" % slot)
+	# A spike in the slot next to the edge one leaves its free edge slot open.
+	sim.state.y = SimConfig.slot_center_y(0)
+	sim.state.right_spikes = 1 << 1
+	assert_false(sim._hits_wall(1, right, -1))
+
+
+## Lantern Swing: the wall the bird flies to keeps a run of free heights no
+## lantern swings in front of while the bird gets there and turns.
+func test_a_lantern_never_parks_in_front_of_the_whole_free_run() -> void:
+	var checked := 0
+	for variant: String in ["big", "twin", "gusty", "winch"]:
+		for seed_value in range(1, 4):
+			var sim := RoomsTest.sim_in_room("swing", seed_value, Seasons.NONE, variant)
+			var lamp := _hazard(sim, "pendulum")
+			for k: int in range(0, 420, 37):
+				lamp.t = k
+				sim.state.x = (40 + k % 280) * SUB
+				sim.state.vx = SimConfig.SPEED_X if k % 2 == 0 else -SimConfig.SPEED_X
+				var side := 1 if sim.state.vx > 0 else 0
+				var blocked := _lantern_blocked(sim, lamp, side)
+				var safe := ALL & ~blocked
+				var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+				for gap_start: int in [0, 4, 9]:
+					var mask := ALL & ~(0b1111 << gap_start)
+					var out: int = lamp.adjust_wall(sim, side, mask)
+					assert_true(
+						_free_ok(out, safe) >= need, "%s seed %d step %d" % [variant, seed_value, k]
+					)
+					assert_eq(lamp.t, k, "the lantern's clock is put back")
+					checked += 1
+	assert_true(checked > 100)
+
+
+## Heights by wall `side` a lantern comes within 4 px of the bird, played
+## forward on the lantern's own clock, from 30 steps before the bird gets
+## there to 12 after.
+static func _lantern_blocked(sim: GameSim, lamp: Hazard, side: int) -> int:
+	var at := sim.steps_to_wall(side)
+	var r := SimConfig.BIRD_RADIUS
+	var edge := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var into := -1 if side == 1 else 1
+	var keep: int = lamp.t
+	var out := 0
+	for d in range(-30, 13, 3):
+		lamp.t = keep + at + d
+		lamp.step(sim)
+		var bx := edge + into * absi(d) * SimConfig.SPEED_X
+		var reach: int = lamp.radius + r + 4 * SUB
+		for slot in SimConfig.SLOT_COUNT:
+			var sy := SimConfig.slot_center_y(slot)
+			var hit := _dist2(bx - lamp.x, sy - lamp.y) < reach * reach
+			if lamp.has_twin():
+				hit = hit or _dist2(bx - lamp.x2, sy - lamp.y2) < reach * reach
+			if hit:
+				out |= 1 << slot
+	lamp.t = keep
+	lamp.step(sim)
+	return out
+
+
+static func _dist2(dx: int, dy: int) -> int:
+	return dx * dx + dy * dy
+
+
+## Beam Gates: the wall the bird flies to keeps a run of free heights no live
+## beam crosses while the bird gets there and turns.
+func test_beams_never_cut_the_whole_free_run() -> void:
+	var checked := 0
+	for seed_value in range(1, 6):
+		var sim := RoomsTest.sim_in_room("beams", seed_value)
+		var beam := _hazard(sim, "beam")
+		for k: int in range(0, 540, 29):
+			beam.t = k
+			sim.state.x = (40 + k % 280) * SUB
+			sim.state.vx = SimConfig.SPEED_X if k % 2 == 0 else -SimConfig.SPEED_X
+			var side := 1 if sim.state.vx > 0 else 0
+			var at := sim.steps_to_wall(side)
+			var blocked := 0
+			for d in range(-6, 31, 6):
+				beam.t = k + at + d
+				for i in beam.rows.size():
+					if beam.state(i) == beam.State.ON:
+						for slot in SimConfig.SLOT_COUNT:
+							var dy := absi(SimConfig.slot_center_y(slot) - beam.rows[i])
+							if dy < beam.HALF_H + SimConfig.BIRD_RADIUS + 4 * SUB:
+								blocked |= 1 << slot
+			beam.t = k
+			var safe := ALL & ~blocked
+			var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+			for gap_start: int in [0, 4, 9]:
+				var mask := ALL & ~(0b1111 << gap_start)
+				var out: int = beam.adjust_wall(sim, side, mask)
+				assert_true(_free_ok(out, safe) >= need, "seed %d step %d" % [seed_value, k])
+				checked += 1
+	assert_true(checked > 50)
