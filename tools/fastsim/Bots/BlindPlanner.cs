@@ -67,7 +67,9 @@ public sealed class BlindPlanner
         }
         if (_since >= _wait || _plan.Count == 0) look(sim);
         _since++;
-        return _plan.Count > 0 && _plan.Dequeue();
+        bool tap = _plan.Count > 0 && _plan.Dequeue();
+        // The sim ignores taps during the wait out of a portal: don't make them.
+        return tap && sim.state.arrival_hold == 0;
     }
 
     void look(GameSim sim)
