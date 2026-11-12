@@ -1,0 +1,15 @@
+//! sim/rooms (Sim/Rooms).
+pub mod catalog_boss;
+pub mod catalog_combo;
+pub mod catalog_core;
+pub mod catalog_machines;
+pub mod catalog_motion;
+pub mod catalog_seasonal;
+pub mod catalog_sky;
+pub mod catalog_twists;
+pub mod hazard;
+pub mod room_catalog;
+pub mod room_def;
+pub mod room_rules;
+pub mod room_runtime;
+pub mod seasons;

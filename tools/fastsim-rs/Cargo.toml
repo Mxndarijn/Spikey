@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["sim", "fastsim"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = "line-tables-only"
+# GDScript and C# ints wrap; keep the same in every profile.
+overflow-checks = false
+
+[profile.dev]
+opt-level = 1
+overflow-checks = false

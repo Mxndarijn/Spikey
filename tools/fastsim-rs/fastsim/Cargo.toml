@@ -1,0 +1,12 @@
+[package]
+name = "fastsim"
+edition.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "fastsim-rs"
+path = "src/main.rs"
+
+[dependencies]
+sim = { path = "../sim" }
+rayon = "1"
