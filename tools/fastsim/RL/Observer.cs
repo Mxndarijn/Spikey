@@ -133,6 +133,64 @@ public static class Observer
         return (best_y, best_len);
     }
 
+    /// Whether the danger grid also marks cells a boss's tell warns of
+    /// (docs/RL_BOT.md, "Boss tells"). Off only to measure without them.
+    public static bool tells = true;
+    /// A warned cell's value: deadly cells are 1, free cells -1. 0.5 did
+    /// best with the layout-3 policy, which never trained on it (1 made it
+    /// flee the Crusher's slam line into the spikes; 0 hurt the Saw King).
+    /// `rl bosses --warn x` tries others.
+    public static float WARN = 0.5f;
+
+    /// Whether the bird at its current spot is where a boss's tell says an
+    /// attack will land. Reads only what the boss painters draw
+    /// (game/run/painters/boss_*_painter.gd): the rows that flicker, the
+    /// dart's dashed lane, the press's dashed line or the jaw's next lane,
+    /// a crate's dashed column, the Saw King's dashed landing ring. Never
+    /// Boss.seed, draw() or safe_y(): those know attacks not yet shown.
+    public static bool warned(Boss b, GameSim sim)
+    {
+        if (b.down_at >= 0) return false;
+        long r = SimConfig.BIRD_RADIUS;
+        long y = sim.state.y;
+        switch (b)
+        {
+            case BossWatcher w:
+                if (w.beam == BossWatcher.Beam.WARN)
+                    for (long i = 0; i < BossWatcher.ROWS.Length; i++)
+                    {
+                        if (((w.lit >> (int)i) & 1) == 0) continue;
+                        long ry = BossWatcher.ROWS[i];
+                        if (sim.bird_touches_rect(sim.room.wall_left(), ry - BossWatcher.HALF_H, sim.room.wall_right(), ry + BossWatcher.HALF_H))
+                            return true;
+                    }
+                if (w.dart == BossWatcher.Dart.MARK)
+                    return sim.bird_touches_rect(0, w.dart_lane - BossWatcher.DART_HALF, SimConfig.WORLD_W, w.dart_lane + BossWatcher.DART_HALF);
+                return false;
+            case BossCrusher c:
+                if (c.telling && c.phase == 1 && y - r <= c.slam_y + BossCrusher.BITE) return true;
+                if (c.telling && c.phase != 1 && c.jaw)
+                {
+                    long half = c.lane_half();
+                    if (y - r <= c.lane_to - half - BossCrusher.TEETH + BossCrusher.BITE) return true;
+                    if (y + r >= c.lane_to + half + BossCrusher.TEETH - BossCrusher.BITE) return true;
+                }
+                for (int i = 0; i < 2; i++)
+                {
+                    if (c.crate[i] != BossCrusher.Crate.MARK) continue;
+                    long x = c.crate_x[i];
+                    if (sim.bird_touches_rect(x - BossCrusher.CRATE_HALF, c.press_y + BossCrusher.TEETH, x + BossCrusher.CRATE_HALF, c.plate_y - BossCrusher.TEETH))
+                        return true;
+                }
+                return false;
+            case BossSaw s:
+                if (!s.telling) return false;
+                long reach = s.phase == 2 ? s.ring_max() + BossSaw.BLADE_R : s.phase == 3 ? BossSaw.RING_HOP + BossSaw.BLADE_R : BossSaw.KING_R;
+                return sim.bird_touches_circle(BossSaw.KING_X, s.to_y, reach);
+        }
+        return false;
+    }
+
     static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> _guards = new();
 
     /// Whether the hazard's type overrides guards_edge (the base answers
@@ -141,7 +199,8 @@ public static class Observer
         _guards.GetOrAdd(h.GetType(), t => t.GetMethod(nameof(Hazard.guards_edge))!.DeclaringType != typeof(Hazard));
 
     /// The danger grid: 1 where a bird would be killed by a hazard, the
-    /// ceiling or the floor, -1 where not.
+    /// ceiling or the floor, WARN where a boss tell says an attack will land,
+    /// -1 where not.
     public static void grid(GameSim sim, float[] f, int at)
     {
         // Hazards may write the bird while answering (EdgePad.guards_edge
@@ -181,6 +240,7 @@ public static class Observer
             for (int row = 0; row < ROWS; row++)
             {
                 long py = y0 + (row - ROWS / 2) * ROW_STEP;
+                bool warn = false;
                 bool bad = (py - r <= SimConfig.KILL_TOP && !top_guard) || (py + r >= SimConfig.KILL_BOTTOM && !bottom_guard);
                 if (!bad && hz.Count > 0 && px > 0 && px < SimConfig.WORLD_W)
                 {
@@ -192,8 +252,15 @@ public static class Observer
                             bad = true;
                             break;
                         }
+                    if (!bad && tells)
+                        for (int h = 0; h < hz.Count; h++)
+                            if (hz[h].alive && hz[h] is Boss b && warned(b, sim))
+                            {
+                                warn = true;
+                                break;
+                            }
                 }
-                f[k++] = bad ? 1f : -1f;
+                f[k++] = bad ? 1f : warn ? WARN : -1f;
             }
         }
         sim.state = saved;
