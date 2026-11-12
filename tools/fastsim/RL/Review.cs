@@ -28,6 +28,8 @@ public static class Review
                 return 0;
             case "atlas":
                 return atlas(opts, seeds, cap, threads);
+            case "autopsy":
+                return Autopsy.run(opts, seeds, cap, threads);
             case "blindcheck":
                 return blindcheck(seeds);
             case "trace":
@@ -91,7 +93,7 @@ public static class Review
     }
 
     /// Sets the planner's knobs from the command line; returns them as text.
-    static string configure(BlindPlanner bot, Dictionary<string, string> opts)
+    internal static string configure(BlindPlanner bot, Dictionary<string, string> opts)
     {
         long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
         BlindPlanner.know_exits = L("knowexits", 0) != 0;

@@ -144,6 +144,12 @@ public sealed class BlindPlanner
     /// In how many of the guessed futures the played line lived (of `copies`).
     public int last_agree;
     public long looks, fine_looks, short_looks, no_looks, split_looks;
+    /// The last look's first guessed-future seed (blind_copy(sim, new SimRng(it)) is its copy)
+    /// and the plan it left (read by the autopsy).
+    public long last_seed0;
+    /// The anchor the last look's copies used (-1 = the room's own).
+    public long last_anchor = -1;
+    public bool[] last_plan = Array.Empty<bool>();
 
     public BlindPlanner(long seed) => _own = new SimRng(977 * seed + 5);
 
@@ -160,10 +166,14 @@ public sealed class BlindPlanner
         }
 #if PROF
         long p0 = Prof.now();
-        if (_since >= _wait || _plan.Count == 0) look(sim);
+        if (_since >= _wait || _plan.Count == 0) { look(sim); last_plan = _plan.ToArray(); }
         Prof.add(Prof.LOOK, p0);
 #else
-        if (_since >= _wait || _plan.Count == 0) look(sim);
+        if (_since >= _wait || _plan.Count == 0)
+        {
+            look(sim);
+            last_plan = _plan.ToArray();
+        }
 #endif
         _since++;
         bool tap = _plan.Count > 0 && _plan.Dequeue();
@@ -179,6 +189,8 @@ public sealed class BlindPlanner
         int n = Math.Max(1, copies);
         var seeds = new long[n];
         for (int j = 0; j < n; j++) seeds[j] = _own.next_u32();
+        last_seed0 = seeds[0];
+        last_anchor = own_anchor ? anchor : -1;
         GameSim copy(int j) => blind_copy(sim, new SimRng(seeds[j]), _bounce_y, reveal, own_anchor ? anchor : -1, boss_unseen, boss_leak);
         long to_wall = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0);
         if (after > 0 && to_wall >= 3 && to_wall - 1 <= horizon)
