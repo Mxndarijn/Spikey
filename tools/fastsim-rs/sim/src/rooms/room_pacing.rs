@@ -16,54 +16,53 @@ impl RoomPacing {
 
     pub const TIERS: &'static [(&'static str, &'static [i64])] = &[
         ("lava", Self::EASY),  // 16
-        ("cloud", Self::EASY),  // 25
-        ("tide", Self::EASY),  // 25
-        ("crosswind", Self::EASY),  // 29
-        ("court", Self::EASY),  // 31
+        ("cloud", Self::EASY),  // 24
+        ("tide", Self::EASY),  // 26
+        ("court", Self::EASY),  // 28
+        ("crosswind", Self::EASY),  // 31
+        ("crates", Self::EASY),  // 32
+        ("piston", Self::STEADY),  // 32
         ("belt", Self::STEADY),  // 33
-        ("piston", Self::STEADY),  // 33
-        ("crawl", Self::STEADY),  // 33
-        ("hunter", Self::STEADY),  // 36
-        ("crowded", Self::STEADY),  // 37
-        ("echo", Self::STEADY),  // 38
-        ("blink", Self::STEADY),  // 39
-        ("flip", Self::STEADY),  // 40
-        ("lockexit", Self::STEADY),  // 40
-        ("isles", Self::MIDDLE),  // 42
+        ("crawl", Self::STEADY),  // 34
+        ("hunter", Self::STEADY),  // 37
+        ("crowded", Self::STEADY),  // 38
+        ("echo", Self::STEADY),  // 39
+        ("flip", Self::STEADY),  // 39
+        ("blink", Self::STEADY),  // 40
+        ("lockexit", Self::MIDDLE),  // 41
+        ("isles", Self::MIDDLE),  // 41
         ("stalker", Self::MIDDLE),  // 42
-        ("narrow", Self::MIDDLE),  // 43
-        ("midnight", Self::MIDDLE),  // 43
         ("bubbles", Self::MIDDLE),  // 45
-        ("beams", Self::MIDDLE),  // 46
+        ("narrow", Self::MIDDLE),  // 47
         ("rain", Self::HARD),  // 49
-        ("stalac", Self::HARD),  // 51
-        ("gates", Self::HARD),  // 52
-        ("swing", Self::HARD),  // 52
-        ("double", Self::HARD),  // 51
-        ("bramble", Self::HARD),  // 54
-        ("crates", Self::HARD),  // 54
-        ("sawring", Self::HARD),  // 55
-        ("updraft", Self::HARDER),  // 57
-        ("squeeze", Self::HARDER),  // 60
-        ("pinwheel", Self::HARDEST),  // 66
+        ("gates", Self::HARD),  // 51
+        ("midnight", Self::HARD),  // 52
+        ("sawring", Self::HARD),  // 54
+        ("squeeze", Self::HARD),  // 56
+        ("bramble", Self::HARDER),  // 56
+        ("swing", Self::HARDER),  // 57
+        ("stalac", Self::HARDER),  // 60
+        ("beams", Self::HARDER),  // 61
+        ("pinwheel", Self::HARDEST),  // 65
+        ("updraft", Self::HARDEST),  // 74
+        ("slowmo", Self::BONUS),  // 9
+        ("keepy", Self::BONUS),  // 10
+        ("orchard", Self::BONUS),  // 12
         ("garden", Self::BONUS),  // 19
-        ("orchard", Self::BONUS),  // 11
-        ("keepy", Self::BONUS),  // 9
-        ("slowmo", Self::BONUS),  // 7
         // Seasonal
-        ("hearts", Self::EASY),  // 21
+        ("hearts", Self::EASY),  // 20
         ("crabs", Self::STEADY),  // 32
-        ("eggs", Self::MIDDLE),  // 43
+        ("eggs", Self::MIDDLE),  // 42
         ("cupid", Self::MIDDLE),  // 45
-        ("icicle", Self::HARD),  // 51
-        ("pumpkin", Self::HARD),  // 56
+        ("gifts", Self::HARD),  // 49
+        ("icicle", Self::HARD),  // 50
+        ("pumpkin", Self::HARD),  // 55
+        ("ghostdoors", Self::HARDER),  // 58
         ("bats", Self::HARDER),  // 60
-        ("ghostdoors", Self::HARDER),  // 61
-        ("gifts", Self::HARDEST),  // 67
         ("fireworks", Self::HARDEST),  // 70
         ("bees", Self::HARDEST),  // 72
+        ("countdown", Self::BONUS),  // 10
         ("beachball", Self::BONUS),  // 14
-        ("countdown", Self::BONUS),  // 9
     ];
 
     pub fn apply(defs: &mut Vec<RoomDef>) {

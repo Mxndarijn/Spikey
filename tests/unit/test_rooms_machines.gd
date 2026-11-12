@@ -69,7 +69,7 @@ func test_machine_rooms_are_in_the_catalog_in_order() -> void:
 		assert_true(i > last, "%s is in the catalog after the previous room" % id)
 		last = i
 	assert_eq(RoomCatalog.find("hunter").group, "late")
-	assert_eq(RoomCatalog.find("crates").from_score, 50)
+	assert_eq(RoomCatalog.find("crates").from_score, 10)
 
 
 func test_rooms_spawn_their_hazards() -> void:

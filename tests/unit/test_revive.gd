@@ -107,7 +107,8 @@ func test_the_room_restarts_the_same_way_every_time() -> void:
 
 
 func test_the_run_goes_on_after_a_revive() -> void:
-	var sim := _dead()
+	# A seed whose revived room the gap seeker gets through (the room deck).
+	var sim := _dead(1)
 	var score := sim.state.score
 	sim.revive()
 	var rng := SimRng.new(5)
@@ -282,8 +283,8 @@ func test_a_revived_run_meets_the_same_map() -> void:
 	var compared := 0
 	# Seeds where the gap seeker gets past the revived room and that room's
 	# exit opens at the same room tick in both plays (else nothing after it is
-	# compared): found by a scan of seeds 20..139 after the room deck.
-	for seed_value: int in [4206176851, 53, 63, 85, 127]:
+	# compared): found by a scan of seeds 20..139 after the room deck (re-tiered).
+	for seed_value: int in [40, 57, 84, 108]:
 		for digit: int in [4, 5]:
 			var a := _map(seed_value, -1, 0)
 			var r := _map(seed_value, 1, digit)

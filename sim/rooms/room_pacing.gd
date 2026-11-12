@@ -31,58 +31,57 @@ const BONUS := [20, 3]
 const SEASON_BOOST := 3
 
 ## The tier of every room the picker can pick (not the open first room or
-## the bosses). Measured on next-features-2 at 5354aac (2026-11-12); the
-## mean score is in the comment.
+## the bosses). Measured on next-features-2 at 5354aac (2026-11-12), the rooms
+## room-fixes changed measured again at 2055eb8; the mean score is in the comment.
 const TIERS := {
 	"lava": EASY,  # 16
-	"cloud": EASY,  # 25
-	"tide": EASY,  # 25
-	"crosswind": EASY,  # 29
-	"court": EASY,  # 31
+	"cloud": EASY,  # 24
+	"tide": EASY,  # 26
+	"court": EASY,  # 28
+	"crosswind": EASY,  # 31
+	"crates": EASY,  # 32
+	"piston": STEADY,  # 32
 	"belt": STEADY,  # 33
-	"piston": STEADY,  # 33
-	"crawl": STEADY,  # 33
-	"hunter": STEADY,  # 36
-	"crowded": STEADY,  # 37
-	"echo": STEADY,  # 38
-	"blink": STEADY,  # 39
-	"flip": STEADY,  # 40
-	"lockexit": STEADY,  # 40
-	"isles": MIDDLE,  # 42
+	"crawl": STEADY,  # 34
+	"hunter": STEADY,  # 37
+	"crowded": STEADY,  # 38
+	"echo": STEADY,  # 39
+	"flip": STEADY,  # 39
+	"blink": STEADY,  # 40
+	"lockexit": MIDDLE,  # 41
+	"isles": MIDDLE,  # 41
 	"stalker": MIDDLE,  # 42
-	"narrow": MIDDLE,  # 43
-	"midnight": MIDDLE,  # 43
 	"bubbles": MIDDLE,  # 45
-	"beams": MIDDLE,  # 46
+	"narrow": MIDDLE,  # 47
 	"rain": HARD,  # 49
-	"stalac": HARD,  # 51
-	"gates": HARD,  # 52
-	"swing": HARD,  # 52
-	"double": HARD,  # 51
-	"bramble": HARD,  # 54
-	"crates": HARD,  # 54
-	"sawring": HARD,  # 55
-	"updraft": HARDER,  # 57
-	"squeeze": HARDER,  # 60
-	"pinwheel": HARDEST,  # 66
+	"gates": HARD,  # 51
+	"midnight": HARD,  # 52
+	"sawring": HARD,  # 54
+	"squeeze": HARD,  # 56
+	"bramble": HARDER,  # 56
+	"swing": HARDER,  # 57
+	"stalac": HARDER,  # 60
+	"beams": HARDER,  # 61
+	"pinwheel": HARDEST,  # 65
+	"updraft": HARDEST,  # 74
+	"slowmo": BONUS,  # 9
+	"keepy": BONUS,  # 10
+	"orchard": BONUS,  # 12
 	"garden": BONUS,  # 19
-	"orchard": BONUS,  # 11
-	"keepy": BONUS,  # 9
-	"slowmo": BONUS,  # 7
 	# Seasonal
-	"hearts": EASY,  # 21
+	"hearts": EASY,  # 20
 	"crabs": STEADY,  # 32
-	"eggs": MIDDLE,  # 43
+	"eggs": MIDDLE,  # 42
 	"cupid": MIDDLE,  # 45
-	"icicle": HARD,  # 51
-	"pumpkin": HARD,  # 56
+	"gifts": HARD,  # 49
+	"icicle": HARD,  # 50
+	"pumpkin": HARD,  # 55
+	"ghostdoors": HARDER,  # 58
 	"bats": HARDER,  # 60
-	"ghostdoors": HARDER,  # 61
-	"gifts": HARDEST,  # 67
 	"fireworks": HARDEST,  # 70
 	"bees": HARDEST,  # 72
+	"countdown": BONUS,  # 10
 	"beachball": BONUS,  # 14
-	"countdown": BONUS,  # 9
 }
 
 
