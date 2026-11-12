@@ -194,10 +194,8 @@ impl Strat {
             by_run.entry_or(j.0, Vec::new).push(j.1);
         }
         let groups: Vec<(usize, Vec<i64>)> = by_run.into_vec();
-        let parts: Vec<(usize, HashMap<i64, GameSim>)> = groups
-            .into_par_iter()
-            .map(|(run, ticks)| (run, Bank::replay_all(&bank.runs[run], ticks)))
-            .collect();
+        let parts: Vec<(usize, HashMap<i64, GameSim>)> =
+            groups.into_par_iter().map(|(run, ticks)| (run, Bank::replay_all(&bank.runs[run], ticks))).collect();
         let mut pre: HashMap<(usize, i64), GameSim> = HashMap::new();
         for (run, p) in parts {
             for (t, s) in p {
@@ -269,11 +267,8 @@ impl Strat {
                 fmt_num(t.ms, "F1")
             ));
         }
-        let mut f = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .map_err(|e| format!("{}: {}", path, e))?;
+        let mut f =
+            std::fs::OpenOptions::new().create(true).append(true).open(path).map_err(|e| format!("{}: {}", path, e))?;
         f.write_all(sb.as_bytes()).map_err(|e| format!("{}: {}", path, e))
     }
 
@@ -407,11 +402,8 @@ impl Strat {
             // not certain, but 118 strata must not add 59 phantom deaths either.
             let pt = (c.d as f64 + Self::SHRINK * target(&c.key)) / (c.n as f64 + Self::SHRINK);
             let mean_pts = c.l();
-            let var_pts = if c.n > 1 {
-                nmax(0.0, (c.pts2 - c.n as f64 * mean_pts * mean_pts) / (c.n - 1) as f64)
-            } else {
-                0.0
-            };
+            let var_pts =
+                if c.n > 1 { nmax(0.0, (c.pts2 - c.n as f64 * mean_pts * mean_pts) / (c.n - 1) as f64) } else { 0.0 };
             // died and points are tied (a death ends the visit early): cov from the data.
             let l = by.get(&c.key).unwrap();
             let cp = c.p();
@@ -658,7 +650,8 @@ impl<'a> Pools<'a> {
         let found: Vec<Vec<(String, Job)>> = (0..bank.runs.len())
             .into_par_iter()
             .map(|i| {
-                let mine: Vec<&Visit> = bank.runs[i].visits.iter().filter(|v| Strat::in_range(&v.key, &range)).collect();
+                let mine: Vec<&Visit> =
+                    bank.runs[i].visits.iter().filter(|v| Strat::in_range(&v.key, &range)).collect();
                 let mut f = Vec::new();
                 if mine.is_empty() {
                     return f;
@@ -666,7 +659,9 @@ impl<'a> Pools<'a> {
                 let pre = Bank::replay_all(&bank.runs[i], mine.iter().map(|v| v.tick));
                 for v in &mine {
                     for k in k0..k0 + more as i64 {
-                        if let Some(c) = Strat::redraw(&pre[&v.tick], v.tap, Strat::spine_seed(bank.runs[i].seed, v.tick, k)) {
+                        if let Some(c) =
+                            Strat::redraw(&pre[&v.tick], v.tap, Strat::spine_seed(bank.runs[i].seed, v.tick, k))
+                        {
                             f.push((Bank::key(&c), (i, v.tick, v.tap, k)));
                         }
                     }

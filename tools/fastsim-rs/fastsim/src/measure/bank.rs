@@ -242,14 +242,7 @@ impl Bank {
     /// C# `make(bot, first, seeds, cap, point_cap, threads, log)`: the runs on rayon's
     /// global pool (`--jobs`), in seed order; `log` prints each finished run to stderr.
     pub fn make(bot: &BotSpec, first: i64, seeds: i32, cap: i64, point_cap: i64, log: bool) -> Bank {
-        let mut b = Bank {
-            bot: bot.name.clone(),
-            about: bot.about.clone(),
-            cap,
-            point_cap,
-            first,
-            ..Bank::default()
-        };
+        let mut b = Bank { bot: bot.name.clone(), about: bot.about.clone(), cap, point_cap, first, ..Bank::default() };
         let clock = Instant::now();
         let done = AtomicUsize::new(0);
         let res: Vec<BankRun> = (0..seeds)
@@ -376,7 +369,8 @@ impl Bank {
             return Err(format!("no bank {}", path));
         }
         let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
-        let o: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| format!("{}: {}", path, e))?;
+        let o: Value =
+            serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| format!("{}: {}", path, e))?;
         if o["format"].as_str() != Some(Self::FORMAT) {
             return Err(format!("{}: not a {} file", path, Self::FORMAT));
         }

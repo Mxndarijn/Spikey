@@ -246,7 +246,9 @@ impl Visibility {
         let class = class_of(dst, o);
         let fs = fields::class_fields(class);
         for (i, f) in fs.iter().enumerate() {
-            if Self::is_visible(class, f.name) || f.readonly || Self::LIFE.contains(&format!("{}.{}", class, f.name).as_str())
+            if Self::is_visible(class, f.name)
+                || f.readonly
+                || Self::LIFE.contains(&format!("{}.{}", class, f.name).as_str())
             {
                 continue;
             }

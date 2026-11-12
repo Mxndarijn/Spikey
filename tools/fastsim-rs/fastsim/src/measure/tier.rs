@@ -14,8 +14,8 @@ use std::collections::HashMap;
 use serde_json::{json, Map, Value};
 
 use super::jr;
-use crate::yardstick::stats::jf;
 use crate::yardstick::fmt_num;
+use crate::yardstick::stats::jf;
 use crate::yardstick::stats::Stats;
 use crate::yardstick::survival::{self, Set};
 
