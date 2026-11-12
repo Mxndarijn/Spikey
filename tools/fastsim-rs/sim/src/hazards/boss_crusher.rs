@@ -30,7 +30,7 @@ pub struct BossCrusher {
 
 impl BossCrusher {
     pub const CYCLE: i64 = 240;
-    pub const TELL: i64 = 60;
+    pub const TELL: i64 = SimConfig::WARN_TICKS;
     pub const TEETH: i64 = 24 * SimConfig::SUB;
     pub const BITE: i64 = 20 * SimConfig::SUB;
     pub const PRESS_REST: i64 = SimConfig::KILL_TOP - Self::TEETH;

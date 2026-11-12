@@ -21,7 +21,7 @@ pub struct Beam {
 impl Beam {
     pub const ROWS: i64 = 4;
     pub const PERIOD: i64 = 180;
-    pub const WARN_TICKS: i64 = 40;
+    pub const WARN_TICKS: i64 = SimConfig::WARN_TICKS;
     pub const ON_TICKS: i64 = 50;
     pub const START_DELAY: i64 = 20;
     pub const BAND_TOP: i64 = 130 * SimConfig::SUB;

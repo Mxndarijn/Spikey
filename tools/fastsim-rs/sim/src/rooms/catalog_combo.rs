@@ -38,7 +38,7 @@ impl CatalogCombo {
                 .skipping(vec![318 * SUB, 368 * SUB]),
             RoomVariant::new("bramble_beams").with(vec![
                 mk(|| Bouncer::new(Bouncer::RADIUS, Lane::ANY).into()),
-                mk(|| Beam::new(3, Self::COMBO_WARN, true).into()),
+                mk(|| Beam::new(3, SimConfig::WARN_TICKS, true).into()),
             ]),
             RoomVariant::new("saw_rain").with(vec![
                 mk(|| SawRing::new().into()),

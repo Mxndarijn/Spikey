@@ -17,6 +17,8 @@ use crate::bots::survival_search::SurvivalSearch;
 pub static KNOW_EXITS: AtomicBool = AtomicBool::new(false);
 /// Boss rooms: the copy gets its own boss seed (BossBlind). False = a leak; measuring only.
 pub static BOSS_BLIND: AtomicBool = AtomicBool::new(true);
+/// A key chain's later keys (shown one at a time) are placed anew in the copy.
+pub static HIDE_KEYS: AtomicBool = AtomicBool::new(true);
 
 pub struct Reveal;
 impl Reveal {
@@ -109,6 +111,19 @@ pub struct BlindPlanner {
     pub fine_speeds: i64,
     /// Measuring only (Human/Atlas): bits of `Reveal` left as they truly are in the copy.
     pub reveal: i32,
+    /// Honesty (research/planner-review/01-honesty.md): the copy's anchor_y is the planner's
+    /// own, tracked from the walls it bounced off and the exit it took, never state.anchor_y.
+    pub own_anchor: bool,
+    pub anchor: i64,
+    _seen_room: i64,
+    _last_y: i64,
+    /// Tests: the memory was set by hand, don't update it from this tick's events.
+    pub skip_observe: bool,
+    _last_open: bool,
+    _last_a: i64,
+    _last_b: i64,
+    _last_b_kind: i64,
+    _last_drawn: [i64; 2],
 
     _own: SimRng,
     _plan: VecDeque<bool>,
@@ -167,6 +182,16 @@ impl BlindPlanner {
             fine_px: 3,
             fine_speeds: 12,
             reveal: 0,
+            own_anchor: true,
+            anchor: SimConfig::BIRD_START_Y,
+            _seen_room: 0,
+            _last_y: 0,
+            skip_observe: false,
+            _last_open: false,
+            _last_a: 0,
+            _last_b: 0,
+            _last_b_kind: 0,
+            _last_drawn: [0, 0],
             _own: SimRng::new(977 * seed + 5),
             _plan: VecDeque::new(),
             _since: i32::MAX,
@@ -190,7 +215,75 @@ impl BlindPlanner {
         &self._plan
     }
 
+    fn drawn(s: &SimState, side: i64) -> i64 {
+        let slots = ExitPlanner::slots(s);
+        if s.exit_open && s.exit_side == side {
+            return ((1i64 << SimConfig::SLOT_COUNT) - 1) & !slots;
+        }
+        let mut mask = if side == 0 { s.left_spikes } else { s.right_spikes };
+        if s.exit_preview && s.exit_side == side {
+            mask &= !slots;
+        }
+        mask
+    }
+
+    /// GameSim._anchor_at_wall without the pull to the planned exit.
+    pub fn anchor_after(mask: i64, anchor: i64) -> i64 {
+        let mut best = anchor;
+        let mut best_d = -1;
+        let mut slot = 0;
+        while slot < SimConfig::SLOT_COUNT {
+            if RoomRules::has_slot(mask, slot) {
+                slot += 1;
+                continue;
+            }
+            let lo = slot;
+            while slot + 1 < SimConfig::SLOT_COUNT && !RoomRules::has_slot(mask, slot + 1) {
+                slot += 1;
+            }
+            let y = anchor.clamp(SimConfig::slot_center_y(lo), SimConfig::slot_center_y(slot));
+            let d = (y - anchor).abs();
+            if best_d < 0 || d < best_d {
+                best = y;
+                best_d = d;
+            }
+            slot += 1;
+        }
+        best
+    }
+
+    /// Called once per tick before the tap: what the player saw happen in the last tick.
+    pub fn observe(&mut self, sim: &GameSim) {
+        let s = &sim.state;
+        if s.room_index != self._seen_room {
+            self._seen_room = s.room_index;
+            if self._last_open {
+                let a = (self._last_y - self._last_a).abs() <= SimConfig::EXIT_FIT || self._last_b_kind == ExitKind::NORMAL;
+                let door = if self._last_b_kind != ExitKind::NORMAL {
+                    SimConfig::FORK_DOOR_Y
+                } else if a {
+                    self._last_a
+                } else {
+                    self._last_b
+                };
+                self.anchor = GameSim::_arrival_y(door);
+            }
+        } else if sim.events.contains(&Event::BOUNCE) {
+            self.anchor = Self::anchor_after(self._last_drawn[if s.vx > 0 { 0 } else { 1 }], self.anchor);
+        }
+        self._last_y = s.y;
+        self._last_drawn[0] = Self::drawn(s, 0);
+        self._last_drawn[1] = Self::drawn(s, 1);
+        self._last_open = s.exit_open;
+        self._last_a = s.exit_a_y;
+        self._last_b = s.exit_b_y;
+        self._last_b_kind = s.exit_b_kind;
+    }
+
     pub fn decide(&mut self, sim: &GameSim) -> bool {
+        if !self.skip_observe {
+            self.observe(sim);
+        }
         if !sim.state.started {
             return true;
         }
@@ -214,7 +307,7 @@ impl BlindPlanner {
     }
 
     fn copy(&self, sim: &GameSim, seed: i64) -> GameSim {
-        Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal)
+        Self::blind_copy(sim, SimRng::new(seed), self._bounce_y, self.reveal, if self.own_anchor { self.anchor } else { -1 })
     }
 
     fn look(&mut self, sim: &GameSim) {
@@ -241,7 +334,7 @@ impl BlindPlanner {
                     let at = at.expect("a stage-one line keeps its sim");
                     let mut ok = 0;
                     for j in 0..n as usize {
-                        let c = Self::blind_copy(&at, SimRng::new(seeds[j] + 1), self._bounce_y, self.reveal);
+                        let c = Self::blind_copy(&at, SimRng::new(seeds[j] + 1), self._bounce_y, self.reveal, -1);
                         self.beam(c, self.after, self.coarse_px, self.coarse_speeds, 0, true);
                         if !self._found.is_empty() {
                             ok += 1;
@@ -420,8 +513,19 @@ impl BlindPlanner {
 
     /// A copy of `sim` with every hidden random value replaced by `own`'s.
     /// `bounce_y`: the bird's height at its last bounce if the player saw it (-1 = not).
-    pub fn blind_copy(sim: &GameSim, mut own: SimRng, bounce_y: i64, reveal: i32) -> GameSim {
+    /// `own_anchor`: the planner's own room anchor, tracked from walls it saw (-1 = keep the copy's).
+    pub fn blind_copy(sim: &GameSim, mut own: SimRng, bounce_y: i64, reveal: i32, own_anchor: i64) -> GameSim {
         let mut c = sim.clone_deep();
+        if own_anchor >= 0 {
+            c.state.anchor_y = own_anchor;
+        }
+        // The run's seed and the room as entered (kept for a revive, with both RNGs) hold the
+        // true draws. A look never revives: the copy does not carry them.
+        c.seed_value = 0;
+        c._entry_room = None;
+        c._entry_state = None;
+        c._entry_rng = SimRng::default();
+        c._entry_spine = SimRng::default();
         c.memo_arrivals = true;
         let r = |bit: i32| (reveal & bit) != 0;
         {
@@ -503,6 +607,7 @@ impl BlindPlanner {
         // on screen (a warning, a marked column, a moving thing) stays.
         let room_t = c.room.t;
         let boss_blind = BOSS_BLIND.load(Ordering::Relaxed);
+        let hide_keys = HIDE_KEYS.load(Ordering::Relaxed);
         for hz in c.room.hazards.iter_mut() {
             let kind = match hz {
                 Hz::CrateDrop(_) | Hz::Dart(_) => Reveal::SALTS,
@@ -541,6 +646,15 @@ impl BlindPlanner {
                     let far = own.next_below(Stalactite::REACH + Stalactite::MAX_STEP + 1);
                     let to = st.gap_y + if st.target_y > st.gap_y { far } else { -far };
                     st.target_y = G::clampi(to, Stalactite::GAP_MIN, Stalactite::GAP_MAX);
+                }
+                // A key chain: where each later key appears is drawn at the room's start.
+                Hz::ExitKey(ek) if hide_keys && ek.mode == sim::hazards::exit_key::Mode::CHAIN => {
+                    for i in ek.got + 1..ek.count {
+                        ek.chain_off[i as usize] =
+                            ExitKey::KEY_OFF_MIN + own.next_below(ExitKey::CHAIN_OFF_MAX - ExitKey::KEY_OFF_MIN + 1);
+                        ek.chain_d[i as usize] =
+                            ExitKey::CHAIN_D_MIN + own.next_below(ExitKey::CHAIN_D_MAX - ExitKey::CHAIN_D_MIN + 1);
+                    }
                 }
                 // The second ball's column before it drops in.
                 Hz::KeepyBall(kb) if kb.waiting > 0 && room_t < KeepyBall::SECOND_DROP => {

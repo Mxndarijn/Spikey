@@ -7,6 +7,7 @@ impl SimConfig {
     pub const GAMEPLAY_VERSION: i64 = 21;
     pub const MAX_REVIVES: i64 = 1;
     pub const TICKS_PER_SECOND: i64 = 60;
+    pub const WARN_TICKS: i64 = 2 * Self::TICKS_PER_SECOND;
     pub const SUB: i64 = 64;
     pub const WORLD_W: i64 = 360 * Self::SUB;
     pub const WORLD_H: i64 = 640 * Self::SUB;

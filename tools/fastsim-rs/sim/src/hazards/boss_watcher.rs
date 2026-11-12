@@ -44,7 +44,8 @@ impl BossWatcher {
         560 * SimConfig::SUB,
     ];
     pub const CYCLE: i64 = 240;
-    pub const TELL: i64 = 60;
+    pub const BEAM_TELL: i64 = SimConfig::WARN_TICKS;
+    pub const GAZE_TELL: i64 = 60;
     pub const BEAM_ON: i64 = 70;
     pub const HALF_H: i64 = 6 * SimConfig::SUB;
     pub const MAX_RUN: i64 = 3;
@@ -125,7 +126,7 @@ impl BossWatcher {
         }
         if self.dart == Dart::MARK {
             self.dart_t = g;
-            if g >= Self::TELL {
+            if g >= Self::GAZE_TELL {
                 self.dart = Dart::FLY;
                 self.dart_x = if self.dart_side == 1 { sim.room.wall_right() } else { sim.room.wall_left() };
             }
@@ -161,9 +162,9 @@ impl BossKind for BossWatcher {
                 self._lit_k = k;
                 self.lit = self.lit_rows(phase, k);
             }
-            if self.beam_t < Self::TELL {
+            if self.beam_t < Self::BEAM_TELL {
                 self.beam = Beam::WARN;
-            } else if self.beam_t < Self::TELL + Self::BEAM_ON {
+            } else if self.beam_t < Self::BEAM_TELL + Self::BEAM_ON {
                 self.beam = Beam::ON;
             }
         }
@@ -214,7 +215,7 @@ impl BossKind for BossWatcher {
             return true;
         }
         let lt = c % Self::CYCLE;
-        if lt < Self::TELL || lt >= Self::TELL + Self::BEAM_ON {
+        if lt < Self::BEAM_TELL || lt >= Self::BEAM_TELL + Self::BEAM_ON {
             return true;
         }
         let mask = self.lit_rows(phase, c / Self::CYCLE);

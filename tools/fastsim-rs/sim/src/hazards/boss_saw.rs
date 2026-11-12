@@ -26,7 +26,7 @@ impl BossSaw {
     pub const RING_YS: [i64; 2] = [260 * SimConfig::SUB, 380 * SimConfig::SUB];
     pub const CYCLE: i64 = 240;
     pub const CYCLE_FAST: i64 = 180;
-    pub const TELL: i64 = 60;
+    pub const TELL: i64 = SimConfig::WARN_TICKS;
     pub const JUMP: i64 = 30;
     pub const RING_OUT: i64 = Self::TELL + Self::JUMP;
     pub const RING_HOLD: i64 = 120;

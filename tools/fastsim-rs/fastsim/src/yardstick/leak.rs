@@ -142,7 +142,7 @@ impl Leak {
         // Both sims are swapped for copies, so a bot that remembers hazards by
         // object sees new objects in both runs alike; only B's hidden draws change.
         let mut sa = sa.clone_deep();
-        let mut sb = BlindPlanner::blind_copy(&sb, SimRng::new(seed * 7919 + at), -1, 0);
+        let mut sb = BlindPlanner::blind_copy(&sb, SimRng::new(seed * 7919 + at), -1, 0, -1);
         // A MotorPlayer keys hazards by (object set, index): tell it both sims are new objects.
         crate::human::sims_swapped();
         let mut visible_from: i64 = -1;

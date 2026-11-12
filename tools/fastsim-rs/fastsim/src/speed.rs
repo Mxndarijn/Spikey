@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use sim::arrival_memo;
 use sim::prelude::*;
 
-use crate::bots::blind_planner::{BlindPlanner, KNOW_EXITS};
+use crate::bots::blind_planner::{BlindPlanner, BOSS_BLIND, HIDE_KEYS, KNOW_EXITS};
 use crate::bots::PlannerBot;
 
 pub type Opts = HashMap<String, String>;
@@ -21,6 +21,9 @@ fn l(opts: &Opts, k: &str, d: i64) -> i64 {
 /// Review.configure.
 pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     KNOW_EXITS.store(l(opts, "knowexits", 0) != 0, Ordering::Relaxed);
+    BOSS_BLIND.store(l(opts, "hideboss", 1) != 0, Ordering::Relaxed);
+    HIDE_KEYS.store(l(opts, "hidekeys", 1) != 0, Ordering::Relaxed);
+    bot.own_anchor = l(opts, "ownanchor", 1) != 0;
     bot.horizon = l(opts, "h", bot.horizon);
     bot.past = l(opts, "past", bot.past);
     bot.replan = l(opts, "k", bot.replan as i64) as i32;
