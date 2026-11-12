@@ -87,7 +87,7 @@ to 400 points, 12 772 CPU s, 59 plateau deaths, ramp included).
 | one bot, bank + Neyman trials (0.108 [0.089, 0.132]) | 142–169 | 1.3–1.5x |
 | a second bot on the shared bank (trials only, `margin=10`) | 120 | 1.8x |
 | a comparison, paired trials (`bpx=6` vs base, stopped at look 2) | see below | **3.1x** (2.3x with the bank) |
-| a comparison, paired trials (`margin=10` vs base) | see below | RESULT_C2 |
+| a comparison, paired trials (`margin=10` vs base, all 5 looks, no difference) | see below | **2.2x** (1.9x with the bank) |
 
 - The Neyman gain alone is small, about 1.25x: BlindPlanner's 59 plateau deaths are
   spread over 118 strata, and no room dominates once each is weighed by how often it
@@ -102,6 +102,14 @@ to 400 points, 12 772 CPU s, 59 plateau deaths, ramp included).
 - `bpx=6` vs base, all costs: 34 294 CPU s of trials for information 95 on the log
   ratio. Full runs need 2 x 95 = 189 plateau deaths per arm at 216 s (base) and 350 s
   (`bpx=6`, 1.6x slower per tick): 107 000 CPU s.
+- `margin=10` vs base: 1.10 [0.96, 1.25], no difference at the planned size (ratio 0.8)
+  after all five looks: 83 463 CPU s of trials for information 213. Full runs: 426
+  plateau deaths per arm, 181 000 CPU s. With no early stop, this is the gain of the
+  pairing and the strata alone.
+- The bank (12 772 CPU s) is made once per gameplay version and shared by every
+  comparison against that bot, so its share per comparison shrinks as more are run.
+- Both comparisons were resumed once after a variance fix (their looks 1 to 3 were
+  re-read on the same data), so treat the stopping points as indicative.
 
 ### Validation against full runs
 
