@@ -1,20 +1,20 @@
 class_name SeedPicker
 extends VBoxContainer
-## On the debug page, in every build: type a run's seed (the game over screen
-## shows it) and Play runs it again from the first room, as practice: the same
-## rooms, spikes and coins, but no coins, best score or leaderboards. Pasting
-## the whole "Seed 123456 · v11" line works too. The last seed is kept while
+## On the debug page, in every build: type a run's seed code (the game over
+## screen shows it, SeedCode) and Play runs it again from the first room, as
+## practice: the same rooms, spikes and coins, in the code's own season, but
+## no coins, best score or leaderboards. Pasting the whole game over line
+## works too, and so do old seed numbers (no season). The note under the field
+## says which season and version the code holds. The last seed is kept while
 ## the app runs.
 
-## Play pressed with a valid seed.
-signal play_pressed(seed_value: int)
+## Play pressed with a valid seed: its random part and season.
+signal play_pressed(seed_value: int, season: int)
 
-## Seeds of real runs are randi(): 0 up to this.
-const MAX_SEED := 4294967295
 const FIELD_H := 44
 
-## The last seed played from the picker (-1 = none yet).
-static var last_seed := -1
+## The last seed typed and played from the picker ("" = none yet).
+static var last_text := ""
 
 var _field := LineEdit.new()
 var _play: Button
@@ -31,8 +31,8 @@ func _init() -> void:
 	_field.name = "SeedField"
 	_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_field.custom_minimum_size = Vector2(0, FIELD_H)
-	_field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
-	_field.text = str(last_seed) if last_seed >= 0 else ""
+	_field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_DEFAULT
+	_field.text = last_text
 	_field.text_changed.connect(_check.unbind(1))
 	_field.text_submitted.connect(play.unbind(1))
 	row.add_child(_field)
@@ -40,29 +40,36 @@ func _init() -> void:
 	row.add_child(_play)
 	add_child(row)
 	_note = UiKit.label("", &"MutedLabel", false)
+	_note.name = "SeedNote"
 	_note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_note)
 	_check()
 
 
-## The seed in `text`: its first run of digits ("Seed 123 · v11" -> 123), or
-## -1 when there is none or it is too big for a seed.
-static func parse(text: String) -> int:
-	var digits := ""
-	for c in text:
-		if c >= "0" and c <= "9":
-			digits += c
-		elif not digits.is_empty():
-			break
-	# More than 10 digits never fits; checked first so the int can't overflow.
-	if digits.is_empty() or digits.length() > 10:
-		return -1
-	var value := digits.to_int()
-	return value if value <= MAX_SEED else -1
+## The seed in `text` (SeedCode.decode), or null.
+static func parse(text: String) -> SeedCode.Parts:
+	return SeedCode.decode(text)
 
 
-## The seed typed now, or -1.
-func seed_value() -> int:
+## The note under the field for `text`.
+static func note_for(text: String) -> String:
+	if text.strip_edges().is_empty():
+		return "A seed code from the game over screen"
+	var parts := parse(text)
+	if parts == null:
+		return SeedCode.problem(text)
+	var now := SimConfig.GAMEPLAY_VERSION
+	if parts.legacy:
+		return "Old seed: plays with no season on v%d" % now
+	var held := SeedCode.describe(parts)
+	if parts.version != now:
+		return "%s. This build plays v%d: the map will differ" % [held, now]
+	return "%s. Plays from the first room, as practice" % held
+
+
+## The seed typed now, or null.
+func parts() -> SeedCode.Parts:
 	return parse(_field.text)
 
 
@@ -73,22 +80,16 @@ func set_text(text: String) -> void:
 
 ## Plays the typed seed, if it is one, and keeps it.
 func play() -> void:
-	var s := seed_value()
-	if s < 0:
+	var p := parts()
+	if p == null:
 		return
-	last_seed = s
-	play_pressed.emit(s)
+	last_text = _field.text
+	play_pressed.emit(p.random, p.season)
 
 
 func _check() -> void:
-	var s := seed_value()
-	_play.disabled = s < 0
-	if _field.text.strip_edges().is_empty():
-		_note.text = "A seed from the game over screen"
-	elif s < 0:
-		_note.text = "Not a seed: a number from 0 to %d" % MAX_SEED
-	else:
-		_note.text = "Plays seed %d from the first room, as practice" % s
+	_play.disabled = parts() == null
+	_note.text = note_for(_field.text)
 
 
 func _style_field() -> void:
@@ -104,7 +105,7 @@ func _style_field() -> void:
 	_field.add_theme_color_override("font_color", UiTokens.ON_PANEL)
 	_field.add_theme_color_override("caret_color", UiTokens.ON_PANEL)
 	_field.add_theme_color_override("font_placeholder_color", UiTokens.ON_PANEL_MUTED)
-	_field.placeholder_text = "Seed"
+	_field.placeholder_text = "K7Q2M-9XH4D"
 
 
 ## The ink Play button beside the field.

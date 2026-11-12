@@ -82,6 +82,8 @@ var _practice_variant := ""
 ## Practice from the debug page's seed picker: the seed every try plays (-1 =
 ## a new random seed each try). Real runs never set it.
 var _practice_seed := -1
+## The season that seed plays in (its seed code holds it), not today's.
+var _practice_season := Seasons.NONE
 ## Practice started from the debug page: leaving it goes back there, not to Rooms.
 var _practice_from_debug := false
 var _room_id := ""
@@ -451,11 +453,15 @@ func start_picker_practice(id: String, variant: String = "") -> void:
 
 
 ## A practice run from the debug page's seed picker, in every build: the whole
-## run of seed `seed_value` from its first room, again on every try. As
-## practice it never changes the save or the leaderboards.
-func start_seed_practice(seed_value: int) -> void:
-	if seed_value < 0 or seed_value > SeedPicker.MAX_SEED:
+## run of seed `seed_value` in `season` (the seed code's, never today's) from
+## its first room, again on every try. As practice it never changes the save
+## or the leaderboards.
+func start_seed_practice(seed_value: int, p_season: int = Seasons.NONE) -> void:
+	if seed_value < 0 or seed_value > SeedCode.MAX_RANDOM:
 		return
+	if p_season < Seasons.NONE or p_season >= Seasons.COUNT:
+		return
+	_practice_season = p_season
 	_practise("", "", seed_value)
 	_practice_from_debug = true
 
@@ -470,7 +476,7 @@ func _practise(id: String, variant: String, seed_value: int = -1) -> void:
 	_look.show_flyer(true)
 	var shown := RoomInfo.name_of(id)
 	if seed_value >= 0:
-		shown = "Seed %d" % seed_value
+		shown = "Seed " + SeedCode.current(seed_value, _practice_season)
 	elif not variant.is_empty():
 		shown = RoomPicker.choice_text(id, variant)
 	_hud.set_practice(shown)
@@ -726,6 +732,7 @@ func _new_run() -> void:
 		var seed_value := randi()
 		if mode == Mode.PRACTICE and _practice_seed >= 0:
 			seed_value = _practice_seed
+			run_season = _practice_season
 		_run.new_run(seed_value, run_season, practice, variant)
 	_room_id = RoomCatalog.all()[_run.sim.state.room_kind].id
 	_room.bind(_run, _look.theme)
@@ -971,7 +978,8 @@ func _finish_run(replay: Replay) -> void:
 		_rooms_cleared,
 		leaderboard.cached_rank(LeaderboardService.DAILY),
 		replay.seed_value,
-		_revive.revived_at
+		_revive.revived_at,
+		replay.season
 	)
 
 
