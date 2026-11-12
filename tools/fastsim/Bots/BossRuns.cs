@@ -86,9 +86,10 @@ public static class BossRuns
         if (bot == "search")
         {
             var ss = new SurvivalSearch();
-            bool ok = ss.run(sim, CAP);
+            // The room is beaten once the boss is down (the exit opens on the wall ahead).
+            bool ok = ss.run(sim, 2100);
             var e = ss.best;
-            bool cl = e != null && e.state.room_index > room;
+            bool cl = e != null && (e.state.room_index > room || (boss_of(e)?.down_at ?? -1) >= 0);
             return new(bot, boss, seed, cl, cl ? SimConfig.BOSS_POINTS : (e?.room.points ?? 0), cl ? 0 : boss_of(e)?.phase ?? 0, cl ? "" : ok ? "cap" : "search", ss.ticks_survived);
         }
         var d = make(bot, seed);
