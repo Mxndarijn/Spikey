@@ -27,7 +27,7 @@ func _bounce(sim: GameSim) -> void:
 	sim.state.vx = -sim.state.vx
 	sim._bounce_score()
 	sim._new_wall(side)
-	sim._maybe_open_exit(side)
+	sim._maybe_open_exit()
 
 
 func test_the_usual_picker_never_picks_a_boss() -> void:

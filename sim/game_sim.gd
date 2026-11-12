@@ -362,7 +362,7 @@ func _check_walls() -> void:
 		state.right_spikes = 0
 		_bounce_score()
 		_new_wall(0)
-		_maybe_open_exit(0)
+		_maybe_open_exit()
 	elif state.vx < 0 and state.x - r <= left:
 		if _take_exit(0):
 			return
@@ -373,7 +373,7 @@ func _check_walls() -> void:
 		state.left_spikes = 0
 		_bounce_score()
 		_new_wall(1)
-		_maybe_open_exit(1)
+		_maybe_open_exit()
 
 
 ## The bird reached wall `side`: if it is inside an open exit there, it goes
@@ -403,17 +403,15 @@ func _take_exit(side: int) -> bool:
 
 
 ## Every POINTS_PER_ROOM points an exit opens; one point before, it is planned
-## and shown as a ghost on the wall the bird just bounced off (`1 - side`,
-## where `side` is the wall it now flies toward). That is the wall the exit
-## opens on: the bird bounces once more, on the far wall, and turns back to
-## it. The exit then opens there at the ghost's exact height(s), even if the
-## bird got turned back (Bumper Cloud) and bounced on the ghost's wall itself.
-## With no ghost (a practice room starting one point short) it opens on
-## `side`, as before. At a fork (ExitPlanner.is_fork) it is a Calm and a Wild
-## exit, one in each half, in a random order. In a boss room the exit opens
-## after SimConfig.BOSS_POINTS bounces there instead, with no ghost first (the
-## boss fights on until then), and the boss breaks.
-func _maybe_open_exit(side: int) -> void:
+## and shown as a ghost. Both are always on the right wall
+## (SimConfig.EXIT_WALL), the wall a bird that came out of a portal heads to,
+## so a bird the Bumper Cloud turned back still leaves the room the same way
+## as every other player of the seed: it may just need one more crossing. At a
+## fork (ExitPlanner.is_fork) it is a Calm and a Wild exit, one in each half,
+## in a random order. In a boss room the exit opens after SimConfig.BOSS_POINTS
+## bounces there instead, with no ghost first (the boss fights on until then),
+## and the boss breaks.
+func _maybe_open_exit() -> void:
 	if state.exit_open:
 		return
 	if state.exit_preview:
@@ -425,11 +423,11 @@ func _maybe_open_exit(side: int) -> void:
 		return
 	if _exit_due(state.score + 1) and not room.def.boss:
 		state.exit_preview = true
-		ExitPlanner.use_plan(self, 1 - side, state.score + 1)
+		ExitPlanner.use_plan(self, SimConfig.EXIT_WALL, state.score + 1)
 		events.append(Event.EXIT_PREVIEW)
 	elif _exit_due(state.score):
 		state.exit_open = true
-		ExitPlanner.use_plan(self, side, state.score)
+		ExitPlanner.use_plan(self, SimConfig.EXIT_WALL, state.score)
 		events.append(Event.EXIT_OPEN)
 		_boss_down()
 
@@ -718,7 +716,7 @@ func _new_wall(side: int) -> void:
 		_rng.reseed(SimHash.mix(room.rng_seed, room.walls))
 	room.walls += 1
 	var reach := -1
-	var target := _wall_target(side)
+	var target := _wall_target()
 	if target < 0:
 		# Every free spot of the last wall can reach the new free run.
 		reach = RoomRules.gap_reach(room.def) - (_free_hi - _free_lo) / 2
@@ -748,14 +746,14 @@ func _new_wall(side: int) -> void:
 		_spawn_coin()
 
 
-## Where the free run of a new wall on `side` stays near (RoomRules.gap_reach):
+## Where the free run of a new wall stays near (RoomRules.gap_reach):
 ## the anchor. In a room with a short reach (Narrow), and in any room the last
 ## EXIT_STEER bounces before an exit, it steps, by half the reach a wall,
 ## toward the room's planned exit, so the anchor is near the exit when it
 ## opens. Otherwise, when every free spot of the wall just bounced off is
 ## close enough together, -1: the new run is then kept within reach of all of
 ## them (_new_wall), so a bird that came through any of them has a way on.
-func _wall_target(side: int) -> int:
+func _wall_target() -> int:
 	var reach := RoomRules.gap_reach(room.def)
 	if reach <= 0 or state.exit_open:
 		return state.anchor_y
@@ -763,9 +761,7 @@ func _wall_target(side: int) -> int:
 		if _free_lo >= 0 and reach - (_free_hi - _free_lo) / 2 >= SimConfig.SLOT_SIZE:
 			return -1
 		return state.anchor_y
-	var touch := points_to_exit() + 1
-	var exit_side := side if touch % 2 == 1 else 1 - side
-	var to := ExitPlanner.planned_y(self, exit_side, state.anchor_y)
+	var to := ExitPlanner.planned_y(self, SimConfig.EXIT_WALL, state.anchor_y)
 	return state.anchor_y + clampi(to - state.anchor_y, -reach / 2, reach / 2)
 
 
@@ -782,13 +778,11 @@ func _drawn_mask(side: int) -> int:
 
 
 ## The last EXIT_STEER bounces before an exit: the room's planned exit on
-## the wall it will open on; before that, the anchor.
-func _anchor_target(side: int) -> int:
+## the exit wall (SimConfig.EXIT_WALL); before that, the anchor.
+func _anchor_target() -> int:
 	if state.exit_open or points_to_exit() > EXIT_STEER:
 		return state.anchor_y
-	# The bounce that leaves two points to score is on the exit's wall.
-	var exit_side := side if points_to_exit() % 2 == 0 else 1 - side
-	return ExitPlanner.planned_y(self, exit_side, state.anchor_y)
+	return ExitPlanner.planned_y(self, SimConfig.EXIT_WALL, state.anchor_y)
 
 
 ## At a bounce on wall `side` (before its spikes go): the anchor moves to the
@@ -799,7 +793,7 @@ func _anchor_target(side: int) -> int:
 ## part, top and bottom, for the next wall (_free_lo, _free_hi).
 func _anchor_at_wall(side: int) -> void:
 	var mask := _drawn_mask(side)
-	var target := _anchor_target(side)
+	var target := _anchor_target()
 	var best := state.anchor_y
 	var best_d := -1
 	_free_lo = -1

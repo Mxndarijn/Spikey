@@ -11,7 +11,7 @@ enum State { OFF, WARN, ON }
 ## Rows in the Beam Gates room.
 const ROWS := 4
 const PERIOD := 180
-const WARN_TICKS := 40
+const WARN_TICKS := SimConfig.WARN_TICKS
 const ON_TICKS := 50
 ## Quiet time after the room starts, before the first warning.
 const START_DELAY := 20

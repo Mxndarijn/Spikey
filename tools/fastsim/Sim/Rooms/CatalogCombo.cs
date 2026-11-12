@@ -18,7 +18,7 @@ public static class CatalogCombo
             new RoomVariant("pinwheel_piston").with(new List<Func<Hazard>> { () => new Rotor(), () => _piston(0, 0, 30) }),
             new RoomVariant("swing_rain").with(new List<Func<Hazard>> { () => new Pendulum(), () => _drop(60) })
                 .skipping(new List<long> { 318 * SUB, 368 * SUB }),
-            new RoomVariant("bramble_beams").with(new List<Func<Hazard>> { () => new Bouncer(), () => new Beam(3, COMBO_WARN, true) }),
+            new RoomVariant("bramble_beams").with(new List<Func<Hazard>> { () => new Bouncer(), () => new Beam(3, SimConfig.WARN_TICKS, true) }),
             new RoomVariant("saw_rain").with(new List<Func<Hazard>> { () => new SawRing(), () => _drop(60) }),
         };
         out_.Add(double_);

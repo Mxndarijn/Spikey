@@ -1,5 +1,5 @@
 extends TestCase
-## Exit portals: every 10 points an exit opens on the wall ahead; flying into it
+## Exit portals: every 10 points an exit opens on the right wall; flying into it
 ## moves to the next room, and the bird flies straight on into it. Every 50
 ## points a fork offers a Calm and a Wild exit; both lead to the same next room
 ## (Wild pays coins and that room has more spikes). One point before an exit
@@ -33,15 +33,16 @@ static func _hit_wall(sim: GameSim, side: int, y: int) -> void:
 	sim._check_walls()
 
 
-func test_exit_opens_every_ten_points_on_the_wall_ahead() -> void:
+func test_exit_opens_every_ten_points_on_the_right_wall() -> void:
 	var sim := _sim_at(9)
 	_hit_wall(sim, 1, 300 * SimConfig.SUB)
 	assert_eq(sim.state.score, 10)
 	assert_true(sim.state.exit_open, "an exit opens at 10")
-	assert_eq(sim.state.exit_side, 0, "on the wall the bird now heads to")
+	assert_eq(SimConfig.EXIT_WALL, 1)
+	assert_eq(sim.state.exit_side, SimConfig.EXIT_WALL, "on the right wall")
 	assert_true(GameSim.Event.EXIT_OPEN in sim.events)
 	assert_between(sim.state.exit_a_y, SimConfig.EXIT_MIN_Y, SimConfig.EXIT_MAX_Y)
-	assert_eq(sim.wall_mask(0) & ExitPlanner.slots(sim.state), 0, "no spike in the opening")
+	assert_eq(sim.wall_mask(1) & ExitPlanner.slots(sim.state), 0, "no spike in the opening")
 	var plain := _sim_at(4)
 	_hit_wall(plain, 1, 300 * SimConfig.SUB)
 	assert_false(plain.state.exit_open, "no exit at 5")
@@ -51,43 +52,43 @@ func test_the_exit_wall_is_spiked_everywhere_but_the_openings() -> void:
 	var all := (1 << SimConfig.SLOT_COUNT) - 1
 	for start in [[9, 3], [49, 8]]:
 		var sim := _sim_at(start[0], start[1])
-		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		_hit_wall(sim, 0, 300 * SimConfig.SUB)
 		assert_true(sim.state.exit_open)
 		var openings := ExitPlanner.slots(sim.state)
 		assert_ne(openings, 0, "the exit frees some slots")
-		assert_eq(sim.wall_mask(0), all & ~openings, "every other slot has a spike")
-		assert_ne(sim.wall_mask(1), all, "the wall without the exit is a normal wall")
+		assert_eq(sim.wall_mask(1), all & ~openings, "every other slot has a spike")
+		assert_ne(sim.wall_mask(0), all, "the wall without the exit is a normal wall")
 	var missed := _sim_at(9)
-	_hit_wall(missed, 1, 300 * SimConfig.SUB)
+	_hit_wall(missed, 0, 300 * SimConfig.SUB)
 	var y := missed.state.exit_a_y
 	# Four slots away: level with a spike's tip.
 	var away := SimConfig.SLOT_SIZE * 4
 	missed.state.y = y + away if y < 320 * SimConfig.SUB else y - away
 	missed.state.anchor_y = missed.state.y
 	missed.state.vy = 0
-	missed.state.vx = -SimConfig.SPEED_X
-	missed.state.x = missed.room.wall_left() + SimConfig.BIRD_RADIUS + SimConfig.SPIKE_DEPTH / 2
+	missed.state.vx = SimConfig.SPEED_X
+	missed.state.x = missed.room.wall_right() - SimConfig.BIRD_RADIUS - SimConfig.SPIKE_DEPTH / 2
 	missed._check_spikes()
 	assert_false(missed.state.alive, "missing the exit hits a spike")
 
 
 func test_flying_through_moves_to_the_next_room() -> void:
 	var sim := _sim_at(9)
-	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
 	var room_before := sim.state.room_index
 	var score := sim.state.score
 	var y := sim.state.exit_a_y
-	_hit_wall(sim, 0, y)
+	_hit_wall(sim, 1, y)
 	assert_eq(sim.state.room_index, room_before + 1, "a new room")
 	assert_true(GameSim.Event.ROOM_CHANGE in sim.events)
 	assert_eq(sim.state.score, score, "no point for going through")
 	assert_false(sim.state.exit_open)
 	assert_eq(sim.state.y, y, "it keeps its height")
-	assert_true(sim.state.vx < 0, "it keeps flying the same way (left)")
+	assert_true(sim.state.vx > 0, "it keeps flying the same way (right)")
 	var r := SimConfig.BIRD_RADIUS
-	assert_eq(sim.state.x, sim.room.wall_right() - r, "out of the opposite (right) wall")
-	assert_eq(sim.state.right_spikes, 0, "no spikes on the wall it came out of")
-	assert_true(sim.state.left_spikes != 0, "the wall ahead has spikes again")
+	assert_eq(sim.state.x, sim.room.wall_left() + r, "out of the opposite (left) wall")
+	assert_eq(sim.state.left_spikes, 0, "no spikes on the wall it came out of")
+	assert_true(sim.state.right_spikes != 0, "the wall ahead has spikes again")
 	# Half a second to look: the bird and the room wait, taps do nothing.
 	var t := sim.room.t
 	assert_eq(sim.state.arrival_hold, SimConfig.PORTAL_HOLD, "a short wait out of the portal")
@@ -137,14 +138,14 @@ func test_isles_and_gates_leave_the_way_out_of_a_portal_open() -> void:
 func test_the_bird_comes_out_flying_level() -> void:
 	for vy in [SimConfig.MAX_FALL_VY, SimConfig.FLAP_VY]:
 		var sim := _sim_at(9)
-		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		_hit_wall(sim, 0, 300 * SimConfig.SUB)
 		var room_before := sim.state.room_index
 		var r := SimConfig.BIRD_RADIUS
 		sim.state.y = sim.state.exit_a_y
 		sim.state.anchor_y = sim.state.y
 		sim.state.vy = vy
-		sim.state.vx = -SimConfig.SPEED_X
-		sim.state.x = sim.room.wall_left() + r - 1
+		sim.state.vx = SimConfig.SPEED_X
+		sim.state.x = sim.room.wall_right() - r + 1
 		sim._check_walls()
 		assert_eq(sim.state.room_index, room_before + 1, "through the exit")
 		assert_eq(sim.state.vy, 0, "level, not falling or rising (was %d)" % vy)
@@ -152,13 +153,13 @@ func test_the_bird_comes_out_flying_level() -> void:
 
 func test_missing_the_exit_bounces_without_a_point_and_it_stays_open() -> void:
 	var sim := _sim_at(9)
-	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
 	var y := sim.state.exit_a_y
 	var away := (
 		y + SimConfig.EXIT_HALF * 2 if y < 320 * SimConfig.SUB else y - SimConfig.EXIT_HALF * 2
 	)
 	var room_before := sim.state.room_index
-	_hit_wall(sim, 0, away)
+	_hit_wall(sim, 1, away)
 	assert_eq(sim.state.score, 10, "no point while the exit is open")
 	assert_true(GameSim.Event.BOUNCE in sim.events, "still a bounce")
 	assert_eq(sim.state.room_index, room_before, "same room")
@@ -167,7 +168,7 @@ func test_missing_the_exit_bounces_without_a_point_and_it_stays_open() -> void:
 
 func test_fork_every_fifty_points_sets_the_route() -> void:
 	var sim := _sim_at(49, 8)
-	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
 	var s := sim.state
 	assert_true(s.exit_open)
 	assert_ne(s.exit_b_kind, SimState.ExitKind.NORMAL, "two exits at 50")
@@ -176,7 +177,7 @@ func test_fork_every_fifty_points_sets_the_route() -> void:
 	assert_true(s.exit_a_y < SimConfig.FORK_SPLIT_Y and s.exit_b_y > SimConfig.FORK_SPLIT_Y)
 	var wild_y := s.exit_a_y if s.exit_a_kind == SimState.ExitKind.WILD else s.exit_b_y
 	var coins := s.coins
-	_hit_wall(sim, 0, wild_y)
+	_hit_wall(sim, 1, wild_y)
 	assert_eq(sim.state.route, SimState.ExitKind.WILD, "the Wild route is set")
 	assert_eq(sim.state.coins, coins + SimConfig.WILD_COINS, "Wild pays coins")
 
@@ -185,12 +186,12 @@ func test_fork_every_fifty_points_sets_the_route() -> void:
 ## through its exit.
 static func _both_forks(seed_value: int) -> Array[GameSim]:
 	var calm := _sim_at(49, seed_value)
-	_hit_wall(calm, 1, 300 * SimConfig.SUB)
+	_hit_wall(calm, 0, 300 * SimConfig.SUB)
 	var wild := SimCopy.copy(calm)
 	for sim: GameSim in [calm, wild]:
 		var s := sim.state
 		var want := SimState.ExitKind.CALM if sim == calm else SimState.ExitKind.WILD
-		_hit_wall(sim, 0, s.exit_a_y if s.exit_a_kind == want else s.exit_b_y)
+		_hit_wall(sim, 1, s.exit_a_y if s.exit_a_kind == want else s.exit_b_y)
 	return [calm, wild]
 
 
@@ -308,18 +309,18 @@ func test_portals_draw() -> void:
 func test_no_safe_bounce_between_portal_and_spike() -> void:
 	for start in [[9, 3], [19, 5], [29, 11], [49, 8]]:
 		var opened := _sim_at(start[0], start[1])
-		_hit_wall(opened, 1, 300 * SimConfig.SUB)
+		_hit_wall(opened, 0, 300 * SimConfig.SUB)
 		assert_true(opened.state.exit_open)
 		var y := SimConfig.slot_center_y(0)
 		while y <= SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 1):
 			var sim := _sim_at(start[0], start[1])
-			_hit_wall(sim, 1, 300 * SimConfig.SUB)
+			_hit_wall(sim, 0, 300 * SimConfig.SUB)
 			var r := SimConfig.BIRD_RADIUS
 			sim.state.y = y
 			sim.state.anchor_y = sim.state.y
 			sim.state.vy = 0
-			sim.state.vx = -SimConfig.SPEED_X
-			sim.state.x = sim.room.wall_left() + r - 1
+			sim.state.vx = SimConfig.SPEED_X
+			sim.state.x = sim.room.wall_right() - r + 1
 			sim.events.clear()
 			sim._check_spikes()
 			if sim.state.alive:
@@ -334,7 +335,7 @@ func test_no_safe_bounce_between_portal_and_spike() -> void:
 func test_exits_sit_on_slot_centers_with_the_portal_in_the_middle() -> void:
 	for start in [[9, 3], [19, 5], [29, 11], [49, 8]]:
 		var sim := _sim_at(start[0], start[1])
-		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		_hit_wall(sim, 0, 300 * SimConfig.SUB)
 		var s := sim.state
 		var ys := [s.exit_a_y]
 		if s.exit_b_kind != SimState.ExitKind.NORMAL:
@@ -378,24 +379,24 @@ func test_stalactite_gap_ahead_stays_at_bird_height_after_a_portal() -> void:
 ## the far wall scores nothing, so the points can't be farmed.
 func test_no_points_while_an_exit_is_open() -> void:
 	var sim := _sim_at(9)
-	_hit_wall(sim, 1, 300 * SimConfig.SUB)
+	_hit_wall(sim, 0, 300 * SimConfig.SUB)
 	assert_true(sim.state.exit_open)
 	var score := sim.state.score
-	sim.state.right_spikes = 0
+	sim.state.left_spikes = 0
 	for i in 5:
-		sim.bump_bird_from(sim.state.x - SimConfig.SUB, sim.state.y)
-		assert_true(sim.state.vx > 0, "the bump turns it away from the exit")
-		_hit_wall(sim, 1, 300 * SimConfig.SUB)
+		sim.bump_bird_from(sim.state.x + SimConfig.SUB, sim.state.y)
+		assert_true(sim.state.vx < 0, "the bump turns it away from the exit")
+		_hit_wall(sim, 0, 300 * SimConfig.SUB)
 		assert_false(GameSim.Event.SCORE in sim.events, "no point for the far wall")
 		assert_true(GameSim.Event.BOUNCE in sim.events)
-		sim.state.right_spikes = 0
+		sim.state.left_spikes = 0
 	assert_eq(sim.state.score, score, "the score stays put")
 	assert_true(sim.state.exit_open, "the exit is still there")
 	var after := _sim_at(9)
-	_hit_wall(after, 1, 300 * SimConfig.SUB)
-	_hit_wall(after, 0, after.state.exit_a_y)
-	assert_false(after.state.exit_open)
 	_hit_wall(after, 0, 300 * SimConfig.SUB)
+	_hit_wall(after, 1, after.state.exit_a_y)
+	assert_false(after.state.exit_open)
+	_hit_wall(after, 1, 300 * SimConfig.SUB)
 	assert_eq(after.state.score, score + 1, "points come back in the next room")
 
 

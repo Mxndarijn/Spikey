@@ -6,7 +6,7 @@ public class BossCrusher : Boss
     public static class Crate { public const long NONE = 0, MARK = 1, FALL = 2; }
 
     public const long CYCLE = 240;
-    public const long TELL = 60;
+    public const long TELL = SimConfig.WARN_TICKS;
     public const long TEETH = 24 * SimConfig.SUB;
     public const long BITE = 20 * SimConfig.SUB;
     public const long PRESS_REST = SimConfig.KILL_TOP - TEETH;

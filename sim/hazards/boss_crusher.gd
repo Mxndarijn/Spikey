@@ -13,7 +13,7 @@ extends "res://sim/hazards/boss.gd"
 enum Crate { NONE, MARK, FALL }
 
 const CYCLE := 240
-const TELL := 60
+const TELL := SimConfig.WARN_TICKS
 ## Press: its bottom edge (`press_y`) at rest; its teeth reach TEETH below it.
 ## At rest the teeth are the ceiling's.
 const TEETH := 24 * SimConfig.SUB

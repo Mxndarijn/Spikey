@@ -27,15 +27,15 @@ func _finish_room(sim: GameSim) -> void:
 	for i in SimConfig.POINTS_PER_ROOM - 1:
 		sim._score()
 	var r := SimConfig.BIRD_RADIUS
-	# Bounce off the right wall: the 10th point opens an exit on the left wall.
+	# Bounce off the left wall: the 10th point opens an exit on the right wall.
 	sim.state.y = 300 * SimConfig.SUB
-	sim.state.vx = SimConfig.SPEED_X
-	sim.state.x = sim.room.wall_right() - r + 1
+	sim.state.vx = -SimConfig.SPEED_X
+	sim.state.x = sim.room.wall_left() + r - 1
 	sim._check_walls()
 	# Fly into it.
 	sim.state.y = sim.state.exit_a_y
-	sim.state.vx = -SimConfig.SPEED_X
-	sim.state.x = sim.room.wall_left() + r - 1
+	sim.state.vx = SimConfig.SPEED_X
+	sim.state.x = sim.room.wall_right() - r + 1
 	sim._check_walls()
 
 

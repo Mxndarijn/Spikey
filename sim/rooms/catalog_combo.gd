@@ -26,7 +26,7 @@ static func defs() -> Array[RoomDef]:
 	#   piston slams at the pinwheel's height);
 	# - a hazard that fills a row skips its turn while the other will be in
 	#   that row (beams and the ball);
-	# - every warning lasts 1 s (COMBO_WARN);
+	# - every warning lasts 1 s (COMBO_WARN), beams 2 s (SimConfig.WARN_TICKS);
 	# - no hazard that follows the bird (Stalker Rail);
 	# - each pair carries the arrival skips of its hazards (Lantern Swing's
 	#   middle heights), and only pairs that fit are drawn out of a portal.
@@ -46,7 +46,7 @@ static func defs() -> Array[RoomDef]:
 		RoomVariant.new("bramble_beams").with(
 			[
 				func() -> Hazard: return Bouncer.new(),
-				func() -> Hazard: return Beam.new(3, COMBO_WARN, true),
+				func() -> Hazard: return Beam.new(3, SimConfig.WARN_TICKS, true),
 			]
 		),
 		RoomVariant.new("saw_rain").with([func() -> Hazard: return SawRing.new(), _drop.bind(60)]),

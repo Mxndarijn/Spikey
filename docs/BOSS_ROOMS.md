@@ -18,9 +18,10 @@ The Shade are designs only.
   so a boss room lasts about 28 s.
 - Phases change at 7 and 14 bounces (`Boss.PHASE_AT`); after a change the boss
   waits `Boss.STAGGER` (70 steps). Phase 1's clock starts `Boss.FIRST_DELAY`
-  (2 s) after the bird can move, and every cycle starts with a 1 s tell, so
-  the first danger comes 3 s in (the reading time and ArrivalCheck's follow-up
-  never see an attack).
+  (2 s) after the bird can move, and every cycle starts with a 2 s tell
+  (`SimConfig.WARN_TICKS`; the Watcher's gaze dart keeps 1 s), so the first
+  danger comes 4 s in (the reading time and ArrivalCheck's follow-up never see
+  an attack).
 - When the exit opens the boss breaks (`Boss.down_at`): no more kills, it
   falls apart, and pays `BOSS_COINS` (15 / 20 / 25 by tier; none in practice).
   `GameSim.Event.BOSS_DOWN`.
@@ -37,7 +38,7 @@ The Shade are designs only.
 
 | Boss | Phase 1 | Phase 2 | Phase 3 | Tier 2 / 3 |
 | --- | --- | --- | --- | --- |
-| The Watcher | 3 of 7 rows fire 70 steps after a 60-step dashed tell | gaze: marks your height, a dart crosses that lane 60 steps later, every 120 steps | 2 rows, then a gaze dart, each 240-step cycle | +1 row / gaze every 100 steps |
+| The Watcher | 3 of 7 rows fire 70 steps after a 120-step (2 s) dashed tell | gaze: marks your height, a dart crosses that lane 60 steps later, every 120 steps | 2 rows, then a gaze dart, each 240-step cycle | +1 row / gaze every 100 steps |
 | The Crusher | the press slams to 250 or 320 px and holds | jaw: press and floor plate leave a 232 px lane that moves 40-100 px a cycle | jaw + a crate through the lane in a marked column the bird is not crossing while it falls | slams 30 px lower, 200 px lane, two crates / 180 px lane |
 | Saw King | hops between 180, 320 and 460 px, always to or from the middle | drifts to 260 or 380 px and swings 6 blades out to 115 px | the hops with a 72 px blade ring | phase 3 every 180 steps / 8 blades, 130 px ring |
 

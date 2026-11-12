@@ -6,6 +6,7 @@ public static class SimConfig
     public const long GAMEPLAY_VERSION = 21;
     public const long MAX_REVIVES = 1;
     public const long TICKS_PER_SECOND = 60;
+    public const long WARN_TICKS = 2 * TICKS_PER_SECOND;
     public const long SUB = 64;
     public const long WORLD_W = 360 * SUB;
     public const long WORLD_H = 640 * SUB;
@@ -32,6 +33,7 @@ public static class SimConfig
     public const long COIN_MAX_X = 280 * SUB;
     public const long COIN_MIN_Y = 90 * SUB;
     public const long COIN_MAX_Y = 550 * SUB;
+    public const long EXIT_WALL = 1;
     public const long EXIT_HALF = 48 * SUB;
     public const long EXIT_FIT = 2 * SLOT_SIZE - SPIKE_HALF_BASE;
     public const long EXIT_MIN_Y = 110 * SUB;

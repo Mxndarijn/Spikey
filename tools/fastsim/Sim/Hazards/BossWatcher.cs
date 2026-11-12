@@ -17,7 +17,8 @@ public class BossWatcher : Boss
         560 * SimConfig.SUB,
     };
     public const long CYCLE = 240;
-    public const long TELL = 60;
+    public const long BEAM_TELL = SimConfig.WARN_TICKS;
+    public const long GAZE_TELL = 60;
     public const long BEAM_ON = 70;
     public const long HALF_H = 6 * SimConfig.SUB;
     public const long MAX_RUN = 3;
@@ -99,8 +100,8 @@ public class BossWatcher : Boss
                 _lit_k = k;
                 lit = lit_rows(phase, k);
             }
-            if (beam_t < TELL) beam = Beam.WARN;
-            else if (beam_t < TELL + BEAM_ON) beam = Beam.ON;
+            if (beam_t < BEAM_TELL) beam = Beam.WARN;
+            else if (beam_t < BEAM_TELL + BEAM_ON) beam = Beam.ON;
         }
         long g = phase == 2 ? c % gaze_every() : (c % CYCLE) - GAZE_AT;
         if (phase != 1) _gaze(sim, g);
@@ -117,7 +118,7 @@ public class BossWatcher : Boss
         if (dart == Dart.MARK)
         {
             dart_t = g;
-            if (g >= TELL)
+            if (g >= GAZE_TELL)
             {
                 dart = Dart.FLY;
                 dart_x = dart_side == 1 ? sim.room.wall_right() : sim.room.wall_left();
@@ -164,7 +165,7 @@ public class BossWatcher : Boss
         long c = clock_in(steps);
         if (c < 0) return true;
         long lt = c % CYCLE;
-        if (lt < TELL || lt >= TELL + BEAM_ON) return true;
+        if (lt < BEAM_TELL || lt >= BEAM_TELL + BEAM_ON) return true;
         long mask = lit_rows(phase, c / CYCLE);
         for (long i = 0; i < ROWS.Length; i++)
             if (((mask >> (int)i) & 1) == 1 && G.absi(y - ROWS[i]) < HALF_H + SimConfig.BIRD_RADIUS + MARGIN)

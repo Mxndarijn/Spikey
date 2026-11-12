@@ -35,7 +35,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new FastSim.Diff.DifficultyCheck(),
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new FastSim.Diff.DifficultyCheck(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)
@@ -297,6 +297,7 @@ static partial class Checks
             ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
             ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),
             ("ghostdoors", 1150), ("piston", 1150), ("stalac", 1150), ("crates", 1150), ("gifts", 1150),
+            ("beams", 1150),
             ("boss_watcher", 1950), ("boss_crusher", 1950), ("boss_saw", 1950),
         };
 

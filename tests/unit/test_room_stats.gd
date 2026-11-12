@@ -39,12 +39,12 @@ static func _finish_room(sim: GameSim) -> void:
 		sim._score()
 	var r := SimConfig.BIRD_RADIUS
 	sim.state.y = 300 * SimConfig.SUB
-	sim.state.vx = SimConfig.SPEED_X
-	sim.state.x = sim.room.wall_right() - r + 1
-	sim._check_walls()
-	sim.state.y = sim.state.exit_a_y
 	sim.state.vx = -SimConfig.SPEED_X
 	sim.state.x = sim.room.wall_left() + r - 1
+	sim._check_walls()
+	sim.state.y = sim.state.exit_a_y
+	sim.state.vx = SimConfig.SPEED_X
+	sim.state.x = sim.room.wall_right() - r + 1
 	sim._check_walls()
 
 

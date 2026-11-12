@@ -116,7 +116,10 @@ flowchart TD
 
 ### Rooms
 
-Every 10 points an exit portal opens on the wall the bird is heading to (a
+Every 10 points an exit portal opens, always on the right wall
+(`SimConfig.EXIT_WALL`: the wall a bird out of a portal
+heads to, so a bird the Bumper Cloud turned back still leaves the room the same
+way as every other player of the seed, after one more crossing at most; a
 random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal

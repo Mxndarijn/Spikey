@@ -23,9 +23,9 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 		var lit := (h.lit >> i) & 1 == 1 and h.down_at < 0
 		var glow := 0.0
 		if lit and h.beam == h.Beam.WARN:
-			var warn := h.beam_t / float(h.TELL)
+			var warn := h.beam_t / float(h.BEAM_TELL)
 			var flick := 0.5 + 0.5 * sin(time * (14.0 + 30.0 * warn))
-			var col := Color(theme.spike, (0.3 + 0.5 * warn) * (0.5 + 0.5 * flick))
+			var col := Color(theme.spike, (0.55 + 0.4 * warn) * (0.7 + 0.3 * flick))
 			c.draw_dashed_line(Vector2(12.0, y), Vector2(w - 12.0, y), col, 2.0, 10.0, true, true)
 			glow = warn
 		elif lit and h.beam == h.Beam.ON:
@@ -49,9 +49,9 @@ func _dart(c: CanvasItem, h: BossWatcher, look: HazardLook) -> void:
 	var dir := -1.0 if h.dart_side == 1 else 1.0
 	var wall := w if h.dart_side == 1 else 0.0
 	if h.dart == h.Dart.MARK:
-		var g := clampf(h.dart_t / float(h.TELL), 0.0, 1.0)
+		var g := clampf(h.dart_t / float(h.GAZE_TELL), 0.0, 1.0)
 		var flash := 0.5 + 0.5 * sin(look.time * (16.0 + 20.0 * g))
-		var lane := Color(theme.spike, (0.3 + 0.45 * g) * (0.55 + 0.45 * flash))
+		var lane := Color(theme.spike, (0.55 + 0.4 * g) * (0.7 + 0.3 * flash))
 		c.draw_dashed_line(Vector2(12.0, y), Vector2(w - 12.0, y), lane, 2.0, 10.0, true, true)
 		var halo := Color(theme.spike_edge, 0.25 + 0.5 * g * flash)
 		c.draw_circle(Vector2(wall + dir * 8.0, y), 14.0 + 4.0 * g, halo, true, -1.0, true)

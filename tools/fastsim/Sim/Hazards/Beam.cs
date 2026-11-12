@@ -10,7 +10,7 @@ public class Beam : Hazard
 
     public const long ROWS = 4;
     public const long PERIOD = 180;
-    public const long WARN_TICKS = 40;
+    public const long WARN_TICKS = SimConfig.WARN_TICKS;
     public const long ON_TICKS = 50;
     public const long START_DELAY = 20;
     public const long BAND_TOP = 130 * SimConfig.SUB;
