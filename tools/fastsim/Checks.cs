@@ -36,11 +36,7 @@ static partial class Checks
     public static readonly List<Check> ALL = new()
     {
         new Passable(), new Arrival(), new Points(), new Revive(), new Pairs(), new Keys(),
-<<<<<<< HEAD
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new FastSim.Diff.DifficultyCheck(),
-=======
-        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new BlindSeeds(), new MpcBossSight(), new RlBossTells(), new BossFair(),
->>>>>>> next-features-2
+        new Crawl(), new Gates(), new Isles(), new Rescued(), new Runs(), new RlBot(), new Exits(), new Reach(), new Yardstick(), new MpcBotCheck(), new SameSeedRevive(), new SightCheck(), new BlindSeeds(), new MpcBossSight(), new RlBossTells(), new BossFair(), new FastSim.Diff.DifficultyCheck(),
     };
 
     public static int run(List<string> pos, Dictionary<string, string> opts, int jobs, string priority)
