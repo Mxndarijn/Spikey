@@ -98,9 +98,9 @@ pub fn fmt_f(x: f64, d: usize) -> String {
     format!("{:.*}", d, x)
 }
 
-/// C# `x.ToString("P<d>")` (en-US style: no space before %).
+/// C# `x.ToString("P<d>")` under InvariantGlobalization (FastSim.csproj): "n %".
 pub fn fmt_p(x: f64, d: usize) -> String {
-    format!("{}%", fmt_f(x * 100.0, d))
+    format!("{} %", fmt_f(x * 100.0, d))
 }
 
 /// C# `GroupBy(key).OrderByDescending(g => g.Count())`: keys in first-seen order, then a stable sort by count.

@@ -1,0 +1,2920 @@
+//! GENERATED from the C# sim's field declarations (Sim/SimState.cs, Sim/Rooms/RoomRuntime.cs,
+//! Sim/Hazards/*.cs) and the Rust structs: what C# `Visibility` (Measure/LeakRun.cs) gets by
+//! reflection. For every type: its instance fields in C# `Type.GetFields` order (the class's
+//! own fields, then its base classes', `Hazard` last: kind, alive, t), each with its C# type,
+//! a getter, a setter for the transplant candidates (value types, SimRng, List<long>, long[])
+//! and the no-argument methods visible.tsv may name. A field added to the sim must be added
+//! here too (regenerate: the script is described in measure/leak_run.rs).
+#![allow(clippy::match_single_binding)]
+use sim::prelude::*;
+
+/// The C# type of a field, as far as Visibility cares.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ty {
+    Long,
+    Bool,
+    /// `string` (a reference type: never a transplant candidate).
+    Str,
+    Rng,
+    ListLong,
+    ArrLong,
+    ListBool,
+    ArrBool,
+    /// `List<Hazard>` (RoomRuntime.hazards).
+    Hazards,
+    /// `RoomDef`.
+    Def,
+    /// A reference to another hazard of the room (`Gate partner`).
+    Ref,
+    /// A hazard object of its own (`SplittingBouncer.other`).
+    Child,
+}
+
+pub struct F {
+    pub name: &'static str,
+    pub ty: Ty,
+    pub readonly: bool,
+}
+
+/// A field's value as `FieldInfo.GetValue` would box it. `Obj` is a non-null object (a def,
+/// another hazard): hashed as nothing and equal to nothing but itself.
+#[derive(Clone, Debug)]
+pub enum V {
+    Null,
+    Obj,
+    I(i64),
+    B(bool),
+    S(&'static str),
+    Rng(SimRng),
+    L(Vec<i64>),
+    LB(Vec<bool>),
+    Objs(usize),
+}
+
+impl V {
+    fn i(&self) -> i64 {
+        match self {
+            V::I(x) => *x,
+            _ => panic!("not a long: {:?}", self),
+        }
+    }
+    fn b(&self) -> bool {
+        match self {
+            V::B(x) => *x,
+            _ => panic!("not a bool: {:?}", self),
+        }
+    }
+    fn rng(&self) -> SimRng {
+        match self {
+            V::Rng(x) => *x,
+            _ => panic!("not a SimRng: {:?}", self),
+        }
+    }
+    fn l(&self) -> &Vec<i64> {
+        match self {
+            V::L(x) => x,
+            _ => panic!("not a list of longs: {:?}", self),
+        }
+    }
+}
+
+fn opt(some: bool) -> V {
+    if some {
+        V::Obj
+    } else {
+        V::Null
+    }
+}
+
+pub const SIMSTATE: &[F] = &[
+    F { name: "tick", ty: Ty::Long, readonly: false },
+    F { name: "started", ty: Ty::Bool, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "death_cause", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "score", ty: Ty::Long, readonly: false },
+    F { name: "room_index", ty: Ty::Long, readonly: false },
+    F { name: "room_kind", ty: Ty::Long, readonly: false },
+    F { name: "left_spikes", ty: Ty::Long, readonly: false },
+    F { name: "right_spikes", ty: Ty::Long, readonly: false },
+    F { name: "coin_active", ty: Ty::Bool, readonly: false },
+    F { name: "coin_x", ty: Ty::Long, readonly: false },
+    F { name: "coin_y", ty: Ty::Long, readonly: false },
+    F { name: "coins", ty: Ty::Long, readonly: false },
+    F { name: "flaps", ty: Ty::Long, readonly: false },
+    F { name: "exit_open", ty: Ty::Bool, readonly: false },
+    F { name: "exit_preview", ty: Ty::Bool, readonly: false },
+    F { name: "exit_side", ty: Ty::Long, readonly: false },
+    F { name: "exit_a_y", ty: Ty::Long, readonly: false },
+    F { name: "exit_a_kind", ty: Ty::Long, readonly: false },
+    F { name: "exit_b_y", ty: Ty::Long, readonly: false },
+    F { name: "exit_b_kind", ty: Ty::Long, readonly: false },
+    F { name: "route", ty: Ty::Long, readonly: false },
+    F { name: "bosses_met", ty: Ty::Long, readonly: false },
+    F { name: "pickup_x", ty: Ty::Long, readonly: false },
+    F { name: "pickup_y", ty: Ty::Long, readonly: false },
+    F { name: "arrival_hold", ty: Ty::Long, readonly: false },
+    F { name: "revives", ty: Ty::Long, readonly: false },
+    F { name: "anchor_y", ty: Ty::Long, readonly: false },
+    F { name: "plan_a_y_left", ty: Ty::Long, readonly: false },
+    F { name: "plan_a_kind_left", ty: Ty::Long, readonly: false },
+    F { name: "plan_b_y_left", ty: Ty::Long, readonly: false },
+    F { name: "plan_a_y_right", ty: Ty::Long, readonly: false },
+    F { name: "plan_a_kind_right", ty: Ty::Long, readonly: false },
+    F { name: "plan_b_y_right", ty: Ty::Long, readonly: false },
+    F { name: "plan_at", ty: Ty::Long, readonly: false },
+];
+pub const ROOMRUNTIME: &[F] = &[
+    F { name: "def", ty: Ty::Def, readonly: false },
+    F { name: "index", ty: Ty::Long, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+    F { name: "ticks", ty: Ty::Long, readonly: false },
+    F { name: "points", ty: Ty::Long, readonly: false },
+    F { name: "variant", ty: Ty::Long, readonly: false },
+    F { name: "hazards", ty: Ty::Hazards, readonly: false },
+    F { name: "tide_left", ty: Ty::Long, readonly: false },
+    F { name: "tide_right", ty: Ty::Long, readonly: false },
+    F { name: "tide_salt", ty: Ty::Long, readonly: false },
+    F { name: "blink_left", ty: Ty::Long, readonly: false },
+    F { name: "blink_right", ty: Ty::Long, readonly: false },
+    F { name: "gravity", ty: Ty::Long, readonly: false },
+    F { name: "rng_seed", ty: Ty::Long, readonly: false },
+    F { name: "walls", ty: Ty::Long, readonly: false },
+    F { name: "entry_score", ty: Ty::Long, readonly: false },
+];
+pub const BEAM: &[F] = &[
+    F { name: "rows", ty: Ty::ListLong, readonly: false },
+    F { name: "delays", ty: Ty::ListLong, readonly: false },
+    F { name: "warn_ticks", ty: Ty::Long, readonly: false },
+    F { name: "yields", ty: Ty::Bool, readonly: false },
+    F { name: "skip", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BELT: &[F] = &[
+    F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "left_dir", ty: Ty::Long, readonly: false },
+    F { name: "right_dir", ty: Ty::Long, readonly: false },
+    F { name: "left_shift", ty: Ty::Long, readonly: false },
+    F { name: "right_shift", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BLOCK: &[F] = &[
+    F { name: "x0", ty: Ty::Long, readonly: false },
+    F { name: "y0", ty: Ty::Long, readonly: false },
+    F { name: "x1", ty: Ty::Long, readonly: false },
+    F { name: "y1", ty: Ty::Long, readonly: false },
+    F { name: "fade_period", ty: Ty::Long, readonly: false },
+    F { name: "solid_ticks", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "base_phase", ty: Ty::Long, readonly: false },
+    F { name: "band", ty: Ty::Long, readonly: false },
+    F { name: "drift", ty: Ty::Long, readonly: false },
+    F { name: "home_x", ty: Ty::Long, readonly: false },
+    F { name: "big", ty: Ty::Bool, readonly: false },
+    F { name: "guards_exit", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BOSSCRUSHER: &[F] = &[
+    F { name: "press_y", ty: Ty::Long, readonly: false },
+    F { name: "plate_y", ty: Ty::Long, readonly: false },
+    F { name: "slam_y", ty: Ty::Long, readonly: false },
+    F { name: "lane_from", ty: Ty::Long, readonly: false },
+    F { name: "lane_to", ty: Ty::Long, readonly: false },
+    F { name: "telling", ty: Ty::Bool, readonly: false },
+    F { name: "crate_x", ty: Ty::ArrLong, readonly: false },
+    F { name: "crate_y", ty: Ty::ArrLong, readonly: false },
+    F { name: "crate", ty: Ty::ArrLong, readonly: false },
+    F { name: "jaw", ty: Ty::Bool, readonly: false },
+    F { name: "_k", ty: Ty::Long, readonly: false },
+    F { name: "tier", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "phase_start", ty: Ty::Long, readonly: false },
+    F { name: "down_at", ty: Ty::Long, readonly: false },
+    F { name: "seed", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BOSSSAW: &[F] = &[
+    F { name: "king_y", ty: Ty::Long, readonly: false },
+    F { name: "from_y", ty: Ty::Long, readonly: false },
+    F { name: "to_y", ty: Ty::Long, readonly: false },
+    F { name: "ring", ty: Ty::Long, readonly: false },
+    F { name: "angle", ty: Ty::Long, readonly: false },
+    F { name: "blades", ty: Ty::Long, readonly: false },
+    F { name: "blade_x", ty: Ty::ListLong, readonly: false },
+    F { name: "blade_y", ty: Ty::ListLong, readonly: false },
+    F { name: "telling", ty: Ty::Bool, readonly: false },
+    F { name: "_k", ty: Ty::Long, readonly: false },
+    F { name: "tier", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "phase_start", ty: Ty::Long, readonly: false },
+    F { name: "down_at", ty: Ty::Long, readonly: false },
+    F { name: "seed", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BOSSWATCHER: &[F] = &[
+    F { name: "lit", ty: Ty::Long, readonly: false },
+    F { name: "beam", ty: Ty::Long, readonly: false },
+    F { name: "beam_t", ty: Ty::Long, readonly: false },
+    F { name: "dart", ty: Ty::Long, readonly: false },
+    F { name: "dart_lane", ty: Ty::Long, readonly: false },
+    F { name: "dart_side", ty: Ty::Long, readonly: false },
+    F { name: "dart_x", ty: Ty::Long, readonly: false },
+    F { name: "dart_t", ty: Ty::Long, readonly: false },
+    F { name: "_lit_k", ty: Ty::Long, readonly: false },
+    F { name: "tier", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "phase_start", ty: Ty::Long, readonly: false },
+    F { name: "down_at", ty: Ty::Long, readonly: false },
+    F { name: "seed", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BOUNCER: &[F] = &[
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BUBBLE: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "next_x", ty: Ty::Long, readonly: false },
+    F { name: "carrying", ty: Ty::Bool, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "cooldown", ty: Ty::Long, readonly: false },
+    F { name: "since_pop", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "spiked", ty: Ty::Bool, readonly: false },
+    F { name: "wait", ty: Ty::Long, readonly: false },
+    F { name: "delay", ty: Ty::Long, readonly: false },
+    F { name: "coin_bubble", ty: Ty::Bool, readonly: false },
+    F { name: "has_coin", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const BUMPER: &[F] = &[
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "loop_rx", ty: Ty::Long, readonly: false },
+    F { name: "loop_ry", ty: Ty::Long, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "dir", ty: Ty::Long, readonly: false },
+    F { name: "follows", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const COINPICKUP: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "appear_at", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "beside_band", ty: Ty::Long, readonly: false },
+    F { name: "value", ty: Ty::Long, readonly: false },
+    F { name: "behind", ty: Ty::Bool, readonly: false },
+    F { name: "drift", ty: Ty::Long, readonly: false },
+    F { name: "home_x", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const CRATEDROP: &[F] = &[
+    F { name: "cols", ty: Ty::Long, readonly: false },
+    F { name: "col_w", ty: Ty::Long, readonly: false },
+    F { name: "col_x0", ty: Ty::Long, readonly: false },
+    F { name: "crate_w", ty: Ty::Long, readonly: false },
+    F { name: "crate_h", ty: Ty::Long, readonly: false },
+    F { name: "max_height", ty: Ty::Long, readonly: false },
+    F { name: "pair", ty: Ty::Bool, readonly: false },
+    F { name: "col", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "done", ty: Ty::Bool, readonly: false },
+    F { name: "col_b", ty: Ty::Long, readonly: false },
+    F { name: "y_b", ty: Ty::Long, readonly: false },
+    F { name: "vy_b", ty: Ty::Long, readonly: false },
+    F { name: "done_b", ty: Ty::Bool, readonly: false },
+    F { name: "warn_left", ty: Ty::Long, readonly: false },
+    F { name: "drops", ty: Ty::Long, readonly: false },
+    F { name: "salt", ty: Ty::Long, readonly: false },
+    F { name: "heights", ty: Ty::ListLong, readonly: false },
+    F { name: "coins", ty: Ty::ListLong, readonly: false },
+    F { name: "gifts", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const CRAWLER: &[F] = &[
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "start", ty: Ty::Long, readonly: false },
+    F { name: "segments", ty: Ty::Long, readonly: false },
+    F { name: "seg_radius", ty: Ty::Long, readonly: false },
+    F { name: "spacing", ty: Ty::Long, readonly: false },
+    F { name: "speed", ty: Ty::Long, readonly: false },
+    F { name: "reserve", ty: Ty::Long, readonly: false },
+    F { name: "trails", ty: Ty::Bool, readonly: false },
+    F { name: "xs", ty: Ty::ListLong, readonly: false },
+    F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const CURIOUSBOUNCER: &[F] = &[
+    F { name: "look", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const DART: &[F] = &[
+    F { name: "lanes", ty: Ty::Bool, readonly: false },
+    F { name: "lane_count", ty: Ty::Long, readonly: false },
+    F { name: "lane_min", ty: Ty::Long, readonly: false },
+    F { name: "lane_max", ty: Ty::Long, readonly: false },
+    F { name: "lanes_speed", ty: Ty::Long, readonly: false },
+    F { name: "lanes_flash", ty: Ty::Long, readonly: false },
+    F { name: "pair", ty: Ty::Bool, readonly: false },
+    F { name: "lane2_y", ty: Ty::Long, readonly: false },
+    F { name: "slot", ty: Ty::Long, readonly: false },
+    F { name: "home", ty: Ty::Long, readonly: false },
+    F { name: "state", ty: Ty::Long, readonly: false },
+    F { name: "since", ty: Ty::Long, readonly: false },
+    F { name: "wait", ty: Ty::Long, readonly: false },
+    F { name: "side", ty: Ty::Long, readonly: false },
+    F { name: "lane_y", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "shots", ty: Ty::Long, readonly: false },
+    F { name: "salt", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const DROP: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "timer", ty: Ty::Long, readonly: false },
+    F { name: "speed", ty: Ty::Long, readonly: false },
+    F { name: "gap", ty: Ty::Long, readonly: false },
+    F { name: "delay", ty: Ty::Long, readonly: false },
+    F { name: "warn", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "style", ty: Ty::Long, readonly: false },
+    F { name: "column", ty: Ty::Long, readonly: false },
+    F { name: "base_x", ty: Ty::Long, readonly: false },
+    F { name: "fall_t", ty: Ty::Long, readonly: false },
+    F { name: "shard_t", ty: Ty::Long, readonly: false },
+    F { name: "shard_x", ty: Ty::Long, readonly: false },
+    F { name: "shard_dx", ty: Ty::Long, readonly: false },
+    F { name: "shard_y", ty: Ty::Long, readonly: false },
+    F { name: "shard_vy", ty: Ty::Long, readonly: false },
+    F { name: "_rng", ty: Ty::Rng, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const ECHO: &[F] = &[
+    F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "shown", ty: Ty::Bool, readonly: false },
+    F { name: "facing", ty: Ty::Long, readonly: false },
+    F { name: "xs", ty: Ty::ListLong, readonly: false },
+    F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "head", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const EDGEPAD: &[F] = &[
+    F { name: "top", ty: Ty::Bool, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "since_bump", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const EXITKEY: &[F] = &[
+    F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "count", ty: Ty::Long, readonly: false },
+    F { name: "got", ty: Ty::Long, readonly: false },
+    F { name: "taken_mask", ty: Ty::Long, readonly: false },
+    F { name: "kx", ty: Ty::ArrLong, readonly: false },
+    F { name: "ky", ty: Ty::ArrLong, readonly: false },
+    F { name: "born", ty: Ty::ArrLong, readonly: false },
+    F { name: "chain_off", ty: Ty::ArrLong, readonly: false },
+    F { name: "chain_d", ty: Ty::ArrLong, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "locked_bounces", ty: Ty::Long, readonly: false },
+    F { name: "walls_left", ty: Ty::Long, readonly: false },
+    F { name: "walls_right", ty: Ty::Long, readonly: false },
+    F { name: "door_open", ty: Ty::Bool, readonly: false },
+    F { name: "door_side", ty: Ty::Long, readonly: false },
+    F { name: "door_a_y", ty: Ty::Long, readonly: false },
+    F { name: "door_b_y", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const FIREWORK: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "burst_y", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "timer", ty: Ty::Long, readonly: false },
+    F { name: "spread", ty: Ty::Long, readonly: false },
+    F { name: "delay", ty: Ty::Long, readonly: false },
+    F { name: "style", ty: Ty::Long, readonly: false },
+    F { name: "spent", ty: Ty::Long, readonly: false },
+    F { name: "_rng", ty: Ty::Rng, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const GATE: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "follows", ty: Ty::Bool, readonly: false },
+    F { name: "partner", ty: Ty::Ref, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "gap_y", ty: Ty::Long, readonly: false },
+    F { name: "gap_size", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const HEAVYBOUNCER: &[F] = &[
+    F { name: "bounces", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const KEEPYBALL: &[F] = &[
+    F { name: "gravity", ty: Ty::Long, readonly: false },
+    F { name: "kick_vy", ty: Ty::Long, readonly: false },
+    F { name: "waiting", ty: Ty::Long, readonly: false },
+    F { name: "redrop", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "cooldown", ty: Ty::Long, readonly: false },
+    F { name: "bumps", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const LAVA: &[F] = &[
+    F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "line", ty: Ty::Long, readonly: false },
+    F { name: "rises", ty: Ty::Long, readonly: false },
+    F { name: "counted", ty: Ty::Long, readonly: false },
+    F { name: "stone_on", ty: Ty::Bool, readonly: false },
+    F { name: "stone_x", ty: Ty::Long, readonly: false },
+    F { name: "stone_y", ty: Ty::Long, readonly: false },
+    F { name: "ice_on", ty: Ty::Bool, readonly: false },
+    F { name: "ice_side", ty: Ty::Long, readonly: false },
+    F { name: "ice_slot", ty: Ty::Long, readonly: false },
+    F { name: "raft_on", ty: Ty::ArrBool, readonly: false },
+    F { name: "raft_x", ty: Ty::ArrLong, readonly: false },
+    F { name: "raft_dir", ty: Ty::ArrLong, readonly: false },
+    F { name: "raft_age", ty: Ty::ArrLong, readonly: false },
+    F { name: "raft_points", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const MOVER: &[F] = &[
+    F { name: "mode", ty: Ty::Str, readonly: false },
+    F { name: "count", ty: Ty::Long, readonly: false },
+    F { name: "loop_w", ty: Ty::Long, readonly: false },
+    F { name: "loop_h", ty: Ty::Long, readonly: false },
+    F { name: "loop_period", ty: Ty::Long, readonly: false },
+    F { name: "chase", ty: Ty::Bool, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "xs", ty: Ty::ListLong, readonly: false },
+    F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "facing", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const ORBITCOIN: &[F] = &[
+    F { name: "cx", ty: Ty::Long, readonly: false },
+    F { name: "cy", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "appear_at", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "beside_band", ty: Ty::Long, readonly: false },
+    F { name: "value", ty: Ty::Long, readonly: false },
+    F { name: "behind", ty: Ty::Bool, readonly: false },
+    F { name: "drift", ty: Ty::Long, readonly: false },
+    F { name: "home_x", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const ORCHARDSPAWNER: &[F] = &[
+    F { name: "xs", ty: Ty::ListLong, readonly: false },
+    F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "live", ty: Ty::ListBool, readonly: false },
+    F { name: "_rng", ty: Ty::Rng, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const PADCOIN: &[F] = &[
+    F { name: "on_top", ty: Ty::Bool, readonly: false },
+    F { name: "wait", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "appear_at", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "beside_band", ty: Ty::Long, readonly: false },
+    F { name: "value", ty: Ty::Long, readonly: false },
+    F { name: "behind", ty: Ty::Bool, readonly: false },
+    F { name: "drift", ty: Ty::Long, readonly: false },
+    F { name: "home_x", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const PENDULUM: &[F] = &[
+    F { name: "pivot_x", ty: Ty::Long, readonly: false },
+    F { name: "pivot_y", ty: Ty::Long, readonly: false },
+    F { name: "length", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "amplitude", ty: Ty::Long, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "gust", ty: Ty::Long, readonly: false },
+    F { name: "gust_period", ty: Ty::Long, readonly: false },
+    F { name: "winch", ty: Ty::Long, readonly: false },
+    F { name: "winch_period", ty: Ty::Long, readonly: false },
+    F { name: "twin_x", ty: Ty::Long, readonly: false },
+    F { name: "twin_length", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "angle", ty: Ty::Long, readonly: false },
+    F { name: "chain", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "x2", ty: Ty::Long, readonly: false },
+    F { name: "y2", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const PISTON: &[F] = &[
+    F { name: "side", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "delay", ty: Ty::Long, readonly: false },
+    F { name: "half", ty: Ty::Long, readonly: false },
+    F { name: "glow_ticks", ty: Ty::Long, readonly: false },
+    F { name: "share_band", ty: Ty::Bool, readonly: false },
+    F { name: "y_lo", ty: Ty::Long, readonly: false },
+    F { name: "y_hi", ty: Ty::Long, readonly: false },
+    F { name: "reach", ty: Ty::Long, readonly: false },
+    F { name: "follows", ty: Ty::Bool, readonly: false },
+    F { name: "leader", ty: Ty::Ref, readonly: false },
+    F { name: "fixed_y", ty: Ty::Long, readonly: false },
+    F { name: "skip", ty: Ty::Bool, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const REVVINGBOUNCER: &[F] = &[
+    F { name: "level", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const ROTOR: &[F] = &[
+    F { name: "blades", ty: Ty::Long, readonly: false },
+    F { name: "blade_max", ty: Ty::Long, readonly: false },
+    F { name: "blade_min", ty: Ty::Long, readonly: false },
+    F { name: "half_w", ty: Ty::Long, readonly: false },
+    F { name: "hub_radius", ty: Ty::Long, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "spin", ty: Ty::Long, readonly: false },
+    F { name: "hubs", ty: Ty::Long, readonly: false },
+    F { name: "spread_x", ty: Ty::Long, readonly: false },
+    F { name: "spread_y", ty: Ty::Long, readonly: false },
+    F { name: "lean", ty: Ty::Long, readonly: false },
+    F { name: "center_x", ty: Ty::Long, readonly: false },
+    F { name: "center_y", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "dir", ty: Ty::Long, readonly: false },
+    F { name: "angle", ty: Ty::Long, readonly: false },
+    F { name: "blade_length", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const SAWRING: &[F] = &[
+    F { name: "center_x", ty: Ty::Long, readonly: false },
+    F { name: "ring_min", ty: Ty::Long, readonly: false },
+    F { name: "ring_max", ty: Ty::Long, readonly: false },
+    F { name: "saw_radius", ty: Ty::Long, readonly: false },
+    F { name: "period", ty: Ty::Long, readonly: false },
+    F { name: "fixed_count", ty: Ty::Long, readonly: false },
+    F { name: "ry_num", ty: Ty::Long, readonly: false },
+    F { name: "ry_den", ty: Ty::Long, readonly: false },
+    F { name: "inner_count", ty: Ty::Long, readonly: false },
+    F { name: "inner_min", ty: Ty::Long, readonly: false },
+    F { name: "inner_max", ty: Ty::Long, readonly: false },
+    F { name: "inner_saw", ty: Ty::Long, readonly: false },
+    F { name: "center_y", ty: Ty::Long, readonly: false },
+    F { name: "count", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "dir", ty: Ty::Long, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "inner_radius", ty: Ty::Long, readonly: false },
+    F { name: "angle", ty: Ty::Long, readonly: false },
+    F { name: "xs", ty: Ty::ListLong, readonly: false },
+    F { name: "ys", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const SPIKEBALL: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "spots", ty: Ty::ListLong, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const SPLITTINGBOUNCER: &[F] = &[
+    F { name: "warn", ty: Ty::Long, readonly: false },
+    F { name: "other", ty: Ty::Child, readonly: false },
+    F { name: "radius", ty: Ty::Long, readonly: false },
+    F { name: "lane", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "vx", ty: Ty::Long, readonly: false },
+    F { name: "vy", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const STALACTITE: &[F] = &[
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "gap_y", ty: Ty::Long, readonly: false },
+    F { name: "target_y", ty: Ty::Long, readonly: false },
+    F { name: "follows", ty: Ty::Bool, readonly: false },
+    F { name: "partner", ty: Ty::Ref, readonly: false },
+    F { name: "top", ty: Ty::Bool, readonly: false },
+    F { name: "bottom", ty: Ty::Bool, readonly: false },
+    F { name: "gap", ty: Ty::Long, readonly: false },
+    F { name: "half_w", ty: Ty::Long, readonly: false },
+    F { name: "fixed_lo", ty: Ty::Long, readonly: false },
+    F { name: "fixed_hi", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const STALKER: &[F] = &[
+    F { name: "side", ty: Ty::Long, readonly: false },
+    F { name: "y", ty: Ty::Long, readonly: false },
+    F { name: "x", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const UPDRAFT: &[F] = &[
+    F { name: "x0", ty: Ty::Long, readonly: false },
+    F { name: "x1", ty: Ty::Long, readonly: false },
+    F { name: "half_w", ty: Ty::Long, readonly: false },
+    F { name: "lift", ty: Ty::Long, readonly: false },
+    F { name: "drift_min", ty: Ty::Long, readonly: false },
+    F { name: "drift_span", ty: Ty::Long, readonly: false },
+    F { name: "gust", ty: Ty::Long, readonly: false },
+    F { name: "phase", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+pub const WIND: &[F] = &[
+    F { name: "mode", ty: Ty::Long, readonly: false },
+    F { name: "a_y0", ty: Ty::Long, readonly: false },
+    F { name: "a_y1", ty: Ty::Long, readonly: false },
+    F { name: "a_dir", ty: Ty::Long, readonly: false },
+    F { name: "b_y0", ty: Ty::Long, readonly: false },
+    F { name: "b_y1", ty: Ty::Long, readonly: false },
+    F { name: "b_dir", ty: Ty::Long, readonly: false },
+    F { name: "kind", ty: Ty::Str, readonly: false },
+    F { name: "alive", ty: Ty::Bool, readonly: false },
+    F { name: "t", ty: Ty::Long, readonly: false },
+];
+
+/// The C# class name of a hazard (`GetType().Name`).
+pub fn hz_class(h: &Hz) -> &'static str {
+    match h {
+        Hz::Beam(_) => "Beam",
+        Hz::Belt(_) => "Belt",
+        Hz::Block(_) => "Block",
+        Hz::BossCrusher(_) => "BossCrusher",
+        Hz::BossSaw(_) => "BossSaw",
+        Hz::BossWatcher(_) => "BossWatcher",
+        Hz::Bouncer(_) => "Bouncer",
+        Hz::Bubble(_) => "Bubble",
+        Hz::Bumper(_) => "Bumper",
+        Hz::CoinPickup(_) => "CoinPickup",
+        Hz::CrateDrop(_) => "CrateDrop",
+        Hz::Crawler(_) => "Crawler",
+        Hz::CuriousBouncer(_) => "CuriousBouncer",
+        Hz::Dart(_) => "Dart",
+        Hz::Drop(_) => "Drop",
+        Hz::Echo(_) => "Echo",
+        Hz::EdgePad(_) => "EdgePad",
+        Hz::ExitKey(_) => "ExitKey",
+        Hz::Firework(_) => "Firework",
+        Hz::Gate(_) => "Gate",
+        Hz::HeavyBouncer(_) => "HeavyBouncer",
+        Hz::KeepyBall(_) => "KeepyBall",
+        Hz::Lava(_) => "Lava",
+        Hz::Mover(_) => "Mover",
+        Hz::OrbitCoin(_) => "OrbitCoin",
+        Hz::OrchardSpawner(_) => "OrchardSpawner",
+        Hz::PadCoin(_) => "PadCoin",
+        Hz::Pendulum(_) => "Pendulum",
+        Hz::Piston(_) => "Piston",
+        Hz::RevvingBouncer(_) => "RevvingBouncer",
+        Hz::Rotor(_) => "Rotor",
+        Hz::SawRing(_) => "SawRing",
+        Hz::SpikeBall(_) => "SpikeBall",
+        Hz::SplittingBouncer(_) => "SplittingBouncer",
+        Hz::Stalactite(_) => "Stalactite",
+        Hz::Stalker(_) => "Stalker",
+        Hz::Updraft(_) => "Updraft",
+        Hz::Wind(_) => "Wind",
+        Hz::Taken => panic!("Hz::Taken"),
+    }
+}
+
+pub fn hz_get(h: &Hz, i: usize) -> V {
+    match h {
+        Hz::Beam(x) => beam_get(x, i),
+        Hz::Belt(x) => belt_get(x, i),
+        Hz::Block(x) => block_get(x, i),
+        Hz::BossCrusher(x) => bosscrusher_get(x, i),
+        Hz::BossSaw(x) => bosssaw_get(x, i),
+        Hz::BossWatcher(x) => bosswatcher_get(x, i),
+        Hz::Bouncer(x) => bouncer_get(x, i),
+        Hz::Bubble(x) => bubble_get(x, i),
+        Hz::Bumper(x) => bumper_get(x, i),
+        Hz::CoinPickup(x) => coinpickup_get(x, i),
+        Hz::CrateDrop(x) => cratedrop_get(x, i),
+        Hz::Crawler(x) => crawler_get(x, i),
+        Hz::CuriousBouncer(x) => curiousbouncer_get(x, i),
+        Hz::Dart(x) => dart_get(x, i),
+        Hz::Drop(x) => drop_get(x, i),
+        Hz::Echo(x) => echo_get(x, i),
+        Hz::EdgePad(x) => edgepad_get(x, i),
+        Hz::ExitKey(x) => exitkey_get(x, i),
+        Hz::Firework(x) => firework_get(x, i),
+        Hz::Gate(x) => gate_get(x, i),
+        Hz::HeavyBouncer(x) => heavybouncer_get(x, i),
+        Hz::KeepyBall(x) => keepyball_get(x, i),
+        Hz::Lava(x) => lava_get(x, i),
+        Hz::Mover(x) => mover_get(x, i),
+        Hz::OrbitCoin(x) => orbitcoin_get(x, i),
+        Hz::OrchardSpawner(x) => orchardspawner_get(x, i),
+        Hz::PadCoin(x) => padcoin_get(x, i),
+        Hz::Pendulum(x) => pendulum_get(x, i),
+        Hz::Piston(x) => piston_get(x, i),
+        Hz::RevvingBouncer(x) => revvingbouncer_get(x, i),
+        Hz::Rotor(x) => rotor_get(x, i),
+        Hz::SawRing(x) => sawring_get(x, i),
+        Hz::SpikeBall(x) => spikeball_get(x, i),
+        Hz::SplittingBouncer(x) => splittingbouncer_get(x, i),
+        Hz::Stalactite(x) => stalactite_get(x, i),
+        Hz::Stalker(x) => stalker_get(x, i),
+        Hz::Updraft(x) => updraft_get(x, i),
+        Hz::Wind(x) => wind_get(x, i),
+        Hz::Taken => panic!("Hz::Taken"),
+    }
+}
+
+pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
+    match h {
+        Hz::Beam(x) => beam_set(x, i, v),
+        Hz::Belt(x) => belt_set(x, i, v),
+        Hz::Block(x) => block_set(x, i, v),
+        Hz::BossCrusher(x) => bosscrusher_set(x, i, v),
+        Hz::BossSaw(x) => bosssaw_set(x, i, v),
+        Hz::BossWatcher(x) => bosswatcher_set(x, i, v),
+        Hz::Bouncer(x) => bouncer_set(x, i, v),
+        Hz::Bubble(x) => bubble_set(x, i, v),
+        Hz::Bumper(x) => bumper_set(x, i, v),
+        Hz::CoinPickup(x) => coinpickup_set(x, i, v),
+        Hz::CrateDrop(x) => cratedrop_set(x, i, v),
+        Hz::Crawler(x) => crawler_set(x, i, v),
+        Hz::CuriousBouncer(x) => curiousbouncer_set(x, i, v),
+        Hz::Dart(x) => dart_set(x, i, v),
+        Hz::Drop(x) => drop_set(x, i, v),
+        Hz::Echo(x) => echo_set(x, i, v),
+        Hz::EdgePad(x) => edgepad_set(x, i, v),
+        Hz::ExitKey(x) => exitkey_set(x, i, v),
+        Hz::Firework(x) => firework_set(x, i, v),
+        Hz::Gate(x) => gate_set(x, i, v),
+        Hz::HeavyBouncer(x) => heavybouncer_set(x, i, v),
+        Hz::KeepyBall(x) => keepyball_set(x, i, v),
+        Hz::Lava(x) => lava_set(x, i, v),
+        Hz::Mover(x) => mover_set(x, i, v),
+        Hz::OrbitCoin(x) => orbitcoin_set(x, i, v),
+        Hz::OrchardSpawner(x) => orchardspawner_set(x, i, v),
+        Hz::PadCoin(x) => padcoin_set(x, i, v),
+        Hz::Pendulum(x) => pendulum_set(x, i, v),
+        Hz::Piston(x) => piston_set(x, i, v),
+        Hz::RevvingBouncer(x) => revvingbouncer_set(x, i, v),
+        Hz::Rotor(x) => rotor_set(x, i, v),
+        Hz::SawRing(x) => sawring_set(x, i, v),
+        Hz::SpikeBall(x) => spikeball_set(x, i, v),
+        Hz::SplittingBouncer(x) => splittingbouncer_set(x, i, v),
+        Hz::Stalactite(x) => stalactite_set(x, i, v),
+        Hz::Stalker(x) => stalker_set(x, i, v),
+        Hz::Updraft(x) => updraft_set(x, i, v),
+        Hz::Wind(x) => wind_set(x, i, v),
+        Hz::Taken => panic!("Hz::Taken"),
+    }
+}
+
+pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
+    match h {
+        Hz::Beam(x) => beam_method(x, name),
+        Hz::Belt(x) => belt_method(x, name),
+        Hz::Block(x) => block_method(x, name),
+        Hz::BossCrusher(x) => bosscrusher_method(x, name),
+        Hz::BossSaw(x) => bosssaw_method(x, name),
+        Hz::BossWatcher(x) => bosswatcher_method(x, name),
+        Hz::Bouncer(x) => bouncer_method(x, name),
+        Hz::Bubble(x) => bubble_method(x, name),
+        Hz::Bumper(x) => bumper_method(x, name),
+        Hz::CoinPickup(x) => coinpickup_method(x, name),
+        Hz::CrateDrop(x) => cratedrop_method(x, name),
+        Hz::Crawler(x) => crawler_method(x, name),
+        Hz::CuriousBouncer(x) => curiousbouncer_method(x, name),
+        Hz::Dart(x) => dart_method(x, name),
+        Hz::Drop(x) => drop_method(x, name),
+        Hz::Echo(x) => echo_method(x, name),
+        Hz::EdgePad(x) => edgepad_method(x, name),
+        Hz::ExitKey(x) => exitkey_method(x, name),
+        Hz::Firework(x) => firework_method(x, name),
+        Hz::Gate(x) => gate_method(x, name),
+        Hz::HeavyBouncer(x) => heavybouncer_method(x, name),
+        Hz::KeepyBall(x) => keepyball_method(x, name),
+        Hz::Lava(x) => lava_method(x, name),
+        Hz::Mover(x) => mover_method(x, name),
+        Hz::OrbitCoin(x) => orbitcoin_method(x, name),
+        Hz::OrchardSpawner(x) => orchardspawner_method(x, name),
+        Hz::PadCoin(x) => padcoin_method(x, name),
+        Hz::Pendulum(x) => pendulum_method(x, name),
+        Hz::Piston(x) => piston_method(x, name),
+        Hz::RevvingBouncer(x) => revvingbouncer_method(x, name),
+        Hz::Rotor(x) => rotor_method(x, name),
+        Hz::SawRing(x) => sawring_method(x, name),
+        Hz::SpikeBall(x) => spikeball_method(x, name),
+        Hz::SplittingBouncer(x) => splittingbouncer_method(x, name),
+        Hz::Stalactite(x) => stalactite_method(x, name),
+        Hz::Stalker(x) => stalker_method(x, name),
+        Hz::Updraft(x) => updraft_method(x, name),
+        Hz::Wind(x) => wind_method(x, name),
+        Hz::Taken => panic!("Hz::Taken"),
+    }
+}
+
+/// The fields of a class by its C# name (SimState, RoomRuntime or a hazard).
+pub fn class_fields(c: &str) -> &'static [F] {
+    match c {
+        "SimState" => SIMSTATE,
+        "RoomRuntime" => ROOMRUNTIME,
+        "Beam" => BEAM,
+        "Belt" => BELT,
+        "Block" => BLOCK,
+        "BossCrusher" => BOSSCRUSHER,
+        "BossSaw" => BOSSSAW,
+        "BossWatcher" => BOSSWATCHER,
+        "Bouncer" => BOUNCER,
+        "Bubble" => BUBBLE,
+        "Bumper" => BUMPER,
+        "CoinPickup" => COINPICKUP,
+        "CrateDrop" => CRATEDROP,
+        "Crawler" => CRAWLER,
+        "CuriousBouncer" => CURIOUSBOUNCER,
+        "Dart" => DART,
+        "Drop" => DROP,
+        "Echo" => ECHO,
+        "EdgePad" => EDGEPAD,
+        "ExitKey" => EXITKEY,
+        "Firework" => FIREWORK,
+        "Gate" => GATE,
+        "HeavyBouncer" => HEAVYBOUNCER,
+        "KeepyBall" => KEEPYBALL,
+        "Lava" => LAVA,
+        "Mover" => MOVER,
+        "OrbitCoin" => ORBITCOIN,
+        "OrchardSpawner" => ORCHARDSPAWNER,
+        "PadCoin" => PADCOIN,
+        "Pendulum" => PENDULUM,
+        "Piston" => PISTON,
+        "RevvingBouncer" => REVVINGBOUNCER,
+        "Rotor" => ROTOR,
+        "SawRing" => SAWRING,
+        "SpikeBall" => SPIKEBALL,
+        "SplittingBouncer" => SPLITTINGBOUNCER,
+        "Stalactite" => STALACTITE,
+        "Stalker" => STALKER,
+        "Updraft" => UPDRAFT,
+        "Wind" => WIND,
+        _ => &[],
+    }
+}
+
+/// The no-argument methods of a class that `*_method` can call.
+pub fn class_methods(c: &str) -> &'static [&'static str] {
+    match c {
+        "SimState" => &["copy"],
+        "RoomRuntime" => &["blink_showing_second", "inset", "spike_depth", "spike_half_base", "variant_id", "wall_left", "wall_right"],
+        "Block" => &["opacity"],
+        "BossCrusher" => &["lane_half"],
+        "BossSaw" => &["ring_max"],
+        "Bubble" => &["coin_in_reach"],
+        "Dart" => &["glow", "tail_x"],
+        "Drop" => &["falling", "stake_half_base", "stake_height", "staked", "warn_progress", "warning"],
+        "EdgePad" => &["line_y", "x0", "x1"],
+        "ExitKey" => &["done", "locked"],
+        "Firework" => &["fuse_progress", "spark_count"],
+        "Gate" => &["gap_bottom", "gap_top"],
+        "Pendulum" => &["has_twin"],
+        "Piston" => &["base_x", "extent", "glow"],
+        "Stalactite" => &["bottom_tip", "top_tip"],
+        "Updraft" => &["gust_step"],
+        "Wind" => &["blowing", "warning"],
+        _ => &[],
+    }
+}
+
+pub fn state_get(x: &SimState, i: usize) -> V {
+    simstate_get(x, i)
+}
+pub fn state_set(x: &mut SimState, i: usize, v: &V) {
+    simstate_set(x, i, v)
+}
+pub fn state_method(x: &SimState, name: &str) -> Option<V> {
+    simstate_method(x, name)
+}
+
+pub fn room_get(x: &RoomRuntime, i: usize) -> V {
+    roomruntime_get(x, i)
+}
+pub fn room_set(x: &mut RoomRuntime, i: usize, v: &V) {
+    roomruntime_set(x, i, v)
+}
+pub fn room_method(x: &RoomRuntime, name: &str) -> Option<V> {
+    roomruntime_method(x, name)
+}
+
+fn simstate_get(x: &SimState, i: usize) -> V {
+    match i {
+        0 => V::I(x.tick),
+        1 => V::B(x.started),
+        2 => V::B(x.alive),
+        3 => V::I(x.death_cause),
+        4 => V::I(x.x),
+        5 => V::I(x.y),
+        6 => V::I(x.vx),
+        7 => V::I(x.vy),
+        8 => V::I(x.score),
+        9 => V::I(x.room_index),
+        10 => V::I(x.room_kind),
+        11 => V::I(x.left_spikes),
+        12 => V::I(x.right_spikes),
+        13 => V::B(x.coin_active),
+        14 => V::I(x.coin_x),
+        15 => V::I(x.coin_y),
+        16 => V::I(x.coins),
+        17 => V::I(x.flaps),
+        18 => V::B(x.exit_open),
+        19 => V::B(x.exit_preview),
+        20 => V::I(x.exit_side),
+        21 => V::I(x.exit_a_y),
+        22 => V::I(x.exit_a_kind),
+        23 => V::I(x.exit_b_y),
+        24 => V::I(x.exit_b_kind),
+        25 => V::I(x.route),
+        26 => V::I(x.bosses_met),
+        27 => V::I(x.pickup_x),
+        28 => V::I(x.pickup_y),
+        29 => V::I(x.arrival_hold),
+        30 => V::I(x.revives),
+        31 => V::I(x.anchor_y),
+        32 => V::I(x.plan_a_y_left),
+        33 => V::I(x.plan_a_kind_left),
+        34 => V::I(x.plan_b_y_left),
+        35 => V::I(x.plan_a_y_right),
+        36 => V::I(x.plan_a_kind_right),
+        37 => V::I(x.plan_b_y_right),
+        38 => V::I(x.plan_at),
+        _ => panic!("SimState: no field {}", i),
+    }
+}
+
+fn simstate_set(x: &mut SimState, i: usize, v: &V) {
+    match i {
+        0 => x.tick = v.i(),
+        1 => x.started = v.b(),
+        2 => x.alive = v.b(),
+        3 => x.death_cause = v.i(),
+        4 => x.x = v.i(),
+        5 => x.y = v.i(),
+        6 => x.vx = v.i(),
+        7 => x.vy = v.i(),
+        8 => x.score = v.i(),
+        9 => x.room_index = v.i(),
+        10 => x.room_kind = v.i(),
+        11 => x.left_spikes = v.i(),
+        12 => x.right_spikes = v.i(),
+        13 => x.coin_active = v.b(),
+        14 => x.coin_x = v.i(),
+        15 => x.coin_y = v.i(),
+        16 => x.coins = v.i(),
+        17 => x.flaps = v.i(),
+        18 => x.exit_open = v.b(),
+        19 => x.exit_preview = v.b(),
+        20 => x.exit_side = v.i(),
+        21 => x.exit_a_y = v.i(),
+        22 => x.exit_a_kind = v.i(),
+        23 => x.exit_b_y = v.i(),
+        24 => x.exit_b_kind = v.i(),
+        25 => x.route = v.i(),
+        26 => x.bosses_met = v.i(),
+        27 => x.pickup_x = v.i(),
+        28 => x.pickup_y = v.i(),
+        29 => x.arrival_hold = v.i(),
+        30 => x.revives = v.i(),
+        31 => x.anchor_y = v.i(),
+        32 => x.plan_a_y_left = v.i(),
+        33 => x.plan_a_kind_left = v.i(),
+        34 => x.plan_b_y_left = v.i(),
+        35 => x.plan_a_y_right = v.i(),
+        36 => x.plan_a_kind_right = v.i(),
+        37 => x.plan_b_y_right = v.i(),
+        38 => x.plan_at = v.i(),
+        _ => panic!("SimState: field {} is not a transplant candidate", i),
+    }
+}
+
+fn simstate_method(x: &SimState, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        "copy" => Some(V::Obj),
+        _ => None,
+    }
+}
+
+fn roomruntime_get(x: &RoomRuntime, i: usize) -> V {
+    match i {
+        0 => opt(x.def_.is_some()),
+        1 => V::I(x.index),
+        2 => V::I(x.t),
+        3 => V::I(x.ticks),
+        4 => V::I(x.points),
+        5 => V::I(x.variant),
+        6 => V::Objs(x.hazards.len()),
+        7 => V::I(x.tide_left),
+        8 => V::I(x.tide_right),
+        9 => V::I(x.tide_salt),
+        10 => V::I(x.blink_left),
+        11 => V::I(x.blink_right),
+        12 => V::I(x.gravity),
+        13 => V::I(x.rng_seed),
+        14 => V::I(x.walls),
+        15 => V::I(x.entry_score),
+        _ => panic!("RoomRuntime: no field {}", i),
+    }
+}
+
+fn roomruntime_set(x: &mut RoomRuntime, i: usize, v: &V) {
+    match i {
+        1 => x.index = v.i(),
+        2 => x.t = v.i(),
+        3 => x.ticks = v.i(),
+        4 => x.points = v.i(),
+        5 => x.variant = v.i(),
+        7 => x.tide_left = v.i(),
+        8 => x.tide_right = v.i(),
+        9 => x.tide_salt = v.i(),
+        10 => x.blink_left = v.i(),
+        11 => x.blink_right = v.i(),
+        12 => x.gravity = v.i(),
+        13 => x.rng_seed = v.i(),
+        14 => x.walls = v.i(),
+        15 => x.entry_score = v.i(),
+        _ => panic!("RoomRuntime: field {} is not a transplant candidate", i),
+    }
+}
+
+fn roomruntime_method(x: &RoomRuntime, name: &str) -> Option<V> {
+    match name {
+        "blink_showing_second" => Some(V::B(x.blink_showing_second())),
+        "inset" => Some(V::I(x.inset(0))),
+        "spike_depth" => Some(V::I(x.spike_depth())),
+        "spike_half_base" => Some(V::I(x.spike_half_base())),
+        "variant_id" => Some(V::S(x.variant_id())),
+        "wall_left" => Some(V::I(x.wall_left())),
+        "wall_right" => Some(V::I(x.wall_right())),
+        _ => None,
+    }
+}
+
+fn beam_get(x: &Beam, i: usize) -> V {
+    match i {
+        0 => V::L(x.rows.clone()),
+        1 => V::L(x.delays.clone()),
+        2 => V::I(x.warn_ticks),
+        3 => V::B(x.yields),
+        4 => V::L(x.skip.clone()),
+        5 => V::S(x.base.kind),
+        6 => V::B(x.base.alive),
+        7 => V::I(x.base.t),
+        _ => panic!("Beam: no field {}", i),
+    }
+}
+
+fn beam_set(x: &mut Beam, i: usize, v: &V) {
+    match i {
+        0 => x.rows = v.l().clone(),
+        1 => x.delays = v.l().clone(),
+        2 => x.warn_ticks = v.i(),
+        3 => x.yields = v.b(),
+        4 => x.skip = v.l().clone(),
+        6 => x.base.alive = v.b(),
+        7 => x.base.t = v.i(),
+        _ => panic!("Beam: field {} is not a transplant candidate", i),
+    }
+}
+
+fn beam_method(x: &Beam, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn belt_get(x: &Belt, i: usize) -> V {
+    match i {
+        0 => V::I(x.mode),
+        1 => V::I(x.left_dir),
+        2 => V::I(x.right_dir),
+        3 => V::I(x.left_shift),
+        4 => V::I(x.right_shift),
+        5 => V::S(x.base.kind),
+        6 => V::B(x.base.alive),
+        7 => V::I(x.base.t),
+        _ => panic!("Belt: no field {}", i),
+    }
+}
+
+fn belt_set(x: &mut Belt, i: usize, v: &V) {
+    match i {
+        0 => x.mode = v.i(),
+        1 => x.left_dir = v.i(),
+        2 => x.right_dir = v.i(),
+        3 => x.left_shift = v.i(),
+        4 => x.right_shift = v.i(),
+        6 => x.base.alive = v.b(),
+        7 => x.base.t = v.i(),
+        _ => panic!("Belt: field {} is not a transplant candidate", i),
+    }
+}
+
+fn belt_method(x: &Belt, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn block_get(x: &Block, i: usize) -> V {
+    match i {
+        0 => V::I(x.x0),
+        1 => V::I(x.y0),
+        2 => V::I(x.x1),
+        3 => V::I(x.y1),
+        4 => V::I(x.fade_period),
+        5 => V::I(x.solid_ticks),
+        6 => V::I(x.phase),
+        7 => V::I(x.base_phase),
+        8 => V::I(x.band),
+        9 => V::I(x.drift),
+        10 => V::I(x.home_x),
+        11 => V::B(x.big),
+        12 => V::B(x.guards_exit),
+        13 => V::S(x.base.kind),
+        14 => V::B(x.base.alive),
+        15 => V::I(x.base.t),
+        _ => panic!("Block: no field {}", i),
+    }
+}
+
+fn block_set(x: &mut Block, i: usize, v: &V) {
+    match i {
+        0 => x.x0 = v.i(),
+        1 => x.y0 = v.i(),
+        2 => x.x1 = v.i(),
+        3 => x.y1 = v.i(),
+        4 => x.fade_period = v.i(),
+        5 => x.solid_ticks = v.i(),
+        6 => x.phase = v.i(),
+        7 => x.base_phase = v.i(),
+        8 => x.band = v.i(),
+        9 => x.drift = v.i(),
+        10 => x.home_x = v.i(),
+        11 => x.big = v.b(),
+        12 => x.guards_exit = v.b(),
+        14 => x.base.alive = v.b(),
+        15 => x.base.t = v.i(),
+        _ => panic!("Block: field {} is not a transplant candidate", i),
+    }
+}
+
+fn block_method(x: &Block, name: &str) -> Option<V> {
+    match name {
+        "opacity" => Some(V::I(x.opacity())),
+        _ => None,
+    }
+}
+
+fn bosscrusher_get(x: &BossCrusher, i: usize) -> V {
+    match i {
+        0 => V::I(x.press_y),
+        1 => V::I(x.plate_y),
+        2 => V::I(x.slam_y),
+        3 => V::I(x.lane_from),
+        4 => V::I(x.lane_to),
+        5 => V::B(x.telling),
+        6 => V::L(x.crate_x.to_vec()),
+        7 => V::L(x.crate_y.to_vec()),
+        8 => V::L(x.crate_.to_vec()),
+        9 => V::B(x.jaw),
+        10 => V::I(x._k),
+        11 => V::I(x.boss.tier),
+        12 => V::I(x.boss.phase),
+        13 => V::I(x.boss.phase_start),
+        14 => V::I(x.boss.down_at),
+        15 => V::I(x.boss.seed),
+        16 => V::S(x.boss.base.kind),
+        17 => V::B(x.boss.base.alive),
+        18 => V::I(x.boss.base.t),
+        _ => panic!("BossCrusher: no field {}", i),
+    }
+}
+
+fn bosscrusher_set(x: &mut BossCrusher, i: usize, v: &V) {
+    match i {
+        0 => x.press_y = v.i(),
+        1 => x.plate_y = v.i(),
+        2 => x.slam_y = v.i(),
+        3 => x.lane_from = v.i(),
+        4 => x.lane_to = v.i(),
+        5 => x.telling = v.b(),
+        6 => x.crate_x = v.l().as_slice().try_into().expect("array length"),
+        7 => x.crate_y = v.l().as_slice().try_into().expect("array length"),
+        8 => x.crate_ = v.l().as_slice().try_into().expect("array length"),
+        9 => x.jaw = v.b(),
+        10 => x._k = v.i(),
+        11 => x.boss.tier = v.i(),
+        12 => x.boss.phase = v.i(),
+        13 => x.boss.phase_start = v.i(),
+        14 => x.boss.down_at = v.i(),
+        15 => x.boss.seed = v.i(),
+        17 => x.boss.base.alive = v.b(),
+        18 => x.boss.base.t = v.i(),
+        _ => panic!("BossCrusher: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bosscrusher_method(x: &BossCrusher, name: &str) -> Option<V> {
+    match name {
+        "lane_half" => Some(V::I(x.lane_half())),
+        _ => None,
+    }
+}
+
+fn bosssaw_get(x: &BossSaw, i: usize) -> V {
+    match i {
+        0 => V::I(x.king_y),
+        1 => V::I(x.from_y),
+        2 => V::I(x.to_y),
+        3 => V::I(x.ring),
+        4 => V::I(x.angle),
+        5 => V::I(x.blades),
+        6 => V::L(x.blade_x.clone()),
+        7 => V::L(x.blade_y.clone()),
+        8 => V::B(x.telling),
+        9 => V::I(x._k),
+        10 => V::I(x.boss.tier),
+        11 => V::I(x.boss.phase),
+        12 => V::I(x.boss.phase_start),
+        13 => V::I(x.boss.down_at),
+        14 => V::I(x.boss.seed),
+        15 => V::S(x.boss.base.kind),
+        16 => V::B(x.boss.base.alive),
+        17 => V::I(x.boss.base.t),
+        _ => panic!("BossSaw: no field {}", i),
+    }
+}
+
+fn bosssaw_set(x: &mut BossSaw, i: usize, v: &V) {
+    match i {
+        0 => x.king_y = v.i(),
+        1 => x.from_y = v.i(),
+        2 => x.to_y = v.i(),
+        3 => x.ring = v.i(),
+        4 => x.angle = v.i(),
+        5 => x.blades = v.i(),
+        6 => x.blade_x = v.l().clone(),
+        7 => x.blade_y = v.l().clone(),
+        8 => x.telling = v.b(),
+        9 => x._k = v.i(),
+        10 => x.boss.tier = v.i(),
+        11 => x.boss.phase = v.i(),
+        12 => x.boss.phase_start = v.i(),
+        13 => x.boss.down_at = v.i(),
+        14 => x.boss.seed = v.i(),
+        16 => x.boss.base.alive = v.b(),
+        17 => x.boss.base.t = v.i(),
+        _ => panic!("BossSaw: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bosssaw_method(x: &BossSaw, name: &str) -> Option<V> {
+    match name {
+        "ring_max" => Some(V::I(x.ring_max())),
+        _ => None,
+    }
+}
+
+fn bosswatcher_get(x: &BossWatcher, i: usize) -> V {
+    match i {
+        0 => V::I(x.lit),
+        1 => V::I(x.beam),
+        2 => V::I(x.beam_t),
+        3 => V::I(x.dart),
+        4 => V::I(x.dart_lane),
+        5 => V::I(x.dart_side),
+        6 => V::I(x.dart_x),
+        7 => V::I(x.dart_t),
+        8 => V::I(x._lit_k),
+        9 => V::I(x.boss.tier),
+        10 => V::I(x.boss.phase),
+        11 => V::I(x.boss.phase_start),
+        12 => V::I(x.boss.down_at),
+        13 => V::I(x.boss.seed),
+        14 => V::S(x.boss.base.kind),
+        15 => V::B(x.boss.base.alive),
+        16 => V::I(x.boss.base.t),
+        _ => panic!("BossWatcher: no field {}", i),
+    }
+}
+
+fn bosswatcher_set(x: &mut BossWatcher, i: usize, v: &V) {
+    match i {
+        0 => x.lit = v.i(),
+        1 => x.beam = v.i(),
+        2 => x.beam_t = v.i(),
+        3 => x.dart = v.i(),
+        4 => x.dart_lane = v.i(),
+        5 => x.dart_side = v.i(),
+        6 => x.dart_x = v.i(),
+        7 => x.dart_t = v.i(),
+        8 => x._lit_k = v.i(),
+        9 => x.boss.tier = v.i(),
+        10 => x.boss.phase = v.i(),
+        11 => x.boss.phase_start = v.i(),
+        12 => x.boss.down_at = v.i(),
+        13 => x.boss.seed = v.i(),
+        15 => x.boss.base.alive = v.b(),
+        16 => x.boss.base.t = v.i(),
+        _ => panic!("BossWatcher: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bosswatcher_method(x: &BossWatcher, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn bouncer_get(x: &Bouncer, i: usize) -> V {
+    match i {
+        0 => V::I(x.radius),
+        1 => V::I(x.lane),
+        2 => V::I(x.x),
+        3 => V::I(x.y),
+        4 => V::I(x.vx),
+        5 => V::I(x.vy),
+        6 => V::S(x.base.kind),
+        7 => V::B(x.base.alive),
+        8 => V::I(x.base.t),
+        _ => panic!("Bouncer: no field {}", i),
+    }
+}
+
+fn bouncer_set(x: &mut Bouncer, i: usize, v: &V) {
+    match i {
+        0 => x.radius = v.i(),
+        1 => x.lane = v.i(),
+        2 => x.x = v.i(),
+        3 => x.y = v.i(),
+        4 => x.vx = v.i(),
+        5 => x.vy = v.i(),
+        7 => x.base.alive = v.b(),
+        8 => x.base.t = v.i(),
+        _ => panic!("Bouncer: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bouncer_method(x: &Bouncer, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn bubble_get(x: &Bubble, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.y),
+        2 => V::I(x.vy),
+        3 => V::I(x.next_x),
+        4 => V::B(x.carrying),
+        5 => V::I(x.lane),
+        6 => V::I(x.cooldown),
+        7 => V::I(x.since_pop),
+        8 => V::I(x.radius),
+        9 => V::B(x.spiked),
+        10 => V::I(x.wait),
+        11 => V::I(x.delay),
+        12 => V::B(x.coin_bubble),
+        13 => V::B(x.has_coin),
+        14 => V::S(x.base.kind),
+        15 => V::B(x.base.alive),
+        16 => V::I(x.base.t),
+        _ => panic!("Bubble: no field {}", i),
+    }
+}
+
+fn bubble_set(x: &mut Bubble, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.y = v.i(),
+        2 => x.vy = v.i(),
+        3 => x.next_x = v.i(),
+        4 => x.carrying = v.b(),
+        5 => x.lane = v.i(),
+        6 => x.cooldown = v.i(),
+        7 => x.since_pop = v.i(),
+        8 => x.radius = v.i(),
+        9 => x.spiked = v.b(),
+        10 => x.wait = v.i(),
+        11 => x.delay = v.i(),
+        12 => x.coin_bubble = v.b(),
+        13 => x.has_coin = v.b(),
+        15 => x.base.alive = v.b(),
+        16 => x.base.t = v.i(),
+        _ => panic!("Bubble: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bubble_method(x: &Bubble, name: &str) -> Option<V> {
+    match name {
+        "coin_in_reach" => Some(V::B(x.coin_in_reach())),
+        _ => None,
+    }
+}
+
+fn bumper_get(x: &Bumper, i: usize) -> V {
+    match i {
+        0 => V::I(x.radius),
+        1 => V::I(x.loop_rx),
+        2 => V::I(x.loop_ry),
+        3 => V::I(x.period),
+        4 => V::I(x.x),
+        5 => V::I(x.y),
+        6 => V::I(x.phase),
+        7 => V::I(x.dir),
+        8 => V::B(x.follows),
+        9 => V::S(x.base.kind),
+        10 => V::B(x.base.alive),
+        11 => V::I(x.base.t),
+        _ => panic!("Bumper: no field {}", i),
+    }
+}
+
+fn bumper_set(x: &mut Bumper, i: usize, v: &V) {
+    match i {
+        0 => x.radius = v.i(),
+        1 => x.loop_rx = v.i(),
+        2 => x.loop_ry = v.i(),
+        3 => x.period = v.i(),
+        4 => x.x = v.i(),
+        5 => x.y = v.i(),
+        6 => x.phase = v.i(),
+        7 => x.dir = v.i(),
+        8 => x.follows = v.b(),
+        10 => x.base.alive = v.b(),
+        11 => x.base.t = v.i(),
+        _ => panic!("Bumper: field {} is not a transplant candidate", i),
+    }
+}
+
+fn bumper_method(x: &Bumper, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn coinpickup_get(x: &CoinPickup, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.y),
+        2 => V::I(x.appear_at),
+        3 => V::I(x.vy),
+        4 => V::I(x.beside_band),
+        5 => V::I(x.value),
+        6 => V::B(x.behind),
+        7 => V::I(x.drift),
+        8 => V::I(x.home_x),
+        9 => V::S(x.base.kind),
+        10 => V::B(x.base.alive),
+        11 => V::I(x.base.t),
+        _ => panic!("CoinPickup: no field {}", i),
+    }
+}
+
+fn coinpickup_set(x: &mut CoinPickup, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.y = v.i(),
+        2 => x.appear_at = v.i(),
+        3 => x.vy = v.i(),
+        4 => x.beside_band = v.i(),
+        5 => x.value = v.i(),
+        6 => x.behind = v.b(),
+        7 => x.drift = v.i(),
+        8 => x.home_x = v.i(),
+        10 => x.base.alive = v.b(),
+        11 => x.base.t = v.i(),
+        _ => panic!("CoinPickup: field {} is not a transplant candidate", i),
+    }
+}
+
+fn coinpickup_method(x: &CoinPickup, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn cratedrop_get(x: &CrateDrop, i: usize) -> V {
+    match i {
+        0 => V::I(x.cols),
+        1 => V::I(x.col_w),
+        2 => V::I(x.col_x0),
+        3 => V::I(x.crate_w),
+        4 => V::I(x.crate_h),
+        5 => V::I(x.max_height),
+        6 => V::B(x.pair),
+        7 => V::I(x.col),
+        8 => V::I(x.y),
+        9 => V::I(x.vy),
+        10 => V::B(x.done),
+        11 => V::I(x.col_b),
+        12 => V::I(x.y_b),
+        13 => V::I(x.vy_b),
+        14 => V::B(x.done_b),
+        15 => V::I(x.warn_left),
+        16 => V::I(x.drops),
+        17 => V::I(x.salt),
+        18 => V::L(x.heights.clone()),
+        19 => V::L(x.coins.clone()),
+        20 => V::B(x.gifts),
+        21 => V::S(x.base.kind),
+        22 => V::B(x.base.alive),
+        23 => V::I(x.base.t),
+        _ => panic!("CrateDrop: no field {}", i),
+    }
+}
+
+fn cratedrop_set(x: &mut CrateDrop, i: usize, v: &V) {
+    match i {
+        0 => x.cols = v.i(),
+        1 => x.col_w = v.i(),
+        2 => x.col_x0 = v.i(),
+        3 => x.crate_w = v.i(),
+        4 => x.crate_h = v.i(),
+        5 => x.max_height = v.i(),
+        6 => x.pair = v.b(),
+        7 => x.col = v.i(),
+        8 => x.y = v.i(),
+        9 => x.vy = v.i(),
+        10 => x.done = v.b(),
+        11 => x.col_b = v.i(),
+        12 => x.y_b = v.i(),
+        13 => x.vy_b = v.i(),
+        14 => x.done_b = v.b(),
+        15 => x.warn_left = v.i(),
+        16 => x.drops = v.i(),
+        17 => x.salt = v.i(),
+        18 => x.heights = v.l().clone(),
+        19 => x.coins = v.l().clone(),
+        20 => x.gifts = v.b(),
+        22 => x.base.alive = v.b(),
+        23 => x.base.t = v.i(),
+        _ => panic!("CrateDrop: field {} is not a transplant candidate", i),
+    }
+}
+
+fn cratedrop_method(x: &CrateDrop, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn crawler_get(x: &Crawler, i: usize) -> V {
+    match i {
+        0 => V::I(x.lane),
+        1 => V::I(x.start),
+        2 => V::I(x.segments),
+        3 => V::I(x.seg_radius),
+        4 => V::I(x.spacing),
+        5 => V::I(x.speed),
+        6 => V::I(x.reserve),
+        7 => V::B(x.trails),
+        8 => V::L(x.xs.clone()),
+        9 => V::L(x.ys.clone()),
+        10 => V::S(x.base.kind),
+        11 => V::B(x.base.alive),
+        12 => V::I(x.base.t),
+        _ => panic!("Crawler: no field {}", i),
+    }
+}
+
+fn crawler_set(x: &mut Crawler, i: usize, v: &V) {
+    match i {
+        0 => x.lane = v.i(),
+        1 => x.start = v.i(),
+        2 => x.segments = v.i(),
+        3 => x.seg_radius = v.i(),
+        4 => x.spacing = v.i(),
+        5 => x.speed = v.i(),
+        6 => x.reserve = v.i(),
+        7 => x.trails = v.b(),
+        8 => x.xs = v.l().clone(),
+        9 => x.ys = v.l().clone(),
+        11 => x.base.alive = v.b(),
+        12 => x.base.t = v.i(),
+        _ => panic!("Crawler: field {} is not a transplant candidate", i),
+    }
+}
+
+fn crawler_method(x: &Crawler, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn curiousbouncer_get(x: &CuriousBouncer, i: usize) -> V {
+    match i {
+        0 => V::I(x.look),
+        1 => V::I(x.b.radius),
+        2 => V::I(x.b.lane),
+        3 => V::I(x.b.x),
+        4 => V::I(x.b.y),
+        5 => V::I(x.b.vx),
+        6 => V::I(x.b.vy),
+        7 => V::S(x.b.base.kind),
+        8 => V::B(x.b.base.alive),
+        9 => V::I(x.b.base.t),
+        _ => panic!("CuriousBouncer: no field {}", i),
+    }
+}
+
+fn curiousbouncer_set(x: &mut CuriousBouncer, i: usize, v: &V) {
+    match i {
+        0 => x.look = v.i(),
+        1 => x.b.radius = v.i(),
+        2 => x.b.lane = v.i(),
+        3 => x.b.x = v.i(),
+        4 => x.b.y = v.i(),
+        5 => x.b.vx = v.i(),
+        6 => x.b.vy = v.i(),
+        8 => x.b.base.alive = v.b(),
+        9 => x.b.base.t = v.i(),
+        _ => panic!("CuriousBouncer: field {} is not a transplant candidate", i),
+    }
+}
+
+fn curiousbouncer_method(x: &CuriousBouncer, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn dart_get(x: &Dart, i: usize) -> V {
+    match i {
+        0 => V::B(x.lanes),
+        1 => V::I(x.lane_count),
+        2 => V::I(x.lane_min),
+        3 => V::I(x.lane_max),
+        4 => V::I(x.lanes_speed),
+        5 => V::I(x.lanes_flash),
+        6 => V::B(x.pair),
+        7 => V::I(x.lane2_y),
+        8 => V::I(x.slot),
+        9 => V::I(x.home),
+        10 => V::I(x.state),
+        11 => V::I(x.since),
+        12 => V::I(x.wait),
+        13 => V::I(x.side),
+        14 => V::I(x.lane_y),
+        15 => V::I(x.x),
+        16 => V::I(x.shots),
+        17 => V::I(x.salt),
+        18 => V::S(x.base.kind),
+        19 => V::B(x.base.alive),
+        20 => V::I(x.base.t),
+        _ => panic!("Dart: no field {}", i),
+    }
+}
+
+fn dart_set(x: &mut Dart, i: usize, v: &V) {
+    match i {
+        0 => x.lanes = v.b(),
+        1 => x.lane_count = v.i(),
+        2 => x.lane_min = v.i(),
+        3 => x.lane_max = v.i(),
+        4 => x.lanes_speed = v.i(),
+        5 => x.lanes_flash = v.i(),
+        6 => x.pair = v.b(),
+        7 => x.lane2_y = v.i(),
+        8 => x.slot = v.i(),
+        9 => x.home = v.i(),
+        10 => x.state = v.i(),
+        11 => x.since = v.i(),
+        12 => x.wait = v.i(),
+        13 => x.side = v.i(),
+        14 => x.lane_y = v.i(),
+        15 => x.x = v.i(),
+        16 => x.shots = v.i(),
+        17 => x.salt = v.i(),
+        19 => x.base.alive = v.b(),
+        20 => x.base.t = v.i(),
+        _ => panic!("Dart: field {} is not a transplant candidate", i),
+    }
+}
+
+fn dart_method(x: &Dart, name: &str) -> Option<V> {
+    match name {
+        "glow" => Some(V::I(x.glow())),
+        "tail_x" => Some(V::I(x.tail_x())),
+        _ => None,
+    }
+}
+
+fn drop_get(x: &Drop, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.y),
+        2 => V::I(x.phase),
+        3 => V::I(x.timer),
+        4 => V::I(x.speed),
+        5 => V::I(x.gap),
+        6 => V::I(x.delay),
+        7 => V::I(x.warn),
+        8 => V::I(x.radius),
+        9 => V::I(x.style),
+        10 => V::I(x.column),
+        11 => V::I(x.base_x),
+        12 => V::I(x.fall_t),
+        13 => V::I(x.shard_t),
+        14 => V::I(x.shard_x),
+        15 => V::I(x.shard_dx),
+        16 => V::I(x.shard_y),
+        17 => V::I(x.shard_vy),
+        18 => V::Rng(x._rng),
+        19 => V::S(x.base.kind),
+        20 => V::B(x.base.alive),
+        21 => V::I(x.base.t),
+        _ => panic!("Drop: no field {}", i),
+    }
+}
+
+fn drop_set(x: &mut Drop, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.y = v.i(),
+        2 => x.phase = v.i(),
+        3 => x.timer = v.i(),
+        4 => x.speed = v.i(),
+        5 => x.gap = v.i(),
+        6 => x.delay = v.i(),
+        7 => x.warn = v.i(),
+        8 => x.radius = v.i(),
+        9 => x.style = v.i(),
+        10 => x.column = v.i(),
+        11 => x.base_x = v.i(),
+        12 => x.fall_t = v.i(),
+        13 => x.shard_t = v.i(),
+        14 => x.shard_x = v.i(),
+        15 => x.shard_dx = v.i(),
+        16 => x.shard_y = v.i(),
+        17 => x.shard_vy = v.i(),
+        18 => x._rng = v.rng(),
+        20 => x.base.alive = v.b(),
+        21 => x.base.t = v.i(),
+        _ => panic!("Drop: field {} is not a transplant candidate", i),
+    }
+}
+
+fn drop_method(x: &Drop, name: &str) -> Option<V> {
+    match name {
+        "falling" => Some(V::B(x.falling())),
+        "stake_half_base" => Some(V::I(x.stake_half_base())),
+        "stake_height" => Some(V::I(x.stake_height())),
+        "staked" => Some(V::B(x.staked())),
+        "warn_progress" => Some(V::I(x.warn_progress())),
+        "warning" => Some(V::B(x.warning())),
+        _ => None,
+    }
+}
+
+fn echo_get(x: &Echo, i: usize) -> V {
+    match i {
+        0 => V::I(x.mode),
+        1 => V::I(x.x),
+        2 => V::I(x.y),
+        3 => V::B(x.shown),
+        4 => V::I(x.facing),
+        5 => V::L(x.xs.clone()),
+        6 => V::L(x.ys.clone()),
+        7 => V::I(x.head),
+        8 => V::S(x.base.kind),
+        9 => V::B(x.base.alive),
+        10 => V::I(x.base.t),
+        _ => panic!("Echo: no field {}", i),
+    }
+}
+
+fn echo_set(x: &mut Echo, i: usize, v: &V) {
+    match i {
+        0 => x.mode = v.i(),
+        1 => x.x = v.i(),
+        2 => x.y = v.i(),
+        3 => x.shown = v.b(),
+        4 => x.facing = v.i(),
+        5 => x.xs = v.l().clone(),
+        6 => x.ys = v.l().clone(),
+        7 => x.head = v.i(),
+        9 => x.base.alive = v.b(),
+        10 => x.base.t = v.i(),
+        _ => panic!("Echo: field {} is not a transplant candidate", i),
+    }
+}
+
+fn echo_method(x: &Echo, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn edgepad_get(x: &EdgePad, i: usize) -> V {
+    match i {
+        0 => V::B(x.top),
+        1 => V::I(x.period),
+        2 => V::I(x.phase),
+        3 => V::I(x.since_bump),
+        4 => V::S(x.base.kind),
+        5 => V::B(x.base.alive),
+        6 => V::I(x.base.t),
+        _ => panic!("EdgePad: no field {}", i),
+    }
+}
+
+fn edgepad_set(x: &mut EdgePad, i: usize, v: &V) {
+    match i {
+        0 => x.top = v.b(),
+        1 => x.period = v.i(),
+        2 => x.phase = v.i(),
+        3 => x.since_bump = v.i(),
+        5 => x.base.alive = v.b(),
+        6 => x.base.t = v.i(),
+        _ => panic!("EdgePad: field {} is not a transplant candidate", i),
+    }
+}
+
+fn edgepad_method(x: &EdgePad, name: &str) -> Option<V> {
+    match name {
+        "line_y" => Some(V::I(x.line_y())),
+        "x0" => Some(V::I(x.x0())),
+        "x1" => Some(V::I(x.x1())),
+        _ => None,
+    }
+}
+
+fn exitkey_get(x: &ExitKey, i: usize) -> V {
+    match i {
+        0 => V::I(x.mode),
+        1 => V::I(x.count),
+        2 => V::I(x.got),
+        3 => V::I(x.taken_mask),
+        4 => V::L(x.kx.to_vec()),
+        5 => V::L(x.ky.to_vec()),
+        6 => V::L(x.born.to_vec()),
+        7 => V::L(x.chain_off.to_vec()),
+        8 => V::L(x.chain_d.to_vec()),
+        9 => V::I(x.phase),
+        10 => V::I(x.locked_bounces),
+        11 => V::I(x.walls_left),
+        12 => V::I(x.walls_right),
+        13 => V::B(x.door_open),
+        14 => V::I(x.door_side),
+        15 => V::I(x.door_a_y),
+        16 => V::I(x.door_b_y),
+        17 => V::S(x.base.kind),
+        18 => V::B(x.base.alive),
+        19 => V::I(x.base.t),
+        _ => panic!("ExitKey: no field {}", i),
+    }
+}
+
+fn exitkey_set(x: &mut ExitKey, i: usize, v: &V) {
+    match i {
+        0 => x.mode = v.i(),
+        1 => x.count = v.i(),
+        2 => x.got = v.i(),
+        3 => x.taken_mask = v.i(),
+        4 => x.kx = v.l().as_slice().try_into().expect("array length"),
+        5 => x.ky = v.l().as_slice().try_into().expect("array length"),
+        6 => x.born = v.l().as_slice().try_into().expect("array length"),
+        7 => x.chain_off = v.l().as_slice().try_into().expect("array length"),
+        8 => x.chain_d = v.l().as_slice().try_into().expect("array length"),
+        9 => x.phase = v.i(),
+        10 => x.locked_bounces = v.i(),
+        11 => x.walls_left = v.i(),
+        12 => x.walls_right = v.i(),
+        13 => x.door_open = v.b(),
+        14 => x.door_side = v.i(),
+        15 => x.door_a_y = v.i(),
+        16 => x.door_b_y = v.i(),
+        18 => x.base.alive = v.b(),
+        19 => x.base.t = v.i(),
+        _ => panic!("ExitKey: field {} is not a transplant candidate", i),
+    }
+}
+
+fn exitkey_method(x: &ExitKey, name: &str) -> Option<V> {
+    match name {
+        "done" => Some(V::B(x.done())),
+        "locked" => Some(V::B(x.locked())),
+        _ => None,
+    }
+}
+
+fn firework_get(x: &Firework, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.y),
+        2 => V::I(x.burst_y),
+        3 => V::I(x.phase),
+        4 => V::I(x.timer),
+        5 => V::I(x.spread),
+        6 => V::I(x.delay),
+        7 => V::I(x.style),
+        8 => V::I(x.spent),
+        9 => V::Rng(x._rng),
+        10 => V::S(x.base.kind),
+        11 => V::B(x.base.alive),
+        12 => V::I(x.base.t),
+        _ => panic!("Firework: no field {}", i),
+    }
+}
+
+fn firework_set(x: &mut Firework, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.y = v.i(),
+        2 => x.burst_y = v.i(),
+        3 => x.phase = v.i(),
+        4 => x.timer = v.i(),
+        5 => x.spread = v.i(),
+        6 => x.delay = v.i(),
+        7 => x.style = v.i(),
+        8 => x.spent = v.i(),
+        9 => x._rng = v.rng(),
+        11 => x.base.alive = v.b(),
+        12 => x.base.t = v.i(),
+        _ => panic!("Firework: field {} is not a transplant candidate", i),
+    }
+}
+
+fn firework_method(x: &Firework, name: &str) -> Option<V> {
+    match name {
+        "fuse_progress" => Some(V::I(x.fuse_progress())),
+        "spark_count" => Some(V::I(x.spark_count())),
+        _ => None,
+    }
+}
+
+fn gate_get(x: &Gate, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::B(x.follows),
+        2 => opt(x.partner.is_some()),
+        3 => V::I(x.period),
+        4 => V::I(x.phase),
+        5 => V::I(x.gap_y),
+        6 => V::I(x.gap_size),
+        7 => V::S(x.base.kind),
+        8 => V::B(x.base.alive),
+        9 => V::I(x.base.t),
+        _ => panic!("Gate: no field {}", i),
+    }
+}
+
+fn gate_set(x: &mut Gate, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.follows = v.b(),
+        3 => x.period = v.i(),
+        4 => x.phase = v.i(),
+        5 => x.gap_y = v.i(),
+        6 => x.gap_size = v.i(),
+        8 => x.base.alive = v.b(),
+        9 => x.base.t = v.i(),
+        _ => panic!("Gate: field {} is not a transplant candidate", i),
+    }
+}
+
+fn gate_method(x: &Gate, name: &str) -> Option<V> {
+    match name {
+        "gap_bottom" => Some(V::I(x.gap_bottom())),
+        "gap_top" => Some(V::I(x.gap_top())),
+        _ => None,
+    }
+}
+
+fn heavybouncer_get(x: &HeavyBouncer, i: usize) -> V {
+    match i {
+        0 => V::I(x.bounces),
+        1 => V::I(x.b.radius),
+        2 => V::I(x.b.lane),
+        3 => V::I(x.b.x),
+        4 => V::I(x.b.y),
+        5 => V::I(x.b.vx),
+        6 => V::I(x.b.vy),
+        7 => V::S(x.b.base.kind),
+        8 => V::B(x.b.base.alive),
+        9 => V::I(x.b.base.t),
+        _ => panic!("HeavyBouncer: no field {}", i),
+    }
+}
+
+fn heavybouncer_set(x: &mut HeavyBouncer, i: usize, v: &V) {
+    match i {
+        0 => x.bounces = v.i(),
+        1 => x.b.radius = v.i(),
+        2 => x.b.lane = v.i(),
+        3 => x.b.x = v.i(),
+        4 => x.b.y = v.i(),
+        5 => x.b.vx = v.i(),
+        6 => x.b.vy = v.i(),
+        8 => x.b.base.alive = v.b(),
+        9 => x.b.base.t = v.i(),
+        _ => panic!("HeavyBouncer: field {} is not a transplant candidate", i),
+    }
+}
+
+fn heavybouncer_method(x: &HeavyBouncer, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn keepyball_get(x: &KeepyBall, i: usize) -> V {
+    match i {
+        0 => V::I(x.gravity),
+        1 => V::I(x.kick_vy),
+        2 => V::I(x.waiting),
+        3 => V::I(x.redrop),
+        4 => V::I(x.x),
+        5 => V::I(x.y),
+        6 => V::I(x.vx),
+        7 => V::I(x.vy),
+        8 => V::I(x.cooldown),
+        9 => V::I(x.bumps),
+        10 => V::S(x.base.kind),
+        11 => V::B(x.base.alive),
+        12 => V::I(x.base.t),
+        _ => panic!("KeepyBall: no field {}", i),
+    }
+}
+
+fn keepyball_set(x: &mut KeepyBall, i: usize, v: &V) {
+    match i {
+        0 => x.gravity = v.i(),
+        1 => x.kick_vy = v.i(),
+        2 => x.waiting = v.i(),
+        3 => x.redrop = v.i(),
+        4 => x.x = v.i(),
+        5 => x.y = v.i(),
+        6 => x.vx = v.i(),
+        7 => x.vy = v.i(),
+        8 => x.cooldown = v.i(),
+        9 => x.bumps = v.i(),
+        11 => x.base.alive = v.b(),
+        12 => x.base.t = v.i(),
+        _ => panic!("KeepyBall: field {} is not a transplant candidate", i),
+    }
+}
+
+fn keepyball_method(x: &KeepyBall, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn lava_get(x: &Lava, i: usize) -> V {
+    match i {
+        0 => V::I(x.mode),
+        1 => V::I(x.line),
+        2 => V::I(x.rises),
+        3 => V::I(x.counted),
+        4 => V::B(x.stone_on),
+        5 => V::I(x.stone_x),
+        6 => V::I(x.stone_y),
+        7 => V::B(x.ice_on),
+        8 => V::I(x.ice_side),
+        9 => V::I(x.ice_slot),
+        10 => V::LB(x.raft_on.to_vec()),
+        11 => V::L(x.raft_x.to_vec()),
+        12 => V::L(x.raft_dir.to_vec()),
+        13 => V::L(x.raft_age.to_vec()),
+        14 => V::I(x.raft_points),
+        15 => V::S(x.base.kind),
+        16 => V::B(x.base.alive),
+        17 => V::I(x.base.t),
+        _ => panic!("Lava: no field {}", i),
+    }
+}
+
+fn lava_set(x: &mut Lava, i: usize, v: &V) {
+    match i {
+        0 => x.mode = v.i(),
+        1 => x.line = v.i(),
+        2 => x.rises = v.i(),
+        3 => x.counted = v.i(),
+        4 => x.stone_on = v.b(),
+        5 => x.stone_x = v.i(),
+        6 => x.stone_y = v.i(),
+        7 => x.ice_on = v.b(),
+        8 => x.ice_side = v.i(),
+        9 => x.ice_slot = v.i(),
+        11 => x.raft_x = v.l().as_slice().try_into().expect("array length"),
+        12 => x.raft_dir = v.l().as_slice().try_into().expect("array length"),
+        13 => x.raft_age = v.l().as_slice().try_into().expect("array length"),
+        14 => x.raft_points = v.i(),
+        16 => x.base.alive = v.b(),
+        17 => x.base.t = v.i(),
+        _ => panic!("Lava: field {} is not a transplant candidate", i),
+    }
+}
+
+fn lava_method(x: &Lava, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn mover_get(x: &Mover, i: usize) -> V {
+    match i {
+        0 => V::S(x.mode),
+        1 => V::I(x.count),
+        2 => V::I(x.loop_w),
+        3 => V::I(x.loop_h),
+        4 => V::I(x.loop_period),
+        5 => V::B(x.chase),
+        6 => V::I(x.phase),
+        7 => V::L(x.xs.clone()),
+        8 => V::L(x.ys.clone()),
+        9 => V::L(x.facing.clone()),
+        10 => V::S(x.base.kind),
+        11 => V::B(x.base.alive),
+        12 => V::I(x.base.t),
+        _ => panic!("Mover: no field {}", i),
+    }
+}
+
+fn mover_set(x: &mut Mover, i: usize, v: &V) {
+    match i {
+        1 => x.count = v.i(),
+        2 => x.loop_w = v.i(),
+        3 => x.loop_h = v.i(),
+        4 => x.loop_period = v.i(),
+        5 => x.chase = v.b(),
+        6 => x.phase = v.i(),
+        7 => x.xs = v.l().clone(),
+        8 => x.ys = v.l().clone(),
+        9 => x.facing = v.l().clone(),
+        11 => x.base.alive = v.b(),
+        12 => x.base.t = v.i(),
+        _ => panic!("Mover: field {} is not a transplant candidate", i),
+    }
+}
+
+fn mover_method(x: &Mover, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn orbitcoin_get(x: &OrbitCoin, i: usize) -> V {
+    match i {
+        0 => V::I(x.cx),
+        1 => V::I(x.cy),
+        2 => V::I(x.radius),
+        3 => V::I(x.phase),
+        4 => V::I(x.c.x),
+        5 => V::I(x.c.y),
+        6 => V::I(x.c.appear_at),
+        7 => V::I(x.c.vy),
+        8 => V::I(x.c.beside_band),
+        9 => V::I(x.c.value),
+        10 => V::B(x.c.behind),
+        11 => V::I(x.c.drift),
+        12 => V::I(x.c.home_x),
+        13 => V::S(x.c.base.kind),
+        14 => V::B(x.c.base.alive),
+        15 => V::I(x.c.base.t),
+        _ => panic!("OrbitCoin: no field {}", i),
+    }
+}
+
+fn orbitcoin_set(x: &mut OrbitCoin, i: usize, v: &V) {
+    match i {
+        0 => x.cx = v.i(),
+        1 => x.cy = v.i(),
+        2 => x.radius = v.i(),
+        3 => x.phase = v.i(),
+        4 => x.c.x = v.i(),
+        5 => x.c.y = v.i(),
+        6 => x.c.appear_at = v.i(),
+        7 => x.c.vy = v.i(),
+        8 => x.c.beside_band = v.i(),
+        9 => x.c.value = v.i(),
+        10 => x.c.behind = v.b(),
+        11 => x.c.drift = v.i(),
+        12 => x.c.home_x = v.i(),
+        14 => x.c.base.alive = v.b(),
+        15 => x.c.base.t = v.i(),
+        _ => panic!("OrbitCoin: field {} is not a transplant candidate", i),
+    }
+}
+
+fn orbitcoin_method(x: &OrbitCoin, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn orchardspawner_get(x: &OrchardSpawner, i: usize) -> V {
+    match i {
+        0 => V::L(x.xs.clone()),
+        1 => V::L(x.ys.clone()),
+        2 => V::LB(x.live.clone()),
+        3 => V::Rng(x._rng),
+        4 => V::S(x.base.kind),
+        5 => V::B(x.base.alive),
+        6 => V::I(x.base.t),
+        _ => panic!("OrchardSpawner: no field {}", i),
+    }
+}
+
+fn orchardspawner_set(x: &mut OrchardSpawner, i: usize, v: &V) {
+    match i {
+        0 => x.xs = v.l().clone(),
+        1 => x.ys = v.l().clone(),
+        3 => x._rng = v.rng(),
+        5 => x.base.alive = v.b(),
+        6 => x.base.t = v.i(),
+        _ => panic!("OrchardSpawner: field {} is not a transplant candidate", i),
+    }
+}
+
+fn orchardspawner_method(x: &OrchardSpawner, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn padcoin_get(x: &PadCoin, i: usize) -> V {
+    match i {
+        0 => V::B(x.on_top),
+        1 => V::I(x.wait),
+        2 => V::I(x.c.x),
+        3 => V::I(x.c.y),
+        4 => V::I(x.c.appear_at),
+        5 => V::I(x.c.vy),
+        6 => V::I(x.c.beside_band),
+        7 => V::I(x.c.value),
+        8 => V::B(x.c.behind),
+        9 => V::I(x.c.drift),
+        10 => V::I(x.c.home_x),
+        11 => V::S(x.c.base.kind),
+        12 => V::B(x.c.base.alive),
+        13 => V::I(x.c.base.t),
+        _ => panic!("PadCoin: no field {}", i),
+    }
+}
+
+fn padcoin_set(x: &mut PadCoin, i: usize, v: &V) {
+    match i {
+        0 => x.on_top = v.b(),
+        1 => x.wait = v.i(),
+        2 => x.c.x = v.i(),
+        3 => x.c.y = v.i(),
+        4 => x.c.appear_at = v.i(),
+        5 => x.c.vy = v.i(),
+        6 => x.c.beside_band = v.i(),
+        7 => x.c.value = v.i(),
+        8 => x.c.behind = v.b(),
+        9 => x.c.drift = v.i(),
+        10 => x.c.home_x = v.i(),
+        12 => x.c.base.alive = v.b(),
+        13 => x.c.base.t = v.i(),
+        _ => panic!("PadCoin: field {} is not a transplant candidate", i),
+    }
+}
+
+fn padcoin_method(x: &PadCoin, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn pendulum_get(x: &Pendulum, i: usize) -> V {
+    match i {
+        0 => V::I(x.pivot_x),
+        1 => V::I(x.pivot_y),
+        2 => V::I(x.length),
+        3 => V::I(x.radius),
+        4 => V::I(x.amplitude),
+        5 => V::I(x.period),
+        6 => V::I(x.gust),
+        7 => V::I(x.gust_period),
+        8 => V::I(x.winch),
+        9 => V::I(x.winch_period),
+        10 => V::I(x.twin_x),
+        11 => V::I(x.twin_length),
+        12 => V::I(x.phase),
+        13 => V::I(x.angle),
+        14 => V::I(x.chain),
+        15 => V::I(x.x),
+        16 => V::I(x.y),
+        17 => V::I(x.x2),
+        18 => V::I(x.y2),
+        19 => V::S(x.base.kind),
+        20 => V::B(x.base.alive),
+        21 => V::I(x.base.t),
+        _ => panic!("Pendulum: no field {}", i),
+    }
+}
+
+fn pendulum_set(x: &mut Pendulum, i: usize, v: &V) {
+    match i {
+        0 => x.pivot_x = v.i(),
+        1 => x.pivot_y = v.i(),
+        2 => x.length = v.i(),
+        3 => x.radius = v.i(),
+        4 => x.amplitude = v.i(),
+        5 => x.period = v.i(),
+        6 => x.gust = v.i(),
+        7 => x.gust_period = v.i(),
+        8 => x.winch = v.i(),
+        9 => x.winch_period = v.i(),
+        10 => x.twin_x = v.i(),
+        11 => x.twin_length = v.i(),
+        12 => x.phase = v.i(),
+        13 => x.angle = v.i(),
+        14 => x.chain = v.i(),
+        15 => x.x = v.i(),
+        16 => x.y = v.i(),
+        17 => x.x2 = v.i(),
+        18 => x.y2 = v.i(),
+        20 => x.base.alive = v.b(),
+        21 => x.base.t = v.i(),
+        _ => panic!("Pendulum: field {} is not a transplant candidate", i),
+    }
+}
+
+fn pendulum_method(x: &Pendulum, name: &str) -> Option<V> {
+    match name {
+        "has_twin" => Some(V::B(x.has_twin())),
+        _ => None,
+    }
+}
+
+fn piston_get(x: &Piston, i: usize) -> V {
+    match i {
+        0 => V::I(x.side),
+        1 => V::I(x.y),
+        2 => V::I(x.delay),
+        3 => V::I(x.half),
+        4 => V::I(x.glow_ticks),
+        5 => V::B(x.share_band),
+        6 => V::I(x.y_lo),
+        7 => V::I(x.y_hi),
+        8 => V::I(x.reach),
+        9 => V::B(x.follows),
+        10 => opt(x.leader.is_some()),
+        11 => V::I(x.fixed_y),
+        12 => V::B(x.skip),
+        13 => V::S(x.base.kind),
+        14 => V::B(x.base.alive),
+        15 => V::I(x.base.t),
+        _ => panic!("Piston: no field {}", i),
+    }
+}
+
+fn piston_set(x: &mut Piston, i: usize, v: &V) {
+    match i {
+        0 => x.side = v.i(),
+        1 => x.y = v.i(),
+        2 => x.delay = v.i(),
+        3 => x.half = v.i(),
+        4 => x.glow_ticks = v.i(),
+        5 => x.share_band = v.b(),
+        6 => x.y_lo = v.i(),
+        7 => x.y_hi = v.i(),
+        8 => x.reach = v.i(),
+        9 => x.follows = v.b(),
+        11 => x.fixed_y = v.i(),
+        12 => x.skip = v.b(),
+        14 => x.base.alive = v.b(),
+        15 => x.base.t = v.i(),
+        _ => panic!("Piston: field {} is not a transplant candidate", i),
+    }
+}
+
+fn piston_method(x: &Piston, name: &str) -> Option<V> {
+    match name {
+        "base_x" => Some(V::I(x.base_x())),
+        "extent" => Some(V::I(x.extent())),
+        "glow" => Some(V::I(x.glow())),
+        _ => None,
+    }
+}
+
+fn revvingbouncer_get(x: &RevvingBouncer, i: usize) -> V {
+    match i {
+        0 => V::I(x.level),
+        1 => V::I(x.b.radius),
+        2 => V::I(x.b.lane),
+        3 => V::I(x.b.x),
+        4 => V::I(x.b.y),
+        5 => V::I(x.b.vx),
+        6 => V::I(x.b.vy),
+        7 => V::S(x.b.base.kind),
+        8 => V::B(x.b.base.alive),
+        9 => V::I(x.b.base.t),
+        _ => panic!("RevvingBouncer: no field {}", i),
+    }
+}
+
+fn revvingbouncer_set(x: &mut RevvingBouncer, i: usize, v: &V) {
+    match i {
+        0 => x.level = v.i(),
+        1 => x.b.radius = v.i(),
+        2 => x.b.lane = v.i(),
+        3 => x.b.x = v.i(),
+        4 => x.b.y = v.i(),
+        5 => x.b.vx = v.i(),
+        6 => x.b.vy = v.i(),
+        8 => x.b.base.alive = v.b(),
+        9 => x.b.base.t = v.i(),
+        _ => panic!("RevvingBouncer: field {} is not a transplant candidate", i),
+    }
+}
+
+fn revvingbouncer_method(x: &RevvingBouncer, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn rotor_get(x: &Rotor, i: usize) -> V {
+    match i {
+        0 => V::I(x.blades),
+        1 => V::I(x.blade_max),
+        2 => V::I(x.blade_min),
+        3 => V::I(x.half_w),
+        4 => V::I(x.hub_radius),
+        5 => V::I(x.period),
+        6 => V::I(x.spin),
+        7 => V::I(x.hubs),
+        8 => V::I(x.spread_x),
+        9 => V::I(x.spread_y),
+        10 => V::I(x.lean),
+        11 => V::I(x.center_x),
+        12 => V::I(x.center_y),
+        13 => V::I(x.phase),
+        14 => V::I(x.dir),
+        15 => V::I(x.angle),
+        16 => V::I(x.blade_length),
+        17 => V::S(x.base.kind),
+        18 => V::B(x.base.alive),
+        19 => V::I(x.base.t),
+        _ => panic!("Rotor: no field {}", i),
+    }
+}
+
+fn rotor_set(x: &mut Rotor, i: usize, v: &V) {
+    match i {
+        0 => x.blades = v.i(),
+        1 => x.blade_max = v.i(),
+        2 => x.blade_min = v.i(),
+        3 => x.half_w = v.i(),
+        4 => x.hub_radius = v.i(),
+        5 => x.period = v.i(),
+        6 => x.spin = v.i(),
+        7 => x.hubs = v.i(),
+        8 => x.spread_x = v.i(),
+        9 => x.spread_y = v.i(),
+        10 => x.lean = v.i(),
+        11 => x.center_x = v.i(),
+        12 => x.center_y = v.i(),
+        13 => x.phase = v.i(),
+        14 => x.dir = v.i(),
+        15 => x.angle = v.i(),
+        16 => x.blade_length = v.i(),
+        18 => x.base.alive = v.b(),
+        19 => x.base.t = v.i(),
+        _ => panic!("Rotor: field {} is not a transplant candidate", i),
+    }
+}
+
+fn rotor_method(x: &Rotor, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn sawring_get(x: &SawRing, i: usize) -> V {
+    match i {
+        0 => V::I(x.center_x),
+        1 => V::I(x.ring_min),
+        2 => V::I(x.ring_max),
+        3 => V::I(x.saw_radius),
+        4 => V::I(x.period),
+        5 => V::I(x.fixed_count),
+        6 => V::I(x.ry_num),
+        7 => V::I(x.ry_den),
+        8 => V::I(x.inner_count),
+        9 => V::I(x.inner_min),
+        10 => V::I(x.inner_max),
+        11 => V::I(x.inner_saw),
+        12 => V::I(x.center_y),
+        13 => V::I(x.count),
+        14 => V::I(x.phase),
+        15 => V::I(x.dir),
+        16 => V::I(x.radius),
+        17 => V::I(x.inner_radius),
+        18 => V::I(x.angle),
+        19 => V::L(x.xs.clone()),
+        20 => V::L(x.ys.clone()),
+        21 => V::S(x.base.kind),
+        22 => V::B(x.base.alive),
+        23 => V::I(x.base.t),
+        _ => panic!("SawRing: no field {}", i),
+    }
+}
+
+fn sawring_set(x: &mut SawRing, i: usize, v: &V) {
+    match i {
+        0 => x.center_x = v.i(),
+        1 => x.ring_min = v.i(),
+        2 => x.ring_max = v.i(),
+        3 => x.saw_radius = v.i(),
+        4 => x.period = v.i(),
+        5 => x.fixed_count = v.i(),
+        6 => x.ry_num = v.i(),
+        7 => x.ry_den = v.i(),
+        8 => x.inner_count = v.i(),
+        9 => x.inner_min = v.i(),
+        10 => x.inner_max = v.i(),
+        11 => x.inner_saw = v.i(),
+        12 => x.center_y = v.i(),
+        13 => x.count = v.i(),
+        14 => x.phase = v.i(),
+        15 => x.dir = v.i(),
+        16 => x.radius = v.i(),
+        17 => x.inner_radius = v.i(),
+        18 => x.angle = v.i(),
+        19 => x.xs = v.l().clone(),
+        20 => x.ys = v.l().clone(),
+        22 => x.base.alive = v.b(),
+        23 => x.base.t = v.i(),
+        _ => panic!("SawRing: field {} is not a transplant candidate", i),
+    }
+}
+
+fn sawring_method(x: &SawRing, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn spikeball_get(x: &SpikeBall, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.y),
+        2 => V::L(x.spots.clone()),
+        3 => V::S(x.base.kind),
+        4 => V::B(x.base.alive),
+        5 => V::I(x.base.t),
+        _ => panic!("SpikeBall: no field {}", i),
+    }
+}
+
+fn spikeball_set(x: &mut SpikeBall, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.y = v.i(),
+        2 => x.spots = v.l().clone(),
+        4 => x.base.alive = v.b(),
+        5 => x.base.t = v.i(),
+        _ => panic!("SpikeBall: field {} is not a transplant candidate", i),
+    }
+}
+
+fn spikeball_method(x: &SpikeBall, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn splittingbouncer_get(x: &SplittingBouncer, i: usize) -> V {
+    match i {
+        0 => V::I(x.warn),
+        1 => opt(x.other.is_some()),
+        2 => V::I(x.b.radius),
+        3 => V::I(x.b.lane),
+        4 => V::I(x.b.x),
+        5 => V::I(x.b.y),
+        6 => V::I(x.b.vx),
+        7 => V::I(x.b.vy),
+        8 => V::S(x.b.base.kind),
+        9 => V::B(x.b.base.alive),
+        10 => V::I(x.b.base.t),
+        _ => panic!("SplittingBouncer: no field {}", i),
+    }
+}
+
+fn splittingbouncer_set(x: &mut SplittingBouncer, i: usize, v: &V) {
+    match i {
+        0 => x.warn = v.i(),
+        2 => x.b.radius = v.i(),
+        3 => x.b.lane = v.i(),
+        4 => x.b.x = v.i(),
+        5 => x.b.y = v.i(),
+        6 => x.b.vx = v.i(),
+        7 => x.b.vy = v.i(),
+        9 => x.b.base.alive = v.b(),
+        10 => x.b.base.t = v.i(),
+        _ => panic!("SplittingBouncer: field {} is not a transplant candidate", i),
+    }
+}
+
+fn splittingbouncer_method(x: &SplittingBouncer, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn stalactite_get(x: &Stalactite, i: usize) -> V {
+    match i {
+        0 => V::I(x.x),
+        1 => V::I(x.gap_y),
+        2 => V::I(x.target_y),
+        3 => V::B(x.follows),
+        4 => opt(x.partner.is_some()),
+        5 => V::B(x.top),
+        6 => V::B(x.bottom),
+        7 => V::I(x.gap),
+        8 => V::I(x.half_w),
+        9 => V::I(x.fixed_lo),
+        10 => V::I(x.fixed_hi),
+        11 => V::S(x.base.kind),
+        12 => V::B(x.base.alive),
+        13 => V::I(x.base.t),
+        _ => panic!("Stalactite: no field {}", i),
+    }
+}
+
+fn stalactite_set(x: &mut Stalactite, i: usize, v: &V) {
+    match i {
+        0 => x.x = v.i(),
+        1 => x.gap_y = v.i(),
+        2 => x.target_y = v.i(),
+        3 => x.follows = v.b(),
+        5 => x.top = v.b(),
+        6 => x.bottom = v.b(),
+        7 => x.gap = v.i(),
+        8 => x.half_w = v.i(),
+        9 => x.fixed_lo = v.i(),
+        10 => x.fixed_hi = v.i(),
+        12 => x.base.alive = v.b(),
+        13 => x.base.t = v.i(),
+        _ => panic!("Stalactite: field {} is not a transplant candidate", i),
+    }
+}
+
+fn stalactite_method(x: &Stalactite, name: &str) -> Option<V> {
+    match name {
+        "bottom_tip" => Some(V::I(x.bottom_tip())),
+        "top_tip" => Some(V::I(x.top_tip())),
+        _ => None,
+    }
+}
+
+fn stalker_get(x: &Stalker, i: usize) -> V {
+    match i {
+        0 => V::I(x.side),
+        1 => V::I(x.y),
+        2 => V::I(x.x),
+        3 => V::S(x.base.kind),
+        4 => V::B(x.base.alive),
+        5 => V::I(x.base.t),
+        _ => panic!("Stalker: no field {}", i),
+    }
+}
+
+fn stalker_set(x: &mut Stalker, i: usize, v: &V) {
+    match i {
+        0 => x.side = v.i(),
+        1 => x.y = v.i(),
+        2 => x.x = v.i(),
+        4 => x.base.alive = v.b(),
+        5 => x.base.t = v.i(),
+        _ => panic!("Stalker: field {} is not a transplant candidate", i),
+    }
+}
+
+fn stalker_method(x: &Stalker, name: &str) -> Option<V> {
+    let _ = x;
+    match name {
+        _ => None,
+    }
+}
+
+fn updraft_get(x: &Updraft, i: usize) -> V {
+    match i {
+        0 => V::I(x.x0),
+        1 => V::I(x.x1),
+        2 => V::I(x.half_w),
+        3 => V::I(x.lift),
+        4 => V::I(x.drift_min),
+        5 => V::I(x.drift_span),
+        6 => V::I(x.gust),
+        7 => V::I(x.phase),
+        8 => V::S(x.base.kind),
+        9 => V::B(x.base.alive),
+        10 => V::I(x.base.t),
+        _ => panic!("Updraft: no field {}", i),
+    }
+}
+
+fn updraft_set(x: &mut Updraft, i: usize, v: &V) {
+    match i {
+        0 => x.x0 = v.i(),
+        1 => x.x1 = v.i(),
+        2 => x.half_w = v.i(),
+        3 => x.lift = v.i(),
+        4 => x.drift_min = v.i(),
+        5 => x.drift_span = v.i(),
+        6 => x.gust = v.i(),
+        7 => x.phase = v.i(),
+        9 => x.base.alive = v.b(),
+        10 => x.base.t = v.i(),
+        _ => panic!("Updraft: field {} is not a transplant candidate", i),
+    }
+}
+
+fn updraft_method(x: &Updraft, name: &str) -> Option<V> {
+    match name {
+        "gust_step" => Some(V::I(x.gust_step())),
+        _ => None,
+    }
+}
+
+fn wind_get(x: &Wind, i: usize) -> V {
+    match i {
+        0 => V::I(x.mode),
+        1 => V::I(x.a_y0),
+        2 => V::I(x.a_y1),
+        3 => V::I(x.a_dir),
+        4 => V::I(x.b_y0),
+        5 => V::I(x.b_y1),
+        6 => V::I(x.b_dir),
+        7 => V::S(x.base.kind),
+        8 => V::B(x.base.alive),
+        9 => V::I(x.base.t),
+        _ => panic!("Wind: no field {}", i),
+    }
+}
+
+fn wind_set(x: &mut Wind, i: usize, v: &V) {
+    match i {
+        0 => x.mode = v.i(),
+        1 => x.a_y0 = v.i(),
+        2 => x.a_y1 = v.i(),
+        3 => x.a_dir = v.i(),
+        4 => x.b_y0 = v.i(),
+        5 => x.b_y1 = v.i(),
+        6 => x.b_dir = v.i(),
+        8 => x.base.alive = v.b(),
+        9 => x.base.t = v.i(),
+        _ => panic!("Wind: field {} is not a transplant candidate", i),
+    }
+}
+
+fn wind_method(x: &Wind, name: &str) -> Option<V> {
+    match name {
+        "blowing" => Some(V::B(x.blowing())),
+        "warning" => Some(V::B(x.warning())),
+        _ => None,
+    }
+}

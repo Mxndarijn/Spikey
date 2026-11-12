@@ -57,41 +57,8 @@ pub fn i(v: &Value) -> i64 {
 /// output shows (sorted keys): punctuation before digits before letters, letters compared
 /// without case first (then lower case first). Exact for the ASCII names these checks sort.
 pub fn culture_cmp(a: &str, b: &str) -> Ordering {
-    fn primary(c: char) -> (u32, u32) {
-        match c {
-            '_' => (0, 0),
-            '-' => (0, 1),
-            ',' => (0, 2),
-            ';' => (0, 3),
-            ':' => (0, 4),
-            '!' => (0, 5),
-            '?' => (0, 6),
-            '.' => (0, 7),
-            '(' => (0, 8),
-            ')' => (0, 9),
-            '[' => (0, 10),
-            ']' => (0, 11),
-            '/' => (0, 12),
-            ' ' => (0, 0),
-            '0'..='9' => (1, c as u32),
-            'a'..='z' => (2, c as u32),
-            'A'..='Z' => (2, c.to_ascii_lowercase() as u32),
-            _ => (3, c as u32),
-        }
-    }
-    let pa: Vec<(u32, u32)> = a.chars().map(primary).collect();
-    let pb: Vec<(u32, u32)> = b.chars().map(primary).collect();
-    match pa.cmp(&pb) {
-        Ordering::Equal => {}
-        o => return o,
-    }
-    // Tertiary: lower case before upper case.
-    let ta: Vec<bool> = a.chars().map(|c| c.is_ascii_uppercase()).collect();
-    let tb: Vec<bool> = b.chars().map(|c| c.is_ascii_uppercase()).collect();
-    match ta.cmp(&tb) {
-        Ordering::Equal => a.cmp(b),
-        o => o,
-    }
+    // FastSim.csproj sets InvariantGlobalization: culture compares are ordinal.
+    a.cmp(b)
 }
 
 /// Checks.Yardstick (Yardstick/YardstickCheck.cs), on the port in yardstick/check.rs.
@@ -129,6 +96,8 @@ pub fn all() -> &'static Vec<Box<dyn Check>> {
             Box::new(Yardstick),
             Box::new(sight::SightCheck::default()),
             Box::new(honesty::BlindSeeds),
+            Box::new(crate::boss::check::BossFair),
+            Box::new(crate::difficulty::DifficultyCheck),
         ]
     })
 }
