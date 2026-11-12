@@ -174,7 +174,7 @@ Imitation and the profiling tools run on the FastSim build directly
     FastSim rl bench --dir tools/rlbot               # time per part + fingerprints (same before/after a speed-up)
 
 `measure` plays full runs (seed `first..first+n`, no revives, capped at
-`SimConfig.MAX_TICKS`) for each tier and prints median, p90, mean, the share
+`BotCaps.RUN_CAP`, 60 minutes) for each tier and prints median, p90, mean, the share
 that leaves the first room, and the rooms that killed most. `-Out file.json`
 writes the per-run results. `deaths` replays every death and asks the full
 SurvivalSearch whether the bird could have lived on from where it entered

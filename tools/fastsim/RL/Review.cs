@@ -16,7 +16,7 @@ public static class Review
         string O(string k, string d) => opts.GetValueOrDefault(k, d);
         int threads = Math.Clamp(int.Parse(O("threads", "16")), 1, 16);
         int seeds = int.Parse(O("seeds", "32"));
-        long cap = long.Parse(O("cap", "12000"));
+        long cap = long.Parse(O("cap", BotCaps.RUN_CAP.ToString()));
         switch (what)
         {
             case "horizon":
@@ -380,7 +380,7 @@ public static class Review
         foreach (double m in new[] { 0.01, 0.03, 0.1 }) list.Add(new Handicap(0, 0, m));
         foreach (var hc in list)
         {
-            var runs = Tiers.play(pol, hc, 0, seeds, SimConfig.MAX_TICKS, threads);
+            var runs = Tiers.play(pol, hc, 0, seeds, BotCaps.RUN_CAP, threads);
             var p = runs.Select(r => r.points).ToList();
             Console.WriteLine($"  {hc,-34} median {Tiers.pct(p, 0.5),6:F1}  mean {p.Average(),6:F1}");
         }
@@ -390,7 +390,7 @@ public static class Review
     static int shape(string dir, int seeds, int threads)
     {
         var pol = Policy.load(Path.Combine(dir, "policy.json"));
-        var runs = Tiers.play(pol, Handicap.NONE, 0, seeds, SimConfig.MAX_TICKS, threads);
+        var runs = Tiers.play(pol, Handicap.NONE, 0, seeds, BotCaps.RUN_CAP, threads);
         var p = runs.Select(r => r.points).ToList();
         double med = Tiers.pct(p, 0.5);
         Console.WriteLine($"shape: {seeds} runs, median {med}, p25 {Tiers.pct(p, 0.25)}, p75 {Tiers.pct(p, 0.75)}, p90 {Tiers.pct(p, 0.9)}, mean {p.Average():F1}");

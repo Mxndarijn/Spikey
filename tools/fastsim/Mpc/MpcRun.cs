@@ -37,7 +37,7 @@ public static class MpcRun
         {
             case "measure":
                 return measure(knobs, motor, int.Parse(O("seeds", "400")), long.Parse(O("first", "0")),
-                    long.Parse(O("cap", SimConfig.MAX_TICKS.ToString())), threads, O("out", ""), O("room", ""));
+                    long.Parse(O("cap", BotCaps.RUN_CAP.ToString())), threads, O("out", ""), O("room", ""));
             case "speed":
             {
                 var clock = Stopwatch.StartNew();
@@ -63,7 +63,7 @@ public static class MpcRun
             var sim = new GameSim(seed);
             var bot = new MpcBot(knobs(), motor, seed);
             var taps = new List<long>();
-            long cap = long.Parse(O("cap", SimConfig.MAX_TICKS.ToString()));
+            long cap = long.Parse(O("cap", BotCaps.RUN_CAP.ToString()));
             while (!sim.is_over() && sim.state.tick < cap)
             {
                 bool tap = bot.decide(sim);

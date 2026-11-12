@@ -22,7 +22,7 @@ public static partial class WorldCheck
     static int RunMore(string what, List<string> pos, Dictionary<string, string> opts, int threads)
     {
         string O(string k, string d) => opts.GetValueOrDefault(k, d);
-        long cap = long.Parse(O("cap", SimConfig.MAX_TICKS.ToString()));
+        long cap = long.Parse(O("cap", BotCaps.RUN_CAP.ToString()));
         long first = long.Parse(O("first", "0"));
         double minutes = double.Parse(O("minutes", "55"), System.Globalization.CultureInfo.InvariantCulture);
         if (opts.ContainsKey("guess")) Physics.guess_margin = long.Parse(opts["guess"]) * SimConfig.SUB;

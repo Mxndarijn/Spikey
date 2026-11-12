@@ -65,8 +65,12 @@ The shared protocol from the bot review (`SpikeCage-coord/research/bot-review.md
 
 | set | seeds | cap |
 |---|---|---|
-| quick | 1 .. 100 | `SimConfig.MAX_TICKS` (108 000 ticks, 30 min, about 1 200 points) |
-| full | 1 .. 400 | `SimConfig.MAX_TICKS` |
+| quick | 1 .. 100 | `BotCaps.RUN_CAP` (216 000 ticks, 60 min, about 2 400 points) |
+| full | 1 .. 400 | `BotCaps.RUN_CAP` |
+
+`BotCaps.RUN_CAP` (`tools/fastsim/Bots/BotCaps.cs`) is the bots' cap, twice the game's own
+`SimConfig.MAX_TICKS` (30 min), which replays use; a bot run longer than that can't be
+replayed or rendered by the game. Tables made before 2026-11-12 used `SimConfig.MAX_TICKS`.
 
 A run ends at its first death: no revives. Every JSON states `gameplay_version`. A
 median over 64 seeds moves between 39 and 51 by chance, over 400 between 41 and 46:
