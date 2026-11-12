@@ -30,6 +30,8 @@ public static class Review
                 return atlas(opts, seeds, cap, threads);
             case "blindcheck":
                 return blindcheck(seeds);
+            case "trace":
+                return trace(opts, cap);
             case "sens":
                 return sens(dir, seeds, threads);
             case "shape":
@@ -261,6 +263,56 @@ public static class Review
             }
         Console.WriteLine($"blindcheck: {states} states, {bad} where a second scramble changed the copy" + (bad > 0 ? ": " + string.Join(", ", where.Select(kv => $"{kv.Key} {kv.Value}")) : ""));
         return bad == 0 ? 0 : 1;
+    }
+
+    /// `rl review trace --seed n [--last 150] [--every 10]`: the planner's last
+    /// ticks before its death on one seed: the bird each tick, the wall ahead
+    /// and every hazard's fields every `every` ticks. For reading one death.
+    static int trace(Dictionary<string, string> opts, long cap)
+    {
+        long L(string k, long d) => long.Parse(opts.GetValueOrDefault(k, d.ToString()));
+        long seed = L("seed", 1), last = L("last", 150), every = L("every", 10);
+        var sim = new GameSim(seed);
+        var bot = new BlindPlanner(seed);
+        Console.WriteLine("trace seed " + seed + " [" + configure(bot, opts) + "]");
+        var taps = new List<bool>();
+        while (!sim.is_over() && taps.Count < cap) { bool tap = bot.decide(sim); taps.Add(tap); sim.step(tap); }
+        if (!sim.is_over()) { Console.WriteLine("alive at the cap"); return 0; }
+        long died = taps.Count;
+        Console.WriteLine($"died at tick {died}, score {sim.state.score}, room {sim.room.def.id}/{sim.room.variant_id()}, cause {DeathCause.NAMES[sim.state.death_cause]}");
+        sim = new GameSim(seed);
+        bot = new BlindPlanner(seed);
+        configure(bot, opts);
+        for (int t = 0; t < died; t++)
+        {
+            bool tap = bot.decide(sim);
+            if (t >= died - last)
+            {
+                var st = sim.state;
+                long side = st.vx > 0 ? 1 : 0;
+                if ((t - (died - last)) % every == 0)
+                {
+                    long mask = sim.wall_mask(side);
+                    string wall = string.Concat(Enumerable.Range(0, (int)SimConfig.SLOT_COUNT).Select(k => RoomRules.has_slot(mask, k) ? '#' : '.'));
+                    Console.WriteLine($"  -- wall ahead ({(side == 1 ? "right" : "left")}) {wall}  exit open {st.exit_open} preview {st.exit_preview} side {st.exit_side} a_y {st.exit_a_y / SimConfig.SUB}  anchor {st.anchor_y / SimConfig.SUB}  room t {sim.room.t}");
+                    foreach (var hz in sim.room.hazards.Where(h => h.alive))
+                    {
+                        var parts = new List<string>();
+                        foreach (var f in hz.GetType().GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+                        {
+                            object v = f.GetValue(hz);
+                            if (v is long l) parts.Add($"{f.Name} {(Math.Abs(l) >= 4 * SimConfig.SUB && l % SimConfig.SUB == 0 ? (l / SimConfig.SUB) + "px" : l.ToString())}");
+                            else if (v is bool b) parts.Add($"{f.Name} {(b ? 1 : 0)}");
+                            else if (v is List<long> ls) parts.Add($"{f.Name} [{string.Join(",", ls)}]");
+                        }
+                        Console.WriteLine($"  -- {hz.GetType().Name}: {string.Join(" ", parts)}");
+                    }
+                }
+                Console.WriteLine($"  {t - died,5} x {st.x / SimConfig.SUB,3} y {st.y / SimConfig.SUB,3} vy {st.vy * 10 / SimConfig.SUB,4} {(tap ? "TAP" : "   ")} look {bot.last_look} agree {bot.last_agree} to wall {sim.steps_to_wall(side)}");
+            }
+            sim.step(tap);
+        }
+        return 0;
     }
 
     /// The BlindPlanner (Bots/BlindPlanner.cs) on full runs: deaths per 100

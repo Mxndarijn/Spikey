@@ -208,8 +208,11 @@ public sealed class BlindPlanner
                     // Only the side it is seen sliding to.
                     if (st.target_y > st.gap_y) lo = Math.Max(lo, st.gap_y + 1);
                     else hi = Math.Min(hi, st.gap_y - 1);
-                    st.target_y = lo <= hi ? lo + own.next_below(hi - lo + 1)
-                        : st.gap_y + (st.target_y > st.gap_y ? 1 : -1) * own.next_below(Stalactite.SLIDE * 8 + 1);
+                    // A fang from one side only: the worst case (its tip as far out as it may go).
+                    if (lo > hi) st.target_y = st.gap_y + (st.target_y > st.gap_y ? 1 : -1) * own.next_below(Stalactite.SLIDE * 8 + 1);
+                    else if (st.bottom && !st.top) st.target_y = lo;
+                    else if (st.top && !st.bottom) st.target_y = hi;
+                    else st.target_y = lo + own.next_below(hi - lo + 1);
                 }
                 center = st.target_y;
                 spread = Stalactite.MAX_STEP;
