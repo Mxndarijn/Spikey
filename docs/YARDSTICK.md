@@ -121,6 +121,8 @@ powershell -ExecutionPolicy Bypass -File tools/yardstick.ps1 -Mode leak -Bot pla
 
 ## Human-likeness
 
+- Taps made while the bird waits at a portal (`arrival_hold`) do nothing in the game and
+  are left out of every tap number; `taps_ignored_in_portal_wait` gives their share.
 - `taps_per_s` (per run), and the inter-tap interval histogram. Humans tap at most
   7.7 times a second (Isaksen 2015), so `under_8_ticks` should be about 0. A bot that
   taps on many ticks in a row shows up here.

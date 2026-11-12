@@ -207,8 +207,10 @@ public static class Stats
         double under = ints.Count == 0 ? double.NaN : (double)ints.Count(i => i < HUMAN_MIN_INTERVAL) / ints.Count;
         double err_sd = timing == null ? double.NaN : sd(timing.errors);
         double react = pct(rn, 0.5);
+        long held = runs.Sum(r => (long)r.taps_held), played = runs.Sum(r => (long)r.taps_played);
         var o = new JsonObject
         {
+            ["taps_ignored_in_portal_wait"] = num(held + played == 0 ? double.NaN : (double)held / (held + played), 4),
             ["taps_per_s"] = new JsonObject { ["median"] = num(pct(tps, 0.5)), ["p10"] = num(pct(tps, 0.1)), ["p90"] = num(pct(tps, 0.9)) },
             ["interval"] = new JsonObject
             {
