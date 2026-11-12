@@ -505,11 +505,6 @@ static func surround_rects() -> Array[Rect2]:
 
 func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir: float) -> void:
 	var room := _run.sim.room
-	if room.inset(side) > 0:
-		# Squeeze Box: the wall itself moves in; draw it as a band.
-		var band_x := 0.0 if side == 0 else wall_x
-		var band := INK_SPIKE if color_blind_spikes else _theme.spike
-		draw_rect(Rect2(band_x, 0, wall_x if side == 0 else W - wall_x, H), band)
 	# Spike Belt: the spikes ride the wall this far from their slots.
 	var shift := _run.sim.wall_shift(side) / float(SimConfig.SUB)
 	for slot in SimConfig.SLOT_COUNT:
@@ -529,6 +524,14 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		else:
 			var base_x := wall_x - dir * (full - depth)
 			_draw_spike(Vector2(base_x, cy), Vector2(dir, 0), half, full)
+	if room.inset(side) > 0:
+		# Narrow and Squeeze Box: the wall itself moves in; draw it as a band,
+		# after the spikes, so a spike sliding out of (or back into) the wall
+		# shows only the part in the room, where it kills, as it does at the
+		# screen edge in other rooms.
+		var band_x := 0.0 if side == 0 else wall_x
+		var band := INK_SPIKE if color_blind_spikes else _theme.spike
+		draw_rect(Rect2(band_x, 0, wall_x if side == 0 else W - wall_x, H), band)
 
 
 ## The open exit(s). Safe, so never in the spike colour: the style's colour
