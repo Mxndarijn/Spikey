@@ -8,7 +8,8 @@
 //! `--delay` ticks (default 45, 0.75 s) dies within `--within` ticks (default 120, 2 s).
 //! A tool only: it plays the real arrival code, the same as `_go_through` after the pick.
 //! Output: one TSV row per room variant (room, variant, drawn, share %, skipped heights %,
-//! blind waits %, deaths % within 2 s).
+//! blind waits %, deaths % within 2 s). `--deaths 1` also lists every death (stderr) with its
+//! seed, heights and whether SurvivalSearch finds a way to live after the same delay.
 use std::collections::BTreeMap;
 
 use rayon::prelude::*;
@@ -23,13 +24,15 @@ struct Arrival {
     variant: &'static str,
     blind: bool,
     died: bool,
+    /// --deaths: one line about a death (empty if none).
+    note: String,
 }
 
 /// The planned exit heights the arrivals use: 110..530 px, the exit range.
 const LO_PX: i64 = 110;
 const HI_PX: i64 = 530;
 
-fn arrive(index: i64, i: i64, delay: i64, within: i64) -> Arrival {
+fn arrive(index: i64, i: i64, delay: i64, within: i64, deaths: bool) -> Arrival {
     let def = &RoomCatalog::all()[index as usize];
     let mut sim = GameSim::with(70_001 + i * 7919, def.season, -1, "");
     sim.step(true);
@@ -56,9 +59,20 @@ fn arrive(index: i64, i: i64, delay: i64, within: i64) -> Arrival {
     sim._arrive_in(side, index);
     let variant = if def.variants.is_empty() { "" } else { def.variants[sim.room.variant as usize].id };
     let blind = sim.state.arrival_hold >= SimConfig::ARRIVAL_BLIND;
+    let at = if deaths { Some(sim.clone_deep()) } else { None };
+    let (seed_v, score) = (sim.seed_value, sim.state.score);
     let mut bot = PlannerBot::new(i + 1, 45, 2);
-    let (tick, _) = Reaction::play(sim, delay, &mut bot, within);
-    Arrival { fits, variant, blind, died: tick >= 0 }
+    let (tick, cause) = Reaction::play(sim, delay, &mut bot, within);
+    let mut note = String::new();
+    if let (true, Some(at)) = (tick >= 0 && fits, at) {
+        // Whether any player reacting after `delay` ticks could have lived (SurvivalSearch).
+        let forced = Reaction::forced(&at, delay, delay + 120);
+        note = format!(
+            "{}/{} arrival {} seed {} score {} exit {} px bird {} px side {} died tick {} {} way_to_live {}",
+            def.id, variant, i, seed_v, score, anchor / SimConfig::SUB, (anchor + dy) / SimConfig::SUB, side, tick, cause, !forced
+        );
+    }
+    Arrival { fits, variant, blind, died: tick >= 0, note }
 }
 
 pub fn run(pos: &[String], opts: &Opts) -> i32 {
@@ -66,6 +80,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
     let filter = pos.get(1).cloned().unwrap_or_else(|| "*".to_string());
     let delay: i64 = opts.get("delay").map(|v| v.parse().expect("--delay")).unwrap_or(45);
     let within: i64 = opts.get("within").map(|v| v.parse().expect("--within")).unwrap_or(120);
+    let deaths = opts.get("deaths").is_some();
     let rooms = RoomCatalog::all();
     let mut jobs = Vec::new();
     for index in 0..rooms.len() {
@@ -80,7 +95,14 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             jobs.push((index as i64, i));
         }
     }
-    let out: Vec<(i64, Arrival)> = jobs.par_iter().map(|&(r, i)| (r, arrive(r, i, delay, within))).collect();
+    let out: Vec<(i64, Arrival)> = jobs.par_iter().map(|&(r, i)| (r, arrive(r, i, delay, within, deaths))).collect();
+    if deaths {
+        for (_, a) in &out {
+            if !a.note.is_empty() {
+                eprintln!("{}", a.note);
+            }
+        }
+    }
     println!("room\tvariant\tdrawn\tshare%\tskipped%\tblind%\tdied%");
     let mut by_room: BTreeMap<i64, Vec<&Arrival>> = BTreeMap::new();
     for (r, a) in &out {
