@@ -29,6 +29,11 @@ const BONUS := [20, 3]
 ## Seasonal rooms (not bonus) come up more often while their season is on:
 ## their tier's weights times this over 2.
 const SEASON_BOOST := 3
+## Rooms that change the controls (gravity flips, a shadow of the bird, walls
+## that swap) unlock no earlier than this, however easy bots find them: a new
+## player needs a few rooms first. Their curve starts here, at its weight here.
+const CONTROL_FLOOR := 40
+const CONTROL_ROOMS := ["flip", "echo", "blink"]
 
 ## The tier of every room the picker can pick (not the open first room or
 ## the bosses). Measured on next-features-2 at 5354aac (2026-11-12), the rooms
@@ -99,8 +104,21 @@ static func apply(defs: Array[RoomDef]) -> void:
 			if boost and i % 2 == 1:
 				v = v * SEASON_BOOST / 2
 			pace.append(v)
+		if def.id in CONTROL_ROOMS and pace[0] < CONTROL_FLOOR:
+			pace = floored(pace, CONTROL_FLOOR)
 		def.pace = pace
 		def.from_score = pace[0]
+
+
+## Curve `pace` starting at `at` instead (0 before it): its weight at
+## `at`, then its points after `at`.
+static func floored(pace: PackedInt32Array, at: int) -> PackedInt32Array:
+	var out := PackedInt32Array([at, weight(pace, at)])
+	for i in range(0, pace.size(), 2):
+		if pace[i] > at:
+			out.append(pace[i])
+			out.append(pace[i + 1])
+	return out
 
 
 ## The weight of curve `pace` at `score` (0 before it starts or if empty).

@@ -68,6 +68,20 @@ func test_tiers_unlock_and_grow_in_order() -> void:
 			prev = w
 
 
+func test_rooms_that_change_the_controls_wait_for_the_floor() -> void:
+	for id: String in RoomPacing.CONTROL_ROOMS:
+		var def := RoomCatalog.find(id)
+		assert_eq(def.from_score, RoomPacing.CONTROL_FLOOR, "%s unlocks at the floor" % id)
+		assert_eq(def.weight_at(RoomPacing.CONTROL_FLOOR - 1), 0, id)
+		var tier := PackedInt32Array(RoomPacing.TIERS[id])
+		for score in [40, 70, 150, 300]:
+			assert_eq(
+				def.weight_at(score), RoomPacing.weight(tier, score), "%s keeps its curve" % id
+			)
+	var steady := PackedInt32Array(RoomPacing.STEADY)
+	assert_eq(RoomPacing.floored(steady, 30), PackedInt32Array([30, 8, 40, 10, 100, 10, 250, 2]))
+
+
 func test_seasonal_rooms_are_boosted_but_bonus_rooms_are_not() -> void:
 	var hearts := RoomCatalog.find("hearts")
 	assert_eq(hearts.weight_at(10), 15, "an easy seasonal room: 10 * 3 / 2")

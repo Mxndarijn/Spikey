@@ -13,6 +13,8 @@ impl RoomPacing {
     pub const HARDEST: &'static [i64] = &[90, 4, 160, 16, 300, 20];
     pub const BONUS: &'static [i64] = &[20, 3];
     pub const SEASON_BOOST: i64 = 3;
+    pub const CONTROL_FLOOR: i64 = 40;
+    pub const CONTROL_ROOMS: [&'static str; 3] = ["flip", "echo", "blink"];
 
     pub const TIERS: &'static [(&'static str, &'static [i64])] = &[
         ("lava", Self::EASY),  // 16
@@ -80,9 +82,25 @@ impl RoomPacing {
                 }
                 pace.push(v);
             }
+            if Self::CONTROL_ROOMS.contains(&def.id) && pace[0] < Self::CONTROL_FLOOR {
+                pace = Self::floored(&pace, Self::CONTROL_FLOOR);
+            }
             def.from_score = pace[0];
             def.pace = pace;
         }
+    }
+
+    pub fn floored(pace: &[i64], floor: i64) -> Vec<i64> {
+        let mut out_ = vec![floor, Self::weight(pace, floor)];
+        let mut i = 0;
+        while i < pace.len() {
+            if pace[i] > floor {
+                out_.push(pace[i]);
+                out_.push(pace[i + 1]);
+            }
+            i += 2;
+        }
+        out_
     }
 
     pub fn weight(pace: &[i64], score: i64) -> i64 {
