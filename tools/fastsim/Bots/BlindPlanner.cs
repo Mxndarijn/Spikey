@@ -357,6 +357,9 @@ public sealed class BlindPlanner
     /// treat those mouths as walls from the room's start, ExitZone, before
     /// they are drawn). True = the planner knows where the exits will be.
     public static bool know_exits = false;
+    /// Measurement only: the copy keeps the room's true wall seed (knows every next wall),
+    /// or is a plain copy (knows everything).
+    public static bool know_walls = false, know_all = false;
 
     /// Boss rooms: every attack is drawn from the boss's hidden seed, so the
     /// copy gets its own seed too (the attack being told stays: BossBlind).
@@ -400,6 +403,7 @@ public sealed class BlindPlanner
 #endif
         var c = sim.clone_deep();
         c.memo_arrivals = true;
+        if (know_all) return c;
         bool R(int bit) => (reveal & bit) != 0;
         if (own_anchor >= 0) c.state.anchor_y = own_anchor;
         // The run's seed and the room as entered (kept for a revive, with both RNGs) hold the
@@ -409,6 +413,7 @@ public sealed class BlindPlanner
         c._entry_state = null;
         c._entry_rng = null;
         c._entry_spine = null;
+        long true_seed = c.room.rng_seed;
         { var x = own.next_u32(); if (!R(Reveal.RNG)) c._rng = new SimRng(x); }
         // Seed-only generation: each wall reseeds from the room's seed, the
         // spine picks the next rooms, and the exits are planned from the room's
@@ -416,6 +421,7 @@ public sealed class BlindPlanner
         // (plan_room keeps an exit already on screen as it is).
         { var x = own.next_u32(); if (!R(Reveal.WALLSEED)) c.room.rng_seed = x; }
         { var x = own.next_u32(); if (!R(Reveal.SPINE)) c._spine = new SimRng(x); }
+        if (know_walls) c.room.rng_seed = true_seed;
         if (c.state.plan_at != 0 && !know_exits && !R(Reveal.EXITS)) ExitPlanner.plan_room(c, c.state.plan_at);
         // Sliding stalactite gaps: the column the bird met first slides to
         // within REACH of the height it bounced at, the other to within

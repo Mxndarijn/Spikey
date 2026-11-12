@@ -28,6 +28,12 @@ public static class Review
                 return 0;
             case "atlas":
                 return atlas(opts, seeds, cap, threads);
+            case "exposure":
+                return Autopsy.exposure(opts, seeds, threads);
+            case "bouncefair":
+                return Autopsy.bouncefair(opts, seeds, threads);
+            case "fixtest":
+                return Autopsy.fixtest(opts, threads);
             case "autopsy":
                 return Autopsy.run(opts, seeds, cap, threads);
             case "blindcheck":
@@ -100,6 +106,8 @@ public static class Review
         BlindPlanner.boss_blind = L("hideboss", 1) != 0;
         BlindPlanner.hide_keys = L("hidekeys", 1) != 0;
         bot.own_anchor = L("ownanchor", 1) != 0;
+        BlindPlanner.know_walls = L("knowwalls", 0) != 0;
+        BlindPlanner.know_all = L("knowall", 0) != 0;
         bot.horizon = L("h", bot.horizon);
         bot.past = L("past", bot.past);
         bot.replan = (int)L("k", bot.replan);
@@ -379,6 +387,11 @@ public static class Review
         var bot = new BlindPlanner(seed);
         Console.WriteLine("trace seed " + seed + " [" + configure(bot, opts) + "]");
         var taps = new List<bool>();
+        // --taps dir: the run from a tap file (Autopsy), no planner (look / agree read 0).
+        string tdir = opts.GetValueOrDefault("taps", "");
+        if (tdir != "")
+            foreach (byte b in File.ReadAllBytes(Path.Combine(tdir, $"{seed}.taps"))) { taps.Add(b != 0); sim.step(b != 0); }
+        else
         while (!sim.is_over() && taps.Count < cap) { bool tap = bot.decide(sim); taps.Add(tap); sim.step(tap); }
         if (!sim.is_over()) { Console.WriteLine("alive at the cap"); return 0; }
         long died = taps.Count;
@@ -388,7 +401,7 @@ public static class Review
         configure(bot, opts);
         for (int t = 0; t < died; t++)
         {
-            bool tap = bot.decide(sim);
+            bool tap = tdir != "" ? taps[t] : bot.decide(sim);
             if (t >= died - last)
             {
                 var st = sim.state;

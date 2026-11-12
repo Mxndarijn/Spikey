@@ -246,4 +246,172 @@ public static class Autopsy
         sa.y = sb.y = y0;
         return found;
     }
+
+    /// `rl review fixtest --rows autopsy.tsv --taps dir --cfgs "base;aimanchor=1;n=4,lines=4" [--back 600] [--tries 4]`:
+    /// for every death in `rows`, `tries` planners of each setup (fresh own seeds) start
+    /// `back` ticks before the death (on the true run) and play to AFTER ticks past it.
+    /// Prints, per setup, the deaths it saves (sum of the share of tries alive) and per room.
+    /// Saved minus "base" estimates the deaths a fix removes (it does not see deaths it adds later).
+    public static int fixtest(Dictionary<string, string> opts, int threads)
+    {
+        string rows_path = opts["rows"], taps_dir = opts["taps"];
+        long back = long.Parse(opts.GetValueOrDefault("back", "600"));
+        int tries = int.Parse(opts.GetValueOrDefault("tries", "4"));
+        var cfgs = opts.GetValueOrDefault("cfgs", "base").Split(';');
+        var deaths = File.ReadAllLines(rows_path).Where(l => l.Length > 0 && char.IsDigit(l[0]) && !l.EndsWith("alive"))
+            .Select(l => l.Split('\t')).Select(f => (seed: long.Parse(f[0]), died: long.Parse(f[2]), room: f[3])).ToList();
+        var saved = new double[cfgs.Length, deaths.Count];
+        // Snapshots once; setups one after another (configure sets static switches).
+        var snaps = new GameSim[deaths.Count];
+        Parallel.For(0, deaths.Count, new ParallelOptions { MaxDegreeOfParallelism = threads }, d =>
+        {
+            var (seed, died, _) = deaths[d];
+            var taps = File.ReadAllBytes(Path.Combine(taps_dir, $"{seed}.taps"));
+            long from = Math.Max(0, died - back);
+            var snap = new GameSim(seed);
+            for (long t = 0; t < from; t++) snap.step(taps[t] != 0);
+            snaps[d] = snap;
+        });
+        for (int c = 0; c < cfgs.Length; c++)
+        {
+            var o = new Dictionary<string, string>();
+            foreach (string kv in cfgs[c].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                if (kv.Contains('=')) o[kv.Split('=')[0]] = kv.Split('=')[1];
+            Review.configure(new BlindPlanner(1), o);
+            Parallel.For(0, deaths.Count * tries, new ParallelOptions { MaxDegreeOfParallelism = threads }, j =>
+            {
+                int d = j / tries, r = j % tries;
+                var (seed, died, _) = deaths[d];
+                long from = Math.Max(0, died - back);
+                var sim = snaps[d].clone_deep();
+                var bot = new BlindPlanner(seed * 7919 + r * 31 + 3);
+                Review.configure(bot, o);
+                for (long t = from; t < died + AFTER && !sim.is_over(); t++) sim.step(bot.decide(sim));
+                if (!sim.is_over()) lock (saved) saved[c, d] += 1.0 / tries;
+            });
+            Console.Error.WriteLine($"  done {cfgs[c]}");
+        }
+        Console.WriteLine($"fixtest: {deaths.Count} deaths, start {back} ticks before, {tries} tries each");
+        for (int c = 0; c < cfgs.Length; c++)
+        {
+            double sum = 0;
+            for (int d = 0; d < deaths.Count; d++) sum += saved[c, d];
+            var by = deaths.Select((x, d) => (x.room, s: saved[c, d])).GroupBy(x => x.room)
+                .Select(g => (g.Key, g.Sum(x => x.s), g.Count())).OrderByDescending(x => x.Item2).Take(12);
+            Console.WriteLine($"  {cfgs[c],-40} saves {sum,6:F1}   " + string.Join(", ", by.Select(b => $"{b.Key} {b.Item2:F1}/{b.Item3}")));
+        }
+        if (opts.TryGetValue("out", out var outp))
+        {
+            var sb = new System.Text.StringBuilder("seed\troom\t" + string.Join("\t", cfgs) + "\n");
+            for (int d = 0; d < deaths.Count; d++)
+                sb.AppendLine($"{deaths[d].seed}\t{deaths[d].room}\t" + string.Join("\t", Enumerable.Range(0, cfgs.Length).Select(c => saved[c, d].ToString("F2"))));
+            File.WriteAllText(outp, sb.ToString());
+        }
+        return 0;
+    }
+
+    /// `rl review exposure --taps dir --seeds n [--out f.tsv]`: replays the tap files and counts,
+    /// per room/variant, the visits, the ticks spent and the points scored there, and the deaths.
+    public static int exposure(Dictionary<string, string> opts, int seeds, int threads)
+    {
+        string taps_dir = opts["taps"];
+        var all = new System.Collections.Concurrent.ConcurrentBag<(string room, long visits, long ticks, long points, long deaths, long fork)>();
+        Parallel.For(1, seeds + 1, new ParallelOptions { MaxDegreeOfParallelism = threads }, s =>
+        {
+            string f = Path.Combine(taps_dir, $"{s}.taps");
+            if (!File.Exists(f)) return;
+            var taps = File.ReadAllBytes(f);
+            var sim = new GameSim(s);
+            var acc = new Dictionary<string, long[]>();
+            string id() => sim.room.def.id + "/" + sim.room.variant_id();
+            long[] get(string k) => acc.TryGetValue(k, out var a) ? a : acc[k] = new long[5];
+            string cur = id();
+            get(cur)[0]++;
+            long score0 = sim.state.score;
+            foreach (byte b in taps)
+            {
+                long ri = sim.state.room_index;
+                sim.step(b != 0);
+                get(cur)[1]++;
+                if (sim.state.room_index != ri)
+                {
+                    get(cur)[2] += sim.state.score - score0;
+                    score0 = sim.state.score;
+                    cur = id();
+                    get(cur)[0]++;
+                    if (sim.state.exit_b_kind != ExitKind.NORMAL) get(cur)[4]++;
+                }
+                if (sim.is_over()) break;
+            }
+            get(cur)[2] += sim.state.score - score0;
+            if (sim.is_over()) get(cur)[3]++;
+            foreach (var kv in acc) all.Add((kv.Key, kv.Value[0], kv.Value[1], kv.Value[2], kv.Value[3], kv.Value[4]));
+        });
+        var sb = new System.Text.StringBuilder("room\tvisits\tticks\tpoints\tdeaths\tdeaths_per_100_visits\n");
+        foreach (var g in all.GroupBy(x => x.room).OrderByDescending(g => g.Sum(x => x.deaths)).ThenByDescending(g => g.Sum(x => x.visits)))
+        {
+            long v = g.Sum(x => x.visits), dd = g.Sum(x => x.deaths);
+            sb.AppendLine($"{g.Key}\t{v}\t{g.Sum(x => x.ticks)}\t{g.Sum(x => x.points)}\t{dd}\t{100.0 * dd / Math.Max(1, v):F2}");
+        }
+        string outp = opts.GetValueOrDefault("out", "");
+        if (outp != "") File.WriteAllText(outp, sb.ToString());
+        else Console.Write(sb);
+        return 0;
+    }
+
+    /// `rl review bouncefair --taps dir --seeds n [--every 8] [--react 18]`: replays the tap
+    /// files; at every `every`-th bounce (every bounce in boss rooms) it asks a true-future
+    /// SurvivalSearch whether the bird lives to 40 ticks past the next bounce from the
+    /// bounce itself (`now`) and after `react` more ticks of the run's own taps (`late`).
+    /// The new wall is first on screen at the bounce, so `late` failing while `now` lives
+    /// means only a reaction faster than `react` saves it; `now` failing: the bird was
+    /// already lost when the wall appeared.
+    public static int bouncefair(Dictionary<string, string> opts, int seeds, int threads)
+    {
+        string taps_dir = opts["taps"];
+        int every = int.Parse(opts.GetValueOrDefault("every", "8"));
+        int react = int.Parse(opts.GetValueOrDefault("react", "18"));
+        var all = new System.Collections.Concurrent.ConcurrentBag<(string room, bool boss, bool now, bool late)>();
+        Parallel.For(1, seeds + 1, new ParallelOptions { MaxDegreeOfParallelism = threads }, s =>
+        {
+            string f = Path.Combine(taps_dir, $"{s}.taps");
+            if (!File.Exists(f)) return;
+            var taps = File.ReadAllBytes(f);
+            var sim = new GameSim(s);
+            long n = 0;
+            for (int t = 0; t < taps.Length && !sim.is_over(); t++)
+            {
+                long vx = sim.state.vx, ri = sim.state.room_index;
+                sim.step(taps[t] != 0);
+                if (sim.is_over() || sim.state.vx == vx || sim.state.room_index != ri || vx == 0) continue;
+                bool boss = sim.room.def.boss;
+                if (!boss && n++ % every != 0) continue;
+                long look = sim.steps_to_wall(sim.state.vx > 0 ? 1 : 0) + 40;
+                bool now = new SurvivalSearch().run_quick(sim.clone_deep(), look);
+                bool late = false;
+                if (now)
+                {
+                    var c = sim.clone_deep();
+                    for (int k = 1; k <= react && t + k < taps.Length && !c.is_over(); k++) c.step(taps[t + k] != 0);
+                    late = !c.is_over() && new SurvivalSearch().run_quick(c, look - react);
+                }
+                all.Add((sim.room.def.id + "/" + sim.room.variant_id(), boss, now, late));
+            }
+        });
+        var sb = new System.Text.StringBuilder($"bouncefair: react {react}, every {every}th bounce (boss: all)\nroom\tbounces\tlost_at_bounce\tneeds_fast\tpct_lost\tpct_fast\n");
+        foreach (var g in all.GroupBy(x => x.boss ? x.room : x.room.Split('/')[0] + (x.room.Split('/')[0] == "boss" ? "" : "*")).OrderByDescending(g => g.Count(x => !x.late)))
+        {
+            long b = g.Count(), lost = g.Count(x => !x.now), fast = g.Count(x => x.now && !x.late);
+            sb.AppendLine($"{g.Key}\t{b}\t{lost}\t{fast}\t{100.0 * lost / b:F2}\t{100.0 * fast / b:F2}");
+        }
+        foreach (bool bs in new[] { true, false })
+        {
+            var g = all.Where(x => x.boss == bs).ToList();
+            sb.AppendLine($"ALL {(bs ? "boss" : "normal")}\t{g.Count}\t{g.Count(x => !x.now)}\t{g.Count(x => x.now && !x.late)}\t{100.0 * g.Count(x => !x.now) / Math.Max(1, g.Count):F2}\t{100.0 * g.Count(x => x.now && !x.late) / Math.Max(1, g.Count):F2}");
+        }
+        string outp = opts.GetValueOrDefault("out", "");
+        if (outp != "") File.WriteAllText(outp, sb.ToString());
+        Console.Write(sb);
+        return 0;
+    }
 }
