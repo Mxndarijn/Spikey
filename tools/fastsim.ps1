@@ -17,6 +17,15 @@
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant twin    # one variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Room bramble -Variant all     # each variant
 #   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode runfile -Seed 7 -Out run.json  # a bot run as a run file
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode difficulty -Room gates -Out d.tsv   # difficulty measures
+#   powershell -ExecutionPolicy Bypass -File tools/fastsim.ps1 -Mode difficulty -Step score -In d.tsv -Out report
+#
+# -Mode difficulty (docs/ROOM_DIFFICULTY.md): -Step list|measure|show|score.
+#   measure: -What tube,react,bots (default all three), -Room ids or room/variant
+#   (comma list, default every room), -Seeds room entries per room (default 16),
+#   -Bots (default beginner,normal,good,expert,beast,honest), -Out a TSV (rows
+#   already there are kept: a stopped run carries on). score: -In TSVs, -Out a
+#   report name (writes .md and .json).
 #
 # -Variant (search, rooms, reaction): play that room variant id instead of the
 #   one the RNG draws ("all": each variant of each matching room in turn, one
@@ -37,7 +46,7 @@
 # names the first tick that differs. Port the change (tools/fastsim/PORTING.md)
 # until it passes.
 param(
-    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check", "runfile")]
+    [ValidateSet("search", "searchruns", "rooms", "runs", "parity", "bench", "reaction", "odds", "combos", "check", "runfile", "difficulty")]
     [string]$Mode = "search",
     [int]$Seeds = 0,
     [string]$Room = "*",
@@ -55,6 +64,11 @@ param(
     # runfile: the run's seed (the bot's seed is -Seeds, default 1).
     [long]$Seed = 1,
     [switch]$Quick,
+    # difficulty: the step, the measures, the bots and the input TSVs.
+    [string]$Step = "measure",
+    [string]$What = "tube,react,bots",
+    [string]$Bots = "",
+    [string]$In = "",
     # Use the FastSim already built (tools/check.ps1 builds once, then runs
     # parity and the checks side by side).
     [switch]$NoBuild
@@ -127,6 +141,23 @@ if ($Mode -eq "check") {
     if ($Jobs -gt 0) { $ca += @("--jobs", $Jobs) }
     if ($Filter) { $ca += @("--filter", $Filter) }
     & $exe @ca
+    exit $LASTEXITCODE
+}
+
+if ($Mode -eq "difficulty") {
+    $da = @("difficulty", $Step, "--priority", $Priority.ToLower())
+    if ($Room -ne "*") { $da += @("--rooms", $Room) }
+    if ($Step -eq "measure") {
+        $da += @("--what", $What, "--trials", $(if ($Seeds) { $Seeds } else { 16 }), "--jobs", $(if ($Jobs -gt 0) { $Jobs } else { 4 }),
+            "--out", $(if ($Out) { [IO.Path]::GetFullPath($Out) } else { "difficulty.tsv" }))
+        if ($Bots) { $da += @("--bots", $Bots) }
+    }
+    if ($Step -eq "show") { $da += @("--first", $Seed) }
+    if ($Step -eq "score") {
+        $da += @("--in", (($In -split ",") | ForEach-Object { [IO.Path]::GetFullPath($_) }) -join ",")
+        if ($Out) { $da += @("--out", [IO.Path]::GetFullPath($Out)) }
+    }
+    & $exe @da
     exit $LASTEXITCODE
 }
 

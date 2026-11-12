@@ -21,6 +21,7 @@ using FastSim;
 //   fastsim check [all|passable,arrival,...]        the check's bot tests (Checks.cs);
 //                                                   --filter x as tools/check.ps1 -TestFilter
 //   fastsim sameseed <seed> [season] [ticks]        one seed played several ways, what differs (SameSeed.cs)
+//   fastsim difficulty list|measure|score         a difficulty score per room and variant (Difficulty/, docs/ROOM_DIFFICULTY.md)
 //   fastsim runfile <seed> [bot_seed] --out <file>  a gap_seeker run as a run file
 //                                                   (Bots/RunFile.cs, docs/RENDERING.md)
 // Options: --out <file.json>, --jobs <n> (worker processes), --first <n>
@@ -87,6 +88,7 @@ if (mode == "world") return WorldCheck.Run(pos, opts);
 if (mode == "yardstick") return FastSim.Yard.YardstickMain.run(pos, opts);
 if (mode == "mpc") return FastSim.Mpc.MpcRun.run(pos, opts);
 if (mode == "sameseed") return SameSeed.run(pos, opts);
+if (mode == "difficulty") return FastSim.Diff.DiffMain.run(pos, opts);
 if (mode == "runfile")
     return RunFile.run_mode(long.Parse(P(1, "1")), long.Parse(P(2, "1")), opts.GetValueOrDefault("out", "run.json"));
 if (Targets.variant != "")
