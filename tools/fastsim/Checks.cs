@@ -297,6 +297,7 @@ static partial class Checks
             ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
             ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),
             ("ghostdoors", 1150), ("piston", 1150), ("stalac", 1150), ("crates", 1150), ("gifts", 1150),
+            ("boss_watcher", 1950), ("boss_crusher", 1950), ("boss_saw", 1950),
         };
 
         public override int count() => cases.Count;
@@ -529,6 +530,8 @@ static partial class Checks
             var bot = new SimRng(7);
             long room_index = sim.state.room_index;
             long entry_score = sim.state.score;
+            // A boss room's exit opens after BOSS_POINTS bounces there.
+            long cap = sim.room.def.boss ? SimConfig.BOSS_POINTS : SimConfig.POINTS_PER_ROOM;
             long full = 0;
             var fails = new List<string>();
             while (sim.state.tick < MAX_TICKS)
@@ -538,12 +541,13 @@ static partial class Checks
                 sim.step(SimBots.gap_seeker(sim, bot));
                 if (sim.state.room_index != room_index)
                 {
-                    if (sim.state.score - entry_score == SimConfig.POINTS_PER_ROOM) full++;
+                    if (sim.state.score - entry_score == cap) full++;
                     room_index = sim.state.room_index;
                     entry_score = sim.state.score;
+                    cap = sim.room.def.boss ? SimConfig.BOSS_POINTS : SimConfig.POINTS_PER_ROOM;
                 }
                 long gained = sim.state.score - entry_score;
-                if (gained > SimConfig.POINTS_PER_ROOM || sim.room.points > SimConfig.POINTS_PER_ROOM)
+                if (gained > cap || sim.room.points > cap)
                 {
                     fails.Add($"{label}: {gained} points in one room (tick {sim.state.tick})");
                     break;

@@ -17,10 +17,17 @@ public static class ExitPlanner
         return out_;
     }
 
+    public static bool is_fork(GameSim sim, long at)
+    {
+        if (sim.is_practice()) return false;
+        if (sim.room.def != null && sim.room.def.boss) return true;
+        return at % SimConfig.FORK_EVERY == 0 && at % SimConfig.BOSS_EVERY != 0;
+    }
+
     public static void plan(GameSim sim, SimRng rng, long side, long at)
     {
         sim.state.exit_side = side;
-        bool fork = at % SimConfig.FORK_EVERY == 0 && !sim.is_practice();
+        bool fork = is_fork(sim, at);
         if (fork)
         {
             long top = random_y(sim, rng, SimConfig.EXIT_MIN_Y, SimConfig.FORK_SPLIT_Y - SimConfig.EXIT_HALF);

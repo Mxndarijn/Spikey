@@ -3,7 +3,7 @@ namespace FastSim;
 public static class Event
 {
     public const int START = 0, FLAP = 1, BOUNCE = 2, SCORE = 3, ROOM_CHANGE = 4, DEATH = 5,
-        COIN_SPAWN = 6, COIN = 7, EXIT_OPEN = 8, EXIT_PREVIEW = 9, REVIVE = 10;
+        COIN_SPAWN = 6, COIN = 7, EXIT_OPEN = 8, EXIT_PREVIEW = 9, REVIVE = 10, BOSS_DOWN = 11;
 }
 
 /// Port of sim/game_sim.gd. Same names, same order of everything.
@@ -350,34 +350,50 @@ public sealed class GameSim
     void _maybe_open_exit(long side)
     {
         if (state.exit_open) return;
-        long every = SimConfig.POINTS_PER_ROOM;
         if (state.exit_preview)
         {
-            if (state.score % every == 0)
+            if (_exit_due(state.score))
             {
                 state.exit_preview = false;
                 state.exit_open = true;
                 events.Add(Event.EXIT_OPEN);
+                _boss_down();
             }
             return;
         }
-        if ((state.score + 1) % every == 0)
+        if (_exit_due(state.score + 1) && !room.def.boss)
         {
             state.exit_preview = true;
             ExitPlanner.use_plan(this, 1 - side, state.score + 1);
             events.Add(Event.EXIT_PREVIEW);
         }
-        else if (state.score % every == 0)
+        else if (_exit_due(state.score))
         {
             state.exit_open = true;
             ExitPlanner.use_plan(this, side, state.score);
             events.Add(Event.EXIT_OPEN);
+            _boss_down();
         }
+    }
+
+    public bool _exit_due(long at)
+    {
+        if (room.def.boss) return at == room.entry_score + SimConfig.BOSS_POINTS;
+        return at % SimConfig.POINTS_PER_ROOM == 0;
+    }
+
+    void _boss_down()
+    {
+        if (!room.def.boss) return;
+        events.Add(Event.BOSS_DOWN);
+        if (!is_practice())
+            collect_coin(state.x, state.y, SimConfig.BOSS_COINS[SimConfig.boss_tier(room.entry_score) - 1]);
     }
 
     public long next_exit_score()
     {
         if (state.exit_open) return state.score;
+        if (room.def != null && room.def.boss) return room.entry_score + SimConfig.BOSS_POINTS;
         long every = SimConfig.POINTS_PER_ROOM;
         return (state.score / every + 1) * every;
     }
@@ -429,7 +445,7 @@ public sealed class GameSim
         return steps;
     }
 
-    void _go_through(long side, long kind, long through_y)
+    public void _go_through(long side, long kind, long through_y)
     {
         state.exit_open = false;
         state.route = kind;
@@ -445,12 +461,20 @@ public sealed class GameSim
         state.y = _arrival_y(state.y);
         state.anchor_y = _arrival_y(door);
         long next = practice_room;
-        if (!is_practice()) next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y);
+        if (is_practice()) { }
+        else if (_boss_due())
+        {
+            next = RoomCatalog.pick_boss(_spine, state.bosses_met);
+            state.bosses_met |= RoomCatalog.boss_bit(next);
+        }
+        else next = RoomCatalog.pick_next(_spine, room.index, state.score, season, state.anchor_y);
         _seed_room();
         long skip = _arrival_retries(side, next);
         for (long i = 0; i < skip; i++) _rng.next_u32();
         _arrive_in(side, next);
     }
+
+    public bool _boss_due() => state.score > 0 && state.score % SimConfig.BOSS_EVERY == 0 && !room.def.boss;
 
     public static long _arrival_y(long y)
         => G.clampi(y, SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE, SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE);
@@ -519,6 +543,7 @@ public sealed class GameSim
         _arrive(side, Event.ROOM_CHANGE);
         ExitPlanner.plan_room(this, next_exit_score());
         state.arrival_hold = _arrival_wait;
+        if (room.def.boss) state.arrival_hold = G.maxi(state.arrival_hold, SimConfig.BOSS_HOLD);
         _arrival_wait = SimConfig.PORTAL_HOLD;
         _keep_entry();
     }

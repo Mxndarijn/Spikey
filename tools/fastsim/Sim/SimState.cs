@@ -40,6 +40,7 @@ public sealed class SimState
     public long exit_b_y = 0;
     public long exit_b_kind = 0;
     public long route = 0;
+    public long bosses_met = 0;
     public long pickup_x = 0;
     public long pickup_y = 0;
     public long arrival_hold = 0;
@@ -103,6 +104,7 @@ public sealed class SimState
         h = SimHash.mix(h, plan_a_kind_right);
         h = SimHash.mix(h, plan_b_y_right);
         h = SimHash.mix(h, plan_at);
+        h = SimHash.mix(h, bosses_met);
         return h;
     }
 }

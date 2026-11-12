@@ -26,6 +26,7 @@ public sealed class RoomRuntime
     public long gravity = 1;
     public long rng_seed = 0;
     public long walls = 0;
+    public long entry_score = 0;
 
     public RoomRuntime clone_deep()
     {
@@ -50,6 +51,7 @@ public sealed class RoomRuntime
     {
         def = p_def;
         index = p_index;
+        entry_score = sim.state.score;
         t = 0;
         ticks = 0;
         points = 0;
@@ -163,9 +165,10 @@ public sealed class RoomRuntime
 
     public long spike_bonus(long side = 0)
     {
-        if (def.variants.Count == 0) return 0;
+        long boss = def.boss ? SimConfig.boss_tier(entry_score) - 1 : 0;
+        if (def.variants.Count == 0) return boss;
         var v = _variant();
-        return v.extra_spikes + (side == 0 ? v.lean : -v.lean);
+        return boss + v.extra_spikes + (side == 0 ? v.lean : -v.lean);
     }
 
     public long wall_left() => inset(0);
@@ -220,7 +223,7 @@ public sealed class RoomRuntime
 
     public long checksum(long h)
     {
-        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right, gravity, rng_seed, walls);
+        long out_ = Hazard.mix_all(h, index, t, ticks, points, variant, tide_left, tide_right, tide_salt, blink_left, blink_right, gravity, rng_seed, walls, entry_score);
         foreach (var hz in hazards)
         {
             out_ = SimHash.mix(out_, G.B(hz.alive));

@@ -509,8 +509,18 @@ static class Parity
             "gr" => Checks.Setups.gates_revived(long.Parse(f[1]), f[2] == "1", long.Parse(f[3]), long.Parse(f[4]), f[5]),
             "ir" => Checks.Setups.isles_revived(f[1], long.Parse(f[2]), f[3], long.Parse(f[4]), f[5]),
             "n" => near(f),
+            "b" => boss_portal(f),
             _ => throw new Exception("unknown setup " + text),
         };
+    }
+
+    static GameSim boss_portal(string[] f)
+    {
+        var sim = new GameSim(long.Parse(f[1]), long.Parse(f[2]));
+        sim.step(true);
+        sim.state.score = long.Parse(f[3]);
+        sim._go_through(1, ExitKind.NORMAL, 320 * SimConfig.SUB);
+        return sim;
     }
 
     static GameSim near(string[] f)

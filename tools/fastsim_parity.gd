@@ -22,6 +22,8 @@ extends SceneTree
 ##       gr:<seed>:<open>:<side>:<y>:<variant>    BotSetups.gates_revived
 ##       ir:<room id>:<seed>:<exit>:<side>:<variant>  BotSetups.isles_revived
 ##       n:<room id>:<seed>:<variant>:<points>    BotSetups.practice, score += points
+##       b:<seed>:<season>:<score>:-              a run at <score> through a portal
+##                                                (a boss's at every BOSS_EVERY)
 ##     (variant "-" for none). <driver> is who chose the taps: "replay" (C#
 ##     only replays them), "gap" (SimBots.gap_seeker, SimRng 7, revives when it
 ##     can), "tap:<seed>" (SimBots.random_tapper, until the run ends) or
@@ -49,6 +51,8 @@ const RUN_SEEDS := 3
 const VARIANT_TICKS := 300
 const ARRIVAL_TICKS := 200
 const REVIVE_TICKS := 240
+## Ticks of each run through a boss portal (all three phases).
+const BOSS_TICKS := 1500
 const EXITS: Array[String] = ["none", "open", "ghost"]
 
 var _lines := PackedStringArray()
@@ -169,6 +173,10 @@ func _room_check_cases(quick: bool) -> void:
 		_setup_case("isles_near_" + v, "n:isles:%d:%s:28" % [7 + v.length(), v], VARIANT_TICKS, 0)
 	for v: String in ["classic", "drifting", "golden"]:
 		_setup_case("eggs_near_" + v, "n:eggs:%d:%s:28" % [3 + v.length(), v], VARIANT_TICKS, 0)
+	for k in 3 if quick else 6:
+		var b := "b:%d:%d:%d:-" % [77 + k * 13, Seasons.NONE, SimConfig.BOSS_EVERY * (1 + k % 3)]
+		_setup_case("boss_portal_%d" % k, b, BOSS_TICKS, 0)
+		_gap_case("gap_boss_%d" % k, b)
 	for k in 2 if quick else 8:
 		_tap_case("tap_%d" % k, "p:%d:%d:-1:-" % [1001 + k * 7, Seasons.NONE], k + 1)
 	_qsearch_case("qsearch_isles", "n:isles:322:drifting:28", 200)
@@ -201,6 +209,12 @@ static func setup(text: String) -> GameSim:
 		"n":
 			var sim := BotSetups.practice(f[1], int(f[2]), "" if f[3] == "-" else f[3])
 			sim.state.score += int(f[4])
+			return sim
+		"b":
+			var sim := GameSim.new(int(f[1]), int(f[2]))
+			sim.step(true)
+			sim.state.score = int(f[3])
+			sim._go_through(1, SimState.ExitKind.NORMAL, 320 * SimConfig.SUB)
 			return sim
 	return null
 
