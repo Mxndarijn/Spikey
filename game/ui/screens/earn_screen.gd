@@ -3,7 +3,7 @@ extends Control
 ## The Wallet's second tab, Earn free (it was Earn diamonds): every way to win
 ## diamonds, each a paper card that says what is next. Opens from the Wallet's
 ## tabs and from the prize popup's "Ways to earn diamonds".
-## - Daily board: the three prize tiers (Economy.DAILY_PRIZES), the player's
+## - Today's board: the three prize tiers (Economy.DAILY_PRIZES), the player's
 ##   place today and the time to the reset (from the Daily LeaderboardBoard).
 ## - Best score: the four milestones (EarnRules), won or still to win, and a bar.
 ## - Streak: this week of days in a row as seven dots.
@@ -185,7 +185,7 @@ func _daily_card() -> PanelContainer:
 		_tiers.append(chip)
 	_daily_line = UiKit.wrapped("", &"MutedLabel", LINE_W)
 	_daily_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	return _card("Daily board", _reset, [row, _daily_line])
+	return _card("Today's board", _reset, [row, _daily_line])
 
 
 func _best_card() -> PanelContainer:

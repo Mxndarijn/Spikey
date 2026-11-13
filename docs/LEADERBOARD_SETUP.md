@@ -1,8 +1,10 @@
 # Leaderboards for friends (Supabase free plan)
 
-The game shows two boards: **Daily** (best run per player today, resets at
-midnight Amsterdam time) and **All-time** (best run per player ever). They live
-in a free Supabase project. Nothing here costs money and no card is needed.
+The game shows three boards: **Today** (best run per player today, each run on
+its own seed, resets at midnight Amsterdam time; its id is still `daily`),
+**Daily Run** (best try per player on today's one map, see below) and
+**All-time** (best run per player ever). They live in a free Supabase project.
+Nothing here costs money and no card is needed.
 
 Without the config file below, the game shows made-up sample boards instead.
 
@@ -36,9 +38,11 @@ code and only runs that match their score show on the boards (see
    Tokens), `SUPABASE_PROJECT_REF` (the id in the project URL) and
    `SUPABASE_DB_PASSWORD` (no encoding needed). Or paste the migration file
    into the SQL Editor by hand; running it twice is safe.
-   To use another time zone for the daily reset, replace `Europe/Amsterdam`
-   in the migration before it is applied (three places). Later database changes
-   go in a new file in `supabase/migrations/`; never edit one that already ran.
+   Both daily boards (Today and Daily Run) reset on one clock,
+   `spikey_board_zone()` in `20261113130000_daily_run.sql` (`Europe/Amsterdam`).
+   To move it, replace that one function in a new migration. Later database
+   changes go in a new file in `supabase/migrations/`; never edit one that
+   already ran.
 4. **Copy the address and the public key**: Project Settings -> API (or
    "Data API" / "API Keys"). You need the Project URL and the public
    `anon` key (newer projects call it the "publishable" key). Never use the
@@ -176,3 +180,34 @@ runs: each player's best checked score and gold earned (`run_carry`, for the Ear
 screen and `gold_excess`) and the days they played (`played_days`, for streaks).
 Wallets, prizes and saves are not touched. Don't use `truncate public.runs`: it
 skips all of that, so streaks break and honest saves look like too much gold.
+
+## Daily Run
+
+One map a day, the same for every player (`20261113130000_daily_run.sql`,
+client: `meta/daily_run_rules.gd`, `game/app/daily_run_flow.gd`).
+
+- **The map**: the first call of a day makes its `daily_runs` row: the day's
+  number (No. 1 is 2026-11-14), a seed from md5(server secret + day) and the
+  day's season (`spikey_season_of`, the same calendar as `SeasonCalendar`). The
+  secret lives in `daily_run_secret` and never leaves the database, so nobody
+  can play tomorrow's map early. The seed comes only with a try.
+- **Tries**: `start_daily_try` hands out tries 1 to 3 (`spikey_daily_run_tries`,
+  `DailyRunRules.TRIES_PER_DAY`); a try counts once it started. The run goes
+  back with `submit_daily_run` (once per try; the day's seed and season or it is
+  refused; no revives) and is checked by the same checker as any run. It counts
+  for the day the try started, even when it arrives after midnight.
+- **The board**: `get_board('daily_run')`, best try per player today. Other
+  players' replays stay locked until the day is over (`locked` rows, `get_run`).
+  Today and All-time show endless runs only. Daily Run runs still count, like
+  any checked run, for the best-score milestones, the 7-day streak and the gold
+  ceiling.
+- **Prizes**: the top 10 of a finished day win `spikey_daily_run_prize` (the
+  same tiers as Today: 3, 2, 2, then 1; `Economy.DAILY_RUN_PRIZES` holds the
+  same table). With both boards the game pays 28 diamonds a day. They are paid
+  the same lazy way as Today's (`spikey_settle_days`, inside `get_wallet`,
+  `claim_prizes` and `get_earn_status`), show in the wallet with
+  `"board": "daily_run"` and are claimed with the rest (ledger reason
+  `daily_run_prize`).
+
+Database tests: `supabase/tests/80_test_daily_run.sql` (`tools/db_test.ps1`,
+needs Docker).

@@ -5,6 +5,8 @@ extends HBoxContainer
 ## top corners) with a medal disc holding the place and the score. First
 ## stands tallest. An empty board shows "?" where players will stand. On the
 ## daily board each place shows its diamond prize ("+3 ◆") above its block.
+## `on_paper`: inside a paper card (yesterday's Daily Run popup): narrower
+## spots, ink names and paper-raised blocks.
 
 const GOLD := Color("#FFC93C")
 const SILVER := Color("#D9DDE8")
@@ -17,6 +19,7 @@ const LOOK := {
 	3: [BRONZE, 48.0],
 }
 const SPOT_WIDTH := 88.0
+const PAPER_SPOT_WIDTH := 76.0
 const FLYER_BODY := 36.0
 const MEDAL := 28.0
 const SCORE_SIZE := 20
@@ -27,18 +30,23 @@ var _spots := []
 var _prizes := false
 ## The board the prizes are for (LeaderboardService.prize).
 var _board_id := LeaderboardService.DAILY
+var _paper := false
+var _spot_w := SPOT_WIDTH
 
 
 func _init(
 	entries: Array[LeaderboardBoard.Entry],
 	prizes: bool = false,
-	board_id: String = LeaderboardService.DAILY
+	board_id: String = LeaderboardService.DAILY,
+	on_paper: bool = false
 ) -> void:
 	_prizes = prizes
 	_board_id = board_id
+	_paper = on_paper
+	_spot_w = PAPER_SPOT_WIDTH if on_paper else SPOT_WIDTH
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	alignment = BoxContainer.ALIGNMENT_CENTER
-	add_theme_constant_override("separation", 14)
+	add_theme_constant_override("separation", 8 if on_paper else 14)
 	for place in [2, 1, 3]:
 		var e: LeaderboardBoard.Entry = entries[place - 1] if entries.size() >= place else null
 		add_child(_column(place, e))
@@ -49,7 +57,7 @@ func _column(place: int, e: LeaderboardBoard.Entry) -> Control:
 	var look: Array = LOOK[place]
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.custom_minimum_size = Vector2(SPOT_WIDTH, 0)
+	col.custom_minimum_size = Vector2(_spot_w, 0)
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
 	col.add_theme_constant_override("separation", 3)
 	if e != null:
@@ -70,19 +78,19 @@ func _flyer(e: LeaderboardBoard.Entry) -> Control:
 	var art := FlyerArt.new(LeaderboardRow.flyer_texture(e.flyer_id), FLYER_BODY)
 	art.bob = false
 	art.trail_dots = 0
-	art.custom_minimum_size = Vector2(SPOT_WIDTH, FLYER_BODY * 1.3)
+	art.custom_minimum_size = Vector2(_spot_w, FLYER_BODY * 1.3)
 	return art
 
 
 func _name(text: String) -> Label:
 	var l := Label.new()
-	l.theme_type_variation = &"SkyCaption"
+	l.theme_type_variation = &"InkLabel" if _paper else &"SkyCaption"
 	l.add_theme_font_size_override("font_size", NAME_SIZE)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.text = text
 	l.clip_text = true
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	l.custom_minimum_size = Vector2(SPOT_WIDTH, 0)
+	l.custom_minimum_size = Vector2(_spot_w, 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -110,13 +118,13 @@ func _waiting() -> Control:
 ## (with the small heart of a revived run).
 func _block(look: Array, score: String, place: int, revived: bool = false) -> Control:
 	var block := PanelContainer.new()
-	var box := UiTheme.flat(UiTokens.PANEL, 0, 0)
+	var box := UiTheme.flat(UiTokens.PANEL_RAISED if _paper else UiTokens.PANEL, 0, 0)
 	box.corner_radius_top_left = 16
 	box.corner_radius_top_right = 16
 	box.content_margin_top = 8
 	box.content_margin_bottom = 2
 	block.add_theme_stylebox_override("panel", box)
-	block.custom_minimum_size = Vector2(SPOT_WIDTH, look[1])
+	block.custom_minimum_size = Vector2(_spot_w, look[1])
 	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE

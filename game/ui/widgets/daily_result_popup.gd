@@ -2,7 +2,7 @@ class_name DailyResultPopup
 extends Control
 ## Yesterday's Daily Run, shown once on Home after the reset when the player
 ## had a try on it but no prize (a prize shows in DailyPrizePopup instead): the
-## day, the player's place, the first three and Watch for the winner's run,
+## day, the player's place, the first three on a podium and Watch for the winner's run,
 ## whose replay is open now. A flat paper card over the dimmed room; the close
 ## button in its top right.
 
@@ -16,7 +16,7 @@ const HEADLINE_SIZE := 64
 var _past: DailyRunInfo.Yesterday
 var _rank := Label.new()
 var _line := Label.new()
-var _top := VBoxContainer.new()
+var _podium: Podium
 var _watch: Button
 
 
@@ -54,16 +54,9 @@ func _init(past: DailyRunInfo.Yesterday) -> void:
 	_line.custom_minimum_size = Vector2(200, 0)
 	_line.text = summary(past)
 	col.add_child(_line)
-	_top.add_theme_constant_override("separation", UiTokens.SPACE_1)
-	for e in past.top:
-		var row := HBoxContainer.new()
-		var who := UiKit.label("%d  %s" % [e.rank, e.player_name], &"InkLabel", false)
-		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		who.clip_text = true
-		row.add_child(who)
-		row.add_child(UiKit.label(str(e.score), &"NameLabel", false))
-		_top.add_child(row)
-	col.add_child(_top)
+	# The first three on the same podium as the boards, with their prizes.
+	_podium = Podium.new(past.top, true, LeaderboardService.DAILY_RUN, true)
+	col.add_child(_podium)
 	var leader := winner(past)
 	if leader != null:
 		_watch = UiKit.action_button("Watch %s's run" % leader.player_name)
@@ -93,6 +86,10 @@ static func winner(past: DailyRunInfo.Yesterday) -> LeaderboardBoard.Entry:
 
 func rank_text() -> String:
 	return _rank.text
+
+
+func podium() -> Podium:
+	return _podium
 
 
 func watch_button() -> Button:

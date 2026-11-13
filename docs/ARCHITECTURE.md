@@ -470,7 +470,8 @@ Attest / Play Integrity to confirm a real device.
 | Designed UI (game over, menus, buttons) | SVGs in `assets/ui/` + one shared UI `Theme` resource ([BACKLOG](BACKLOG.md)) |
 | Worlds | `data/design/` (tokens) -> `data/themes/` (generated `ThemeDef`), `game/run/scenes/worlds/<id>.gd` (`WorldScene`) |
 | Pause button | `game/ui/hud` + `RunController.set_paused()` |
-| Daily board | Best normal run of the day, resets at local midnight (replaced Hourly; the same-seed daily challenge was dropped) |
+| Today board | Best normal run of the day (board id `daily`), resets at midnight on the boards' one clock (`spikey_board_zone`, Amsterdam) |
+| Daily Run | One map a day for everyone: `meta/daily_run_rules.gd` (3 tries, share text), `services/daily_run_info.gd` + `daily_try.gd` (the server's answers), `LeaderboardService.request_daily` / `start_daily_try` / `submit_daily_run`, `game/app/daily_run_flow.gd`, `game/ui/screens/daily_run_screen.gd`, Home's pill, the Daily Run tab; server: migration `20261113130000_daily_run.sql` (seed from a server secret, no revive, replays locked until the reset, same prize tiers as Today). `sim/` is unchanged: the seed and season are run inputs |
 | Boss rooms | `sim/rooms/catalog_boss.gd` (RoomDef.boss), a hazard extending `sim/hazards/boss.gd` (phases, tells, down), its painter, `RoomInfo`; see [BOSS_ROOMS.md](BOSS_ROOMS.md) |
 | Seasonal rooms | `sim/rooms/catalog_seasonal.gd`, `meta/season_calendar.gd` (season is a run input) |
 | Haptics and sound | `game/audio/audio_director.gd` listening to the run's signals; haptics in `game/main.gd` |

@@ -360,6 +360,9 @@ func test_yesterdays_result_shows_once() -> void:
 	var home := main._menus.current() as HomeScreen
 	assert_true(home.daily_result() != null, "yesterday's result pops up")
 	assert_eq(home.daily_result().rank_text(), "#23")
+	assert_eq(home.daily_result().podium().get_child_count(), 3, "yesterday's podium")
+	var card_w := ScreenLayout.ROOM.x - 2 * (DailyResultPopup.SIDE + 20)
+	assert_true(home.daily_result().podium().get_combined_minimum_size().x <= card_w, "it fits")
 	home.close_daily_result()
 	main._daily._on_loaded(info)
 	assert_eq(home.daily_result(), null, "once")
