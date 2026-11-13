@@ -174,6 +174,14 @@ func test_captions_and_notes() -> void:
 	var nobody := LeaderboardBoard.make(LeaderboardService.DAILY)
 	assert_eq(LeaderboardScreen.pinned_note(nobody), "No run today yet")
 	assert_eq(LeaderboardScreen.caption_right(nobody), "No players yet")
+	assert_eq(LeaderboardScreen.count(1, "player"), "1 player", "one is singular")
+	assert_eq(LeaderboardScreen.count(8930, "player"), "8,930 players")
+	var alone := service.build_board(LeaderboardService.DAILY)
+	alone.players = 1
+	assert_eq(LeaderboardScreen.caption_right(alone), "1 player")
+	var friends := service.build_board(LeaderboardService.FRIENDS)
+	friends.players = 1
+	assert_eq(LeaderboardScreen.pinned_note(friends), "of 1 friend")
 
 
 func test_screen_loads_then_shows_podium_list_and_your_row() -> void:
@@ -195,14 +203,7 @@ func test_screen_loads_then_shows_podium_list_and_your_row() -> void:
 	_free(screen)
 
 
-func test_prize_strip_says_what_each_place_wins() -> void:
-	assert_eq(PrizeStrip.tiers(), [["1st", 3], ["2nd–3rd", 2], ["4th–10th", 1]])
-	var strip := PrizeStrip.new()
-	assert_eq(strip.segment_texts(), ["1st 3", "2nd–3rd 2", "4th–10th 1"])
-	strip.free()
-
-
-## Daily: the strip, a prize chip on the podium and on 4th to 10th, the cut-off
+## Daily: a prize chip on the podium and on 4th to 10th, the cut-off
 ## line under 10th. Other boards show none of it.
 func test_daily_board_shows_every_prize_place() -> void:
 	var p := _profile()
@@ -210,7 +211,6 @@ func test_daily_board_shows_every_prize_place() -> void:
 	service.submit_run(87)
 	var screen := _screen(p, service)
 	await _tree().process_frame
-	assert_true(screen.find_child("PrizeStrip", true, false) != null, "daily has the strip")
 	assert_eq(screen.podium().prize_texts(), ["+2", "+3", "+2"], "2nd, 1st, 3rd")
 	for row in screen.rows():
 		var want := "+%d" % Economy.daily_prize(row.entry.rank) if row.entry.rank <= 10 else ""
@@ -222,8 +222,7 @@ func test_daily_board_shows_every_prize_place() -> void:
 	assert_eq(tenth.entry.rank, 10, "the line sits right under 10th")
 	screen.select_board(LeaderboardService.ALL_TIME)
 	await _tree().process_frame
-	assert_true(screen.find_child("PrizeStrip", true, false) == null, "all-time has no strip")
-	assert_true(screen.find_child("PrizeLine", true, false) == null, "or line")
+	assert_true(screen.find_child("PrizeLine", true, false) == null, "all-time has no line")
 	assert_eq(screen.podium().prize_texts(), ["", "", ""], "or podium prizes")
 	_free(screen)
 

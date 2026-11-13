@@ -5,8 +5,8 @@ extends Control
 ## about the board (time to reset, players), the top 3 on a podium, the rest as
 ## paper pill rows in a scrolling list, and the player's own gold row pinned at
 ## the bottom with a pencil to change their name. The daily board also shows
-## what the top 10 win: a PrizeStrip, a "+N ◆" chip on every prize place and a
-## line under 10th. Also shows loading, offline,
+## what the top 10 win: a "+N ◆" chip on every prize place and a line under
+## 10th. Also shows loading, offline,
 ## signed-out and empty boards.
 ## The first visit asks for a leaderboard name. Boards come from a
 ## LeaderboardService; this screen never decides who is where.
@@ -163,8 +163,6 @@ func show_board(board: LeaderboardBoard) -> void:
 			return
 	_set_caption(caption_left(board), caption_right(board))
 	var daily := board.id == LeaderboardService.DAILY
-	if daily:
-		_body.add_child(PrizeStrip.new())
 	_podium = Podium.new(board.entries, daily)
 	_body.add_child(_podium)
 	var spots := _podium.spots()
@@ -555,7 +553,7 @@ static func caption_left(board: LeaderboardBoard) -> String:
 			return "Best run per player"
 		LeaderboardService.FRIENDS:
 			var n := board.entries.size() - (1 if board.me != null else 0)
-			return "%d friend%s" % [n, "" if n == 1 else "s"]
+			return count(n, "friend")
 	return ""
 
 
@@ -567,7 +565,7 @@ static func caption_right(board: LeaderboardBoard) -> String:
 			return "Best runs ever"
 	if board.is_empty():
 		return "No players yet"
-	return "%s players" % thousands(board.players)
+	return count(board.players, "player")
 
 
 ## What the player's rank means, or why there is none.
@@ -590,7 +588,7 @@ static func pinned_note(board: LeaderboardBoard) -> String:
 			var pct := maxi(ceili(me.rank * 100.0 / maxi(board.players, 1)), 1)
 			return "Top %d%% of all players" % pct
 		LeaderboardService.FRIENDS:
-			return "of %d friends" % board.players
+			return "of %s" % count(board.players, "friend")
 	return ""
 
 
@@ -611,6 +609,11 @@ static func duration(seconds: int) -> String:
 
 
 ## 18402 -> "18,402".
+## "1 player", "8,930 players": the count with its word, plural unless it is 1.
+static func count(n: int, word: String) -> String:
+	return "%s %s%s" % [thousands(n), word, "" if n == 1 else "s"]
+
+
 static func thousands(n: int) -> String:
 	var digits := str(absi(n))
 	var out := ""
