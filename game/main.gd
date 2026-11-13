@@ -10,17 +10,17 @@ extends Node2D
 ## Home -> Rooms -> a room -> Practice repeats that room; practice never touches
 ## coins, best score, room stats or leaderboards. The debug page's pickers
 ## practise any room and variant, or a whole run from a typed seed.
-## Room stats (Profile: reached, cleared, deaths per room id; a variant counts
-## under its room) come from real runs only: practice, replays and the bots
-## (which run the sim without this app) never count. A run left from the pause
-## menu counts its rooms as reached but neither cleared nor died in.
+## Room stats (Profile: reached, cleared, deaths per room id; a variant counts under its
+## room) come from real runs only: practice, replays and the bots never count. A run left
+## from the pause menu counts its rooms as reached but neither cleared nor died in.
 ## Home -> the #rank item in the dock -> Leaderboards: the friends' Supabase
 ## boards when services/supabase_config.json exists, else made-up sample boards.
-## Home -> Settings (the dock) -> the settings sheet; main applies each change.
-## Game over has its own dock: Home, Rooms | Again | #rank, Style.
-## Leaderboards -> a run -> Replay plays that run back in the live room with
-## the recorded player's look; it never touches the save or the leaderboards,
-## and Back returns to the leaderboards.
+## Home -> the Daily Run pill -> Daily Run (DailyRunFlow): today's one map, a
+## try at a time from the server's seed, no revive, its own board.
+## Home -> Settings (the corner) -> the settings sheet; main applies each change.
+## Game over has Home's dock (Rooms, Style | Again | Ranks, Runs) and Home in the corner.
+## Leaderboards -> a run -> Replay plays that run back in the live room with the recorded
+## player's look; it never touches the save or the boards; Back returns to the boards.
 ## Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
 ## (RunStore, on this phone). Watch plays one back the same way, in the look
 ## it was played in; Back returns to Your runs (or Home, from Home's card).
@@ -70,6 +70,8 @@ var _services: AppServices
 var _look: RunLook
 var _revive: ReviveFlow
 var _alerts: BoardAlerts
+var _popups: HomePopups
+var _daily: DailyRunFlow
 var _game_over_at_ms := -1
 var _menus := MenuLayer.new()
 var _audio := AudioDirector.new()
@@ -137,6 +139,11 @@ func _ready() -> void:
 	_revive.ended.connect(_finish_run)
 	_revive.revived.connect(_on_revive)
 	_alerts = BoardAlerts.new(_profile, push, _save_profile)
+	_popups = HomePopups.new(_profile, wallet, _menus, _save_profile, _show_earn)
+	var board := show_leaderboard.bind(LeaderboardService.DAILY_RUN)
+	_daily = DailyRunFlow.new(
+		leaderboard, _menus, _hud, _popups, _start_daily_run, show_home, board, play_replay
+	)
 	_audio.bind(_run)
 	_run.run_started.connect(_hud.show_running)
 	_run.run_started.connect(_trail.start)
@@ -155,7 +162,8 @@ func _ready() -> void:
 	_hud.home_pressed.connect(show_home)
 	_hud.restart_pressed.connect(_restart_practice)
 	_hud.rooms_pressed.connect(_leave_to_rooms)
-	_hud.leaderboard_pressed.connect(show_leaderboard)
+	_hud.leaderboard_pressed.connect(func() -> void: show_leaderboard(_daily.board_id()))
+	_hud.share_pressed.connect(func() -> void: _daily.share())
 	_hud.style_pressed.connect(show_look)
 	_hud.runs_pressed.connect(show_runs.bind(RunsScreen.LATEST))
 	_hud.sound_toggled.connect(_on_sound_toggled)
@@ -205,7 +213,6 @@ func _make_services() -> void:
 	_services.checkout = Checkout.new(_profile, wallet)
 	_services.checkout.changed.connect(_save_profile)
 	leaderboard.board_loaded.connect(_on_board_loaded)
-	wallet.synced.connect(_on_wallet_synced)
 	store.purchased.connect(_on_purchased)
 	store.restored.connect(_on_restored)
 	profile_sync.synced.connect(_on_profile_synced)
@@ -225,10 +232,18 @@ func set_room_rect(rect: Rect2) -> void:
 	_menus.set_room_rect(rect)
 
 
+## A Daily Run try (DailyRunFlow): today's seed and season, no revive.
+func _start_daily_run(daily_try: DailyTry) -> void:
+	start_run()
+	_daily.playing = daily_try
+	_new_run()
+
+
 ## Starts a run from the menus (Play).
 func start_run() -> void:
 	_drop_replay()
 	mode = Mode.RUN
+	_daily.playing = null
 	_practice_seed = -1
 	_menus.clear()
 	_look.show_flyer(true)
@@ -244,6 +259,7 @@ func show_home() -> void:
 		_look_stale = false
 		_look.use_equipped()
 	mode = Mode.MENU
+	_daily.playing = null
 	_audio.menu()
 	_new_run()
 	_hud.show_menu()
@@ -260,17 +276,19 @@ func show_home() -> void:
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
 	home.runs_pressed.connect(show_runs)
+	home.daily_run_pressed.connect(func() -> void: _daily.open())
 	home.settings_changed.connect(_on_settings_changed)
 	home.practice_requested.connect(start_picker_practice)
 	home.seed_requested.connect(start_seed_practice)
 	_menus.show_screen(home)
 	leaderboard.request_board(LeaderboardService.DAILY)
+	_daily.refresh()
 	# The balance and any daily prize waiting to be claimed.
 	wallet.sync()
 	_show_spot_notice()
 
 
-## The leaderboards: Daily and All-time.
+## The leaderboards: Today, Daily Run and All-time.
 func show_leaderboard(board_id: String = LeaderboardService.DAILY) -> void:
 	_drop_replay()
 	mode = Mode.MENU
@@ -279,6 +297,7 @@ func show_leaderboard(board_id: String = LeaderboardService.DAILY) -> void:
 	var screen := LeaderboardScreen.new(_profile, leaderboard, board_id)
 	screen.closed.connect(show_home)
 	screen.play_pressed.connect(start_run)
+	screen.daily_run_pressed.connect(func() -> void: _daily.open())
 	screen.name_changed.connect(_on_leaderboard_name)
 	screen.replay_requested.connect(_on_replay_requested.bind(screen))
 	_menus.show_screen(screen)
@@ -326,7 +345,9 @@ func watch_run(record: RunRecord, back: Callable = Callable()) -> void:
 ## live room, with that player's flyer, world, trail, portal and music. Taps
 ## come only from the recording. A run from another gameplay version, or an
 ## empty one (it didn't load), shows a message instead.
-func play_replay(run: Dictionary) -> void:
+func play_replay(run: Dictionary, back: Callable = Callable()) -> void:
+	if back.is_valid():
+		_replay_back = back
 	mode = Mode.REPLAY
 	_menus.clear()
 	var problem := ReplayDriver.problem(run)
@@ -590,41 +611,6 @@ func _show_earn(back: Callable = Callable()) -> void:
 		screen.show_status(status)
 
 
-## The wallet answered: keep the copy in the save, show it on Home, and offer
-## any daily prize that waits to be claimed.
-func _on_wallet_synced(_diamonds: int, prizes: Array) -> void:
-	_save_profile()
-	var home := _menus.current() as HomeScreen
-	if home == null:
-		return
-	home.wallet().show_balance(_profile)
-	if prizes.is_empty() or home.prize_popup() != null:
-		return
-	var popup := home.show_prizes(prizes)
-	popup.claim_pressed.connect(_claim_prizes.bind(popup))
-	popup.earn_pressed.connect(
-		func() -> void:
-			home.close_prizes()
-			_show_earn()
-	)
-
-
-func _claim_prizes(popup: DailyPrizePopup) -> void:
-	@warning_ignore("redundant_await")
-	var won: int = await wallet.claim()
-	_save_profile()
-	if not is_instance_valid(popup):
-		return
-	if won <= 0:
-		popup.show_failed()
-		return
-	AudioDirector.sound("purchase")
-	var home := _menus.current() as HomeScreen
-	if home != null:
-		home.wallet().show_balance(_profile)
-		home.close_prizes()
-
-
 ## The store confirmed a payment: hand out the pack and save at once.
 func _on_purchased(pack_id: String) -> void:
 	if DiamondPacks.grant(_profile, pack_id):
@@ -742,6 +728,9 @@ func _new_run() -> void:
 	else:
 		var variant := _practice_variant if practice >= 0 else ""
 		var seed_value := randi()
+		if mode == Mode.RUN and _daily.playing != null:
+			seed_value = _daily.playing.seed_value
+			run_season = _daily.playing.season
 		if mode == Mode.PRACTICE and _practice_seed >= 0:
 			seed_value = _practice_seed
 			run_season = _practice_season
@@ -776,6 +765,10 @@ func _try_restart() -> void:
 	# The revive offer has its own buttons: a tap beside them does nothing.
 	if _revive.is_offering():
 		return
+	if mode == Mode.RUN and _daily.playing != null:
+		if Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
+			_daily.again()
+		return
 	if mode == Mode.RUN and Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
 		_new_run()
 		_hud.show_ready()
@@ -799,7 +792,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _revive_count:
 		# The end of the revive countdown: not a flap either.
 		pass
-	elif _run.sim.is_over():
+	elif _run.sim.is_over() and _daily.playing == null:
+		# A Daily Run's next try is only ever its button: tries are few.
 		_try_restart()
 	else:
 		_run.request_tap()
@@ -930,7 +924,11 @@ func _on_died(replay: Replay) -> void:
 		# Every crash is a death in its room, also one the player then revives
 		# from; the revived run can still clear the room.
 		_profile.record_room_death(_room_id)
-		_revive.on_crash(replay)
+		# No revive in a Daily Run: the crash ends the try.
+		if _daily.playing != null:
+			_finish_run(replay)
+		else:
+			_revive.on_crash(replay)
 
 
 ## Revived from the offer: the bird is back and a 5, 4, 3, 2, 1 counts down
@@ -980,7 +978,8 @@ func _finish_run(replay: Replay) -> void:
 		)
 	)
 	# Seed and taps go along, so a verification server can check the run later.
-	leaderboard.submit_run(replay.score, replay.to_dict())
+	if _daily.playing == null:
+		leaderboard.submit_run(replay.score, replay.to_dict())
 	_save_profile()
 	leaderboard.request_board(LeaderboardService.DAILY)
 	_game_over_at_ms = Time.get_ticks_msec()
@@ -996,4 +995,5 @@ func _finish_run(replay: Replay) -> void:
 		_revive.revived_at,
 		replay.season
 	)
+	_daily.finished(replay, _rooms_cleared)
 	_stage.show_empty(is_new_best, _hud.reduced_motion)

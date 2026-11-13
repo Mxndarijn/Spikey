@@ -315,7 +315,7 @@ func test_ways_in_from_main() -> void:
 	main.board_config_path = ""
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
 	var home := main._menus.current() as HomeScreen
-	main._on_wallet_synced(0, [{"kind": WalletService.MILESTONE, "ref": "25", "diamonds": 1}])
+	main.wallet.synced.emit(0, [{"kind": WalletService.MILESTONE, "ref": "25", "diamonds": 1}])
 	var popup := home.prize_popup()
 	assert_true(popup != null, "the prize popup is up")
 	popup.earn_button().pressed.emit()

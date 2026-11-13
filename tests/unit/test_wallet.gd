@@ -196,7 +196,7 @@ func test_prize_popup_says_what_was_won() -> void:
 	assert_eq(one.rank_text(), "#2")
 	assert_eq(one.summary(), "You won 2 diamonds.")
 	assert_eq(one.claim_text(), "Claim 2")
-	assert_eq(DailyPrizePopup.day_line(one.latest()), "Daily board, 9 November")
+	assert_eq(DailyPrizePopup.day_line(one.latest()), "Today's board, 9 November")
 	one.free()
 	var many := DailyPrizePopup.new([_prize("2026-11-07", 1), _prize("2026-11-09", 7)])
 	_in_tree(many)
@@ -205,7 +205,7 @@ func test_prize_popup_says_what_was_won() -> void:
 	assert_eq(many.summary(), "You won 4 diamonds over 2 days.")
 	many.free()
 	assert_eq(DailyPrizePopup.diamonds_text(1), "1 diamond")
-	assert_eq(DailyPrizePopup.day_line({"day": "soon"}), "Daily board", "a broken day")
+	assert_eq(DailyPrizePopup.day_line({"day": "soon"}), "Today's board", "a broken day")
 
 
 func test_home_offers_a_daily_prize_and_claims_it() -> void:

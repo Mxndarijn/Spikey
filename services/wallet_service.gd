@@ -11,6 +11,7 @@ extends RefCounted
 ## The balance (and any unclaimed prizes) arrived after sync(). prizes:
 ## [{"kind": DAILY, "day": "2026-11-09", "rank": 2, "score": 87, "diamonds": 2},
 ##  {"kind": MILESTONE, "ref": "50", "diamonds": 1},
+##  {"kind": DAILY_RUN, "day": "2026-11-09", "number": 1, "rank": 4, "score": 44, "diamonds": 1},
 ##  {"kind": STREAK, "ref": "2026-11-09", "diamonds": 1}, ...]
 signal synced(diamonds: int, prizes: Array)
 
@@ -19,6 +20,8 @@ const CONVERT := "convert"
 ## Kinds of prize: a daily top-10 finish, a best score reached for the first
 ## time (25, 50, 75, 100), and a real run on 7 days in a row.
 const DAILY := "daily"
+## A top-10 finish on a finished Daily Run (the day's one map).
+const DAILY_RUN := "daily_run"
 const MILESTONE := "milestone"
 const STREAK := "streak"
 

@@ -10,6 +10,9 @@ extends LeaderboardService
 ## board request or run.
 
 const QUEUE_PATH := "user://pending_runs.json"
+## A queued body with this key goes to that function (a Daily Run try);
+## without it, to submit_run.
+const RPC_KEY := "_rpc"
 ## submit_run's later arguments, newest migration last. A database that doesn't
 ## know the newest ones yet answers 404; the run is then sent without them.
 const NEWER_ARGS := [["p_loadout"], ["p_season", "p_coins", "p_end_tick"]]
@@ -53,6 +56,43 @@ func submit_run(score: int, replay: Dictionary = {}) -> void:
 
 func set_player(player_name: String, flyer_id: String) -> void:
 	_set_player(player_name, flyer_id)
+
+
+func request_daily() -> void:
+	_load_daily()
+
+
+func start_daily_try() -> void:
+	_start_try()
+
+
+## Queued like any run, so a try played offline after it started still counts.
+func submit_daily_run(daily_try: DailyTry, score: int, replay: Dictionary = {}) -> void:
+	if daily_try == null or not daily_try.ok():
+		return
+	_queue.append(daily_body(_profile, daily_try, score, replay))
+	_save_queue()
+	_send_queue()
+
+
+## The arguments of submit_daily_run in supabase/migrations/, marked for it.
+static func daily_body(
+	profile: Profile, daily_try: DailyTry, score: int, replay: Dictionary
+) -> Dictionary:
+	return {
+		RPC_KEY: "submit_daily_run",
+		"p_try": daily_try.id,
+		"p_name": profile.leaderboard_name,
+		"p_flyer": profile.equipped_id(ItemKind.FLYER),
+		"p_score": score,
+		"p_gameplay_version": int(replay.get("gameplay_version", SimConfig.GAMEPLAY_VERSION)),
+		"p_seed": int(replay.get("seed", daily_try.seed_value)),
+		"p_taps": replay.get("taps", []),
+		"p_loadout": loadout_of(profile),
+		"p_season": int(replay.get("season", daily_try.season)),
+		"p_coins": int(replay.get("coins", 0)),
+		"p_end_tick": int(replay.get("end_tick", 0)),
+	}
 
 
 ## The arguments of submit_run in supabase/migrations/.
@@ -156,6 +196,7 @@ static func parse_board(board_id: String, data: Variant) -> LeaderboardBoard:
 			# Databases before the name plates migration send none: the plain row.
 			e.plate_id = str(row.get("plate", ""))
 			e.revived = bool(row.get("revived", false))
+			e.locked = bool(row.get("locked", false))
 			b.entries.append(e)
 	var me: Variant = d.get("me")
 	if me is Dictionary:
@@ -193,6 +234,33 @@ func _load_board(board_id: String) -> void:
 	_deliver(board)
 
 
+func _load_daily() -> void:
+	if not await client.ensure_session():
+		daily_loaded.emit(DailyRunInfo.offline())
+		return
+	await _send_queue()
+	var res := await client.call_db("get_daily_run", {})
+	daily_loaded.emit(DailyRunInfo.parse(res.data) if res.ok else DailyRunInfo.offline())
+
+
+func _start_try() -> void:
+	if not await client.ensure_session():
+		daily_try_started.emit(DailyTry.failed(DailyTry.Problem.OFFLINE))
+		return
+	var body := {
+		"p_name": _profile.leaderboard_name, "p_flyer": _profile.equipped_id(ItemKind.FLYER)
+	}
+	var res := await client.call_db("start_daily_try", body)
+	if res.ok:
+		daily_try_started.emit(DailyTry.parse(res.data))
+		return
+	# The server refuses a try past the day's last one (a 4xx); anything else
+	# is the connection.
+	var refused: bool = res.code >= 400 and res.code < 500 and res.code != 401 and res.code != 404
+	var why := DailyTry.Problem.NO_TRIES if refused else DailyTry.Problem.OFFLINE
+	daily_try_started.emit(DailyTry.failed(why))
+
+
 func _set_player(player_name: String, flyer_id: String) -> void:
 	await client.call_db("set_player", {"p_name": player_name, "p_flyer": flyer_id})
 
@@ -204,7 +272,13 @@ func _send_queue() -> void:
 	_sending = true
 	if await client.ensure_session():
 		while not _queue.is_empty():
-			var res := await client.call_db("submit_run", _queue[0])
+			var rpc := str(_queue[0].get(RPC_KEY, "submit_run"))
+			var body: Dictionary = _queue[0].duplicate()
+			body.erase(RPC_KEY)
+			var res := await client.call_db(rpc, body)
+			if not res.ok and res.code == 404 and rpc != "submit_run":
+				# A database without the Daily Run migration yet: the try waits.
+				break
 			if not res.ok and res.code == 404 and _queue[0].has("p_revives"):
 				# The database can't store revives yet. Without them the run would
 				# be rejected, so it waits here for the migration.

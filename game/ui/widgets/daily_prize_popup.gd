@@ -1,7 +1,8 @@
 class_name DailyPrizePopup
 extends Control
 ## "You finished #2": the diamonds a player won, shown on Home on the next
-## start: a daily top-10 finish, a best-score milestone or a 7-day streak
+## start: a top-10 finish on Today's board or on a Daily Run, a best-score
+## milestone or a 7-day streak
 ## (WalletService kinds). A flat paper card over the dimmed room with the
 ## headline (the place, "Best 50" or "7 days"), what it is, the diamonds won
 ## and one Claim button; the close button in the card's top right keeps the
@@ -124,9 +125,11 @@ func latest() -> Dictionary:
 	return pick
 
 
-## Prizes from before the bonuses carry no kind: they are daily ones.
+## A place on a board (Today or a Daily Run). Prizes from before the bonuses
+## carry no kind: they are Today ones.
 static func is_daily(prize: Dictionary) -> bool:
-	return str(prize.get("kind", WalletService.DAILY)) == WalletService.DAILY
+	var kind := str(prize.get("kind", WalletService.DAILY))
+	return kind == WalletService.DAILY or kind == WalletService.DAILY_RUN
 
 
 ## "#2" for a daily place, "Best 50" for a milestone, "7 days" for a streak.
@@ -168,21 +171,32 @@ static func diamonds_text(count: int) -> String:
 	return "1 diamond" if count == 1 else "%d diamonds" % count
 
 
-## "Daily board, 9 November" from a daily prize's "2026-11-09" day; what a
-## bonus is for otherwise.
+## "Today's board, 9 November" from a Today prize's "2026-11-09" day,
+## "Daily Run No. 46, 9 November" from a Daily Run one; what a bonus is for
+## otherwise.
 static func day_line(prize: Dictionary) -> String:
+	var board := "Today's board"
 	match str(prize.get("kind", WalletService.DAILY)):
 		WalletService.MILESTONE:
 			return "New best score"
 		WalletService.STREAK:
 			return "Played 7 days in a row"
-	var parts := str(prize.get("day", "")).split("-")
+		WalletService.DAILY_RUN:
+			var number := int(prize.get("number", 0))
+			board = "Daily Run No. %d" % number if number > 0 else "Daily Run"
+	var date := date_text(str(prize.get("day", "")))
+	return board if date.is_empty() else "%s, %s" % [board, date]
+
+
+## "9 November" from "2026-11-09"; "" when it isn't a date.
+static func date_text(day: String) -> String:
+	var parts := day.split("-")
 	if parts.size() != 3 or not parts[1].is_valid_int() or not parts[2].is_valid_int():
-		return "Daily board"
+		return ""
 	var month := int(parts[1])
 	if month < 1 or month > 12:
-		return "Daily board"
-	return "Daily board, %d %s" % [int(parts[2]), MONTHS[month - 1]]
+		return ""
+	return "%d %s" % [int(parts[2]), MONTHS[month - 1]]
 
 
 func _on_claim() -> void:

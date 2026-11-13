@@ -3,9 +3,10 @@ extends Control
 ## The main menu over the live room, with no boxes, in three places (button
 ## system A3): the corners (Settings top left, where other screens have their
 ## way back, since Home has none; the wallet top right), the sky line (the
-## "flapjaw" wordmark, "Best 87, #14 today", and the slot Daily Run's pill
-## will use), and the cradle dock at the bottom: Rooms, Style | Play | Ranks,
-## Runs. The flyer in use bobs big in the middle of the room with its puff trail.
+## "flapjaw" wordmark, "Best 87, #14 today", and Daily Run's paper pill with its
+## tries and the time to the next map), and the cradle dock at the bottom:
+## Rooms, Style | Play | Ranks, Runs. The flyer in use bobs big in the middle of
+## the room with its puff trail.
 
 signal play_pressed
 ## Opens one kind's list in Customize directly (nothing on Home emits it now;
@@ -16,6 +17,8 @@ signal customize_pressed
 signal rooms_pressed
 ## The wallet (gold and diamonds, top right): opens the Wallet (the Shop).
 signal store_pressed
+## The Daily Run pill on the sky line: opens the Daily Run.
+signal daily_run_pressed
 ## Runs (the dock): opens Your runs.
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
@@ -34,16 +37,18 @@ const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
 const SETTINGS_ICON := preload("res://assets/ui/icons/settings.svg")
 const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
 const HISTORY_ICON := preload("res://assets/ui/icons/history.svg")
+const CALENDAR_ICON := preload("res://assets/ui/icons/calendar.svg")
 ## The wordmark: one word, wide Archivo 900, ending well above the flyer.
 const WORDMARK := "flapjaw"
 const LOGO_TOP := 110.0
 ## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
 const LOGO_SIZE := 64
 const STATS_TOP := 196.0
-## The sky line under the stats: Daily Run's pill goes here (not built yet);
-## until then the lost-spot line uses it.
+## The sky line under the stats: Daily Run's pill, the lost-spot line under it.
 const SKY_LINE_TOP := 232.0
-const NOTICE_TOP := SKY_LINE_TOP
+const DAILY_PILL_W := 300.0
+const DAILY_PILL_FONT := 14
+const NOTICE_TOP := SKY_LINE_TOP + UiTokens.SIZE_TAP_MIN + 4.0
 const NOTICE_WIDTH := 300.0
 ## The flyer's centre and body size on Home (bigger than in a run).
 const FLYER_CENTER := Vector2(196, 346)
@@ -61,6 +66,8 @@ var _settings_button: Button
 var _wallet: Wallet
 var _prizes: DailyPrizePopup
 var _notice: Label
+var _daily_pill: Button
+var _daily_result: DailyResultPopup
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -109,6 +116,35 @@ func _ready() -> void:
 	_flyer.position = FLYER_CENTER - Vector2(box.x / 2.0 + FLYER_BODY * 0.3, box.y / 2.0)
 	_flyer.size = box
 	add_child(_flyer)
+
+	_daily_pill = Button.new()
+	_daily_pill.name = "DailyRun"
+	_daily_pill.text = daily_pill_text(null)
+	_daily_pill.icon = CALENDAR_ICON
+	_daily_pill.tooltip_text = "Daily Run: today's map"
+	_daily_pill.add_theme_constant_override("icon_max_width", 20)
+	_daily_pill.add_theme_font_size_override("font_size", DAILY_PILL_FONT)
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		_daily_pill.add_theme_color_override(state, UiTokens.ON_PANEL)
+	_daily_pill.focus_mode = Control.FOCUS_NONE
+	# A paper pill on the room (the kit's one box on Home's sky line).
+	var paper := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
+	paper.content_margin_left = UiTokens.SPACE_4
+	paper.content_margin_right = UiTokens.SPACE_4
+	var pushed := paper.duplicate() as StyleBoxFlat
+	pushed.bg_color = UiTokens.PANEL_RAISED
+	for state in ["normal", "hover", "disabled", "focus"]:
+		_daily_pill.add_theme_stylebox_override(state, paper)
+	for state in ["pressed", "hover_pressed"]:
+		_daily_pill.add_theme_stylebox_override(state, pushed)
+	for state in [
+		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
+	]:
+		_daily_pill.add_theme_color_override(state, UiTokens.ON_PANEL)
+	_daily_pill.pressed.connect(daily_run_pressed.emit)
+	add_child(_daily_pill)
+	_daily_pill.position = Vector2((ScreenLayout.ROOM.x - DAILY_PILL_W) / 2.0, SKY_LINE_TOP)
+	_daily_pill.size = Vector2(DAILY_PILL_W, UiTokens.SIZE_TAP_MIN)
 
 	_dock = (
 		Dock
@@ -202,6 +238,25 @@ func prize_popup() -> DailyPrizePopup:
 	return _prizes
 
 
+## Yesterday's Daily Run over Home (HomePopups shows it once after a reset).
+func show_daily_result(past: DailyRunInfo.Yesterday) -> DailyResultPopup:
+	close_daily_result()
+	_daily_result = DailyResultPopup.new(past)
+	_daily_result.closed.connect(close_daily_result)
+	add_child(_daily_result)
+	return _daily_result
+
+
+func close_daily_result() -> void:
+	if _daily_result != null:
+		_daily_result.queue_free()
+		_daily_result = null
+
+
+func daily_result() -> DailyResultPopup:
+	return _daily_result
+
+
 ## A line on the sky line: someone took the player's prize spot (SpotAlert).
 func show_notice(text: String) -> void:
 	if _notice == null:
@@ -236,6 +291,33 @@ func dock() -> Dock:
 
 func stats_line() -> String:
 	return _stats.text
+
+
+## "Daily Run · 2 tries left · 4h 12m"; just "Daily Run" before today's
+## Daily Run arrives or while offline.
+static func daily_pill_text(info: DailyRunInfo) -> String:
+	if info == null or not info.is_online():
+		return "Daily Run"
+	var parts: Array[String] = ["Daily Run"]
+	if info.tries_left() > 0:
+		parts.append(DailyRunRules.tries_text(info.tries_used, info.tries_max))
+	elif info.rank > 0:
+		parts.append("#%d" % info.rank)
+	else:
+		parts.append("Done")
+	if info.resets_in_s >= 0:
+		parts.append(LeaderboardScreen.duration(info.resets_in_s))
+	return " · ".join(parts)
+
+
+## Today's Daily Run arrived: the pill shows the tries left and the reset.
+func set_daily_info(info: DailyRunInfo) -> void:
+	if _daily_pill != null:
+		_daily_pill.text = daily_pill_text(info)
+
+
+func daily_pill() -> Button:
+	return _daily_pill
 
 
 ## Today's rank arrived (or changed): shows it under the wordmark.

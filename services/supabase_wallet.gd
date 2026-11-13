@@ -101,7 +101,7 @@ static func new_request_id() -> String:
 ## get_wallet's answer as {"diamonds": int, "prizes": Array[Dictionary]} with
 ## numbers as ints, or {} when it is not a wallet. Daily prizes come first,
 ## then the bonuses (best-score milestones and 7-day streaks); each has a
-## "kind" (WalletService.DAILY, MILESTONE or STREAK). Prizes that pay nothing
+## "kind" (WalletService.DAILY, DAILY_RUN, MILESTONE or STREAK). Prizes that pay nothing
 ## or, for a daily one, have no top-10 rank are dropped.
 static func parse_wallet(data: Variant) -> Dictionary:
 	if not data is Dictionary or not (data as Dictionary).has("diamonds"):
@@ -114,13 +114,18 @@ static func parse_wallet(data: Variant) -> Dictionary:
 			if not item is Dictionary:
 				continue
 			var row := item as Dictionary
+			# Databases before the Daily Run migration send Today's prizes only.
+			var daily_run := str(row.get("board", "daily")) == WalletService.DAILY_RUN
 			var prize := {
-				"kind": WalletService.DAILY,
+				"kind": WalletService.DAILY_RUN if daily_run else WalletService.DAILY,
 				"day": str(row.get("day", "")),
 				"rank": int(row.get("rank", 0)),
 				"score": int(row.get("score", 0)),
 				"diamonds": int(row.get("diamonds", 0)),
 			}
+			if daily_run:
+				var number: Variant = row.get("number")
+				prize.number = int(number) if number is int or number is float else 0
 			if prize.rank >= 1 and prize.diamonds > 0:
 				prizes.append(prize)
 	var bonuses: Variant = d.get("bonuses", [])

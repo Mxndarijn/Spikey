@@ -25,10 +25,17 @@ const NAME_SIZE := 13
 var _spots := []
 ## Show each place's daily prize (Economy.daily_prize).
 var _prizes := false
+## The board the prizes are for (LeaderboardService.prize).
+var _board_id := LeaderboardService.DAILY
 
 
-func _init(entries: Array[LeaderboardBoard.Entry], prizes: bool = false) -> void:
+func _init(
+	entries: Array[LeaderboardBoard.Entry],
+	prizes: bool = false,
+	board_id: String = LeaderboardService.DAILY
+) -> void:
 	_prizes = prizes
+	_board_id = board_id
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	alignment = BoxContainer.ALIGNMENT_CENTER
 	add_theme_constant_override("separation", 14)
@@ -50,7 +57,7 @@ func _column(place: int, e: LeaderboardBoard.Entry) -> Control:
 		col.add_child(_name(e.player_name))
 	else:
 		col.add_child(_waiting())
-	var prize := Economy.daily_prize(place) if _prizes else 0
+	var prize := LeaderboardService.prize(_board_id, place) if _prizes else 0
 	if prize > 0:
 		col.add_child(LeaderboardRow.prize_chip(prize, place == 1))
 	var revived := e != null and e.revived

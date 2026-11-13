@@ -6,9 +6,13 @@ extends Control
 ## corner slot and the Game over dock, the same slots as Home's (Rooms, Style | Again | Ranks,
 ## Runs). A new best gets the gold ribbon, the score counting up, three sparkles and confetti that
 ## falls through once (still with reduced motion).
+## A Daily Run try (show_daily) says "Daily Run" instead of "Game over", its
+## place on the Daily Run board in the stats, the day's number, the tries left
+## and the time to the next map where the seed goes, and its dock has Share where Rooms is and
+## the next try ("Try 3", or "Board" after the last) as its main action.
 
 ## A dock item or the corner was tapped: "home" (the corner), "rooms",
-## "style", "again", "rank" or "runs".
+## "style", "again", "rank", "runs" or (a Daily Run) "share".
 signal dock_pressed(id: String)
 
 const COIN_ICON := preload("res://assets/ui/coin.svg")
@@ -19,6 +23,8 @@ const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
 const RUNS_ICON := preload("res://assets/ui/icons/history.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
+const SHARE_ICON := preload("res://assets/ui/icons/share.svg")
+const CAPTION := "Game over"
 ## A new best counts the score up over COUNT_TIME; the effect runs FX_TIME.
 const COUNT_TIME := 1.1
 const FX_TIME := 2.6
@@ -66,6 +72,10 @@ var _stat_coins: Label
 var _stat_rooms: Label
 var _stat_rank: Label
 var _dock: Dock
+## Game over of a Daily Run try: Share where Rooms is, the next try in the middle.
+var _daily_dock: Dock
+var _daily := false
+var _stat_rank_word: Label
 var _home: Button
 var _new_best := NewBestFx.new()
 var _final_value := 0
@@ -78,7 +88,7 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_new_best)
 	_caption.theme_type_variation = &"SkyLabel"
-	_caption.text = "Game over"
+	_caption.text = CAPTION
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_caption.add_theme_font_override("font", GameFonts.display())
@@ -113,6 +123,7 @@ func _init() -> void:
 	_stat_coins = _stat(_stats, "coins", COIN_ICON)
 	_stat_rooms = _stat(_stats, "rooms")
 	_stat_rank = _stat(_stats, "today")
+	_stat_rank_word = _stat_rank.get_parent().get_parent().get_child(1) as Label
 	UiKit.across(self, _stats, STATS_Y)
 	_seed.theme_type_variation = &"RoomMuted"
 	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -139,6 +150,23 @@ func _init() -> void:
 	)
 	_dock.pressed.connect(dock_pressed.emit)
 	add_child(_dock)
+	_daily_dock = (
+		Dock
+		. new(
+			[
+				{"id": "share", "icon": SHARE_ICON, "text": "Share", "tip": "Share your try"},
+				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
+			],
+			[
+				{"id": "rank", "icon": TROPHY_ICON, "text": "Ranks", "tip": "Leaderboards"},
+				{"id": "runs", "icon": RUNS_ICON, "text": "Runs", "tip": "Your runs"},
+			],
+			{"id": "again", "icon": RESTART_ICON, "text": "Again"}
+		)
+	)
+	_daily_dock.pressed.connect(dock_pressed.emit)
+	add_child(_daily_dock)
+	_set_daily(false)
 
 
 func _process(delta: float) -> void:
@@ -163,6 +191,7 @@ func show_result(
 	revived_at: int,
 	still: bool
 ) -> void:
+	_set_daily(false)
 	_final_value = score
 	_final_score.add_theme_font_size_override("font_size", final_score_size(score))
 	_best_score.text = best_text(best, is_new_best, previous_best)
@@ -198,14 +227,64 @@ func show_result(
 	_step_new_best()
 
 
+## Turns the result just shown into a Daily Run try's: `number` the day's
+## Daily Run, `tries_line` ("1 try left · new map in 4h 12m") in place of the
+## seed, `next` the main action's label ("Try 3", "Board").
+func show_daily(number: int, tries_line: String, next: String) -> void:
+	_set_daily(true)
+	_caption.text = "Daily Run"
+	_seed.text = "No. %d · %s" % [number, tries_line]
+	_seed.visible = not tries_line.is_empty()
+	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
+	_daily_dock.set_text("again", next)
+	_show_rank(0)
+
+
+func _set_daily(on: bool) -> void:
+	_daily = on
+	_caption.text = CAPTION
+	_stat_rank_word.text = "daily run" if on else "today"
+	_dock.visible = not on
+	_daily_dock.visible = on
+
+
+func is_daily() -> bool:
+	return _daily
+
+
+## The dock in use (the Daily Run one after show_daily).
+func dock() -> Dock:
+	return _daily_dock if _daily else _dock
+
+
+func caption_text() -> String:
+	return _caption.text
+
+
+func seed_line() -> String:
+	return _seed.text if _seed.visible else ""
+
+
 ## Hidden, with the effect stopped.
 func hide_result() -> void:
 	visible = false
 	_time = -1.0
 
 
-## Today's rank on the stats ("-" until it arrives).
+## Today's rank on the stats ("-" until it arrives); on a Daily Run try, its
+## place on the Daily Run board.
 func set_daily_rank(rank: int) -> void:
+	if not _daily:
+		_show_rank(rank)
+
+
+## A Daily Run try's place on the Daily Run board ("-" until it arrives).
+func set_daily_run_rank(rank: int) -> void:
+	if _daily:
+		_show_rank(rank)
+
+
+func _show_rank(rank: int) -> void:
 	_stat_rank.text = "#%d" % rank if rank > 0 else "-"
 	_fit_stat(_stat_rank, STAT_W)
 

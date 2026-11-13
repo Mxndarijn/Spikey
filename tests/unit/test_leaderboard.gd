@@ -87,6 +87,7 @@ func test_sample_boards_are_sorted_and_verified() -> void:
 	var service := SampleLeaderboard.new(_profile())
 	service.signed_in = true
 	service.submit_run(150)
+	service.submit_daily_run(DailyTry.new(), 50)
 	for id in LeaderboardService.BOARDS:
 		var b := service.build_board(id)
 		assert_eq(b.status, LeaderboardBoard.Status.OK, "%s loads" % id)
@@ -190,7 +191,7 @@ func test_screen_loads_then_shows_podium_list_and_your_row() -> void:
 	var service := SampleLeaderboard.new(p)
 	service.submit_run(87)
 	var screen := _screen(p, service)
-	assert_eq(screen.tab_names(), ["Daily", "All-time"])
+	assert_eq(screen.tab_names(), ["Today", "Daily Run", "All-time"])
 	assert_eq(screen.board_id(), LeaderboardService.DAILY, "opens on Daily")
 	assert_eq(screen.view, LeaderboardScreen.View.LOADING, "loading first")
 	await _tree().process_frame

@@ -25,6 +25,7 @@ const LOCAL_KEYS: Array[String] = [
 	"daily_spot_rank",
 	"daily_spot_until",
 	"push_asked",
+	"daily_run_seen",
 	"free_revives_used",
 	"free_revives_day",
 	"board_alerts",
@@ -69,6 +70,9 @@ var revives := DailyRevives.new()
 ## The OS permission prompt for notifications was shown (it is shown once,
 ## after the first top-10 finish).
 var push_asked := false
+## The last finished Daily Run day ("2026-11-14") whose result Home showed,
+## so yesterday's result pops up once.
+var daily_run_seen := ""
 ## The revision of the server's copy this save last matched (0: never synced,
 ## for example a fresh install), and the gold it held then. Gold earned or
 ## spent since is `coins - cloud_coins`, which a merge adds to the server's gold.
@@ -210,6 +214,7 @@ func to_dict() -> Dictionary:
 				"room_deaths": room_deaths,
 				"leaderboard_name": leaderboard_name,
 				"push_asked": push_asked,
+				"daily_run_seen": daily_run_seen,
 				"cloud_revision": cloud_revision,
 				"cloud_coins": cloud_coins,
 			},
@@ -247,6 +252,7 @@ static func from_dict(saved: Dictionary) -> Profile:
 	p.settings.read_from(d)
 	p.revives.read_from(d)
 	p.push_asked = bool(d.get("push_asked", false))
+	p.daily_run_seen = str(d.get("daily_run_seen", "")).left(10)
 	p.cloud_revision = maxi(int(d.get("cloud_revision", 0)), 0)
 	p.cloud_coins = maxi(int(d.get("cloud_coins", 0)), 0)
 	var saved_owned: Variant = d.get("owned", {})

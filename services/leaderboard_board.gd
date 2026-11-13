@@ -5,7 +5,7 @@ extends RefCounted
 
 enum Status { OK, OFFLINE, SIGNED_OUT }
 
-## LeaderboardService.DAILY, TIER, ALL_TIME or FRIENDS.
+## LeaderboardService.DAILY (Today), DAILY_RUN, TIER, ALL_TIME or FRIENDS.
 var id := ""
 var status := Status.OK
 ## Best first; ranks start at 1. Can include the player (is_me).
@@ -35,6 +35,8 @@ class Entry:
 	var run_id := 0
 	## This best run used its revive; the boards mark it with a small heart.
 	var revived := false
+	## A Daily Run row whose replay stays locked until the day is over.
+	var locked := false
 
 	func _init(p_rank: int, p_name: String, p_flyer: String, p_score: int) -> void:
 		rank = p_rank

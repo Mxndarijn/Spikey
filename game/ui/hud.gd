@@ -30,6 +30,8 @@ signal rooms_pressed
 ## Game over's dock: the leaderboards and Customize.
 signal leaderboard_pressed
 signal style_pressed
+## Game over of a Daily Run try: Share.
+signal share_pressed
 ## Game over's Runs: open Your runs.
 signal runs_pressed
 ## Paused: a Music or Sounds circle was tapped ("music" or "sfx").
@@ -224,6 +226,8 @@ func _on_dock(id: String) -> void:
 			style_pressed.emit()
 		"runs":
 			runs_pressed.emit()
+		"share":
+			share_pressed.emit()
 
 
 ## Updates the run's coin counter and gives it a little bump. `reset`: after a

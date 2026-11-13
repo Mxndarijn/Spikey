@@ -11,15 +11,25 @@ signal board_loaded(board: LeaderboardBoard)
 ## A run asked for with request_run(): {"seed", "taps", "gameplay_version",
 ## "loadout", "name", "score"}, or {} when it could not be loaded.
 signal run_loaded(run_id: int, run: Dictionary)
+## Today's Daily Run asked for with request_daily(), once it arrives.
+signal daily_loaded(info: DailyRunInfo)
+## A try asked for with start_daily_try(): its seed and season, or a failed one.
+signal daily_try_started(daily_try: DailyTry)
 
+## Today: the best endless run per player today, each run on its own seed.
+## (Its id stays "daily": the server's board and prize tables use it.)
 const DAILY := "daily"
 const TIER := "tier"
 const ALL_TIME := "all_time"
 const FRIENDS := "friends"
+## The Daily Run: the best try per player on today's one map (DailyRunRules).
+const DAILY_RUN := "daily_run"
 ## The boards the screen shows. Tier and Friends wait for more players and for
 ## Game Center / Play Games sign-in; SampleLeaderboard can still build them.
-const BOARDS: Array[String] = [DAILY, ALL_TIME]
-const TITLES := {DAILY: "Daily", TIER: "Tier", ALL_TIME: "All-time", FRIENDS: "Friends"}
+const BOARDS: Array[String] = [DAILY, DAILY_RUN, ALL_TIME]
+const TITLES := {
+	DAILY: "Today", DAILY_RUN: "Daily Run", TIER: "Tier", ALL_TIME: "All-time", FRIENDS: "Friends"
+}
 
 ## board id -> the player's rank from the last load (0: none yet).
 var _ranks := {}
@@ -42,6 +52,45 @@ func cached_rank(board_id: String) -> int:
 ## seed and taps are kept for checking later.
 func submit_run(_score: int, _replay: Dictionary = {}) -> void:
 	pass
+
+
+## Asks for today's Daily Run; daily_loaded fires later (offline here).
+func request_daily() -> void:
+	_deliver_daily.call_deferred(DailyRunInfo.offline())
+
+
+## Starts the player's next try on today's map; daily_try_started fires later
+## with its seed and season (offline here: no try).
+func start_daily_try() -> void:
+	_deliver_try.call_deferred(DailyTry.failed(DailyTry.Problem.OFFLINE))
+
+
+## A finished Daily Run try, with its Replay.to_dict(). Sent once per try.
+func submit_daily_run(_daily_try: DailyTry, _score: int, _replay: Dictionary = {}) -> void:
+	pass
+
+
+func _deliver_daily(info: DailyRunInfo) -> void:
+	daily_loaded.emit(info)
+
+
+func _deliver_try(daily_try: DailyTry) -> void:
+	daily_try_started.emit(daily_try)
+
+
+## Diamonds the board pays for a place when its day is over (0: none).
+static func prize(board_id: String, rank: int) -> int:
+	match board_id:
+		DAILY:
+			return Economy.daily_prize(rank)
+		DAILY_RUN:
+			return Economy.daily_run_prize(rank)
+	return 0
+
+
+## The board pays its top 10 when its day is over.
+static func pays(board_id: String) -> bool:
+	return board_id == DAILY or board_id == DAILY_RUN
 
 
 ## The player's leaderboard name and flyer changed.

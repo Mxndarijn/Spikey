@@ -1,18 +1,21 @@
 class_name LeaderboardScreen
 extends Control
 ## The leaderboards (minimal kit): the back arrow and the title, a paper tab bar
-## for the boards (LeaderboardService.BOARDS: Daily and All-time), one plain line
-## about the board (time to reset, players), the top 3 on a podium, the rest as
-## paper pill rows in a scrolling list, and the player's own gold row pinned at
-## the bottom with a pencil to change their name. The daily board also shows
-## what the top 10 win: a "+N ◆" chip on every prize place and a line under
-## 10th. Also shows loading, offline,
+## for the boards (LeaderboardService.BOARDS: Today, Daily Run and All-time), one
+## plain line about the board (time to reset, players), the top 3 on a podium,
+## the rest as paper pill rows in a scrolling list, and the player's own gold row
+## pinned at the bottom with a pencil to change their name. Today and the Daily
+## Run also show what the top 10 win: a "+N ◆" chip on every prize place and a
+## line under 10th. On the Daily Run other players' replays stay locked until
+## the reset (a line under the list says so). Also shows loading, offline,
 ## signed-out and empty boards.
 ## The first visit asks for a leaderboard name. Boards come from a
 ## LeaderboardService; this screen never decides who is where.
 
 signal closed
 signal play_pressed
+## The empty Daily Run board's Play: opens the Daily Run.
+signal daily_run_pressed
 ## The player picked a new leaderboard name (already in the profile).
 signal name_changed(player_name: String)
 ## Watch replay was pressed and the run arrived (SupabaseLeaderboard.parse_run()
@@ -29,6 +32,7 @@ const BOTTOM := 40
 const LIST_MIN := 140.0
 const PINNED_FLYER := 32.0
 const PRIZE_LINE := "No diamonds below here"
+const LOCKED_LINE := "Replays of today's map unlock at the reset"
 
 var view := View.LOADING
 
@@ -162,8 +166,8 @@ func show_board(board: LeaderboardBoard) -> void:
 			)
 			return
 	_set_caption(caption_left(board), caption_right(board))
-	var daily := board.id == LeaderboardService.DAILY
-	_podium = Podium.new(board.entries, daily)
+	var daily := LeaderboardService.pays(board.id)
+	_podium = Podium.new(board.entries, daily, board.id)
 	_body.add_child(_podium)
 	var spots := _podium.spots()
 	for i in spots.size():
@@ -171,7 +175,7 @@ func show_board(board: LeaderboardBoard) -> void:
 			_tappable(_podium.get_child(i) as Control, spots[i])
 	if board.is_empty():
 		view = View.EMPTY
-		_body.add_child(_empty_card(daily))
+		_body.add_child(_empty_card(daily, board.id == LeaderboardService.DAILY_RUN))
 		return
 	view = View.BOARD
 	_body.add_child(_list(board))
@@ -224,14 +228,20 @@ func _list(board: LeaderboardBoard) -> Control:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	scroll.add_child(rows)
-	var daily := board.id == LeaderboardService.DAILY
+	var daily := LeaderboardService.pays(board.id)
+	if board.id == LeaderboardService.DAILY_RUN:
+		# Said first, so it shows without scrolling.
+		var locked := UiKit.wrapped(LOCKED_LINE, &"SkyCaption", 300.0)
+		locked.name = "LockedLine"
+		locked.add_theme_font_size_override("font_size", 13)
+		rows.add_child(locked)
 	for i in range(3, board.entries.size()):
-		# The daily top 10 win diamonds (Economy); the podium holds places 1 to 3.
+		# The top 10 of a day win diamonds (Economy); the podium holds places 1 to 3.
 		var e := board.entries[i]
-		if daily and e.rank > Economy.DAILY_PRIZES.size() and rows.get_child_count() > 0:
+		if daily and e.rank > Economy.DAILY_PRIZES.size() and _rows.size() > 0:
 			if rows.get_child(-1).name != "PrizeLine":
 				rows.add_child(_prize_line())
-		var prize := Economy.daily_prize(e.rank) if daily else 0
+		var prize := LeaderboardService.prize(board.id, e.rank)
 		var row := LeaderboardRow.new(e, prize)
 		_tappable(row, e)
 		_rows.append(row)
@@ -312,7 +322,7 @@ func _pinned(board: LeaderboardBoard) -> Control:
 
 
 ## A board nobody is on yet (Daily right after midnight): an invitation to be first.
-func _empty_card(daily: bool) -> Control:
+func _empty_card(daily: bool, daily_run: bool = false) -> Control:
 	var panel := PanelContainer.new()
 	panel.theme_type_variation = &"Card"
 	var col := VBoxContainer.new()
@@ -325,6 +335,8 @@ func _empty_card(daily: bool) -> Control:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size = Vector2(240, 0)
 	title.text = "Nobody has played today yet" if daily else "Nobody is on the board yet"
+	if daily_run:
+		title.text = "Nobody has played today's map yet"
 	col.add_child(title)
 	var body := Label.new()
 	body.theme_type_variation = &"CaptionLabel"
@@ -337,6 +349,8 @@ func _empty_card(daily: bool) -> Control:
 		if daily
 		else "Play a run and you are the first one on it."
 	)
+	if daily_run:
+		body.text = "Start a try now and you start the day in first place."
 	col.add_child(body)
 	var play := Button.new()
 	play.theme_type_variation = &"ActionButton"
@@ -545,7 +559,7 @@ static func platform() -> String:
 
 static func caption_left(board: LeaderboardBoard) -> String:
 	match board.id:
-		LeaderboardService.DAILY:
+		LeaderboardService.DAILY, LeaderboardService.DAILY_RUN:
 			return "Resets in %s" % duration(board.resets_in_s)
 		LeaderboardService.TIER:
 			return "%s tier" % board.tier_name
@@ -572,10 +586,15 @@ static func caption_right(board: LeaderboardBoard) -> String:
 static func pinned_note(board: LeaderboardBoard) -> String:
 	var me := board.me
 	if me == null:
-		return "No run today yet" if board.id == LeaderboardService.DAILY else "No runs yet"
+		match board.id:
+			LeaderboardService.DAILY:
+				return "No run today yet"
+			LeaderboardService.DAILY_RUN:
+				return "No try on today's map yet"
+		return "No runs yet"
 	match board.id:
-		LeaderboardService.DAILY:
-			var prize := Economy.daily_prize(me.rank)
+		LeaderboardService.DAILY, LeaderboardService.DAILY_RUN:
+			var prize := LeaderboardService.prize(board.id, me.rank)
 			if prize > 0:
 				return "Winning %s" % SpotAlert.diamonds(prize)
 			var last := _last_prize_score(board)
