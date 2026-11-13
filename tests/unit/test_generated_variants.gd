@@ -79,7 +79,18 @@ const LAYOUT_FIELDS := {
 	"gate": ["x", "period", "phase", "gap_size", "lo_y", "hi_y", "lag"],
 	"stalactite":
 	["x", "gap", "half_w", "top", "bottom", "fixed_lo", "fixed_hi", "scheduled", "schedule"],
-	"cave_rock": ["top_x", "top_y", "bot_x", "bot_y", "isle_x", "isle_top", "isle_bot"],
+	"cave_rock":
+	[
+		"top_x",
+		"top_y",
+		"bot_x",
+		"bot_y",
+		"isle_x",
+		"isle_top",
+		"isle_bot",
+		"reach_top",
+		"reach_bottom"
+	],
 	"cave_drip": ["x", "tip_y", "floor_y", "first", "every"],
 	"peg": ["x", "base_y", "bob", "phase"],
 }
@@ -400,3 +411,27 @@ static func _snapshot(sim: GameSim, count: int = -1) -> Array:
 			row.append(h.get(f))
 		out.append(row)
 	return out
+
+
+## Cave Tunnel: every exit the room plans, at every planned height and both
+## ways in, sits where a mouth of its wall holds its box and a bird flying the
+## gallery reaches it (a fork's far branch once lay out of reach: v22 seed 139).
+func test_cave_exits_are_planned_within_reach_of_the_gallery() -> void:
+	var index := RoomCatalog.index_of("cave")
+	for v in RoomCatalog.all()[index].variants:
+		for y_px in range(110, 531, 20):
+			for side in 2:
+				var sim := _arrived(index, v.id, y_px, 0, side)
+				var st := sim.state
+				for h in sim.room.hazards:
+					if h.kind != "cave_rock":
+						continue
+					var plans := [[0, st.plan_a_y_left], [1, st.plan_a_y_right]]
+					for q: Array in plans:
+						assert_false(
+							h.blocks_exit(sim, q[0], q[1]),
+							(
+								"cave/%s at %d px, side %d: exit at %d px"
+								% [v.id, y_px, side, q[1] / SUB]
+							)
+						)

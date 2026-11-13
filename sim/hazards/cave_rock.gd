@@ -16,6 +16,9 @@ const FREE_RUN := 3
 const EXIT_MARGIN := 4 * SimConfig.SUB
 ## A mouth is measured over the exit box's depth, this often.
 const MOUTH_STEP := 4 * SimConfig.SUB
+## An exit is planned at most this far past the gallery's heights: a bird at
+## the gallery's edge comes through an exit that far off (most of EXIT_FIT).
+const EXIT_REACH := SimConfig.EXIT_FIT - 5 * SimConfig.SUB
 
 var top_x := PackedInt32Array()
 var top_y := PackedInt32Array()
@@ -24,6 +27,10 @@ var bot_y := PackedInt32Array()
 var isle_x := PackedInt32Array()
 var isle_top := PackedInt32Array()
 var isle_bot := PackedInt32Array()
+## The gallery's heights (its fang tips' limits over the arrival sweep), the
+## heights a bird flying through it can be at; 0, 0: none.
+var reach_top := 0
+var reach_bottom := 0
 
 
 func _init() -> void:
@@ -121,8 +128,15 @@ func mouths(side: int) -> PackedInt32Array:
 	return PackedInt32Array([top, isle_top_y, isle_bot_y, bottom])
 
 
-## An exit goes only where its whole box (ExitZone) fits in a mouth.
+## An exit goes only where its whole box (ExitZone) fits in a mouth, and within
+## EXIT_REACH of the heights a bird can fly the gallery at (a fork's branch can
+## lie past them: the island splits the far end round the planned height, and
+## the branches are moved to stay on the screen).
 func blocks_exit(_sim: GameSim, side: int, y: int) -> bool:
+	var r := SimConfig.BIRD_RADIUS
+	if reach_bottom > reach_top:
+		if y < reach_top + r - EXIT_REACH or y > reach_bottom - r + EXIT_REACH:
+			return true
 	var m := mouths(side)
 	var keep := ExitZone.HALF + EXIT_MARGIN
 	for i in range(0, m.size(), 2):
@@ -131,9 +145,10 @@ func blocks_exit(_sim: GameSim, side: int, y: int) -> bool:
 	return true
 
 
-## No wall spike in the rock (it is rock there), and inside each mouth a free
-## run of FREE_RUN slots in a row, round the mouth's middle if the wall had
-## none. No RNG.
+## Every slot in the rock gets a spike (it kills there anyway, and is drawn
+## under the rock), so the wall's free runs are all in its mouths, where the
+## bird can fly; inside each mouth a free run of FREE_RUN slots in a row, round
+## the mouth's middle if the wall had none. No RNG.
 func adjust_wall(_sim: GameSim, side: int, mask: int) -> int:
 	var out := mask
 	var half := SimConfig.SPIKE_HALF_BASE
@@ -145,7 +160,7 @@ func adjust_wall(_sim: GameSim, side: int, mask: int) -> int:
 			if yc + half > m[i] and yc - half < m[i + 1]:
 				open = true
 		if not open:
-			out &= ~(1 << slot)
+			out |= 1 << slot
 	for i in range(0, m.size(), 2):
 		out = _free_run(out, m[i], m[i + 1])
 	return out
@@ -179,6 +194,6 @@ static func _free_run(mask: int, top: int, bottom: int) -> int:
 
 
 func checksum(h: int) -> int:
-	var out := mix_all(h, [top_x.size(), bot_x.size(), isle_x.size()])
+	var out := mix_all(h, [top_x.size(), bot_x.size(), isle_x.size(), reach_top, reach_bottom])
 	out = mix_all(out, Array(top_y) + Array(bot_y) + Array(isle_top) + Array(isle_bot))
 	return mix_all(out, Array(top_x) + Array(bot_x) + Array(isle_x))

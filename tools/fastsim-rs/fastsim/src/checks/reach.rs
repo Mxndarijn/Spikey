@@ -22,7 +22,7 @@ pub struct Reach {
 impl Reach {
     pub const SEEDS_EACH: i64 = 8;
     pub const LINES: i64 = 3;
-    pub const ROOMS: [&'static str; 6] = ["stalac", "gates", "crates", "gifts", "lava", "isles"];
+    pub const ROOMS: [&'static str; 8] = ["stalac", "gates", "crates", "gifts", "lava", "isles", "cave", "pegs"];
 
     fn cases(&self) -> &Vec<(&'static str, &'static str, i64)> {
         self._cases.get_or_init(Self::make)

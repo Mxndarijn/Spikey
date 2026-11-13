@@ -310,6 +310,8 @@ pub const CAVEROCK: &[F] = &[
     F { name: "isle_x", ty: Ty::ListLong, readonly: false },
     F { name: "isle_top", ty: Ty::ListLong, readonly: false },
     F { name: "isle_bot", ty: Ty::ListLong, readonly: false },
+    F { name: "reach_top", ty: Ty::Long, readonly: false },
+    F { name: "reach_bottom", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -1704,9 +1706,11 @@ fn caverock_get(x: &CaveRock, i: usize) -> V {
         4 => V::L(x.isle_x.clone()),
         5 => V::L(x.isle_top.clone()),
         6 => V::L(x.isle_bot.clone()),
-        7 => V::S(x.base.kind),
-        8 => V::B(x.base.alive),
-        9 => V::I(x.base.t),
+        7 => V::I(x.reach_top),
+        8 => V::I(x.reach_bottom),
+        9 => V::S(x.base.kind),
+        10 => V::B(x.base.alive),
+        11 => V::I(x.base.t),
         _ => panic!("CaveRock: no field {}", i),
     }
 }
@@ -1720,8 +1724,10 @@ fn caverock_set(x: &mut CaveRock, i: usize, v: &V) {
         4 => x.isle_x = v.l().clone(),
         5 => x.isle_top = v.l().clone(),
         6 => x.isle_bot = v.l().clone(),
-        8 => x.base.alive = v.b(),
-        9 => x.base.t = v.i(),
+        7 => x.reach_top = v.i(),
+        8 => x.reach_bottom = v.i(),
+        10 => x.base.alive = v.b(),
+        11 => x.base.t = v.i(),
         _ => panic!("CaveRock: field {} is not a transplant candidate", i),
     }
 }

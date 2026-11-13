@@ -30,11 +30,18 @@ const BEND: Array[int] = [40, 65, 90]
 const BEND_HALF: Array[int] = [100, 95, 90]
 ## Fork: the island's tip, the two branches' half height at the far wall, and
 ## the island's half thickness there.
-const ISLE_TIP_X := 300 * SUB
+const ISLE_TIP_X := 276 * SUB
+## The island grows to its full width by this far from the far wall (a ramp the
+## bird can dodge just after its hold, not a wall).
+const ISLE_FLAT := 20 * SUB
 ## The far end is flat over this much by the far wall (an exit's box, ExitZone).
 const FAR_FLAT := ExitZone.DEPTH + 4 * SUB
 const BRANCH_HALF := 90 * SUB
-const ISLE_HALF := 36 * SUB
+const ISLE_HALF := 20 * SUB
+## Fork: the island lies this far above or below the arrival band's middle, so
+## a bird holding its height there, and one a hop the other way, both fly on
+## past it (the gallery goes on to the far wall as the main branch).
+const ISLE_SHIFT := 70 * SUB
 ## Rock: its lip sits FANG_ROOM_MIN..+FANG_ROOM_SPAN past the limit the fangs
 ## reach to; lip points every LIP_STEP; fangs every FANG_STEP..+FANG_STEP_SPAN,
 ## FANG_HALF..+FANG_HALF_SPAN wide each side; long points at LONG_TOP (ceiling)
@@ -51,7 +58,7 @@ const LONG_TOP: Array[int] = [55, 115, 175, 235]
 const LONG_BOTTOM: Array[int] = [85, 145, 205]
 ## Drips: steps between drips (per level), and the first one's earliest step.
 const DRIP_CADENCE: Array[int] = [48, 40, 32]
-const DRIP_FIRST := 90
+const DRIP_FIRST := 150
 ## Bats: each swoops up and down at its own spot (entry-relative px, per
 ## level), sways BAT_SWAY, takes BAT_PERIOD steps per figure-eight (two
 ## swoops). The gallery is BAT_ROOM taller each side, so a bat at the top or
@@ -62,6 +69,9 @@ const BAT_PERIOD: Array[int] = [400, 360, 320]
 const BAT_ROOM := 48 * SUB
 ## A bat keeps this much more than the two radii from the bird out of a portal.
 const BAT_MARGIN := 4 * SUB
+## After the hold, the bats' timing also keeps them off the arrival band for
+## this many steps where it can (the fewest meetings).
+const BAT_FOLLOW := 60
 
 ## Peg Field: pegs per level (as many as fit), their spacing (centre to
 ## centre: one hop plus the bird between the tips), the clear strip by the far
@@ -163,14 +173,20 @@ static func _limits(p: VariantParams, variant: int) -> PackedInt32Array:
 	var c0 := (band[0] + band[1]) / 2
 	var lv := _level(p)
 	if variant == FORK:
-		var outer := 2 * BRANCH_HALF + ISLE_HALF
-		var m := clampi(c0, SimConfig.KILL_TOP + outer, SimConfig.KILL_BOTTOM - outer)
+		# The side branch opens above or below the gallery (drawn now), past an
+		# island that keeps off the band's middle; the gallery's other edge
+		# carries on to the far wall.
+		var up := p.rng.next_below(2) == 0
+		var tip := c0 - ISLE_SHIFT if up else c0 + ISLE_SHIFT
 		lim[L_FORK] = 1
-		lim[L_TIP] = c0
-		lim[L_TOP1] = m - 2 * BRANCH_HALF - ISLE_HALF
-		lim[L_BOTTOM1] = m + 2 * BRANCH_HALF + ISLE_HALF
-		lim[L_ISLE_TOP1] = m - ISLE_HALF
-		lim[L_ISLE_BOTTOM1] = m + ISLE_HALF
+		lim[L_TIP] = tip
+		lim[L_ISLE_TOP1] = tip - ISLE_HALF
+		lim[L_ISLE_BOTTOM1] = tip + ISLE_HALF
+		# Both branches at least 2 * BRANCH_HALF tall at the far wall.
+		var main_top := mini(lim[L_TOP0], tip - ISLE_HALF - 2 * BRANCH_HALF)
+		var main_bottom := maxi(lim[L_BOTTOM0], tip + ISLE_HALF + 2 * BRANCH_HALF)
+		lim[L_TOP1] = tip - ISLE_HALF - 2 * BRANCH_HALF if up else main_top
+		lim[L_BOTTOM1] = main_bottom if up else tip + ISLE_HALF + 2 * BRANCH_HALF
 		return lim
 	var half: int = BEND_HALF[lv] * SUB
 	var bend: int = BEND[lv] * SUB
@@ -190,7 +206,7 @@ static func _limit(lim: PackedInt32Array, which: int, x: int) -> int:
 		var s := _smooth(x - GALLERY_X, span)
 		var a := lim[L_TOP0 + which]
 		return a + (lim[L_TOP1 + which] - a) * s / span
-	var isle_span := W - FAR_FLAT - ISLE_TIP_X
+	var isle_span := W - ISLE_FLAT - ISLE_TIP_X
 	var t := _smooth(x - ISLE_TIP_X, isle_span)
 	var tip := lim[L_TIP]
 	return tip + (lim[L_ISLE_TOP1 + which - 2] - tip) * t / isle_span
@@ -312,6 +328,8 @@ static func _gen_cave(p: VariantParams, variant: int) -> void:
 	rock.top_y = top[1]
 	rock.bot_x = bottom[0]
 	rock.bot_y = bottom[1]
+	rock.reach_top = lim[L_TOP0]
+	rock.reach_bottom = lim[L_BOTTOM0]
 	if variant == FORK:
 		var none: Array[int] = []
 		var upper := _face(p, lim, 2, ISLE_TIP_X, none)
@@ -327,7 +345,7 @@ static func _gen_cave(p: VariantParams, variant: int) -> void:
 ## Bats: one swooping bat per spot, each swoop nearly the gallery's height.
 ## Out of a portal each bat's timing is moved, once, to the first where it is
 ## above or below the arrival band whenever the bird flies past it during
-## the hold (_bat_clear).
+## the hold, and as rarely as it can for a second more (_bat_meets).
 static func _add_bats(p: VariantParams, lim: PackedInt32Array) -> void:
 	var lv := _level(p)
 	var band := _cave_band(p)
@@ -344,20 +362,28 @@ static func _add_bats(p: VariantParams, lim: PackedInt32Array) -> void:
 		if not p.arriving:
 			continue
 		var start: int = bat.phase
+		var best := start
+		var fewest := -1
 		for d in bat.period():
 			bat.phase = (start + d) % bat.period()
-			if _bat_clear(p, bat, band):
-				break
+			var n := _bat_meets(p, bat, band)
+			if n >= 0 and (fewest < 0 or n < fewest):
+				fewest = n
+				best = bat.phase
+				if n == 0:
+					break
+		bat.phase = best
 		bat._place()
 
 
-## Whether `bat` stays off the arrival band whenever it is near the bird's
-## x during the hold (VariantCheck.HOLD_STEPS).
-static func _bat_clear(p: VariantParams, bat: Mover, band: PackedInt32Array) -> bool:
+## How often `bat` is on the arrival band where the bird flies past it in the
+## BAT_FOLLOW steps after the hold, or -1 if it is during the hold itself
+## (VariantCheck.HOLD_STEPS).
+static func _bat_meets(p: VariantParams, bat: Mover, band: PackedInt32Array) -> int:
 	var reach := SimConfig.BIRD_RADIUS + Mover.RADIUS + BAT_MARGIN
 	var keep := bat.t
-	var clear := true
-	for k in range(1, VariantCheck.HOLD_STEPS + 1):
+	var meets := 0
+	for k in range(1, VariantCheck.HOLD_STEPS + BAT_FOLLOW + 1):
 		bat.t = k
 		bat._place()
 		if absi(bat.xs[0] - FairLanes.arrival_x(p.sim, k)) >= reach:
@@ -366,10 +392,12 @@ static func _bat_clear(p: VariantParams, bat: Mover, band: PackedInt32Array) -> 
 			bat.ys[0] + Mover.RADIUS + BAT_MARGIN > band[0]
 			and bat.ys[0] - Mover.RADIUS - BAT_MARGIN < band[1]
 		):
-			clear = false
-			break
+			if k <= VariantCheck.HOLD_STEPS:
+				meets = -1
+				break
+			meets += 1
 	bat.t = keep
-	return clear
+	return meets
 
 
 ## The island: its two faces sampled at the same x's (the upper face's, past

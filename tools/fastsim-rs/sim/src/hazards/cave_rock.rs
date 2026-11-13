@@ -11,12 +11,15 @@ pub struct CaveRock {
     pub isle_x: Vec<i64>,
     pub isle_top: Vec<i64>,
     pub isle_bot: Vec<i64>,
+    pub reach_top: i64,
+    pub reach_bottom: i64,
 }
 
 impl CaveRock {
     pub const FREE_RUN: i64 = 3;
     pub const EXIT_MARGIN: i64 = 4 * SimConfig::SUB;
     pub const MOUTH_STEP: i64 = 4 * SimConfig::SUB;
+    pub const EXIT_REACH: i64 = SimConfig::EXIT_FIT - 5 * SimConfig::SUB;
 
     pub fn new() -> CaveRock {
         CaveRock {
@@ -28,6 +31,8 @@ impl CaveRock {
             isle_x: Vec::new(),
             isle_top: Vec::new(),
             isle_bot: Vec::new(),
+            reach_top: 0,
+            reach_bottom: 0,
         }
     }
 
@@ -173,6 +178,12 @@ impl Hazard for CaveRock {
     }
 
     fn blocks_exit(&self, _sim: &GameSim, side: i64, y: i64) -> bool {
+        let r = SimConfig::BIRD_RADIUS;
+        if self.reach_bottom > self.reach_top
+            && (y < self.reach_top + r - Self::EXIT_REACH || y > self.reach_bottom - r + Self::EXIT_REACH)
+        {
+            return true;
+        }
         let m = self.mouths(side);
         let keep = ExitZone::HALF + Self::EXIT_MARGIN;
         let mut i = 0;
@@ -200,7 +211,7 @@ impl Hazard for CaveRock {
                 i += 2;
             }
             if !open {
-                out_ &= !(1i64 << slot);
+                out_ |= 1i64 << slot;
             }
         }
         let mut i = 0;
@@ -212,7 +223,16 @@ impl Hazard for CaveRock {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        let mut out_ = mix_all(h, &[self.top_x.len() as i64, self.bot_x.len() as i64, self.isle_x.len() as i64]);
+        let mut out_ = mix_all(
+            h,
+            &[
+                self.top_x.len() as i64,
+                self.bot_x.len() as i64,
+                self.isle_x.len() as i64,
+                self.reach_top,
+                self.reach_bottom,
+            ],
+        );
         let mut ys: Vec<i64> = Vec::new();
         ys.extend_from_slice(&self.top_y);
         ys.extend_from_slice(&self.bot_y);

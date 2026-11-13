@@ -16,10 +16,12 @@ impl CatalogCaves {
     pub const CAVE_SPREAD: i64 = SimConfig::EXIT_HALF;
     pub const BEND: [i64; 3] = [40, 65, 90];
     pub const BEND_HALF: [i64; 3] = [100, 95, 90];
-    pub const ISLE_TIP_X: i64 = 300 * Self::SUB;
+    pub const ISLE_TIP_X: i64 = 276 * Self::SUB;
+    pub const ISLE_FLAT: i64 = 20 * Self::SUB;
     pub const FAR_FLAT: i64 = ExitZone::DEPTH + 4 * Self::SUB;
     pub const BRANCH_HALF: i64 = 90 * Self::SUB;
-    pub const ISLE_HALF: i64 = 36 * Self::SUB;
+    pub const ISLE_HALF: i64 = 20 * Self::SUB;
+    pub const ISLE_SHIFT: i64 = 70 * Self::SUB;
     pub const FANG_ROOM_MIN: i64 = 22 * Self::SUB;
     pub const FANG_ROOM_SPAN: i64 = 14 * Self::SUB;
     pub const LIP_STEP: i64 = 12 * Self::SUB;
@@ -31,12 +33,13 @@ impl CatalogCaves {
     pub const LONG_TOP: [i64; 4] = [55, 115, 175, 235];
     pub const LONG_BOTTOM: [i64; 3] = [85, 145, 205];
     pub const DRIP_CADENCE: [i64; 3] = [48, 40, 32];
-    pub const DRIP_FIRST: i64 = 90;
+    pub const DRIP_FIRST: i64 = 150;
     pub const BAT_XS: [&'static [i64]; 3] = [&[70, 150, 230], &[70, 150, 230], &[60, 120, 180, 240]];
     pub const BAT_SWAY: i64 = 6 * Self::SUB;
     pub const BAT_PERIOD: [i64; 3] = [400, 360, 320];
     pub const BAT_ROOM: i64 = 48 * Self::SUB;
     pub const BAT_MARGIN: i64 = 4 * Self::SUB;
+    pub const BAT_FOLLOW: i64 = 60;
     pub const PEG_COUNT: [i64; 3] = [6, 8, 10];
     pub const PEG_APART: i64 = 128 * Self::SUB;
     pub const PEG_STRIP: i64 = 70 * Self::SUB;
@@ -122,14 +125,16 @@ impl CatalogCaves {
         let c0 = (band[0] + band[1]) / 2;
         let lv = Self::_level(p);
         if variant == Self::FORK {
-            let outer = 2 * Self::BRANCH_HALF + Self::ISLE_HALF;
-            let m = G::clampi(c0, SimConfig::KILL_TOP + outer, SimConfig::KILL_BOTTOM - outer);
+            let up = sim._rng.next_below(2) == 0;
+            let tip = if up { c0 - Self::ISLE_SHIFT } else { c0 + Self::ISLE_SHIFT };
             lim[Self::L_FORK] = 1;
-            lim[Self::L_TIP] = c0;
-            lim[Self::L_TOP1] = m - 2 * Self::BRANCH_HALF - Self::ISLE_HALF;
-            lim[Self::L_BOTTOM1] = m + 2 * Self::BRANCH_HALF + Self::ISLE_HALF;
-            lim[Self::L_ISLE_TOP1] = m - Self::ISLE_HALF;
-            lim[Self::L_ISLE_BOTTOM1] = m + Self::ISLE_HALF;
+            lim[Self::L_TIP] = tip;
+            lim[Self::L_ISLE_TOP1] = tip - Self::ISLE_HALF;
+            lim[Self::L_ISLE_BOTTOM1] = tip + Self::ISLE_HALF;
+            let main_top = G::mini(lim[Self::L_TOP0], tip - Self::ISLE_HALF - 2 * Self::BRANCH_HALF);
+            let main_bottom = G::maxi(lim[Self::L_BOTTOM0], tip + Self::ISLE_HALF + 2 * Self::BRANCH_HALF);
+            lim[Self::L_TOP1] = if up { tip - Self::ISLE_HALF - 2 * Self::BRANCH_HALF } else { main_top };
+            lim[Self::L_BOTTOM1] = if up { main_bottom } else { tip + Self::ISLE_HALF + 2 * Self::BRANCH_HALF };
             return lim;
         }
         let half = Self::BEND_HALF[lv] * Self::SUB;
@@ -149,7 +154,7 @@ impl CatalogCaves {
             let a = lim[Self::L_TOP0 + which];
             return a + (lim[Self::L_TOP1 + which] - a) * s / span;
         }
-        let isle_span = Self::W - Self::FAR_FLAT - Self::ISLE_TIP_X;
+        let isle_span = Self::W - Self::ISLE_FLAT - Self::ISLE_TIP_X;
         let t = Self::_smooth(x - Self::ISLE_TIP_X, isle_span);
         let tip = lim[Self::L_TIP];
         tip + (lim[Self::L_ISLE_TOP1 + which - 2] - tip) * t / isle_span
@@ -273,6 +278,8 @@ impl CatalogCaves {
         rock.top_y = top.1;
         rock.bot_x = bottom.0;
         rock.bot_y = bottom.1;
+        rock.reach_top = lim[Self::L_TOP0];
+        rock.reach_bottom = lim[Self::L_BOTTOM0];
         if variant == Self::FORK {
             let upper = Self::_face(sim, &lim, 2, Self::ISLE_TIP_X, &[]);
             let lower = Self::_face(sim, &lim, 3, Self::ISLE_TIP_X, &[]);
@@ -308,34 +315,45 @@ impl CatalogCaves {
                 _ => unreachable!(),
             };
             let start = b.phase;
+            let mut best = start;
+            let mut fewest: i64 = -1;
             for d in 0..b.period() {
                 b.phase = (start + d) % b.period();
-                if Self::_bat_clear(sim, &mut b, &band) {
-                    break;
+                let n = Self::_bat_meets(sim, &mut b, &band);
+                if n >= 0 && (fewest < 0 || n < fewest) {
+                    fewest = n;
+                    best = b.phase;
+                    if n == 0 {
+                        break;
+                    }
                 }
             }
+            b.phase = best;
             b._place();
             sim.room.hazards[i] = b.into();
         }
     }
 
-    fn _bat_clear(sim: &GameSim, bat: &mut Mover, band: &[i64; 2]) -> bool {
+    fn _bat_meets(sim: &GameSim, bat: &mut Mover, band: &[i64; 2]) -> i64 {
         let reach = SimConfig::BIRD_RADIUS + Mover::RADIUS + Self::BAT_MARGIN;
         let keep = bat.base.t;
-        let mut clear = true;
-        for k in 1..VariantCheck::HOLD_STEPS + 1 {
+        let mut meets = 0;
+        for k in 1..VariantCheck::HOLD_STEPS + Self::BAT_FOLLOW + 1 {
             bat.base.t = k;
             bat._place();
             if G::absi(bat.xs[0] - FairLanes::arrival_x(sim, k)) >= reach {
                 continue;
             }
             if bat.ys[0] + Mover::RADIUS + Self::BAT_MARGIN > band[0] && bat.ys[0] - Mover::RADIUS - Self::BAT_MARGIN < band[1] {
-                clear = false;
-                break;
+                if k <= VariantCheck::HOLD_STEPS {
+                    meets = -1;
+                    break;
+                }
+                meets += 1;
             }
         }
         bat.base.t = keep;
-        clear
+        meets
     }
 
     fn _store_isle(sim: &GameSim, p: &VariantParams, rock: &mut CaveRock, upper: &[i64], lower: &[i64]) {
