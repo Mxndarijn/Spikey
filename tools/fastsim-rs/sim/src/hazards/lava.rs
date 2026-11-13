@@ -35,7 +35,8 @@ impl Lava {
     pub const SUB: i64 = SimConfig::SUB;
     pub const STEP: i64 = 30 * Self::SUB;
     pub const MAX_RISES: i64 = 9;
-    pub const RAFT_MAX_RISES: i64 = (SimConfig::KILL_BOTTOM - SimConfig::KILL_TOP) / Self::STEP + 1;
+    pub const RAFT_PER_POINT: i64 = 2;
+    pub const RAFT_MAX_RISES: i64 = 10;
     pub const SPEED: i64 = 80;
     pub const STONE_RADIUS: i64 = 14 * Self::SUB;
     pub const STONE_AFTER: i64 = 3;
@@ -109,11 +110,23 @@ impl Lava {
         }
     }
 
+    pub fn per_point(&self) -> i64 {
+        if self.mode == Mode::RAFTS {
+            Self::RAFT_PER_POINT
+        } else {
+            1
+        }
+    }
+
+    pub fn worst_rises(&self, sim: &GameSim) -> i64 {
+        G::mini(self.rises_due(sim) + self.per_point() * sim.points_to_exit(), self.max_rises())
+    }
+
     pub fn rises_due(&self, sim: &GameSim) -> i64 {
         if sim.state.exit_open {
             return self.rises;
         }
-        G::mini(self.rises + sim.room.points - self.counted, self.max_rises())
+        G::mini(self.rises + self.per_point() * (sim.room.points - self.counted), self.max_rises())
     }
 
     pub fn _raft_under(&self, sim: &GameSim) -> i64 {
@@ -377,7 +390,7 @@ impl Hazard for Lava {
     }
 
     fn blocks_exit(&self, sim: &GameSim, _side: i64, y: i64) -> bool {
-        let worst = self.line_at(G::mini(self.rises_due(sim) + sim.points_to_exit(), self.max_rises()));
+        let worst = self.line_at(self.worst_rises(sim));
         y > worst - Self::EXIT_CLEAR
     }
 
