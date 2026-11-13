@@ -227,33 +227,31 @@ impl CatalogMotion {
     }
 
     fn _gen_crawl(sim: &mut GameSim, p: &VariantParams, shape: &str) {
-        let mut made = Vec::new();
+        let mut made: Vec<Hz> = Vec::new();
         match shape {
             "swarm" => {
-                made.push(p.add(sim, Self::_swarm(0, false)));
-                made.push(p.add(sim, Self::_swarm(0, true)));
-                made.push(p.add(sim, Self::_swarm(1, false)));
-                made.push(p.add(sim, Self::_swarm(1, true)));
+                made.push(Self::_swarm(0, false));
+                made.push(Self::_swarm(0, true));
+                made.push(Self::_swarm(1, false));
+                made.push(Self::_swarm(1, true));
             }
             "sprinters" => {
-                made.push(p.add(sim, Self::_sprinter(0)));
-                made.push(p.add(sim, Self::_sprinter(1)));
+                made.push(Self::_sprinter(0));
+                made.push(Self::_sprinter(1));
             }
             _ => {
-                made.push(p.add(sim, Self::_crawler(0)));
-                made.push(p.add(sim, Self::_crawler(1)));
+                made.push(Self::_crawler(0));
+                made.push(Self::_crawler(1));
             }
         }
-        if !p.fallback || !p.arriving {
-            return;
+        let mut away = -1;
+        if p.fallback && p.arriving {
+            away = if p.entry_y < SimConfig::WORLD_H / 2 { 1 } else { 0 };
         }
-        let away = if p.entry_y < SimConfig::WORLD_H / 2 { 1 } else { 0 };
-        for i in made {
-            if let Hz::Crawler(c) = &mut sim.room.hazards[i] {
-                if c.lane != away {
-                    c.start = G::posmod(c.start + Crawler::W + Crawler::H, Crawler::PERIMETER);
-                    c._place();
-                }
+        for h in made {
+            let lane = if let Hz::Crawler(c) = &h { c.lane } else { -1 };
+            if away < 0 || lane == away {
+                p.add(sim, h);
             }
         }
     }

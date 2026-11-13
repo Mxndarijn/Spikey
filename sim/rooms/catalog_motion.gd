@@ -214,32 +214,30 @@ static func crawl_variants() -> Array[RoomVariant]:
 
 
 ## Generated Caterpillar Crawl: the variant's crawlers as hand made (each draws
-## its start). The fallback puts every crawler on the edge away from the bird
-## (the floor for an arrival in the upper half, else the ceiling), each the same
-## way along it.
+## its start). The fallback builds only the crawlers that start on the edge
+## away from the bird (lane 1, the floor, for an arrival in the upper half,
+## else lane 0, the ceiling): two crawlers on one edge would overlap, and one
+## behind the other they would cover a whole wall at once.
 static func _gen_crawl(p: VariantParams, shape: String) -> void:
 	var made: Array[Hazard] = []
 	match shape:
 		"swarm":
-			made.append(p.add(_swarm(0, false)))
-			made.append(p.add(_swarm(0, true)))
-			made.append(p.add(_swarm(1, false)))
-			made.append(p.add(_swarm(1, true)))
+			made.append(_swarm(0, false))
+			made.append(_swarm(0, true))
+			made.append(_swarm(1, false))
+			made.append(_swarm(1, true))
 		"sprinters":
-			made.append(p.add(_sprinter(0)))
-			made.append(p.add(_sprinter(1)))
+			made.append(_sprinter(0))
+			made.append(_sprinter(1))
 		_:
-			made.append(p.add(_crawler(0)))
-			made.append(p.add(_crawler(1)))
-	if not p.fallback or not p.arriving:
-		return
-	# Lane 0 starts on the ceiling, lane 1 on the floor: move the ones on the
-	# bird's side half way round the path, onto the other edge.
-	var away := 1 if p.entry_y < SimConfig.WORLD_H / 2 else 0
+			made.append(_crawler(0))
+			made.append(_crawler(1))
+	var away := -1
+	if p.fallback and p.arriving:
+		away = 1 if p.entry_y < SimConfig.WORLD_H / 2 else 0
 	for h in made:
-		if h.lane != away:
-			h.start = posmod(h.start + Crawler.W + Crawler.H, Crawler.PERIMETER)
-			h._place()
+		if away < 0 or h.lane == away:
+			p.add(h)
 
 
 ## Generated Shutter Gates: the classic pair (the second GEN_LAG behind the
