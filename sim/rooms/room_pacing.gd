@@ -40,6 +40,7 @@ const CONTROL_ROOMS := ["flip", "echo", "blink"]
 ## room-fixes changed measured again at 2055eb8; the mean score is in the comment.
 const TIERS := {
 	"lava": EASY,  # 16
+	"crowded": EASY,  # 18 (Filling up, v22: classic 10, lopsided 18, storm 25)
 	"cloud": EASY,  # 24
 	"tide": EASY,  # 26
 	"crosswind": EASY,  # 31
@@ -48,7 +49,6 @@ const TIERS := {
 	"belt": STEADY,  # 33
 	"crawl": STEADY,  # 34
 	"hunter": STEADY,  # 37
-	"crowded": STEADY,  # 38
 	"echo": STEADY,  # 39
 	"flip": STEADY,  # 39
 	"blink": STEADY,  # 40

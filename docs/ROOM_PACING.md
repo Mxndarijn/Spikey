@@ -69,11 +69,12 @@ rooms and the share of each tier:
 |  | new | 48 | 5% | 12% | 13% | 27% | 23% | 12% | 8% |
 
 Per room, new picker, % of the picks in each band (`godot --headless --path . -s
-res://tools/room_odds.gd -- 2000 -1 990` prints it):
+res://tools/room_odds.gd -- 2000 -1 990` prints it): Crowded moved to Easy in version 23 (Filling up measures 18); its odds were not re-run.
 
 | Room | Tier | Score | Unlock (was) | 10-19 | 20-49 | 50-99 | 100-199 | 200-299 | 300-499 | 500+ |
 |---|---|---|---|---|---|---|---|---|---|---|
 | lava | Easy | 16 | 10 (50) | 19.4 | 6.7 | 2.8 | 0.5 | 0.5 | 0.8 | 0.8 |
+| crowded | Easy | 18 | 10 (10) | ? | ? | ? | ? | ? | ? | ? |
 | cloud | Easy | 24 | 10 (10) | 11.7 | 7.0 | 2.7 | 0.6 | 0.5 | 0.8 | 0.8 |
 | tide | Easy | 26 | 10 (10) | 19.1 | 6.6 | 2.8 | 0.5 | 0.5 | 0.8 | 0.8 |
 | crosswind | Easy | 31 | 10 (10) | 13.1 | 6.6 | 3.1 | 0.6 | 0.5 | 0.7 | 0.8 |
@@ -82,7 +83,6 @@ res://tools/room_odds.gd -- 2000 -1 990` prints it):
 | belt | Steady | 33 | 20 (20) | - | 6.3 | 3.9 | 2.4 | 1.2 | 1.5 | 1.5 |
 | crawl | Steady | 34 | 20 (30) | - | 5.0 | 3.4 | 2.3 | 1.2 | 1.1 | 1.3 |
 | hunter | Steady | 37 | 20 (80) | - | 6.3 | 3.9 | 2.5 | 1.2 | 1.5 | 1.6 |
-| crowded | Steady | 38 | 20 (10) | - | 6.8 | 4.0 | 2.2 | 1.3 | 1.5 | 1.5 |
 | echo | Steady | 39 | 40 (80) | - | 1.6 | 4.0 | 2.2 | 1.3 | 1.2 | 1.2 |
 | flip | Steady | 39 | 40 (90) | - | 2.2 | 4.6 | 2.6 | 1.3 | 1.4 | 1.5 |
 | blink | Steady | 40 | 40 (80) | - | 2.3 | 4.4 | 2.9 | 1.2 | 1.4 | 1.5 |

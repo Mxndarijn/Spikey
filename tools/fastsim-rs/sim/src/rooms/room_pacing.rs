@@ -18,6 +18,7 @@ impl RoomPacing {
 
     pub const TIERS: &'static [(&'static str, &'static [i64])] = &[
         ("lava", Self::EASY),  // 16
+        ("crowded", Self::EASY),  // 18 (Filling up, v22)
         ("cloud", Self::EASY),  // 24
         ("tide", Self::EASY),  // 26
         ("crosswind", Self::EASY),  // 31
@@ -26,7 +27,6 @@ impl RoomPacing {
         ("belt", Self::STEADY),  // 33
         ("crawl", Self::STEADY),  // 34
         ("hunter", Self::STEADY),  // 37
-        ("crowded", Self::STEADY),  // 38
         ("echo", Self::STEADY),  // 39
         ("flip", Self::STEADY),  // 39
         ("blink", Self::STEADY),  // 40
