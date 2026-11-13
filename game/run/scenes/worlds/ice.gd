@@ -1,5 +1,5 @@
 extends WorldScene
-## Ice Cavern (Worlds v4): pale ice walls, icicles (short near the score),
+## Ice Cavern (Worlds v4): pale ice walls, icicles from the ceiling (short near the score),
 ## snowy pines on a far drift, two crystals and a penguin with its chick in front.
 
 
@@ -17,19 +17,21 @@ func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var wall := Color(t.hill_far, 0.55)
 	pen.fill(ScenePath.at(0, 0).h(70).q(40, 200, 54, 640).h(0).done(), wall)
 	pen.fill(ScenePath.at(360, 0).h(290).q(326, 220, 300, 640).h(360).done(), wall)
-	# Icicles: (x, length, half width).
+	# Icicles hang from the top of the room, behind the ceiling band, so they
+	# meet it between the spikes on every phone: (x, tip y, half width). The two
+	# long ones stop above the menus' tab row.
 	for d: Vector3 in [
-		Vector3(40, 70, 9),
-		Vector3(76, 104, 11),
-		Vector3(112, 46, 8),
-		Vector3(150, 30, 7),
-		Vector3(190, 36, 7),
-		Vector3(232, 30, 7),
-		Vector3(268, 108, 12),
-		Vector3(314, 70, 9),
+		Vector3(40, 96, 9),
+		Vector3(76, 92, 11),
+		Vector3(112, 72, 8),
+		Vector3(150, 56, 7),
+		Vector3(190, 62, 7),
+		Vector3(232, 56, 7),
+		Vector3(268, 94, 12),
+		Vector3(314, 96, 9),
 	]:
-		var p := ScenePath.at(d.x - d.z, 26).q(d.x - d.z * 0.4, 26 + d.y * 0.7, d.x, 26 + d.y)
-		p.q(d.x + d.z * 0.4, 26 + d.y * 0.7, d.x + d.z, 26)
+		var p := ScenePath.at(d.x - d.z, 0).q(d.x - d.z * 0.4, d.y * 0.7, d.x, d.y)
+		p.q(d.x + d.z * 0.4, d.y * 0.7, d.x + d.z, 0)
 		pen.fill(p.done(), t.cloud)
 	far.paint(pen)
 	var pines := [100, 124, 214, 236, 262]

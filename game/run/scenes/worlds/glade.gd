@@ -5,6 +5,8 @@ extends WorldScene
 
 const TRUNK := Color("#17424D")
 const VINE := Color("#2C6E62")
+## Where the vines' leaves and blossoms are measured from (just under the spikes).
+const VINE_TOP := 30.0
 const BLOSSOM_PINK := Color("#FF7EB6")
 const BLOSSOM_GOLD := Color("#FFC27A")
 const BLOSSOM_SHINE := Color(1, 1, 1, 0.7)
@@ -85,11 +87,14 @@ func paint(pen: ScenePen, t: ThemeDef) -> void:
 ## A vine hanging from the ceiling, `length` long, with three leaves and a
 ## glowing blossom at its end.
 static func _vine(pen: ScenePen, x: float, length: float, blossom: Color) -> void:
-	pen.stroke(ScenePath.at(x, 30).q(x + 12, 30 + length / 2.0, x, 30 + length).done(), VINE, 3)
+	# From the top of the room, behind the ceiling band, so it meets the band
+	# between the spikes; `length` is measured from VINE_TOP as before.
+	var end := VINE_TOP + length
+	pen.stroke(ScenePath.at(x, 0).q(x + 12, end / 2.0, x, end).done(), VINE, 3)
 	for k in range(1, 4):
-		pen.ellipse(Vector2(x + 7, 30 + k * length / 4.0), 5, 2.6, VINE, 40)
-	pen.circle(Vector2(x, 34 + length), 5, blossom)
-	pen.circle(Vector2(x - 1.4, 32.6 + length), 1.5, BLOSSOM_SHINE)
+		pen.ellipse(Vector2(x + 7, VINE_TOP + k * length / 4.0), 5, 2.6, VINE, 40)
+	pen.circle(Vector2(x, end + 4), 5, blossom)
+	pen.circle(Vector2(x - 1.4, end + 2.6), 1.5, BLOSSOM_SHINE)
 
 
 ## Sixteen fireflies down both sides, clear of the walls and the middle.

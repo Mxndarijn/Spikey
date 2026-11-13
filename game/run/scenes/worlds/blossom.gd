@@ -28,7 +28,8 @@ func paint(pen: ScenePen, t: ThemeDef) -> void:
 		Vector3(76, 178, 14),
 		Vector3(96, 280, 15),
 		Vector3(118, 236, 13),
-		Vector3(20, 202, 12),
+		# Over the branch's cut end by the wall, so it ends in blossom.
+		Vector3(30, 208, 15),
 		Vector3(60, 222, 11),
 		Vector3(98, 254, 10),
 	]:
