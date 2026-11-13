@@ -446,3 +446,22 @@ func test_cave_exits_are_planned_within_reach_of_the_gallery() -> void:
 								% [v.id, y_px, side, q[1] / SUB]
 							)
 						)
+
+
+## Cave Tunnel, bats: one bat at every score, taking at least 5 s per swoop.
+func test_cave_bats_are_one_and_slow() -> void:
+	var index := RoomCatalog.index_of("cave")
+	for score: int in [50, 90, 100, 250]:
+		var sim := GameSim.new(4100 + score, Seasons.NONE)
+		sim.forced_variant = "bats"
+		sim.step(true)
+		sim.state.score = score
+		sim.state.anchor_y = 300 * SUB
+		sim.state.y = sim.state.anchor_y
+		sim._arrive_in(1, index)
+		var bats := 0
+		for h in sim.room.hazards:
+			if h.kind == "mover":
+				bats += h.count
+				assert_true(h.loop_period >= 600, "a swoop takes 5 s or more")
+		assert_eq(bats, 1, "bats at score %d" % score)

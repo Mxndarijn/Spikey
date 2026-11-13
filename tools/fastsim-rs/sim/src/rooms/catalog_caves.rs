@@ -36,9 +36,9 @@ impl CatalogCaves {
     pub const LONG_BOTTOM: [i64; 3] = [85, 145, 205];
     pub const DRIP_CADENCE: [i64; 3] = [48, 40, 32];
     pub const DRIP_FIRST: i64 = 200;
-    pub const BAT_XS: [&'static [i64]; 3] = [&[70, 150, 230], &[70, 150, 230], &[60, 120, 180, 240]];
+    pub const BAT_XS: [&'static [i64]; 3] = [&[150], &[150], &[150]];
     pub const BAT_SWAY: i64 = 6 * Self::SUB;
-    pub const BAT_PERIOD: [i64; 3] = [400, 360, 320];
+    pub const BAT_PERIOD: [i64; 3] = [600, 600, 600];
     pub const BAT_ROOM: i64 = 48 * Self::SUB;
     pub const BAT_MARGIN: i64 = 4 * Self::SUB;
     pub const BAT_FOLLOW: i64 = 120;

@@ -71,7 +71,7 @@ const TIERS := {
 	"squeeze": HARD,  # 52
 	"beams": HARD,  # 53
 	"bramble": HARD,  # 54 (heavy 34 .. curious 77, still being fixed)
-	"cave": HARD,  # 44 (fork 29, bats 58; fork still being reworked)
+	"cave": STEADY,  # 32 (drips 40, bats 32 with one slow bat, fork 24)
 	"rain": HARDER,  # 57
 	"swing": HARDER,  # 58
 	"sawring": HARDER,  # 59

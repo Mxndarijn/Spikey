@@ -15,7 +15,10 @@ extends RefCounted
 ## variant, every bot tier; scored with the room-regroup rows): 50,
 ## research/room-difficulty/buttons-press. Stalker Rail with its slide at half
 ## speed measured on its own on next-features-2 at 98c19b5 (24 entries, scored
-## with the room-regroup rows): 34 (was 42 on the same build)
+## with the room-regroup rows): 34 (was 42 on the same build). Cave Tunnel
+## measured on its own on next-features-2 at 1fbddb6 with one slow bat (72
+## entries per variant, every bot tier; scored with the room-regroup rows): 32
+## (fork 24, drips 40, bats 32).
 
 const SCORES := {
 	"open": 24,
@@ -68,7 +71,7 @@ const SCORES := {
 	"boss_watcher": 34,
 	"boss_crusher": 30,
 	"boss_saw": 46,
-	"cave": 44,
+	"cave": 32,
 	"pegs": 44,
 	"buttons": 50,
 }

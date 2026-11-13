@@ -43,7 +43,7 @@ impl RoomPacing {
         ("squeeze", Self::HARD), // 52
         ("beams", Self::HARD), // 53
         ("bramble", Self::HARD), // 54 (heavy 34 .. curious 77, still being fixed)
-        ("cave", Self::HARD), // 44 (fork 29, bats 58; fork still being reworked)
+        ("cave", Self::STEADY), // 32 (drips 40, bats 32 with one slow bat, fork 24)
         ("rain", Self::HARDER), // 57
         ("swing", Self::HARDER), // 58
         ("sawring", Self::HARDER), // 59

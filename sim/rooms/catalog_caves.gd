@@ -63,13 +63,15 @@ const LONG_BOTTOM: Array[int] = [85, 145, 205]
 ## Drips: steps between drips (per level), and the first one's earliest step.
 const DRIP_CADENCE: Array[int] = [48, 40, 32]
 const DRIP_FIRST := 200
-## Bats: each swoops up and down at its own spot (entry-relative px, per
-## level), sways BAT_SWAY, takes BAT_PERIOD steps per figure-eight (two
-## swoops). The gallery is BAT_ROOM taller each side, so a bat at the top or
-## bottom of its swoop is clear of the arrival band.
-const BAT_XS: Array[Array] = [[70, 150, 230], [70, 150, 230], [60, 120, 180, 240]]
+## Bats: one bat at every score, swooping up and down at its spot
+## (entry-relative px, per level), sways
+## BAT_SWAY, takes BAT_PERIOD steps per figure-eight (two swoops: one up and
+## down every 300 steps, 5 s, so a bat moves at most about 3 px a step). The
+## gallery is BAT_ROOM taller each side, so a bat at the top or bottom of its
+## swoop is clear of the arrival band.
+const BAT_XS: Array[Array] = [[150], [150], [150]]
 const BAT_SWAY := 6 * SUB
-const BAT_PERIOD: Array[int] = [400, 360, 320]
+const BAT_PERIOD: Array[int] = [600, 600, 600]
 const BAT_ROOM := 48 * SUB
 ## A bat keeps this much more than the two radii from the bird out of a portal.
 const BAT_MARGIN := 4 * SUB
