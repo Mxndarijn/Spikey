@@ -48,10 +48,29 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
     }
     let clock = Instant::now();
     let partial = format!("{out_path}.partial");
-    std::fs::write(&partial, "").expect("partial");
+    // `--resume 1`: seeds already in the partial file (a run that was cut off) are not played
+    // again; their rows count as if they had been.
+    let mut resumed: Vec<(String, Option<String>, i64, bool)> = Vec::new();
+    let mut done_seeds: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    if opts.get("resume").map(|v| v != "0").unwrap_or(false) && std::path::Path::new(&partial).exists() {
+        for line in std::fs::read_to_string(&partial).expect("partial").lines() {
+            let c: Vec<&str> = line.split('\t').collect();
+            if c.len() < 4 {
+                continue;
+            }
+            let (Ok(seed), Ok(score)) = (c[0].parse::<i64>(), c[1].parse::<i64>()) else { continue };
+            let dead = c[3] != "alive";
+            done_seeds.insert(seed);
+            resumed.push((String::new(), if dead { Some(line.to_string()) } else { None }, score, dead));
+        }
+        eprintln!("resuming: {} seeds already done", done_seeds.len());
+    } else {
+        std::fs::write(&partial, "").expect("partial");
+    }
     // C# `lock (gate)`: the done count and the partial file.
     let gate = Mutex::new(0usize);
-    let outs: Vec<(String, Option<String>, i64, bool)> = (0..seeds as i64)
+    let todo: Vec<i64> = (0..seeds as i64).filter(|i| !done_seeds.contains(&(first + i + 1))).collect();
+    let mut outs: Vec<(String, Option<String>, i64, bool)> = todo
         .into_par_iter()
         .map(|i| {
             let seed = first + i + 1;
@@ -115,7 +134,8 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
             (cfg, row, sim.state.score, sim.is_over())
         })
         .collect();
-    let setup = outs.first().map(|o| o.0.clone()).unwrap_or_default();
+    outs.extend(resumed);
+    let setup = outs.iter().find(|o| !o.0.is_empty()).map(|o| o.0.clone()).unwrap_or_default();
     let pts: i64 = outs.iter().map(|o| o.2).sum();
     let deaths = outs.iter().filter(|o| o.3).count();
     let points: Vec<i64> = outs.iter().map(|o| o.2).collect();
