@@ -40,6 +40,7 @@ impl Beam {
     pub const MARGIN: i64 = 4 * SimConfig::SUB;
     pub const REACH_UP: i64 = 2 * SimConfig::SUB;
     pub const REACH_DOWN: i64 = 4 * SimConfig::SUB;
+    pub const REACH_SPARE: i64 = 10;
 
     /// C# defaults: count = ROWS, p_warn = WARN_TICKS, p_yields = false.
     pub fn new(count: i64, p_warn: i64, p_yields: bool) -> Beam {
@@ -160,6 +161,41 @@ impl Beam {
     }
 
 
+    /// Slots of wall side (drawn now, met after the other wall) a bird gets to in time from
+    /// every free slot of the other wall (reach_time, REACH_SPARE to spare); all slots if the
+    /// bird meets side first.
+    pub fn reachable_slots(&self, sim: &GameSim, side: i64) -> i64 {
+        let all = (1i64 << SimConfig::SLOT_COUNT) - 1;
+        let heading = if sim.state.vx > 0 { 1 } else { 0 };
+        if heading == side {
+            return all;
+        }
+        let first = sim.steps_to_wall(heading);
+        let c = sim.steps_to_wall(side) - first;
+        let other = if heading == 0 { sim.state.left_spikes } else { sim.state.right_spikes };
+        let t_b = self.base.t + first;
+        let half = SimConfig::SLOT_SIZE / 2;
+        let mut out_ = 0;
+        for slot in 0..SimConfig::SLOT_COUNT {
+            let cy = SimConfig::slot_center_y(slot);
+            let mut ok = true;
+            for from in 0..SimConfig::SLOT_COUNT {
+                if RoomRules::has_slot(other, from) {
+                    continue;
+                }
+                let to = Self::reach_time(&self.rows, &self.delays, SimConfig::slot_center_y(from), t_b, cy - half, cy + half);
+                if to > c - Self::REACH_SPARE {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok {
+                out_ |= 1i64 << slot;
+            }
+        }
+        out_
+    }
+
     pub fn _wait_off(d: i64, t: i64, length: i64) -> i64 {
         let q = G::posmod(t - d - Self::WARN_TICKS, Self::PERIOD);
         if q < Self::ON_TICKS {
@@ -263,8 +299,19 @@ impl Hazard for Beam {
                 }
             }
         }
-        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
-        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        let mut safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let mut need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        // Generated Beam Gates: the free run is also one a bird can get to through the beams from
+        // anywhere in the other wall's free run, the wall it bounces off first.
+        if self.calm_spikes > 0 {
+            let reach = self.reachable_slots(sim, side);
+            let both = safe & reach;
+            let both_need = G::mini(sim.room.def().gap, RoomRules::longest_gap(((1i64 << SimConfig::SLOT_COUNT) - 1) & !both));
+            if both_need > 0 {
+                safe = both;
+                need = both_need;
+            }
+        }
         let mut out_ = RoomRules::keep_run(mask, need, safe);
         // Generated Beam Gates: a wall the bird gets to once the exit's ghost shows keeps at most
         // calm_spikes, those farthest from the exit's height staying.
@@ -286,7 +333,8 @@ impl Hazard for Beam {
                 }
             }
         }
-        out_    }
+        out_
+    }
 
     fn kills(&self, sim: &GameSim) -> bool {
         for i in 0..self.rows.len() as i64 {

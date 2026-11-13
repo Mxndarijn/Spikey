@@ -288,6 +288,28 @@ func test_generated_beams_keep_clear_of_the_planned_exits() -> void:
 	assert_true(rows_seen > 200)
 
 
+## Generated Beam Gates: a wall drawn behind the bird keeps its free run where a
+## bird gets to in time from anywhere in the wall it meets first.
+func test_generated_beams_keep_the_next_free_run_reachable() -> void:
+	var checked := 0
+	for s in 12:
+		var sim := RoomsTest.sim_in_room("beams", s)
+		var b: Hazard = _hazards(sim, "beam")[0]
+		for k: int in range(200, 700, 37):
+			b.t = k
+			sim.state.vx = SimConfig.SPEED_X
+			sim.state.x = 200 * SUB
+			sim.state.right_spikes = 0b11110000001111
+			assert_eq(b.reachable_slots(sim, 1), (1 << SimConfig.SLOT_COUNT) - 1, "the wall ahead")
+			var reach: int = b.reachable_slots(sim, 0)
+			var out: int = b.adjust_wall(sim, 0, 0b00000011110000)
+			var free := ((1 << SimConfig.SLOT_COUNT) - 1) & ~out
+			if reach != 0 and RoomRules.longest_gap(~reach & ((1 << SimConfig.SLOT_COUNT) - 1)) > 0:
+				assert_true(free & reach != 0, "seed %d step %d: a free slot it can reach" % [s, k])
+				checked += 1
+	assert_true(checked > 20)
+
+
 ## Beam.reach_time: the flight alone with no row in the way; a row live when the
 ## bird gets to it adds the wait for it to turn off.
 func test_beam_reach_time_waits_for_a_live_row() -> void:

@@ -19,8 +19,9 @@ extends RefCounted
 ## measured on its own on next-features-2 at 1fbddb6 with one slow bat (72
 ## entries per variant, every bot tier; scored with the room-regroup rows): 32
 ## (fork 24, drips 40, bats 32).
-## Beam Gates (generated) measured on its own on next-features-2 at e35018f (72 entries,
-## every bot tier; scored with the room-regroup rows without Beam Gates'): 53.
+## Beam Gates (generated, each wall's free run reachable from the last one's through the
+## beams) measured on its own on next-features-2 at f374381 (72 entries, every bot tier;
+## scored with the room-regroup rows without Beam Gates'): 51.
 
 const SCORES := {
 	"open": 24,
@@ -44,7 +45,7 @@ const SCORES := {
 	"sawring": 59,
 	"piston": 41,
 	"crates": 30,
-	"beams": 53,
+	"beams": 51,
 	"stalac": 25,
 	"hunter": 60,
 	"updraft": 55,

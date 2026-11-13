@@ -37,6 +37,9 @@ const MARGIN := 4 * SimConfig.SUB
 ## reach_time: how fast the bird it imagines climbs and drops (a step).
 const REACH_UP := 2 * SimConfig.SUB
 const REACH_DOWN := 4 * SimConfig.SUB
+## adjust_wall: steps a bird getting from one wall's free run to the next keeps
+## to spare.
+const REACH_SPARE := 10
 
 ## Centre height of each row's beam.
 var rows: Array[int] = []
@@ -203,6 +206,37 @@ static func reach_time(
 	return t - t0
 
 
+## Slots of wall `side` (drawn now, met after the other wall) a bird gets to in
+## time from every free slot of the other wall (reach_time, REACH_SPARE steps to
+## spare); every slot if the bird meets `side` first. No draws.
+func reachable_slots(sim: GameSim, side: int) -> int:
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	var heading := 1 if sim.state.vx > 0 else 0
+	if heading == side:
+		return all
+	var first := sim.steps_to_wall(heading)
+	var c := sim.steps_to_wall(side) - first
+	var other := sim.state.left_spikes if heading == 0 else sim.state.right_spikes
+	var t_b := t + first
+	var half := SimConfig.SLOT_SIZE / 2
+	var out := 0
+	for slot in SimConfig.SLOT_COUNT:
+		var cy := SimConfig.slot_center_y(slot)
+		var ok := true
+		for from in SimConfig.SLOT_COUNT:
+			if RoomRules.has_slot(other, from):
+				continue
+			var to := reach_time(
+				rows, delays, SimConfig.slot_center_y(from), t_b, cy - half, cy + half
+			)
+			if to > c - REACH_SPARE:
+				ok = false
+				break
+		if ok:
+			out |= 1 << slot
+	return out
+
+
 ## Steps to wait from `t` until a row on delay `d` stays off `len` steps.
 static func _wait_off(d: int, t: int, length: int) -> int:
 	var q := posmod(t - d - WARN_TICKS, PERIOD)
@@ -232,6 +266,16 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 				blocked |= 1 << slot
 	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
 	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	# Generated Beam Gates: the free run is also one a bird can get to through
+	# the beams from anywhere in the other wall's free run, the wall it bounces
+	# off first.
+	if calm_spikes > 0:
+		var both := safe & reachable_slots(sim, side)
+		var all := (1 << SimConfig.SLOT_COUNT) - 1
+		var both_need := mini(sim.room.def.gap, RoomRules.longest_gap(all & ~both))
+		if both_need > 0:
+			safe = both
+			need = both_need
 	var out := RoomRules.keep_run(mask, need, safe)
 	if calm_spikes > 0 and not exit_ys.is_empty():
 		# Bounces until the bird gets to this wall (each scores until the exit

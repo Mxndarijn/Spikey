@@ -41,7 +41,7 @@ impl RoomPacing {
         ("buttons", Self::HARD), // 50 (classic, slim, apart 50; measured on its own at 162437a, 72 entries)
         ("midnight", Self::HARD), // 51
         ("squeeze", Self::HARD), // 52
-        ("beams", Self::HARD), // 53 (generated)
+        ("beams", Self::HARD), // 51 (generated)
         ("bramble", Self::HARD), // 54 (heavy 34 .. curious 77, still being fixed)
         ("cave", Self::STEADY), // 32 (drips 40, bats 32 with one slow bat, fork 24)
         ("rain", Self::HARDER), // 57
