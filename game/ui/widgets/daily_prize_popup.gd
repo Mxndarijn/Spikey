@@ -4,14 +4,15 @@ extends Control
 ## start: a daily top-10 finish, a best-score milestone or a 7-day streak
 ## (WalletService kinds). A flat paper card over the dimmed room with the
 ## headline (the place, "Best 50" or "7 days"), what it is, the diamonds won
-## and one Claim button; "Later" keeps the prizes for the next start. Under
-## them a link opens Earn diamonds (the prizes stay unclaimed). With
+## and one Claim button; the close button in the card's top right keeps the
+## prizes for the next start. Under Claim the text button "Ways to earn
+## diamonds" opens the Wallet's Earn free tab (the prizes stay unclaimed). With
 ## several unclaimed prizes it shows the latest daily place (else the latest
 ## bonus) and claims them all at once.
 
 signal claim_pressed
 signal closed
-## "More ways to earn diamonds".
+## "Ways to earn diamonds".
 signal earn_pressed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
@@ -37,8 +38,7 @@ const MONTHS: Array[String] = [
 	"December",
 ]
 const FAILED := "Couldn't claim right now. Try again later."
-const EARN_LINK := "More ways to earn diamonds"
-const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
+const EARN_LINK := "Ways to earn diamonds"
 
 var _prizes: Array = []
 var _claim := Button.new()
@@ -71,7 +71,8 @@ func _init(prizes: Array) -> void:
 	col.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	card.add_child(col)
 
-	col.add_child(UiKit.label(day_line(latest()), &"MutedLabel"))
+	var day := UiKit.label(day_line(latest()), &"MutedLabel", false)
+	col.add_child(UiKit.card_head(day, closed.emit))
 	_rank.theme_type_variation = &"NameLabel"
 	_rank.text = headline(latest())
 	_rank.add_theme_font_size_override("font_size", headline_size(_rank.text))
@@ -95,17 +96,9 @@ func _init(prizes: Array) -> void:
 	_claim.tooltip_text = "Claim %s" % diamonds_text(total())
 	_claim.custom_minimum_size = Vector2(0, UiTokens.SIZE_BUTTON_H)
 	_claim.focus_mode = Control.FOCUS_NONE
+	UiKit.center_icon_group(_claim)
 	_claim.pressed.connect(_on_claim)
 	col.add_child(_claim)
-	var later := Button.new()
-	later.theme_type_variation = &"InkButton"
-	later.text = "Later"
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		later.add_theme_color_override(state, UiTokens.ON_PANEL)
-	later.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	later.focus_mode = Control.FOCUS_NONE
-	later.pressed.connect(closed.emit)
-	col.add_child(later)
 	_note.theme_type_variation = &"MutedLabel"
 	_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -113,16 +106,9 @@ func _init(prizes: Array) -> void:
 	# Only a failed claim says something here.
 	_note.visible = false
 	col.add_child(_note)
+	# The card's one text button: it opens the Wallet's Earn free tab.
 	_earn.theme_type_variation = &"InkButton"
 	_earn.text = EARN_LINK
-	_earn.icon = CHEVRON_ICON
-	_earn.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_earn.add_theme_constant_override("icon_max_width", UiTokens.SIZE_ICON_S)
-	_earn.add_theme_font_size_override("font_size", 13)
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		_earn.add_theme_color_override(state, UiTokens.ON_PANEL_MUTED)
-	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		_earn.add_theme_color_override(state, UiTokens.ON_PANEL_MUTED)
 	_earn.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
 	_earn.focus_mode = Control.FOCUS_NONE
 	_earn.pressed.connect(earn_pressed.emit)

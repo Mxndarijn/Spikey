@@ -4,7 +4,7 @@ extends Control
 ## paper card high on the screen (so the phone keyboard never covers the field)
 ## over a dark scrim, with a suggested name, a dice button for another
 ## suggestion, the rules, and Save. The first time there is no way out but
-## Save; later "Keep <name>" closes it.
+## Save; later the close button in the card's top right keeps the name.
 
 signal saved(player_name: String)
 signal cancelled
@@ -53,7 +53,12 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 	# Wraps instead of pushing the card past the screen edge.
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size = Vector2(200, 0)
-	col.add_child(title)
+	if current_name.is_empty():
+		col.add_child(title)
+	else:
+		var head := UiKit.card_head(title, cancelled.emit)
+		UiKit.close_of(head).tooltip_text = "Keep %s" % current_name
+		col.add_child(head)
 	var sub := Label.new()
 	sub.theme_type_variation = &"MutedLabel"
 	sub.add_theme_font_override("font", GameFonts.ui(600))
@@ -93,18 +98,6 @@ func _init(current_name: String, _flyer_id: String = "") -> void:
 	_save.focus_mode = Control.FOCUS_NONE
 	_save.pressed.connect(_on_submit)
 	col.add_child(_save)
-	if not current_name.is_empty():
-		var keep := Button.new()
-		keep.theme_type_variation = &"InkButton"
-		keep.text = "Keep %s" % current_name
-		keep.clip_text = true
-		keep.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-			keep.add_theme_color_override(state, UiTokens.ON_PANEL)
-		keep.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-		keep.focus_mode = Control.FOCUS_NONE
-		keep.pressed.connect(cancelled.emit)
-		col.add_child(keep)
 	_check()
 
 
@@ -117,8 +110,8 @@ func _dice() -> Button:
 	dice.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dice.custom_minimum_size = Vector2(FIELD_H, FIELD_H)
 	dice.focus_mode = Control.FOCUS_NONE
-	var disc := UiTheme.flat(UiTokens.EDGE, UiTokens.RADIUS_PILL, 0)
-	var down := UiTheme.flat(UiTokens.EDGE.darkened(0.08), UiTokens.RADIUS_PILL, 0)
+	var disc := UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_PILL, 0)
+	var down := UiTheme.flat(UiTokens.EDGE, UiTokens.RADIUS_PILL, 0)
 	dice.add_theme_stylebox_override("normal", disc)
 	dice.add_theme_stylebox_override("hover", disc)
 	dice.add_theme_stylebox_override("pressed", down)

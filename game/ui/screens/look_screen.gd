@@ -18,8 +18,9 @@ const GRID_KINDS: Array[String] = [
 	ItemKind.FLYER, ItemKind.WORLD, ItemKind.TRAIL, ItemKind.PORTAL, ItemKind.MUSIC, ItemKind.CRASH
 ]
 const WIDE_KIND := ItemKind.PLATE
-const TITLE := "Your look"
-const SIDE := 14
+## The dock item that opens it is Style, so its title is too.
+const TITLE := "Style"
+const SIDE := UiKit.SCREEN_SIDE
 const GRID_GAP := 10
 const STAGE_HEIGHT := 84.0
 
@@ -39,7 +40,7 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_theme_constant_override("margin_left", SIDE)
 	margin.add_theme_constant_override("margin_right", SIDE)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
+	margin.add_theme_constant_override("margin_top", UiKit.SCREEN_TOP)
 	# Keeps the cards above the floor spikes.
 	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_7)
 	add_child(margin)

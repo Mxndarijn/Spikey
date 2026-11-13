@@ -225,6 +225,29 @@ static func close_button(tip: String = "Close") -> Button:
 	return b
 
 
+## A popup's or sheet's top row: `title` at the left, the close button in the
+## card's top right, wired to `on_close`. Returns the row.
+static func card_head(title: Control, on_close: Callable) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "Head"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", UiTokens.SPACE_2)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(title)
+	var close := close_button()
+	close.name = "Close"
+	close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	close.pressed.connect(on_close)
+	row.add_child(close)
+	return row
+
+
+## The close button of a card_head() row.
+static func close_of(head: Control) -> Button:
+	return head.get_node_or_null("Close") as Button
+
+
 ## A row that opens something: a full-width paper pill with its text at the
 ## left and a chevron at the right. `fill`: paper-raised inside a paper card.
 static func row_button(text: String, fill: Color = UiTokens.PANEL) -> Button:

@@ -10,7 +10,6 @@ signal action_pressed
 const LOCK_ICON := preload("res://assets/ui/icons/lock.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
-const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 ## The clean picture, as wide as the card's inside.
 const PICTURE := Vector2(264, 160)
 ## The card's side margins.
@@ -49,19 +48,13 @@ func _init() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	panel.add_child(box)
-	var head := HBoxContainer.new()
 	_name.theme_type_variation = &"NameLabel"
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# A long name wraps to a second line instead of trimming.
+	_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_name.custom_minimum_size = Vector2(160, 0)
 	_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	head.add_child(_name)
-	var close := UiKit.icon_button(CLOSE_ICON, "Close", &"InkButton", UiTokens.SIZE_TAP_MIN)
-	# Ink on the paper card, also in night worlds.
-	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		close.add_theme_color_override(state, UiTokens.INK_LINE)
-	close.pressed.connect(close_popup)
-	head.add_child(close)
-	box.add_child(head)
+	box.add_child(UiKit.card_head(_name, close_popup))
 	_picture.custom_minimum_size = Vector2(0, PICTURE.y)
 	_picture.outlined = false
 	box.add_child(_picture)
@@ -81,6 +74,8 @@ func _init() -> void:
 	# A long label trims instead of widening the popup past the screen edge.
 	_action.clip_text = true
 	_action.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# The coin before "Unlock for 250", centred with it as one group.
+	UiKit.center_icon_group(_action)
 	_action.pressed.connect(action_pressed.emit)
 	box.add_child(_action)
 

@@ -17,8 +17,8 @@ const CHECK_ICON := preload("res://assets/ui/icons/check.svg")
 ## Two cards per row, so each card has room for its picture, name and status.
 const COLUMNS := 2
 ## Keeps the header, tabs and cards clear of the screen edges.
-const SIDE := 14
-const TOP := 40
+const SIDE := UiKit.SCREEN_SIDE
+const TOP := UiKit.SCREEN_TOP
 ## The list stops this far above the bottom of the screen.
 const BOTTOM := 40
 const GAP := 10

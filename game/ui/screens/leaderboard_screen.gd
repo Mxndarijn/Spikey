@@ -23,7 +23,7 @@ enum View { LOADING, BOARD, EMPTY, OFFLINE, SIGNED_OUT }
 
 const EDIT_ICON := preload("res://assets/ui/icons/edit.svg")
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const SIDE := 14
+const SIDE := UiKit.SCREEN_SIDE
 ## Clear of the floor spikes (tests/unit/test_screen_fit.gd).
 const BOTTOM := 40
 const LIST_MIN := 140.0
@@ -67,7 +67,7 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_theme_constant_override("margin_left", SIDE)
 	margin.add_theme_constant_override("margin_right", SIDE)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
+	margin.add_theme_constant_override("margin_top", UiKit.SCREEN_TOP)
 	margin.add_theme_constant_override("margin_bottom", BOTTOM)
 	add_child(margin)
 	var col := VBoxContainer.new()

@@ -11,8 +11,8 @@ signal watch_requested(record: RunRecord)
 
 const LATEST := "latest"
 const SAVED := "saved"
-const SIDE := 14
-const TOP := 36
+const SIDE := UiKit.SCREEN_SIDE
+const TOP := UiKit.SCREEN_TOP
 const BOTTOM := 40
 const GAP := 8
 const LATEST_HINT := "Your last 100 runs stay on this phone. Save one to keep it."

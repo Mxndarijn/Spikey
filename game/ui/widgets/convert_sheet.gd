@@ -2,7 +2,7 @@ class_name ConvertSheet
 extends Control
 ## Turns diamonds into gold (Checkout.convert), one way: a flat paper card over
 ## the dimmed room with a minus / plus stepper, what the diamonds become, the
-## Convert button and "Not now". It opens on the amount asked for (the fewest
+## Convert button; the close button in the card's top right leaves. It opens on the amount asked for (the fewest
 ## diamonds that cover a shortfall), never more than the player has.
 
 ## Diamonds were converted (already in the profile): the opener saves.
@@ -53,7 +53,7 @@ func _init(checkout: Checkout, suggested: int = 1, why: String = "") -> void:
 	var title := UiKit.wrapped("Turn diamonds into gold", &"NameLabel", 200)
 	title.add_theme_font_size_override("font_size", 22)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	col.add_child(title)
+	col.add_child(UiKit.card_head(title, closed.emit))
 	if not why.is_empty():
 		var reason := UiKit.wrapped(why, &"MutedLabel", 200)
 		reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -86,15 +86,6 @@ func _init(checkout: Checkout, suggested: int = 1, why: String = "") -> void:
 	_convert.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_convert.pressed.connect(confirm)
 	col.add_child(_convert)
-	var later := Button.new()
-	later.theme_type_variation = &"InkButton"
-	later.text = "Not now"
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		later.add_theme_color_override(state, UiTokens.ON_PANEL)
-	later.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	later.focus_mode = Control.FOCUS_NONE
-	later.pressed.connect(closed.emit)
-	col.add_child(later)
 	col.add_child(UiKit.wrapped(NOTE, &"MutedLabel", 200))
 	set_amount(suggested)
 
@@ -108,8 +99,8 @@ func _step_button(text: String, tip: String, delta: int) -> Button:
 	b.custom_minimum_size = Vector2(STEP_SIZE, STEP_SIZE)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 24)
-	var disc := UiTheme.flat(UiTokens.EDGE, UiTokens.RADIUS_PILL, 0)
-	var down := UiTheme.flat(UiTokens.EDGE.darkened(0.08), UiTokens.RADIUS_PILL, 0)
+	var disc := UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_PILL, 0)
+	var down := UiTheme.flat(UiTokens.EDGE, UiTokens.RADIUS_PILL, 0)
 	for state in ["normal", "hover", "disabled"]:
 		b.add_theme_stylebox_override(state, disc)
 	for state in ["pressed", "hover_pressed"]:

@@ -20,9 +20,7 @@ signal practice_requested(id: String, variant: String)
 ## The debug page's seed picker: play seed `seed_value` in `season` as practice.
 signal seed_requested(seed_value: int, season: int)
 
-const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
-const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
 const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
 const MARGIN_TOP := 40
@@ -102,7 +100,7 @@ static func _card_box() -> StyleBoxFlat:
 
 
 func _build_main() -> void:
-	var head := _head("Settings", UiKit.icon_button(CLOSE_ICON, "Close"), close_dialog)
+	var head := _head("Settings", UiKit.close_button(), close_dialog)
 	var title := head.get_node("Title") as Label
 	title.mouse_filter = Control.MOUSE_FILTER_STOP
 	title.gui_input.connect(_on_title_input)
@@ -144,24 +142,12 @@ func _build_main() -> void:
 	_main_page.add_child(row)
 
 
-## A plain ink row with a chevron that opens something.
+## A row that opens something (UiKit.row_button), paper-raised on the card,
+## 44px so the rows fit side by side under the switches.
 func _link(node_name: String, text: String) -> Button:
-	var b := Button.new()
+	var b := UiKit.row_button(text, UiTokens.PANEL_RAISED)
 	b.name = node_name
-	b.theme_type_variation = &"PlainButton"
-	b.text = text
-	b.icon = CHEVRON_ICON
-	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_constant_override("icon_max_width", 14)
-	for state in [
-		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
-	]:
-		b.add_theme_color_override(state, UiTokens.ON_PANEL)
-	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		b.add_theme_color_override(state, UiTokens.ON_PANEL)
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	b.focus_mode = Control.FOCUS_NONE
 	return b
 
 

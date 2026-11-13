@@ -108,19 +108,11 @@ static func _best_tag() -> Control:
 	return tag
 
 
-## A 44px round ink button with a white icon.
+## The row's main action: a 44px ink disc with a white icon (UiKit.disc_button).
 static func _round_button(icon: Texture2D, tip: String) -> Button:
-	var b := UiKit.icon_button(icon, tip, &"InkButton", BUTTON)
+	var b := UiKit.disc_button(icon, tip, UiKit.Disc.FILL)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.add_theme_constant_override("icon_max_width", 18)
-	var on := UiTheme.flat(UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0)
-	var down := UiTheme.flat(UiTokens.PRIMARY.lightened(0.15), UiTokens.RADIUS_PILL, 0)
-	for state in ["normal", "hover"]:
-		b.add_theme_stylebox_override(state, on)
-	for state in ["pressed", "hover_pressed"]:
-		b.add_theme_stylebox_override(state, down)
-	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		b.add_theme_color_override(state, UiTokens.ON_PRIMARY)
 	return b
 
 

@@ -4,8 +4,8 @@ extends Control
 ## picture, one paper card with its group and start score (and the clear rate
 ## on the right), the pitch, the room's measured difficulty score (RoomScores,
 ## the mean over its variants) beside its stats from real runs (reached,
-## cleared, deaths) and the practice note; then the round ink
-## Practice button. An open room no real run reached yet says so in place of
+## cleared, deaths); then the round ink Practice button on the action line and
+## the practice note under it. An open room no real run reached yet says so in place of
 ## its stats. A locked room shows why instead, and its Practice button is
 ## disabled.
 
@@ -13,9 +13,9 @@ signal closed
 signal practice_pressed(id: String)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const PREVIEW := Vector2(200, 180)
+const PREVIEW := Vector2(200, 150)
 const PREVIEW_RADIUS := 22.0
-const TOP := 40
+const TOP := UiKit.SCREEN_TOP
 ## The Practice button ends this far above the bottom of the screen.
 const BOTTOM := 40
 const SIDE := 20
@@ -23,6 +23,9 @@ const CARD_PAD_X := 18
 const CARD_PAD_Y := 14
 ## Names longer than this get a smaller title so they clear the back arrow.
 const LONG_NAME := 11
+## The practice note under the round button.
+const NOTE := "Practice never counts for gold, best score or cleared rooms."
+const NOTE_W := 280.0
 ## The stats' numbers: small enough that three fit beside the score.
 const STAT_SIZE := UiTokens.FONT_SIZE_HEADING
 
@@ -62,17 +65,25 @@ func _ready() -> void:
 		(header.get_node("Title") as Label).add_theme_font_size_override("font_size", 26)
 	UiKit.back_of(header).tooltip_text = "Back to rooms"
 	col.add_child(header)
-	col.add_child(UiKit.spacer(10))
+	col.add_child(UiKit.spacer(8))
 	col.add_child(_preview())
-	col.add_child(UiKit.spacer(14))
+	col.add_child(UiKit.spacer(12))
 	col.add_child(_card())
-	col.add_child(UiKit.spacer(8, true))
+	# Practice on the action line, the practice note under it on the room.
 	_practice = UiKit.primary(PLAY_ICON, "Practice")
 	_practice.disabled = not _is_open()
 	if _practice.disabled:
 		_practice.modulate.a = UiTokens.OPACITY_DISABLED
 	_practice.pressed.connect(practice_pressed.emit.bind(room_id))
-	col.add_child(_practice)
+	UiKit.place_primary(self, _practice)
+	var note := UiKit.wrapped(NOTE, &"SkyCaption", NOTE_W)
+	note.name = "Note"
+	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	note.anchor_right = 1.0
+	note.offset_left = (UiTokens.SIZE_VIEWPORT_W - NOTE_W) / 2.0
+	note.offset_right = -note.offset_left
+	note.offset_top = UiKit.TEXT_BUTTON_Y
+	add_child(note)
 
 
 func _is_open() -> bool:
@@ -135,23 +146,6 @@ func _card() -> Control:
 	pitch.custom_minimum_size = Vector2(inner, 0)
 	col.add_child(pitch)
 	col.add_child(_facts())
-	var foot := VBoxContainer.new()
-	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	foot.add_theme_constant_override("separation", UiTokens.SPACE_2)
-	var line := ColorRect.new()
-	line.color = UiTokens.EDGE
-	line.custom_minimum_size = Vector2(0, 2)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	foot.add_child(line)
-	var note := UiKit.label(
-		"Practice never counts for gold, best score or cleared rooms.", &"MutedLabel", false
-	)
-	note.add_theme_font_override("font", GameFonts.ui(600))
-	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.custom_minimum_size = Vector2(inner, 0)
-	foot.add_child(note)
-	col.add_child(foot)
 	return outer
 
 
