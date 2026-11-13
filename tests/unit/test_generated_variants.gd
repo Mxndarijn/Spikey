@@ -296,7 +296,7 @@ func test_static_variants_stay_static() -> void:
 ## built the same, every hazard's position and size included.
 func test_generated_rooms_are_the_same_however_the_seed_is_played() -> void:
 	var compared := 0
-	for seed_value: int in [11, 7, 99, 1, 2, 3, 123, 777]:
+	for seed_value: int in [11, 7, 99, 1, 2, 3, 123, 777, 8, 13, 55]:
 		var a := _played_layouts(seed_value, 3)
 		var b := _played_layouts(seed_value, 8)
 		for room: int in a:
