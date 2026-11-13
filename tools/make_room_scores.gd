@@ -2,7 +2,8 @@ extends SceneTree
 ## Bakes the rooms' measured difficulty scores into game/rooms/room_scores.gd,
 ## the numbers the Rooms screen's room page shows ("Score 46"):
 ##   godot --headless --path . -s res://tools/make_room_scores.gd --
-##     <report.json>... [--set <id>=<score>]... [--source <text>]
+##     <report.json>... [--set <id>=<score>]... [--none <id,id>] [--stale <id,id>]
+##     [--source <text>]
 ## Each report.json comes from `tools/fastsim.ps1 -Mode difficulty -Step score`
 ## (docs/ROOM_DIFFICULTY.md). With several, a later file wins for every variant
 ## it scored, so a rerun of a few rooms goes after the full run. A room's score
@@ -10,7 +11,10 @@ extends SceneTree
 ## longer in it are left out). `--source` says where the numbers come from
 ## (the run, its commit); it is written at the top of the file. `--set` gives a
 ## room a number by hand, over any report's (a room no report scored, or one
-## the bots can't measure yet); say where it comes from in `--source`.
+## the bots can't measure yet); say where it comes from in `--source`. `--none`
+## lists rooms that get no number at all (no bot can play them: the page shows
+## "—"). `--stale` marks rooms changed since the run: their entry gets a
+## comment saying so, until a new run measures them.
 
 const OUT := "res://game/rooms/room_scores.gd"
 
@@ -20,6 +24,8 @@ func _initialize() -> void:
 	var source := ""
 	var paths: Array[String] = []
 	var manual := {}
+	var none: Array[String] = []
+	var stale: Array[String] = []
 	var i := 0
 	while i < args.size():
 		if args[i] == "--source" and i + 1 < args.size():
@@ -29,6 +35,11 @@ func _initialize() -> void:
 		if args[i] == "--set" and i + 1 < args.size():
 			var kv := args[i + 1].split("=")
 			manual[kv[0]] = int(kv[1])
+			i += 2
+			continue
+		if args[i] in ["--none", "--stale"] and i + 1 < args.size():
+			var ids := Array(args[i + 1].split(",", false))
+			(none if args[i] == "--none" else stale).append_array(ids)
 			i += 2
 			continue
 		paths.append(args[i])
@@ -51,14 +62,16 @@ func _initialize() -> void:
 	for id: String in manual:
 		if RoomCatalog.find(id) != null:
 			scores[id] = manual[id]
+	for id in none:
+		scores.erase(id)
 	if source.is_empty():
 		source = ", ".join(paths)
 	var f := FileAccess.open(OUT, FileAccess.WRITE)
-	f.store_string(render(scores, source))
+	f.store_string(render(scores, source, none, stale))
 	f.close()
 	print("%s: %d rooms" % [OUT, scores.size()])
 	for def in RoomCatalog.all():
-		if not scores.has(def.id):
+		if not scores.has(def.id) and def.id not in none:
 			print("  no score for %s" % def.id)
 	quit(0)
 
@@ -98,7 +111,9 @@ static func comment_lines(text: String, width: int) -> Array[String]:
 
 
 ## The source of game/rooms/room_scores.gd (gdformat style).
-static func render(scores: Dictionary, source: String) -> String:
+static func render(
+	scores: Dictionary, source: String, none: Array[String] = [], stale: Array[String] = []
+) -> String:
 	var lines: Array[String] = [
 		"class_name RoomScores",
 		"extends RefCounted",
@@ -112,15 +127,24 @@ static func render(scores: Dictionary, source: String) -> String:
 	lines.append_array(["", "const SCORES := {"])
 	for def in RoomCatalog.all():
 		if scores.has(def.id):
-			lines.append('\t"%s": %d,' % [def.id, scores[def.id]])
+			var entry := '\t"%s": %d,' % [def.id, scores[def.id]]
+			if def.id in stale:
+				entry += "  # changed since the run: measure again"
+			lines.append(entry)
+	lines.append("}")
+	lines.append("")
+	lines.append("## Rooms no bot can measure (the page shows no number).")
+	var quoted: Array[String] = []
+	for id in none:
+		quoted.append('"%s"' % id)
+	lines.append("const UNMEASURED: Array[String] = [%s]" % ", ".join(quoted))
 	(
 		lines
 		. append_array(
 			[
-				"}",
 				"",
 				"",
-				"## The room's score, or -1 when it has none (not measured yet, or an id",
+				"## The room's score, or -1 when it has none (not measured, or an id",
 				"## that is no longer in the catalog).",
 				"static func of(id: String) -> int:",
 				"\treturn SCORES.get(id, -1)",

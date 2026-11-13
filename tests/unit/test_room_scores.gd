@@ -7,6 +7,9 @@ const TOOL := preload("res://tools/make_room_scores.gd")
 
 func test_every_room_in_the_catalog_has_a_score() -> void:
 	for def in RoomCatalog.all():
+		if def.id in RoomScores.UNMEASURED:
+			assert_eq(RoomScores.of(def.id), -1, "%s has no number" % def.id)
+			continue
 		var s := RoomScores.of(def.id)
 		assert_true(s >= 0 and s <= 130, "%s has a score 0..130 (%d)" % [def.id, s])
 
@@ -43,3 +46,15 @@ func test_room_page_shows_the_score() -> void:
 	(Engine.get_main_loop() as SceneTree).root.add_child(locked)
 	assert_eq(locked.score_text(), str(RoomScores.of("flip")), "a locked room shows it too")
 	locked.free()
+
+
+func test_a_room_no_bot_can_measure_shows_a_dash() -> void:
+	if RoomScores.UNMEASURED.is_empty():
+		return
+	var id := RoomScores.UNMEASURED[0]
+	DevMode.override = 1
+	var screen := RoomDetailScreen.new(Profile.new(), id)
+	(Engine.get_main_loop() as SceneTree).root.add_child(screen)
+	assert_eq(screen.score_text(), "—")
+	screen.free()
+	DevMode.override = 0

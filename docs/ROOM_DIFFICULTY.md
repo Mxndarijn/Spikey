@@ -118,10 +118,13 @@ rerun of a few rooms goes after the full run; rooms and variants no longer in th
 left out):
 
 ```
-godot --headless --path . -s res://tools/make_room_scores.gd -- full/report.json rerun/report.json --source "next-features-2 at <commit>, <date>"
+godot --headless --path . -s res://tools/make_room_scores.gd -- full/report.json rerun/report.json --none buttons --stale lava,piston --source "next-features-2 at <commit>, <date>"
 ```
 
-`tests/unit/test_room_scores.gd` fails while a room in the catalog has no score.
+`--none` lists rooms no bot can measure (Buttons: no bot presses buttons); the page shows "—".
+`--stale` marks rooms changed since the run with a comment on their entry. `--set id=score`
+gives a number by hand. `tests/unit/test_room_scores.gd` fails while a room in the catalog has
+neither a score nor a `--none` entry.
 
 ## Results
 

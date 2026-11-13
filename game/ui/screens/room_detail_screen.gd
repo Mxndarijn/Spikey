@@ -172,9 +172,7 @@ func _facts() -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	var score := RoomScores.of(room_id)
-	if score >= 0:
-		row.add_child(_score_tile(score))
+	row.add_child(_score_tile(RoomScores.of(room_id)))
 	if _is_open():
 		_add_stats(row)
 	else:
@@ -191,8 +189,8 @@ func _facts() -> Control:
 	return row
 
 
-## The measured difficulty on a raised tile, "Score" over its number, so it
-## reads apart from the run stats beside it.
+## The measured difficulty on a raised tile, "Score" over its number ("—" for a
+## room no bot can measure), so it reads apart from the run stats beside it.
 func _score_tile(score: int) -> Control:
 	var tile := PanelContainer.new()
 	tile.name = "Score"
@@ -213,7 +211,7 @@ func _score_tile(score: int) -> Control:
 	head.add_theme_font_override("font", GameFonts.ui(800))
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(head)
-	_score = UiKit.label(str(score), &"NameLabel", false)
+	_score = UiKit.label(str(score) if score >= 0 else "—", &"NameLabel", false)
 	_score.add_theme_font_size_override("font_size", STAT_SIZE)
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_score)
