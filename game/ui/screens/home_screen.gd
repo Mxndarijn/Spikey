@@ -73,11 +73,16 @@ func _init(profile: Profile, services: AppServices, daily_rank: int = 0) -> void
 
 func _ready() -> void:
 	# Settings in the corner slot: Home has no way back, so its corner holds it.
-	_settings_button = UiKit.icon_button(SETTINGS_ICON, "Settings")
+	# A cog on a paper disc, the same paper as the wallet's pill opposite it,
+	# so Home's corner never reads as another screen's back arrow.
+	_settings_button = UiKit.disc_button(
+		SETTINGS_ICON, "Settings", UiKit.Disc.PAPER, UiKit.ICON_BUTTON
+	)
 	_settings_button.name = "Settings"
 	_settings_button.pressed.connect(open_settings)
 	UiKit.place_corner(self, _settings_button)
-	# Gold and diamonds, top right, level with the corner; they open the Wallet.
+	# Gold and diamonds on a paper pill, top right, level with the corner; they
+	# open the Wallet (the Shop).
 	_wallet = Wallet.new()
 	_wallet.show_balance(_profile)
 	_wallet.name = "Coins"

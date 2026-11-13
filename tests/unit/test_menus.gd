@@ -145,6 +145,8 @@ func test_home_shows_stats_flyer_and_the_dock() -> void:
 	assert_eq(got, ["play", "rooms", "style", "rank", "runs"], "each dock item does its job")
 	var gear := home.settings_button()
 	assert_eq(gear.position, UiKit.CORNER, "Settings sits in the corner slot")
+	var disc := gear.get_theme_stylebox("normal") as StyleBoxFlat
+	assert_eq(disc.bg_color, UiTokens.PANEL, "a cog on a paper disc")
 	gear.pressed.emit()
 	assert_true(home.settings() != null, "Settings opens the sheet")
 	home.free()

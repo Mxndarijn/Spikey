@@ -40,6 +40,11 @@ func _init(icon: Texture2D = COIN_ICON, word: String = "", hud := false) -> void
 	row.add_child(_label)
 
 
+## On a paper pill (the tappable wallet): the number is ink in every world.
+func on_paper() -> void:
+	_label.add_theme_color_override("font_color", UiTokens.ON_PANEL)
+
+
 ## Coins read with thousands separators, as on the canvas ("1,240"); from
 ## 10,000 on they are short ("12.3k") so a wallet leaves the header room.
 func set_amount(value: int) -> void:

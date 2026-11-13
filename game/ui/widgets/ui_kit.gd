@@ -16,7 +16,7 @@ extends RefCounted
 ## - tab and chip (TabStrip, chips).
 
 ## Looks of a disc_button().
-enum Disc { FILL, TONAL, BARE }
+enum Disc { FILL, TONAL, BARE, PAPER }
 
 ## The Wallet's two tabs (wallet_tabs()).
 const WALLET_TABS: Array[String] = ["Get diamonds", "Earn free"]
@@ -201,13 +201,23 @@ static func center_icon_group(b: Button) -> void:
 
 
 ## An icon button on a row or in a card, 44px: FILL (an ink disc: the row's
-## main action, one per row), TONAL (a paper-raised disc) or BARE (the icon).
-static func disc_button(icon: Texture2D, tip: String, look: Disc = Disc.TONAL) -> Button:
-	var b := icon_button(icon, tip, &"InkButton", DISC)
+## main action, one per row), TONAL (a paper-raised disc), BARE (the icon), or
+## PAPER (a paper disc on the room: Home's Settings, the same paper as the
+## wallet's pill). `side`: the button's size (the corner slot is 48px).
+static func disc_button(
+	icon: Texture2D, tip: String, look: Disc = Disc.TONAL, side: float = DISC
+) -> Button:
+	var b := icon_button(icon, tip, &"InkButton", side)
 	if look == Disc.BARE:
 		return b
-	var fill := UiTokens.INK_LINE if look == Disc.FILL else UiTokens.PANEL_RAISED
-	var down := fill.lightened(0.15) if look == Disc.FILL else UiTokens.EDGE
+	var fill := UiTokens.PANEL_RAISED
+	var down := UiTokens.EDGE
+	if look == Disc.FILL:
+		fill = UiTokens.INK_LINE
+		down = fill.lightened(0.15)
+	elif look == Disc.PAPER:
+		fill = UiTokens.PANEL
+		down = UiTokens.PANEL_RAISED
 	var disc := UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0)
 	var disc_down := UiTheme.flat(down, UiTokens.RADIUS_PILL, 0)
 	for state in ["normal", "hover", "disabled"]:
