@@ -59,7 +59,7 @@ func test_rooms_are_in_the_catalog_in_order() -> void:
 		last = i
 	# Unlock scores come from the measured difficulty (RoomPacing).
 	assert_eq(RoomCatalog.find("cloud").from_score, 10)
-	assert_eq(RoomCatalog.find("gates").from_score, 50)
+	assert_eq(RoomCatalog.find("gates").from_score, 30)
 	assert_eq(RoomCatalog.find("crawl").from_score, 20)
 	assert_eq(RoomCatalog.find("swing").group, "mid")
 	assert_eq(RoomCatalog.find("stalker").from_score, 30)

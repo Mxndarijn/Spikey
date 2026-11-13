@@ -35,17 +35,17 @@ impl RoomPacing {
         ("stalker", Self::MIDDLE),  // 42
         ("bubbles", Self::MIDDLE),  // 45
         ("narrow", Self::MIDDLE),  // 47
-        ("pegs", Self::MIDDLE), // 44 (provisional)
+        ("pegs", Self::HARD), // 50
         ("buttons", Self::MIDDLE), // not measured yet (provisional)
         ("rain", Self::HARD),  // 49
-        ("cave", Self::HARD), // 48 (provisional)
-        ("gates", Self::HARD),  // 51
+        ("cave", Self::HARD), // 54
+        ("gates", Self::MIDDLE), // 45
         ("midnight", Self::HARD),  // 52
         ("sawring", Self::HARD),  // 54
         ("squeeze", Self::HARD),  // 56
         ("bramble", Self::HARDER),  // 56
         ("swing", Self::HARDER),  // 57
-        ("stalac", Self::HARDER),  // 60
+        ("stalac", Self::EASY), // 32
         ("beams", Self::HARDER),  // 61
         ("pinwheel", Self::HARDEST),  // 65
         ("updraft", Self::HARDEST),  // 74
