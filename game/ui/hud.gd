@@ -339,9 +339,10 @@ func set_practice(room_name: String) -> void:
 	_place_score()
 
 
-## The practice or replay banner sits at the top; the score goes under it.
+## The replay banner sits at the top; the score goes under it. The practice
+## line sits above the room's kill line, so the score stays where it is.
 func _place_score() -> void:
-	var banner := _practicing or _replaying
+	var banner := _replaying
 	_score.offset_top = 92 if banner else 34
 	_score.offset_bottom = _score.offset_top + UiTheme.RUN_SCORE_SIZE + 6
 	score_placed.emit(_score.offset_top)

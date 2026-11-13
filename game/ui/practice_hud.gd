@@ -1,7 +1,7 @@
 class_name PracticeHud
 extends Control
-## The extra HUD for a practice run, in the minimal kit: a small ink chip
-## "Practice: Piston Press" at the top (the room on repeat), a bare restart
+## The extra HUD for a practice run, in the minimal kit: a small line
+## "Practice: Piston Press" at the very top (the room on repeat), a bare restart
 ## icon top right, "Back to rooms" while paused, and the crash screen on the
 ## dimmed room: "Crashed", the room, this try's points, the practice note,
 ## the round Try again and Back to rooms (with a back arrow). Hud owns it and
@@ -12,8 +12,11 @@ signal rooms_pressed
 
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
-const CHIP_TOP := 48.0
-const CHIP_H := 34.0
+## The line sits on the ceiling's spike band, above SimConfig.KILL_TOP: the
+## bird never gets there, so it never covers a hazard, a button or the bird.
+## White in an ink halo, like the rest of the run's HUD.
+const CHIP_TOP := 6.0
+const CHIP_H := 22.0
 ## The chip stays clear of the corner buttons (Large buttons on, too).
 const CHIP_MAX := 224.0
 const NOTE := "Practice never counts for gold, best score, cleared rooms or leaderboards."
@@ -39,13 +42,11 @@ func _init() -> void:
 
 
 func _build_banner() -> void:
-	var chip := UiTheme.flat(UiTokens.INK_LINE, UiTokens.RADIUS_PILL, 0)
-	chip.content_margin_left = 14
-	chip.content_margin_right = 14
-	_banner.add_theme_stylebox_override("panel", chip)
+	_banner.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_room_line.theme_type_variation = &"OnInkLabel"
-	_room_line.add_theme_font_size_override("font_size", 14)
+	_room_line.theme_type_variation = &"HudLabel"
+	_room_line.add_theme_font_size_override("font_size", 13)
+	_room_line.add_theme_constant_override("outline_size", 4)
 	_room_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_room_line.custom_minimum_size = Vector2(0, CHIP_H)
 	_room_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -158,7 +159,7 @@ func _at(c: Control, top: float) -> void:
 func set_room(room_name: String) -> void:
 	_room_name = room_name
 	_room_line.text = "Practice: %s" % room_name
-	UiKit.cap_width(_room_line, CHIP_MAX - 28.0)
+	UiKit.cap_width(_room_line, CHIP_MAX)
 	_over_room.text = room_name
 	visible = not room_name.is_empty()
 	show_playing(false)

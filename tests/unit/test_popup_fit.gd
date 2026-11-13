@@ -158,6 +158,20 @@ func test_chips_stay_between_the_corner_buttons() -> void:
 	practice.free()
 
 
+## The practice line stays on the ceiling's spike band, where the bird never
+## goes, so it covers no hazard or button in any room.
+func test_the_practice_line_stays_above_the_kill_line() -> void:
+	var practice := PracticeHud.new()
+	_in_tree(practice)
+	practice.set_room("Buttons")
+	var bottom := PracticeHud.CHIP_TOP + practice._banner.get_combined_minimum_size().y
+	var kill := float(SimConfig.KILL_TOP) / SimConfig.SUB
+	assert_true(
+		bottom <= kill - 2.0, "the line ends at %.0f px, the kill line is %.0f" % [bottom, kill]
+	)
+	practice.free()
+
+
 func _in_tree(node: Node) -> void:
 	(Engine.get_main_loop() as SceneTree).root.add_child(node)
 
