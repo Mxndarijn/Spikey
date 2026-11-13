@@ -220,6 +220,8 @@ static func _gen_isles(p: VariantParams, factories: Array[Callable]) -> void:
 	var room := p.sim.room
 	var reach := VariantCheck.HOLD_STEPS * SimConfig.SPEED_X + 2 * SimConfig.BIRD_RADIUS
 	for b in made:
+		if b.kind != "block":
+			continue
 		var x0: int = b.x0 - b.drift
 		var x1: int = b.x1 + b.drift
 		var near: bool = (

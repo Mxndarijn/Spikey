@@ -96,7 +96,7 @@ impl Check for Reach {
             let room = sim.state.room_index;
             let crossing = (sim.room.wall_right() - sim.room.wall_left()) / SimConfig::SPEED_X;
             let mut s = SurvivalSearch::new();
-            s.run(&sim, sim.steps_to_exit(sim.state.exit_side) + 2 * crossing + SimConfig::PORTAL_HOLD + 10);
+            s.run(&sim, sim.steps_to_exit(sim.state.exit_side) + 2 * crossing + 10);
             if s.best.as_ref().is_none_or(|b| b.state.room_index == room) {
                 fails.push(format!(
                     "{}/{} seed {} line {}: no way into the exit at {} px from the ghost (bird at {} px)",

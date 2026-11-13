@@ -25,6 +25,11 @@ const ROOMS: Array[String] = [
 	"rain",
 	"cave",
 	"pegs",
+	"sawring",
+	"bats",
+	"ghostdoors",
+	"pumpkin",
+	"eggs",
 ]
 ## The hard rule: a generated layout is built once, at room start, and stays
 ## as it is while the bird is in the room. Per hazard kind, the fields that
@@ -279,10 +284,10 @@ func test_mirror_turns_round_a_height_away_from_the_arrival() -> void:
 		)
 
 
-## Static variants keep their hand-made factories (Saw Ring, Piston Press and
-## Beam Gates stay hand made).
+## Static variants keep their hand-made factories (Piston Press and Beam Gates
+## stay hand made).
 func test_static_variants_stay_static() -> void:
-	for id: String in ["sawring", "piston"]:
+	for id: String in ["piston"]:
 		for v in RoomCatalog.find(id).variants:
 			assert_eq(v.kind, RoomVariant.Kind.STATIC, "%s/%s" % [id, v.id])
 			assert_false(v.hazards.is_empty(), "%s/%s has its factories" % [id, v.id])
@@ -296,7 +301,9 @@ func test_static_variants_stay_static() -> void:
 ## built the same, every hazard's position and size included.
 func test_generated_rooms_are_the_same_however_the_seed_is_played() -> void:
 	var compared := 0
-	for seed_value: int in [11, 7, 99, 1, 2, 3, 123, 777, 8, 13, 55]:
+	for seed_value: int in [
+		11, 7, 99, 1, 2, 3, 123, 777, 8, 13, 55, 2024, 31337, 5150, 65536, 42, 9001
+	]:
 		var a := _played_layouts(seed_value, 3)
 		var b := _played_layouts(seed_value, 8)
 		for room: int in a:

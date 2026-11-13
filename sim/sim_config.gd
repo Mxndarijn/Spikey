@@ -83,6 +83,10 @@ extends RefCounted
 ##     weights by score, a shuffle-bag picker), generated variants built at room
 ##     start, Lava Rise variants, new rooms Cave Tunnel, Peg Field and Buttons,
 ##     and a remade Crowded.
+## 23 (pending, with the next bump): no frozen wait out of a normal portal
+##     (PORTAL_HOLD and the ARRIVAL_BLIND fallback wait are gone); the arrival
+##     check holds height for ARRIVAL_BLIND ticks of flight, and where no layout
+##     fits, another variant is tried instead of waiting.
 const GAMEPLAY_VERSION := 22
 ## How often a run can be revived.
 const MAX_REVIVES := 1
@@ -175,15 +179,12 @@ const BOSS_COINS: Array[int] = [15, 20, 25]
 ## Ticks (1 s) of a frozen wait (SimState.arrival_hold: the bird and room
 ## wait, taps ignored) after a revive.
 const ARRIVAL_HOLD := 60
-## Ticks (0.5 s) of the same frozen wait out of every portal: the room is laid
-## out from the seed alone (SimState.anchor_y), not for the bird's own height,
-## so the player gets half a second to look before the bird flies on. It counts
-## toward ARRIVAL_BLIND (ArrivalCheck steps through it). Where no layout is fair
-## for every bird in the exit, the wait is ARRIVAL_BLIND (GameSim._arrival_retries).
-const PORTAL_HOLD := 30
-## Out of a portal the room is laid out so a player who doesn't react for
-## ARRIVAL_BLIND ticks (only holding height) can still live ARRIVAL_FOLLOW
-## ticks after that; up to ARRIVAL_TRIES layouts are tried (ArrivalCheck).
+## Out of a portal the bird flies on at once (no frozen wait; a boss room
+## waits BOSS_HOLD). The room is laid out from the seed alone (SimState.anchor_y)
+## so a player who doesn't react for ARRIVAL_BLIND ticks of flight (only holding
+## height, anywhere in the exit) can still live ARRIVAL_FOLLOW ticks after that;
+## up to ARRIVAL_TRIES layouts are tried, then as many again with another
+## variant allowed (ArrivalCheck, GameSim._arrival_retries).
 const ARRIVAL_BLIND := 60
 const ARRIVAL_FOLLOW := 120
 const ARRIVAL_TRIES := 16

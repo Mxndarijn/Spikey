@@ -4,11 +4,12 @@
 //! (SimConfig.EXIT_MIN_Y..EXIT_MAX_Y), the bird anywhere in the exit (anchor ± EXIT_FIT), at
 //! scores from the room's unlock on. Per arrival: whether the picker may pick the room at that
 //! height (`RoomDef.fits_arrival`), the variant the game draws (after ArrivalCheck's retries),
-//! whether the room had to wait the whole ARRIVAL_BLIND, and whether PlannerBot reacting after
+//! whether no layout was fair for every bird in the exit (GameSim._arrival_unfit; before
+//! gameplay version 23: the room waited the whole ARRIVAL_BLIND), and whether PlannerBot reacting after
 //! `--delay` ticks (default 45, 0.75 s) dies within `--within` ticks (default 120, 2 s).
 //! A tool only: it plays the real arrival code, the same as `_go_through` after the pick.
 //! Output: one TSV row per room variant (room, variant, drawn, share %, skipped heights %,
-//! blind waits %, deaths % within 2 s). `--deaths 1` also lists every death (stderr) with its
+//! unfit %, deaths % within 2 s). `--deaths 1` also lists every death (stderr) with its
 //! seed, heights and whether SurvivalSearch finds a way to live after the same delay.
 use std::collections::BTreeMap;
 
@@ -58,7 +59,7 @@ fn arrive(index: i64, i: i64, delay: i64, within: i64, deaths: bool) -> Arrival 
     }
     sim._arrive_in(side, index);
     let variant = if def.variants.is_empty() { "" } else { def.variants[sim.room.variant as usize].id };
-    let blind = sim.state.arrival_hold >= SimConfig::ARRIVAL_BLIND;
+    let blind = sim._arrival_unfit;
     let at = if deaths { Some(sim.clone_deep()) } else { None };
     let (seed_v, score) = (sim.seed_value, sim.state.score);
     let mut bot = PlannerBot::new(i + 1, 45, 2);
@@ -103,7 +104,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
             }
         }
     }
-    println!("room\tvariant\tdrawn\tshare%\tskipped%\tblind%\tdied%");
+    println!("room\tvariant\tdrawn\tshare%\tskipped%\tunfit%\tdied%");
     let mut by_room: BTreeMap<i64, Vec<&Arrival>> = BTreeMap::new();
     for (r, a) in &out {
         by_room.entry(*r).or_default().push(a);

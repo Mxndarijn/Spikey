@@ -67,13 +67,29 @@ impl CatalogMotion {
         sawring.weight = 8;
         sawring.max_spikes = 6;
         for shape in Self::SAW_RINGS {
-            sawring
-                .variants
-                .push(RoomVariant::new(shape).with(vec![mk(move || Self::_saw_ring(shape))]));
+            sawring.variants.push(RoomVariant::new(shape).generated(recipe(move |sim, p| Self::_gen_saw(sim, p, shape)), false, 0));
         }
         out_.push(sawring);
 
         out_
+    }
+
+    fn _gen_saw(sim: &mut GameSim, p: &VariantParams, shape: &str) {
+        let r = p.add(sim, Self::_saw_ring(shape));
+        if !p.arriving {
+            return;
+        }
+        let ext = match &sim.room.hazards[r] {
+            Hz::SawRing(s) => s.reach_y(),
+            _ => unreachable!(),
+        };
+        let cy = p.clear_center(sim, SawRing::CENTER_Y, ext);
+        if cy >= 0 {
+            if let Hz::SawRing(s) = &mut sim.room.hazards[r] {
+                s.center_y = cy;
+                s._place();
+            }
+        }
     }
 
     fn _saw_ring(shape: &str) -> Hz {

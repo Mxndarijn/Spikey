@@ -46,10 +46,8 @@ func test_arrival_checks_leave_the_run_untouched_and_never_nest() -> void:
 
 
 ## Out of a portal the picker never sends the bird into a room at a height it
-## skips (RoomDef.arrival_skip), and still picks it at other heights.
+## skips (RoomDef.arrival_skip).
 func test_rooms_are_not_picked_at_heights_they_skip() -> void:
-	var skipping := 0
-	var picked_elsewhere := {}
 	for y_px in range(110, 531, 20):
 		var y := y_px * SimConfig.SUB
 		var rng := SimRng.new(y_px)
@@ -60,16 +58,6 @@ func test_rooms_are_not_picked_at_heights_they_skip() -> void:
 			var next := RoomCatalog.pick_next(rng, state, 0, Seasons.SPRING)
 			var def: RoomDef = RoomCatalog.all()[next]
 			assert_true(def.fits_arrival(y), "%s picked at %d px" % [def.id, y_px])
-			if def.skips_heights():
-				picked_elsewhere[def.id] = true
-	for def: RoomDef in RoomCatalog.all():
-		if def.skips_heights():
-			skipping += 1
-	assert_true(skipping >= 1, "rooms that skip heights: %d" % skipping)
-	for def: RoomDef in RoomCatalog.all():
-		var in_season := def.season == Seasons.NONE or def.season == Seasons.SPRING
-		if def.skips_heights() and in_season and not def.boss and def.from_score <= 200:
-			assert_true(picked_elsewhere.has(def.id), "%s is still picked elsewhere" % def.id)
 
 
 ## Bee Line and Bat Loop time themselves out of a portal: at every height

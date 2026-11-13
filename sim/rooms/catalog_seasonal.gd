@@ -15,6 +15,7 @@ const Dart := preload("res://sim/hazards/dart.gd")
 const KeepyBall := preload("res://sim/hazards/keepy_ball.gd")
 const Firework := preload("res://sim/hazards/firework.gd")
 const CatalogMotion := preload("res://sim/rooms/catalog_motion.gd")
+const Core := preload("res://sim/rooms/catalog_core.gd")
 
 const SUB := SimConfig.SUB
 ## Seasonal rooms are picked more often while their season is on.
@@ -27,9 +28,6 @@ const ROW_W := 60
 const ROW_H := 34
 const ROW_PERIOD := 240
 const ROW_SOLID := 160
-## Out of a portal the row variant skips these heights (px): a bird holding
-## height there (it hops about 62 px over the line) meets the row.
-const ROW_SKIP := [380 * SimConfig.SUB, 516 * SimConfig.SUB]
 ## Ghost Doors, flicker: a short cycle (2.5 s, solid for 1 s), each row of
 ## doors further into it than the one above, the right door a little more.
 ## Steps per row and per column apart: with both doors of a row far apart in
@@ -38,6 +36,8 @@ const FLICKER_PERIOD := 150
 const FLICKER_SOLID := 60
 const FLICKER_ROW_STEP := 50
 const FLICKER_COL_STEP := 20
+## Generated Bat Loop: the eight gets no flatter than this (half its height).
+const BAT_MIN_H := 40 * SimConfig.SUB
 
 
 static func defs() -> Array[RoomDef]:
@@ -47,12 +47,16 @@ static func defs() -> Array[RoomDef]:
 	# Pumpkin Bounce is Bramble Ball with a skin. Variants: the classic ball;
 	# two smaller ones in the upper and lower lanes; one that splits in two.
 	var pumpkin := _room("pumpkin", Seasons.HALLOWEEN, 40)
+	# GENERATED with Bramble Ball's recipe (Core._gen_bramble).
+	var classic_ball: Array[Callable] = [func() -> Hazard: return Bouncer.new()]
+	var twin_balls: Array[Callable] = [
+		_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)
+	]
+	var split_ball: Array[Callable] = [func() -> Hazard: return SplittingBouncer.new()]
 	pumpkin.variants = [
-		RoomVariant.new("classic").with([func() -> Hazard: return Bouncer.new()]),
-		RoomVariant.new("twin").with(
-			[_twin.bind(Bouncer.Lane.UPPER), _twin.bind(Bouncer.Lane.LOWER)]
-		),
-		RoomVariant.new("splitting").with([func() -> Hazard: return SplittingBouncer.new()]),
+		RoomVariant.new("classic").generated(Core._gen_bramble.bind(classic_ball)),
+		RoomVariant.new("twin").generated(Core._gen_bramble.bind(twin_balls)),
+		RoomVariant.new("splitting").generated(Core._gen_bramble.bind(split_ball)),
 	]
 	out.append(pumpkin)
 
@@ -69,20 +73,26 @@ static func defs() -> Array[RoomDef]:
 	var row: Array[Callable] = []
 	for i in 3:
 		row.append(_row_door.bind(i))
+	# The grid and the flicker are GENERATED (_gen_doors): out of a portal the
+	# doors a bird holding its height would still meet solid in its first
+	# second of flight are left out (there is no wait out of a portal).
 	ghosts.variants = [
-		RoomVariant.new("classic").with(grid),
+		RoomVariant.new("classic").generated(_gen_doors.bind(grid)),
 		# Out of a portal level with the row, a bird holding height flies
-		# through all three doors, and only one is ever open.
-		RoomVariant.new("row").with(row).skipping(PackedInt32Array(ROW_SKIP)),
-		RoomVariant.new("flicker").with(flicker),
+		# through all three doors, and only one is ever open: the ones it would
+		# meet solid are left out, as in the grid.
+		RoomVariant.new("row").generated(_gen_doors.bind(row)),
+		RoomVariant.new("flicker").generated(_gen_doors.bind(flicker)),
 	]
 	out.append(ghosts)
 
 	# Bat Loop variants: three bats on the eight; a bigger, faster eight; two
 	# bats, the second speeding up every lap (capped at 130%).
+	# Every variant is GENERATED (_gen_bats): out of a portal the eight sits
+	# clear of the band a bird holding its height sweeps (smaller if it must).
 	var bats := _room("bats", Seasons.HALLOWEEN, 40)
 	for shape: String in ["classic", "wide", "pair"]:
-		bats.variants.append(RoomVariant.new(shape).with([_bats.bind(shape)]))
+		bats.variants.append(RoomVariant.new(shape).generated(_gen_bats.bind(shape)))
 	out.append(bats)
 
 	# Winter
@@ -130,10 +140,11 @@ static func defs() -> Array[RoomDef]:
 	# CoinPickup.GOLD_VALUE behind the lowest isle.
 	var eggs := _room("eggs", Seasons.SPRING, 20)
 	eggs.max_spikes = 6
+	# GENERATED with Floating Isles' recipe (Core._gen_isles).
 	eggs.variants = [
-		RoomVariant.new("classic").with(_egg_isles(0, false)),
-		RoomVariant.new("drifting").with(_egg_isles(Block.DRIFT, false)),
-		RoomVariant.new("golden").with(_egg_isles(0, true)),
+		RoomVariant.new("classic").generated(Core._gen_isles.bind(_egg_isles(0, false))),
+		RoomVariant.new("drifting").generated(Core._gen_isles.bind(_egg_isles(Block.DRIFT, false))),
+		RoomVariant.new("golden").generated(Core._gen_isles.bind(_egg_isles(0, true))),
 	]
 	out.append(eggs)
 
@@ -284,6 +295,58 @@ static func _firework(delay: int, style: int) -> Hazard:
 
 
 ## One Bat Loop variant.
+## Generated Ghost Doors (grid, flicker): the doors as hand made (they time
+## their fade to the arrival path). Out of a portal, while a bird holding its
+## height anywhere in the exit still meets a solid door in its first second of
+## flight (VariantCheck.first_hit), that door is left out. No draws; every try
+## is the same.
+static func _gen_doors(p: VariantParams, factories: Array[Callable]) -> void:
+	var made := p.add_all(factories)
+	if not p.arriving:
+		return
+	for k in made.size():
+		var hit := VariantCheck.first_hit(p.sim)
+		if hit < 0:
+			return
+		p.sim.room.hazards[hit].alive = false
+
+
+## Generated Bat Loop: the eight as hand made, moved up or down (the side
+## nearer the middle that fits) so the whole loop clears the band a bird
+## holding its height sweeps out of a portal; if neither side has room, the
+## eight gets flatter to fit the roomier one (no flatter than BAT_MIN_H). The
+## bats then time themselves to the arrival path (Mover.setup). No draws.
+static func _gen_bats(p: VariantParams, shape: String) -> void:
+	var m: Hazard = _bats(shape)
+	if p.arriving:
+		var ext: int = m.loop_h + Mover.RADIUS + VariantParams.MARGIN
+		var cy := Mover.CENTER_Y
+		var clear := cy - ext >= p.hold_bottom() or cy + ext <= p.hold_top()
+		if not clear:
+			var above := p.hold_top() - ext
+			var below := p.hold_bottom() + ext
+			var lo := SimConfig.KILL_TOP + ext
+			var hi := SimConfig.KILL_BOTTOM - ext
+			var fits_above := above >= lo
+			var fits_below := below <= hi
+			if fits_above and (not fits_below or absi(above - cy) <= absi(below - cy)):
+				m.center_y = above
+			elif fits_below:
+				m.center_y = below
+			else:
+				var room_above := p.hold_top() - SimConfig.KILL_TOP
+				var room_below := SimConfig.KILL_BOTTOM - p.hold_bottom()
+				var room := maxi(room_above, room_below)
+				var h := room / 2 - Mover.RADIUS - VariantParams.MARGIN
+				if h >= BAT_MIN_H:
+					m.loop_h = mini(m.loop_h, h)
+					ext = m.loop_h + Mover.RADIUS + VariantParams.MARGIN
+					m.center_y = (
+						p.hold_top() - ext if room_above >= room_below else p.hold_bottom() + ext
+					)
+	p.add(m)
+
+
 static func _bats(shape: String) -> Hazard:
 	match shape:
 		"wide":

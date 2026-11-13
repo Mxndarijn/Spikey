@@ -52,8 +52,8 @@ Nothing in `sim/` or `game/` changes until the user picks.
 
 - **Start.** The exit at 100, 200, 300, ... leads into a boss room. It is
   planned on the 99th point like any exit and its ghost carries a BOSS tag.
-  Out of it the room holds 1.5 s (a `BOSS_HOLD` of 90 ticks instead of
-  `PORTAL_HOLD`, taps ignored) while the boss comes in. The first tell starts
+  Out of it the room holds 1.5 s (a `BOSS_HOLD` of 90 ticks, taps ignored;
+  other portals have no wait) while the boss comes in. The first tell starts
   no sooner than `ARRIVAL_BLIND` after the bird can move.
 - **Length.** 20 bounces (100 to 120, about 23 s: a crossing is 70 ticks). Each
   bounce takes one pip off a 20-pip boss bar. Phases change at 7 and 14

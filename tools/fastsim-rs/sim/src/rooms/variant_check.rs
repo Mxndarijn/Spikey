@@ -30,7 +30,28 @@ impl VariantCheck {
         dy * def.variants[sim.room.variant as usize].arrival_spread / SimConfig::EXIT_FIT
     }
 
+    /// GD first_hit(sim, steps = 0): the hazard index that first hits a held-height bird,
+    /// -2 the ceiling or floor, -1 none.
+    pub fn first_hit(sim: &GameSim, steps: i64) -> i64 {
+        if !sim.state.started {
+            return -1;
+        }
+        let n = if steps > 0 { steps } else { Self::HOLD_STEPS };
+        for dy in GameSim::ARRIVAL_HEIGHTS {
+            let at = GameSim::_arrival_y(sim.state.anchor_y + Self::arrival_dy(sim, dy));
+            let hit = Self::_hit_at(sim, at, false, n);
+            if hit != -1 {
+                return hit;
+            }
+        }
+        -1
+    }
+
     fn _holds_at(sim: &GameSim, hold: i64, avoid_touch: bool, steps: i64) -> bool {
+        Self::_hit_at(sim, hold, avoid_touch, steps) == -1
+    }
+
+    fn _hit_at(sim: &GameSim, hold: i64, avoid_touch: bool, steps: i64) -> i64 {
         let mut c = sim.clone_deep();
         let g = c.room.gravity;
         let mut y = hold;
@@ -56,18 +77,18 @@ impl VariantCheck {
             vy = c.state.vy;
             let r = SimConfig::BIRD_RADIUS;
             if y - r <= SimConfig::KILL_TOP || y + r >= SimConfig::KILL_BOTTOM {
-                return false;
+                return -2;
             }
-            for h in &c.room.hazards {
+            for (i, h) in c.room.hazards.iter().enumerate() {
                 if !h.alive() {
                     continue;
                 }
                 if h.kills(&c) || (avoid_touch && Self::_touches(&c, h)) {
-                    return false;
+                    return i as i64;
                 }
             }
         }
-        true
+        -1
     }
 
     fn _touches(sim: &GameSim, h: &Hz) -> bool {

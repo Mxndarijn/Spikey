@@ -79,26 +79,32 @@ impl ArrivalMemo {
         k
     }
 
+    fn flags(sim: &GameSim) -> i64 {
+        (sim._arrival_unpin as i64) | ((sim._arrival_unfit as i64) << 1)
+    }
+
     pub fn retries(sim: &mut GameSim, side: i64, next: i64) -> i64 {
         if !ON.load(Ordering::Relaxed) {
             return sim._arrival_retries(side, next);
         }
         let k = Self::key(sim, side, next);
         let got = MEMO.with(|m| m.borrow().get(&k).copied());
-        if let Some((skip, wait)) = got {
+        // `flags`: bit 0 _arrival_unpin, bit 1 _arrival_unfit (what _arrival_retries sets).
+        if let Some((skip, flags)) = got {
             if VERIFY.load(Ordering::Relaxed) {
                 let s2 = sim._arrival_retries(side, next);
-                if s2 != skip || sim._arrival_wait != wait {
+                if s2 != skip || Self::flags(sim) != flags {
                     WRONG.fetch_add(1, Ordering::Relaxed);
                 }
             }
             HITS.fetch_add(1, Ordering::Relaxed);
-            sim._arrival_wait = wait;
+            sim._arrival_unpin = flags & 1 != 0;
+            sim._arrival_unfit = flags & 2 != 0;
             return skip;
         }
         MISSES.fetch_add(1, Ordering::Relaxed);
         let skip = sim._arrival_retries(side, next);
-        let wait = sim._arrival_wait;
+        let wait = Self::flags(sim);
         MEMO.with(|m| {
             let mut m = m.borrow_mut();
             if m.len() > 4096 {

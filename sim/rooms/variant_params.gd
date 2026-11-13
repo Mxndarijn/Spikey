@@ -58,6 +58,23 @@ func add_all(factories: Array[Callable]) -> Array[Hazard]:
 	return out
 
 
+## A centre height for something reaching `ext` up and down that keeps it off
+## the hold band: `cy` itself if it already is, else the side (above or below
+## the band) nearer `cy` that fits in the cage; -1 if neither does.
+func clear_center(cy: int, ext: int) -> int:
+	if cy - ext >= hold_bottom() or cy + ext <= hold_top():
+		return cy
+	var above := hold_top() - ext
+	var below := hold_bottom() + ext
+	var fits_above := above - ext >= SimConfig.KILL_TOP
+	var fits_below := below + ext <= SimConfig.KILL_BOTTOM
+	if fits_above and (not fits_below or absi(above - cy) <= absi(below - cy)):
+		return above
+	if fits_below:
+		return below
+	return -1
+
+
 ## The highest and lowest bird centre out of the exit (clamped like the bird,
 ## GameSim._arrival_y).
 func bird_top() -> int:

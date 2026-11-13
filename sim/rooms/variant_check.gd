@@ -13,7 +13,7 @@ extends RefCounted
 ## every room. Plays copies only: no RNG draws, the room is left as it is.
 
 ## Moving steps the bird only holds its height (SimConfig.ARRIVAL_BLIND: a
-## second of flight, more than the reading time left after PORTAL_HOLD).
+## second of flight: out of a portal the bird flies on at once).
 const HOLD_STEPS := SimConfig.ARRIVAL_BLIND
 
 
@@ -41,8 +41,29 @@ static func arrival_dy(sim: GameSim, dy: int) -> int:
 	return dy * room.def.variants[room.variant].arrival_spread / SimConfig.EXIT_FIT
 
 
+## The hazard (its index in the room) that first hits a bird holding its
+## height out of the exit (as holds() flies them, every height in turn), -2 if
+## the ceiling or floor does, -1 if none: a recipe leaves out what is in the
+## bird's way (Ghost Doors).
+static func first_hit(sim: GameSim, steps: int = 0) -> int:
+	if not sim.state.started:
+		return -1
+	var n := steps if steps > 0 else HOLD_STEPS
+	for dy: int in GameSim.ARRIVAL_HEIGHTS:
+		var at := GameSim._arrival_y(sim.state.anchor_y + arrival_dy(sim, dy))
+		var hit := _hit_at(sim, at, false, n)
+		if hit != -1:
+			return hit
+	return -1
+
+
 ## One bird holding height `hold`, as FairLanes.arrival_path flies it.
 static func _holds_at(sim: GameSim, hold: int, avoid_touch: bool, steps: int) -> bool:
+	return _hit_at(sim, hold, avoid_touch, steps) == -1
+
+
+## What first hits it (first_hit), or -1.
+static func _hit_at(sim: GameSim, hold: int, avoid_touch: bool, steps: int) -> int:
 	var c := SimCopy.copy(sim)
 	var g := c.room.gravity
 	var y := hold
@@ -65,13 +86,14 @@ static func _holds_at(sim: GameSim, hold: int, avoid_touch: bool, steps: int) ->
 		vy = c.state.vy
 		var r := SimConfig.BIRD_RADIUS
 		if y - r <= SimConfig.KILL_TOP or y + r >= SimConfig.KILL_BOTTOM:
-			return false
-		for h in c.room.hazards:
+			return -2
+		for i in c.room.hazards.size():
+			var h: Hazard = c.room.hazards[i]
 			if not h.alive:
 				continue
 			if h.kills(c) or (avoid_touch and _touches(c, h)):
-				return false
-	return true
+				return i
+	return -1
 
 
 ## Whether the bird touches a bubble's body.

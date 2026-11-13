@@ -84,10 +84,10 @@ pub fn run(opts: &Opts, seeds: i32) -> i32 {
             let crossing = (sim.room.wall_right() - sim.room.wall_left()) / SimConfig::SPEED_X;
             let to_exit = sim.steps_to_exit(sim.state.exit_side);
             let mut a = SurvivalSearch::new();
-            a.run(&sim.clone_deep(), to_exit + SimConfig::PORTAL_HOLD + 10);
+            a.run(&sim.clone_deep(), to_exit + 10);
             let ok1 = a.best.as_ref().is_some_and(|b| b.state.room_index != room);
             let mut b = SurvivalSearch::new();
-            b.run(&sim.clone_deep(), to_exit + 2 * crossing + SimConfig::PORTAL_HOLD + 10);
+            b.run(&sim.clone_deep(), to_exit + 2 * crossing + 10);
             let ok2 = b.best.as_ref().is_some_and(|b| b.state.room_index != room);
             let miss = if !ok1 {
                 Some(format!(
@@ -365,16 +365,16 @@ pub fn entry_trace(opts: &Opts) -> i32 {
 }
 
 /// `rl review arrivalwait --rooms crates,gifts --seeds 400`: how often a portal
-/// arrival (the difficulty tool's entries, Cases::arrive) has no fair layout at
-/// every height and waits the whole ARRIVAL_BLIND instead of PORTAL_HOLD. Tool only.
+/// arrival (the difficulty tool's entries, Cases::arrive) has no layout fair at
+/// every height (GameSim._arrival_unfit; there is no wait out of a portal). Tool only.
 pub fn arrival_wait(opts: &Opts, seeds: i32) -> i32 {
     let filter = opts.get("rooms").cloned().unwrap_or_else(|| "crates,gifts".to_string());
-    println!("full waits out of a portal (ARRIVAL_BLIND), {} entries per variant", seeds);
+    println!("portal arrivals with no layout fair at every height, {} entries per variant", seeds);
     for t in Cases::all(&filter) {
         let (waits, n): (i64, i64) = (0..seeds as i64)
             .into_par_iter()
             .map(|i| match Cases::arrive(&t, i) {
-                Ok(sim) => ((sim.state.arrival_hold == SimConfig::ARRIVAL_BLIND) as i64, 1),
+                Ok(sim) => (sim._arrival_unfit as i64, 1),
                 Err(_) => (0, 0),
             })
             .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1));

@@ -171,7 +171,10 @@ static func _gen_updraft(p: VariantParams, shape: String) -> void:
 			made.append(p.add(_air(cx, 60, Updraft.LIFT)))
 			for y_px: int in [220, 270, 320]:
 				p.add(_coin(cx, y_px))
-	if p.fallback and p.arriving:
+	# Out of a portal the up-down pair always stops short of the band (a
+	# downdraft would pull a bird holding its height down), the rest only on
+	# the fallback.
+	if p.arriving and (p.fallback or shape == "updown"):
 		for h in made:
 			h.clear_band(p)
 

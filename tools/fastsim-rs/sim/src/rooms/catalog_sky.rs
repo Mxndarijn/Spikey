@@ -169,7 +169,7 @@ impl CatalogSky {
                 }
             }
         }
-        if p.fallback && p.arriving {
+        if p.arriving && (p.fallback || shape == "updown") {
             for i in made {
                 VariantParams::edit(sim, i, |h, sim| {
                     if let Hz::Updraft(u) = h {

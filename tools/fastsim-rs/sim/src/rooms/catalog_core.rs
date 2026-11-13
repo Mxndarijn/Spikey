@@ -189,7 +189,7 @@ impl CatalogCore {
         }
     }
 
-    fn _gen_bramble(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+    pub fn _gen_bramble(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
         let made = p.add_all(sim, factories);
         if !p.fallback || !p.arriving {
             return;
@@ -209,7 +209,7 @@ impl CatalogCore {
         }
     }
 
-    fn _gen_isles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+    pub fn _gen_isles(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
         let made = p.add_all(sim, factories);
         if !p.fallback || !p.arriving {
             return;

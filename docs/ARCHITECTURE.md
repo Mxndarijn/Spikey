@@ -88,12 +88,16 @@ flowchart TD
     wall, from the room seed). The ghost and the open exit only show them, and
     their zone is reserved all room (`ExitPlanner.reserved`). Hazards that move
     keep the way open for when the bird gets there (`GameSim.steps_to_exit`).
-  - Out of every portal the bird and room wait `SimConfig.PORTAL_HOLD` ticks
-    (0.5 s), part of the 1 s `ARRIVAL_BLIND`. Each layout try is checked for a
-    bird anywhere in the exit it came through (`GameSim.ARRIVAL_HEIGHTS`: the
-    centre, ±EXIT_FIT/2 and ±EXIT_FIT). When no try is fair at every height,
-    the room waits the whole `ARRIVAL_BLIND` instead (about 4% of arrivals,
-    mostly Shutter Gates). The arrival check then allows no arrival with no
+  - Out of a portal the bird flies on at once (gameplay version 23: no frozen
+    wait; a boss room still holds `BOSS_HOLD`, a revive `ARRIVAL_HOLD`). Each
+    layout try is checked for a bird anywhere in the exit it came through
+    (`GameSim.ARRIVAL_HEIGHTS`: the centre, ±EXIT_FIT/2 and ±EXIT_FIT) that
+    only holds its height for `ARRIVAL_BLIND` ticks of flight. When no try is
+    fair at every height and the room has another variant than a generated one
+    the seed drew, as many tries again may draw any variant
+    (`GameSim._arrival_unpin`); failing that, the best try is taken
+    (`GameSim._arrival_unfit`, measured by `fastsim-rs variants`, column
+    `unfit%`). The arrival check then allows no arrival with no
     way to live at 1 s (`ArrivalBench.MAX_NO_WAY = 0`, with the bird anywhere
     in the exit, `ArrivalBench.OFFSETS`).
   - Behaviour that follows the bird (Stalker, a Dart's aim, Echo) stays: it uses
@@ -126,7 +130,7 @@ random spike slot; no spikes in the opening, and the whole spike-free gap
 around the portal leads through, so there is no strip to bounce in beside it). Flying into it moves to the next room;
 missing it is a normal bounce and it stays open. The bird comes out of a portal
 in the opposite wall of the new room at the same height and keeps flying the
-same way (gameplay version 6), after a 0.5 s wait (`PORTAL_HOLD`, next version;
+same way (gameplay version 6), at once (no wait since gameplay version 23;
 see "Same seed, same run" above). The room is
 laid out for a player who is still reading it (gameplay version 18; it replaced
 a frozen wait and then a slow-motion entrance): `ArrivalCheck` plays the
@@ -349,8 +353,10 @@ no `arrival_skip`. Floating Isles is the reference recipe
 Gates, Caterpillar Crawl and Crab Walk, Stalactite Run (every variant),
 Bubble Lift, Echo (mirror), Gift Stack, Bee Line, Updraft, Pinwheel, Lantern
 Swing, Crate Drop, Bramble Ball and Spike Rain (every variant), and the
-recipe-only rooms Cave Tunnel and Peg Field (`catalog_caves.gd`). Hand made on
-purpose: Saw Ring, Piston Press, Beam Gates and the rest.
+recipe-only rooms Cave Tunnel and Peg Field (`catalog_caves.gd`). Since gameplay
+version 23 (no wait out of a portal) also Saw Ring, Bat Loop, Ghost Doors,
+Pumpkin Bounce (Bramble's recipe) and Egg Hunt (Floating Isles' recipe). Hand
+made on purpose: Piston Press, Beam Gates and the rest.
 `tests/unit/test_generated_variants.gd` checks the contract at every height;
 `fastsim-rs variants [arrivals] [rooms]` measures each variant's real share
 out of a portal, the full-wait rate and deaths within 2 s.

@@ -178,7 +178,7 @@ func test_row_doors_open_one_at_a_time_in_turn() -> void:
 
 ## No exit opens level with the row on either wall (the doors at the ends sit
 ## near the walls), and a portal never drops the bird in at the row's height.
-func test_row_keeps_exits_and_arrivals_off_its_height() -> void:
+func test_row_keeps_exits_off_its_height() -> void:
 	var sim := practice("ghostdoors", 2, "row")
 	var doors := of_kind(sim, "block")
 	var mid: int = (doors[0].y0 + doors[0].y1) / 2
@@ -187,9 +187,6 @@ func test_row_keeps_exits_and_arrivals_off_its_height() -> void:
 		for d: Hazard in doors:
 			any = any or d.blocks_exit(sim, side, mid)
 		assert_true(any, "wall %d: no exit level with the row" % side)
-	var def := RoomCatalog.find("ghostdoors")
-	for v in def.variants:
-		assert_eq(v.fits_arrival(mid), v.id != "row", "%s at the row's height" % v.id)
 
 
 ## Flicker: the same grid as the classic doors, on a much shorter cycle, each

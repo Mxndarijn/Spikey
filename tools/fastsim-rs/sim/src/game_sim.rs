@@ -70,7 +70,9 @@ pub struct GameSim {
     pub _checking: bool,
     /// Bots only, never in the game: a planner copy remembers arrival checks (arrival_memo.rs).
     pub memo_arrivals: bool,
-    pub _arrival_wait: i64,
+    pub _arrival_unpin: bool,
+    /// Tool info, not gameplay: the last portal arrival had no layout fair for every bird in the exit.
+    pub _arrival_unfit: bool,
     pub _free_lo: i64,
     pub _free_hi: i64,
     /// The free run the last new wall was drawn with, for hazards that change the wall
@@ -109,7 +111,8 @@ impl GameSim {
             _spine: SimRng::default(),
             _checking: false,
             memo_arrivals: false,
-            _arrival_wait: SimConfig::PORTAL_HOLD,
+            _arrival_unpin: false,
+            _arrival_unfit: false,
             _free_lo: -1,
             _free_hi: -1,
             wall_run: [-1, -1, -1],
@@ -165,7 +168,8 @@ impl GameSim {
             events: self.events.clone(),
             _rng: self._rng,
             _spine: self._spine,
-            _arrival_wait: self._arrival_wait,
+            _arrival_unpin: self._arrival_unpin,
+            _arrival_unfit: self._arrival_unfit,
             _checking: self._checking,
             memo_arrivals: self.memo_arrivals,
             _entry_room: self._entry_room.clone(),
@@ -191,7 +195,8 @@ impl GameSim {
         c.events.clone_from(&self.events);
         c._rng = self._rng;
         c._spine = self._spine;
-        c._arrival_wait = self._arrival_wait;
+        c._arrival_unpin = self._arrival_unpin;
+        c._arrival_unfit = self._arrival_unfit;
         c._checking = self._checking;
         c.memo_arrivals = self.memo_arrivals;
         c._entry_room.clone_from(&self._entry_room);
@@ -431,7 +436,7 @@ impl GameSim {
         }
         if drawn.len() > 1 {
             self.room.variant = drawn[self._rng.next_below(drawn.len() as i64) as usize];
-            if self.state.started {
+            if self.state.started && !self._arrival_unpin {
                 let first = drawn[SimRng::new(self.room.rng_seed).next_below(drawn.len() as i64) as usize];
                 if def.variants[first as usize].kind == Kind::GENERATED {
                     self.room.variant = first;
@@ -841,37 +846,42 @@ impl GameSim {
     }
 
     pub fn _arrival_retries(&mut self, side: i64, next: i64) -> i64 {
-        self._arrival_wait = SimConfig::PORTAL_HOLD;
+        self._arrival_unpin = false;
+        self._arrival_unfit = false;
         if self._checking || SimConfig::ARRIVAL_BLIND == 0 {
             return 0;
         }
         let mut best = 0;
         let mut best_score = -1;
-        for wait in [SimConfig::PORTAL_HOLD, SimConfig::ARRIVAL_BLIND] {
+        let mut best_unpin = false;
+        let passes: &[bool] = if RoomCatalog::all()[next as usize].has_generated_choice() { &[false, true] } else { &[false] };
+        for &unpin in passes {
             for k in 0..SimConfig::ARRIVAL_TRIES {
-                let score = self._arrival_score(side, next, k, wait);
+                let score = self._arrival_score(side, next, k, unpin);
                 if score < 0 {
-                    self._arrival_wait = wait;
+                    self._arrival_unpin = unpin;
                     return k;
                 }
-                if wait == SimConfig::PORTAL_HOLD && score > best_score {
+                if score > best_score {
                     best_score = score;
                     best = k;
+                    best_unpin = unpin;
                 }
             }
         }
-        self._arrival_wait = SimConfig::ARRIVAL_BLIND;
+        self._arrival_unpin = best_unpin;
+        self._arrival_unfit = true;
         best
     }
 
-    fn _arrival_score(&self, side: i64, next: i64, k: i64, wait: i64) -> i64 {
+    fn _arrival_score(&self, side: i64, next: i64, k: i64, unpin: bool) -> i64 {
         let fair = SimConfig::ARRIVAL_BLIND + SimConfig::ARRIVAL_FOLLOW;
         let mut centre = 0;
         let mut worst = fair;
         for dy in Self::ARRIVAL_HEIGHTS {
             let mut c = self.clone_deep();
             c._checking = true;
-            c._arrival_wait = wait;
+            c._arrival_unpin = unpin;
             c.state.y = Self::_arrival_y(self.state.anchor_y + dy);
             for _ in 0..k {
                 c._rng.next_u32();
@@ -903,11 +913,8 @@ impl GameSim {
         self._arrive(side, Event::ROOM_CHANGE);
         let at = self.next_exit_score();
         ExitPlanner::plan_room(self, at);
-        self.state.arrival_hold = self._arrival_wait;
-        if self.room.def().boss {
-            self.state.arrival_hold = G::maxi(self.state.arrival_hold, SimConfig::BOSS_HOLD);
-        }
-        self._arrival_wait = SimConfig::PORTAL_HOLD;
+        self.state.arrival_hold = if self.room.def().boss { SimConfig::BOSS_HOLD } else { 0 };
+        self._arrival_unpin = false;
         self._keep_entry();
     }
 

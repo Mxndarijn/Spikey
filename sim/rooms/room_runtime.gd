@@ -85,7 +85,7 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 		# the room starts) lay it out again rather than draw another variant.
 		# The first try is the same draw, so nothing changes there, nor in a
 		# room whose first draw is a static variant.
-		if sim.state.started:
+		if sim.state.started and not sim._arrival_unpin:
 			var first: int = drawn[SimRng.new(rng_seed).next_below(drawn.size())]
 			if def.variants[first].kind == RoomVariant.Kind.GENERATED:
 				variant = first

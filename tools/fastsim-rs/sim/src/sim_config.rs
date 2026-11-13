@@ -49,7 +49,6 @@ impl SimConfig {
     pub const BOSS_HOLD: i64 = 90;
     pub const BOSS_COINS: [i64; 3] = [15, 20, 25];
     pub const ARRIVAL_HOLD: i64 = 60;
-    pub const PORTAL_HOLD: i64 = 30;
     pub const ARRIVAL_BLIND: i64 = 60;
     pub const ARRIVAL_FOLLOW: i64 = 120;
     pub const ARRIVAL_TRIES: i64 = 16;

@@ -137,6 +137,13 @@ impl RoomDef {
         out_
     }
 
+    pub fn has_generated_choice(&self) -> bool {
+        if self.variants.len() < 2 {
+            return false;
+        }
+        self.variants.iter().any(|v| v.kind == Kind::GENERATED)
+    }
+
     pub fn skips_heights(&self) -> bool {
         if !self.arrival_skip.is_empty() {
             return true;

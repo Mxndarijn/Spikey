@@ -68,10 +68,13 @@ var _rng: SimRng
 var _spine: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
-## The wait the next portal arrival gets (_arrive_in): PORTAL_HOLD, or
-## ARRIVAL_BLIND when no layout was fair for every bird in the exit at the
-## short wait (_arrival_retries). Reset after each arrival.
-var _arrival_wait := SimConfig.PORTAL_HOLD
+## The next portal arrival may draw another variant than a generated one the
+## room seed drew (RoomRuntime.start): set by _arrival_retries when none of the
+## ARRIVAL_TRIES layouts with that variant is fair, cleared by _arrive_in.
+var _arrival_unpin := false
+## Tool info, not gameplay (not in the checksum): the last portal arrival had no
+## layout fair for a bird anywhere in the exit; the best one was taken.
+var _arrival_unfit := false
 ## While ExitPlanner plans: points_to_exit() as if this many points were left
 ## (-1 = the real count), and a second count the plan must also be clear for
 ## (-1 = none; see ExitPlanner.plan_room).
@@ -596,42 +599,49 @@ func _seed_room() -> void:
 ## (of ARRIVAL_TRIES) that ArrivalCheck finds fair for a bird anywhere in the
 ## exit it came through (its height and EXIT_FIT above and below,
 ## ARRIVAL_HEIGHTS), so the layout never depends on the bird's own height.
-## If none is, the room waits the whole reading time (ARRIVAL_BLIND, frozen)
-## and the first layout fair for every height then is taken; failing that,
-## still with that wait, the one that lived longest at the exit's height, then
-## at its worst height (the simple players only hold heights; a player who has
-## read the room can steer). Sets _arrival_wait. 0 inside a check, so checks
-## never nest.
+## There is no wait out of a portal: if none is fair, and the room has another
+## variant to draw than a generated one the seed picked, ARRIVAL_TRIES layouts
+## more where any variant may be drawn (_arrival_unpin); failing that, the one
+## that lived longest at the exit's height, then at its worst height (the
+## simple players only hold heights; a player who has read the room can
+## steer), with _arrival_unfit set. 0 inside a check, so checks never nest.
 func _arrival_retries(side: int, next: int) -> int:
-	_arrival_wait = SimConfig.PORTAL_HOLD
+	_arrival_unpin = false
+	_arrival_unfit = false
 	if _checking or SimConfig.ARRIVAL_BLIND == 0:
 		return 0
 	var best := 0
 	var best_score := -1
-	for wait: int in [SimConfig.PORTAL_HOLD, SimConfig.ARRIVAL_BLIND]:
+	var best_unpin := false
+	var passes: Array[bool] = [false]
+	if RoomCatalog.all()[next].has_generated_choice():
+		passes.append(true)
+	for unpin in passes:
 		for k in SimConfig.ARRIVAL_TRIES:
-			var score := _arrival_score(side, next, k, wait)
+			var score := _arrival_score(side, next, k, unpin)
 			if score < 0:
-				_arrival_wait = wait
+				_arrival_unpin = unpin
 				return k
-			if wait == SimConfig.PORTAL_HOLD and score > best_score:
+			if score > best_score:
 				best_score = score
 				best = k
-	_arrival_wait = SimConfig.ARRIVAL_BLIND
+				best_unpin = unpin
+	_arrival_unpin = best_unpin
+	_arrival_unfit = true
 	return best
 
 
-## How layout `k` (RNG draws skipped) of room `next` does with a `wait` tick
-## hold: -1 if fair at every ARRIVAL_HEIGHTS height, else a rank (the exit's
-## height first, then the worst one).
-func _arrival_score(side: int, next: int, k: int, wait: int) -> int:
+## How layout `k` (RNG draws skipped) of room `next` does (any variant drawn
+## when `unpin`): -1 if fair at every ARRIVAL_HEIGHTS height, else a rank (the
+## exit's height first, then the worst one).
+func _arrival_score(side: int, next: int, k: int, unpin: bool) -> int:
 	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
 	var centre := 0
 	var worst := fair
 	for dy: int in ARRIVAL_HEIGHTS:
 		var c := SimCopy.copy(self)
 		c._checking = true
-		c._arrival_wait = wait
+		c._arrival_unpin = unpin
 		c.state.y = _arrival_y(state.anchor_y + dy)
 		for i in k:
 			c._rng.next_u32()
@@ -663,11 +673,10 @@ func _arrive_in(side: int, next: int) -> void:
 	_enter_room(next)
 	_arrive(side, Event.ROOM_CHANGE)
 	ExitPlanner.plan_room(self, next_exit_score())
-	state.arrival_hold = _arrival_wait
-	# A boss comes in while the bird waits (its own attacks wait longer still).
-	if room.def.boss:
-		state.arrival_hold = maxi(state.arrival_hold, SimConfig.BOSS_HOLD)
-	_arrival_wait = SimConfig.PORTAL_HOLD
+	# The bird flies on at once; a boss comes in while the bird waits (its own
+	# attacks wait longer still).
+	state.arrival_hold = SimConfig.BOSS_HOLD if room.def.boss else 0
+	_arrival_unpin = false
 	_keep_entry()
 
 

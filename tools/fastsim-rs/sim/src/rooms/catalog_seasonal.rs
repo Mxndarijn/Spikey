@@ -3,6 +3,7 @@ use crate::hazards::bouncer::Lane;
 use crate::hazards::drop::Style as DropStyle;
 use crate::hazards::firework::Style;
 use crate::prelude::*;
+use crate::rooms::catalog_core::CatalogCore;
 use crate::rooms::catalog_machines::CatalogMachines;
 use crate::rooms::catalog_motion::CatalogMotion;
 
@@ -16,7 +17,6 @@ impl CatalogSeasonal {
     pub const ROW_H: i64 = 34;
     pub const ROW_PERIOD: i64 = 240;
     pub const ROW_SOLID: i64 = 160;
-    pub const ROW_SKIP: [i64; 2] = [380 * SimConfig::SUB, 516 * SimConfig::SUB];
     pub const FLICKER_PERIOD: i64 = 150;
     pub const FLICKER_SOLID: i64 = 60;
     pub const FLICKER_ROW_STEP: i64 = 50;
@@ -28,12 +28,13 @@ impl CatalogSeasonal {
 
         // Halloween
         let mut pumpkin = Self::_room("pumpkin", Seasons::HALLOWEEN, 40);
+        let classic_ball: Vec<Factory> = vec![mk(|| Bouncer::new(Bouncer::RADIUS, Lane::ANY).into())];
+        let twin_balls: Vec<Factory> = vec![mk(|| Self::_twin(Lane::UPPER)), mk(|| Self::_twin(Lane::LOWER))];
+        let split_ball: Vec<Factory> = vec![mk(|| SplittingBouncer::new().into())];
         pumpkin.variants = vec![
-            RoomVariant::new("classic")
-                .with(vec![mk(|| Bouncer::new(Bouncer::RADIUS, Lane::ANY).into())]),
-            RoomVariant::new("twin")
-                .with(vec![mk(|| Self::_twin(Lane::UPPER)), mk(|| Self::_twin(Lane::LOWER))]),
-            RoomVariant::new("splitting").with(vec![mk(|| SplittingBouncer::new().into())]),
+            RoomVariant::new("classic").generated(recipe(move |sim, p| CatalogCore::_gen_bramble(sim, p, &classic_ball)), false, 0),
+            RoomVariant::new("twin").generated(recipe(move |sim, p| CatalogCore::_gen_bramble(sim, p, &twin_balls)), false, 0),
+            RoomVariant::new("splitting").generated(recipe(move |sim, p| CatalogCore::_gen_bramble(sim, p, &split_ball)), false, 0),
         ];
         out_.push(pumpkin);
 
@@ -52,16 +53,15 @@ impl CatalogSeasonal {
             row.push(mk(move || Self::_row_door(ri)));
         }
         ghosts.variants = vec![
-            RoomVariant::new("classic").with(grid),
-            RoomVariant::new("row").with(row).skipping(Self::ROW_SKIP.to_vec()),
-            RoomVariant::new("flicker").with(flicker),
+            RoomVariant::new("classic").generated(recipe(move |sim, p| Self::_gen_doors(sim, p, &grid)), false, 0),
+            RoomVariant::new("row").generated(recipe(move |sim, p| Self::_gen_doors(sim, p, &row)), false, 0),
+            RoomVariant::new("flicker").generated(recipe(move |sim, p| Self::_gen_doors(sim, p, &flicker)), false, 0),
         ];
         out_.push(ghosts);
 
         let mut bats = Self::_room("bats", Seasons::HALLOWEEN, 40);
         for shape in ["classic", "wide", "pair"] {
-            bats.variants
-                .push(RoomVariant::new(shape).with(vec![mk(move || Self::_bats(shape))]));
+            bats.variants.push(RoomVariant::new(shape).generated(recipe(move |sim, p| Self::_gen_bats(sim, p, shape)), false, 0));
         }
         out_.push(bats);
 
@@ -109,10 +109,12 @@ impl CatalogSeasonal {
         // Spring
         let mut eggs = Self::_room("eggs", Seasons::SPRING, 20);
         eggs.max_spikes = 6;
+        let (e_classic, e_drift, e_golden) =
+            (Self::_egg_isles(0, false), Self::_egg_isles(Block::DRIFT, false), Self::_egg_isles(0, true));
         eggs.variants = vec![
-            RoomVariant::new("classic").with(Self::_egg_isles(0, false)),
-            RoomVariant::new("drifting").with(Self::_egg_isles(Block::DRIFT, false)),
-            RoomVariant::new("golden").with(Self::_egg_isles(0, true)),
+            RoomVariant::new("classic").generated(recipe(move |sim, p| CatalogCore::_gen_isles(sim, p, &e_classic)), false, 0),
+            RoomVariant::new("drifting").generated(recipe(move |sim, p| CatalogCore::_gen_isles(sim, p, &e_drift)), false, 0),
+            RoomVariant::new("golden").generated(recipe(move |sim, p| CatalogCore::_gen_isles(sim, p, &e_golden)), false, 0),
         ];
         out_.push(eggs);
 
@@ -257,6 +259,58 @@ impl CatalogSeasonal {
 
     fn _firework(delay: i64, style: i64) -> Hz {
         Firework::new(delay, style).into()
+    }
+
+    pub const BAT_MIN_H: i64 = 40 * SimConfig::SUB;
+
+    fn _gen_doors(sim: &mut GameSim, p: &VariantParams, factories: &[Factory]) {
+        let made = p.add_all(sim, factories);
+        if !p.arriving {
+            return;
+        }
+        for _ in 0..made.len() {
+            let hit = VariantCheck::first_hit(sim, 0);
+            if hit < 0 {
+                return;
+            }
+            sim.room.hazards[hit as usize].base_mut().alive = false;
+        }
+    }
+
+    fn _gen_bats(sim: &mut GameSim, p: &VariantParams, shape: &str) {
+        let mut hz = Self::_bats(shape);
+        if p.arriving {
+            if let Hz::Mover(m) = &mut hz {
+                let mut ext = m.loop_h + Mover::RADIUS + VariantParams::MARGIN;
+                let cy = Mover::CENTER_Y;
+                let (ht, hb) = (p.hold_top(sim), p.hold_bottom(sim));
+                let clear = cy - ext >= hb || cy + ext <= ht;
+                if !clear {
+                    let above = ht - ext;
+                    let below = hb + ext;
+                    let lo = SimConfig::KILL_TOP + ext;
+                    let hi = SimConfig::KILL_BOTTOM - ext;
+                    let fits_above = above >= lo;
+                    let fits_below = below <= hi;
+                    if fits_above && (!fits_below || G::absi(above - cy) <= G::absi(below - cy)) {
+                        m.center_y = above;
+                    } else if fits_below {
+                        m.center_y = below;
+                    } else {
+                        let room_above = ht - SimConfig::KILL_TOP;
+                        let room_below = SimConfig::KILL_BOTTOM - hb;
+                        let room = G::maxi(room_above, room_below);
+                        let h = room / 2 - Mover::RADIUS - VariantParams::MARGIN;
+                        if h >= Self::BAT_MIN_H {
+                            m.loop_h = G::mini(m.loop_h, h);
+                            ext = m.loop_h + Mover::RADIUS + VariantParams::MARGIN;
+                            m.center_y = if room_above >= room_below { ht - ext } else { hb + ext };
+                        }
+                    }
+                }
+            }
+        }
+        p.add(sim, hz);
     }
 
     fn _bats(shape: &str) -> Hz {

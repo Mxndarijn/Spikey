@@ -103,8 +103,10 @@ static func defs() -> Array[RoomDef]:
 	var sawring := RoomDef.new("sawring", "late", 80)
 	sawring.weight = 8
 	sawring.max_spikes = 6
+	# Every variant is GENERATED (_gen_saw): out of a portal the ring sits clear
+	# of the band a bird holding its height anywhere in the exit sweeps.
 	for shape: String in SAW_RINGS:
-		sawring.variants.append(RoomVariant.new(shape).with([_saw_ring.bind(shape)]))
+		sawring.variants.append(RoomVariant.new(shape).generated(_gen_saw.bind(shape)))
 	out.append(sawring)
 
 	return out
@@ -158,6 +160,19 @@ static func _pinwheel(shape: String) -> Hazard:
 
 
 ## One Saw Ring variant. "classic" is SawRing.new() as is.
+## Generated Saw Ring: the ring as hand made (it draws its saws and turn),
+## moved up or down so its whole reach clears the hold band
+## (VariantParams.clear_center). No other draws.
+static func _gen_saw(p: VariantParams, shape: String) -> void:
+	var r: Hazard = p.add(_saw_ring(shape))
+	if not p.arriving:
+		return
+	var cy := p.clear_center(SawRing.CENTER_Y, r.reach_y())
+	if cy >= 0:
+		r.center_y = cy
+		r._place()
+
+
 static func _saw_ring(shape: String) -> Hazard:
 	var ring := SawRing.new()
 	match shape:

@@ -103,6 +103,18 @@ func arrival_variants(y: int) -> Array[int]:
 	return out
 
 
+## Whether an arrival here can draw another variant than a generated one the
+## room seed drew (GameSim._arrival_retries' second pass): two or more variants,
+## one of them generated.
+func has_generated_choice() -> bool:
+	if variants.size() < 2:
+		return false
+	for v in variants:
+		if v.kind == RoomVariant.Kind.GENERATED:
+			return true
+	return false
+
+
 ## Whether the room or any of its variants skips some heights out of a portal.
 func skips_heights() -> bool:
 	if not arrival_skip.is_empty():

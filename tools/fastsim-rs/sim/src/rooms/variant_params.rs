@@ -54,6 +54,24 @@ impl VariantParams {
         sim.room.hazards[i] = h;
     }
 
+    pub fn clear_center(&self, sim: &GameSim, cy: i64, ext: i64) -> i64 {
+        let (ht, hb) = (self.hold_top(sim), self.hold_bottom(sim));
+        if cy - ext >= hb || cy + ext <= ht {
+            return cy;
+        }
+        let above = ht - ext;
+        let below = hb + ext;
+        let fits_above = above - ext >= SimConfig::KILL_TOP;
+        let fits_below = below + ext <= SimConfig::KILL_BOTTOM;
+        if fits_above && (!fits_below || G::absi(above - cy) <= G::absi(below - cy)) {
+            return above;
+        }
+        if fits_below {
+            return below;
+        }
+        -1
+    }
+
     pub fn bird_top(&self) -> i64 {
         GameSim::_arrival_y(self.entry_y - self.spread)
     }

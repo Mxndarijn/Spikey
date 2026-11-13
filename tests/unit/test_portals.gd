@@ -89,15 +89,9 @@ func test_flying_through_moves_to_the_next_room() -> void:
 	assert_eq(sim.state.x, sim.room.wall_left() + r, "out of the opposite (left) wall")
 	assert_eq(sim.state.left_spikes, 0, "no spikes on the wall it came out of")
 	assert_true(sim.state.right_spikes != 0, "the wall ahead has spikes again")
-	# Half a second to look: the bird and the room wait, taps do nothing.
 	var t := sim.room.t
-	assert_eq(sim.state.arrival_hold, SimConfig.PORTAL_HOLD, "a short wait out of the portal")
-	for i in SimConfig.PORTAL_HOLD:
-		sim.step(true)
-		assert_false(GameSim.Event.FLAP in sim.events, "taps do nothing while it waits")
-	assert_eq(sim.room.t, t, "the room waits too")
 	sim.step(true)
-	assert_true(GameSim.Event.FLAP in sim.events, "then taps work")
+	assert_true(GameSim.Event.FLAP in sim.events, "it flies on: a tap works at once")
 	assert_eq(sim.room.t, t + 1, "and no slow motion")
 
 
