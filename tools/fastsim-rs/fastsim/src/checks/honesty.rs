@@ -695,6 +695,7 @@ impl Honesty {
         s.rng("_rng", &sim._rng);
         s.rng("_spine", &sim._spine);
         s.n("_arrival_unpin", sim._arrival_unpin as i64);
+        s.n("_arrival_band", sim._arrival_band as i64);
         s.n("_free_lo", sim._free_lo);
         s.n("_free_hi", sim._free_hi);
         // C# null: the four entry fields are taken (and dropped) together.

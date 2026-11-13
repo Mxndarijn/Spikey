@@ -137,3 +137,30 @@ func test_the_portal_keeps_the_bird_off_the_ceiling_and_floor() -> void:
 		assert_between(sim.state.y, top, bottom)
 		if y_px == 300:
 			assert_eq(sim.state.y, 300 * SimConfig.SUB, "a height in between is kept")
+
+
+## Out of a portal the wall ahead keeps its spikes: the hold band is cleared
+## only when no layout is fair without it (GameSim._arrival_band). It used to
+## be cleared in almost every room, leaving a low-score wall bare.
+func test_the_wall_ahead_keeps_its_spikes_out_of_a_portal() -> void:
+	for id: String in ["tide", "crowded"]:
+		var index := RoomCatalog.index_of(id)
+		var bare := 0
+		var banded := 0
+		for i in 12:
+			var sim := _sim_at(RoomCatalog.all()[index].from_score + 10 * (i % 3), 500 + i)
+			var y := 160 + (i * 53) % 320
+			while not RoomCatalog.all()[index].fits_arrival(y * SimConfig.SUB):
+				y = 160 + (y - 160 + 53) % 320
+			sim.state.y = y * SimConfig.SUB
+			sim.state.anchor_y = sim.state.y
+			var side := i % 2
+			for k in sim._arrival_retries(side, index):
+				sim._rng.next_u32()
+			if sim._arrival_band:
+				banded += 1
+			sim._arrive_in(side, index)
+			if sim.wall_mask(side) == 0:
+				bare += 1
+		assert_true(banded <= 1, "%s: band in %d of 12 arrivals" % [id, banded])
+		assert_eq(bare, 0, "%s: a bare wall ahead" % id)

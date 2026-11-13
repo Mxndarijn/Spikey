@@ -103,12 +103,14 @@ flowchart TD
     wait; a boss room still holds `BOSS_HOLD`, a revive `ARRIVAL_HOLD`). Each
     layout try is checked for a bird anywhere in the exit it came through
     (`GameSim.ARRIVAL_HEIGHTS`: the centre, ±EXIT_FIT/2 and ±EXIT_FIT) that
-    only holds its height for `ARRIVAL_BLIND` ticks of flight. When no try is
-    fair at every height and the room has another variant than a generated one
-    the seed drew, as many tries again may draw any variant
-    (`GameSim._arrival_unpin`); failing that, the best try is taken
-    (`GameSim._arrival_unfit`, measured by `fastsim-rs variants`, column
-    `unfit%`). The arrival check then allows no arrival with no
+    only holds its height for `ARRIVAL_BLIND` ticks of flight. The walls keep
+    their spikes: only when no try is fair at every height do as many tries
+    again clear the hold band (`GameSim._arrival_band`,
+    `_keep_hold_band_open`; a boss room tries the band first). When none is
+    fair and the room has another variant than a generated one the seed drew,
+    both again may draw any variant (`GameSim._arrival_unpin`); failing that,
+    the best try with the band is taken (`GameSim._arrival_unfit`, measured by
+    `fastsim-rs variants`, column `unfit%`). The arrival check then allows no arrival with no
     way to live at 1 s (`ArrivalBench.MAX_NO_WAY = 0`, with the bird anywhere
     in the exit, `ArrivalBench.OFFSETS`).
   - Behaviour that follows the bird (Stalker, a Dart's aim, Echo) stays: it uses

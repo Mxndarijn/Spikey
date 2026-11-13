@@ -71,6 +71,7 @@ pub struct GameSim {
     /// Bots only, never in the game: a planner copy remembers arrival checks (arrival_memo.rs).
     pub memo_arrivals: bool,
     pub _arrival_unpin: bool,
+    pub _arrival_band: bool,
     /// Tool info, not gameplay: the last portal arrival had no layout fair for every bird in the exit.
     pub _arrival_unfit: bool,
     pub _free_lo: i64,
@@ -113,6 +114,7 @@ impl GameSim {
             _checking: false,
             memo_arrivals: false,
             _arrival_unpin: false,
+            _arrival_band: false,
             _arrival_unfit: false,
             _free_lo: -1,
             _free_hi: -1,
@@ -170,6 +172,7 @@ impl GameSim {
             _rng: self._rng,
             _spine: self._spine,
             _arrival_unpin: self._arrival_unpin,
+            _arrival_band: self._arrival_band,
             _arrival_unfit: self._arrival_unfit,
             _checking: self._checking,
             memo_arrivals: self.memo_arrivals,
@@ -197,6 +200,7 @@ impl GameSim {
         c._rng = self._rng;
         c._spine = self._spine;
         c._arrival_unpin = self._arrival_unpin;
+        c._arrival_band = self._arrival_band;
         c._arrival_unfit = self._arrival_unfit;
         c._checking = self._checking;
         c.memo_arrivals = self.memo_arrivals;
@@ -885,34 +889,44 @@ impl GameSim {
 
     pub fn _arrival_retries(&mut self, side: i64, next: i64) -> i64 {
         self._arrival_unpin = false;
+        self._arrival_band = false;
         self._arrival_unfit = false;
         if self._checking || SimConfig::ARRIVAL_BLIND == 0 {
             return 0;
         }
         let mut best = 0;
         let mut best_score = -1;
-        let mut best_unpin = false;
-        let passes: &[bool] = if RoomCatalog::all()[next as usize].has_generated_choice() { &[false, true] } else { &[false] };
-        for &unpin in passes {
+        let mut best_pass = 0;
+        let def = &RoomCatalog::all()[next as usize];
+        let boss = def.boss;
+        let passes = if def.has_generated_choice() { 4 } else { 2 };
+        for p in 0..passes {
+            let band = (p % 2 == 1) != boss;
             for k in 0..SimConfig::ARRIVAL_TRIES {
-                let score = self._arrival_score(side, next, k, unpin);
+                let score = self._arrival_score(side, next, k, p >= 2, band);
                 if score < 0 {
-                    self._arrival_unpin = unpin;
-                    return k;
+                    best_pass = p;
+                    best = k;
+                    best_score = -2;
+                    break;
                 }
-                if score > best_score {
+                if band && score > best_score {
                     best_score = score;
                     best = k;
-                    best_unpin = unpin;
+                    best_pass = p;
                 }
             }
+            if best_score == -2 {
+                break;
+            }
         }
-        self._arrival_unpin = best_unpin;
-        self._arrival_unfit = true;
+        self._arrival_unpin = best_pass >= 2;
+        self._arrival_band = (best_pass % 2 == 1) != boss;
+        self._arrival_unfit = best_score != -2;
         best
     }
 
-    fn _arrival_score(&self, side: i64, next: i64, k: i64, unpin: bool) -> i64 {
+    fn _arrival_score(&self, side: i64, next: i64, k: i64, unpin: bool, band: bool) -> i64 {
         let fair = SimConfig::ARRIVAL_BLIND + SimConfig::ARRIVAL_FOLLOW;
         let mut centre = 0;
         let mut worst = fair;
@@ -920,6 +934,7 @@ impl GameSim {
             let mut c = self.clone_deep();
             c._checking = true;
             c._arrival_unpin = unpin;
+            c._arrival_band = band;
             c.state.y = Self::_arrival_y(self.state.anchor_y + dy);
             for _ in 0..k {
                 c._rng.next_u32();
@@ -953,6 +968,7 @@ impl GameSim {
         ExitPlanner::plan_room(self, at);
         self.state.arrival_hold = if self.room.def().boss { SimConfig::BOSS_HOLD } else { 0 };
         self._arrival_unpin = false;
+        self._arrival_band = false;
         self._keep_entry();
     }
 
@@ -982,18 +998,16 @@ impl GameSim {
         self.state.right_new = 0;
         self.events.push(ev);
         self._new_wall(side, true);
-        if ev == Event::ROOM_CHANGE {
-            self._keep_hold_band_open(side);
-        }
-        // The wall behind (the portal's), for the bird's way back: in a narrow room
-        // a player still reading the room can get back to it too.
+        self._keep_hold_band_open(side);
+        // The wall behind (the portal's): a narrow room's is met while still reading.
         self._new_wall(1 - side, false);
-        if ev == Event::ROOM_CHANGE {
-            self._keep_hold_band_open(1 - side);
-        }
+        self._keep_hold_band_open(1 - side);
     }
 
     fn _keep_hold_band_open(&mut self, side: i64) {
+        if !self._arrival_band {
+            return;
+        }
         let steps = self.steps_to_wall(side);
         let mut ticks = 0;
         let mut done = 0;

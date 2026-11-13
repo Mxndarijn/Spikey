@@ -73,9 +73,10 @@ var _spine: SimRng
 ## True on a copy that ArrivalCheck plays (it skips its own arrival checks).
 var _checking := false
 ## The next portal arrival may draw another variant than a generated one the
-## room seed drew (RoomRuntime.start): set by _arrival_retries when none of the
-## ARRIVAL_TRIES layouts with that variant is fair, cleared by _arrive_in.
+## room seed drew (RoomRuntime.start): set by _arrival_retries, cleared by _arrive_in.
 var _arrival_unpin := false
+## Likewise: the next arrival keeps the hold band open (_keep_hold_band_open).
+var _arrival_band := false
 ## Tool info, not gameplay (not in the checksum): the last portal arrival had no
 ## layout fair for a bird anywhere in the exit; the best one was taken.
 var _arrival_unfit := false
@@ -611,46 +612,48 @@ func _seed_room() -> void:
 	_rng.reseed(room.rng_seed)
 
 
-## How many RNG draws to skip before laying out room `next`: the first layout
-## (of ARRIVAL_TRIES) that ArrivalCheck finds fair for a bird anywhere in the
-## exit it came through (its height and EXIT_FIT above and below,
-## ARRIVAL_HEIGHTS), so the layout never depends on the bird's own height.
-## There is no wait out of a portal: if none is fair, and the room has another
-## variant to draw than a generated one the seed picked, ARRIVAL_TRIES layouts
-## more where any variant may be drawn (_arrival_unpin); failing that, the one
-## that lived longest at the exit's height, then at its worst height (the
-## simple players only hold heights; a player who has read the room can
-## steer), with _arrival_unfit set. 0 inside a check, so checks never nest.
+## RNG draws to skip before laying out room `next`: the first of ARRIVAL_TRIES
+## layouts ArrivalCheck finds fair for a bird anywhere in the exit it came
+## through (ARRIVAL_HEIGHTS). If none is, as many with the hold band open
+## (_arrival_band; a boss room tries it first), then both with any variant
+## (_arrival_unpin) if the seed drew a generated one; failing that, the one that
+## lived longest of those with the band (the exit's height, then its worst),
+## with _arrival_unfit set.
 func _arrival_retries(side: int, next: int) -> int:
 	_arrival_unpin = false
+	_arrival_band = false
 	_arrival_unfit = false
 	if _checking or SimConfig.ARRIVAL_BLIND == 0:
 		return 0
 	var best := 0
 	var best_score := -1
-	var best_unpin := false
-	var passes: Array[bool] = [false]
-	if RoomCatalog.all()[next].has_generated_choice():
-		passes.append(true)
-	for unpin in passes:
+	var best_pass := 0
+	var def := RoomCatalog.all()[next]
+	var passes := 4 if def.has_generated_choice() else 2
+	for p in passes:
+		var band := (p % 2 == 1) != def.boss
 		for k in SimConfig.ARRIVAL_TRIES:
-			var score := _arrival_score(side, next, k, unpin)
+			var score := _arrival_score(side, next, k, p >= 2, band)
 			if score < 0:
-				_arrival_unpin = unpin
-				return k
-			if score > best_score:
+				best_pass = p
+				best = k
+				best_score = -2
+				break
+			if band and score > best_score:
 				best_score = score
 				best = k
-				best_unpin = unpin
-	_arrival_unpin = best_unpin
-	_arrival_unfit = true
+				best_pass = p
+		if best_score == -2:
+			break
+	_arrival_unpin = best_pass >= 2
+	_arrival_band = (best_pass % 2 == 1) != def.boss
+	_arrival_unfit = best_score != -2
 	return best
 
 
-## How layout `k` (RNG draws skipped) of room `next` does (any variant drawn
-## when `unpin`): -1 if fair at every ARRIVAL_HEIGHTS height, else a rank (the
-## exit's height first, then the worst one).
-func _arrival_score(side: int, next: int, k: int, unpin: bool) -> int:
+## How layout `k` of room `next` does (`unpin`: any variant; `band`: hold band
+## open): -1 if fair at every ARRIVAL_HEIGHTS height, else a rank.
+func _arrival_score(side: int, next: int, k: int, unpin: bool, band: bool) -> int:
 	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
 	var centre := 0
 	var worst := fair
@@ -658,6 +661,7 @@ func _arrival_score(side: int, next: int, k: int, unpin: bool) -> int:
 		var c := SimCopy.copy(self)
 		c._checking = true
 		c._arrival_unpin = unpin
+		c._arrival_band = band
 		c.state.y = _arrival_y(state.anchor_y + dy)
 		for i in k:
 			c._rng.next_u32()
@@ -693,6 +697,7 @@ func _arrive_in(side: int, next: int) -> void:
 	# attacks wait longer still).
 	state.arrival_hold = SimConfig.BOSS_HOLD if room.def.boss else 0
 	_arrival_unpin = false
+	_arrival_band = false
 	_keep_entry()
 
 
@@ -726,21 +731,18 @@ func _arrive(side: int, event: Event) -> void:
 	state.right_new = 0
 	events.append(event)
 	_new_wall(side)
-	if event == Event.ROOM_CHANGE:
-		_keep_hold_band_open(side)
-	# The wall behind (the portal's), for the bird's way back: in a narrow room
-	# a player still reading the room can get back to it too.
+	_keep_hold_band_open(side)
+	# The wall behind (the portal's): a narrow room's is met while still reading.
 	_new_wall(1 - side, false)
-	if event == Event.ROOM_CHANGE:
-		_keep_hold_band_open(1 - side)
+	_keep_hold_band_open(1 - side)
 
 
-## Out of a portal, if the bird gets to the wall ahead within the reading
-## time and ARRIVAL_WALL_SPARE ticks more (a fast or narrow room), that wall
-## has no spikes where a player holding height hops: one hop over its height,
-## the bird under it, for a bird anywhere in the exit it came through
-## (anchor_y and EXIT_FIT either way).
+## Out of a portal with _arrival_band, a wall the bird gets to within the
+## reading time and ARRIVAL_WALL_SPARE ticks has no spikes where a player
+## holding height hops (anywhere in the exit: anchor_y and EXIT_FIT either way).
 func _keep_hold_band_open(side: int) -> void:
+	if not _arrival_band:
+		return
 	var steps := steps_to_wall(side)
 	var ticks := 0
 	var done := 0
@@ -772,7 +774,7 @@ func _keep_hold_band_open(side: int) -> void:
 ## arrival's reseeds from the room's seed and the wall's number, so nothing a
 ## player did changes it. Its free run is chained to the other wall's.
 func _new_wall(side: int, extras: bool = true) -> void:
-	# What the wall shows now: any spike it shows after that is new and slides out.
+	# What the wall shows now: any other spike it shows after is new.
 	var before := wall_mask(side)
 	var other_drawn := room.walls > 0
 	if room.walls > 0:
@@ -880,9 +882,8 @@ func _anchor_at_wall(side: int) -> void:
 	state.anchor_y = _free_run_of(side)
 
 
-## Wall `side`'s free part, top and bottom (_free_lo, _free_hi), and the
-## point of its free runs _anchor_at_wall moves the anchor to, without moving
-## it.
+## Wall `side`'s free part (_free_lo, _free_hi) and the point of its free runs
+## _anchor_at_wall moves the anchor to, without moving it.
 func _free_run_of(side: int) -> int:
 	var mask := _drawn_mask(side)
 	var target := _anchor_target()
