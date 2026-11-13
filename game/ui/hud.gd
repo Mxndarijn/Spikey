@@ -47,7 +47,7 @@ const REPLAY_COINS_TOP := 112.0
 const CORNER := Vector2(24, 42)
 ## The coin counter's right edge, px in from the right wall: clear of the
 ## spikes' reach and of the top exit, which opens on that wall.
-const COINS_RIGHT := 34.0
+const COINS_RIGHT := 40.0
 const CORNER_GAP := 6.0
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const PAUSE_ICON := preload("res://assets/ui/icons/pause.svg")
