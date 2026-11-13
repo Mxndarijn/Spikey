@@ -178,9 +178,11 @@ Lava.ice_on	game/run/painters/lava_painter.gd
 Lava.ice_side	game/run/painters/lava_painter.gd
 Lava.ice_slot	game/run/painters/lava_painter.gd
 Lava.line	game/run/painters/lava_painter.gd
+Lava.mode	game/run/painters/lava_painter.gd
 Lava.raft_age	game/run/painters/lava_painter.gd
 Lava.raft_on	game/run/painters/lava_painter.gd
 Lava.raft_x	game/run/painters/lava_painter.gd
+Lava.rises	game/run/painters/lava_painter.gd
 Lava.stone_on	game/run/painters/lava_painter.gd
 Lava.stone_x	game/run/painters/lava_painter.gd
 Lava.stone_y	game/run/painters/lava_painter.gd
