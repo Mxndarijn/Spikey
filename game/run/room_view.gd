@@ -543,8 +543,6 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		var depth := SPIKE_DEPTH * ease(t, 0.5) * out
 		var full := SPIKE_DEPTH * room.spike_depth() / SimConfig.SPIKE_DEPTH
 		var half := SPIKE_HALF * room.spike_half_base() / SimConfig.SPIKE_HALF_BASE
-		if slot == 0 or slot == SimConfig.SLOT_COUNT - 1:
-			_draw_edge_skirt(slot, wall_x, cy, dir, half, depth)
 		if depth > full:
 			_draw_spike(Vector2(wall_x, cy), Vector2(dir, 0), half, depth)
 		else:
@@ -558,23 +556,6 @@ func _draw_side_spikes(reveal: PackedFloat32Array, side: int, wall_x: float, dir
 		var band_x := 0.0 if side == 0 else wall_x
 		var band := INK_SPIKE if color_blind_spikes else _theme.spike
 		draw_rect(Rect2(band_x, 0, wall_x if side == 0 else W - wall_x, H), band)
-
-
-## The top and bottom wall spikes reach the ceiling and floor kill lines with
-## their base (GameSim._hits_wall): a skirt in the spike colour from the kill
-## line to the spike's tip, behind the spike.
-func _draw_edge_skirt(
-	slot: int, wall_x: float, cy: float, dir: float, half: float, depth: float
-) -> void:
-	var edge := SimConfig.KILL_TOP / float(SimConfig.SUB)
-	var near := cy - half
-	if slot != 0:
-		edge = SimConfig.KILL_BOTTOM / float(SimConfig.SUB)
-		near = cy + half
-	var pts := PackedVector2Array(
-		[Vector2(wall_x, edge), Vector2(wall_x, near), Vector2(wall_x + dir * depth * 0.8, cy)]
-	)
-	draw_colored_polygon(pts, INK_SPIKE if color_blind_spikes else _theme.spike)
 
 
 ## The open exit(s). Safe, so never in the spike colour: the style's colour

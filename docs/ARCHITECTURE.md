@@ -116,7 +116,8 @@ flowchart TD
   - Tests: `tests/unit/test_same_seed.gd`, `tests/sim/test_exits_reachable.gd`, and
     the FastSim check `reach`.
 - **World**: 360 × 640 logical pixels. Ceiling and floor are always deadly. Side
-  walls have 13 spike slots stored as bitmasks (`left_spikes`, `right_spikes`).
+  walls have 14 spike slots, 41 px apart from the ceiling's kill line to the
+  floor's, stored as bitmasks (`left_spikes`, `right_spikes`).
 - **Loop**: bird flies sideways at constant speed, a tap sets an upward velocity,
   gravity pulls down. Hitting a side wall scores a point, clears that wall and
   generates spikes on the opposite wall. Every 10 points the run moves to a new

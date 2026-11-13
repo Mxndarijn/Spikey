@@ -118,10 +118,12 @@ const MAX_FALL_VY := 12 * SUB
 const KILL_TOP := 34 * SUB
 const KILL_BOTTOM := 606 * SUB
 
-# Side walls: SLOT_COUNT spike slots stacked from SLOT_TOP.
-const SLOT_TOP := 60 * SUB
-const SLOT_SIZE := 40 * SUB
-const SLOT_COUNT := 13
+# Side walls: SLOT_COUNT spike slots stacked from SLOT_TOP, from the ceiling's
+# kill line to the floor's (33..607 px, 1 px past each line), so the top and
+# bottom spikes leave no lane by the ceiling or floor.
+const SLOT_TOP := 33 * SUB
+const SLOT_SIZE := 41 * SUB
+const SLOT_COUNT := 14
 const SPIKE_DEPTH := 26 * SUB
 const SPIKE_HALF_BASE := 15 * SUB
 

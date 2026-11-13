@@ -373,12 +373,6 @@ func _hits_wall(side: int, base_x: int, dir: int) -> bool:
 		var cy := SimConfig.slot_center_y(slot) + shift
 		var lo := cy - hb
 		var hi := cy + hb
-		# The top and bottom spikes reach the ceiling and floor lines with their
-		# base, so no lane is left between them and the edge.
-		if slot == 0:
-			lo = mini(lo, SimConfig.KILL_TOP)
-		elif slot == SimConfig.SLOT_COUNT - 1:
-			hi = maxi(hi, SimConfig.KILL_BOTTOM)
 		if state.y < lo - SimConfig.BIRD_RADIUS or state.y > hi + SimConfig.BIRD_RADIUS:
 			continue
 		var tip_x := base_x + dir * depth

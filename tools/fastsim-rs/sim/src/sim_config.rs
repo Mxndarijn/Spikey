@@ -20,9 +20,9 @@ impl SimConfig {
     pub const MAX_FALL_VY: i64 = 12 * Self::SUB;
     pub const KILL_TOP: i64 = 34 * Self::SUB;
     pub const KILL_BOTTOM: i64 = 606 * Self::SUB;
-    pub const SLOT_TOP: i64 = 60 * Self::SUB;
-    pub const SLOT_SIZE: i64 = 40 * Self::SUB;
-    pub const SLOT_COUNT: i64 = 13;
+    pub const SLOT_TOP: i64 = 33 * Self::SUB;
+    pub const SLOT_SIZE: i64 = 41 * Self::SUB;
+    pub const SLOT_COUNT: i64 = 14;
     pub const SPIKE_DEPTH: i64 = 26 * Self::SUB;
     pub const SPIKE_HALF_BASE: i64 = 15 * Self::SUB;
     pub const POINTS_PER_ROOM: i64 = 10;

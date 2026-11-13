@@ -148,14 +148,17 @@ func test_squeeze_box_keeps_its_free_runs_in_reach() -> void:
 	assert_eq(RoomRules.gap_reach(RoomCatalog.find("squeeze")), RoomRules.GAP_REACH)
 
 
-## A bird skimming the ceiling or floor line by a wall used to slip past a
-## spike in the top or bottom slot.
+## A bird skimming the ceiling or floor line by a wall never slips past a
+## spike in the top or bottom slot: the slots run from kill line to kill line.
 func test_no_lane_past_the_top_and_bottom_wall_spikes() -> void:
 	var sim := GameSim.new(5)
 	var r := SimConfig.BIRD_RADIUS
 	var right := sim.room.wall_right()
 	sim.state.x = right - r
-	var cases := [[0, SimConfig.KILL_TOP + r + 2 * SUB], [12, SimConfig.KILL_BOTTOM - r - 2 * SUB]]
+	var last := SimConfig.SLOT_COUNT - 1
+	var cases := [
+		[0, SimConfig.KILL_TOP + r + 2 * SUB], [last, SimConfig.KILL_BOTTOM - r - 2 * SUB]
+	]
 	for case: Array in cases:
 		var slot: int = case[0]
 		sim.state.y = case[1]
