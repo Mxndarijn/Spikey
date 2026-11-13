@@ -91,6 +91,8 @@ var _room_id := ""
 var _rooms_cleared := 0
 ## Replay: the run's driver and the board to go back to.
 var _replay_driver: ReplayDriver
+## The replay's scrubber: its index and its seeks.
+var _scrub := ReplayScrub.new()
 var _replay_board := LeaderboardService.DAILY
 ## Where Back goes from a replay of the player's own run (show_runs or
 ## show_home); empty for a leaderboard run.
@@ -158,6 +160,9 @@ func _ready() -> void:
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
+	add_child(_scrub)
+	var views := [_room, _hazards, _bird, _night, _coin, _trail, _crash]
+	_scrub.setup(_run, _hud, _look, views, _set_paused)
 	_run.flapped.connect(_buzz.bind(HAPTIC_FLAP_MS))
 	_hud.bind_run(_run)
 	_run.run_started.connect(_on_run_started)
@@ -333,6 +338,7 @@ func play_replay(run: Dictionary) -> void:
 		_hud.replay_hud().show_message(problem)
 		return
 	_replay_driver = ReplayDriver.from_run(run, season)
+	_scrub.end_tick = int(run.get("end_tick", 0))
 	_look.borrow(run.get("loadout", {}) as Dictionary)
 	var player := str(run.get("name", ""))
 	var score := int(run.get("score", 0))
@@ -348,6 +354,7 @@ func _replay_again() -> void:
 	_look.show_flyer(true)
 	_new_run()
 	_hud.show_ready()
+	_scrub.start(_replay_driver)
 
 
 ## Back (or the exit icon): the leaderboards, on the board the run came from.
@@ -365,6 +372,7 @@ func _leave_replay() -> void:
 ## playing stops. Without the fresh run it would play on behind the menus.
 func _drop_replay() -> void:
 	_replay_driver = null
+	_scrub.stop()
 	if _look.borrowed:
 		_look.use_equipped()
 	if _run.driver != null:

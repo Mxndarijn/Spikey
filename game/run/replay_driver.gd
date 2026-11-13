@@ -61,6 +61,13 @@ func restart() -> void:
 	_next_revive = 0
 
 
+## Moves the cursors to a sim that stands at `tick` having used `revives_used`
+## revives (a seek): the next tap asked for is the first at or after `tick`.
+func seek(tick: int, revives_used: int) -> void:
+	_next = ReplayIndex.lower_bound(taps, tick)
+	_next_revive = clampi(revives_used, 0, revives.size())
+
+
 ## Whether the run tapped on `tick`. Ticks are asked in order, once each.
 func tap_at(tick: int) -> bool:
 	while _next < taps.size() and taps[_next] < tick:

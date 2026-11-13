@@ -279,6 +279,22 @@ func _counter_target() -> Vector2:
 func _apply_room_rect() -> void:
 	_root.position = room_rect.position
 	_root.size = room_rect.size
+	if _replay != null:
+		_replay.scrubber().set_band_space(_band_space())
+
+
+## Canvas px between the room's bottom and the bottom of the safe area: the
+## replay scrubber's band goes there when it fits.
+func _band_space() -> float:
+	if not is_inside_tree():
+		return 0.0
+	var vp := get_viewport()
+	var visible := vp.get_visible_rect().size
+	var safe := visible.y
+	if DisplayServer.get_name() != "headless":
+		var window := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+		safe = ScreenLayout.safe_rect(visible, window, DisplayServer.get_display_safe_area()).end.y
+	return maxf(0.0, safe - room_rect.end.y)
 
 
 static func _fly_step(t: float, coin: Control, start: Vector2, bend: Vector2, end: Vector2) -> void:
@@ -432,6 +448,9 @@ func show_running() -> void:
 ## Paused: the score, the sound circles, Resume, and Home (or Back to rooms in
 ## practice).
 func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> void:
+	# A replay pauses under its own scrubber: no pause screen.
+	if _replaying:
+		return
 	pause_screen.visible = value
 	_pause_button.visible = not value
 	_back_button.visible = false

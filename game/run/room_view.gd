@@ -195,6 +195,30 @@ func on_room_changed(room_index: int) -> void:
 		_flash = 1.0
 
 
+## A replay jumped (RunController.seek): show the room as it stands now, with
+## no sky fade, flash, spikes sliding in or arrival portal.
+func snap() -> void:
+	if _run == null or _run.sim == null:
+		return
+	var s := _run.sim.state
+	_room_index = s.room_index
+	_sky = _theme.sky_for_room(_room_index)
+	_prev_sky = _sky
+	_fade = 1.0
+	_flash = 0.0
+	_arrival = 0.0
+	_exit_fade = 1.0 if s.exit_open else 0.0
+	_ghost_fade = 1.0 if s.exit_preview else 0.0
+	for side in 2:
+		var reveal := _left_reveal if side == 0 else _right_reveal
+		var mask := _run.sim.wall_mask(side)
+		for slot in SimConfig.SLOT_COUNT:
+			reveal[slot] = 1.0 if RoomRules.has_slot(mask, slot) else 0.0
+	_drawn_sky = []
+	_backdrop.queue_redraw()
+	queue_redraw()
+
+
 ## A revived bird comes out of a portal in the wall behind it, in the same
 ## room: the arrival portal and the flash, but the sky stays.
 func on_revived() -> void:

@@ -119,7 +119,7 @@ writes an example (a gap seeker run).
 The world is exactly what the player saw: the same scene, views and painters,
 fed tick by tick from the same sim. The overlay is the replay one: the replay
 chip and score, and "<name> scored N" at the end, not the live HUD and Game
-over screen. A revive plays on at once (no revive offer or 3-2-1 countdown;
+over screen. The replay scrubber (timeline and controls) is off in renders. A revive plays on at once (no revive offer or 3-2-1 countdown;
 those were menu time, not run ticks). No sound is recorded.
 
 ## Why a hidden desktop

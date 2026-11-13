@@ -25,11 +25,16 @@ var prev_state: SimState
 var paused := false
 ## Set while a recorded run plays back: taps come from it, never from input.
 var driver: ReplayDriver
+## Replay speed in quarters: 1 = 0.25x, 2 = 0.5x, 4 = 1x, 8 = 2x. A slow replay
+## steps the sim every 2nd or 4th frame; the sim itself never changes.
+var speed_q := 4
 
 var _taps := PackedInt32Array()
 ## Ticks at which this run was revived, for the replay.
 var _revive_ticks := PackedInt32Array()
 var _tap_pending := false
+## Quarter-steps saved up toward the next tick (speed_q below 4).
+var _speed_acc := 0
 
 
 ## `season` (Seasons.*) decides which seasonal rooms can appear; it is stored
@@ -47,6 +52,8 @@ func new_run(
 	_tap_pending = false
 	paused = false
 	driver = null
+	speed_q = 4
+	_speed_acc = 0
 
 
 ## Plays a recorded run back from its first tick (see ReplayDriver).
@@ -101,7 +108,33 @@ func is_running() -> bool:
 func _physics_process(_delta: float) -> void:
 	if sim == null or paused or sim.is_over():
 		return
-	advance()
+	if driver == null or speed_q == 4:
+		advance()
+		return
+	_speed_acc += speed_q
+	while _speed_acc >= 4 and not sim.is_over() and not paused:
+		_speed_acc -= 4
+		advance()
+
+
+## A replay jumps to `to` (a ReplayIndex.seek() result): the views follow the
+## new sim, no events fire, and the driver taps on from there.
+func seek(to: GameSim) -> void:
+	if driver == null or to == null:
+		return
+	sim = to
+	prev_state = sim.state.copy()
+	_tap_pending = false
+	_speed_acc = 0
+	driver.seek(sim.state.tick, sim.state.revives)
+
+
+## How far the views are between the last tick and the next (0..1), given
+## the engine's physics fraction: a slow replay spreads one tick over frames.
+func blend_fraction(physics_fraction: float) -> float:
+	if driver == null or speed_q >= 4:
+		return physics_fraction
+	return clampf((_speed_acc + physics_fraction * speed_q) / 4.0, 0.0, 1.0)
 
 
 ## One sim tick with the pending tap (or the replay's tap for this tick).

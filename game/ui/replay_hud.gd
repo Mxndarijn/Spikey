@@ -4,8 +4,9 @@ extends Control
 ## a small ink chip "Replay: Noor, 31" at the top and a bare close icon top
 ## left that leaves. When the run ends, the dimmed room shows "Noor scored 31",
 ## the round Watch again and Back. A run that can't be played shows only its
-## message and Back. Hud owns it and shows it only while replaying; the score
-## stays Hud's.
+## message and Back. Under the room sits the ReplayScrubber: the run's rooms
+## as chapters, a timeline to drag and the pause controls. Hud owns it and
+## shows it only while replaying; the score stays Hud's.
 
 signal again_pressed
 signal back_pressed
@@ -28,6 +29,7 @@ var _over_title := Label.new()
 var _again: Button
 var _player := ""
 var _score := 0
+var _scrubber := ReplayScrubber.new()
 
 
 func _init() -> void:
@@ -36,6 +38,8 @@ func _init() -> void:
 	_build_banner()
 	_build_exit()
 	_build_over()
+	# Over the end screen too: drag back from the crash, or Crash -3 s.
+	add_child(_scrubber)
 	set_run("", 0)
 
 
@@ -158,6 +162,7 @@ func show_over() -> void:
 ## The run can't be played: just the message and Back.
 func show_message(text: String) -> void:
 	visible = true
+	_scrubber.unbind()
 	_over_title.text = text
 	_again.visible = false
 	_show_over_screen()
@@ -176,6 +181,11 @@ func is_over_showing() -> bool:
 
 func can_watch_again() -> bool:
 	return is_over_showing() and _again.visible
+
+
+## The timeline under the room (ReplayScrubber).
+func scrubber() -> ReplayScrubber:
+	return _scrubber
 
 
 func title_text() -> String:

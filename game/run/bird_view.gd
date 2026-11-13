@@ -213,7 +213,7 @@ static func rotation_for(tilt: float, facing: float, flip: float) -> float:
 static func blend_fraction(run: RunController, physics_fraction: float) -> float:
 	if run.paused or run.sim.is_over():
 		return 1.0
-	return physics_fraction
+	return run.blend_fraction(physics_fraction)
 
 
 func _process(delta: float) -> void:

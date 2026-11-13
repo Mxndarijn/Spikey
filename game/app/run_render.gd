@@ -54,6 +54,7 @@ func start(parent: Node) -> void:
 	main.board_config_path = NO_BOARD_CONFIG
 	main.season = run_file.replay.season
 	parent.add_child(main)
+	main._scrub.shown = false
 	main.play_replay(run_file.to_dict())
 
 
