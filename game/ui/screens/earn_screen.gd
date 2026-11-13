@@ -1,28 +1,26 @@
 class_name EarnScreen
 extends Control
-## Earn diamonds (minimal kit): every way to win diamonds, each a paper card
-## that says what is next. Opens from the wallet (Home, Your look, Customize
-## lists) and from the prize popup's link.
+## The Wallet's second tab, Earn free (it was Earn diamonds): every way to win
+## diamonds, each a paper card that says what is next. Opens from the Wallet's
+## tabs and from the prize popup's "Ways to earn diamonds".
 ## - Daily board: the three prize tiers (Economy.DAILY_PRIZES), the player's
 ##   place today and the time to the reset (from the Daily LeaderboardBoard).
 ## - Best score: the four milestones (EarnRules), won or still to win, and a bar.
 ## - Streak: this week of days in a row as seven dots.
-## Ends with a button to the Shop. Main hands it the player's EarnStatus
+## The Get diamonds tab opens the Shop. Main hands it the player's EarnStatus
 ## (show_status) and the Daily board (show_board) as they arrive; offline it
 ## shows the last numbers it had under an "Offline" banner.
 
 signal closed
-## "Buy diamonds in the Shop".
+## The Wallet's Get diamonds tab was tapped.
 signal store_pressed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
-const SHOP_ICON := preload("res://assets/ui/icons/shop.svg")
-const TITLE := "Diamonds"
-const SIDE := 14
-const TOP := 36
+const TITLE := "Wallet"
+const SIDE := UiKit.SCREEN_SIDE
+const TOP := UiKit.SCREEN_TOP
 const BOTTOM := 24
 const OFFLINE := "Offline. Showing what you had last time."
-const SHOP := "Buy diamonds in the Shop"
 ## Room for a sentence inside a card (or the banner) on a 360 px screen.
 const LINE_W := 300.0
 const TIERS: Array[String] = ["#1", "#2 and #3", "#4 to #10"]
@@ -41,7 +39,8 @@ var _bar: ProgressLine
 var _best_line: Label
 var _dots: Array[PanelContainer] = []
 var _streak_line: Label
-var _shop: Button
+## The Wallet's tabs; its Get diamonds tab opens the Shop.
+var _shop: PanelContainer
 
 
 func _init(profile: Profile) -> void:
@@ -64,15 +63,13 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", 10)
 	margin.add_child(col)
 	_balance.set_amount(_profile.diamonds)
-	var header := UiKit.header(TITLE, closed.emit, _balance)
-	(header.get_node("Title") as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	col.add_child(header)
+	col.add_child(UiKit.header(TITLE, closed.emit, _balance))
+	_shop = UiKit.wallet_tabs(1, func(_i: int) -> void: store_pressed.emit())
+	col.add_child(_shop)
 	col.add_child(_offline_banner())
 	col.add_child(_daily_card())
 	col.add_child(_best_card())
 	col.add_child(_streak_card())
-	col.add_child(UiKit.spacer(0, true))
-	col.add_child(_shop_button())
 	_refresh()
 
 
@@ -271,33 +268,6 @@ func _chip_style(chip: PanelContainer, fill: Color, radius: int = 14) -> void:
 	chip.add_theme_stylebox_override("panel", box)
 
 
-func _shop_button() -> Button:
-	_shop = Button.new()
-	_shop.name = "Shop"
-	_shop.icon = SHOP_ICON
-	_shop.text = SHOP
-	_shop.focus_mode = Control.FOCUS_NONE
-	_shop.add_theme_constant_override("icon_max_width", 22)
-	_shop.add_theme_font_override("font", GameFonts.ui(800))
-	_shop.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_BUTTON)
-	var pill := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
-	pill.content_margin_left = 20
-	pill.content_margin_right = 20
-	var down := pill.duplicate() as StyleBoxFlat
-	down.bg_color = UiTokens.PANEL_RAISED
-	for state in ["normal", "hover"]:
-		_shop.add_theme_stylebox_override(state, pill)
-	for state in ["pressed", "hover_pressed"]:
-		_shop.add_theme_stylebox_override(state, down)
-	for state in [
-		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
-	]:
-		_shop.add_theme_color_override(state, UiTokens.ON_PANEL)
-	_shop.custom_minimum_size = Vector2(0, 48)
-	_shop.pressed.connect(store_pressed.emit)
-	return _shop
-
-
 static func _tier_prize(index: int) -> int:
 	return Economy.daily_prize([1, 2, 4][index])
 
@@ -448,8 +418,9 @@ func balance_text() -> String:
 	return _balance.amount_text()
 
 
+## The Wallet tab that opens Get diamonds (the Shop).
 func shop_button() -> Button:
-	return _shop
+	return _shop.get_child(0).get_child(0) as Button
 
 
 func banner_visible() -> bool:

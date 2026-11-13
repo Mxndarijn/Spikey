@@ -40,7 +40,7 @@ const HAPTIC_FLAP_MS := 12
 const HAPTIC_CRASH_MS := 40
 ## show_store(): go back to "Your look" instead of a Customize list.
 const BACK_TO_LOOK := "look"
-## show_store(): go back to Earn diamonds.
+## show_store(): go back where the Wallet's Earn free tab goes back to.
 const BACK_TO_EARN := "earn"
 
 ## Where the save lives; tests point this somewhere else.
@@ -157,6 +157,7 @@ func _ready() -> void:
 	_hud.rooms_pressed.connect(_leave_to_rooms)
 	_hud.leaderboard_pressed.connect(show_leaderboard)
 	_hud.style_pressed.connect(show_look)
+	_hud.runs_pressed.connect(show_runs.bind(RunsScreen.LATEST))
 	_hud.sound_toggled.connect(_on_sound_toggled)
 	_hud.replay_again_pressed.connect(_replay_again)
 	_hud.replay_back_pressed.connect(_leave_replay)
@@ -249,7 +250,7 @@ func show_home() -> void:
 	# Home draws the flyer itself, bigger, so the live one hides.
 	_look.show_flyer(false)
 	var home := HomeScreen.new(
-		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY), _runs.history.last()
+		_profile, _services, leaderboard.cached_rank(LeaderboardService.DAILY)
 	)
 	home.play_pressed.connect(start_run)
 	home.leaderboard_pressed.connect(show_leaderboard)
@@ -258,9 +259,7 @@ func show_home() -> void:
 	home.shop_pressed.connect(show_shop)
 	home.rooms_pressed.connect(show_rooms)
 	home.store_pressed.connect(show_store)
-	home.earn_pressed.connect(_show_earn)
 	home.runs_pressed.connect(show_runs)
-	home.watch_last_pressed.connect(watch_run.bind(show_home))
 	home.settings_changed.connect(_on_settings_changed)
 	home.practice_requested.connect(start_picker_practice)
 	home.seed_requested.connect(start_seed_practice)
@@ -533,7 +532,7 @@ func show_look() -> void:
 	var look := LookScreen.new(_profile)
 	look.closed.connect(show_home)
 	look.kind_pressed.connect(show_shop)
-	look.earn_pressed.connect(_show_earn.bind(show_look))
+	look.earn_pressed.connect(show_store.bind(BACK_TO_LOOK))
 	_menus.show_screen(look)
 
 
@@ -548,26 +547,28 @@ func show_shop(tab: String = ItemKind.FLYER) -> void:
 	shop.closed.connect(show_look)
 	shop.equipped.connect(_on_equipped)
 	shop.previewed.connect(_preview)
-	shop.earn_pressed.connect(func() -> void: _show_earn(show_shop.bind(shop.kind)))
+	shop.earn_pressed.connect(func() -> void: show_store(shop.kind))
 	_menus.show_screen(shop)
 
 
-## The Shop: diamond packs and turning diamonds into gold. `back_tab`: the
-## Customize list to go back to, BACK_TO_LOOK for "Your look", BACK_TO_EARN for
-## Earn diamonds, or "" for Home.
+## The Wallet on Get diamonds (the Shop): diamond packs and turning diamonds
+## into gold. `back_tab`: the Customize list to go back to, BACK_TO_LOOK for
+## "Your look", BACK_TO_EARN for where the Earn free tab goes back to, or ""
+## for Home. Its Earn free tab opens Earn diamonds with the same way back.
 func show_store(back_tab: String = "") -> void:
 	mode = Mode.MENU
 	_hud.show_menu()
 	_look.show_flyer(false)
 	var screen := StoreScreen.new(_services.checkout, store)
-	if back_tab.is_empty():
-		screen.closed.connect(show_home)
-	elif back_tab == BACK_TO_LOOK:
-		screen.closed.connect(show_look)
+	var back := Callable(show_home)
+	if back_tab == BACK_TO_LOOK:
+		back = show_look
 	elif back_tab == BACK_TO_EARN:
-		screen.closed.connect(_show_earn.bind(_earn_back))
-	else:
-		screen.closed.connect(show_shop.bind(back_tab))
+		back = _earn_back if _earn_back.is_valid() else Callable(show_home)
+	elif not back_tab.is_empty():
+		back = show_shop.bind(back_tab)
+	screen.closed.connect(back)
+	screen.earn_pressed.connect(func() -> void: _show_earn(back))
 	_menus.show_screen(screen)
 
 

@@ -1,14 +1,16 @@
 class_name GameOverScreen
 extends Control
 ## Game over on the emptied room (GameOverStage clears the hazards and floats
-## the flyer, big and dazed, to FLYER_Y): "Game over", the score, "Best 92", "Revived at 63"
+## the flyer, big and dazed, to FLYER_Y): "Game over", the score, "Best 92",
+## "Revived at 63"
 ## when the run used its revive, a stats row (+coins, rooms cleared this run,
-## today's rank), the run's seed, and the Game over dock (Home, Rooms | Again
-## | #rank, Style). A new best gets the gold ribbon, the score counting up,
+## today's rank), the run's seed, Home in the corner slot and the Game over
+## dock, the same slots as Home's (Rooms, Style | Again | Ranks, Runs). A new best gets the gold ribbon, the score counting up,
 ## three sparkles and confetti that falls through once (still with reduced
 ## motion).
 
-## A dock item was tapped: "home", "rooms", "again", "rank" or "style".
+## A dock item or the corner was tapped: "home" (the corner), "rooms",
+## "style", "again", "rank" or "runs".
 signal dock_pressed(id: String)
 
 const COIN_ICON := preload("res://assets/ui/coin.svg")
@@ -16,6 +18,7 @@ const HOME_ICON := preload("res://assets/ui/icons/home.svg")
 const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
 const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
 const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
+const RUNS_ICON := preload("res://assets/ui/icons/history.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 ## A new best counts the score up over COUNT_TIME; the effect runs FX_TIME.
@@ -44,8 +47,8 @@ const BEST_Y := 228.0
 const BEST_Y_NEW_BEST := 252.0
 const BEST_SIZE := 18
 const REVIVED_GAP := 26.0
-const FLYER_Y := 340.0
-const STATS_Y := 396.0
+const FLYER_Y := 344.0
+const STATS_Y := 374.0
 const SEED_GAP := 6.0
 ## The final score shrinks to fit the screen from this many digits.
 const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
@@ -65,6 +68,7 @@ var _stat_coins: Label
 var _stat_rooms: Label
 var _stat_rank: Label
 var _dock: Dock
+var _home: Button
 var _new_best := NewBestFx.new()
 var _final_value := 0
 ## Seconds into the new-best effect (-1: not running).
@@ -116,16 +120,21 @@ func _init() -> void:
 	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiKit.across(self, _seed, STATS_Y + 56.0)
+	# Home leaves from the corner slot, like every back arrow.
+	_home = UiKit.icon_button(HOME_ICON, "Home")
+	_home.name = "Home"
+	_home.pressed.connect(dock_pressed.emit.bind("home"))
+	UiKit.place_corner(self, _home)
 	_dock = (
 		Dock
 		. new(
 			[
-				{"id": "home", "icon": HOME_ICON, "text": "Home", "back": true},
 				{"id": "rooms", "icon": ROOMS_ICON, "text": "Rooms"},
+				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
 			],
 			[
 				{"id": "rank", "icon": TROPHY_ICON, "text": "Ranks", "tip": "Leaderboards"},
-				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
+				{"id": "runs", "icon": RUNS_ICON, "text": "Runs", "tip": "Your runs"},
 			],
 			{"id": "again", "icon": RESTART_ICON, "text": "Again"}
 		)
@@ -197,11 +206,15 @@ func hide_result() -> void:
 	_time = -1.0
 
 
-## Today's rank on the stats and the dock ("-" until it arrives).
+## Today's rank on the stats ("-" until it arrives).
 func set_daily_rank(rank: int) -> void:
 	_stat_rank.text = "#%d" % rank if rank > 0 else "-"
 	_fit_stat(_stat_rank, STAT_W)
-	_dock.set_text("rank", "#%d" % rank if rank > 0 else "Ranks")
+
+
+## The corner's Home button.
+func home_button() -> Button:
+	return _home
 
 
 func is_new_best_showing() -> bool:

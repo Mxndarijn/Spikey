@@ -50,11 +50,11 @@ func _flyer_span() -> Vector2:
 
 
 ## Everything above the flyer ends above it, everything below starts below it,
-## and the seed ends above the dock: normal, revived and new best.
+## and the seed ends above the dock: normal, revived, new best and both.
 func test_text_clears_the_flyer() -> void:
 	var span := _flyer_span()
 	var dock_top := UiTokens.SIZE_VIEWPORT_H - Dock.HEIGHT
-	for case: Array in [[false, -1], [false, 63], [true, -1]]:
+	for case: Array in [[false, -1], [false, 63], [true, -1], [true, 63]]:
 		var screen := _screen(case[0], case[1])
 		for c in _labels(screen):
 			if not c.visible:

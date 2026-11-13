@@ -15,6 +15,11 @@ extends RefCounted
 ## - row (row_button()): a list item that opens something, with a chevron;
 ## - tab and chip (TabStrip, chips).
 
+## Looks of a disc_button().
+enum Disc { FILL, TONAL, BARE }
+
+## The Wallet's two tabs (wallet_tabs()).
+const WALLET_TABS: Array[String] = ["Get diamonds", "Earn free"]
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 ## Bare icon buttons are 48px: bigger than the 44px tap minimum.
@@ -50,9 +55,6 @@ const ACTION_H := float(UiTokens.SIZE_BUTTON_H)
 ## Rows that open something.
 const ROW_H := 52.0
 const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
-
-## Looks of a disc_button().
-enum Disc { FILL, TONAL, BARE }
 
 ## Buttons in this group click with the falling "back" pop instead of the
 ## rising tap (AudioDirector): back, close and home buttons. See mark_back().
@@ -206,7 +208,10 @@ static func disc_button(icon: Texture2D, tip: String, look: Disc = Disc.TONAL) -
 		b.add_theme_stylebox_override(state, disc_down)
 	if look == Disc.FILL:
 		for state in [
-			"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color"
+			"icon_normal_color",
+			"icon_hover_color",
+			"icon_pressed_color",
+			"icon_hover_pressed_color"
 		]:
 			b.add_theme_color_override(state, UiTokens.ON_PRIMARY)
 	return b
@@ -250,6 +255,34 @@ static func row_button(text: String, fill: Color = UiTokens.PANEL) -> Button:
 	]:
 		b.add_theme_color_override(state, UiTokens.ON_PANEL)
 	return b
+
+
+## The Wallet's two tabs (the Shop and Earn diamonds are one Wallet): "Get
+## diamonds" and "Earn free". `on`: the selected one (0 or 1); `pick` is called
+## with the other tab's index when it is tapped.
+static func wallet_tabs(on: int, pick: Callable) -> PanelContainer:
+	var bar := PanelContainer.new()
+	bar.name = "WalletTabs"
+	bar.theme_type_variation = &"TabStrip"
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 0)
+	bar.add_child(row)
+	var group := ButtonGroup.new()
+	for i in WALLET_TABS.size():
+		var tab := Button.new()
+		tab.name = "Tab%d" % i
+		tab.text = WALLET_TABS[i]
+		tab.theme_type_variation = &"TabButton"
+		tab.toggle_mode = true
+		tab.button_group = group
+		tab.button_pressed = i == on
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+		tab.focus_mode = Control.FOCUS_NONE
+		if i != on:
+			tab.pressed.connect(pick.bind(i))
+		row.add_child(tab)
+	return bar
 
 
 ## The button inside a scrim_link().

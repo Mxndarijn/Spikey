@@ -30,6 +30,8 @@ signal rooms_pressed
 ## Game over's dock: the leaderboards and Customize.
 signal leaderboard_pressed
 signal style_pressed
+## Game over's Runs: open Your runs.
+signal runs_pressed
 ## Paused: a Music or Sounds circle was tapped ("music" or "sfx").
 signal sound_toggled(which: String, on: bool)
 ## Replay: watch the same run again, or leave for the leaderboards
@@ -220,6 +222,8 @@ func _on_dock(id: String) -> void:
 			leaderboard_pressed.emit()
 		"style":
 			style_pressed.emit()
+		"runs":
+			runs_pressed.emit()
 
 
 ## Updates the run's coin counter and gives it a little bump. `reset`: after a

@@ -182,7 +182,7 @@ func test_a_stored_run_replays_as_played() -> void:
 	_free_main(main)
 
 
-func test_a_finished_run_is_kept_and_shows_on_home() -> void:
+func test_a_finished_run_is_kept_and_opens_from_home() -> void:
 	var main := _make_main()
 	var recorded := SimBots.play(4430, SimBots.gap_seeker, 5, 300)
 	main.mode = main.Mode.RUN
@@ -198,33 +198,9 @@ func test_a_finished_run_is_kept_and_shows_on_home() -> void:
 	assert_true(FileAccess.file_exists(STORE_PATH), "written at once")
 	main.show_home()
 	var home := main._menus.current() as HomeScreen
-	assert_true(home.runs_line().begins_with("Last: %d in " % recorded.score), home.runs_line())
-	assert_true(home.replay_button().visible, "the last run can be watched")
-	home.watch_last_pressed.emit(last)
-	assert_eq(main.mode, main.Mode.REPLAY)
-	main._leave_replay()
-	assert_true(main._menus.current() is HomeScreen, "back Home")
-	home = main._menus.current() as HomeScreen
-	home.runs_pressed.emit()
-	assert_true(main._menus.current() is RunsScreen, "the card opens Your runs")
+	home.dock().button("runs").pressed.emit()
+	assert_true(main._menus.current() is RunsScreen, "the dock's Runs opens Your runs")
 	_free_main(main)
-
-
-func test_home_card_before_the_first_run() -> void:
-	var p := Profile.new()
-	var home := HomeScreen.new(p, AppServices.offline(p))
-	(Engine.get_main_loop() as SceneTree).root.add_child(home)
-	assert_eq(home.runs_line(), HomeScreen.NO_RUNS)
-	assert_false(home.replay_button().visible, "nothing to watch yet")
-	assert_true(
-		home.shop_button().get_combined_minimum_size().y >= UiTokens.SIZE_TAP_MIN,
-		"Shop is tall enough"
-	)
-	var signalled := [false]
-	home.store_pressed.connect(func() -> void: signalled[0] = true)
-	home.shop_button().pressed.emit()
-	assert_true(signalled[0], "Shop opens the Shop")
-	home.free()
 
 
 func test_runs_screen_tabs_and_bookmarks() -> void:
@@ -283,5 +259,3 @@ func test_when_and_detail_lines() -> void:
 	r.rooms = 1
 	r.revived_at = -1
 	assert_eq(RunRow.detail_text(r), "%s, 1 room" % world)
-	r.played_at = noon - 30
-	assert_eq(HomeScreen.runs_line_text(r, noon), "Last: 17 in %s, just now" % world)

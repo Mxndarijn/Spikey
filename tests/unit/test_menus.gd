@@ -124,26 +124,28 @@ func test_home_shows_stats_flyer_and_the_dock() -> void:
 	assert_eq(home.flyer().texture, Catalog.flyer("dash").idle, "the flyer in use, big")
 	assert_true(home.flyer().art_size() > BirdView.ART_CANVAS * BirdView.ART_SCALE, "bigger")
 	var dock := home.dock()
-	for id in ["rooms", "style", "play", "rank", "settings"]:
+	for id in ["rooms", "style", "play", "rank", "runs"]:
 		var b := dock.button(id)
 		assert_true(b != null, "the dock has %s" % id)
 		if b != null:
 			var s := b.get_combined_minimum_size()
 			assert_true(minf(s.x, s.y) >= UiTokens.SIZE_TAP_MIN, "%s is big enough to tap" % id)
-	assert_eq(dock.button("rank").text, "#14", "today's rank in the dock")
+	assert_eq(dock.button("rank").text, "Ranks", "the rank itself is in the stats line")
 	assert_eq(dock.primary().get_combined_minimum_size(), Vector2(100, 100), "round Play")
 	home.set_daily_rank(3)
 	assert_eq(home.stats_line(), "Best 87, #3 today")
-	assert_eq(dock.button("rank").text, "#3")
 	var got: Array[String] = []
 	home.play_pressed.connect(func() -> void: got.append("play"))
 	home.rooms_pressed.connect(func() -> void: got.append("rooms"))
 	home.customize_pressed.connect(func() -> void: got.append("style"))
 	home.leaderboard_pressed.connect(func() -> void: got.append("rank"))
-	for id in ["play", "rooms", "style", "rank"]:
+	home.runs_pressed.connect(func() -> void: got.append("runs"))
+	for id in ["play", "rooms", "style", "rank", "runs"]:
 		dock.button(id).pressed.emit()
-	assert_eq(got, ["play", "rooms", "style", "rank"], "each dock item does its job")
-	dock.button("settings").pressed.emit()
+	assert_eq(got, ["play", "rooms", "style", "rank", "runs"], "each dock item does its job")
+	var gear := home.settings_button()
+	assert_eq(gear.position, UiKit.CORNER, "Settings sits in the corner slot")
+	gear.pressed.emit()
 	assert_true(home.settings() != null, "Settings opens the sheet")
 	home.free()
 
@@ -329,10 +331,12 @@ func test_game_over_shows_best_stats_and_its_dock() -> void:
 	hud.rooms_pressed.connect(func() -> void: got.append("rooms"))
 	hud.leaderboard_pressed.connect(func() -> void: got.append("rank"))
 	hud.style_pressed.connect(func() -> void: got.append("style"))
-	for id in ["again", "home", "rooms", "rank", "style"]:
+	hud.runs_pressed.connect(func() -> void: got.append("runs"))
+	for id in ["again", "rooms", "style", "rank", "runs"]:
 		dock.button(id).pressed.emit()
-	assert_eq(got, ["again", "home", "rooms", "rank", "style"], "the Game over dock")
-	assert_eq(dock.button("rank").text, "#14")
+	hud.game_over.home_button().pressed.emit()
+	assert_eq(got, ["again", "rooms", "style", "rank", "runs", "home"], "the dock, then the corner")
+	assert_eq(hud.game_over.home_button().position, UiKit.CORNER, "Home in the corner slot")
 	hud.set_daily_rank(0)
 	assert_eq(hud.game_over._stat_rank.text, "-", "no rank yet")
 	hud.free()

@@ -1,7 +1,8 @@
 class_name StoreScreen
 extends Control
-## The Shop (minimal kit): where diamonds are bought and turned into gold.
-## A back arrow, the title and the wallet; the once-only Starter pack as a wide
+## The Wallet's first tab, Get diamonds (it was the Shop): where diamonds are
+## bought and turned into gold. A back arrow, the title "Wallet" and the
+## balance; the Wallet's tabs (Earn free opens EarnScreen); the once-only Starter pack as a wide
 ## paper card; the Revive Pass as a wide paper card (an ink "Owned" pill once
 ## bought); the four diamond packs as a 2 x 2 grid of paper cards, each with
 ## its real price on an ink button; a row that opens the convert sheet; one
@@ -15,6 +16,8 @@ extends Control
 ## their buttons are off and the line under them says why.
 
 signal closed
+## The Wallet's Earn free tab was tapped.
+signal earn_pressed
 
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const COIN_ICON := preload("res://assets/ui/coin.svg")
@@ -25,7 +28,8 @@ const PASS_LINE := "Free revives, no ads"
 const PASS_BOUGHT := "Revive Pass unlocked. Every revive is free."
 const RESTORED := "Your Revive Pass is back."
 const NOTHING_RESTORED := "No earlier purchases to restore."
-const SIDE := 14
+const SIDE := UiKit.SCREEN_SIDE
+const TITLE := "Wallet"
 const GRID_GAP := 10
 const PRICE_HEIGHT := float(UiTokens.SIZE_TAP_MIN)
 const LOOKS_ONLY := "Looks only. Nothing here changes how you play."
@@ -61,14 +65,15 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_theme_constant_override("margin_left", SIDE)
 	margin.add_theme_constant_override("margin_right", SIDE)
-	margin.add_theme_constant_override("margin_top", UiTokens.SPACE_6 + 4)
+	margin.add_theme_constant_override("margin_top", UiKit.SCREEN_TOP)
 	margin.add_theme_constant_override("margin_bottom", UiTokens.SPACE_7)
 	add_child(margin)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", GRID_GAP)
 	margin.add_child(col)
-	col.add_child(UiKit.header("Shop", closed.emit, _wallet))
+	col.add_child(UiKit.header(TITLE, closed.emit, _wallet))
+	col.add_child(UiKit.wallet_tabs(0, func(_i: int) -> void: earn_pressed.emit()))
 	_scroll = SmoothScroll.new()
 	_scroll.blocked = func() -> bool: return _sheet != null
 	col.add_child(_scroll)
@@ -250,29 +255,11 @@ func _price_button(id: String) -> Button:
 	return b
 
 
-## "Turn diamonds into gold", with the rate at the right. Opens the sheet.
+## "Turn diamonds into gold": a row with a chevron. Opens the sheet.
 func _convert_row() -> Control:
-	var b := Button.new()
-	b.theme_type_variation = &"CardButton"
+	var b := UiKit.row_button("Turn diamonds into gold")
 	b.name = "Convert"
-	b.text = "Turn diamonds into gold"
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.tooltip_text = "1 diamond becomes %d gold" % Economy.GOLD_PER_DIAMOND
-	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_BUTTON_H)
-	b.focus_mode = Control.FOCUS_NONE
-	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
-	box.content_margin_left = UiTokens.SPACE_5
-	box.content_margin_right = UiTokens.SPACE_5
-	var down := box.duplicate() as StyleBoxFlat
-	down.bg_color = UiTheme.SELECTED_FILL
-	for state in ["normal", "hover"]:
-		b.add_theme_stylebox_override(state, box)
-	for state in ["pressed", "hover_pressed"]:
-		b.add_theme_stylebox_override(state, down)
-	b.add_theme_font_override("font", GameFonts.ui(800))
-	b.add_theme_font_size_override("font_size", 15)
-	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
-		b.add_theme_color_override(state, UiTokens.ON_PANEL)
 	b.pressed.connect(open_convert)
 	return b
 

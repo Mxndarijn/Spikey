@@ -27,7 +27,7 @@ const FLIP_TIME := 0.2
 ## Game over (GameOverStage): the flyer leaves the wall and floats to a spot in
 ## the middle, SHOW_SCALE times its size, tilted and dazed with stars circling
 ## its head; on a new best it bobs instead.
-const SHOW_SCALE := 2.3
+const SHOW_SCALE := 1.8
 const SHOW_TILT := 0.26
 const SHOW_BOB := 4.0
 const STAR_COUNT := 3
