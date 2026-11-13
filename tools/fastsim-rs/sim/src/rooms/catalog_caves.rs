@@ -15,13 +15,15 @@ impl CatalogCaves {
     pub const GALLERY_X: i64 = 272 * Self::SUB;
     pub const CAVE_SPREAD: i64 = SimConfig::EXIT_HALF;
     pub const BEND: [i64; 3] = [40, 65, 90];
-    pub const BEND_HALF: [i64; 3] = [100, 95, 90];
+    pub const BEND_HALF: [i64; 3] = [120, 115, 110];
+    pub const BEND_CUT_TOP: i64 = 8 * Self::SUB;
+    pub const BEND_CUT_BOTTOM: i64 = 30 * Self::SUB;
     pub const ISLE_TIP_X: i64 = 276 * Self::SUB;
     pub const ISLE_FLAT: i64 = 20 * Self::SUB;
     pub const FAR_FLAT: i64 = ExitZone::DEPTH + 4 * Self::SUB;
     pub const BRANCH_HALF: i64 = 90 * Self::SUB;
     pub const ISLE_HALF: i64 = 20 * Self::SUB;
-    pub const ISLE_SHIFT: i64 = 70 * Self::SUB;
+    pub const ISLE_GAP: i64 = 6 * Self::SUB;
     pub const FANG_ROOM_MIN: i64 = 22 * Self::SUB;
     pub const FANG_ROOM_SPAN: i64 = 14 * Self::SUB;
     pub const LIP_STEP: i64 = 12 * Self::SUB;
@@ -33,13 +35,14 @@ impl CatalogCaves {
     pub const LONG_TOP: [i64; 4] = [55, 115, 175, 235];
     pub const LONG_BOTTOM: [i64; 3] = [85, 145, 205];
     pub const DRIP_CADENCE: [i64; 3] = [48, 40, 32];
-    pub const DRIP_FIRST: i64 = 150;
+    pub const DRIP_FIRST: i64 = 200;
     pub const BAT_XS: [&'static [i64]; 3] = [&[70, 150, 230], &[70, 150, 230], &[60, 120, 180, 240]];
     pub const BAT_SWAY: i64 = 6 * Self::SUB;
     pub const BAT_PERIOD: [i64; 3] = [400, 360, 320];
     pub const BAT_ROOM: i64 = 48 * Self::SUB;
     pub const BAT_MARGIN: i64 = 4 * Self::SUB;
-    pub const BAT_FOLLOW: i64 = 60;
+    pub const BAT_FOLLOW: i64 = 120;
+    pub const BAT_JITTER: i64 = 16 * Self::SUB;
     pub const PEG_COUNT: [i64; 3] = [6, 8, 10];
     pub const PEG_APART: i64 = 128 * Self::SUB;
     pub const PEG_STRIP: i64 = 70 * Self::SUB;
@@ -126,7 +129,11 @@ impl CatalogCaves {
         let lv = Self::_level(p);
         if variant == Self::FORK {
             let up = sim._rng.next_below(2) == 0;
-            let tip = if up { c0 - Self::ISLE_SHIFT } else { c0 + Self::ISLE_SHIFT };
+            let tip = if up {
+                lim[Self::L_TOP0] - Self::ISLE_GAP - Self::ISLE_HALF
+            } else {
+                lim[Self::L_BOTTOM0] + Self::ISLE_GAP + Self::ISLE_HALF
+            };
             lim[Self::L_FORK] = 1;
             lim[Self::L_TIP] = tip;
             lim[Self::L_ISLE_TOP1] = tip - Self::ISLE_HALF;
@@ -141,7 +148,8 @@ impl CatalogCaves {
         let bend = Self::BEND[lv] * Self::SUB;
         let lo = SimConfig::KILL_TOP + half + 24 * Self::SUB;
         let hi = SimConfig::KILL_BOTTOM - half - 24 * Self::SUB;
-        let c1 = G::clampi(c0 - bend + sim._rng.next_below(2 * bend + 1), lo, hi);
+        let mut c1 = G::clampi(c0 - bend + sim._rng.next_below(2 * bend + 1), lo, hi);
+        c1 = G::clampi(c1, band[1] - half - Self::BEND_CUT_BOTTOM, band[0] + half + Self::BEND_CUT_TOP);
         lim[Self::L_TOP1] = c1 - half;
         lim[Self::L_BOTTOM1] = c1 + half;
         lim
@@ -304,7 +312,8 @@ impl CatalogCaves {
             bat.loop_w = Self::BAT_SWAY;
             bat.loop_h = swing;
             bat.loop_period = Self::BAT_PERIOD[lv];
-            bat.center_x = Self::_x(sim, p, bx * Self::SUB);
+            let jitter = sim._rng.next_below(2 * Self::BAT_JITTER + 1);
+            bat.center_x = Self::_x(sim, p, bx * Self::SUB - Self::BAT_JITTER + jitter);
             bat.center_y = mid;
             let i = p.add(sim, bat.into());
             if !p.arriving {

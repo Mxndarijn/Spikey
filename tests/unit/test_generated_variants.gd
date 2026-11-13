@@ -78,7 +78,18 @@ const LAYOUT_FIELDS := {
 	"mover": ["mode", "count", "loop_w", "loop_h", "loop_period", "center_y", "center_x", "phase"],
 	"gate": ["x", "period", "phase", "gap_size", "lo_y", "hi_y", "lag"],
 	"stalactite":
-	["x", "gap", "half_w", "top", "bottom", "fixed_lo", "fixed_hi", "scheduled", "schedule"],
+	[
+		"x",
+		"gap",
+		"half_w",
+		"top",
+		"bottom",
+		"fixed_lo",
+		"fixed_hi",
+		"scheduled",
+		"schedule",
+		"start_y"
+	],
 	"cave_rock":
 	[
 		"top_x",

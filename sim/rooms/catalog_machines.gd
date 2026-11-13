@@ -51,6 +51,10 @@ const SHORT_HALF_W := 18 * SUB
 ## the exit's mouth (ExitZone.DEPTH from the wall).
 const ENTRY_X := 110 * SUB
 const FAR_X := 292 * SUB
+## The far column's gap (both rocks, or a hanging one): the bird meets it a few
+## steps after its 1 s hold out of a portal, so it is wide enough to steer into
+## from anywhere in the exit by then.
+const FAR_GAP := 200 * SUB
 const GEN_SLACK := 4 * SUB
 const ENTRY_GAP := (
 	2 * SimConfig.EXIT_FIT
@@ -217,7 +221,10 @@ static func _gen_columns(p: VariantParams, rocks: int) -> void:
 	var a: Hazard = _stalactite(entry, false) if rocks == BOTH else _fang_at(entry, rocks)
 	p.add(_still(a, p, ENTRY_GAP))
 	var b: Hazard = _stalactite(far, false) if rocks == BOTH else _fang_at(far, rocks)
+	if rocks != FLOOR:
+		b.gap = FAR_GAP
 	b.scheduled = true
+	b.start_y = (p.hold_top() + p.hold_bottom()) / 2
 	p.add(b)
 
 
@@ -248,7 +255,7 @@ static func _still(s: Hazard, p: VariantParams, gap: int) -> Hazard:
 
 ## Generated Stalactite Run, alternating or short fangs: three still columns.
 ## Alternating: the first two fingers keep the hold band clear (ENTRY_GAP) and
-## the last one, moved out to FAR_X, hangs ALT_GAP / 2 over the band's middle.
+## the last one, moved out to FAR_X, too (the bird meets it as its hold ends).
 ## Short fangs: the 300 px corridor holds the band, centred on it.
 static func _gen_fixed(p: VariantParams, short: bool) -> void:
 	for i in 3:
@@ -256,10 +263,8 @@ static func _gen_fixed(p: VariantParams, short: bool) -> void:
 		f.x = _from_entry(p, f.x if i < 2 or short else FAR_X)
 		if short:
 			_still(f, p, SHORT_GAP)
-		elif i < 2:
-			_still(f, p, ENTRY_GAP)
 		else:
-			_still(f, p, ALT_GAP)
+			_still(f, p, ENTRY_GAP)
 		p.add(f)
 
 

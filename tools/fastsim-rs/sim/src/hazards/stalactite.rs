@@ -15,6 +15,7 @@ pub struct Stalactite {
     pub fixed_lo: i64,
     pub fixed_hi: i64,
     pub scheduled: bool,
+    pub start_y: i64,
     pub schedule: Vec<i64>,
     pub slides: i64,
 }
@@ -47,6 +48,7 @@ impl Stalactite {
             fixed_lo: -1,
             fixed_hi: -1,
             scheduled: false,
+            start_y: -1,
             schedule: Vec::new(),
             slides: 0,
         }
@@ -58,8 +60,8 @@ impl Stalactite {
         let to_ghost = G::maxi(sim.next_exit_score() - 1 - sim.state.score, 0);
         let park = G::maxi((to_ghost + 1) / 2 - 1, 0);
         let mut y = self.gap_y;
-        let lo = G::maxi(Self::GAP_MIN, self.gap_y - Self::SCHED_REACH);
-        let hi = G::mini(Self::GAP_MAX, self.gap_y + Self::SCHED_REACH);
+        let lo = G::maxi(G::mini(Self::GAP_MIN, self.gap_y), self.gap_y - Self::SCHED_REACH);
+        let hi = G::mini(G::maxi(Self::GAP_MAX, self.gap_y), self.gap_y + Self::SCHED_REACH);
         for _i in 0..park + 1 {
             y = Self::_within(rng, y, Self::MAX_STEP, lo, hi);
             self.schedule.push(y);
@@ -118,6 +120,9 @@ impl Hazard for Stalactite {
             return;
         }
         self.gap_y = G::clampi(FairLanes::entry_y(sim) - Self::HOP_MID, Self::GAP_MIN, Self::GAP_MAX);
+        if self.start_y >= 0 {
+            self.gap_y = self.start_y;
+        }
         self.target_y = self.gap_y;
         if self.scheduled {
             self._draw_schedule(sim, rng);

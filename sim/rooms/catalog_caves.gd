@@ -27,7 +27,11 @@ const GALLERY_X := 272 * SUB
 const CAVE_SPREAD := SimConfig.EXIT_HALF
 ## The far end's bend (up to, per level 0, 1, 2+) and half height there.
 const BEND: Array[int] = [40, 65, 90]
-const BEND_HALF: Array[int] = [100, 95, 90]
+const BEND_HALF: Array[int] = [120, 115, 110]
+## The far end cuts at most this far into the arrival band, from above and from
+## below: a bird just out of its hold must still get in (it drops slowly).
+const BEND_CUT_TOP := 8 * SUB
+const BEND_CUT_BOTTOM := 30 * SUB
 ## Fork: the island's tip, the two branches' half height at the far wall, and
 ## the island's half thickness there.
 const ISLE_TIP_X := 276 * SUB
@@ -38,10 +42,10 @@ const ISLE_FLAT := 20 * SUB
 const FAR_FLAT := ExitZone.DEPTH + 4 * SUB
 const BRANCH_HALF := 90 * SUB
 const ISLE_HALF := 20 * SUB
-## Fork: the island lies this far above or below the arrival band's middle, so
-## a bird holding its height there, and one a hop the other way, both fly on
-## past it (the gallery goes on to the far wall as the main branch).
-const ISLE_SHIFT := 70 * SUB
+## Fork: the island lies just past the gallery's edge, above or below it (this
+## much clear of it), so no bird out of the exit meets it before it can react;
+## the gallery goes on to the far wall as the main branch.
+const ISLE_GAP := 6 * SUB
 ## Rock: its lip sits FANG_ROOM_MIN..+FANG_ROOM_SPAN past the limit the fangs
 ## reach to; lip points every LIP_STEP; fangs every FANG_STEP..+FANG_STEP_SPAN,
 ## FANG_HALF..+FANG_HALF_SPAN wide each side; long points at LONG_TOP (ceiling)
@@ -58,7 +62,7 @@ const LONG_TOP: Array[int] = [55, 115, 175, 235]
 const LONG_BOTTOM: Array[int] = [85, 145, 205]
 ## Drips: steps between drips (per level), and the first one's earliest step.
 const DRIP_CADENCE: Array[int] = [48, 40, 32]
-const DRIP_FIRST := 150
+const DRIP_FIRST := 200
 ## Bats: each swoops up and down at its own spot (entry-relative px, per
 ## level), sways BAT_SWAY, takes BAT_PERIOD steps per figure-eight (two
 ## swoops). The gallery is BAT_ROOM taller each side, so a bat at the top or
@@ -71,7 +75,10 @@ const BAT_ROOM := 48 * SUB
 const BAT_MARGIN := 4 * SUB
 ## After the hold, the bats' timing also keeps them off the arrival band for
 ## this many steps where it can (the fewest meetings).
-const BAT_FOLLOW := 60
+const BAT_FOLLOW := 120
+## Each bat's spot moves up to this far either way, drawn per layout (so the
+## arrival's tries are different rooms).
+const BAT_JITTER := 16 * SUB
 
 ## Peg Field: pegs per level (as many as fit), their spacing (centre to
 ## centre: one hop plus the bird between the tips), the clear strip by the far
@@ -177,7 +184,9 @@ static func _limits(p: VariantParams, variant: int) -> PackedInt32Array:
 		# island that keeps off the band's middle; the gallery's other edge
 		# carries on to the far wall.
 		var up := p.rng.next_below(2) == 0
-		var tip := c0 - ISLE_SHIFT if up else c0 + ISLE_SHIFT
+		var tip := (
+			lim[L_TOP0] - ISLE_GAP - ISLE_HALF if up else lim[L_BOTTOM0] + ISLE_GAP + ISLE_HALF
+		)
 		lim[L_FORK] = 1
 		lim[L_TIP] = tip
 		lim[L_ISLE_TOP1] = tip - ISLE_HALF
@@ -193,6 +202,7 @@ static func _limits(p: VariantParams, variant: int) -> PackedInt32Array:
 	var lo := SimConfig.KILL_TOP + half + 24 * SUB
 	var hi := SimConfig.KILL_BOTTOM - half - 24 * SUB
 	var c1 := clampi(c0 - bend + p.rng.next_below(2 * bend + 1), lo, hi)
+	c1 = clampi(c1, band[1] - half - BEND_CUT_BOTTOM, band[0] + half + BEND_CUT_TOP)
 	lim[L_TOP1] = c1 - half
 	lim[L_BOTTOM1] = c1 + half
 	return lim
@@ -356,7 +366,7 @@ static func _add_bats(p: VariantParams, lim: PackedInt32Array) -> void:
 		bat.loop_w = BAT_SWAY
 		bat.loop_h = swing
 		bat.loop_period = BAT_PERIOD[lv]
-		bat.center_x = _x(p, bx * SUB)
+		bat.center_x = _x(p, bx * SUB - BAT_JITTER + p.rng.next_below(2 * BAT_JITTER + 1))
 		bat.center_y = mid
 		p.add(bat)
 		if not p.arriving:

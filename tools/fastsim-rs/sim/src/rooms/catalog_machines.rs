@@ -26,6 +26,7 @@ impl CatalogMachines {
     pub const SHORT_HALF_W: i64 = 18 * Self::SUB;
     pub const ENTRY_X: i64 = 110 * Self::SUB;
     pub const FAR_X: i64 = 292 * Self::SUB;
+    pub const FAR_GAP: i64 = 200 * Self::SUB;
     pub const GEN_SLACK: i64 = 4 * Self::SUB;
     pub const ENTRY_GAP: i64 = 2 * SimConfig::EXIT_FIT
         + FairLanes::FIRST_HOP
@@ -125,7 +126,11 @@ impl CatalogMachines {
         let a = if rocks == Self::BOTH { Stalactite::new(entry, false) } else { Self::_fang_at(entry, rocks) };
         p.add(sim, Self::_still(a, sim, p, Self::ENTRY_GAP).into());
         let mut b = if rocks == Self::BOTH { Stalactite::new(far, false) } else { Self::_fang_at(far, rocks) };
+        if rocks != Self::FLOOR {
+            b.gap = Self::FAR_GAP;
+        }
         b.scheduled = true;
+        b.start_y = (p.hold_top(sim) + p.hold_bottom(sim)) / 2;
         p.add(sim, b.into());
     }
 
@@ -159,10 +164,8 @@ impl CatalogMachines {
             f.x = Self::_from_entry(sim, if i < 2 || short { f.x } else { Self::FAR_X });
             if short {
                 f = Self::_still(f, sim, p, Self::SHORT_GAP);
-            } else if i < 2 {
-                f = Self::_still(f, sim, p, Self::ENTRY_GAP);
             } else {
-                f = Self::_still(f, sim, p, Self::ALT_GAP);
+                f = Self::_still(f, sim, p, Self::ENTRY_GAP);
             }
             p.add(sim, f.into());
         }

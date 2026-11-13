@@ -58,6 +58,9 @@ var fixed_hi := -1
 ## A scheduled gap: its heights (drawn at setup, the last one the exit's lane)
 ## and how many of them it has slid to.
 var scheduled := false
+## Where a scheduled gap starts (its recipe's height round the arrival band, past
+## GAP_MIN..GAP_MAX if the band is), or -1: round the bird's hop.
+var start_y := -1
 var schedule := PackedInt32Array()
 var slides := 0
 
@@ -75,6 +78,8 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 		return
 	# A scheduled gap starts round the bird's hop where it came in.
 	gap_y = clampi(FairLanes.entry_y(sim) - HOP_MID, GAP_MIN, GAP_MAX)
+	if start_y >= 0:
+		gap_y = start_y
 	target_y = gap_y
 	if scheduled:
 		_draw_schedule(sim, rng)
@@ -93,8 +98,8 @@ func _draw_schedule(sim: GameSim, rng: SimRng) -> void:
 	var to_ghost := maxi(sim.next_exit_score() - 1 - sim.state.score, 0)
 	var park := maxi((to_ghost + 1) / 2 - 1, 0)
 	var y := gap_y
-	var lo := maxi(GAP_MIN, gap_y - SCHED_REACH)
-	var hi := mini(GAP_MAX, gap_y + SCHED_REACH)
+	var lo := maxi(mini(GAP_MIN, gap_y), gap_y - SCHED_REACH)
+	var hi := mini(maxi(GAP_MAX, gap_y), gap_y + SCHED_REACH)
 	for i in park + 1:
 		y = _within(rng, y, MAX_STEP, lo, hi)
 		schedule.append(y)
