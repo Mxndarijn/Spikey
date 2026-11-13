@@ -178,14 +178,22 @@ static func center_icon_group(b: Button) -> void:
 			b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			return
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		var font := b.get_theme_font("font")
-		var fs := b.get_theme_font_size("font_size")
+		var t := UiTheme.get_theme()
+		var font := t.get_font("font", b.theme_type_variation)
+		var fs := (
+			b.get_theme_font_size("font_size")
+			if b.has_theme_font_size_override("font_size")
+			else t.get_font_size("font_size", b.theme_type_variation)
+		)
 		var text_w := font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var icon_w := minf(b.icon.get_width(), b.get_theme_constant("icon_max_width"))
-		var group := icon_w + b.get_theme_constant("h_separation") + text_w
+		var group := icon_w + t.get_constant("h_separation", b.theme_type_variation) + text_w
 		var side := maxf(UiTokens.SPACE_4, floorf((b.size.x - group) / 2.0))
 		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
-			var box := b.get_theme_stylebox(state).duplicate() as StyleBox
+			# The boxes come from the UI theme itself: a button can resize before
+			# its theme reaches it, and would then copy the engine's grey ones.
+			var box := t.get_stylebox(state, b.theme_type_variation)
+			box = box.duplicate() as StyleBox
 			box.content_margin_left = side
 			box.content_margin_right = side
 			b.add_theme_stylebox_override(state, box)
