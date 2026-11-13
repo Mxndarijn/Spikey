@@ -27,12 +27,14 @@ func paint(pen: ScenePen, t: ThemeDef) -> void:
 	var near := SceneGround.new(602, 6, 1.2, 3.4, t.hill_near, 2)
 	SceneProps.night_stars(pen, 23, 34, 300, Vector3(286, 236, 52))
 	SceneProps.sun(pen, 286, 236, 28, t)
-	# The string of lanterns sags between the two top corners.
-	var from := Vector2(30, 44)
-	var sag := Vector2(180, 86)
-	var to := Vector2(330, 44)
+	# The string of lanterns is tied to both walls in the gap between the
+	# ceiling spikes (y 34) and the wall spikes (y 62) and sags freely between
+	# them; it stays above y 62 until it is clear of the wall spikes (x 30).
+	var from := Vector2(0, 46)
+	var sag := Vector2(180, 96)
+	var to := Vector2(360, 46)
 	pen.stroke(ScenePath.at(from.x, from.y).q(sag.x, sag.y, to.x, to.y).done(), STRING, 1.6)
-	var along := [0.1, 0.26, 0.42, 0.58, 0.74, 0.9]
+	var along := [0.16, 0.3, 0.44, 0.56, 0.7, 0.84]
 	for i in along.size():
 		var k: float = along[i]
 		var at := from.lerp(sag, k).lerp(sag.lerp(to, k), k)
