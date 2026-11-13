@@ -37,8 +37,9 @@ const STONE_AFTER := 3
 ## from the other edge.
 const STONE_CLEAR := 90 * SUB
 const STONE_EDGE := 80 * SUB
-## An exit's centre stays this far from the line it could meet.
-const EXIT_CLEAR := SimConfig.BIRD_RADIUS + 24 * SUB
+## An exit's centre stays this far above the line it could meet: a bird
+## anywhere in the opening (EXIT_HALF) stays clear of the lava.
+const EXIT_CLEAR := SimConfig.EXIT_HALF + SimConfig.BIRD_RADIUS + 2 * SUB
 ## A free run on the wall ahead is this many slots, wholly clear of the line.
 const RUN := 3
 ## Cold Wall: the ice block reaches this far in from the wall, over its slot.

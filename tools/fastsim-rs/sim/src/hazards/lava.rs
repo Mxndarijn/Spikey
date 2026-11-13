@@ -41,7 +41,7 @@ impl Lava {
     pub const STONE_AFTER: i64 = 3;
     pub const STONE_CLEAR: i64 = 90 * Self::SUB;
     pub const STONE_EDGE: i64 = 80 * Self::SUB;
-    pub const EXIT_CLEAR: i64 = SimConfig::BIRD_RADIUS + 24 * Self::SUB;
+    pub const EXIT_CLEAR: i64 = SimConfig::EXIT_HALF + SimConfig::BIRD_RADIUS + 2 * Self::SUB;
     pub const RUN: i64 = 3;
     pub const ICE_DEPTH: i64 = 12 * Self::SUB;
     pub const ICE_AWAY: i64 = 80 * Self::SUB;
