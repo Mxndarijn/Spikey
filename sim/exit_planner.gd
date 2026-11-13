@@ -63,6 +63,12 @@ static func plan(sim: GameSim, rng: SimRng, side: int, at: int) -> void:
 			bottom = _free_apart(sim, bottom, top)
 		if blocked(sim, top):
 			top = _free_apart(sim, top, bottom)
+		# Still blocked (the free part of the wall fits two exits, but not
+		# FORK_APART from the one drawn): both move, to the free pair nearest.
+		if blocked(sim, top) or blocked(sim, bottom):
+			var pair := _free_pair(sim, top, bottom)
+			top = pair[0]
+			bottom = pair[1]
 		sim.state.exit_a_y = top
 		sim.state.exit_b_y = bottom
 		sim.state.exit_a_kind = SimState.ExitKind.CALM if calm_on_top else SimState.ExitKind.WILD
@@ -187,6 +193,31 @@ static func _free_apart(sim: GameSim, y: int, other: int) -> int:
 		if best_d < 0 or d < best_d:
 			best = cy
 			best_d = d
+	return best
+
+
+## The free pair of exit heights (top above bottom, at least FORK_APART apart)
+## nearest `top` and `bottom` together, or the two as they are if there is
+## none. No RNG draws.
+static func _free_pair(sim: GameSim, top: int, bottom: int) -> Array[int]:
+	var c0 := SimConfig.slot_center_y(0)
+	var lo := (SimConfig.EXIT_MIN_Y - c0 + SimConfig.SLOT_SIZE - 1) / SimConfig.SLOT_SIZE
+	var hi := (SimConfig.EXIT_MAX_Y - c0) / SimConfig.SLOT_SIZE
+	var free: Array[int] = []
+	for slot in range(lo, hi + 1):
+		var cy := SimConfig.slot_center_y(slot)
+		if not blocked(sim, cy):
+			free.append(cy)
+	var best: Array[int] = [top, bottom]
+	var best_d := -1
+	for t in free:
+		for b in free:
+			if b - t < FORK_APART:
+				continue
+			var d := absi(t - top) + absi(b - bottom)
+			if best_d < 0 or d < best_d:
+				best = [t, b]
+				best_d = d
 	return best
 
 

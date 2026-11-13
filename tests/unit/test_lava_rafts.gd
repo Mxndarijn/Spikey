@@ -80,6 +80,23 @@ func test_rafts_exits_stay_clear() -> void:
 		assert_true(l.line_at(l.rises) >= worst, "the lava never passes the planned worst")
 
 
+## A fork in Rafts: both exits clear of the worst lava, FORK_APART apart, even
+## when the top one is drawn where no free slot is FORK_APART from it (run
+## seed 77 met the lower exit at 400 px with the lava at 306 px).
+func test_rafts_fork_exits_both_clear_of_the_lava() -> void:
+	for seed_value in 32:
+		var sim := Rooms.sim_in_room("lava", 60 + seed_value, Seasons.NONE, "rafts")
+		sim.state.started = true
+		var l: Lava = sim.room.hazards[0]
+		var worst := l.line_at(l.worst_rises(sim))
+		ExitPlanner.plan(sim, SimRng.new(seed_value), 1, SimConfig.FORK_EVERY)
+		var top := sim.state.exit_a_y
+		var bottom := sim.state.exit_b_y
+		var at := "seed %d: exits %d / %d px" % [seed_value, top / SUB, bottom / SUB]
+		assert_true(absi(bottom - top) >= ExitPlanner.FORK_APART, at + ", apart")
+		assert_true(maxi(top, bottom) <= worst - Lava.EXIT_CLEAR, at + ", clear of the lava")
+
+
 ## Rafts never come up in each other, and never drift into each other.
 func test_rafts_keep_apart() -> void:
 	for seed_value in 64:
