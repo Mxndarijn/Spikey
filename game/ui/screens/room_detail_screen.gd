@@ -2,8 +2,9 @@ class_name RoomDetailScreen
 extends Control
 ## One room kind (minimal kit): a back arrow and the room's name, its rounded
 ## picture, one paper card with its group and start score (and the clear rate
-## on the right), the pitch, the difficulty beside the room's stats from real
-## runs (reached, cleared, deaths) and the practice note; then the round ink
+## on the right), the pitch, the room's measured difficulty score (RoomScores,
+## the mean over its variants) beside its stats from real runs (reached,
+## cleared, deaths) and the practice note; then the round ink
 ## Practice button. An open room no real run reached yet says so in place of
 ## its stats. A locked room shows why instead, and its Practice button is
 ## disabled.
@@ -22,8 +23,7 @@ const CARD_PAD_X := 18
 const CARD_PAD_Y := 14
 ## Names longer than this get a smaller title so they clear the back arrow.
 const LONG_NAME := 11
-## The stats' numbers: smaller than the old single count, so three fit beside
-## the difficulty.
+## The stats' numbers: small enough that three fit beside the score.
 const STAT_SIZE := UiTokens.FONT_SIZE_HEADING
 
 var room_id := ""
@@ -32,6 +32,7 @@ var _profile: Profile
 var _def: RoomDef
 ## Stat name ("reached", "cleared", "deaths") -> the label with its number.
 var _stats := {}
+var _score: Label
 var _rate: Label
 var _practice: Button
 var _why: Label
@@ -95,7 +96,7 @@ func _preview() -> Control:
 	return thumb
 
 
-## The one paper card: group and start, the pitch, difficulty and clears, the note.
+## The one paper card: group and start, the pitch, score and clears, the note.
 func _card() -> Control:
 	var inner := float(UiTokens.SIZE_VIEWPORT_W - SIDE * 2 - CARD_PAD_X * 2)
 	var outer := MarginContainer.new()
@@ -166,22 +167,14 @@ func _where() -> String:
 	return "%s, from %d points" % [first, _def.from_score]
 
 
-## The difficulty pips over "Difficulty 3/5", then the stats (a locked room
-## says why instead).
+## The room's score, then the stats (a locked room says why instead).
 func _facts() -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", UiTokens.SPACE_3)
-	var diff := VBoxContainer.new()
-	diff.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	diff.alignment = BoxContainer.ALIGNMENT_CENTER
-	diff.add_theme_constant_override("separation", 4)
-	var level := RoomInfo.difficulty(room_id)
-	var pips := DifficultyPips.new(level)
-	pips.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	diff.add_child(pips)
-	diff.add_child(UiKit.label("Difficulty %d/5" % level, &"CaptionLabel", false))
-	row.add_child(diff)
+	var score := RoomScores.of(room_id)
+	if score >= 0:
+		row.add_child(_score_tile(score))
 	if _is_open():
 		_add_stats(row)
 	else:
@@ -196,6 +189,36 @@ func _facts() -> Control:
 		locked.add_child(_why)
 		row.add_child(locked)
 	return row
+
+
+## The measured difficulty on a raised tile, "Score" over its number, so it
+## reads apart from the run stats beside it.
+func _score_tile(score: int) -> Control:
+	var tile := PanelContainer.new()
+	tile.name = "Score"
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var box := UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_S, UiTokens.SPACE_1)
+	box.content_margin_left = UiTokens.SPACE_3
+	box.content_margin_right = UiTokens.SPACE_3
+	# 3 px over and under: the page has no height to spare on a 640 px screen.
+	box.content_margin_top = 3
+	box.content_margin_bottom = 3
+	tile.add_theme_stylebox_override("panel", box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var head := UiKit.label("Score", &"CaptionLabel", false)
+	head.add_theme_font_override("font", GameFonts.ui(800))
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	_score = UiKit.label(str(score), &"NameLabel", false)
+	_score.add_theme_font_size_override("font_size", STAT_SIZE)
+	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_score)
+	tile.add_child(col)
+	return tile
 
 
 ## Reached, cleared and deaths side by side, each a number over its name; a
@@ -258,6 +281,11 @@ func shows_rate() -> bool:
 ## Why a locked room can't be practised ("" when it is open).
 func locked_reason() -> String:
 	return _why.text if _why != null else ""
+
+
+## The room's score as shown ("" when it has none), for tests.
+func score_text() -> String:
+	return _score.text if _score != null else ""
 
 
 ## The Practice button (disabled for locked rooms), for tests.

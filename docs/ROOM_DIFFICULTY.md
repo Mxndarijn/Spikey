@@ -109,6 +109,20 @@ tell), the bird keeps the plan it had before for R = 0, 20, 40, 60 ticks, then S
 Recategorising is the user's call: the tool only suggests. The picker uses these scores through each room's tier in
 `sim/rooms/room_pacing.gd` (unlock and weight over the score, [ROOM_PACING.md](ROOM_PACING.md)).
 
+## In the game
+
+The Rooms screen's room page shows each room's score (the mean over its variants) from
+`game/rooms/room_scores.gd`. The game can't run the tool, so the numbers are baked: after a new
+difficulty run, regenerate the file from its `report.json` (later files win per variant, so a
+rerun of a few rooms goes after the full run; rooms and variants no longer in the catalog are
+left out):
+
+```
+godot --headless --path . -s res://tools/make_room_scores.gd -- full/report.json rerun/report.json --source "next-features-2 at <commit>, <date>"
+```
+
+`tests/unit/test_room_scores.gd` fails while a room in the catalog has no score.
+
 ## Results
 
 The run of 2026-11-12 (next-features-2 at 5354aac): `D:\SoftwareProjects\SpikeCage-coord\research\room-difficulty\`
