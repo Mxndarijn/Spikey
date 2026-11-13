@@ -111,7 +111,10 @@ CrowdFill.alive	game/run/painters/crowd_fill_painter.gd
 CrowdFill.since_pick	game/run/painters/crowd_fill_painter.gd
 Dart.alive	game/run/painters/dart_painter.gd
 Dart.glow()	game/run/painters/dart_painter.gd
+Dart.lane2_y	game/run/painters/dart_painter.gd
+Dart.lane_y	game/run/painters/dart_painter.gd
 Dart.lanes	game/run/painters/dart_painter.gd
+Dart.pair	game/run/painters/dart_painter.gd
 Dart.side	game/run/painters/dart_painter.gd
 Dart.state	game/run/painters/dart_painter.gd
 Dart.tail_x()	game/run/painters/dart_painter.gd

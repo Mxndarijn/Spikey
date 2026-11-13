@@ -198,6 +198,11 @@ fn has_no_arg_method(class: &str, name: &str) -> bool {
     STATE_TYPES.iter().any(|(c, ms)| *c == class && ms.contains(&name))
 }
 
+/// No-argument sim methods the Rust port has inlined (no method to call), by the fields
+/// their result is made of: a view that calls one shows those fields. Without this the
+/// lane a Hunter Spike's dashed line marks (`h.shot_lanes()`) was listed as hidden.
+const INLINED: &[(&str, &str, &[&str])] = &[("Dart", "shot_lanes", &["lane_y", "pair", "lane2_y"])];
+
 pub const HEADER: &str = "# Fields the screen shows (deny by default: every other field is hidden). Built by `fastsim measure visibility --write` from game/run.\n";
 
 /// Rebuilds the visible list from the drawing code and the sim's sources.
@@ -219,6 +224,10 @@ pub fn generate(root: &Path) -> Result<Vec<String>, String> {
                 rows.push((format!("{}.{}", class, nm), from.to_string()));
             } else if has_no_arg_method(class, nm) {
                 rows.push((format!("{}.{}()", class, nm), from.to_string()));
+            } else if let Some((_, _, of)) = INLINED.iter().find(|(c, m, _)| *c == class && *m == nm.as_str()) {
+                for f in of.iter() {
+                    rows.push((format!("{}.{}", class, f), from.to_string()));
+                }
             }
         }
     };

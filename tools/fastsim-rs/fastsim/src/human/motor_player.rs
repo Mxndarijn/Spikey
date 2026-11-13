@@ -113,6 +113,10 @@ pub static MASK_HAZARDS: AtomicBool = AtomicBool::new(true);
 pub static REACT_BOSS: AtomicBool = AtomicBool::new(true);
 /// A new warning (Hazard.warnings) that breaks the plan in hand takes a reaction time.
 pub static MASK_TELLS: AtomicBool = AtomicBool::new(true);
+/// How a tell reaction plays: true = the planner keeps looking, with only the newly warned
+/// hazards hidden from it until the reaction time has passed; false = the old model, frozen
+/// (no new looks, the old plan runs on), which flew the bird into spikes it had already seen.
+pub static TELL_HIDE: AtomicBool = AtomicBool::new(true);
 /// Plan reuse for every tier's planner (BlindPlanner.follow; 0 = a new look every 4 ticks).
 pub static FOLLOW: AtomicI32 = AtomicI32::new(48);
 
@@ -166,6 +170,8 @@ pub struct MotorPlayer {
     _warned_now: HashSet<WarnKey>,
     _warn_buf: Vec<i64>,
     _tell_until: i64,
+    /// The hazards whose new warning the reaction in hand is for (TELL_HIDE).
+    _tell_hz: Vec<usize>,
     pub tell_reactions: i64,
     pub tell_ticks: i64,
 }
@@ -207,6 +213,7 @@ impl MotorPlayer {
             _warned_now: HashSet::new(),
             _warn_buf: Vec::new(),
             _tell_until: -1,
+            _tell_hz: Vec::new(),
             tell_reactions: 0,
             tell_ticks: 0,
         };
@@ -300,8 +307,9 @@ impl MotorPlayer {
         }
         let t = s.tick;
         self.notice(sim, t);
+        let hide_tell = TELL_HIDE.load(Ordering::Relaxed) && t < self._tell_until;
         let masked_view;
-        let view: &GameSim = if t < self._spikes_hidden_until || !self._hidden.is_empty() {
+        let view: &GameSim = if t < self._spikes_hidden_until || !self._hidden.is_empty() || hide_tell {
             masked_view = self.masked(sim, t);
             self.masked_ticks += 1;
             &masked_view
@@ -309,8 +317,9 @@ impl MotorPlayer {
             sim
         };
         self.planner.boss_unseen = t < self._boss_hidden_until;
-        // Reacting to a tell: the old plan is played on while it lasts (never an empty thumb).
-        let reacting = t < self._tell_until && !self.planner.plan().is_empty();
+        // Reacting to a tell: with TELL_HIDE the planner looks on without the warned hazards
+        // (masked); else the old plan is played on while it lasts (never an empty thumb).
+        let reacting = !hide_tell && t < self._tell_until && !self.planner.plan().is_empty();
         if reacting {
             self.tell_ticks += 1;
         }
@@ -428,6 +437,7 @@ impl MotorPlayer {
         // change of plan; one that kills it is acted on a reaction time later.
         self._warned_now.clear();
         let mut fresh = false;
+        let mut fresh_hz: Vec<usize> = Vec::new();
         for (i, h) in sim.room.hazards.iter().enumerate() {
             if !h.alive() {
                 continue;
@@ -441,6 +451,9 @@ impl MotorPlayer {
                 self._warned_now.insert(key);
                 if !self._warned.contains(&key) {
                     fresh = true;
+                    if !fresh_hz.contains(&i) {
+                        fresh_hz.push(i);
+                    }
                 }
                 k += WARN_SIZE;
             }
@@ -458,6 +471,7 @@ impl MotorPlayer {
             && !self.planner.plan_lives(sim)
         {
             self._tell_until = t + self.reaction();
+            self._tell_hz = fresh_hz;
             self.tell_reactions += 1;
         }
     }
@@ -471,6 +485,14 @@ impl MotorPlayer {
                 c.state.right_spikes = 0;
             } else {
                 c.state.left_spikes = 0;
+            }
+        }
+        if TELL_HIDE.load(Ordering::Relaxed) && t < self._tell_until {
+            // Reacting to a new tell: the warned hazards are not taken in yet.
+            for &i in &self._tell_hz {
+                if i < c.room.hazards.len() {
+                    c.room.hazards[i].base_mut().alive = false;
+                }
             }
         }
         if !self._hidden.is_empty() {

@@ -19,6 +19,12 @@ but not random outcomes (not allowed). On top of it, a measured human motor mode
 - **Reaction to new things**: spikes put up at a bounce and newly appearing hazards are hidden from the
   planner for an ex-Gaussian reaction time (mean ~17 ticks, 288 ms): the planner's copy has no spikes on
   that wall yet, and new hazards are not alive in it.
+- **Reaction to new tells** (`Hazard.warnings`: a Hunter Spike's lane line, a Cupid lane, a firework
+  fuse, a boss tell): a warning that kills the plan in hand is taken in a reaction time later. Until
+  then the planner keeps looking, but the warned hazards are hidden from it (`TELL_HIDE`). The old
+  model froze the planner instead (no new looks, the old plan played on): a freeze near a wall flew
+  the bird into spikes it had already seen, so tell rooms scored far too hard (2026-11-13: good
+  cleared Hunter Spike 11/24 frozen, 24/24 with the tell hidden).
 - **Planner settings for an imprecise thumb**: a 16 px margin that also counts the spikes of the wall
   ahead, the ceiling and the floor (`spike_margin`), margin cost 2000 (with 40 the mid-height cost won and
   the planner threaded one-slot gaps), 8 candidate lines tried with taps `round(sigma)` ticks early/late.
