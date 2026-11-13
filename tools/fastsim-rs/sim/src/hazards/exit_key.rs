@@ -4,11 +4,10 @@ use crate::prelude::*;
 /// C# `ExitKey.Mode`.
 pub struct Mode;
 impl Mode {
-    pub const CLASSIC: i64 = 0;
-    pub const ORBIT: i64 = 1;
-    pub const TRIO: i64 = 2;
-    pub const QUAD: i64 = 3;
-    pub const CHAIN: i64 = 4;
+    pub const ORBIT: i64 = 0;
+    pub const TRIO: i64 = 1;
+    pub const QUAD: i64 = 2;
+    pub const CHAIN: i64 = 3;
 }
 
 #[derive(Clone, Debug)]
@@ -232,11 +231,10 @@ impl Hazard for ExitKey {
     fn setup(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
         if self.mode < 0 {
             self.mode = match sim.room.variant_id() {
-                "orbit" => Mode::ORBIT,
                 "trio" => Mode::TRIO,
                 "quad" => Mode::QUAD,
                 "chain" => Mode::CHAIN,
-                _ => Mode::CLASSIC,
+                _ => Mode::ORBIT,
             };
         }
         if self.mode == Mode::TRIO {
@@ -253,16 +251,14 @@ impl Hazard for ExitKey {
             self._place_orbit();
         } else if self.mode == Mode::TRIO || self.mode == Mode::QUAD {
             self._lay_out(rng);
-        } else {
+        } else if self.mode == Mode::CHAIN {
             let side = rng.next_below(2);
             let off = Self::KEY_OFF_MIN + rng.next_below(Self::KEY_OFF_MAX - Self::KEY_OFF_MIN + 1);
             self.kx[0] = Self::_from_wall(sim, side, off);
             self.ky[0] = Self::KEY_MIN_Y + rng.next_below(Self::KEY_MAX_Y - Self::KEY_MIN_Y + 1);
-            if self.mode == Mode::CHAIN {
-                for i in 1..self.count as usize {
-                    self.chain_off[i] = Self::KEY_OFF_MIN + rng.next_below(Self::CHAIN_OFF_MAX - Self::KEY_OFF_MIN + 1);
-                    self.chain_d[i] = Self::CHAIN_D_MIN + rng.next_below(Self::CHAIN_D_MAX - Self::CHAIN_D_MIN + 1);
-                }
+            for i in 1..self.count as usize {
+                self.chain_off[i] = Self::KEY_OFF_MIN + rng.next_below(Self::CHAIN_OFF_MAX - Self::KEY_OFF_MIN + 1);
+                self.chain_d[i] = Self::CHAIN_D_MIN + rng.next_below(Self::CHAIN_D_MAX - Self::CHAIN_D_MIN + 1);
             }
         }
     }

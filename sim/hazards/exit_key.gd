@@ -14,7 +14,6 @@ extends Hazard
 ## planned on a key's wall opens near the key (blocks_exit).
 ##
 ## Variants (the room's variant id picks one):
-##   classic: one key in a wall band.
 ##   orbit:   one key on a wide oval that swings through both wall bands.
 ##   trio:    three keys, all shown at the start; you need all three.
 ##   quad:    the same with four keys.
@@ -22,7 +21,7 @@ extends Hazard
 ##            bird just left, at least CHAIN_D_MIN away from its height.
 ## One key pays COINS; with more keys each pays 1 and the last adds a bonus of
 ## one coin per key.
-enum Mode { CLASSIC, ORBIT, TRIO, QUAD, CHAIN }
+enum Mode { ORBIT, TRIO, QUAD, CHAIN }
 
 const SUB := SimConfig.SUB
 const RADIUS := 12 * SUB
@@ -68,7 +67,7 @@ const ORBIT_RX := 128 * SUB
 const ORBIT_RY := 165 * SUB
 const ORBIT_STEPS := 540
 
-var mode := Mode.CLASSIC
+var mode := Mode.ORBIT
 ## Keys needed, and taken so far.
 var count := 1
 var got := 0
@@ -100,14 +99,12 @@ func _init(p_mode: int = -1) -> void:
 	mode = p_mode
 
 
-## Draws, in order: classic and chain a side, a wall offset and a height (chain
-## then an offset and a distance per later key); orbit its phase; trio and
-## quad their layout (_lay_out).
+## Draws, in order: orbit its phase; trio and quad their layout (_lay_out);
+## chain a side, a wall offset and a height for its first key, then an offset
+## and a distance per later key.
 func setup(sim: GameSim, rng: SimRng) -> void:
 	if mode < 0:
 		match sim.room.variant_id():
-			"orbit":
-				mode = Mode.ORBIT
 			"trio":
 				mode = Mode.TRIO
 			"quad":
@@ -115,7 +112,7 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			"chain":
 				mode = Mode.CHAIN
 			_:
-				mode = Mode.CLASSIC
+				mode = Mode.ORBIT
 	match mode:
 		Mode.TRIO:
 			count = 3
@@ -131,15 +128,14 @@ func setup(sim: GameSim, rng: SimRng) -> void:
 			_place_orbit()
 		Mode.TRIO, Mode.QUAD:
 			_lay_out(rng)
-		_:
+		Mode.CHAIN:
 			var side := rng.next_below(2)
 			var off := KEY_OFF_MIN + rng.next_below(KEY_OFF_MAX - KEY_OFF_MIN + 1)
 			kx[0] = _from_wall(sim, side, off)
 			ky[0] = KEY_MIN_Y + rng.next_below(KEY_MAX_Y - KEY_MIN_Y + 1)
-			if mode == Mode.CHAIN:
-				for i in range(1, count):
-					chain_off[i] = KEY_OFF_MIN + rng.next_below(CHAIN_OFF_MAX - KEY_OFF_MIN + 1)
-					chain_d[i] = CHAIN_D_MIN + rng.next_below(CHAIN_D_MAX - CHAIN_D_MIN + 1)
+			for i in range(1, count):
+				chain_off[i] = KEY_OFF_MIN + rng.next_below(CHAIN_OFF_MAX - KEY_OFF_MIN + 1)
+				chain_d[i] = CHAIN_D_MIN + rng.next_below(CHAIN_D_MAX - CHAIN_D_MIN + 1)
 
 
 ## One key per height band, x from the zones in a shuffled order (each zone

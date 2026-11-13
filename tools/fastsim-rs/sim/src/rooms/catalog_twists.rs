@@ -32,7 +32,6 @@ impl CatalogTwists {
         let mut lock_ = RoomDef::new("lockexit", "mid", 40);
         lock_.hazards.push(mk(|| ExitKey::new(-1).into()));
         lock_.variants = vec![
-            RoomVariant::new("classic").sized(1, 1, 1),
             RoomVariant::new("orbit").sized(1, 1, 1),
             RoomVariant::new("trio").sized(1, 1, 1),
             RoomVariant::new("quad").sized(1, 1, 1),

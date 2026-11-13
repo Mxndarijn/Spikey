@@ -6,7 +6,7 @@ const Rooms := preload("res://tests/unit/test_rooms.gd")
 const ExitKey := preload("res://sim/hazards/exit_key.gd")
 
 const SUB := SimConfig.SUB
-const VARIANTS: Array[String] = ["classic", "orbit", "trio", "quad", "chain"]
+const VARIANTS: Array[String] = ["orbit", "trio", "quad", "chain"]
 
 
 func test_every_variant_comes_up_with_its_key_hazard() -> void:
@@ -19,7 +19,7 @@ func test_every_variant_comes_up_with_its_key_hazard() -> void:
 		assert_eq(sim.room.hazards.size(), 1, "one hazard")
 		assert_eq(sim.room.hazards[0].kind, "exit_key", "the key hazard")
 		seen[sim.room.variant_id()] = true
-	assert_eq(def.variants.size(), VARIANTS.size(), "five variants")
+	assert_eq(def.variants.size(), VARIANTS.size(), "four variants")
 	for v in VARIANTS:
 		assert_true(seen.has(v), "variant %s comes up" % v)
 
@@ -59,14 +59,6 @@ func test_every_variant_adds_a_spike_per_wall() -> void:
 	var def := RoomCatalog.find("lockexit")
 	for v in def.variants:
 		assert_eq(v.extra_spikes, 1, "%s: one more spike per wall" % v.id)
-
-
-func test_a_single_key_sits_in_a_wall_band() -> void:
-	for s in 60:
-		var k := _key_hazard(ExitKey.Mode.CLASSIC, s)
-		var off := mini(k.kx[0], SimConfig.WORLD_W - k.kx[0])
-		assert_true(off >= ExitKey.KEY_OFF_MIN and off <= ExitKey.KEY_OFF_MAX, "by a wall")
-		assert_true(k.ky[0] >= ExitKey.KEY_MIN_Y and k.ky[0] <= ExitKey.KEY_MAX_Y, "in reach")
 
 
 func test_orbit_key_moves_and_stays_in_the_room() -> void:
@@ -159,7 +151,7 @@ func test_lockdown_grows_the_wall_but_keeps_the_free_run() -> void:
 
 func test_a_wall_band_key_keeps_a_bounce_spot_and_pulls_the_exit_near() -> void:
 	var sim := _started("lockexit", 6)
-	var k := _key_hazard(ExitKey.Mode.CLASSIC, 6)
+	var k := _key_hazard(ExitKey.Mode.CHAIN, 6)
 	sim.room.hazards[0] = k
 	var side := 0 if k.kx[0] < SimConfig.WORLD_W / 2 else 1
 	var full := (1 << SimConfig.SLOT_COUNT) - 1
@@ -199,7 +191,7 @@ static func _started(id: String, seed_value: int) -> GameSim:
 
 ## A Locked Out room with its exit open on the right, the bird at it, its key
 ## hazard in mode `mode`.
-static func _locked_at_exit(seed_value: int, mode: int = ExitKey.Mode.CLASSIC) -> GameSim:
+static func _locked_at_exit(seed_value: int, mode: int = ExitKey.Mode.ORBIT) -> GameSim:
 	var sim := _started("lockexit", seed_value)
 	var k := ExitKey.new(mode)
 	k.setup(sim, SimRng.new(seed_value))
