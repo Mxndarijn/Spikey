@@ -53,11 +53,6 @@ impl ExitPlanner {
             if Self::blocked(sim, top) {
                 top = Self::_free_apart(sim, top, bottom);
             }
-            if Self::blocked(sim, top) || Self::blocked(sim, bottom) {
-                let pair = Self::_free_pair(sim, top, bottom);
-                top = pair[0];
-                bottom = pair[1];
-            }
             sim.state.exit_a_y = top;
             sim.state.exit_b_y = bottom;
             sim.state.exit_a_kind = if calm_on_top { ExitKind::CALM } else { ExitKind::WILD };
@@ -173,34 +168,6 @@ impl ExitPlanner {
             if best_d < 0 || d < best_d {
                 best = cy;
                 best_d = d;
-            }
-        }
-        best
-    }
-
-    fn _free_pair(sim: &mut GameSim, top: i64, bottom: i64) -> [i64; 2] {
-        let c0 = SimConfig::slot_center_y(0);
-        let lo = (SimConfig::EXIT_MIN_Y - c0 + SimConfig::SLOT_SIZE - 1) / SimConfig::SLOT_SIZE;
-        let hi = (SimConfig::EXIT_MAX_Y - c0) / SimConfig::SLOT_SIZE;
-        let mut free: Vec<i64> = Vec::new();
-        for slot in lo..hi + 1 {
-            let cy = SimConfig::slot_center_y(slot);
-            if !Self::blocked(sim, cy) {
-                free.push(cy);
-            }
-        }
-        let mut best = [top, bottom];
-        let mut best_d = -1;
-        for &t in &free {
-            for &b in &free {
-                if b - t < Self::FORK_APART {
-                    continue;
-                }
-                let d = G::absi(t - top) + G::absi(b - bottom);
-                if best_d < 0 || d < best_d {
-                    best = [t, b];
-                    best_d = d;
-                }
             }
         }
         best

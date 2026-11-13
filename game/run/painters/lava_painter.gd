@@ -11,6 +11,10 @@ extends HazardPainter
 ## uses a raft up on its first touch: here it dips under the bird with a splash
 ## and sinks away, and while the lava sinks its top cools to a crust with arrows
 ## riding down on it.
+##
+## The lava has no cap, so it may cover an exit (RoomView draws exits under the
+## hazards): the part under the lava shows as a dashed ink rim through it, so
+## the exit is plainly there and plainly blocked.
 
 const LavaHazard := preload("res://sim/hazards/lava.gd")
 
@@ -30,6 +34,10 @@ const USED_TIME := 1.2
 ## The crust on sinking lava: its depth, and how far its arrows sit below the top.
 const CRUST := 7.0
 const CRUST_ARROW_Y := 14.0
+## A covered exit's rim through the lava: its alpha, dashes and width.
+const SUNK_ALPHA := 0.55
+const SUNK_DASHES := 14
+const SUNK_W := 2.0
 
 ## Rafts seen up last frame (RaftLanding) and rafts landed on (px x, px line,
 ## time), per "<hazard id>:<index>". Looks only.
@@ -61,6 +69,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			c.draw_set_transform(Vector2(i + 10.0, cy), 0.0, Vector2(1.0, 0.35))
 			c.draw_circle(Vector2.ZERO, 9.0, theme.spike_edge)
 			c.draw_set_transform(Vector2.ZERO)
+		_sunk_exits(c, line, look)
 		if h.mode == LavaHazard.Mode.RAFTS:
 			_sinking(c, h, line, look)
 		for i in LavaHazard.MAX_RAFTS:
@@ -103,6 +112,51 @@ func remember(h: LavaHazard, line: float, time: float) -> int:
 ## Whether raft `i` of `h` was landed on and is still drawn (dipping or sinking).
 func landed_on(h: LavaHazard, i: int) -> bool:
 	return _used.has("%d:%d" % [h.get_instance_id(), i])
+
+
+## The shown exits (open or ghost) of `sim` as [side, centre y px], for the
+## covered-exit rim.
+static func shown_exits(sim: GameSim) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	var st := sim.state
+	if not st.exit_open and not st.exit_preview:
+		return out
+	out.append(Vector2(st.exit_side, st.exit_a_y / float(SimConfig.SUB)))
+	if st.exit_b_kind != SimState.ExitKind.NORMAL:
+		out.append(Vector2(st.exit_side, st.exit_b_y / float(SimConfig.SUB)))
+	return out
+
+
+## Whether lava with its top at `line` px covers any of an exit's opening
+## centred at `y` px.
+static func covers(line: float, y: float) -> bool:
+	return y + SimConfig.EXIT_HALF / float(SimConfig.SUB) > line
+
+
+func _sunk_exits(c: CanvasItem, line: float, look: HazardLook) -> void:
+	if look.sim == null:
+		return
+	var half := SimConfig.EXIT_HALF / float(SimConfig.SUB)
+	var rim := Color(look.theme.ink, SUNK_ALPHA)
+	for e in shown_exits(look.sim):
+		if not covers(line, e.y):
+			continue
+		var side := int(e.x)
+		var wall := HazardLayer.px(
+			look.sim.room.wall_left() if side == 0 else look.sim.room.wall_right()
+		)
+		var into := 1.0 if side == 0 else -1.0
+		var centre := Vector2(wall + into * RoomView.EXIT_DEPTH, e.y)
+		var radius := Vector2(16.0, half * 0.95)
+		var steps := SUNK_DASHES * 2
+		for i in range(0, steps, 2):
+			var a0 := TAU * i / steps
+			var a1 := TAU * (i + 1) / steps
+			var p0 := centre + Vector2(cos(a0), sin(a0)) * radius
+			var p1 := centre + Vector2(cos(a1), sin(a1)) * radius
+			# Only the dashes under the lava's top: above it the portal shows itself.
+			if minf(p0.y, p1.y) > _wave(p0.x, line, look) + 2.0:
+				c.draw_line(p0, p1, rim, SUNK_W, true)
 
 
 func _wave(x: float, line: float, look: HazardLook) -> float:

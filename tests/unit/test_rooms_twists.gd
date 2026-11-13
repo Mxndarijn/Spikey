@@ -156,17 +156,17 @@ func test_lava_rises_per_point_and_a_stone_sinks_it() -> void:
 	assert_eq(l.line, SimConfig.KILL_BOTTOM, "back to rest")
 
 
-func test_lava_stops_rising_and_keeps_a_free_run() -> void:
+func test_lava_rises_with_no_cap_and_keeps_a_free_run() -> void:
 	var sim := _started("lava", 11)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.STONE
 	l.line = l.rest()
-	sim.room.points = 20
+	sim.room.points = 6
 	l.on_bounce(sim, SimRng.new(1))
-	assert_eq(l.rises, Lava.MAX_RISES, "it stops rising")
-	var edge := l.line_at(Lava.MAX_RISES)
+	assert_eq(l.rises, 6, "a step a point")
+	var edge := l.line_at(6)
 	var all := (1 << SimConfig.SLOT_COUNT) - 1
-	sim.state.y = 320 * SUB
+	sim.state.y = 200 * SUB
 	var mask: int = l.adjust_wall(sim, 1, all)
 	var run := 0
 	var best := 0
@@ -177,23 +177,29 @@ func test_lava_stops_rising_and_keeps_a_free_run() -> void:
 		else:
 			run = 0
 	assert_true(best >= Lava.RUN, "a free run clear of the line")
+	sim.room.points = 60
+	l.on_bounce(sim, SimRng.new(2))
+	assert_eq(l.rises, Lava.FULL_RISES, "left alone it fills the room")
 
 
-func test_lava_keeps_exits_out_of_its_reach() -> void:
-	var sim := _started("lava", 12)
-	var l: Lava = sim.room.hazards[0]
-	l.mode = Lava.Mode.STONE
-	l.rises = 4
-	# The room's exits are picked when it starts: the line rises with every
-	# point still to score before the exit opens.
-	var at_start := l.line_at(mini(4 + sim.points_to_exit(), Lava.MAX_RISES))
-	assert_true(l.blocks_exit(sim, 1, at_start), "no exit where the lava will be")
-	assert_false(l.blocks_exit(sim, 1, at_start - Lava.EXIT_CLEAR - SUB), "above it is fine")
-	# One point before the exit (a revive plans it again then).
-	sim.state.score = sim.next_exit_score() - 1
-	var worst := l.line_at(5)
-	assert_true(l.blocks_exit(sim, 1, worst), "no exit in the lava")
-	assert_false(l.blocks_exit(sim, 1, worst - Lava.EXIT_CLEAR - SUB), "above it is fine")
+## Exits are the seed's, wherever the lava is: lava over one blocks it, and
+## keeping the lava low is the player's job.
+func test_lava_leaves_the_exits_where_the_seed_puts_them() -> void:
+	for mode: int in [Lava.Mode.STONE, Lava.Mode.COLD, Lava.Mode.RAFTS]:
+		for seed_value in 6:
+			var sim := _started("lava", 120 + seed_value)
+			var l: Lava = sim.room.hazards[0]
+			l.mode = mode
+			l.draw_plan(SimRng.new(seed_value))
+			var at := sim.next_exit_score()
+			ExitPlanner.plan_room(sim, at)
+			var low := [sim.state.plan_a_y_left, sim.state.plan_a_y_right]
+			l.rises = Lava.FULL_RISES - 4
+			l.counted = sim.room.points
+			l.line = l.line_at(l.rises)
+			ExitPlanner.plan_room(sim, at)
+			var high := [sim.state.plan_a_y_left, sim.state.plan_a_y_right]
+			assert_eq(high, low, "mode %d seed %d: the same exits" % [mode, seed_value])
 
 
 func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
@@ -287,7 +293,7 @@ func test_rafts_float_up_then_carry_and_sink_the_lava() -> void:
 	var before := l.rises
 	l.touch(sim)
 	assert_false(l.raft_on[0], "the raft is used")
-	assert_eq(l.rises, maxi(before - Lava.RAFT_SINK, 0), "the lava sinks two steps")
+	assert_eq(l.rises, maxi(before - Lava.RAFT_SINK, 0), "the lava sinks RAFT_SINK steps")
 	assert_true(sim.state.vy < 0, "the bird is thrown up")
 	sim.state.x = Lava.RAFT_X_MIN
 	sim.state.y = l.line

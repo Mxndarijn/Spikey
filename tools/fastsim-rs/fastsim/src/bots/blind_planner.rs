@@ -83,6 +83,10 @@ pub struct BlindPlanner {
     /// Cost per tick of each px away from the middle height, and per tap (px).
     pub mid_cost: i64,
     pub tap_cost: i64,
+    /// Cost per tick of each step Lava Rise has risen or is due to (px of `mid_cost`): the lava
+    /// has no cap, so a player keeps it low with the stone, the ice block or the rafts, all on
+    /// screen. Lines that sink it win their bucket.
+    pub lava_cost: i64,
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
     pub margin: i64,
     pub margin_cost: i64,
@@ -185,6 +189,7 @@ impl BlindPlanner {
             part: 16,
             mid_cost: 1,
             tap_cost: 0,
+            lava_cost: 1500,
             margin: 16,
             margin_cost: 2000,
             spike_margin: true,
@@ -511,6 +516,18 @@ impl BlindPlanner {
         self._since = 0;
     }
 
+    /// The steps Lava Rise has risen (its `rises`, shown by where the line glides to), 0 in a
+    /// room without it.
+    fn lava_rises(s: &GameSim) -> i64 {
+        let mut out = 0;
+        for h in &s.room.hazards {
+            if let Hz::Lava(x) = h {
+                out += x.rises;
+            }
+        }
+        out
+    }
+
     /// After a bounce in a copy: one-sided fangs aim as far out as their rule
     /// allows (within REACH of the anchor for the column met first, MAX_STEP
     /// past that for the other when `both`).
@@ -822,6 +839,7 @@ impl BlindPlanner {
         if !(self.aim_exit && exit_shown) {
             mid += self.mid_offset * SimConfig::SUB;
         }
+        let lava_room = self.lava_cost > 0 && root.room.hazards.iter().any(|h| matches!(h, Hz::Lava(_)));
         let mut parents: Vec<i32> = Vec::new();
         let mut taps: Vec<u8> = Vec::new();
         let since0 = root.state.tick - self.last_press;
@@ -883,6 +901,9 @@ impl BlindPlanner {
                         key = (key * 64 + st.x / (16 * SimConfig::SUB)) * 2 + if st.vx > 0 { 1 } else { 0 };
                     }
                     let mut cost = e.cost + G::absi(st.y - mid) / SimConfig::SUB * self.mid_cost + a * self.tap_cost;
+                    if lava_room {
+                        cost += Self::lava_rises(&s) * self.lava_cost;
+                    }
                     let held = slots.get(&key).copied();
                     // Rust only, exact: the margin only adds cost, so a line that already costs no
                     // less than the one holding its bucket loses either way; skip its fang re-aim

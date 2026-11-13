@@ -111,3 +111,16 @@ func test_the_look_never_changes_the_sim() -> void:
 	assert_ne(before, after_use, "the test changed the sim itself")
 	assert_eq(sim.checksum(), after_use, "watching it changed nothing")
 	bird.free()
+
+
+func test_lava_over_an_exit_shows_it_is_covered() -> void:
+	var sim := _rafts(8)
+	assert_true(LavaPainter.shown_exits(sim).is_empty(), "no exit shown yet")
+	sim.state.exit_open = true
+	sim.state.exit_side = 1
+	sim.state.exit_a_y = 500 * SUB
+	sim.state.exit_b_kind = SimState.ExitKind.NORMAL
+	var shown := LavaPainter.shown_exits(sim)
+	assert_eq(shown.size(), 1, "the open exit")
+	assert_true(LavaPainter.covers(520.0, shown[0].y), "lava at 520 px covers an exit at 500")
+	assert_false(LavaPainter.covers(560.0, shown[0].y), "lava at 560 px is under it")

@@ -1,9 +1,11 @@
 extends Hazard
 ## Lava Rise: a deadly line that creeps up from the floor by STEP for every
-## point scored in the room, up to MAX_RISES (rafts: RAFT_PER_POINT steps a
-## point, up to RAFT_MAX_RISES). Once the room's exit is open it rises no
-## more, so the exit stays clear. The line glides at SPEED, so it never jumps onto the bird. What
-## pushes it back depends on the variant:
+## point scored in the room (rafts: RAFT_PER_POINT steps a point), with no cap:
+## left alone it fills the room (FULL_RISES). Once the room's exit shows (its
+## ghost, a bounce early) it rises no more: the player sees where the exit is
+## and has that bounce to sink the lava under it. The line glides at SPEED,
+## so it never jumps onto the bird. Keeping it low is the player's job: lava
+## over an exit blocks it. What pushes it back depends on the variant:
 ## - lava: a cool stone shows up once it has risen STONE_AFTER times; touching
 ##   it sends the line back to rest.
 ## - cold (Cold Wall): instead of the stone, a block of ice sits in one wall
@@ -13,26 +15,24 @@ extends Hazard
 ##   points a raft of cooled rock floats up (at most MAX_RAFTS, RAFT_RISE steps
 ##   to come up) and drifts on the lava. Over a raft the lava is safe;
 ##   touching it throws the bird up like a floor pad and sinks the line
-##   RAFT_SINK steps. Where each raft
+##   RAFT_SINK steps (more than it rises between two rafts). Where each raft
 ##   comes up is drawn at room start (RAFT_PLAN spots), and two rafts keep
 ##   RAFT_GAP apart, when one comes up and as they drift.
 ##
 ## Fair: the wall ahead always keeps a free run clear of where the line will
-## be (adjust_wall), and an exit never goes where the line could cover it
-## before the bird gets there (blocks_exit).
+## be (adjust_wall). Exits stay where the seed puts them, also under the lava:
+## a player who uses the stone, ice or rafts keeps them clear.
 
 ## Variants (the room's variant id picks one).
 enum Mode { STONE, COLD, RAFTS }
 
 const SUB := SimConfig.SUB
 const STEP := 30 * SUB
-## 270 px: at least 300 px of room always stays open (lava, cold).
-const MAX_RISES := 9
-## Rafts: RAFT_PER_POINT rises a point, up to RAFT_MAX_RISES (270 px). That is
-## as high as exits allow: a fork's two exits (FORK_APART, on slot centres from
-## EXIT_MIN_Y) must both fit above the highest line plus EXIT_CLEAR.
+## Rafts: RAFT_PER_POINT rises a point.
 const RAFT_PER_POINT := 2
-const RAFT_MAX_RISES := 9
+## Rises that bring the line over the ceiling's kill line: the room is full,
+## more would change nothing (the count stops there, so a sink acts at once).
+const FULL_RISES := (SimConfig.KILL_BOTTOM - SimConfig.KILL_TOP + STEP - 1) / STEP
 ## 1.25 px a step: one STEP in 24 steps.
 const SPEED := 80
 const STONE_RADIUS := 14 * SUB
@@ -41,9 +41,6 @@ const STONE_AFTER := 3
 ## from the other edge.
 const STONE_CLEAR := 90 * SUB
 const STONE_EDGE := 80 * SUB
-## An exit's centre stays this far above the line it could meet: a bird
-## anywhere in the opening (EXIT_HALF) stays clear of the lava.
-const EXIT_CLEAR := SimConfig.EXIT_HALF + SimConfig.BIRD_RADIUS + 2 * SUB
 ## A free run on the wall ahead is this many slots, wholly clear of the line.
 const RUN := 3
 ## Cold Wall: the ice block reaches this far in from the wall, over its slot.
@@ -66,7 +63,10 @@ const RAFT_FROM := 2
 const RAFT_TWO := 5
 const MAX_RAFTS := 2
 const RAFT_RISE := 60
-const RAFT_SINK := 2
+## A raft sinks what the lava rises in one point more than the RAFT_EVERY
+## points between rafts, so a player who takes every raft keeps the lava down
+## and one who missed one can win it back.
+const RAFT_SINK := RAFT_PER_POINT * (RAFT_EVERY + 1)
 ## A raft throws the bird up a little harder than a flap.
 const RAFT_VY := SimConfig.FLAP_VY * 6 / 5
 ## Room between two rafts' edges, and so the least distance between centres.
@@ -141,22 +141,17 @@ func line_at(n: int) -> int:
 	return SimConfig.KILL_BOTTOM - n * STEP
 
 
-## The most rises: MAX_RISES, or RAFT_MAX_RISES for rafts.
-func max_rises() -> int:
-	return RAFT_MAX_RISES if mode == Mode.RAFTS else MAX_RISES
-
-
 ## Rises a point brings: one, or RAFT_PER_POINT for rafts.
 func per_point() -> int:
 	return RAFT_PER_POINT if mode == Mode.RAFTS else 1
 
 
-## Rises once the points scored since the last count are in. Once the exit is
-## open no more come.
+## Rises once the points scored since the last count are in (up to
+## FULL_RISES). Once the exit shows (ghost or open) no more come.
 func rises_due(sim: GameSim) -> int:
-	if sim.state.exit_open:
+	if sim.state.exit_open or sim.state.exit_preview:
 		return rises
-	return mini(rises + per_point() * (sim.room.points - counted), max_rises())
+	return mini(rises + per_point() * (sim.room.points - counted), FULL_RISES)
 
 
 func step(_sim: GameSim) -> void:
@@ -367,18 +362,6 @@ func _place_raft(sim: GameSim) -> void:
 	raft_age[free] = 0
 	raft_on[free] = true
 	raft_points = sim.room.points
-
-
-## The exit opens one point after it is planned, so the line may rise once
-## more before the bird gets there.
-## The most rises the lava can have when the next exit opens.
-func worst_rises(sim: GameSim) -> int:
-	return mini(rises_due(sim) + per_point() * sim.points_to_exit(), max_rises())
-
-
-func blocks_exit(sim: GameSim, _side: int, y: int) -> bool:
-	var worst := line_at(worst_rises(sim))
-	return y > worst - EXIT_CLEAR
 
 
 func checksum(h: int) -> int:

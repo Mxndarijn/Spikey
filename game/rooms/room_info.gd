@@ -264,7 +264,7 @@ const ROOMS := {
 	"lava":
 	[
 		"Lava Rise",
-		"The lava climbs with every point. Cool it to sink it again.",
+		"The lava climbs with every point. Cool it, or it covers the exit.",
 		3,
 		"lava",
 		"blocks"

@@ -34,15 +34,13 @@ pub struct Lava {
 impl Lava {
     pub const SUB: i64 = SimConfig::SUB;
     pub const STEP: i64 = 30 * Self::SUB;
-    pub const MAX_RISES: i64 = 9;
     pub const RAFT_PER_POINT: i64 = 2;
-    pub const RAFT_MAX_RISES: i64 = 9;
+    pub const FULL_RISES: i64 = (SimConfig::KILL_BOTTOM - SimConfig::KILL_TOP + Self::STEP - 1) / Self::STEP;
     pub const SPEED: i64 = 80;
     pub const STONE_RADIUS: i64 = 14 * Self::SUB;
     pub const STONE_AFTER: i64 = 3;
     pub const STONE_CLEAR: i64 = 90 * Self::SUB;
     pub const STONE_EDGE: i64 = 80 * Self::SUB;
-    pub const EXIT_CLEAR: i64 = SimConfig::EXIT_HALF + SimConfig::BIRD_RADIUS + 2 * Self::SUB;
     pub const RUN: i64 = 3;
     pub const ICE_DEPTH: i64 = 12 * Self::SUB;
     pub const ICE_AWAY: i64 = 80 * Self::SUB;
@@ -56,7 +54,7 @@ impl Lava {
     pub const RAFT_TWO: i64 = 5;
     pub const MAX_RAFTS: i64 = 2;
     pub const RAFT_RISE: i64 = 60;
-    pub const RAFT_SINK: i64 = 2;
+    pub const RAFT_SINK: i64 = Self::RAFT_PER_POINT * (Self::RAFT_EVERY + 1);
     pub const RAFT_VY: i64 = SimConfig::FLAP_VY * 6 / 5;
     pub const RAFT_GAP: i64 = 12 * Self::SUB;
     pub const RAFT_APART: i64 = 2 * Self::RAFT_HALF + Self::RAFT_GAP;
@@ -102,14 +100,6 @@ impl Lava {
         }
     }
 
-    pub fn max_rises(&self) -> i64 {
-        if self.mode == Mode::RAFTS {
-            Self::RAFT_MAX_RISES
-        } else {
-            Self::MAX_RISES
-        }
-    }
-
     pub fn per_point(&self) -> i64 {
         if self.mode == Mode::RAFTS {
             Self::RAFT_PER_POINT
@@ -118,15 +108,11 @@ impl Lava {
         }
     }
 
-    pub fn worst_rises(&self, sim: &GameSim) -> i64 {
-        G::mini(self.rises_due(sim) + self.per_point() * sim.points_to_exit(), self.max_rises())
-    }
-
     pub fn rises_due(&self, sim: &GameSim) -> i64 {
-        if sim.state.exit_open {
+        if sim.state.exit_open || sim.state.exit_preview {
             return self.rises;
         }
-        G::mini(self.rises + self.per_point() * (sim.room.points - self.counted), self.max_rises())
+        G::mini(self.rises + self.per_point() * (sim.room.points - self.counted), Self::FULL_RISES)
     }
 
     pub fn _raft_under(&self, sim: &GameSim) -> i64 {
@@ -387,11 +373,6 @@ impl Hazard for Lava {
         self.stone_x = (110 + rng.next_below(141)) * Self::SUB;
         self.stone_y = lo + rng.next_below(G::maxi(hi - lo, 0) + 1);
         self.stone_on = true;
-    }
-
-    fn blocks_exit(&self, sim: &GameSim, _side: i64, y: i64) -> bool {
-        let worst = self.line_at(self.worst_rises(sim));
-        y > worst - Self::EXIT_CLEAR
     }
 
     fn checksum(&self, h: i64) -> i64 {

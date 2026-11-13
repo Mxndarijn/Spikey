@@ -1,7 +1,9 @@
 //! Checks.Exits and ExitMouth (ExitChecks.cs), `fastsim check exits`: from the step after an
 //! exit is drawn (its ghost, or its opening) until the bird leaves, no hazard kills in, or turns
 //! the bird back from, its mouth (sim/exit_zone.gd), and no wall spike reaches into it; two plays
-//! of a seed that fly differently meet each exit at the same place.
+//! of a seed that fly differently meet each exit at the same place. Lava Rise has no cap and may
+//! cover an exit the player let it reach: its mouth is judged with the lava kept low (at rest,
+//! where the stone, the ice or taking every raft brings it), see `kept_low`.
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -121,6 +123,20 @@ impl ExitMouth {
         hits
     }
 
+    /// A copy of `sim` with every Lava Rise kept low: at rest, as a player who uses its stone,
+    /// ice block or rafts keeps it. The exit must be clear then; higher lava over an exit is the
+    /// player's doing.
+    pub fn kept_low(sim: &GameSim) -> GameSim {
+        let mut c = sim.clone_deep();
+        for h in c.room.hazards.iter_mut() {
+            if let Hz::Lava(x) = h {
+                x.rises = 0;
+                x.line = x.rest();
+            }
+        }
+        c
+    }
+
     /// From an exit's ghost until it closes, no wall spike (slid by a belt or not) reaches into
     /// its mouth (the opening and a bird radius).
     pub fn spike_in_mouth(sim: &GameSim) -> String {
@@ -217,7 +233,7 @@ impl ExitMouth {
             if now == -1 || sim.room.t <= since || !play.bad.is_empty() {
                 continue;
             }
-            let b = Self::blockers(&mut sim);
+            let b = Self::blockers(&mut Self::kept_low(&sim));
             if !b.is_empty() {
                 let mut boxes: Vec<String> = Vec::new();
                 for i in 0..n {

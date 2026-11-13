@@ -1,8 +1,9 @@
 extends TestCase
-## Lava Rise's Rafts, rising two steps a point: the way through stays fair (a way above the
-## lava on every wall, exits clear of the most it can rise, the line holding
-## once the exit is open) and rafts never come up in, or drift into, each
-## other. The other Lava Rise tests: test_rooms_twists.gd.
+## Lava Rise's Rafts, rising two steps a point with no cap: the way through
+## stays fair (a way above the lava on every wall, the line holding once the
+## exit is open, every raft sinking what the lava rose since the last) and rafts
+## never come up in, or drift into, each other. The other Lava Rise tests:
+## test_rooms_twists.gd.
 
 const Rooms := preload("res://tests/unit/test_rooms.gd")
 const Lava := preload("res://sim/hazards/lava.gd")
@@ -10,7 +11,7 @@ const Lava := preload("res://sim/hazards/lava.gd")
 const SUB := SimConfig.SUB
 
 
-func test_rafts_rise_twice_as_fast_and_stop_once_the_exit_is_open() -> void:
+func test_rafts_rise_twice_as_fast_until_the_room_is_full_or_the_exit_shows() -> void:
 	var sim := _started("lava", 18)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.RAFTS
@@ -20,14 +21,19 @@ func test_rafts_rise_twice_as_fast_and_stop_once_the_exit_is_open() -> void:
 	assert_eq(l.rises, 2 * Lava.RAFT_PER_POINT, "two steps a point")
 	sim.room.points = 100
 	l.on_bounce(sim, SimRng.new(2))
-	assert_eq(l.rises, Lava.RAFT_MAX_RISES, "up to the rafts' cap")
-	assert_true(Lava.RAFT_MAX_RISES >= Lava.MAX_RISES, "as high as the other variants")
+	assert_eq(l.rises, Lava.FULL_RISES, "no cap: it fills the room")
+	assert_true(l.line_at(l.rises) <= SimConfig.KILL_TOP, "over the ceiling's kill line")
 	l.rises = 4
 	l.counted = sim.room.points
 	sim.state.exit_open = true
 	sim.room.points += 2
 	l.on_bounce(sim, SimRng.new(3))
 	assert_eq(l.rises, 4, "no more rises once the exit is open")
+	sim.state.exit_open = false
+	sim.state.exit_preview = true
+	sim.room.points += 2
+	l.on_bounce(sim, SimRng.new(4))
+	assert_eq(l.rises, 4, "nor once its ghost shows")
 
 
 ## However high the lava, the wall ahead keeps every slot still clear of it free.
@@ -36,7 +42,7 @@ func test_high_lava_keeps_the_slots_above_it_free() -> void:
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.RAFTS
 	var all := (1 << SimConfig.SLOT_COUNT) - 1
-	for n in range(0, Lava.RAFT_MAX_RISES + 1):
+	for n in range(0, Lava.FULL_RISES + 1):
 		l.rises = n
 		l.counted = sim.room.points
 		var edge := l.line_at(n)
@@ -51,50 +57,30 @@ func test_high_lava_keeps_the_slots_above_it_free() -> void:
 		assert_true(free >= mini(clear, Lava.RUN), "%d rises: a way above the lava" % n)
 
 
-## The fair way: the exit is planned clear of the most the lava can rise
-## before it opens, and from then on the lava holds.
-func test_rafts_exits_stay_clear() -> void:
-	for seed_value in 12:
+## The sink keeps up: a player who takes every raft as it comes keeps the lava
+## within two points' rise of the floor all room long.
+func test_taking_every_raft_keeps_the_lava_down() -> void:
+	for seed_value in 8:
 		var sim := _started("lava", 40 + seed_value)
 		var l: Lava = sim.room.hazards[0]
 		l.mode = Lava.Mode.RAFTS
 		l.draw_plan(SimRng.new(seed_value))
-		var worst := l.line_at(l.worst_rises(sim))
-		assert_eq(
-			l.worst_rises(sim),
-			mini(Lava.RAFT_PER_POINT * sim.points_to_exit(), Lava.RAFT_MAX_RISES),
-			"the worst: two steps for every point to go"
-		)
+		var most := 0
+		for p in 30:
+			sim.room.points += 1
+			l.on_bounce(sim, SimRng.new(p))
+			most = maxi(most, l.rises)
+			for i in Lava.MAX_RAFTS:
+				if l.raft_on[i]:
+					l.raft_age[i] = Lava.RAFT_RISE
+					l.line = l.line_at(l.rises)
+					sim.state.x = l.raft_x[i]
+					sim.state.y = l.line - Lava.RAFT_HIGH - SimConfig.BIRD_RADIUS + SUB
+					sim.state.vy = 4 * SUB
+					l.touch(sim)
 		assert_true(
-			worst - Lava.EXIT_CLEAR >= SimConfig.EXIT_MIN_Y + ExitPlanner.FORK_APART,
-			"room for a fork's two exits above the worst lava"
+			most <= 2 * Lava.RAFT_PER_POINT, "seed %d: at most %d rises" % [seed_value, most]
 		)
-		# Score every point to the exit without a raft, then keep bouncing.
-		for p in sim.points_to_exit():
-			sim.room.points += 1
-			l.on_bounce(sim, SimRng.new(p))
-		sim.state.exit_open = true
-		for p in 6:
-			sim.room.points += 1
-			l.on_bounce(sim, SimRng.new(p))
-		assert_true(l.line_at(l.rises) >= worst, "the lava never passes the planned worst")
-
-
-## A fork in Rafts: both exits clear of the worst lava, FORK_APART apart, even
-## when the top one is drawn where no free slot is FORK_APART from it (run
-## seed 77 met the lower exit at 400 px with the lava at 306 px).
-func test_rafts_fork_exits_both_clear_of_the_lava() -> void:
-	for seed_value in 32:
-		var sim := Rooms.sim_in_room("lava", 60 + seed_value, Seasons.NONE, "rafts")
-		sim.state.started = true
-		var l: Lava = sim.room.hazards[0]
-		var worst := l.line_at(l.worst_rises(sim))
-		ExitPlanner.plan(sim, SimRng.new(seed_value), 1, SimConfig.FORK_EVERY)
-		var top := sim.state.exit_a_y
-		var bottom := sim.state.exit_b_y
-		var at := "seed %d: exits %d / %d px" % [seed_value, top / SUB, bottom / SUB]
-		assert_true(absi(bottom - top) >= ExitPlanner.FORK_APART, at + ", apart")
-		assert_true(maxi(top, bottom) <= worst - Lava.EXIT_CLEAR, at + ", clear of the lava")
 
 
 ## Rafts never come up in each other, and never drift into each other.
