@@ -434,7 +434,6 @@ impl Honesty {
                 s.list("born", &x.born);
                 s.list("chain_off", &x.chain_off);
                 s.list("chain_d", &x.chain_d);
-                s.n("phase", x.phase);
                 s.n("locked_bounces", x.locked_bounces);
                 s.n("walls_left", x.walls_left);
                 s.n("walls_right", x.walls_right);

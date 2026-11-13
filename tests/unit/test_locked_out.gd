@@ -6,7 +6,7 @@ const Rooms := preload("res://tests/unit/test_rooms.gd")
 const ExitKey := preload("res://sim/hazards/exit_key.gd")
 
 const SUB := SimConfig.SUB
-const VARIANTS: Array[String] = ["orbit", "trio", "quad", "chain"]
+const VARIANTS: Array[String] = ["trio", "quad", "chain"]
 
 
 func test_every_variant_comes_up_with_its_key_hazard() -> void:
@@ -19,12 +19,12 @@ func test_every_variant_comes_up_with_its_key_hazard() -> void:
 		assert_eq(sim.room.hazards.size(), 1, "one hazard")
 		assert_eq(sim.room.hazards[0].kind, "exit_key", "the key hazard")
 		seen[sim.room.variant_id()] = true
-	assert_eq(def.variants.size(), VARIANTS.size(), "four variants")
+	assert_eq(def.variants.size(), VARIANTS.size(), "three variants")
 	for v in VARIANTS:
 		assert_true(seen.has(v), "variant %s comes up" % v)
 
 
-func test_locked_exit_bounces_until_the_key_is_taken() -> void:
+func test_locked_exit_bounces_until_every_key_is_taken() -> void:
 	var sim := _locked_at_exit(7)
 	var k: ExitKey = sim.room.hazards[0]
 	sim._check_walls()
@@ -34,11 +34,12 @@ func test_locked_exit_bounces_until_the_key_is_taken() -> void:
 	sim = _locked_at_exit(7)
 	k = sim.room.hazards[0]
 	var coins := sim.state.coins
-	sim.state.x = k.kx[0]
-	sim.state.y = k.ky[0]
-	k.touch(sim)
-	assert_true(k.done(), "the key is taken")
-	assert_eq(sim.state.coins - coins, ExitKey.COINS, "and pays")
+	for i in k.count:
+		sim.state.x = k.kx[i]
+		sim.state.y = k.ky[i]
+		k.touch(sim)
+	assert_true(k.done(), "every key is taken")
+	assert_eq(sim.state.coins - coins, 3 + 3, "a coin each and a bonus")
 	sim.state.x = SimConfig.WORLD_W - SimConfig.BIRD_RADIUS
 	sim.state.y = sim.state.exit_a_y
 	sim._check_walls()
@@ -59,20 +60,6 @@ func test_every_variant_adds_a_spike_per_wall() -> void:
 	var def := RoomCatalog.find("lockexit")
 	for v in def.variants:
 		assert_eq(v.extra_spikes, 1, "%s: one more spike per wall" % v.id)
-
-
-func test_orbit_key_moves_and_stays_in_the_room() -> void:
-	var k := _key_hazard(ExitKey.Mode.ORBIT, 9)
-	var sim := _started("lockexit", 9)
-	var start := Vector2i(k.kx[0], k.ky[0])
-	for t in ExitKey.ORBIT_STEPS:
-		k.t = t
-		k.step(sim)
-		assert_true(k.kx[0] >= 50 * SUB and k.kx[0] <= 310 * SUB, "clear of the walls")
-		assert_true(k.ky[0] >= 160 * SUB and k.ky[0] <= 500 * SUB, "clear of the edges")
-	k.t = 100
-	k.step(sim)
-	assert_ne(Vector2i(k.kx[0], k.ky[0]), start, "it moves")
 
 
 func test_key_layouts_follow_the_rules_on_every_seed() -> void:
@@ -129,14 +116,14 @@ func test_chain_shows_one_key_at_a_time_behind_the_bird() -> void:
 func test_lockdown_grows_the_wall_but_keeps_the_free_run() -> void:
 	var sim := _locked_at_exit(4)
 	var k: ExitKey = sim.room.hazards[0]
-	# The wall without the key, so no bounce spot is cleared.
-	var far := 1 if k.kx[0] < SimConfig.WORLD_W / 2 else 0
 	var gap := sim.room.def.gap
 	for s in 40:
 		var mask := RoomRules.generate_wall(SimRng.new(s), 40, sim.room.def)
 		for b in ExitKey.MAX_LOCKED_BOUNCES:
 			k.locked_bounces = b
-			var out := k.adjust_wall(sim, far, mask)
+			# An odd wall on that side, so no key's bounce spot is cleared.
+			k.walls_left = 0
+			var out := k.adjust_wall(sim, 0, mask)
 			var added := _bits(out) - _bits(mask)
 			var room_left := SimConfig.SLOT_COUNT - _bits(mask) - RoomRules.longest_gap(mask)
 			assert_eq(
@@ -146,7 +133,8 @@ func test_lockdown_grows_the_wall_but_keeps_the_free_run() -> void:
 			assert_true(RoomRules.longest_gap(out) >= gap, "the free run stays")
 	k.locked_bounces = ExitKey.MAX_LOCKED_BOUNCES
 	var plain := RoomRules.generate_wall(SimRng.new(1), 40, sim.room.def)
-	assert_eq(k.adjust_wall(sim, far, plain), plain, "nothing once the lock gave up")
+	k.walls_left = 0
+	assert_eq(k.adjust_wall(sim, 0, plain), plain, "nothing once the lock gave up")
 
 
 func test_a_wall_band_key_keeps_a_bounce_spot_and_pulls_the_exit_near() -> void:
@@ -191,7 +179,7 @@ static func _started(id: String, seed_value: int) -> GameSim:
 
 ## A Locked Out room with its exit open on the right, the bird at it, its key
 ## hazard in mode `mode`.
-static func _locked_at_exit(seed_value: int, mode: int = ExitKey.Mode.ORBIT) -> GameSim:
+static func _locked_at_exit(seed_value: int, mode: int = ExitKey.Mode.TRIO) -> GameSim:
 	var sim := _started("lockexit", seed_value)
 	var k := ExitKey.new(mode)
 	k.setup(sim, SimRng.new(seed_value))

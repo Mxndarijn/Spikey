@@ -14,18 +14,15 @@ extends Hazard
 ## planned on a key's wall opens near the key (blocks_exit).
 ##
 ## Variants (the room's variant id picks one):
-##   orbit:   one key on a wide oval that swings through both wall bands.
 ##   trio:    three keys, all shown at the start; you need all three.
 ##   quad:    the same with four keys.
 ##   chain:   three keys, one at a time; the next shows up near the wall the
 ##            bird just left, at least CHAIN_D_MIN away from its height.
-## One key pays COINS; with more keys each pays 1 and the last adds a bonus of
-## one coin per key.
-enum Mode { ORBIT, TRIO, QUAD, CHAIN }
+## Each key pays 1 coin and the last adds a bonus of one coin per key.
+enum Mode { TRIO, QUAD, CHAIN }
 
 const SUB := SimConfig.SUB
 const RADIUS := 12 * SUB
-const COINS := 3
 const MAX_KEYS := 4
 ## The lock gives up after this many bounces with the exit locked.
 const MAX_LOCKED_BOUNCES := 8
@@ -60,16 +57,10 @@ const CHAIN_OFF_MAX := 150 * SUB
 const CHAIN_D_MIN := 160 * SUB
 const CHAIN_D_MAX := 200 * SUB
 const MID_Y := 320 * SUB
-## Orbit: an oval round the middle, one lap in ORBIT_STEPS.
-const ORBIT_CX := 180 * SUB
-const ORBIT_CY := 330 * SUB
-const ORBIT_RX := 128 * SUB
-const ORBIT_RY := 165 * SUB
-const ORBIT_STEPS := 540
 
-var mode := Mode.ORBIT
+var mode := Mode.TRIO
 ## Keys needed, and taken so far.
-var count := 1
+var count := 3
 var got := 0
 ## Bit i: key i is taken.
 var taken_mask := 0
@@ -81,7 +72,6 @@ var born: Array[int] = [0, 0, 0, 0]
 ## Chain: each next key's distance from the wall, and from the bird's height.
 var chain_off: Array[int] = [0, 0, 0, 0]
 var chain_d: Array[int] = [0, 0, 0, 0]
-var phase := 0
 var locked_bounces := 0
 ## New walls made on each side (left, right) since the room began.
 var walls_left := 0
@@ -99,33 +89,20 @@ func _init(p_mode: int = -1) -> void:
 	mode = p_mode
 
 
-## Draws, in order: orbit its phase; trio and quad their layout (_lay_out);
-## chain a side, a wall offset and a height for its first key, then an offset
-## and a distance per later key.
+## Draws, in order: trio and quad their layout (_lay_out); chain a side, a
+## wall offset and a height for its first key, then an offset and a distance
+## per later key.
 func setup(sim: GameSim, rng: SimRng) -> void:
 	if mode < 0:
 		match sim.room.variant_id():
-			"trio":
-				mode = Mode.TRIO
 			"quad":
 				mode = Mode.QUAD
 			"chain":
 				mode = Mode.CHAIN
 			_:
-				mode = Mode.ORBIT
+				mode = Mode.TRIO
+	count = 4 if mode == Mode.QUAD else 3
 	match mode:
-		Mode.TRIO:
-			count = 3
-		Mode.QUAD:
-			count = 4
-		Mode.CHAIN:
-			count = 3
-		_:
-			count = 1
-	match mode:
-		Mode.ORBIT:
-			phase = rng.next_below(SimTrig.TURN)
-			_place_orbit()
 		Mode.TRIO, Mode.QUAD:
 			_lay_out(rng)
 		Mode.CHAIN:
@@ -183,19 +160,11 @@ static func _from_wall(sim: GameSim, side: int, off: int) -> int:
 
 
 func step(sim: GameSim) -> void:
-	if mode == Mode.ORBIT and not done():
-		_place_orbit()
 	var s := sim.state
 	door_open = s.exit_open
 	door_side = s.exit_side
 	door_a_y = s.exit_a_y
 	door_b_y = s.exit_b_y if s.exit_b_kind != SimState.ExitKind.NORMAL else 0
-
-
-func _place_orbit() -> void:
-	var a := phase + t * SimTrig.TURN / ORBIT_STEPS
-	kx[0] = ORBIT_CX + ORBIT_RX * SimTrig.cos_t(a) / SimTrig.ONE
-	ky[0] = ORBIT_CY + ORBIT_RY * SimTrig.sin_t(a) / SimTrig.ONE
 
 
 ## All keys taken.
@@ -217,13 +186,9 @@ func touch(sim: GameSim) -> void:
 			continue
 		taken_mask |= 1 << i
 		got += 1
-		if count == 1:
-			for c in COINS:
-				sim.collect_coin(kx[i], ky[i])
-		else:
-			sim.collect_coin(kx[i], ky[i])
-			if done():
-				sim.collect_coin(kx[i], ky[i], count)
+		sim.collect_coin(kx[i], ky[i])
+		if done():
+			sim.collect_coin(kx[i], ky[i], count)
 		if mode == Mode.CHAIN and not done():
 			_show_next(sim, got)
 		return
@@ -239,10 +204,8 @@ func _show_next(sim: GameSim, i: int) -> void:
 
 
 ## The first key still out in wall `side`'s band (within CHAIN_OFF_MAX of
-## it), or -1. The orbit key moves, so it never counts.
+## it), or -1.
 func band_key(side: int) -> int:
-	if mode == Mode.ORBIT:
-		return -1
 	for i in count:
 		if not shown(i):
 			continue
@@ -331,7 +294,6 @@ func checksum(h: int) -> int:
 			count,
 			got,
 			taken_mask,
-			phase,
 			locked_bounces,
 			walls_left,
 			walls_right,

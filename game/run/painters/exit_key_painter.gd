@@ -92,10 +92,7 @@ func _lock(c: CanvasItem, p: Vector2, h: ExitKeyHazard) -> void:
 		c.draw_arc(Vector2(0, 1), RING_R, a0, a0 + step - 0.24, 6, col, 4.0, true)
 	c.draw_arc(Vector2(0, -6), 7.0, PI, TAU, 12, UiTokens.INK_LINE, 4.0, true)
 	c.draw_rect(Rect2(-10, -6, 20, 16), UiTokens.PANEL)
-	if h.count > 1:
-		for i in h.count:
-			var col := UiTokens.COIN_EDGE if i < h.got else MISSING
-			c.draw_circle(Vector2(-(h.count - 1) * 2.75 + i * 5.5, 2), 2.2, col)
-	else:
-		c.draw_rect(Rect2(-2, -1, 4, 7), UiTokens.INK_LINE)
+	for i in h.count:
+		var col := UiTokens.COIN_EDGE if i < h.got else MISSING
+		c.draw_circle(Vector2(-(h.count - 1) * 2.75 + i * 5.5, 2), 2.2, col)
 	c.draw_set_transform(Vector2.ZERO)

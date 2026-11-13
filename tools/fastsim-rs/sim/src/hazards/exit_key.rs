@@ -4,10 +4,9 @@ use crate::prelude::*;
 /// C# `ExitKey.Mode`.
 pub struct Mode;
 impl Mode {
-    pub const ORBIT: i64 = 0;
-    pub const TRIO: i64 = 1;
-    pub const QUAD: i64 = 2;
-    pub const CHAIN: i64 = 3;
+    pub const TRIO: i64 = 0;
+    pub const QUAD: i64 = 1;
+    pub const CHAIN: i64 = 2;
 }
 
 #[derive(Clone, Debug)]
@@ -22,7 +21,6 @@ pub struct ExitKey {
     pub born: [i64; 4],
     pub chain_off: [i64; 4],
     pub chain_d: [i64; 4],
-    pub phase: i64,
     pub locked_bounces: i64,
     pub walls_left: i64,
     pub walls_right: i64,
@@ -35,7 +33,6 @@ pub struct ExitKey {
 impl ExitKey {
     pub const SUB: i64 = SimConfig::SUB;
     pub const RADIUS: i64 = 12 * Self::SUB;
-    pub const COINS: i64 = 3;
     pub const MAX_KEYS: i64 = 4;
     pub const MAX_LOCKED_BOUNCES: i64 = 8;
     pub const LOCKDOWN_MAX: i64 = 4;
@@ -57,18 +54,13 @@ impl ExitKey {
     pub const CHAIN_D_MIN: i64 = 160 * Self::SUB;
     pub const CHAIN_D_MAX: i64 = 200 * Self::SUB;
     pub const MID_Y: i64 = 320 * Self::SUB;
-    pub const ORBIT_CX: i64 = 180 * Self::SUB;
-    pub const ORBIT_CY: i64 = 330 * Self::SUB;
-    pub const ORBIT_RX: i64 = 128 * Self::SUB;
-    pub const ORBIT_RY: i64 = 165 * Self::SUB;
-    pub const ORBIT_STEPS: i64 = 540;
 
     /// C# default: p_mode = -1 (pick from the room variant).
     pub fn new(p_mode: i64) -> ExitKey {
         ExitKey {
             base: Base::new("exit_key"),
             mode: p_mode,
-            count: 1,
+            count: 3,
             got: 0,
             taken_mask: 0,
             kx: [0; 4],
@@ -76,7 +68,6 @@ impl ExitKey {
             born: [0; 4],
             chain_off: [0; 4],
             chain_d: [0; 4],
-            phase: 0,
             locked_bounces: 0,
             walls_left: 0,
             walls_right: 0,
@@ -145,12 +136,6 @@ impl ExitKey {
         }
     }
 
-    pub fn _place_orbit(&mut self) {
-        let a = self.phase + self.base.t * SimTrig::TURN / Self::ORBIT_STEPS;
-        self.kx[0] = Self::ORBIT_CX + Self::ORBIT_RX * SimTrig::cos_t(a) / SimTrig::ONE;
-        self.ky[0] = Self::ORBIT_CY + Self::ORBIT_RY * SimTrig::sin_t(a) / SimTrig::ONE;
-    }
-
     pub fn done(&self) -> bool {
         self.got >= self.count
     }
@@ -172,9 +157,6 @@ impl ExitKey {
     }
 
     pub fn band_key(&self, side: i64) -> i64 {
-        if self.mode == Mode::ORBIT {
-            return -1;
-        }
         for i in 0..self.count {
             if !self.shown(i) {
                 continue;
@@ -231,25 +213,13 @@ impl Hazard for ExitKey {
     fn setup(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
         if self.mode < 0 {
             self.mode = match sim.room.variant_id() {
-                "trio" => Mode::TRIO,
                 "quad" => Mode::QUAD,
                 "chain" => Mode::CHAIN,
-                _ => Mode::ORBIT,
+                _ => Mode::TRIO,
             };
         }
-        if self.mode == Mode::TRIO {
-            self.count = 3;
-        } else if self.mode == Mode::QUAD {
-            self.count = 4;
-        } else if self.mode == Mode::CHAIN {
-            self.count = 3;
-        } else {
-            self.count = 1;
-        }
-        if self.mode == Mode::ORBIT {
-            self.phase = rng.next_below(SimTrig::TURN);
-            self._place_orbit();
-        } else if self.mode == Mode::TRIO || self.mode == Mode::QUAD {
+        self.count = if self.mode == Mode::QUAD { 4 } else { 3 };
+        if self.mode == Mode::TRIO || self.mode == Mode::QUAD {
             self._lay_out(rng);
         } else if self.mode == Mode::CHAIN {
             let side = rng.next_below(2);
@@ -264,9 +234,6 @@ impl Hazard for ExitKey {
     }
 
     fn step(&mut self, sim: &mut GameSim) {
-        if self.mode == Mode::ORBIT && !self.done() {
-            self._place_orbit();
-        }
         let s = &sim.state;
         self.door_open = s.exit_open;
         self.door_side = s.exit_side;
@@ -282,15 +249,9 @@ impl Hazard for ExitKey {
             }
             self.taken_mask |= 1i64 << i;
             self.got += 1;
-            if self.count == 1 {
-                for _c in 0..Self::COINS {
-                    sim.collect_coin(self.kx[iu], self.ky[iu], 1);
-                }
-            } else {
-                sim.collect_coin(self.kx[iu], self.ky[iu], 1);
-                if self.done() {
-                    sim.collect_coin(self.kx[iu], self.ky[iu], self.count);
-                }
+            sim.collect_coin(self.kx[iu], self.ky[iu], 1);
+            if self.done() {
+                sim.collect_coin(self.kx[iu], self.ky[iu], self.count);
             }
             if self.mode == Mode::CHAIN && !self.done() {
                 let got = self.got;
@@ -349,7 +310,6 @@ impl Hazard for ExitKey {
                 self.count,
                 self.got,
                 self.taken_mask,
-                self.phase,
                 self.locked_bounces,
                 self.walls_left,
                 self.walls_right,
