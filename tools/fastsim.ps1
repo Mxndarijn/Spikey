@@ -105,7 +105,10 @@ elseif ($Mode -eq "difficulty") {
     }
     if ($Step -eq "show") { $ra += @("--first", $Seed) }
     if ($Step -eq "score") {
-        $ra += @("--in", (($In -split ",") | ForEach-Object { [IO.Path]::GetFullPath($_) }) -join ",")
+        # Join first: in @("--in", (...) -join ",") the comma binds before -join, and the
+        # whole list (with "--in") becomes one argument.
+        $inFiles = (($In -split ",") | Where-Object { $_ } | ForEach-Object { [IO.Path]::GetFullPath($_) }) -join ","
+        $ra += @("--in", $inFiles)
         if ($Out) { $ra += @("--out", [IO.Path]::GetFullPath($Out)) }
     }
 }
