@@ -3,6 +3,7 @@ extends TestCase
 ## room variant with a beam, the Watcher's rows, the Crusher's and Saw King's tells.
 ## (The Watcher's gaze dart has its own mark, GAZE_TELL: tests/unit/test_room_fixes.gd.)
 
+const RoomsTest := preload("res://tests/unit/test_rooms.gd")
 const Beam := preload("res://sim/hazards/beam.gd")
 const BossWatcher := preload("res://sim/hazards/boss_watcher.gd")
 const BossCrusher := preload("res://sim/hazards/boss_crusher.gd")
@@ -26,7 +27,13 @@ func test_every_beam_in_the_catalog_warns_two_seconds() -> void:
 				assert_eq((h as Beam).warn_ticks, SimConfig.WARN_TICKS, def.id)
 			if h is BossWatcher:
 				seen += 1
-	assert_true(seen >= 2, "Beam Gates and the Watcher")
+	# Beam Gates is generated: its beams are built when the room starts.
+	for s in 5:
+		for h: Hazard in RoomsTest.sim_in_room("beams", s).room.hazards:
+			if h is Beam:
+				seen += 1
+				assert_eq((h as Beam).warn_ticks, SimConfig.WARN_TICKS, "beams")
+	assert_true(seen >= 6, "Beam Gates and the Watcher")
 
 
 func test_the_watcher_warns_two_seconds_before_its_beams() -> void:

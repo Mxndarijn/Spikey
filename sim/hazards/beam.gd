@@ -34,6 +34,9 @@ const WALL_FROM := -6
 const WALL_TO := 30
 const WALL_STEP := 6
 const MARGIN := 4 * SimConfig.SUB
+## reach_time: how fast the bird it imagines climbs and drops (a step).
+const REACH_UP := 2 * SimConfig.SUB
+const REACH_DOWN := 4 * SimConfig.SUB
 
 ## Centre height of each row's beam.
 var rows: Array[int] = []
@@ -46,6 +49,14 @@ var warn_ticks := WARN_TICKS
 var yields := false
 ## 1 while row i sits out its current turn.
 var skip: Array[int] = []
+## Rows and delays set before setup (a generated Beam Gates layout): setup
+## draws nothing.
+var preset := false
+## Generated Beam Gates: the planned exit heights on SimConfig.EXIT_WALL, and how
+## many spikes a wall the bird gets to once the exit's ghost shows keeps at most
+## (0 = no limit): the ones nearest the exit's height go first (adjust_wall).
+var exit_ys: Array[int] = []
+var calm_spikes := 0
 
 
 ## `count` rows; fewer rows sit further apart (Double Trouble uses 3, so a
@@ -61,6 +72,8 @@ func _init(count: int = ROWS, p_warn: int = WARN_TICKS, p_yields: bool = false) 
 
 
 func setup(_sim: GameSim, rng: SimRng) -> void:
+	if preset:
+		return
 	var n := rows.size()
 	var band := SPAN / n
 	# One beam starts every `stagger` steps.
@@ -155,6 +168,51 @@ func live_in(i: int, steps: int) -> bool:
 	return p >= warn_ticks and p < warn_ticks + ON_TICKS
 
 
+## Steps a bird at height y at step 	 needs to get into the heights lo..hi
+## (its centre) through rows p_rows firing on p_delays: a simple flight,
+## down REACH_DOWN and up REACH_UP a step, waiting beside each row in the way
+## while it is live; a row is crossed while its core stays off for the whole
+## time the bird overlaps it (a warning is only a warning). For the Beam Gates
+## generator: no draws.
+static func reach_time(
+	p_rows: Array[int], p_delays: Array[int], y: int, t: int, lo: int, hi: int
+) -> int:
+	if y >= lo and y <= hi:
+		return 0
+	var t0 := t
+	var down := y < lo
+	var target := lo if down else hi
+	var speed := REACH_DOWN if down else REACH_UP
+	var reach := HALF_H + SimConfig.BIRD_RADIUS
+	var order: Array[int] = []
+	for i in p_rows.size():
+		var r := p_rows[i]
+		if (down and r > y and r < target) or (not down and r < y and r > target):
+			order.append(i)
+	if not down:
+		order.reverse()
+	var at := y
+	for i in order:
+		var near := p_rows[i] - reach if down else p_rows[i] + reach
+		t += absi(near - at) / speed
+		var cross := 2 * reach / speed
+		t += _wait_off(p_delays[i], t, cross)
+		t += cross
+		at = p_rows[i] + reach if down else p_rows[i] - reach
+	t += absi(target - at) / speed
+	return t - t0
+
+
+## Steps to wait from `t` until a row on delay `d` stays off `len` steps.
+static func _wait_off(d: int, t: int, length: int) -> int:
+	var q := posmod(t - d - WARN_TICKS, PERIOD)
+	if q < ON_TICKS:
+		return ON_TICKS - q
+	if q + length > PERIOD:
+		return PERIOD - q + ON_TICKS
+	return 0
+
+
 ## Keeps a way past the beams on the wall the bird flies to: a free run as wide
 ## as the room's gap (or the widest the beams leave) whose heights no live beam
 ## crosses around the bird's arrival (WALL_FROM..WALL_TO). No RNG draws.
@@ -174,7 +232,32 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 				blocked |= 1 << slot
 	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
 	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
-	return RoomRules.keep_run(mask, need, safe)
+	var out := RoomRules.keep_run(mask, need, safe)
+	if calm_spikes > 0 and not exit_ys.is_empty():
+		# Bounces until the bird gets to this wall (each scores until the exit
+		# opens): does the exit's ghost show by then?
+		var heading := 1 if sim.state.vx > 0 else 0
+		var hits := 1 if heading == side else 2
+		var s := sim.state
+		if s.exit_open or s.exit_preview or s.score + hits >= sim.next_exit_score() - 1:
+			var e := exit_ys[0]
+			while _count(out) > calm_spikes:
+				var near := -1
+				for slot in SimConfig.SLOT_COUNT:
+					if RoomRules.has_slot(out, slot):
+						var d := absi(SimConfig.slot_center_y(slot) - e)
+						if near < 0 or d < absi(SimConfig.slot_center_y(near) - e):
+							near = slot
+				out &= ~(1 << near)
+	return out
+
+
+static func _count(mask: int) -> int:
+	var n := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if (mask >> slot) & 1 == 1:
+			n += 1
+	return n
 
 
 func kills(sim: GameSim) -> bool:

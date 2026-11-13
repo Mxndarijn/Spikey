@@ -369,9 +369,12 @@ Bubble Lift, Echo (mirror), Gift Stack, Bee Line, Updraft, Pinwheel, Lantern
 Swing, Crate Drop, Bramble Ball and Spike Rain (every variant), and the
 recipe-only rooms Cave Tunnel and Peg Field (`catalog_caves.gd`). Since gameplay
 version 23 (no wait out of a portal) also Saw Ring, Bat Loop, Ghost Doors,
-Pumpkin Bounce (Bramble's recipe), Egg Hunt (Floating Isles' recipe) and
+Pumpkin Bounce (Bramble's recipe), Egg Hunt (Floating Isles' recipe),
 Piston Press (`_gen_press`: 3 or 4 rams on rows drawn at room start, never
-moved). Hand made on purpose: Beam Gates and the rest.
+moved) and Beam Gates (`_gen_beams`: rows placed clear of every planned exit's
+mouth, the beat's order and place picked so a bird anywhere can reach the
+exit's mouth quickest once its ghost shows; the bird's speed across is fixed,
+so when that is follows from the room's start). Hand made on purpose: the rest.
 `tests/unit/test_generated_variants.gd` checks the contract at every height;
 `fastsim-rs variants [arrivals] [rooms]` measures each variant's real share
 out of a portal, the full-wait rate and deaths within 2 s.

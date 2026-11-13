@@ -53,6 +53,7 @@ static func _land_first(sim: GameSim, cd: Hazard) -> int:
 func test_rooms_have_their_variants() -> void:
 	var want := {
 		"piston": ["generated"],
+		"beams": ["generated"],
 		"stalac": ["classic", "floor", "ceiling-only", "alternating", "short-fangs"],
 		"crates": ["classic", "wide", "pairs"],
 		"gifts": ["classic", "wide", "pairs"],

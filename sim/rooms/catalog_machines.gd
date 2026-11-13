@@ -40,6 +40,28 @@ const WAVE_DOWN := 0
 const WAVE_UP := 1
 const HALVES := 2
 const SCATTER := 3
+## Generated Beam Gates (_gen_beams). Each row is drawn in its own band
+## (Beam.BAND_TOP + i * 120 px, plus up to Beam.JITTER) and then moved, by as
+## little as it takes (BEAM_STEP at a time, up to BEAM_SHIFT), until its live
+## core clears every planned exit's mouth by BEAM_EXIT_CLEAR (a bird inside the
+## mouth never meets a beam), staying BEAM_APART from the row above and inside
+## BEAM_TOP..BEAM_BOTTOM. A row that can't is left out.
+const BEAM_STEP := 4 * SUB
+const BEAM_SHIFT := 60 * SUB
+const BEAM_APART := 80 * SUB
+const BEAM_TOP := 110 * SUB
+const BEAM_BOTTOM := 540 * SUB
+const BEAM_EXIT_CLEAR := SimConfig.EXIT_HALF + Beam.HALF_H
+## The beat's places tried (steps apart) when it is timed to the exit, the
+## heights a bird is tried from (apart) and how late it may start.
+const BEAM_PHASE_STEP := 5
+const BEAM_START_STEP := 20 * SUB
+const BEAM_LATE := 20
+## Spikes a wall keeps at most once the exit's ghost shows (the room's walls have
+## up to seven before that).
+const BEAM_CALM_SPIKES := 5
+## A bird in the mouth: its centre within this of the exit's height.
+const BEAM_LANE := SimConfig.EXIT_HALF - SimConfig.BIRD_RADIUS
 ## Wide crates: four columns of 70 px, crates 64 x 48, stacks of up to three
 ## (as tall as a classic full stack).
 const WIDE_COLS := 4
@@ -105,10 +127,14 @@ static func defs() -> Array[RoomDef]:
 	crates.variants = crate_variants(false)
 	out.append(crates)
 
-	# Beam Gates: four wall-to-wall beams firing in turn, with a warning first.
+	# Beam Gates: four wall-to-wall beams firing in turn, each warned 2 s first.
+	# One GENERATED layout (_gen_beams): the rows and their firing order are
+	# drawn when the room starts, around the room's planned exits, and never
+	# change. Seven spikes a wall, five from the exit's ghost on (BEAM_CALM_SPIKES),
+	# keep it as hard as the hand-made room was.
 	var beams := RoomDef.new("beams", "mid", 50)
-	beams.max_spikes = 5
-	beams.hazards.append(func() -> Hazard: return Beam.new())
+	beams.max_spikes = 7
+	beams.variants = [RoomVariant.new("generated").generated(_gen_beams)]
 	out.append(beams)
 
 	# Stalactite Run: rock columns with a gap. Every variant is GENERATED and
@@ -241,6 +267,160 @@ static func _gen_press(p: VariantParams) -> void:
 		if p.fallback and p.arriving and crosses:
 			continue
 		p.add(ram)
+
+
+## Generated Beam Gates: Beam.ROWS rows round the room's planned exits (both
+## walls, both exits of a fork), from the room's draws, the seed's exit plan and
+## nothing the player does. Draws: one jitter per row, then where to start in
+## the list of firing orders. The beat keeps its 2 s warnings and its spacing;
+## what is picked is its order and where it stands when the exit shows: the one
+## (tried BEAM_PHASE_STEP apart) that gets a bird from anywhere in the cage into
+## the exit's mouth quickest after the exit's ghost shows (_exit_times,
+## Beam.reach_time). The fallback is the same layout (the arrival check never
+## meets a live beam: the first fires after its 2 s warning).
+static func _gen_beams(p: VariantParams) -> void:
+	var exits := _planned_exits(p.sim)
+	var rows: Array[int] = []
+	for i in Beam.ROWS:
+		var drawn := Beam.BAND_TOP + i * (Beam.SPAN / Beam.ROWS) + p.rng.next_below(Beam.JITTER + 1)
+		var y := _beam_row(drawn, exits, rows)
+		if y >= 0:
+			rows.append(y)
+	var s := p.sim.state
+	var lanes: Array[int] = [s.plan_a_y_right]
+	if s.plan_a_kind_right != SimState.ExitKind.NORMAL:
+		lanes.append(s.plan_b_y_right)
+	var times := _exit_times(p.sim)
+	var first := p.rng.next_below(_orders(rows.size()).size())
+	var best: Array[int] = _beam_beat(rows, lanes, times[0], first)[0]
+	var b := Beam.new(rows.size())
+	for i in rows.size():
+		b.rows[i] = rows[i]
+		b.delays[i] = best[i]
+	b.preset = true
+	b.exit_ys = lanes
+	b.calm_spikes = BEAM_CALM_SPIKES
+	p.add(b)
+
+
+## The firing order and place in the beat (from `first` in the list of orders,
+## tried BEAM_PHASE_STEP apart) that gets a bird into every lane quickest after
+## `shown`: [its delays, the steps that takes].
+static func _beam_beat(rows: Array[int], lanes: Array[int], shown: int, first: int) -> Array:
+	var orders := _orders(rows.size())
+	var stagger := Beam.PERIOD / Beam.ROWS
+	var best: Array[int] = []
+	var best_w := -1
+	for k in orders.size():
+		var order: Array[int] = orders[(first + k) % orders.size()]
+		var ph := 0
+		while ph < Beam.PERIOD:
+			var delays: Array[int] = []
+			for i in rows.size():
+				delays.append(Beam.START_DELAY + (order[i] * stagger + ph) % Beam.PERIOD)
+			var w := 0
+			for e in lanes:
+				w = maxi(w, _beam_reach(rows, delays, shown, e))
+			if best_w < 0 or w < best_w:
+				best = delays
+				best_w = w
+			ph += BEAM_PHASE_STEP
+	return [best, best_w]
+
+
+## The most steps a bird needs, once the exit's ghost shows at step `shown`,
+## to get into the mouth of the exit at `e` (Beam.reach_time): from every
+## height BEAM_START_STEP apart that no row covers, starting then or
+## BEAM_LATE steps later (a bird still flying the other way, or slow to react).
+static func _beam_reach(rows: Array[int], delays: Array[int], shown: int, e: int) -> int:
+	var w := 0
+	var y0 := SimConfig.KILL_TOP + SimConfig.BIRD_RADIUS
+	while y0 <= SimConfig.KILL_BOTTOM - SimConfig.BIRD_RADIUS:
+		var free := true
+		for r in rows:
+			if absi(y0 - r) < Beam.HALF_H + SimConfig.BIRD_RADIUS:
+				free = false
+		if free:
+			for late: int in [0, BEAM_LATE]:
+				var to := Beam.reach_time(
+					rows, delays, y0, shown + late, e - BEAM_LANE, e + BEAM_LANE
+				)
+				w = maxi(w, late + to)
+		y0 += BEAM_START_STEP
+	return w
+
+
+## Room steps from now until the exit's ghost shows and until the bird gets to
+## the exit's wall once it is open. The bird flies across at one speed whatever
+## the player does, every bounce scores (until the exit opens) and the exit is
+## on SimConfig.EXIT_WALL, so both follow from the room's start.
+static func _exit_times(sim: GameSim) -> Array[int]:
+	var heading := 1 if sim.state.vx > 0 else 0
+	var t1 := sim.steps_to_wall(heading)
+	var c := sim.steps_to_wall(1 - heading) - t1
+	var k_open := sim.next_exit_score() - sim.state.score
+	# Bounce k (from 1) is off the wall the bird heads to now when k is odd.
+	var open_side := heading if k_open % 2 == 1 else 1 - heading
+	var k_arr := k_open + 2 if open_side == SimConfig.EXIT_WALL else k_open + 1
+	var k_prev := maxi(1, k_open - 1)
+	return [t1 + (k_prev - 1) * c, t1 + (k_arr - 1) * c]
+
+
+## The room's planned exit heights (ExitPlanner.plan_room, from the room's seed
+## and the exit score: the same plan the room makes once it has started).
+static func _planned_exits(sim: GameSim) -> Array[int]:
+	ExitPlanner.plan_room(sim, sim.next_exit_score())
+	var s := sim.state
+	var out: Array[int] = [s.plan_a_y_left, s.plan_a_y_right]
+	if s.plan_a_kind_left != SimState.ExitKind.NORMAL:
+		out.append(s.plan_b_y_left)
+	if s.plan_a_kind_right != SimState.ExitKind.NORMAL:
+		out.append(s.plan_b_y_right)
+	return out
+
+
+## Row height nearest `drawn` (tried BEAM_STEP apart, up first) whose core
+## clears every exit's mouth, BEAM_APART below the rows placed so far and inside
+## BEAM_TOP..BEAM_BOTTOM; -1 if none within BEAM_SHIFT.
+static func _beam_row(drawn: int, exits: Array[int], placed: Array[int]) -> int:
+	var d := 0
+	while d <= BEAM_SHIFT:
+		for y: int in [drawn - d, drawn + d]:
+			if _beam_row_ok(y, exits, placed):
+				return y
+		d += BEAM_STEP
+	return -1
+
+
+static func _beam_row_ok(y: int, exits: Array[int], placed: Array[int]) -> bool:
+	if y < BEAM_TOP or y > BEAM_BOTTOM:
+		return false
+	if not placed.is_empty() and y - placed[placed.size() - 1] < BEAM_APART:
+		return false
+	for e in exits:
+		if absi(y - e) < BEAM_EXIT_CLEAR:
+			return false
+	return true
+
+
+## Every order of `n` rows (order[i]: row i's place in the beat), in
+## lexicographic order.
+static func _orders(n: int) -> Array:
+	var out: Array = []
+	var cur: Array[int] = []
+	_orders_from(n, cur, out)
+	return out
+
+
+static func _orders_from(n: int, cur: Array[int], out: Array) -> void:
+	if cur.size() == n:
+		out.append(cur.duplicate())
+		return
+	for v in n:
+		if not cur.has(v):
+			cur.append(v)
+			_orders_from(n, cur, out)
+			cur.pop_back()
 
 
 static func _stalactite(x: int, follows: bool) -> Hazard:

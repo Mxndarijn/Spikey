@@ -33,6 +33,7 @@ const ROOMS: Array[String] = [
 	"pumpkin",
 	"eggs",
 	"piston",
+	"beams",
 ]
 ## The hard rule: a generated layout is built once, at room start, and stays
 ## as it is while the bird is in the room. Per hazard kind, the fields that
@@ -108,10 +109,11 @@ const LAYOUT_FIELDS := {
 	"cave_drip": ["x", "tip_y", "floor_y", "first", "every"],
 	"peg": ["x", "base_y", "bob", "phase"],
 	"piston": ["side", "y", "delay", "glow_ticks", "reach"],
+	"beam": ["rows", "delays", "warn_ticks", "preset", "exit_ys", "calm_spikes"],
 }
 ## Rooms built once when they start and never reshaped: only the declared
 ## moving parts (MOVING) of their hazards change after that.
-const FIXED_ROOMS: Array[String] = ["gates", "stalac", "cave", "pegs", "piston"]
+const FIXED_ROOMS: Array[String] = ["gates", "stalac", "cave", "pegs", "piston", "beams"]
 ## Declared moving parts, per hazard kind: the fields a fixed room's hazard may
 ## change after the room starts (visible motion on a timetable fixed then).
 const MOVING := {
@@ -122,6 +124,7 @@ const MOVING := {
 	"mover": ["xs", "ys", "facing"],
 	"peg": ["y"],
 	"piston": ["skip"],
+	"beam": ["skip"],
 }
 
 
@@ -309,11 +312,6 @@ func test_mirror_turns_round_a_height_away_from_the_arrival() -> void:
 			e.pivot_y <= top - Echo.PIVOT_CLEAR or e.pivot_y >= bottom + Echo.PIVOT_CLEAR,
 			"pivot clear of the hold band at %d px" % y_px
 		)
-
-
-## Beam Gates stay hand made (no variants).
-func test_beam_gates_stay_hand_made() -> void:
-	assert_true(RoomCatalog.find("beams").variants.is_empty(), "beams has no variants")
 
 
 ## The hard rule: a generated layout uses only the room RNG (from the run seed

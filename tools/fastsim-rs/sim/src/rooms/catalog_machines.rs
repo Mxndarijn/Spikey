@@ -25,6 +25,17 @@ impl CatalogMachines {
     pub const WAVE_UP: i64 = 1;
     pub const HALVES: i64 = 2;
     pub const SCATTER: i64 = 3;
+    pub const BEAM_STEP: i64 = 4 * Self::SUB;
+    pub const BEAM_SHIFT: i64 = 60 * Self::SUB;
+    pub const BEAM_APART: i64 = 80 * Self::SUB;
+    pub const BEAM_TOP: i64 = 110 * Self::SUB;
+    pub const BEAM_BOTTOM: i64 = 540 * Self::SUB;
+    pub const BEAM_EXIT_CLEAR: i64 = SimConfig::EXIT_HALF + Beam::HALF_H;
+    pub const BEAM_PHASE_STEP: i64 = 5;
+    pub const BEAM_START_STEP: i64 = 20 * Self::SUB;
+    pub const BEAM_LATE: i64 = 20;
+    pub const BEAM_CALM_SPIKES: i64 = 5;
+    pub const BEAM_LANE: i64 = SimConfig::EXIT_HALF - SimConfig::BIRD_RADIUS;
     pub const WIDE_COLS: i64 = 4;
     pub const WIDE_COL_W: i64 = 70 * Self::SUB;
     pub const WIDE_W: i64 = 64 * Self::SUB;
@@ -63,9 +74,9 @@ impl CatalogMachines {
         out_.push(crates);
 
         let mut beams = RoomDef::new("beams", "mid", 50);
-        beams.max_spikes = 5;
-        // Beam() -> Beam(ROWS, WARN_TICKS, false) (C# defaults).
-        beams.hazards.push(mk(|| Beam::new(Beam::ROWS, Beam::WARN_TICKS, false).into()));
+        beams.max_spikes = 7;
+        beams.variants =
+            vec![RoomVariant::new("generated").generated(recipe(|sim, p| Self::_gen_beams(sim, p)), false, 0)];
         out_.push(beams);
 
         let mut stalac = RoomDef::new("stalac", "mid", 30);
@@ -248,6 +259,160 @@ impl CatalogMachines {
                 continue;
             }
             p.add(sim, ram.into());
+        }
+    }
+
+    /// Generated Beam Gates (_gen_beams).
+    fn _gen_beams(sim: &mut GameSim, p: &VariantParams) {
+        let exits = Self::_planned_exits(sim);
+        let mut rows: Vec<i64> = Vec::new();
+        for i in 0..Beam::ROWS {
+            let drawn = Beam::BAND_TOP + i * (Beam::SPAN / Beam::ROWS) + sim._rng.next_below(Beam::JITTER + 1);
+            let y = Self::_beam_row(drawn, &exits, &rows);
+            if y >= 0 {
+                rows.push(y);
+            }
+        }
+        let s = &sim.state;
+        let mut lanes: Vec<i64> = vec![s.plan_a_y_right];
+        if s.plan_a_kind_right != ExitKind::NORMAL {
+            lanes.push(s.plan_b_y_right);
+        }
+        let times = Self::_exit_times(sim);
+        let first = sim._rng.next_below(Self::_orders(rows.len() as i64).len() as i64) as usize;
+        let best = Self::_beam_beat(&rows, &lanes, times[0], first).0;
+        let mut b = Beam::new(rows.len() as i64, Beam::WARN_TICKS, false);
+        for i in 0..rows.len() {
+            b.rows[i] = rows[i];
+            b.delays[i] = best[i];
+        }
+        b.preset = true;
+        b.exit_ys = lanes.clone();
+        b.calm_spikes = Self::BEAM_CALM_SPIKES;
+        p.add(sim, b.into());
+    }
+
+    /// The firing order and place in the beat (from irst in the list of orders) that gets a
+    /// bird into every lane quickest after shown, and how many steps that takes.
+    fn _beam_beat(rows: &[i64], lanes: &[i64], shown: i64, first: usize) -> (Vec<i64>, i64) {
+        let orders = Self::_orders(rows.len() as i64);
+        let stagger = Beam::PERIOD / Beam::ROWS;
+        let mut best: Vec<i64> = Vec::new();
+        let mut best_w = -1;
+        for k in 0..orders.len() {
+            let order = &orders[(first + k) % orders.len()];
+            let mut ph = 0;
+            while ph < Beam::PERIOD {
+                let mut delays: Vec<i64> = Vec::new();
+                for i in 0..rows.len() {
+                    delays.push(Beam::START_DELAY + (order[i] * stagger + ph) % Beam::PERIOD);
+                }
+                let mut w = 0;
+                for &e in lanes {
+                    w = G::maxi(w, Self::_beam_reach(rows, &delays, shown, e));
+                }
+                if best_w < 0 || w < best_w {
+                    best = delays;
+                    best_w = w;
+                }
+                ph += Self::BEAM_PHASE_STEP;
+            }
+        }
+        (best, best_w)
+    }
+
+    fn _beam_reach(rows: &[i64], delays: &[i64], shown: i64, e: i64) -> i64 {
+        let mut w = 0;
+        let mut y0 = SimConfig::KILL_TOP + SimConfig::BIRD_RADIUS;
+        while y0 <= SimConfig::KILL_BOTTOM - SimConfig::BIRD_RADIUS {
+            let mut free = true;
+            for &r in rows {
+                if G::absi(y0 - r) < Beam::HALF_H + SimConfig::BIRD_RADIUS {
+                    free = false;
+                }
+            }
+            if free {
+                for late in [0, Self::BEAM_LATE] {
+                    let to = Beam::reach_time(rows, delays, y0, shown + late, e - Self::BEAM_LANE, e + Self::BEAM_LANE);
+                    w = G::maxi(w, late + to);
+                }
+            }
+            y0 += Self::BEAM_START_STEP;
+        }
+        w
+    }
+    /// Room steps until the exit preview shows and until the bird reaches the exit wall after it opens.
+    fn _exit_times(sim: &GameSim) -> [i64; 2] {
+        let heading = if sim.state.vx > 0 { 1 } else { 0 };
+        let t1 = sim.steps_to_wall(heading);
+        let c = sim.steps_to_wall(1 - heading) - t1;
+        let k_open = sim.next_exit_score() - sim.state.score;
+        let open_side = if k_open % 2 == 1 { heading } else { 1 - heading };
+        let k_arr = if open_side == SimConfig::EXIT_WALL { k_open + 2 } else { k_open + 1 };
+        let k_prev = G::maxi(1, k_open - 1);
+        [t1 + (k_prev - 1) * c, t1 + (k_arr - 1) * c]
+    }
+
+    fn _planned_exits(sim: &mut GameSim) -> Vec<i64> {
+        let at = sim.next_exit_score();
+        ExitPlanner::plan_room(sim, at);
+        let s = &sim.state;
+        let mut out_: Vec<i64> = vec![s.plan_a_y_left, s.plan_a_y_right];
+        if s.plan_a_kind_left != ExitKind::NORMAL {
+            out_.push(s.plan_b_y_left);
+        }
+        if s.plan_a_kind_right != ExitKind::NORMAL {
+            out_.push(s.plan_b_y_right);
+        }
+        out_
+    }
+
+    fn _beam_row(drawn: i64, exits: &[i64], placed: &[i64]) -> i64 {
+        let mut d = 0;
+        while d <= Self::BEAM_SHIFT {
+            for y in [drawn - d, drawn + d] {
+                if Self::_beam_row_ok(y, exits, placed) {
+                    return y;
+                }
+            }
+            d += Self::BEAM_STEP;
+        }
+        -1
+    }
+
+    fn _beam_row_ok(y: i64, exits: &[i64], placed: &[i64]) -> bool {
+        if y < Self::BEAM_TOP || y > Self::BEAM_BOTTOM {
+            return false;
+        }
+        if !placed.is_empty() && y - placed[placed.len() - 1] < Self::BEAM_APART {
+            return false;
+        }
+        for &e in exits {
+            if G::absi(y - e) < Self::BEAM_EXIT_CLEAR {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn _orders(n: i64) -> Vec<Vec<i64>> {
+        let mut out_: Vec<Vec<i64>> = Vec::new();
+        let mut cur: Vec<i64> = Vec::new();
+        Self::_orders_from(n, &mut cur, &mut out_);
+        out_
+    }
+
+    fn _orders_from(n: i64, cur: &mut Vec<i64>, out_: &mut Vec<Vec<i64>>) {
+        if cur.len() as i64 == n {
+            out_.push(cur.clone());
+            return;
+        }
+        for v in 0..n {
+            if !cur.contains(&v) {
+                cur.push(v);
+                Self::_orders_from(n, cur, out_);
+                cur.pop();
+            }
         }
     }
 

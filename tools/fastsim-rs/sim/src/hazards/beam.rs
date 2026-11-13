@@ -17,6 +17,9 @@ pub struct Beam {
     pub warn_ticks: i64,
     pub yields: bool,
     pub skip: Vec<i64>,
+    pub preset: bool,
+    pub exit_ys: Vec<i64>,
+    pub calm_spikes: i64,
 }
 
 impl Beam {
@@ -35,6 +38,8 @@ impl Beam {
     pub const WALL_TO: i64 = 30;
     pub const WALL_STEP: i64 = 6;
     pub const MARGIN: i64 = 4 * SimConfig::SUB;
+    pub const REACH_UP: i64 = 2 * SimConfig::SUB;
+    pub const REACH_DOWN: i64 = 4 * SimConfig::SUB;
 
     /// C# defaults: count = ROWS, p_warn = WARN_TICKS, p_yields = false.
     pub fn new(count: i64, p_warn: i64, p_yields: bool) -> Beam {
@@ -45,6 +50,9 @@ impl Beam {
             warn_ticks: Self::WARN_TICKS,
             yields: false,
             skip: Vec::new(),
+            preset: false,
+            exit_ys: Vec::new(),
+            calm_spikes: 0,
         };
         for _i in 0..count {
             b.rows.push(0);
@@ -117,6 +125,52 @@ impl Beam {
         )
     }
 
+    /// Steps a bird at `y` at step `t` needs to get into `lo`..`hi` (beam.gd).
+    pub fn reach_time(p_rows: &[i64], p_delays: &[i64], y: i64, t: i64, lo: i64, hi: i64) -> i64 {
+        let t0 = t;
+        let mut t = t;
+        if y >= lo && y <= hi {
+            return 0;
+        }
+        let down = y < lo;
+        let target = if down { lo } else { hi };
+        let speed = if down { Self::REACH_DOWN } else { Self::REACH_UP };
+        let reach = Self::HALF_H + SimConfig::BIRD_RADIUS;
+        let mut order: Vec<usize> = Vec::new();
+        for i in 0..p_rows.len() {
+            let r = p_rows[i];
+            if (down && r > y && r < target) || (!down && r < y && r > target) {
+                order.push(i);
+            }
+        }
+        if !down {
+            order.reverse();
+        }
+        let mut at = y;
+        for i in order {
+            let near = if down { p_rows[i] - reach } else { p_rows[i] + reach };
+            t += G::absi(near - at) / speed;
+            let cross = 2 * reach / speed;
+            t += Self::_wait_off(p_delays[i], t, cross);
+            t += cross;
+            at = if down { p_rows[i] + reach } else { p_rows[i] - reach };
+        }
+        t += G::absi(target - at) / speed;
+        t - t0
+    }
+
+
+    pub fn _wait_off(d: i64, t: i64, length: i64) -> i64 {
+        let q = G::posmod(t - d - Self::WARN_TICKS, Self::PERIOD);
+        if q < Self::ON_TICKS {
+            return Self::ON_TICKS - q;
+        }
+        if q + length > Self::PERIOD {
+            return Self::PERIOD - q + Self::ON_TICKS;
+        }
+        0
+    }
+
     /// True if row i's beam is live `steps` from now (a turn it might sit out
     /// counts as live).
     pub fn live_in(&self, i: i64, steps: i64) -> bool {
@@ -133,6 +187,9 @@ impl Hazard for Beam {
     impl_base!();
 
     fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
+        if self.preset {
+            return;
+        }
         let n = self.rows.len() as i64;
         let band = Self::SPAN / n;
         let stagger = Self::PERIOD / n;
@@ -208,8 +265,28 @@ impl Hazard for Beam {
         }
         let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
         let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
-        RoomRules::keep_run(mask, need, safe)
-    }
+        let mut out_ = RoomRules::keep_run(mask, need, safe);
+        // Generated Beam Gates: a wall the bird gets to once the exit's ghost shows keeps at most
+        // calm_spikes, those farthest from the exit's height staying.
+        if self.calm_spikes > 0 && !self.exit_ys.is_empty() {
+            let heading = if sim.state.vx > 0 { 1 } else { 0 };
+            let hits = if heading == side { 1 } else { 2 };
+            if sim.state.exit_open || sim.state.exit_preview || sim.state.score + hits >= sim.next_exit_score() - 1 {
+                let e = self.exit_ys[0];
+                while (out_ as u64).count_ones() as i64 > self.calm_spikes {
+                    let mut near = -1;
+                    for slot in 0..SimConfig::SLOT_COUNT {
+                        if RoomRules::has_slot(out_, slot)
+                            && (near < 0 || G::absi(SimConfig::slot_center_y(slot) - e) < G::absi(SimConfig::slot_center_y(near) - e))
+                        {
+                            near = slot;
+                        }
+                    }
+                    out_ &= !(1i64 << near);
+                }
+            }
+        }
+        out_    }
 
     fn kills(&self, sim: &GameSim) -> bool {
         for i in 0..self.rows.len() as i64 {

@@ -221,7 +221,7 @@ func test_gift_stack_puts_a_coin_on_each_new_stack() -> void:
 func test_beams_warn_before_firing_and_kill_only_when_live() -> void:
 	var sim := RoomsTest.sim_in_room("beams", 9)
 	var b: Hazard = _hazards(sim, "beam")[0]
-	for i in Beam.ROWS:
+	for i in b.rows.size():
 		var prev := Beam.State.OFF
 		var warned := false
 		var fired := false
@@ -253,13 +253,55 @@ func test_beams_never_more_than_two_and_never_all_rows() -> void:
 			b.t = tick
 			max_live = maxi(max_live, b.live_count())
 		assert_true(max_live <= 2, "at most two beams at once")
-		assert_true(max_live < Beam.ROWS, "never all rows")
-		for i in Beam.ROWS:
+		assert_true(max_live < b.rows.size(), "never all rows")
+		for i in b.rows.size():
 			assert_true(b.rows[i] > SimConfig.KILL_TOP + 60 * SUB, "clear of the ceiling")
 			assert_true(b.rows[i] < SimConfig.KILL_BOTTOM - 60 * SUB, "clear of the floor")
 		# Nothing live right as the room starts.
 		b.t = 0
 		assert_eq(b.live_count(), 0)
+
+
+## Generated Beam Gates: every row clears every planned exit's mouth (a bird in
+## the mouth never meets a beam), the rows stay apart and in range, and each
+## warns its full 2 s.
+func test_generated_beams_keep_clear_of_the_planned_exits() -> void:
+	const M := preload("res://sim/rooms/catalog_machines.gd")
+	var rows_seen := 0
+	for s in 60:
+		var sim := RoomsTest.sim_in_room("beams", s)
+		var b: Hazard = _hazards(sim, "beam")[0]
+		var st := sim.state
+		var exits: Array[int] = [st.plan_a_y_left, st.plan_a_y_right]
+		assert_true(b.rows.size() >= Beam.ROWS - 2, "seed %d: at least two rows" % s)
+		for i in b.rows.size():
+			rows_seen += 1
+			assert_eq(b.warn_ticks, SimConfig.WARN_TICKS, "a 2 s warning")
+			assert_true(b.rows[i] >= M.BEAM_TOP and b.rows[i] <= M.BEAM_BOTTOM, "in range")
+			if i > 0:
+				assert_true(b.rows[i] - b.rows[i - 1] >= M.BEAM_APART, "rows apart")
+			for e in exits:
+				assert_true(
+					absi(b.rows[i] - e) >= M.BEAM_EXIT_CLEAR,
+					"seed %d row %d clears the exit at %d px" % [s, i, e / SUB]
+				)
+	assert_true(rows_seen > 200)
+
+
+## Beam.reach_time: the flight alone with no row in the way; a row live when the
+## bird gets to it adds the wait for it to turn off.
+func test_beam_reach_time_waits_for_a_live_row() -> void:
+	var none: Array[int] = []
+	var free := Beam.reach_time(none, none, 200 * SUB, 0, 400 * SUB, 450 * SUB)
+	assert_eq(free, 200 * SUB / Beam.REACH_DOWN, "200 px down at REACH_DOWN")
+	assert_eq(Beam.reach_time(none, none, 420 * SUB, 0, 400 * SUB, 450 * SUB), 0, "already in")
+	var rows: Array[int] = [300 * SUB]
+	# Live from step 140 (20 + 120 of warning) to 190: the bird gets there at 20.
+	var delays: Array[int] = [Beam.START_DELAY]
+	var at_on := Beam.START_DELAY + Beam.WARN_TICKS - 20
+	var w := Beam.reach_time(rows, delays, 200 * SUB, at_on, 400 * SUB, 450 * SUB)
+	assert_true(w >= free + Beam.ON_TICKS - 10, "waits out the live beam")
+	assert_true(w <= free + Beam.ON_TICKS + 10, "and no longer")
 
 
 # --- Stalactite Run -----------------------------------------------------------
