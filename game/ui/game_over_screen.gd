@@ -1,13 +1,11 @@
 class_name GameOverScreen
 extends Control
-## Game over on the emptied room (GameOverStage clears the hazards and floats
-## the flyer, big and dazed, to FLYER_Y): "Game over", the score, "Best 92",
-## "Revived at 63"
-## when the run used its revive, a stats row (+coins, rooms cleared this run,
-## today's rank), the run's seed, Home in the corner slot and the Game over
-## dock, the same slots as Home's (Rooms, Style | Again | Ranks, Runs). A new best gets the gold ribbon, the score counting up,
-## three sparkles and confetti that falls through once (still with reduced
-## motion).
+## Game over on the emptied room (GameOverStage clears the hazards and floats the flyer, big and
+## dazed, to FLYER_Y): "Game over", the score, "Best 92", "Revived at 63" when the run used its
+## revive, a stats row (+coins, rooms cleared this run, today's rank), the run's seed, Home in the
+## corner slot and the Game over dock, the same slots as Home's (Rooms, Style | Again | Ranks,
+## Runs). A new best gets the gold ribbon, the score counting up, three sparkles and confetti that
+## falls through once (still with reduced motion).
 
 ## A dock item or the corner was tapped: "home" (the corner), "rooms",
 ## "style", "again", "rank" or "runs".

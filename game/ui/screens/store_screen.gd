@@ -47,6 +47,7 @@ var _restore: Button
 var _scroll: SmoothScroll
 var _message: Label
 var _sheet: ConvertSheet
+var _tabs: PanelContainer
 ## pack id -> its price button.
 var _buttons := {}
 
@@ -73,7 +74,8 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", GRID_GAP)
 	margin.add_child(col)
 	col.add_child(UiKit.header(TITLE, closed.emit, _wallet))
-	col.add_child(UiKit.wallet_tabs(0, func(_i: int) -> void: earn_pressed.emit()))
+	_tabs = UiKit.wallet_tabs(0, func(_i: int) -> void: earn_pressed.emit())
+	col.add_child(_tabs)
 	_scroll = SmoothScroll.new()
 	_scroll.blocked = func() -> bool: return _sheet != null
 	col.add_child(_scroll)
@@ -380,3 +382,8 @@ func restore_button() -> Button:
 ## The price button of a pack, for tests.
 func price_button(id: String) -> Button:
 	return _buttons.get(id) as Button
+
+
+## The Wallet tab that opens Earn free.
+func earn_tab() -> Button:
+	return _tabs.get_child(0).get_child(1) as Button

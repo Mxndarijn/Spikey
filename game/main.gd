@@ -551,10 +551,8 @@ func show_shop(tab: String = ItemKind.FLYER) -> void:
 	_menus.show_screen(shop)
 
 
-## The Wallet on Get diamonds (the Shop): diamond packs and turning diamonds
-## into gold. `back_tab`: the Customize list to go back to, BACK_TO_LOOK for
-## "Your look", BACK_TO_EARN for where the Earn free tab goes back to, or ""
-## for Home. Its Earn free tab opens Earn diamonds with the same way back.
+## The Wallet on Get diamonds (the Shop). `back_tab`: a Customize list, BACK_TO_LOOK,
+## BACK_TO_EARN (Earn free's way back) or "" (Home); Earn free keeps the same way back.
 func show_store(back_tab: String = "") -> void:
 	mode = Mode.MENU
 	_hud.show_menu()

@@ -153,16 +153,13 @@ func test_closed_store_fails_and_sample_store_pays() -> void:
 	assert_eq(paid, ["pouch", "failed nope"])
 
 
-func test_home_wallet_opens_earn_diamonds_and_packs_are_granted() -> void:
+func test_home_wallet_opens_the_shop_and_packs_are_granted() -> void:
 	var main := _make_main()
 	var home := main._menus.current() as HomeScreen
 	assert_eq([home.wallet().gold_text(), home.wallet().diamonds_text()], ["0", "0"])
 	home.wallet().pressed.emit()
-	var earn := main._menus.current() as EarnScreen
-	assert_true(earn != null, "the wallet opens Earn diamonds")
-	earn.shop_button().pressed.emit()
 	var shop := main._menus.current() as StoreScreen
-	assert_true(shop != null, "its last button opens the Shop")
+	assert_true(shop != null, "the wallet opens the Wallet on Get diamonds")
 	assert_true(shop.starter_visible(), "the starter pack is offered")
 	assert_eq(shop.price_button("vault").text, "€19.99")
 	assert_eq(shop.message_text(), StoreScreen.LOOKS_ONLY)
@@ -185,12 +182,12 @@ func test_home_wallet_opens_earn_diamonds_and_packs_are_granted() -> void:
 	assert_eq([main._profile.diamonds, main._profile.coins], [27, 800])
 	assert_eq(shop.wallet().gold_text(), "800")
 	assert_eq(Profile.load_or_new(TEST_PATH).coins, 800, "a conversion is saved")
-	shop.closed.emit()
-	earn = main._menus.current() as EarnScreen
-	assert_true(earn != null, "back goes to Earn diamonds")
+	shop.earn_tab().pressed.emit()
+	var earn := main._menus.current() as EarnScreen
+	assert_true(earn != null, "the Earn free tab opens Earn diamonds")
 	assert_eq(earn.balance_text(), "27", "with the new balance")
 	earn.closed.emit()
-	assert_true(main._menus.current() is HomeScreen, "and from there Home")
+	assert_true(main._menus.current() is HomeScreen, "and its back goes Home, like the Shop's")
 	main.free()
 	SafeFile.remove(TEST_PATH)
 
@@ -284,15 +281,15 @@ func test_customize_sells_premium_worlds_for_diamonds() -> void:
 	assert_true(main._profile.owns(ItemKind.WORLD, "neon"))
 	assert_eq([main._profile.diamonds, main._profile.coins], [1, 9000])
 	c._wallet.pressed.emit()
-	var earn := main._menus.current() as EarnScreen
-	assert_true(earn != null, "the wallet in Customize opens Earn diamonds")
-	earn.shop_button().pressed.emit()
 	var shop := main._menus.current() as StoreScreen
-	assert_true(shop != null, "and from there the Shop")
+	assert_true(shop != null, "the wallet in Customize opens the Wallet")
+	shop.earn_tab().pressed.emit()
+	var earn := main._menus.current() as EarnScreen
+	assert_true(earn != null, "its Earn free tab opens Earn diamonds")
+	earn.shop_button().pressed.emit()
+	shop = main._menus.current() as StoreScreen
+	assert_true(shop != null, "and Get diamonds the Shop again")
 	shop.closed.emit()
-	earn = main._menus.current() as EarnScreen
-	assert_true(earn != null, "the Shop's back returns to Earn diamonds")
-	earn.closed.emit()
 	var back := main._menus.current() as CollectionScreen
 	assert_true(back != null and back.kind == ItemKind.WORLD, "back returns to the same tab")
 	main.free()

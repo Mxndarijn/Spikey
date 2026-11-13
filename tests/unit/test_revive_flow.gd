@@ -96,7 +96,7 @@ func test_offer_says_what_a_revive_costs() -> void:
 	assert_true(offer.is_free())
 	assert_eq(offer.line_text(), "2 free revives left today")
 	assert_eq(offer.revive_button().text, "Revive")
-	assert_eq(offer.skip_button().text, "Skip")
+	assert_eq(offer.skip_button().text, "End run", "the same text button as Paused")
 	offer.show_offer(47, 1)
 	assert_eq(offer.line_text(), "1 free revive left today")
 	offer.show_offer(63, 0)

@@ -346,8 +346,8 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	assert_true(home != null, "back goes home")
 	if home != null:
 		var want := main.leaderboard.cached_rank(LeaderboardService.DAILY) as int
-		var shown := "#%d" % want if want > 0 else "Ranks"
-		assert_eq(home.dock().button("rank").text, shown, "today's rank on home")
+		var shown := HomeScreen.stats_text(87, want)
+		assert_eq(home.stats_line(), shown, "today's rank on home, in the stats line")
 	main.free()
 	SafeFile.remove(TEST_PATH)
 

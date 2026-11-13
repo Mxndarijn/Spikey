@@ -1,11 +1,10 @@
 class_name ReviveOffer
 extends ColorRect
-## The revive offer after a crash, on the dimmed room (laid out like Paused):
-## "Crashed", the score, one pip per free revive of the day, what Revive costs
-## (a free one, or a short ad), the round Revive on the action line and the
-## text button End run under it (the same button as on Paused). With the Revive Pass there are no pips: the line says the pass makes
-## it free and a small "PASS" pill sits where the "AD" one would. It waits: no
-## countdown. Hud owns it.
+## The revive offer after a crash, on the dimmed room (laid out like Paused): "Crashed", the score,
+## one pip per free revive of the day, what Revive costs (a free one, or a short ad), the round
+## Revive on the action line and the text button End run under it (the same button as on Paused).
+## With the Revive Pass there are no pips: the line says the pass makes it free and a small "PASS"
+## pill sits where the "AD" one would. It waits: no countdown. Hud owns it.
 
 signal revive_pressed
 signal skip_pressed

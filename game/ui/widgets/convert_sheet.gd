@@ -1,9 +1,9 @@
 class_name ConvertSheet
 extends Control
-## Turns diamonds into gold (Checkout.convert), one way: a flat paper card over
-## the dimmed room with a minus / plus stepper, what the diamonds become, the
-## Convert button; the close button in the card's top right leaves. It opens on the amount asked for (the fewest
-## diamonds that cover a shortfall), never more than the player has.
+## Turns diamonds into gold (Checkout.convert), one way: a flat paper card over the dimmed room with
+## a minus / plus stepper, what the diamonds become, the Convert button; the close button in the
+## card's top right leaves. It opens on the amount asked for (the fewest diamonds that cover a
+## shortfall), never more than the player has.
 
 ## Diamonds were converted (already in the profile): the opener saves.
 signal converted(diamonds: int)

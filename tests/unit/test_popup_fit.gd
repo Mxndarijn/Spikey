@@ -82,7 +82,7 @@ func test_game_over_fits_a_long_score() -> void:
 	for col in hud.game_over._stats.get_children():
 		var need := (col as Control).get_combined_minimum_size().x
 		assert_true(need <= GameOverScreen.STAT_W, "a stat column is %d px" % need)
-	for id in ["home", "rooms", "rank", "style"]:
+	for id in ["rooms", "style", "rank", "runs"]:
 		var b := hud.game_over._dock.button(id)
 		assert_true(b.get_combined_minimum_size().x <= Dock.ITEM.x, "dock %s fits" % id)
 	hud.free()

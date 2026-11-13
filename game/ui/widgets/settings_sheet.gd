@@ -148,6 +148,9 @@ func _link(node_name: String, text: String) -> Button:
 	var b := UiKit.row_button(text, UiTokens.PANEL_RAISED)
 	b.name = node_name
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	# Side by side they share the width: a long name trims, never widens it.
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b
 
 

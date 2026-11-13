@@ -1,12 +1,11 @@
 class_name ReplayHud
 extends Control
-## The HUD for watching a leaderboard run, in the minimal kit like PracticeHud:
-## a small ink chip "Replay: Noor, 31" at the top and the back arrow in the
-## corner slot that leaves (it stays when the run ends). When the run ends, the
-## dimmed room shows "Noor scored 31" and the round Again on the action line.
-## A run that can't be played shows only its message and the back arrow. Under the room sits the ReplayScrubber: the run's rooms
-## as chapters, a timeline to drag and the pause controls. Hud owns it and
-## shows it only while replaying; the score stays Hud's.
+## The HUD for watching a leaderboard run, in the minimal kit like PracticeHud: a small ink chip
+## "Replay: Noor, 31" at the top and the back arrow in the corner slot that leaves (it stays when
+## the run ends). When the run ends, the dimmed room shows "Noor scored 31" and the round Again on
+## the action line. A run that can't be played shows only its message and the back arrow. Under the
+## room sits the ReplayScrubber: the run's rooms as chapters, a timeline to drag and the pause
+## controls. Hud owns it and shows it only while replaying; the score stays Hud's.
 
 signal again_pressed
 signal back_pressed

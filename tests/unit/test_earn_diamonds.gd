@@ -326,8 +326,11 @@ func test_ways_in_from_main() -> void:
 	main.show_look()
 	var look := main._menus.current() as LookScreen
 	look.earn_pressed.emit()
+	var store := main._menus.current() as StoreScreen
+	assert_true(store != null, "the wallet on Your look opens the Wallet")
+	store.earn_tab().pressed.emit()
 	earn = main._menus.current() as EarnScreen
-	assert_true(earn != null, "the wallet on Your look opens it too")
+	assert_true(earn != null, "its Earn free tab opens it too")
 	earn.closed.emit()
 	assert_true(main._menus.current() is LookScreen, "and back returns to Your look")
 	main.free()
