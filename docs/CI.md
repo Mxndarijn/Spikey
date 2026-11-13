@@ -50,7 +50,16 @@ powershell -ExecutionPolicy Bypass -File tools/ci/select_checks.ps1 -SelfTest  #
 
 Measured 2026-11-13 on `next-features-2`, `-Jobs 4 -FastSimJobs 4`, one CPU slot:
 
-TIMINGS
+| Change | Tier | Wall time |
+| --- | --- | --- |
+| everything (`-Full`), before | integration | 364 s |
+| everything (`-Full`), generated variants in parallel | integration | 252 s |
+| a painter (8b05cc3) | unit | 46 s |
+| a world scene (62aca6f lantern) | unit | 46 s |
+| a room fix (f7bc459, two hazards + rust) | unit | 47 s |
+| room pacing (c3ab062, moves the draws) | unit | 202 s |
+| a shared `sim/` file | unit | close to `-Full` (skips only the goldens and sameseed) |
+| docs only | unit | 0 s |
 
 Selection is by layer, not by file: almost every test reaches `sim/` through `class_name`
 globals, so following imports would select nearly everything. A `sim/` file that is not on the
