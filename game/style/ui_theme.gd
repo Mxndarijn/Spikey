@@ -263,13 +263,13 @@ static func _buttons(t: Theme, room: Color) -> void:
 		t.set_color(state, "HudButton", Color(HUD_FILL, 0.0))
 	t.set_color("icon_disabled_color", "HudButton", Color(HUD_FILL, 0.0))
 	_button(t, "PlainButton", clear, clear, room)
-	_fonts(t, "PlainButton", GameFonts.ui(800), 15)
+	_fonts(t, "PlainButton", GameFonts.ui(800), UiTokens.FONT_SIZE_BUTTON)
 	# The same on paper cards: always ink, also on night rooms.
 	_button(t, "InkButton", clear, clear, ink)
 	t.set_constant("icon_max_width", "InkButton", UiTokens.SIZE_ICON_M)
-	_fonts(t, "InkButton", GameFonts.ui(800), 15)
+	_fonts(t, "InkButton", GameFonts.ui(800), UiTokens.FONT_SIZE_BUTTON)
 	_button(t, "ScrimButton", clear, clear, UiTokens.ON_SCRIM)
-	_fonts(t, "ScrimButton", GameFonts.ui(800), 15)
+	_fonts(t, "ScrimButton", GameFonts.ui(800), UiTokens.FONT_SIZE_BUTTON)
 	# Dock items: icon over a small name; the current one on a soft edge tile.
 	var tile := flat(UiTokens.EDGE, 16, 2)
 	_button(t, "DockButton", clear, flat(UiTokens.PANEL_RAISED, 16, 2), ink)

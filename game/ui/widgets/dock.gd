@@ -2,16 +2,17 @@ class_name Dock
 extends Control
 ## The cradle dock along the bottom of Home and Game over: a flat paper bar
 ## that curves around the round main action (8px gap), with two small icon
-## items on each side. Home: Rooms, Style | Play | #rank, Settings. Game over:
-## Home, Rooms | Again | #rank, Style. `current` marks the screen you are on
-## with a soft edge tile.
+## items on each side. Both screens use the same slots: Rooms, Style | Play or
+## Again | Ranks, Runs. The main action sits on the action line
+## (UiKit.ACTION_Y). `current` marks the screen you are on with a soft edge tile.
 ## Items are dictionaries: {"id": String, "icon": Texture2D, "text": String}.
 
 signal pressed(id: String)
 
-## The dock's own height, measured from the bottom of the screen.
-const HEIGHT := 170.0
-## The bar: 80px tall, 40px above the screen's bottom edge (floor spikes).
+## The dock's own height, measured from the bottom of the screen: its main
+## action's centre is on the action line, y 500.
+const HEIGHT := UiTokens.SIZE_VIEWPORT_H - UiKit.ACTION_TOP
+## The bar: 80px tall, 60px above the screen's bottom edge (floor spikes).
 const BAR_TOP := 50.0
 const BAR_H := 80.0
 const SIDE := 14.0

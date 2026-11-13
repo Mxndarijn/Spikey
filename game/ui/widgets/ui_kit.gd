@@ -1,8 +1,19 @@
 class_name UiKit
 extends RefCounted
 ## Small builders for the minimal kit's pieces, so every screen makes them the
-## same way: bare icon buttons (pause, back, close), the 100px round main
-## action, the back-arrow header of sub-screens, labels and spacers.
+## same way. The button system (A3) has seven types, each with one place:
+## - round primary (primary(), place_primary()): the one main action, centred
+##   on the action line (ACTION_Y) on every screen that has one;
+## - flat primary (action_button()): the main action inside a popup or sheet;
+## - text button (text_button(), place_text_button()): the one other choice,
+##   no icon and no chevron, under the round primary on overlays;
+## - corner button (icon_button() in the CORNER slot, header()): leaves the
+##   screen. Top left always goes up: back, pause in a run, Home on Game over,
+##   Settings on Home (which has nowhere to go back to). Popups close in
+##   their card's top right (close_button());
+## - icon button (disc_button()): an action on one row or one thing;
+## - row (row_button()): a list item that opens something, with a chevron;
+## - tab and chip (TabStrip, chips).
 
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
@@ -10,13 +21,38 @@ const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 const ICON_BUTTON := 48.0
 ## The one main action per screen.
 const PRIMARY := float(UiTokens.SIZE_ROUND_BUTTON)
-## Sub-screen header: the back arrow at the left, the title centred.
+## Sub-screen header: the back arrow in the corner slot, the title after it.
 const HEADER_HEIGHT := 48.0
 ## The smallest a header title shrinks to beside a wide right side.
 const TITLE_MIN := 18
 const PRIMARY_ICON := 30
 ## "Large buttons" in Settings grows bare icon buttons to this.
 const LARGE_BUTTON := 56.0
+## A3 placement, room px. The corner slot (a 48px target) is shared by every
+## back arrow, the HUD's pause, Game over's Home and Home's Settings.
+const CORNER := Vector2(24, 40)
+## Sub-screens' side margin and the top of their header row (= CORNER.y).
+const SCREEN_SIDE := 14
+const SCREEN_TOP := 40
+## Header titles start here, after the corner button.
+const TITLE_X := 80.0
+## The action line: the centre of the round primary on every screen with one.
+const ACTION_Y := 500.0
+const ACTION_TOP := ACTION_Y - PRIMARY / 2.0
+## The one text button under the round primary on overlays.
+const TEXT_BUTTON_Y := 558.0
+## No control reaches lower than this, clear of the floor spikes (606).
+const BOTTOM_LIMIT := 602.0
+## Icon buttons on rows and in cards, and popups' close button.
+const DISC := 44.0
+## The flat primary in popups and sheets (button-h).
+const ACTION_H := float(UiTokens.SIZE_BUTTON_H)
+## Rows that open something.
+const ROW_H := 52.0
+const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
+
+## Looks of a disc_button().
+enum Disc { FILL, TONAL, BARE }
 
 ## Buttons in this group click with the falling "back" pop instead of the
 ## rising tap (AudioDirector): back, close and home buttons. See mark_back().
@@ -67,6 +103,153 @@ static func scrim_link(icon: Texture2D, text: String, note: String = "", back :=
 		n.add_theme_font_size_override("font_size", 12)
 		col.add_child(n)
 	return col
+
+
+## The text button: the one other choice next to a main action. No icon and
+## no chevron: its words say what happens ("End run", "Rooms"). `variation`:
+## ScrimButton on the dimmed room, InkButton on paper, PlainButton on the room.
+static func text_button(text: String, variation: StringName = &"ScrimButton") -> Button:
+	var b := Button.new()
+	b.theme_type_variation = variation
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return b
+
+
+## Puts a round primary on the action line of a full-room `parent`, centred.
+static func place_primary(parent: Control, b: Button, top: float = ACTION_TOP) -> void:
+	parent.add_child(b)
+	b.anchor_left = 0.5
+	b.anchor_right = 0.5
+	b.anchor_top = 0.0
+	b.anchor_bottom = 0.0
+	b.offset_left = -PRIMARY / 2.0
+	b.offset_right = PRIMARY / 2.0
+	b.offset_top = top
+	b.offset_bottom = top + PRIMARY
+
+
+## Puts an overlay's one text button under the action line, centred. Returns
+## the row that holds it.
+static func place_text_button(parent: Control, b: Button) -> Control:
+	var row := CenterContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(b)
+	across(parent, row, TEXT_BUTTON_Y)
+	return row
+
+
+## Puts a corner button in the top-left slot of a full-room `parent`. A bigger
+## one (Large buttons) grows in place around the slot's centre.
+static func place_corner(parent: Control, b: Button) -> void:
+	parent.add_child(b)
+	var s := b.custom_minimum_size.x
+	var c := CORNER + Vector2(ICON_BUTTON, ICON_BUTTON) / 2.0
+	b.position = c - Vector2(s, s) / 2.0
+	b.size = Vector2(s, s)
+
+
+## The flat primary of a popup or sheet: a full-width 56px ink pill. Its icon
+## (a coin, a diamond) sits before the label, centred with it as one group.
+static func action_button(text: String, icon: Texture2D = null) -> Button:
+	var b := Button.new()
+	b.theme_type_variation = &"ActionButton"
+	b.text = text
+	b.icon = icon
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, ACTION_H)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_constant_override("icon_max_width", 26)
+	center_icon_group(b)
+	return b
+
+
+## Keeps a button's icon right before its text with the pair centred as one
+## group: equal side margins, set again whenever the button resizes. A Button
+## alone pins a left icon to its edge and centres the text in what is left.
+static func center_icon_group(b: Button) -> void:
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var fit := func() -> void:
+		if b.icon == null or b.size.x <= 0.0:
+			b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+			return
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var font := b.get_theme_font("font")
+		var fs := b.get_theme_font_size("font_size")
+		var text_w := font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var icon_w := minf(b.icon.get_width(), b.get_theme_constant("icon_max_width"))
+		var group := icon_w + b.get_theme_constant("h_separation") + text_w
+		var side := maxf(UiTokens.SPACE_4, floorf((b.size.x - group) / 2.0))
+		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			var box := b.get_theme_stylebox(state).duplicate() as StyleBox
+			box.content_margin_left = side
+			box.content_margin_right = side
+			b.add_theme_stylebox_override(state, box)
+	b.resized.connect(fit)
+
+
+## An icon button on a row or in a card, 44px: FILL (an ink disc: the row's
+## main action, one per row), TONAL (a paper-raised disc) or BARE (the icon).
+static func disc_button(icon: Texture2D, tip: String, look: Disc = Disc.TONAL) -> Button:
+	var b := icon_button(icon, tip, &"InkButton", DISC)
+	if look == Disc.BARE:
+		return b
+	var fill := UiTokens.INK_LINE if look == Disc.FILL else UiTokens.PANEL_RAISED
+	var down := fill.lightened(0.15) if look == Disc.FILL else UiTokens.EDGE
+	var disc := UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0)
+	var disc_down := UiTheme.flat(down, UiTokens.RADIUS_PILL, 0)
+	for state in ["normal", "hover", "disabled"]:
+		b.add_theme_stylebox_override(state, disc)
+	for state in ["pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, disc_down)
+	if look == Disc.FILL:
+		for state in [
+			"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color"
+		]:
+			b.add_theme_color_override(state, UiTokens.ON_PRIMARY)
+	return b
+
+
+## A popup's or sheet's close button for its card's top right: a 44px
+## paper-raised disc with the close icon. It sounds like a way back.
+static func close_button(tip: String = "Close") -> Button:
+	var b := disc_button(CLOSE_ICON, tip, Disc.TONAL)
+	mark_back(b)
+	return b
+
+
+## A row that opens something: a full-width paper pill with its text at the
+## left and a chevron at the right. `fill`: paper-raised inside a paper card.
+static func row_button(text: String, fill: Color = UiTokens.PANEL) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.icon = CHEVRON_ICON
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, ROW_H)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box := UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0)
+	box.content_margin_left = UiTokens.SPACE_5
+	box.content_margin_right = UiTokens.SPACE_4
+	var down := box.duplicate() as StyleBoxFlat
+	down.bg_color = UiTokens.PANEL_RAISED if fill == UiTokens.PANEL else UiTokens.EDGE
+	for state in ["normal", "hover", "disabled"]:
+		b.add_theme_stylebox_override(state, box)
+	for state in ["pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, down)
+	b.add_theme_constant_override("icon_max_width", 20)
+	for state in [
+		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
+	]:
+		b.add_theme_color_override(state, UiTokens.ON_PANEL)
+	for state in [
+		"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color"
+	]:
+		b.add_theme_color_override(state, UiTokens.ON_PANEL)
+	return b
 
 
 ## The button inside a scrim_link().
@@ -157,10 +340,10 @@ static func spacer(height: float = 0.0, expand: bool = false) -> Control:
 	return c
 
 
-## A sub-screen header: back arrow left, the title centred on the screen,
-## `right` (coins, a count) at the right; with `right` the title sits left,
-## after the back arrow, and trims rather than run under either. Returns the row; `back` is wired to
-## `on_back`.
+## A sub-screen header: the back arrow in the corner slot (x 24 with the
+## screen's side margin at SCREEN_SIDE), the title left from TITLE_X, and
+## `right` (the wallet, a count) at the right. The title shrinks, then trims,
+## rather than run under either. Returns the row; `back` is wired to `on_back`.
 static func header(title: String, on_back: Callable, right: Control = null) -> Control:
 	var row := Control.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -173,8 +356,8 @@ static func header(title: String, on_back: Callable, right: Control = null) -> C
 	var back := icon_button(BACK_ICON, "Back", &"RoundButton", ICON_BUTTON)
 	back.name = "Back"
 	back.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	back.offset_left = -6
-	back.offset_right = ICON_BUTTON - 6
+	back.offset_left = CORNER.x - SCREEN_SIDE
+	back.offset_right = CORNER.x - SCREEN_SIDE + ICON_BUTTON
 	back.offset_top = -ICON_BUTTON / 2.0
 	back.offset_bottom = ICON_BUTTON / 2.0
 	back.pressed.connect(on_back)
@@ -182,8 +365,9 @@ static func header(title: String, on_back: Callable, right: Control = null) -> C
 	# A long title trims instead of running under the back button or `right`.
 	t.clip_text = true
 	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	t.offset_left = ICON_BUTTON
-	t.offset_right = -ICON_BUTTON
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	t.offset_left = TITLE_X - SCREEN_SIDE
+	t.offset_right = 0
 	row.resized.connect(func() -> void: _fit_title(t, row.size.x + t.offset_right - t.offset_left))
 	if right != null:
 		row.add_child(right)
@@ -194,11 +378,9 @@ static func header(title: String, on_back: Callable, right: Control = null) -> C
 		right.grow_vertical = Control.GROW_DIRECTION_BOTH
 		right.offset_left -= 4
 		right.offset_right -= 4
-		# Next to a wide right side (the wallet) the title sits left, after
-		# the back arrow; it keeps clear as the counts grow.
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		# The title keeps clear of the right side as the counts grow.
 		var keep_clear := func() -> void:
-			t.offset_right = -maxf(ICON_BUTTON, right.get_combined_minimum_size().x + 12)
+			t.offset_right = -(right.get_combined_minimum_size().x + 12)
 			_fit_title(t, row.size.x + t.offset_right - t.offset_left)
 		right.minimum_size_changed.connect(keep_clear)
 		keep_clear.call()
