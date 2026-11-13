@@ -1,10 +1,11 @@
 extends Hazard
 ## Lava Rise: a deadly line that creeps up from the floor by STEP for every
 ## point scored in the room (rafts: RAFT_PER_POINT steps a point), with no cap:
-## left alone it fills the room (FULL_RISES). Once the room's exit shows (its
-## ghost, a bounce early) it rises no more: the player sees where the exit is
-## and has that bounce to sink the lava under it. The line glides at SPEED,
-## so it never jumps onto the bird. Keeping it low is the player's job: lava
+## left alone it fills the room (FULL_RISES). The point that shows the room's
+## exit (its ghost, a bounce early) and those after it bring no rise: the
+## player sees where the exit is and has that bounce to sink the lava under
+## it. The line rises at SPEED, so it never jumps onto the bird, and sinks at
+## SINK_SPEED, so a sink clears the way at once. Keeping it low is the player's job: lava
 ## over an exit blocks it. What pushes it back depends on the variant:
 ## - lava: a cool stone shows up once it has risen STONE_AFTER times; touching
 ##   it sends the line back to rest.
@@ -33,8 +34,9 @@ const RAFT_PER_POINT := 2
 ## Rises that bring the line over the ceiling's kill line: the room is full,
 ## more would change nothing (the count stops there, so a sink acts at once).
 const FULL_RISES := (SimConfig.KILL_BOTTOM - SimConfig.KILL_TOP + STEP - 1) / STEP
-## 1.25 px a step: one STEP in 24 steps.
+## 1.25 px a step: one STEP in 24 steps. Sinking is four times as fast (5 px).
 const SPEED := 80
+const SINK_SPEED := 4 * SPEED
 const STONE_RADIUS := 14 * SUB
 const STONE_AFTER := 3
 ## The stone is at least this far from where the line is heading, and this far
@@ -147,15 +149,16 @@ func per_point() -> int:
 
 
 ## Rises once the points scored since the last count are in (up to
-## FULL_RISES). Once the exit shows (ghost or open) no more come.
+## FULL_RISES). The point that shows the exit (one to go) and later ones bring
+## none.
 func rises_due(sim: GameSim) -> int:
-	if sim.state.exit_open or sim.state.exit_preview:
+	if sim.state.exit_open or sim.state.exit_preview or sim.points_to_exit() <= 1:
 		return rises
 	return mini(rises + per_point() * (sim.room.points - counted), FULL_RISES)
 
 
 func step(_sim: GameSim) -> void:
-	line += clampi(line_at(rises) - line, -SPEED, SPEED)
+	line += clampi(line_at(rises) - line, -SPEED, SINK_SPEED)
 	for i in MAX_RAFTS:
 		if not raft_on[i]:
 			continue
@@ -240,6 +243,7 @@ func _slot_clear(slot: int, edge: int) -> bool:
 ## slots are clear of the line (rafts, lava high), all of those. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if ice_on and side == ice_side:
+		_lift_ice(sim)
 		for slot in range(maxi(ice_slot - 1, 0), mini(ice_slot + 2, SimConfig.SLOT_COUNT)):
 			mask &= ~(1 << slot)
 	if mask == 0:
@@ -272,6 +276,27 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	return mask
 
 
+## The ice block never drowns: when its wall gets new spikes and the line is
+## heading within STONE_CLEAR of its slot, it moves up the wall to the lowest
+## slot clear of that (not above STONE_EDGE under the ceiling). No draws.
+func _lift_ice(sim: GameSim) -> void:
+	var hi := line_at(rises_due(sim)) - STONE_CLEAR
+	var lo := SimConfig.KILL_TOP + STONE_EDGE
+	while (
+		ice_slot > 0
+		and SimConfig.slot_center_y(ice_slot) > hi
+		and SimConfig.slot_center_y(ice_slot - 1) >= lo
+	):
+		ice_slot -= 1
+
+
+## The stone never drowns: it floats up to stay STONE_CLEAR above where the
+## line is heading (not above STONE_EDGE under the ceiling). No draws.
+func _lift_stone() -> void:
+	var lo := SimConfig.KILL_TOP + STONE_EDGE
+	stone_y = maxi(mini(stone_y, line_at(rises) - STONE_CLEAR), lo)
+
+
 ## Counts the new points into the line's rise and puts out what sinks it:
 ## a stone (two draws), ice (one draw) or a raft (no draws: its spot was drawn
 ## at room start), only when one appears.
@@ -284,7 +309,10 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	if mode == Mode.RAFTS:
 		_place_raft(sim)
 		return
-	if stone_on or rises < STONE_AFTER:
+	if stone_on:
+		_lift_stone()
+		return
+	if rises < STONE_AFTER:
 		return
 	var heading := line_at(rises)
 	var lo := SimConfig.KILL_TOP + STONE_EDGE

@@ -36,6 +36,30 @@ func test_rafts_rise_twice_as_fast_until_the_room_is_full_or_the_exit_shows() ->
 	assert_eq(l.rises, 4, "nor once its ghost shows")
 
 
+## The point that shows the exit's ghost brings no rise, and a sink clears the
+## way four times as fast as the lava rises.
+func test_the_ghost_point_brings_no_rise_and_the_lava_sinks_fast() -> void:
+	var sim := _started("lava", 21)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.RAFTS
+	l.draw_plan(SimRng.new(3))
+	sim.state.score = sim.next_exit_score() - 2
+	sim.room.points = 1
+	l.on_bounce(sim, SimRng.new(1))
+	assert_eq(l.rises, Lava.RAFT_PER_POINT, "a point with two to go rises")
+	sim.state.score += 1
+	sim.room.points += 1
+	l.on_bounce(sim, SimRng.new(2))
+	assert_eq(l.rises, Lava.RAFT_PER_POINT, "the ghost's point does not")
+	l.line = l.line_at(8)
+	l.rises = 0
+	var steps := 0
+	while l.line < l.rest():
+		l.step(sim)
+		steps += 1
+	assert_eq(steps, ceili(8.0 * Lava.STEP / Lava.SINK_SPEED), "eight steps sink at SINK_SPEED")
+
+
 ## However high the lava, the wall ahead keeps every slot still clear of it free.
 func test_high_lava_keeps_the_slots_above_it_free() -> void:
 	var sim := _started("lava", 19)
@@ -140,3 +164,26 @@ static func _started(id: String, seed_value: int) -> GameSim:
 	var sim := Rooms.sim_in_room(id, seed_value)
 	sim.state.started = true
 	return sim
+
+
+## The stone and the ice block never drown: as the lava climbs toward them
+## they move up, so the way to sink it stays in reach.
+func test_the_stone_and_the_ice_stay_above_the_lava() -> void:
+	var sim := _started("lava", 23)
+	var l: Lava = sim.room.hazards[0]
+	l.mode = Lava.Mode.STONE
+	l.stone_on = true
+	l.stone_y = 400 * SUB
+	l.rises = 8
+	l.counted = sim.room.points
+	l.on_bounce(sim, SimRng.new(1))
+	assert_true(l.stone_y <= l.line_at(8) - Lava.STONE_CLEAR, "the stone floats up")
+	l.mode = Lava.Mode.COLD
+	l.stone_on = false
+	l.ice_on = true
+	l.ice_side = 1
+	l.ice_slot = SimConfig.SLOT_COUNT - 3
+	l.adjust_wall(sim, 1, (1 << SimConfig.SLOT_COUNT) - 1)
+	var cy := SimConfig.slot_center_y(l.ice_slot)
+	assert_true(cy <= l.line_at(8) - Lava.STONE_CLEAR, "the ice moves up its wall")
+	assert_true(cy >= SimConfig.KILL_TOP + Lava.STONE_EDGE, "not into the ceiling")

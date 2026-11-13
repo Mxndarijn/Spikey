@@ -37,6 +37,7 @@ impl Lava {
     pub const RAFT_PER_POINT: i64 = 2;
     pub const FULL_RISES: i64 = (SimConfig::KILL_BOTTOM - SimConfig::KILL_TOP + Self::STEP - 1) / Self::STEP;
     pub const SPEED: i64 = 80;
+    pub const SINK_SPEED: i64 = 4 * Self::SPEED;
     pub const STONE_RADIUS: i64 = 14 * Self::SUB;
     pub const STONE_AFTER: i64 = 3;
     pub const STONE_CLEAR: i64 = 90 * Self::SUB;
@@ -109,10 +110,26 @@ impl Lava {
     }
 
     pub fn rises_due(&self, sim: &GameSim) -> i64 {
-        if sim.state.exit_open || sim.state.exit_preview {
+        if sim.state.exit_open || sim.state.exit_preview || sim.points_to_exit() <= 1 {
             return self.rises;
         }
         G::mini(self.rises + self.per_point() * (sim.room.points - self.counted), Self::FULL_RISES)
+    }
+
+    pub fn _lift_ice(&mut self, sim: &GameSim) {
+        let hi = self.line_at(self.rises_due(sim)) - Self::STONE_CLEAR;
+        let lo = SimConfig::KILL_TOP + Self::STONE_EDGE;
+        while self.ice_slot > 0
+            && SimConfig::slot_center_y(self.ice_slot) > hi
+            && SimConfig::slot_center_y(self.ice_slot - 1) >= lo
+        {
+            self.ice_slot -= 1;
+        }
+    }
+
+    pub fn _lift_stone(&mut self) {
+        let lo = SimConfig::KILL_TOP + Self::STONE_EDGE;
+        self.stone_y = G::maxi(G::mini(self.stone_y, self.line_at(self.rises) - Self::STONE_CLEAR), lo);
     }
 
     pub fn _raft_under(&self, sim: &GameSim) -> i64 {
@@ -249,7 +266,7 @@ impl Hazard for Lava {
     }
 
     fn step(&mut self, _sim: &mut GameSim) {
-        self.line += G::clampi(self.line_at(self.rises) - self.line, -Self::SPEED, Self::SPEED);
+        self.line += G::clampi(self.line_at(self.rises) - self.line, -Self::SPEED, Self::SINK_SPEED);
         for i in 0..Self::MAX_RAFTS as usize {
             if !self.raft_on[i] {
                 continue;
@@ -308,6 +325,7 @@ impl Hazard for Lava {
 
     fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mut mask: i64) -> i64 {
         if self.ice_on && side == self.ice_side {
+            self._lift_ice(sim);
             let mut slot = G::maxi(self.ice_slot - 1, 0);
             while slot < G::mini(self.ice_slot + 2, SimConfig::SLOT_COUNT) {
                 mask &= !(1i64 << slot);
@@ -364,7 +382,11 @@ impl Hazard for Lava {
             self._place_raft(sim);
             return;
         }
-        if self.stone_on || self.rises < Self::STONE_AFTER {
+        if self.stone_on {
+            self._lift_stone();
+            return;
+        }
+        if self.rises < Self::STONE_AFTER {
             return;
         }
         let heading = self.line_at(self.rises);
