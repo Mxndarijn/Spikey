@@ -84,8 +84,8 @@ func test_rooms_that_change_the_controls_wait_for_the_floor() -> void:
 
 func test_seasonal_rooms_are_boosted_but_bonus_rooms_are_not() -> void:
 	var hearts := RoomCatalog.find("hearts")
-	assert_eq(hearts.weight_at(10), 15, "an easy seasonal room: 10 * 3 / 2")
-	assert_eq(RoomCatalog.find("cloud").weight_at(10), 10)
+	assert_eq(hearts.weight_at(30), 7, "a middle seasonal room: 5 * 3 / 2")
+	assert_eq(RoomCatalog.find("crawl").weight_at(30), 5)
 	for id: String in ["beachball", "countdown", "garden", "slowmo"]:
 		assert_eq(RoomCatalog.find(id).weight_at(300), RoomPacing.BONUS[1], "%s occasional" % id)
 

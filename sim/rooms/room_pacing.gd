@@ -36,59 +36,60 @@ const CONTROL_FLOOR := 40
 const CONTROL_ROOMS := ["flip", "echo", "blink"]
 
 ## The tier of every room the picker can pick (not the open first room or
-## the bosses). Measured on next-features-2 at 5354aac (2026-11-12), the rooms
-## room-fixes changed measured again at 2055eb8; the mean score is in the comment.
+## the bosses). Measured on next-features-2 at 62aca6f (2026-11-13, Rust
+## difficulty tool, 24 entries per variant, every bot tier); the mean score
+## is in the comment.
 const TIERS := {
-	"lava": EASY,  # 16
-	"crowded": EASY,  # 18 (Filling up, v22: classic 10, lopsided 18, storm 25)
-	"cloud": EASY,  # 24
-	"tide": EASY,  # 26
-	"crosswind": EASY,  # 31
-	"crates": EASY,  # 32
-	"piston": STEADY,  # 32
-	"belt": STEADY,  # 33
-	"crawl": STEADY,  # 34
-	"hunter": STEADY,  # 37
+	"crosswind": EASY,  # 14
+	"crowded": EASY,  # 15
+	"lava": EASY,  # 19
+	"tide": EASY,  # 23
+	"belt": EASY,  # 25
+	"stalac": EASY,  # 25 (alternating 40)
+	"crates": EASY,  # 30
+	"piston": STEADY,  # 36
+	"lockexit": STEADY,  # 37
 	"echo": STEADY,  # 39
-	"flip": STEADY,  # 39
-	"blink": STEADY,  # 40
-	"lockexit": MIDDLE,  # 41
-	"isles": MIDDLE,  # 41
-	"stalker": MIDDLE,  # 42
-	"bubbles": MIDDLE,  # 45
-	"narrow": MIDDLE,  # 47
-	"pegs": HARD,  # 50
-	"buttons": MIDDLE,  # not measured yet (provisional, design guess)
-	"rain": HARD,  # 49
-	"cave": HARD,  # 54
-	"gates": MIDDLE,  # 45
-	"midnight": HARD,  # 52
-	"sawring": HARD,  # 54
-	"squeeze": HARD,  # 56
-	"bramble": HARDER,  # 56
-	"swing": HARDER,  # 57
-	"stalac": EASY,  # 32
-	"beams": HARDER,  # 61
-	"pinwheel": HARDEST,  # 65
-	"updraft": HARDEST,  # 74
-	"slowmo": BONUS,  # 9
-	"keepy": BONUS,  # 10
-	"orchard": BONUS,  # 12
-	"garden": BONUS,  # 19
+	"cloud": STEADY,  # 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
+	"stalker": MIDDLE,  # 41
+	"blink": MIDDLE,  # 43
+	"crawl": MIDDLE,  # 44
+	"pegs": MIDDLE,  # 44
+	"isles": MIDDLE,  # 45
+	"gates": MIDDLE,  # 46 (single 53, classic 39)
+	"flip": MIDDLE,  # 47
+	"hunter": MIDDLE,  # 60 (human bots 78-90, analytic 33-37: one step until a playtest)
+	"buttons": MIDDLE,  # not measurable yet (bots never press the buttons): design guess
+	"bubbles": HARD,  # 50
+	"midnight": HARD,  # 51
+	"squeeze": HARD,  # 52
+	"beams": HARD,  # 53
+	"bramble": HARD,  # 54 (heavy 34 .. curious 77, still being fixed)
+	"cave": HARD,  # 44 (fork 29, bats 58; fork still being reworked)
+	"rain": HARDER,  # 57
+	"swing": HARDER,  # 58
+	"sawring": HARDER,  # 59
+	"updraft": HARDER,  # 55 (gust 90, chimney 69; gust still being fixed)
+	"narrow": HARDEST,  # 70
+	"pinwheel": HARDEST,  # 70
+	"slowmo": BONUS,  # 0
+	"keepy": BONUS,  # 4
+	"orchard": BONUS,  # 6
+	"garden": BONUS,  # 14
 	# Seasonal
-	"hearts": EASY,  # 20
-	"crabs": STEADY,  # 32
 	"eggs": MIDDLE,  # 42
-	"cupid": MIDDLE,  # 45
-	"gifts": HARD,  # 49
-	"icicle": HARD,  # 50
-	"pumpkin": HARD,  # 55
-	"ghostdoors": HARDER,  # 58
-	"bats": HARDER,  # 60
-	"fireworks": HARDEST,  # 70
-	"bees": HARDEST,  # 72
-	"countdown": BONUS,  # 10
-	"beachball": BONUS,  # 14
+	"crabs": MIDDLE,  # 41
+	"hearts": MIDDLE,  # 44
+	"gifts": MIDDLE,  # 48
+	"pumpkin": HARD,  # 56
+	"cupid": HARD,  # 63 (human bots 54-97, analytic 43-51: one step until a playtest)
+	"bats": HARDER,  # 58
+	"ghostdoors": HARDER,  # 59
+	"bees": HARDER,  # 62
+	"icicle": HARDEST,  # 65
+	"fireworks": HARDEST,  # 86
+	"countdown": BONUS,  # 4
+	"beachball": BONUS,  # 1
 }
 
 

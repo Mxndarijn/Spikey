@@ -70,6 +70,9 @@ rooms and the share of each tier:
 
 Per room, new picker, % of the picks in each band (`godot --headless --path . -s
 res://tools/room_odds.gd -- 2000 -1 990` prints it): Crowded moved to Easy in version 23 (Filling up measures 18); its odds were not re-run.
+Version 23 regroup (all rooms measured again on 62aca6f, data in
+`D:/SoftwareProjects/SpikeCage-coord/research/room-difficulty/v23-regroup/`): the tiers and scores below
+are from before it; `sim/rooms/room_pacing.gd` has the current tier and score of every room.
 
 | Room | Tier | Score | Unlock (was) | 10-19 | 20-49 | 50-99 | 100-199 | 200-299 | 300-499 | 500+ |
 |---|---|---|---|---|---|---|---|---|---|---|

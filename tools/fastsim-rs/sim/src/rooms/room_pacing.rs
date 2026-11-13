@@ -17,56 +17,56 @@ impl RoomPacing {
     pub const CONTROL_ROOMS: [&'static str; 3] = ["flip", "echo", "blink"];
 
     pub const TIERS: &'static [(&'static str, &'static [i64])] = &[
-        ("lava", Self::EASY),  // 16
-        ("crowded", Self::EASY),  // 18 (Filling up, v22)
-        ("cloud", Self::EASY),  // 24
-        ("tide", Self::EASY),  // 26
-        ("crosswind", Self::EASY),  // 31
-        ("crates", Self::EASY),  // 32
-        ("piston", Self::STEADY),  // 32
-        ("belt", Self::STEADY),  // 33
-        ("crawl", Self::STEADY),  // 34
-        ("hunter", Self::STEADY),  // 37
-        ("echo", Self::STEADY),  // 39
-        ("flip", Self::STEADY),  // 39
-        ("blink", Self::STEADY),  // 40
-        ("lockexit", Self::MIDDLE),  // 41
-        ("isles", Self::MIDDLE),  // 41
-        ("stalker", Self::MIDDLE),  // 42
-        ("bubbles", Self::MIDDLE),  // 45
-        ("narrow", Self::MIDDLE),  // 47
-        ("pegs", Self::HARD), // 50
-        ("buttons", Self::MIDDLE), // not measured yet (provisional)
-        ("rain", Self::HARD),  // 49
-        ("cave", Self::HARD), // 54
-        ("gates", Self::MIDDLE), // 45
-        ("midnight", Self::HARD),  // 52
-        ("sawring", Self::HARD),  // 54
-        ("squeeze", Self::HARD),  // 56
-        ("bramble", Self::HARDER),  // 56
-        ("swing", Self::HARDER),  // 57
-        ("stalac", Self::EASY), // 32
-        ("beams", Self::HARDER),  // 61
-        ("pinwheel", Self::HARDEST),  // 65
-        ("updraft", Self::HARDEST),  // 74
-        ("slowmo", Self::BONUS),  // 9
-        ("keepy", Self::BONUS),  // 10
-        ("orchard", Self::BONUS),  // 12
-        ("garden", Self::BONUS),  // 19
+        ("crosswind", Self::EASY), // 14
+        ("crowded", Self::EASY), // 15
+        ("lava", Self::EASY), // 19
+        ("tide", Self::EASY), // 23
+        ("belt", Self::EASY), // 25
+        ("stalac", Self::EASY), // 25 (alternating 40)
+        ("crates", Self::EASY), // 30
+        ("piston", Self::STEADY), // 36
+        ("lockexit", Self::STEADY), // 37
+        ("echo", Self::STEADY), // 39
+        ("cloud", Self::STEADY), // 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
+        ("stalker", Self::MIDDLE), // 41
+        ("blink", Self::MIDDLE), // 43
+        ("crawl", Self::MIDDLE), // 44
+        ("pegs", Self::MIDDLE), // 44
+        ("isles", Self::MIDDLE), // 45
+        ("gates", Self::MIDDLE), // 46 (single 53, classic 39)
+        ("flip", Self::MIDDLE), // 47
+        ("hunter", Self::MIDDLE), // 60 (human bots 78-90, analytic 33-37: one step until a playtest)
+        ("buttons", Self::MIDDLE), // not measurable yet (bots never press the buttons): design guess
+        ("bubbles", Self::HARD), // 50
+        ("midnight", Self::HARD), // 51
+        ("squeeze", Self::HARD), // 52
+        ("beams", Self::HARD), // 53
+        ("bramble", Self::HARD), // 54 (heavy 34 .. curious 77, still being fixed)
+        ("cave", Self::HARD), // 44 (fork 29, bats 58; fork still being reworked)
+        ("rain", Self::HARDER), // 57
+        ("swing", Self::HARDER), // 58
+        ("sawring", Self::HARDER), // 59
+        ("updraft", Self::HARDER), // 55 (gust 90, chimney 69; gust still being fixed)
+        ("narrow", Self::HARDEST), // 70
+        ("pinwheel", Self::HARDEST), // 70
+        ("slowmo", Self::BONUS), // 0
+        ("keepy", Self::BONUS), // 4
+        ("orchard", Self::BONUS), // 6
+        ("garden", Self::BONUS), // 14
         // Seasonal
-        ("hearts", Self::EASY),  // 20
-        ("crabs", Self::STEADY),  // 32
-        ("eggs", Self::MIDDLE),  // 42
-        ("cupid", Self::MIDDLE),  // 45
-        ("gifts", Self::HARD),  // 49
-        ("icicle", Self::HARD),  // 50
-        ("pumpkin", Self::HARD),  // 55
-        ("ghostdoors", Self::HARDER),  // 58
-        ("bats", Self::HARDER),  // 60
-        ("fireworks", Self::HARDEST),  // 70
-        ("bees", Self::HARDEST),  // 72
-        ("countdown", Self::BONUS),  // 10
-        ("beachball", Self::BONUS),  // 14
+        ("eggs", Self::MIDDLE), // 42
+        ("crabs", Self::MIDDLE), // 41
+        ("hearts", Self::MIDDLE), // 44
+        ("gifts", Self::MIDDLE), // 48
+        ("pumpkin", Self::HARD), // 56
+        ("cupid", Self::HARD), // 63 (human bots 54-97, analytic 43-51: one step until a playtest)
+        ("bats", Self::HARDER), // 58
+        ("ghostdoors", Self::HARDER), // 59
+        ("bees", Self::HARDER), // 62
+        ("icicle", Self::HARDEST), // 65
+        ("fireworks", Self::HARDEST), // 86
+        ("countdown", Self::BONUS), // 4
+        ("beachball", Self::BONUS), // 1
     ];
 
     pub fn apply(defs: &mut Vec<RoomDef>) {
