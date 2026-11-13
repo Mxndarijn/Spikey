@@ -12,11 +12,12 @@ signal rooms_pressed
 
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
-## The line sits on the ceiling's spike band, above SimConfig.KILL_TOP: the
-## bird never gets there, so it never covers a hazard, a button or the bird.
+## The line sits high on the ceiling's spike band, above SimConfig.KILL_TOP and the
+## Spike Rain tells under it: the bird never gets there, so it never covers a
+## hazard, a button or the bird.
 ## White in an ink halo, like the rest of the run's HUD.
-const CHIP_TOP := 6.0
-const CHIP_H := 22.0
+const CHIP_TOP := 3.0
+const CHIP_H := 17.0
 ## The chip stays clear of the corner buttons (Large buttons on, too).
 const CHIP_MAX := 224.0
 const NOTE := "Practice never counts for gold, best score, cleared rooms or leaderboards."
@@ -45,8 +46,8 @@ func _build_banner() -> void:
 	_banner.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_room_line.theme_type_variation = &"HudLabel"
-	_room_line.add_theme_font_size_override("font_size", 13)
-	_room_line.add_theme_constant_override("outline_size", 4)
+	_room_line.add_theme_font_size_override("font_size", 11)
+	_room_line.add_theme_constant_override("outline_size", 3)
 	_room_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_room_line.custom_minimum_size = Vector2(0, CHIP_H)
 	_room_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
