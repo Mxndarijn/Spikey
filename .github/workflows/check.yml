@@ -1,16 +1,24 @@
 name: Check
 
-# The Linux version of tools/check.ps1: lint + format, headless import, load every script
-# and scene, the full test suite (unit, sim purity, golden replays, bot runs), then the
-# FastSim-RS parity check (the Rust copy of sim/ in tools/fastsim-rs must match it tick for
-# tick) and the bot-heavy tests on FastSim-RS (`fastsim-rs check all`).
-# Runs on its own for pushes and pull requests, and is called by the phone builds
-# (build.yml): they build while this runs, and nothing is released, uploaded to TestFlight or
-# announced unless it passes. A build of a commit that already has a passed (or running) push
-# Check uses that one instead of running the tests again.
+# The Linux version of tools/check.ps1, split into jobs that run side by side on separate
+# runners (each has 4 cores):
+#   plan             picks the tier and what it runs (tools/ci/select_checks.ps1)
+#   godot            lint + format, headless import, load every script and scene, the Godot tests
+#   fastsim          builds FastSim-RS (the Rust copy of sim/) and runs the parity check (it must
+#                    match sim/ tick for tick); hands the binary to the next job
+#   fastsim_checks   the bot-heavy tests on FastSim-RS, in groups of about equal length
+# The run passes only when every job passes (or is skipped because the tier needs nothing).
+#
+# Tiers (docs/CI.md, "Local check"):
+#   * full: everything. Pushes to main, manual runs, and every run called by the phone builds
+#     (build.yml). Nothing is released, uploaded to TestFlight or announced unless a full run
+#     passed for that commit: build.yml reuses a full Check of the same commit (a push to main
+#     or a manual run) or calls this one.
+#   * unit: what the changed files need, judged against the merge-base with main, as
+#     tools/check.ps1 does locally. Pull requests and pushes to other branches.
 on:
   push:
-    branches: [main]
+    branches: ['**']
     # Docs alone change no test. A build of such a commit runs the check itself.
     paths-ignore:
       - 'docs/**'
@@ -19,22 +27,118 @@ on:
   workflow_dispatch:
   workflow_call:
 
-# A new push to a pull request cancels its older, now useless run. Every other run (pushes
-# to main, manual, called by the builds) gets a group of its own and is never cancelled.
+# A new push to a pull request or to a branch other than main cancels its older, now useless
+# run. Every other run (pushes to main, manual, called by the builds) gets a group of its own
+# and is never cancelled.
 concurrency:
-  group: check-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: >-
+    check-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number)
+    || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main') && github.ref
+    || github.run_id }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+    || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main') }}
 
 env:
   # Must match the editor used locally (tools/godot_path.txt). Change it in check.yml,
   # build.yml and verify-runs.yml together.
   GODOT_VERSION: 4.7.2-stable
+  # The Rust that builds FastSim-RS, pinned so the cargo cache stays valid until this changes
+  # (a moving "stable" made every cached build stale). Keep it equal to the local rustc
+  # (`rustc --version`) and bump both together.
+  RUST_TOOLCHAIN: 1.99.1
+  # The unit tier: pull requests and pushes to branches other than main. A tag push that
+  # calls this through build.yml is not a branch push, so it gets the full tier.
+  UNIT_TIER: >-
+    ${{ github.event_name == 'pull_request'
+    || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main') }}
 
 jobs:
-  check:
-    name: Lint and tests
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 5
+    outputs:
+      tier: ${{ steps.plan.outputs.tier }}
+      lint: ${{ steps.plan.outputs.lint }}
+      godot: ${{ steps.plan.outputs.godot }}
+      test_args: ${{ steps.plan.outputs.test_args }}
+      parity: ${{ steps.plan.outputs.parity }}
+      checks: ${{ steps.plan.outputs.checks }}
+      groups: ${{ steps.plan.outputs.groups }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The unit tier diffs against the merge-base with main.
+          fetch-depth: ${{ env.UNIT_TIER == 'true' && '0' || '1' }}
+
+      - name: Pick what runs
+        id: plan
+        shell: pwsh
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
+        run: |
+          # FastSim-RS checks in groups of about equal length on 4 cores (measured 2026-11-13,
+          # each check alone, --jobs 4: reach and sameseed about 40% each, exits 10%, yardstick 7%,
+          # bossfair 3%, passable 3%, the other twelve 1% together; docs/CI.md). One job per
+          # non-empty group. A check missing here runs in the last group.
+          $groups = [ordered]@{
+            reach = @("reach")
+            sameseed = @("sameseed")
+            rest = @("exits", "yardstick", "bossfair", "passable", "arrival", "revive", "points", "keys",
+                     "crawl", "gates", "isles", "rescued", "runs", "sight", "blind_seeds", "difficulty")
+          }
+          $all = @($groups.Values | ForEach-Object { $_ })
+          $sel = $null
+          if ($env:UNIT_TIER -eq "true") {
+            $sel = & ./tools/ci/select_checks.ps1 -Base $env:BASE
+            if ($null -eq $sel) { Write-Host "No merge-base with $($env:BASE): running everything." }
+          }
+          if ($null -eq $sel) {
+            $tier = "full"; $lint = $true; $godot = "all"; $testArgs = ""; $parity = $true; $checks = $all
+          } else {
+            $tier = "unit"
+            $sel.why | ForEach-Object { Write-Host "  $_" }
+            $lint = -not $sel.docs_only
+            $godot = $sel.godot
+            $testArgs = switch ($sel.godot) {
+              "only" { "--only " + ($sel.only -join ",") }
+              "all" { if ($sel.skip.Count) { "--skip " + ($sel.skip -join ",") } else { "" } }
+              default { "" }
+            }
+            $parity = [bool]$sel.parity
+            $checks = @($sel.checks)
+          }
+          # A check that is in no group goes to the last one, so nothing is left out.
+          $last = @($groups.Keys)[-1]
+          foreach ($c in $checks) { if ($all -notcontains $c) { $groups[$last] += $c } }
+          $matrix = @()
+          foreach ($k in $groups.Keys) {
+            $mine = @($groups[$k] | Where-Object { $checks -contains $_ })
+            if ($mine.Count) { $matrix += @{ name = $k; checks = ($mine -join ",") } }
+          }
+          $json = ConvertTo-Json -Compress -InputObject @($matrix)
+          Write-Host "Tier: $tier"
+          Write-Host "  lint: $lint; Godot tests: $godot $testArgs; parity: $parity"
+          Write-Host "  FastSim checks: $(if ($checks.Count) { $checks -join ',' } else { 'none' })"
+          Write-Host "  groups: $json"
+          @(
+            "tier=$tier"
+            "lint=$($lint.ToString().ToLower())"
+            "godot=$godot"
+            "test_args=$testArgs"
+            "parity=$($parity.ToString().ToLower())"
+            "checks=$($checks -join ',')"
+            "groups=$json"
+          ) | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+  godot:
+    name: Lint and Godot tests
+    needs: plan
+    if: needs.plan.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,11 +172,35 @@ jobs:
         run: godot --headless --path . -s res://tools/ci/load_all.gd
 
       - name: Tests
-        # Side by side, one headless Godot per core (tests/run_tests.gd).
-        run: godot --headless --path . -s res://tests/run_tests.gd -- --jobs "$(nproc)"
+        if: needs.plan.outputs.godot != 'none'
+        # Side by side, one headless Godot per core (tests/run_tests.gd). A healthy full run
+        # takes about 3 to 5 minutes; the limit stops a hung test long before the job's.
+        timeout-minutes: 15
+        env:
+          TEST_ARGS: ${{ needs.plan.outputs.test_args }}
+        run: |
+          # TEST_ARGS is "--only a,b", "--skip a,b" or empty (plan job).
+          # shellcheck disable=SC2086
+          godot --headless --path . -s res://tests/run_tests.gd -- --jobs "$(nproc)" $TEST_ARGS
+
+  fastsim:
+    name: FastSim-RS build and parity
+    needs: plan
+    if: needs.plan.outputs.parity == 'true' || needs.plan.outputs.checks != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        id: rust
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update
+          rustup default "$RUST_TOOLCHAIN"
+          rustc --version
+          # The cache key names the exact compiler (version and commit).
+          echo "rustc=$(rustc -vV | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -81,13 +209,15 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             tools/fastsim-rs/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-${{ hashFiles('tools/fastsim-rs/**/*.rs') }}
+          key: cargo-${{ runner.os }}-${{ steps.rust.outputs.rustc }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-${{ hashFiles('tools/fastsim-rs/**/*.rs') }}
           restore-keys: |
-            cargo-${{ runner.os }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.rustc }}-${{ hashFiles('tools/fastsim-rs/Cargo.lock', 'tools/fastsim-rs/**/Cargo.toml', 'tools/fastsim-rs/.cargo/config.toml') }}-
+            cargo-${{ runner.os }}-${{ steps.rust.outputs.rustc }}-
 
       - name: Build FastSim-RS
         # A portable target instead of .cargo/config.toml's target-cpu=native: the cached
-        # build must run on any runner. The sim is integers only, so results do not change.
+        # build and the binary handed to the check jobs must run on any runner. The sim is
+        # integers only, so results do not change.
         env:
           RUSTFLAGS: -C target-cpu=x86-64-v2
         shell: pwsh
@@ -95,15 +225,64 @@ jobs:
           ./tools/fastsim-rs/build.ps1 -NoSlot
           exit $LASTEXITCODE
 
+      - name: Hand the binary to the check jobs
+        if: needs.plan.outputs.checks != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastsim-rs
+          path: tools/fastsim-rs/target/release/fastsim-rs
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Set up Godot
+        if: needs.plan.outputs.parity == 'true'
+        uses: ./.github/actions/setup-godot
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Import
+        if: needs.plan.outputs.parity == 'true'
+        run: godot --headless --path . --import || godot --headless --path . --import
+
       - name: FastSim-RS parity
-        # tools/fastsim-rs (the Rust copy of sim/ the bots run on) must match sim/ tick for tick.
+        if: needs.plan.outputs.parity == 'true'
+        # tools/fastsim-rs must match sim/ tick for tick.
+        timeout-minutes: 15
         shell: pwsh
         run: |
           $env:GODOT = (Get-Command godot).Source
           ./tools/fastsim-rs/parity.ps1 -Quick -NoBuild -Jobs 4
           exit $LASTEXITCODE
 
+  fastsim_checks:
+    name: FastSim-RS checks (${{ matrix.group.name }})
+    needs: [plan, fastsim]
+    if: needs.plan.outputs.checks != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      # Every group reports, so one failure doesn't hide another.
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON(needs.plan.outputs.groups) }}
+    steps:
+      - name: Checkout repository
+        # The checks read the room data and test paths from the repository.
+        uses: actions/checkout@v4
+
+      - name: Get the FastSim-RS binary
+        uses: actions/download-artifact@v4
+        with:
+          name: fastsim-rs
+          path: tools/fastsim-rs/target/release
+
       - name: FastSim-RS checks
         # Every bot test (docs/FASTSIM_RS.md): passable variants, the portal reaction
         # benchmark, the points cap, revives, the room searches, exits, bosses, difficulty.
-        run: ./tools/fastsim-rs/target/release/fastsim-rs check all --jobs "$(nproc)"
+        # The longest group takes about 2 minutes on a runner; the limit stops a hung check.
+        timeout-minutes: 15
+        env:
+          CHECKS: ${{ matrix.group.checks }}
+        run: |
+          chmod +x tools/fastsim-rs/target/release/fastsim-rs
+          ./tools/fastsim-rs/target/release/fastsim-rs check "$CHECKS" --jobs "$(nproc)"

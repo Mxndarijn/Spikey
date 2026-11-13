@@ -68,8 +68,9 @@ env:
 jobs:
   # Pushes to main run Check (check.yml) on their own. When this commit already has a Check
   # run, the builds use its result instead of testing the same code again: a passed run counts,
-  # a running one is waited for. Only push and manual Check runs count; a pull request run
-  # tests a merge with the base branch, not this commit. No run found, a failed one, or an
+  # a running one is waited for. Only full-tier Check runs count: a push to main or a manual
+  # run. A pull request run tests a merge with the base branch, not this commit, and pull
+  # requests and pushes to other branches get the unit tier (check.yml), not every test. No run found, a failed one, or an
   # error here: the check job below runs the tests.
   # Skipped when nothing needs the tests: "skip_check", or only an iOS build without upload.
   check_reuse:
@@ -93,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           # "<passed runs> <unfinished runs> <url of a passed run>"
-          query='[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch")]
+          query='[.workflow_runs[] | select((.event == "push" and .head_branch == "main") or .event == "workflow_dispatch")]
             | [.[] | select(.conclusion == "success")] as $ok
             | "\($ok | length) \([.[] | select(.status != "completed")] | length) \($ok[0].html_url // "-")"'
           passed=false

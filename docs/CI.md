@@ -4,7 +4,7 @@ Two workflows in `.github/workflows/` test and build Flapjaw for phones.
 
 | Workflow | File | Runs when | Runner | Output |
 | --- | --- | --- | --- | --- |
-| Check | `check.yml` | push to `main` (not for docs-only pushes), pull requests, manual, and from Phone builds | Linux | pass / fail |
+| Check | `check.yml` | any push (not docs-only), pull requests, manual, and from Phone builds; full tier on `main`, manual and Phone builds, unit tier elsewhere | Linux, several jobs side by side | pass / fail |
 | Phone builds | `build.yml` | manual (`workflow_dispatch`, tick Android and/or iOS), tags `v*` (both) | Linux, macOS for the TestFlight job | APK (plus AAB on tags or when "Build AAB" is ticked), build in TestFlight, IPA artifact |
 
 Release flow: bump `config/version` in `project.godot`, commit, then
@@ -13,7 +13,9 @@ A test build: Actions tab, Phone builds, Run workflow (both platforms are ticked
 
 ## Local check: unit and integration tiers
 
-`tools/check.ps1` has two tiers. CI (`check.yml`) always runs everything.
+`tools/check.ps1` has two tiers, and so does CI (`check.yml`, see "What each workflow does"):
+the full tier on `main`, manual runs and Phone builds, the unit tier for pull requests and
+pushes to other branches.
 
 - **Unit** (the default): what the files you changed need, judged against the merge-base with
   `-Base` (default `next-features-2`), committed, uncommitted and untracked.
@@ -69,16 +71,52 @@ batch.
 
 ## What each workflow does
 
-**Check** is the Linux version of `tools/check.ps1`: gdlint and gdformat, headless import, load
-every script and scene (`tools/ci/load_all.gd`), then `tests/run_tests.gd`, one worker per
-core, then the FastSim parity check and the bot-heavy FastSim checks. Phone builds runs the
+**Check** is the Linux version of `tools/check.ps1`, split into jobs that run side by side, each
+on its own 4-core runner:
+
+| Job | What | Healthy time (full tier) |
+| --- | --- | --- |
+| `plan` | picks the tier and what it runs (`tools/ci/select_checks.ps1`, the same rules as the local unit tier) | ~15 s |
+| `godot` | gdlint and gdformat, headless import, load every script and scene (`tools/ci/load_all.gd`), `tests/run_tests.gd` one worker per core | about 4 min (Tests about 3 min) |
+| `fastsim` | builds FastSim-RS (cached), runs the parity check, hands the binary on | about 1.5 min with the cargo cache, 2.5 min without |
+| `fastsim_checks` | the bot-heavy FastSim-RS checks, one job per group (matrix) | about 2 min per group, after `fastsim` |
+
+The full tier (pushes to `main`, manual runs, every run Phone builds calls) runs everything. The
+unit tier (pull requests, pushes to other branches) runs what the files changed against the
+merge-base with `main` need, as `tools/check.ps1` does locally; the `plan` job's log says what
+it picked and why. The run passes only when every job passes or is skipped because the tier
+needs nothing.
+
+The FastSim checks are grouped by measured length (`plan` job, `$groups`): `reach`, `sameseed`, and the other sixteen together (`exits` the largest of them). Measured 2026-11-13, each check alone with `--jobs 4`: `reach` and `sameseed` about 40% of the time each, `exits` 10%, `yardstick` 7%, `bossfair` and `passable` 3% each, the other twelve 1% together. A check
+missing from the list runs in the last group; when a group grows much longer than the others,
+move a check. The Rust toolchain is pinned (`RUST_TOOLCHAIN` in `check.yml`, keep it equal to the
+local `rustc --version`) and the cargo cache key names the exact compiler, so a new Rust release
+no longer makes the cached build stale. The Tests, parity and checks steps stop after 15 minutes,
+so a hung test fails in minutes instead of holding the job for 40.
+
+Phone builds runs the
 tests once for both platforms, next to the builds, so the builds don't wait for them; the
 steps that ship (GitHub Release, Discord post, TestFlight) wait for them to pass. When the
 commit already has a Check run from its push to `main`, Phone builds uses that run instead of
 testing the same code again (job `check_reuse`): a passed run counts, a running one is waited
-for. Only push and manual Check runs count (a pull request run tests a merge with the base
-branch, not the commit). With no such run, or a failed one, Phone builds runs the tests itself.
-A newer push to a pull request cancels the older Check run of it.
+for. Only full-tier Check runs count: a push to `main` or a manual run (a pull request run tests
+a merge with the base branch, not the commit, and branch pushes get the unit tier). With no such
+run, or a failed one, Phone builds runs the full tier itself. A newer push to a pull request or
+to a branch other than `main` cancels its older Check run.
+
+To verify on the first push of this layout (it could not run on GitHub before):
+
+Expected: about 4 to 5 minutes for a full run (was 11.4 min for v22 with everything in one job),
+so a release (Phone builds) takes about 7 to 8 minutes.
+
+1. A push to `main`: the run shows Plan, Lint and Godot tests, FastSim-RS build and parity, and
+   one FastSim-RS checks job per group, all passing; the Plan log says `Tier: full`.
+2. The `fastsim` job: "Cache cargo" misses once (the key now names the compiler), saves, and the
+   next push restores it; "Build FastSim-RS" then takes seconds, not about 70 s.
+3. Phone builds on that commit: "Find the tests of this commit" reuses the run and its own Check
+   is skipped.
+4. A pull request or a push to another branch: `Tier: unit` with the reasons, and only the picked
+   tests and groups run.
 
 **Phone builds, Android** (jobs `android_*`)
 
