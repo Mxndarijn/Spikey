@@ -166,5 +166,13 @@ token and replace the secret. To turn the wake-up off, delete the secret.
 
 Table Editor -> `players` and `runs` (`status` and `reason` show what the
 checker decided). To remove a player and their runs, delete
-their row in `players`. To start the boards over, run `truncate public.runs;`
-in the SQL Editor.
+their row in `players`.
+
+To start the boards over, run `select public.spikey_reset_boards();` in the SQL
+Editor (version 23 did this once, `20261113120000_reset_boards.sql`). It deletes
+every run, so both boards are empty, but first settles finished days and writes
+earned milestones and streak diamonds, and keeps what other rules read from old
+runs: each player's best checked score and gold earned (`run_carry`, for the Earn
+screen and `gold_excess`) and the days they played (`played_days`, for streaks).
+Wallets, prizes and saves are not touched. Don't use `truncate public.runs`: it
+skips all of that, so streaks break and honest saves look like too much gold.
