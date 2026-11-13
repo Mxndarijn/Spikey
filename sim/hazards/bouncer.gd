@@ -26,6 +26,11 @@ const TWIN_RADIUS := 15 * SimConfig.SUB
 ## ball (the anchor's) and the free run stays there.
 const ESCORT_MARGIN := 4 * SimConfig.SUB
 const ESCORT_REACT := SimConfig.ARRIVAL_BLIND
+## adjust_wall: heights the ball crosses near the bird from ARRIVE_BEFORE steps
+## before it reaches the wall to ARRIVE_AFTER after (turning back) are not a
+## way through.
+const ARRIVE_BEFORE := 24
+const ARRIVE_AFTER := 6
 
 var radius := RADIUS
 var lane: int = Lane.ANY
@@ -146,6 +151,29 @@ func straight_path() -> bool:
 	return true
 
 
+## True if the ball's path doesn't depend on the bird, so adjust_wall can play
+## it forward (path_step on saved fields). The straight ones; Heavy and Rev-Up
+## too (falling, speeding up per bounce); never Curious (it steers to the bird).
+func predictable() -> bool:
+	return straight_path()
+
+
+## One step of the path, as step() moves the ball.
+func path_step(sim: GameSim) -> void:
+	move(sim)
+
+
+func path_save() -> Array[int]:
+	return [x, y, vx, vy]
+
+
+func path_restore(a: Array[int]) -> void:
+	x = a[0]
+	y = a[1]
+	vx = a[2]
+	vy = a[3]
+
+
 ## Plays the straight path forward on copies of the position (the walls as
 ## they stand now) and checks it against height `y`.
 func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
@@ -174,40 +202,45 @@ func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
 ## the anchor's side of it when the escort began within ESCORT_REACT steps.
 ## No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
-	if not straight_path():
+	if not predictable():
 		return mask
 	var at := sim.steps_to_wall(side)
 	var dir := 1 if side == 1 else -1
 	var near := radius + SimConfig.BIRD_RADIUS + ESCORT_MARGIN
-	var keep_x := x
-	var keep_y := y
-	var keep_vx := vx
-	var keep_vy := vy
+	var keep := path_save()
 	var start := -1
 	var start_y := 0
-	for k in range(1, at + 1):
-		move(sim)
-		if absi(x - (sim.state.x + dir * k * SimConfig.SPEED_X)) < near:
-			if start < 0:
-				start = k
-				start_y = y
-		else:
-			start = -1
-	var end_y := y
-	x = keep_x
-	y = keep_y
-	vx = keep_vx
-	vy = keep_vy
-	if start < 0:
-		return mask
-	var above := sim.state.anchor_y < start_y
+	var end_y := 0
 	var blocked := 0
-	for slot in SimConfig.SLOT_COUNT:
-		var sy := SimConfig.slot_center_y(slot)
-		if absi(sy - end_y) < near:
-			blocked |= 1 << slot
-		elif start <= ESCORT_REACT and (sy < end_y) != above:
-			blocked |= 1 << slot
+	for k in range(1, at + ARRIVE_AFTER + 1):
+		path_step(sim)
+		var steps := k if k <= at else 2 * at - k
+		var by := sim.state.x + dir * steps * SimConfig.SPEED_X
+		var close := absi(x - by) < near
+		if k <= at:
+			if close:
+				if start < 0:
+					start = k
+					start_y = y
+			else:
+				start = -1
+			end_y = y
+		# Near the wall the ball crosses heights the bird can't then pass at.
+		if close and k >= at - ARRIVE_BEFORE:
+			for slot in SimConfig.SLOT_COUNT:
+				if absi(SimConfig.slot_center_y(slot) - y) < near:
+					blocked |= 1 << slot
+	path_restore(keep)
+	if start >= 0:
+		var above := sim.state.anchor_y < start_y
+		for slot in SimConfig.SLOT_COUNT:
+			var sy := SimConfig.slot_center_y(slot)
+			if absi(sy - end_y) < near:
+				blocked |= 1 << slot
+			elif start <= ESCORT_REACT and (sy < end_y) != above:
+				blocked |= 1 << slot
+	if blocked == 0:
+		return mask
 	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
 	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
 	return RoomRules.keep_run(mask, need, safe)

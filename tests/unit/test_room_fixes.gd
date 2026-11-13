@@ -432,3 +432,47 @@ func test_crate_pairs_need_no_long_wait_out_of_a_portal() -> void:
 		if cd._fair_col(sim, c, warn):
 			var back: int = cd.entry_steps(sim, c, 400, warn)
 			assert_true(back > warn + cd.fall_steps(c), "column %d: back at %d" % [c, back])
+
+
+## Updraft drift: the band's clock puts it on the bird's way, so the wall
+## keeps a free run where the lifted bird gets (as for the other rising bands).
+func test_a_drifting_band_on_the_way_lifts_the_bird() -> void:
+	var sim := RoomsTest.sim_in_room("updraft", 3, Seasons.NONE, "drift")
+	var air := _hazard(sim, "updraft")
+	var crossed := 0
+	for k: int in range(0, 440, 11):
+		air.t = k
+		sim.state.x = SimConfig.BIRD_RADIUS
+		sim.state.vx = SimConfig.SPEED_X
+		# Flying across the whole room, the bird meets the band wherever it drifts.
+		if air._gust_on_way(sim, 1):
+			crossed += 1
+	assert_eq(crossed, 40, "a full crossing always meets the drifting band")
+
+
+## Heavy Bramble: the wall the bird flies to keeps a free run above the
+## highest the ball gets while the bird crosses (it can fly over the ball).
+func test_heavy_bramble_keeps_a_way_over_the_ball() -> void:
+	const Heavy := preload("res://sim/hazards/heavy_bouncer.gd")
+	for seed_value in range(1, 6):
+		var sim := RoomsTest.sim_in_room("bramble", seed_value, Seasons.NONE, "heavy")
+		var ball := _hazard(sim, "bouncer")
+		assert_true(ball is Heavy, "the heavy ball")
+		sim.state.x = SimConfig.BIRD_RADIUS
+		sim.state.vx = SimConfig.SPEED_X
+		var keep: Array[int] = ball.path_save()
+		var peak: int = ball.y
+		for k in sim.steps_to_wall(1):
+			ball.path_step(sim)
+			peak = mini(peak, ball.y)
+		ball.path_restore(keep)
+		var clear: int = peak - ball.radius - SimConfig.BIRD_RADIUS - Heavy.ESCORT_MARGIN
+		var ok := 0
+		for slot in SimConfig.SLOT_COUNT:
+			if SimConfig.slot_center_y(slot) < clear:
+				ok |= 1 << slot
+		var need := mini(sim.room.def.gap, RoomRules.longest_gap(ALL & ~ok))
+		# A wall open only low down, in the ball's band.
+		var out: int = ball.adjust_wall(sim, 1, ALL & ~(0b11111 << 8))
+		assert_true(_free_ok(out, ok) >= need, "seed %d" % seed_value)
+		assert_eq(ball.path_save(), keep, "the ball is put back")

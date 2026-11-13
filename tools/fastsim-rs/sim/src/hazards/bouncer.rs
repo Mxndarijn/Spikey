@@ -27,6 +27,8 @@ impl Bouncer {
     pub const TWIN_RADIUS: i64 = 15 * SimConfig::SUB;
     pub const ESCORT_MARGIN: i64 = 4 * SimConfig::SUB;
     pub const ESCORT_REACT: i64 = SimConfig::ARRIVAL_BLIND;
+    pub const ARRIVE_BEFORE: i64 = 24;
+    pub const ARRIVE_AFTER: i64 = 6;
 
     /// C# defaults: p_radius = RADIUS, p_lane = Lane.ANY.
     pub fn new(p_radius: i64, p_lane: i64) -> Bouncer {
@@ -115,6 +117,20 @@ impl Bouncer {
     /// is false, SplittingBouncer's true once split). Keeps a way past a ball that
     /// escorts the bird to the wall it flies to. No RNG draws.
     pub fn adjust_wall_straight(&mut self, sim: &GameSim, side: i64, mask: i64) -> i64 {
+        self.adjust_wall_path(sim, side, mask, &mut |b: &mut Bouncer, s: &GameSim| {
+            b.move_(s);
+        })
+    }
+
+    /// Bouncer.adjust_wall with the ball's own path step (path_step: Heavy and
+    /// Rev-Up step as they move; their extra fields live in the closure's copy).
+    pub fn adjust_wall_path(
+        &mut self,
+        sim: &GameSim,
+        side: i64,
+        mask: i64,
+        step: &mut dyn FnMut(&mut Bouncer, &GameSim),
+    ) -> i64 {
         let at = sim.steps_to_wall(side);
         let dir = if side == 1 { 1 } else { -1 };
         let near = self.radius + SimConfig::BIRD_RADIUS + Self::ESCORT_MARGIN;
@@ -124,34 +140,49 @@ impl Bouncer {
         let keep_vy = self.vy;
         let mut start = -1;
         let mut start_y = 0;
-        for k in 1..at + 1 {
-            self.move_(sim);
-            if G::absi(self.x - (sim.state.x + dir * k * SimConfig::SPEED_X)) < near {
-                if start < 0 {
-                    start = k;
-                    start_y = self.y;
+        let mut end_y = 0;
+        let mut blocked = 0;
+        for k in 1..at + Self::ARRIVE_AFTER + 1 {
+            step(self, sim);
+            let steps = if k <= at { k } else { 2 * at - k };
+            let by = sim.state.x + dir * steps * SimConfig::SPEED_X;
+            let close = G::absi(self.x - by) < near;
+            if k <= at {
+                if close {
+                    if start < 0 {
+                        start = k;
+                        start_y = self.y;
+                    }
+                } else {
+                    start = -1;
                 }
-            } else {
-                start = -1;
+                end_y = self.y;
+            }
+            if close && k >= at - Self::ARRIVE_BEFORE {
+                for slot in 0..SimConfig::SLOT_COUNT {
+                    if G::absi(SimConfig::slot_center_y(slot) - self.y) < near {
+                        blocked |= 1i64 << slot;
+                    }
+                }
             }
         }
-        let end_y = self.y;
         self.x = keep_x;
         self.y = keep_y;
         self.vx = keep_vx;
         self.vy = keep_vy;
-        if start < 0 {
-            return mask;
-        }
-        let above = sim.state.anchor_y < start_y;
-        let mut blocked = 0;
-        for slot in 0..SimConfig::SLOT_COUNT {
-            let sy = SimConfig::slot_center_y(slot);
-            if G::absi(sy - end_y) < near {
-                blocked |= 1i64 << slot;
-            } else if start <= Self::ESCORT_REACT && (sy < end_y) != above {
-                blocked |= 1i64 << slot;
+        if start >= 0 {
+            let above = sim.state.anchor_y < start_y;
+            for slot in 0..SimConfig::SLOT_COUNT {
+                let sy = SimConfig::slot_center_y(slot);
+                if G::absi(sy - end_y) < near {
+                    blocked |= 1i64 << slot;
+                } else if start <= Self::ESCORT_REACT && (sy < end_y) != above {
+                    blocked |= 1i64 << slot;
+                }
             }
+        }
+        if blocked == 0 {
+            return mask;
         }
         let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
         let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));

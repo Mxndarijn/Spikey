@@ -29,7 +29,7 @@ const GUST_OFF := 60
 const GUST_WARN := SimConfig.ARRIVAL_BLIND
 const GUST_ON := 90
 const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
-## A rising band (a gust, a chimney, a hover or soft lane; not a drifting one)
+## A rising band (a gust, a chimney, a hover or soft lane, drifting or not)
 ## lifts the bird as it crosses: a wall drawn while it will lift the bird on
 ## its way there keeps a free run (the room's gap, or as much
 ## of it as fits) from GUST_UP_REACH above to GUST_DOWN_REACH below the bottom
@@ -129,7 +129,7 @@ func touch(sim: GameSim) -> void:
 ## x by its speed, so every player of a seed gets the same wall. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var out := mask
-	if lift > 0 and drift_span == 0 and _gust_on_way(sim, side):
+	if lift > 0 and _gust_on_way(sim, side):
 		var low := last_low if last_low >= 0 else sim.state.anchor_y
 		var ok := 0
 		for slot in SimConfig.SLOT_COUNT:
@@ -154,7 +154,14 @@ func _gust_on_way(sim: GameSim, side: int) -> bool:
 	var dir := 1 if side == 1 else -1
 	for k in at + 1:
 		var bx := sim.state.x + dir * k * SimConfig.SPEED_X
-		if bx >= x0 and bx <= x1:
+		var lo := x0
+		var hi := x1
+		if drift_span > 0:
+			# A drifting band is where its clock puts it k steps from now.
+			var c := drift_min + SimTrig.ping_pong(t + k + phase, _drift_period(), drift_span)
+			lo = c - half_w
+			hi = c + half_w
+		if bx >= lo and bx <= hi:
 			if gust == Gust.NONE or posmod(t + k + phase, GUST_PERIOD) >= GUST_OFF + GUST_WARN:
 				return true
 	return false

@@ -31,5 +31,25 @@ func straight_path() -> bool:
 	return false
 
 
+## Its speed-ups don't depend on the bird: adjust_wall plays them forward.
+func predictable() -> bool:
+	return true
+
+
+func path_step(sim: GameSim) -> void:
+	step(sim)
+
+
+func path_save() -> Array[int]:
+	var a := super.path_save()
+	a.append(level)
+	return a
+
+
+func path_restore(a: Array[int]) -> void:
+	super.path_restore(a)
+	level = a[4]
+
+
 func checksum(h: int) -> int:
 	return mix_all(super.checksum(h), [level])

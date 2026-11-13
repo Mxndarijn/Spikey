@@ -42,5 +42,48 @@ func straight_path() -> bool:
 	return false
 
 
+## Its arcs don't depend on the bird: adjust_wall plays them forward.
+func predictable() -> bool:
+	return true
+
+
+## The escort rule (Bouncer), and a way over the ball: the wall the bird flies
+## to keeps a free run (the room's gap, or as much as fits) above the highest
+## the ball gets while the bird crosses, so the bird is never held down in the
+## ball's band. No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	var out := super.adjust_wall(sim, side, mask)
+	var at := sim.steps_to_wall(side)
+	var keep := path_save()
+	var peak := y
+	for k in at:
+		path_step(sim)
+		peak = mini(peak, y)
+	path_restore(keep)
+	var clear := peak - radius - SimConfig.BIRD_RADIUS - ESCORT_MARGIN
+	var ok := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if SimConfig.slot_center_y(slot) < clear:
+			ok |= 1 << slot
+	var all := (1 << SimConfig.SLOT_COUNT) - 1
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(all & ~ok))
+	return RoomRules.keep_run(out, need, ok)
+
+
+func path_step(sim: GameSim) -> void:
+	step(sim)
+
+
+func path_save() -> Array[int]:
+	var a := super.path_save()
+	a.append(bounces)
+	return a
+
+
+func path_restore(a: Array[int]) -> void:
+	super.path_restore(a)
+	bounces = a[4]
+
+
 func checksum(h: int) -> int:
 	return mix_all(super.checksum(h), [bounces])
