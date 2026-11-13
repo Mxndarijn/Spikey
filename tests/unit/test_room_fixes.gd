@@ -485,3 +485,39 @@ func test_heavy_bramble_keeps_a_way_over_the_ball() -> void:
 		var out: int = ball.adjust_wall(sim, 1, ALL & ~(0b11111 << 8))
 		assert_true(_free_ok(out, ok) >= need, "seed %d" % seed_value)
 		assert_eq(ball.path_save(), keep, "the ball is put back")
+
+
+## A ball flying the bird's way a little slower, sinking as it goes: the bird
+## overtakes it under it and slips past it just before the wall, too late to
+## climb. The wall keeps its free run below the ball, where the bird is.
+func test_bramble_keeps_the_run_on_the_birds_side_of_an_escort() -> void:
+	var sim := RoomsTest.sim_in_room("bramble", 3, Seasons.NONE, "classic")
+	var ball := _hazard(sim, "bouncer")
+	assert_true(ball.predictable(), "a plain ball flies straight")
+	var r := SimConfig.BIRD_RADIUS
+	sim.state.x = sim.room.wall_right() - r
+	sim.state.vx = -SimConfig.SPEED_X
+	sim.state.anchor_y = 320 * SUB
+	ball.x = sim.state.x - 32 * SUB
+	ball.y = 90 * SUB
+	ball.vx = -3 * SUB
+	ball.vy = 5 * SUB / 2
+	var at := sim.steps_to_wall(0)
+	var near: int = ball.radius + r + ball.ESCORT_MARGIN
+	# Where the ball is when the bird gets clear of it, short of the wall.
+	var keep: Array[int] = ball.path_save()
+	var end_y: int = ball.y
+	for k in range(1, at + 1):
+		ball.path_step(sim)
+		var bx := sim.room.wall_left() + r + (at - k) * SimConfig.SPEED_X
+		if absi(ball.x - bx) < near:
+			end_y = ball.y
+	ball.path_restore(keep)
+	var below := 0
+	for slot in SimConfig.SLOT_COUNT:
+		if SimConfig.slot_center_y(slot) > end_y + near:
+			below |= 1 << slot
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(ALL & ~below))
+	# A wall open only above the ball.
+	var out: int = ball.adjust_wall(sim, 0, ALL & ~(0b111111 << 1))
+	assert_true(_free_ok(out, below) >= need, "a way below the ball")

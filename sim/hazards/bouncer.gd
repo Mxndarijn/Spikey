@@ -199,8 +199,9 @@ func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
 ## Keeps a way past a ball that escorts the bird to the wall it flies to (its
 ## path is fixed, the bird's x too): a free run as wide as the room's gap (or
 ## the widest the ball leaves) clear of the ball as the bird gets there, and on
-## the anchor's side of it when the escort began within ESCORT_REACT steps.
-## No RNG draws.
+## the anchor's side of it when the escort began within ESCORT_REACT steps of
+## the bird's last bounce before that wall (the wall drawn at a bounce is met
+## after the far wall). No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if not predictable():
 		return mask
@@ -214,6 +215,7 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var start := -1
 	var start_y := 0
 	var end_y := 0
+	var last := -1
 	var blocked := 0
 	for k in range(1, at + ARRIVE_AFTER + 1):
 		path_step(sim)
@@ -224,13 +226,13 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 			back = 2 * span - back
 		var by := wall_x - dir * back
 		var close := absi(x - by) < near
-		if k <= at:
-			if close:
-				if start < 0:
-					start = k
-					start_y = y
-			else:
-				start = -1
+		# The last stretch the ball escorts the bird (start..last): when it ends
+		# this close to the wall, the bird is still on its side of the ball.
+		if k <= at and close:
+			if start < 0 or k > last + 1:
+				start = k
+				start_y = y
+			last = k
 			end_y = y
 		# Near the wall the ball crosses heights the bird can't then pass at.
 		if close and k >= at - ARRIVE_BEFORE:
@@ -238,13 +240,14 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 				if absi(SimConfig.slot_center_y(slot) - y) < near:
 					blocked |= 1 << slot
 	path_restore(keep)
-	if start >= 0:
+	if start >= 0 and at - last <= ARRIVE_BEFORE:
 		var above := sim.state.anchor_y < start_y
+		var leg := maxi(at - span / SimConfig.SPEED_X, 0)
 		for slot in SimConfig.SLOT_COUNT:
 			var sy := SimConfig.slot_center_y(slot)
 			if absi(sy - end_y) < near:
 				blocked |= 1 << slot
-			elif start <= ESCORT_REACT and (sy < end_y) != above:
+			elif start - leg <= ESCORT_REACT and (sy < end_y) != above:
 				blocked |= 1 << slot
 	if blocked == 0:
 		return mask

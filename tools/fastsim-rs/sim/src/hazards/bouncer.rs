@@ -144,6 +144,7 @@ impl Bouncer {
         let mut start = -1;
         let mut start_y = 0;
         let mut end_y = 0;
+        let mut last = -1;
         let mut blocked = 0;
         for k in 1..at + Self::ARRIVE_AFTER + 1 {
             step(self, sim);
@@ -155,15 +156,14 @@ impl Bouncer {
             }
             let by = wall_x - dir * back;
             let close = G::absi(self.x - by) < near;
-            if k <= at {
-                if close {
-                    if start < 0 {
-                        start = k;
-                        start_y = self.y;
-                    }
-                } else {
-                    start = -1;
+            // The last stretch the ball escorts the bird (start..last): when it ends
+            // this close to the wall, the bird is still on its side of the ball.
+            if k <= at && close {
+                if start < 0 || k > last + 1 {
+                    start = k;
+                    start_y = self.y;
                 }
+                last = k;
                 end_y = self.y;
             }
             if close && k >= at - Self::ARRIVE_BEFORE {
@@ -178,13 +178,14 @@ impl Bouncer {
         self.y = keep_y;
         self.vx = keep_vx;
         self.vy = keep_vy;
-        if start >= 0 {
+        if start >= 0 && at - last <= Self::ARRIVE_BEFORE {
             let above = sim.state.anchor_y < start_y;
+            let leg = G::maxi(at - span / SimConfig::SPEED_X, 0);
             for slot in 0..SimConfig::SLOT_COUNT {
                 let sy = SimConfig::slot_center_y(slot);
                 if G::absi(sy - end_y) < near {
                     blocked |= 1i64 << slot;
-                } else if start <= Self::ESCORT_REACT && (sy < end_y) != above {
+                } else if start - leg <= Self::ESCORT_REACT && (sy < end_y) != above {
                     blocked |= 1i64 << slot;
                 }
             }
