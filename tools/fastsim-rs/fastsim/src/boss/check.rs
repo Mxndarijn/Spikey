@@ -18,6 +18,24 @@ impl BossFair {
     /// Unfair tells allowed while their fix is in flight: (boss, tier, seed, tell kind, phase) -> owner.
     /// One entry per case, so any other unfair tell still fails. Remove an entry when its fix lands.
     pub const KNOWN: &'static [((&'static str, i64, i64, &'static str, i64), &'static str)] = &[
+        // The old plan's tap at step 50 lifts the bird past the left wall's gap (slots 8-11);
+        // the plan without it, or with one more early tap, gets through (tell at tick 1324).
+        (
+            ("boss_crusher", 1, 13, "jaw", 3),
+            "boss-rhythm: pre-tell tap into a wall dead end (fair line exists, seed 13 tick 1324)",
+        ),
+        // The tap at step 53 holds the bird at the right wall's spike (slot 6); one more tap
+        // at steps 3-18 gets through (tell at tick 743).
+        (
+            ("boss_watcher", 3, 1, "dart", 2),
+            "boss-rhythm: pre-tell tap into a wall dead end (fair line exists, seed 1 tick 743)",
+        ),
+        // The tap at step 51 keeps the bird high, into the king's landing; a plan with one more
+        // tap at step 6, or without the tap at 51, gets through for either landing (tick 1324).
+        (
+            ("boss_saw", 3, 11, "hop", 3),
+            "boss-rhythm: pre-tell tap into a wall dead end (fair line exists, seed 11 tick 1324)",
+        ),
     ];
 
     fn known(boss: &str, tier: i64, seed: i64, kind: &str, phase: i64) -> bool {
