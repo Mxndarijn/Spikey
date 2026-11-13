@@ -179,6 +179,7 @@ func test_captions_and_notes() -> void:
 	var alone := service.build_board(LeaderboardService.DAILY)
 	alone.players = 1
 	assert_eq(LeaderboardScreen.caption_right(alone), "1 player")
+	service.sign_in()
 	var friends := service.build_board(LeaderboardService.FRIENDS)
 	friends.players = 1
 	assert_eq(LeaderboardScreen.pinned_note(friends), "of 1 friend")
