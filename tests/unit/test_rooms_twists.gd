@@ -266,6 +266,7 @@ func test_rafts_float_up_then_carry_and_sink_the_lava() -> void:
 	var sim := _started("lava", 15)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.RAFTS
+	l.draw_plan(SimRng.new(9))
 	l.raft_points = sim.room.points
 	sim.room.points += Lava.RAFT_FROM
 	l.on_bounce(sim, SimRng.new(3))
@@ -297,6 +298,7 @@ func test_a_rising_raft_is_not_there_yet() -> void:
 	var sim := _started("lava", 16)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.RAFTS
+	l.draw_plan(SimRng.new(9))
 	l.rises = 3
 	l.line = l.line_at(3)
 	l.raft_on[0] = true
@@ -313,6 +315,7 @@ func test_two_rafts_from_high_up() -> void:
 	var sim := _started("lava", 17)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.RAFTS
+	l.draw_plan(SimRng.new(9))
 	l.raft_points = sim.room.points
 	sim.room.points += Lava.RAFT_TWO
 	l.on_bounce(sim, SimRng.new(1))

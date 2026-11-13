@@ -27,12 +27,15 @@ pub struct Lava {
     pub raft_dir: [i64; 2],
     pub raft_age: [i64; 2],
     pub raft_points: i64,
+    pub plan_x: Vec<i64>,
+    pub plan_dir: Vec<i64>,
 }
 
 impl Lava {
     pub const SUB: i64 = SimConfig::SUB;
     pub const STEP: i64 = 30 * Self::SUB;
-    pub const MAX_RISES: i64 = 7;
+    pub const MAX_RISES: i64 = 9;
+    pub const RAFT_MAX_RISES: i64 = (SimConfig::KILL_BOTTOM - SimConfig::KILL_TOP) / Self::STEP + 1;
     pub const SPEED: i64 = 80;
     pub const STONE_RADIUS: i64 = 14 * Self::SUB;
     pub const STONE_AFTER: i64 = 3;
@@ -54,6 +57,9 @@ impl Lava {
     pub const RAFT_RISE: i64 = 60;
     pub const RAFT_SINK: i64 = 2;
     pub const RAFT_VY: i64 = SimConfig::FLAP_VY * 6 / 5;
+    pub const RAFT_GAP: i64 = 12 * Self::SUB;
+    pub const RAFT_APART: i64 = 2 * Self::RAFT_HALF + Self::RAFT_GAP;
+    pub const RAFT_PLAN: i64 = 6;
 
     pub fn new() -> Lava {
         Lava {
@@ -73,6 +79,8 @@ impl Lava {
             raft_dir: [1, 1],
             raft_age: [0, 0],
             raft_points: 0,
+            plan_x: Vec::new(),
+            plan_dir: Vec::new(),
         }
     }
 
@@ -84,8 +92,28 @@ impl Lava {
         SimConfig::KILL_BOTTOM - n * Self::STEP
     }
 
+    pub fn draw_plan(&mut self, rng: &mut SimRng) {
+        self.plan_x.clear();
+        self.plan_dir.clear();
+        for _k in 0..Self::RAFT_PLAN {
+            self.plan_x.push(Self::RAFT_X_MIN + rng.next_below(Self::RAFT_X_MAX - Self::RAFT_X_MIN + 1));
+            self.plan_dir.push(if rng.next_below(2) == 0 { 1 } else { -1 });
+        }
+    }
+
+    pub fn max_rises(&self) -> i64 {
+        if self.mode == Mode::RAFTS {
+            Self::RAFT_MAX_RISES
+        } else {
+            Self::MAX_RISES
+        }
+    }
+
     pub fn rises_due(&self, sim: &GameSim) -> i64 {
-        G::mini(self.rises + sim.room.points - self.counted, Self::MAX_RISES)
+        if sim.state.exit_open {
+            return self.rises;
+        }
+        G::mini(self.rises + sim.room.points - self.counted, self.max_rises())
     }
 
     pub fn _raft_under(&self, sim: &GameSim) -> i64 {
@@ -165,7 +193,7 @@ impl Lava {
         cy >= lo && cy <= hi && G::absi(cy - sim.state.anchor_y) >= Self::ICE_AWAY
     }
 
-    pub fn _place_raft(&mut self, sim: &GameSim, rng: &mut SimRng) {
+    pub fn _place_raft(&mut self, sim: &GameSim) {
         if self.rises < Self::RAFT_FROM || sim.room.points - self.raft_points < Self::RAFT_EVERY {
             return;
         }
@@ -183,8 +211,21 @@ impl Lava {
             return;
         }
         let f = free as usize;
-        self.raft_x[f] = Self::RAFT_X_MIN + rng.next_below(Self::RAFT_X_MAX - Self::RAFT_X_MIN + 1);
-        self.raft_dir[f] = if rng.next_below(2) == 0 { 1 } else { -1 };
+        let k = ((sim.room.points / Self::RAFT_EVERY) % Self::RAFT_PLAN) as usize;
+        let mut x = self.plan_x[k];
+        let mut way = self.plan_dir[k];
+        let other = 1 - f;
+        if self.raft_on[other] && G::absi(x - self.raft_x[other]) < Self::RAFT_APART {
+            let o = self.raft_x[other];
+            let mut side = if x >= o { 1 } else { -1 };
+            if o + side * Self::RAFT_APART < Self::RAFT_X_MIN || o + side * Self::RAFT_APART > Self::RAFT_X_MAX {
+                side = -side;
+            }
+            x = o + side * Self::RAFT_APART;
+            way = side;
+        }
+        self.raft_x[f] = x;
+        self.raft_dir[f] = way;
         self.raft_age[f] = 0;
         self.raft_on[f] = true;
         self.raft_points = sim.room.points;
@@ -194,7 +235,7 @@ impl Lava {
 impl Hazard for Lava {
     impl_base!();
 
-    fn setup(&mut self, sim: &mut GameSim, _rng: &mut SimRng) {
+    fn setup(&mut self, sim: &mut GameSim, rng: &mut SimRng) {
         self.mode = match sim.room.variant_id() {
             "cold" => Mode::COLD,
             "rafts" => Mode::RAFTS,
@@ -203,6 +244,9 @@ impl Hazard for Lava {
         self.line = self.rest();
         self.counted = sim.room.points;
         self.raft_points = sim.room.points;
+        if self.mode == Mode::RAFTS {
+            self.draw_plan(rng);
+        }
     }
 
     fn step(&mut self, _sim: &mut GameSim) {
@@ -216,6 +260,13 @@ impl Hazard for Lava {
             if self.raft_x[i] <= Self::RAFT_X_MIN || self.raft_x[i] >= Self::RAFT_X_MAX {
                 self.raft_x[i] = G::clampi(self.raft_x[i], Self::RAFT_X_MIN, Self::RAFT_X_MAX);
                 self.raft_dir[i] = -self.raft_dir[i];
+            }
+        }
+        if self.raft_on[0] && self.raft_on[1] {
+            let d = self.raft_x[1] - self.raft_x[0];
+            if G::absi(d) <= Self::RAFT_APART && (self.raft_dir[1] - self.raft_dir[0]) * G::signi(d) < 0 {
+                self.raft_dir[0] = -self.raft_dir[0];
+                self.raft_dir[1] = -self.raft_dir[1];
             }
         }
     }
@@ -285,7 +336,13 @@ impl Hazard for Lava {
                 return mask;
             }
         }
-        if first_ok < 0 || last_ok - first_ok + 1 < Self::RUN {
+        if first_ok < 0 {
+            return mask;
+        }
+        if last_ok - first_ok + 1 < Self::RUN {
+            for slot in first_ok..(last_ok + 1) {
+                mask &= !(1i64 << slot);
+            }
             return mask;
         }
         let c0 = SimConfig::slot_center_y(0);
@@ -305,7 +362,7 @@ impl Hazard for Lava {
             return;
         }
         if self.mode == Mode::RAFTS {
-            self._place_raft(sim, rng);
+            self._place_raft(sim);
             return;
         }
         if self.stone_on || self.rises < Self::STONE_AFTER {
@@ -320,7 +377,7 @@ impl Hazard for Lava {
     }
 
     fn blocks_exit(&self, sim: &GameSim, _side: i64, y: i64) -> bool {
-        let worst = self.line_at(G::mini(self.rises_due(sim) + sim.points_to_exit(), Self::MAX_RISES));
+        let worst = self.line_at(G::mini(self.rises_due(sim) + sim.points_to_exit(), self.max_rises()));
         y > worst - Self::EXIT_CLEAR
     }
 

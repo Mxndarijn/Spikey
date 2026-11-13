@@ -1,16 +1,20 @@
 extends Hazard
 ## Lava Rise: a deadly line that creeps up from the floor by STEP for every
-## point scored in the room, up to MAX_RISES. The line glides at SPEED, so it
-## never jumps onto the bird. What pushes it back depends on the variant:
+## point scored in the room, up to MAX_RISES (rafts: no cap, it can fill the
+## room). Once the room's exit is open it rises no more, so the exit stays
+## clear. The line glides at SPEED, so it never jumps onto the bird. What
+## pushes it back depends on the variant:
 ## - lava: a cool stone shows up once it has risen STONE_AFTER times; touching
 ##   it sends the line back to rest.
 ## - cold (Cold Wall): instead of the stone, a block of ice sits in one wall
 ##   slot (that slot and its neighbours never get spikes). Bouncing off the wall
 ##   on the ice sends the line back to rest.
-## - rafts: no stone. Every RAFT_EVERY points a raft of cooled rock floats up
-##   (at most MAX_RAFTS, RAFT_RISE steps to come up) and drifts on the lava.
-##   Over a raft the lava is safe; touching it throws the bird up like a floor
-##   pad and sinks the line RAFT_SINK steps.
+## - rafts: no stone and no cap. Every RAFT_EVERY points a raft of cooled rock
+##   floats up (at most MAX_RAFTS, RAFT_RISE steps to come up) and drifts on
+##   the lava. Over a raft the lava is safe; touching it throws the bird up
+##   like a floor pad and sinks the line RAFT_SINK steps. Where each raft
+##   comes up is drawn at room start (RAFT_PLAN spots), and two rafts keep
+##   RAFT_GAP apart, when one comes up and as they drift.
 ##
 ## Fair: the wall ahead always keeps a free run clear of where the line will
 ## be (adjust_wall), and an exit never goes where the line could cover it
@@ -21,8 +25,10 @@ enum Mode { STONE, COLD, RAFTS }
 
 const SUB := SimConfig.SUB
 const STEP := 30 * SUB
-## 210 px: at least 360 px of room always stays open.
-const MAX_RISES := 7
+## 270 px: at least 300 px of room always stays open (lava, cold).
+const MAX_RISES := 9
+## Rafts: no cap. At this many rises the lava fills the room.
+const RAFT_MAX_RISES := (SimConfig.KILL_BOTTOM - SimConfig.KILL_TOP) / STEP + 1
 ## 1.25 px a step: one STEP in 24 steps.
 const SPEED := 80
 const STONE_RADIUS := 14 * SUB
@@ -58,6 +64,12 @@ const RAFT_RISE := 60
 const RAFT_SINK := 2
 ## A raft throws the bird up a little harder than a flap.
 const RAFT_VY := SimConfig.FLAP_VY * 6 / 5
+## Room between two rafts' edges, and so the least distance between centres.
+const RAFT_GAP := 12 * SUB
+const RAFT_APART := 2 * RAFT_HALF + RAFT_GAP
+## Spots drawn at room start: the raft due at room point p comes up at spot
+## (p / RAFT_EVERY) % RAFT_PLAN, drifting the drawn way.
+const RAFT_PLAN := 6
 
 var mode := Mode.STONE
 ## The line's height now (the lava's top).
@@ -80,13 +92,17 @@ var raft_dir: Array[int] = [1, 1]
 var raft_age: Array[int] = [0, 0]
 ## Room points when the last raft appeared.
 var raft_points := 0
+## The spots (centre x, way) drawn at room start.
+var plan_x: Array[int] = []
+var plan_dir: Array[int] = []
 
 
 func _init() -> void:
 	kind = "lava"
 
 
-func setup(sim: GameSim, _rng: SimRng) -> void:
+## Rafts draw their RAFT_PLAN spots here (two draws each), nothing later.
+func setup(sim: GameSim, rng: SimRng) -> void:
 	match sim.room.variant_id():
 		"cold":
 			mode = Mode.COLD
@@ -97,6 +113,17 @@ func setup(sim: GameSim, _rng: SimRng) -> void:
 	line = rest()
 	counted = sim.room.points
 	raft_points = sim.room.points
+	if mode == Mode.RAFTS:
+		draw_plan(rng)
+
+
+## The rafts' RAFT_PLAN spots: centre x, then way, two draws each.
+func draw_plan(rng: SimRng) -> void:
+	plan_x.clear()
+	plan_dir.clear()
+	for k in RAFT_PLAN:
+		plan_x.append(RAFT_X_MIN + rng.next_below(RAFT_X_MAX - RAFT_X_MIN + 1))
+		plan_dir.append(1 if rng.next_below(2) == 0 else -1)
 
 
 ## The line at rest (where the plain room's kill line is).
@@ -109,9 +136,17 @@ func line_at(n: int) -> int:
 	return SimConfig.KILL_BOTTOM - n * STEP
 
 
-## Rises once the points scored since the last count are in.
+## The most rises: MAX_RISES, or for rafts the lava filling the room.
+func max_rises() -> int:
+	return RAFT_MAX_RISES if mode == Mode.RAFTS else MAX_RISES
+
+
+## Rises once the points scored since the last count are in. Once the exit is
+## open no more come.
 func rises_due(sim: GameSim) -> int:
-	return mini(rises + sim.room.points - counted, MAX_RISES)
+	if sim.state.exit_open:
+		return rises
+	return mini(rises + sim.room.points - counted, max_rises())
 
 
 func step(_sim: GameSim) -> void:
@@ -124,6 +159,12 @@ func step(_sim: GameSim) -> void:
 		if raft_x[i] <= RAFT_X_MIN or raft_x[i] >= RAFT_X_MAX:
 			raft_x[i] = clampi(raft_x[i], RAFT_X_MIN, RAFT_X_MAX)
 			raft_dir[i] = -raft_dir[i]
+	# Two rafts drifting at each other turn back RAFT_APART apart.
+	if raft_on[0] and raft_on[1]:
+		var d := raft_x[1] - raft_x[0]
+		if absi(d) <= RAFT_APART and (raft_dir[1] - raft_dir[0]) * signi(d) < 0:
+			raft_dir[0] = -raft_dir[0]
+			raft_dir[1] = -raft_dir[1]
 
 
 func kills(sim: GameSim) -> bool:
@@ -190,7 +231,8 @@ func _slot_clear(slot: int, edge: int) -> bool:
 
 
 ## Keeps a free run of RUN slots clear of where the line is heading. If the
-## wall has none, the run nearest the bird is cleared. No RNG draws.
+## wall has none, the run nearest the bird is cleared, and if fewer than RUN
+## slots are clear of the line (rafts, lava high), all of those. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if ice_on and side == ice_side:
 		for slot in range(maxi(ice_slot - 1, 0), mini(ice_slot + 2, SimConfig.SLOT_COUNT)):
@@ -211,7 +253,11 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 		run = 0 if RoomRules.has_slot(mask, slot) else run + 1
 		if run >= RUN:
 			return mask
-	if first_ok < 0 or last_ok - first_ok + 1 < RUN:
+	if first_ok < 0:
+		return mask
+	if last_ok - first_ok + 1 < RUN:
+		for slot in range(first_ok, last_ok + 1):
+			mask &= ~(1 << slot)
 		return mask
 	var c0 := SimConfig.slot_center_y(0)
 	var near := (sim.state.anchor_y - c0 + SimConfig.SLOT_SIZE / 2) / SimConfig.SLOT_SIZE
@@ -222,8 +268,8 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 
 
 ## Counts the new points into the line's rise and puts out what sinks it:
-## a stone (two draws), ice (one draw) or a raft (two draws), only when one
-## appears.
+## a stone (two draws), ice (one draw) or a raft (no draws: its spot was drawn
+## at room start), only when one appears.
 func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	rises = rises_due(sim)
 	counted = sim.room.points
@@ -231,7 +277,7 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 		_place_ice(sim, rng)
 		return
 	if mode == Mode.RAFTS:
-		_place_raft(sim, rng)
+		_place_raft(sim)
 		return
 	if stone_on or rises < STONE_AFTER:
 		return
@@ -278,9 +324,11 @@ func _ice_fits(sim: GameSim, slot: int, lo: int, hi: int) -> bool:
 
 
 ## Floats a raft up every RAFT_EVERY points once the line has risen
-## RAFT_FROM times, while fewer than allowed are out. Two draws (x, way),
-## only when one appears.
-func _place_raft(sim: GameSim, rng: SimRng) -> void:
+## RAFT_FROM times, while fewer than allowed are out, at the room point's
+## planned spot. Next to a raft that is out it moves to RAFT_APART from it,
+## on the side the spot is on if there is room there, and drifts away from it.
+## No draws.
+func _place_raft(sim: GameSim) -> void:
 	if rises < RAFT_FROM or sim.room.points - raft_points < RAFT_EVERY:
 		return
 	var allowed := MAX_RAFTS if rises >= RAFT_TWO else 1
@@ -293,8 +341,19 @@ func _place_raft(sim: GameSim, rng: SimRng) -> void:
 			free = i
 	if out >= allowed or free < 0:
 		return
-	raft_x[free] = RAFT_X_MIN + rng.next_below(RAFT_X_MAX - RAFT_X_MIN + 1)
-	raft_dir[free] = 1 if rng.next_below(2) == 0 else -1
+	var k := (sim.room.points / RAFT_EVERY) % RAFT_PLAN
+	var x: int = plan_x[k]
+	var way: int = plan_dir[k]
+	var other := 1 - free
+	if raft_on[other] and absi(x - raft_x[other]) < RAFT_APART:
+		var o := raft_x[other]
+		var side := 1 if x >= o else -1
+		if o + side * RAFT_APART < RAFT_X_MIN or o + side * RAFT_APART > RAFT_X_MAX:
+			side = -side
+		x = o + side * RAFT_APART
+		way = side
+	raft_x[free] = x
+	raft_dir[free] = way
 	raft_age[free] = 0
 	raft_on[free] = true
 	raft_points = sim.room.points
@@ -303,7 +362,7 @@ func _place_raft(sim: GameSim, rng: SimRng) -> void:
 ## The exit opens one point after it is planned, so the line may rise once
 ## more before the bird gets there.
 func blocks_exit(sim: GameSim, _side: int, y: int) -> bool:
-	var worst := line_at(mini(rises_due(sim) + sim.points_to_exit(), MAX_RISES))
+	var worst := line_at(mini(rises_due(sim) + sim.points_to_exit(), max_rises()))
 	return y > worst - EXIT_CLEAR
 
 
