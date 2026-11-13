@@ -1,7 +1,8 @@
 class_name UiTheme
 extends RefCounted
 ## Builds the Godot Theme for the HUD and menus from the design kit's UI tokens,
-## in the minimal style: no outlines and no drop shadows anywhere. Text and
+## in the minimal style: no outlines and no drop shadows, except the run's HUD
+## (below). Text and
 ## numbers sit straight on the room in dark ink; cream paper cards only where
 ## there is a grid or a form; one main action per screen as a 100px round ink
 ## button. Archivo is the only font (GameFonts).
@@ -24,6 +25,8 @@ extends RefCounted
 ##                   use"), TabStrip (paper pill bar)
 ##   Label on the room: LogoLabel, TitleLabel, SkyLabel, SkyCaption, RoomScore,
 ##                      RoomBigScore, RoomStat, RoomMuted, RoomCoin
+##   The run's HUD, white in an ink halo in every world: HudScore, HudCoin,
+##     HudLabel; HudButton (a bare icon button whose HaloIcon draws the icon)
 ##   Label on the dimmed room: ScrimTitle, ScrimScore, ScrimLabel, ScrimCaption
 ##   Label on paper: NameLabel, SmallNameLabel, CaptionLabel, MutedLabel,
 ##                   CoinLabel, BigScoreLabel, InkLabel, StatusLabel, OnInkLabel
@@ -43,6 +46,19 @@ const DISABLED_FILL := UiTokens.EDGE
 ## A room is "dark" when ink reads worse on its sky than white does, or below
 ## this contrast on any sky stop (big text: 3:1).
 const ROOM_INK_MIN := 3.0
+## The run's HUD (score, coins, pause, hints, boss bar, countdown): white glyphs
+## in an ink-900 halo, the same in every world. Whatever is behind a glyph, one
+## of the two stands out from it: the fill from dark spikes and skies, the halo
+## from light ones. Only UI tokens, so no world changes it.
+const HUD_FILL := UiTokens.ON_SCRIM
+const HUD_HALO := UiTokens.INK_900
+## Halo widths, px (Godot outline sizes): the score and countdown, smaller
+## labels, and how far an icon's ring of ink copies reaches.
+const HALO_BIG := 10
+const HALO_SMALL := 6
+const HALO_ICON := 2.5
+## The soft drop under the score.
+const HUD_SHADOW := Color(UiTokens.INK_900, 0.35)
 
 static var _theme: Theme
 static var _light: Theme
@@ -171,6 +187,14 @@ static func _labels(t: Theme, room: Color) -> void:
 	_label(t, "RoomStat", GameFonts.display(), 26, room)
 	_label(t, "RoomMuted", GameFonts.ui(700), 13, room)
 	_label(t, "RoomCoin", GameFonts.ui(800), 18, room)
+	# The run's HUD: white in an ink halo, the same over every world.
+	_hud_label(t, "HudScore", GameFonts.display(), RUN_SCORE_SIZE, HALO_BIG)
+	t.set_color("font_shadow_color", "HudScore", HUD_SHADOW)
+	t.set_constant("shadow_offset_x", "HudScore", 0)
+	t.set_constant("shadow_offset_y", "HudScore", 3)
+	t.set_constant("shadow_outline_size", "HudScore", HALO_BIG)
+	_hud_label(t, "HudCoin", GameFonts.ui(800), 18, HALO_SMALL)
+	_hud_label(t, "HudLabel", GameFonts.ui(800), 18, HALO_SMALL)
 	# On the dimmed room: white.
 	_label(t, "ScrimTitle", GameFonts.display(), SCRIM_TITLE_SIZE, white)
 	_label(t, "ScrimScore", GameFonts.display(), 80, white)
@@ -195,6 +219,12 @@ static func _label(t: Theme, type_name: String, font: Font, size: int, color: Co
 	t.set_font_size("font_size", type_name, size)
 	t.set_color("font_color", type_name, color)
 	t.set_constant("outline_size", type_name, 0)
+
+
+static func _hud_label(t: Theme, type_name: String, font: Font, size: int, halo: int) -> void:
+	_label(t, type_name, font, size, HUD_FILL)
+	t.set_color("font_outline_color", type_name, HUD_HALO)
+	t.set_constant("outline_size", type_name, halo)
 
 
 static func _buttons(t: Theme, room: Color) -> void:
@@ -224,6 +254,14 @@ static func _buttons(t: Theme, room: Color) -> void:
 	# Bare buttons: no box at all, just the icon (and text) in ink or white.
 	_button(t, "RoundButton", clear, clear, room)
 	t.set_constant("icon_max_width", "RoundButton", UiTokens.SIZE_ICON_M)
+	# The HUD's bare icon button: its HaloIcon child draws the icon, so the
+	# button's own icon (kept for its size and name) is clear.
+	_button(t, "HudButton", clear, clear, HUD_FILL)
+	for state in [
+		"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"
+	]:
+		t.set_color(state, "HudButton", Color(HUD_FILL, 0.0))
+	t.set_color("icon_disabled_color", "HudButton", Color(HUD_FILL, 0.0))
 	_button(t, "PlainButton", clear, clear, room)
 	_fonts(t, "PlainButton", GameFonts.ui(800), 15)
 	# The same on paper cards: always ink, also on night rooms.

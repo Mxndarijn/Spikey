@@ -61,7 +61,7 @@ func _build_banner() -> void:
 
 
 func _build_exit() -> void:
-	_exit = UiKit.icon_button(CLOSE_ICON, "Stop watching")
+	_exit = UiKit.hud_icon_button(CLOSE_ICON, "Stop watching")
 	_exit.name = "ExitReplay"
 	_exit.add_theme_constant_override("icon_max_width", 24)
 	_place_exit(UiKit.ICON_BUTTON)
@@ -72,7 +72,7 @@ func _build_exit() -> void:
 func _place_exit(side: float) -> void:
 	_exit.custom_minimum_size = Vector2(side, side)
 	_exit.size = Vector2(side, side)
-	_exit.position = Vector2(10, 42)
+	_exit.position = Hud.CORNER
 
 
 ## Settings > Large buttons changed.

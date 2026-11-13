@@ -15,6 +15,8 @@ const COUNTER_Y := 128.0
 const SLOT_W := 34.0
 const COUNTER_H := 36.0
 const COUNTER_FONT := 16
+## The counter pill's ink rim, px.
+const RIM := 2.0
 ## A chain key pops in over this many seconds (sim steps / 60).
 const POP_STEPS := 18
 const MISSING := Color(0.137255, 0.101961, 0.200000, 0.28)
@@ -51,11 +53,15 @@ func _key(c: CanvasItem, p: Vector2, sc: float, fill: Color, edge: Color) -> voi
 
 
 ## A cream pill with one slot per key: grey while missing, gold once taken,
-## then the count. With every key the pill turns mint.
+## then the count. With every key the pill turns mint. An ink-900 rim (the
+## HUD's halo colour) keeps it apart from a light sky.
 func _counter(c: CanvasItem, h: ExitKeyHazard, cy: float) -> void:
 	var w := h.count * SLOT_W + 52.0
 	var rect := Rect2(RoomView.W / 2.0 - w / 2.0, cy - COUNTER_H / 2.0, w, COUNTER_H)
 	var fill := UiTokens.SUCCESS if h.done() else UiTokens.PANEL
+	UiTheme.flat(UiTheme.HUD_HALO, UiTokens.RADIUS_PILL, 0).draw(
+		c.get_canvas_item(), rect.grow(RIM)
+	)
 	UiTheme.flat(fill, UiTokens.RADIUS_PILL, 0).draw(c.get_canvas_item(), rect)
 	for i in h.count:
 		var p := Vector2(rect.position.x + 22.0 + i * SLOT_W, cy)

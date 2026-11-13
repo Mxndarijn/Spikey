@@ -98,6 +98,17 @@ static func icon_button(
 	return b
 
 
+## A bare icon button for the run's HUD (pause, back, restart, close): the
+## icon in the HUD halo (HaloIcon), white with an ink ring in every world.
+static func hud_icon_button(icon: Texture2D, tip: String) -> Button:
+	var b := icon_button(icon, tip, &"HudButton")
+	var halo := HaloIcon.new(icon)
+	halo.name = "Halo"
+	b.add_child(halo)
+	halo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return b
+
+
 ## The 100px round main action: its icon over its name (Play, Again, Resume,
 ## Practice, Try again). `light`: paper with ink, for the dimmed room.
 static func primary(icon: Texture2D, text: String, light: bool = false) -> Button:

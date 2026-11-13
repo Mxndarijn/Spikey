@@ -6,6 +6,9 @@ extends CanvasLayer
 ##              The first flap swaps it for the pause button.
 ##   Running:   a bare pause icon top left, the score big at the top, the run's
 ##              coins top right.
+## Everything on the running room is white in an ink halo (UiTheme.HUD_FILL,
+## HUD_HALO), the same in every world, and the corners keep clear of the wall
+## spikes' reach and the top exit's mouth (CORNER, COINS_RIGHT).
 ##   Paused:    PauseScreen (the score, sound circles, Resume, Home).
 ##   Crashed:   the revive offer (ReviveOffer) on the dimmed room, when the
 ##              run has its revive left: Revive (free, or for an ad) or Skip.
@@ -38,6 +41,14 @@ const TOAST_SECONDS := 1.2
 ## The run's coin counter (top right); lower in a replay, under its chip.
 const RUN_COINS_TOP := 54.0
 const REPLAY_COINS_TOP := 112.0
+## The corner buttons (pause, back; the replay's exit and practice's restart
+## mirror it): far enough in that the icon and its halo stay clear of the wall
+## spikes' reach (SimConfig.SPIKE_DEPTH) by CORNER_GAP px.
+const CORNER := Vector2(24, 42)
+## The coin counter's right edge, px in from the right wall: clear of the
+## spikes' reach and of the top exit, which opens on that wall.
+const COINS_RIGHT := 34.0
+const CORNER_GAP := 6.0
 const COIN_ICON := preload("res://assets/ui/coin.svg")
 const PAUSE_ICON := preload("res://assets/ui/icons/pause.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
@@ -88,7 +99,7 @@ var _toast: Label
 func _ready() -> void:
 	# Built here, not in the member list, so a screen freed before it is
 	# shown leaves nothing behind.
-	_run_coins = CoinPill.new()
+	_run_coins = CoinPill.new(CoinPill.COIN_ICON, "", true)
 	_practice = PracticeHud.new()
 	_replay = ReplayHud.new()
 	revive_offer = ReviveOffer.new()
@@ -120,7 +131,7 @@ func _ready() -> void:
 	_replay.changed.connect(_on_replay_changed)
 	_root.add_child(revive_offer)
 	revive_offer.shown.connect(_on_revive_offer_shown)
-	_toast.theme_type_variation = &"SkyLabel"
+	_toast.theme_type_variation = &"HudLabel"
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.anchor_right = 1.0
 	_toast.offset_top = 124
@@ -142,20 +153,20 @@ func _process(_delta: float) -> void:
 
 
 func _build_running() -> void:
-	_pause_button = UiKit.icon_button(PAUSE_ICON, "Pause")
+	_pause_button = UiKit.hud_icon_button(PAUSE_ICON, "Pause")
 	_pause_button.name = "Pause"
-	_pause_button.position = Vector2(10, 42)
+	_pause_button.position = CORNER
 	_pause_button.add_theme_constant_override("icon_max_width", 24)
 	_pause_button.pressed.connect(pause_pressed.emit)
 	_root.add_child(_pause_button)
 	# Same spot and size as pause, so the corner stays put after the first flap.
-	_back_button = UiKit.icon_button(BACK_ICON, "Home")
+	_back_button = UiKit.hud_icon_button(BACK_ICON, "Home")
 	_back_button.name = "Back"
 	_back_button.position = _pause_button.position
 	_back_button.add_theme_constant_override("icon_max_width", 24)
 	_back_button.pressed.connect(_on_back)
 	_root.add_child(_back_button)
-	_score.theme_type_variation = &"RoomScore"
+	_score.theme_type_variation = &"HudScore"
 	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_score.anchor_right = 1.0
 	_score.offset_top = 34
@@ -167,8 +178,8 @@ func _build_running() -> void:
 	# Pinned top right, growing leftward as the number gets longer.
 	_run_coins.anchor_left = 1.0
 	_run_coins.anchor_right = 1.0
-	_run_coins.offset_left = -18
-	_run_coins.offset_right = -18
+	_run_coins.offset_left = -COINS_RIGHT
+	_run_coins.offset_right = -COINS_RIGHT
 	_run_coins.offset_top = RUN_COINS_TOP
 	_run_coins.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_run_coins.set_amount(0)
@@ -189,16 +200,11 @@ func _build_hint() -> void:
 	_hint.anchor_right = 1.0
 	_hint.offset_top = 400
 	_hint.offset_bottom = 470
-	var icon := TextureRect.new()
-	icon.texture = TAP_ICON
-	icon.custom_minimum_size = Vector2(40, 40)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var icon := HaloIcon.new(TAP_ICON, 40.0)
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.name = "TapIcon"
 	_hint.add_child(icon)
-	_hint.add_child(UiKit.label("Tap to flap", &"SkyLabel"))
+	_hint.add_child(UiKit.label("Tap to flap", &"HudLabel"))
 	_root.add_child(_hint)
 
 
@@ -298,7 +304,8 @@ func run_coins_text() -> String:
 	return _run_coins.amount_text()
 
 
-## The world's theme: white room text on night rooms.
+## The world's theme: white room text on night rooms (the HUD's own Hud*
+## styles are the same in both).
 func set_room_theme(t: Theme) -> void:
 	if _root != null:
 		_root.theme = t

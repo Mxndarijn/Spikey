@@ -60,7 +60,7 @@ func _build_banner() -> void:
 
 
 func _build_restart() -> void:
-	_restart = UiKit.icon_button(RESTART_ICON, "Restart this room")
+	_restart = UiKit.hud_icon_button(RESTART_ICON, "Restart this room")
 	_restart.add_theme_constant_override("icon_max_width", 24)
 	_restart.anchor_left = 1.0
 	_restart.anchor_right = 1.0
@@ -71,8 +71,8 @@ func _build_restart() -> void:
 
 func _place_restart(side: float) -> void:
 	_restart.custom_minimum_size = Vector2(side, side)
-	_restart.offset_left = -10 - side
-	_restart.offset_right = -10
+	_restart.offset_left = -Hud.CORNER.x - side
+	_restart.offset_right = -Hud.CORNER.x
 	_restart.offset_top = 42
 	_restart.offset_bottom = 42 + side
 
