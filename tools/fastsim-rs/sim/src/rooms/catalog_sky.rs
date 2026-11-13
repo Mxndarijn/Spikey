@@ -51,10 +51,11 @@ impl CatalogSky {
 
         let mut rain = RoomDef::new("rain", "late", 70);
         rain.weight = 8;
+        // Hail's four drops come thick: each is marked a full second.
         let mut hail: Vec<Factory> = Vec::new();
         for d in [30i64, 55, 80, 105] {
             let dd = d;
-            hail.push(mk(move || Self::_rain(dd, 10 * SUB, 45, Drop::WARN, 6 * SUB, Style::PLAIN)));
+            hail.push(mk(move || Self::_rain(dd, 10 * SUB, 45, 60, 6 * SUB, Style::PLAIN)));
         }
         let mut sweep: Vec<Factory> = Vec::new();
         for i in 0..4i64 {

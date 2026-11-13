@@ -75,9 +75,11 @@ static func defs() -> Array[RoomDef]:
 	# and Stake (a floor spike grows where a heavy drop lands).
 	var rain := RoomDef.new("rain", "late", 70)
 	rain.weight = 8
+	# Hail's four drops come thick: each is marked a full second, so a bird
+	# committed to a climb by the wall sees the one that could fall on it.
 	var hail: Array[Callable] = []
 	for d in [30, 55, 80, 105]:
-		hail.append(_rain.bind(d, 10 * SUB, 45, Drop.WARN, 6 * SUB, Drop.Style.PLAIN))
+		hail.append(_rain.bind(d, 10 * SUB, 45, 60, 6 * SUB, Drop.Style.PLAIN))
 	var sweep: Array[Callable] = []
 	for i in 4:
 		sweep.append(_sweep.bind(30 + 12 * i, (45 + 90 * i) * SUB))

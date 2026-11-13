@@ -77,6 +77,8 @@ func test_hail_has_four_small_drops() -> void:
 	assert_eq(list.size(), 4)
 	for d in list:
 		assert_true(d.radius < Drop.RADIUS, "smaller")
+		# Four at once leave no room to react late: each is marked a second.
+		assert_true(d.warn >= SimConfig.ARRIVAL_BLIND, "marked a full second")
 
 
 ## Four fixed columns fall left to right, then right to left, and back.
