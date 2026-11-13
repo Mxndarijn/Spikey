@@ -20,7 +20,8 @@ use crate::yardstick::survival::{Obs, Set};
 
 /// Bots for `fastsim measure`: every yardstick bot, plus `blind` (the
 /// BlindPlanner as `rl review atlas` plays it) with knobs after a colon:
-/// `blind:fine=0,lines=4` sets the knobs `rl review atlas --fine 0 --lines 4` sets.
+/// `blind:fine=0,lines=4` sets the knobs `rl review atlas --fine 0 --lines 4` sets. Knobs may
+/// also be joined with `+` (`blind:fine=0+lines=4`), so a bot list `a,b` can hold such bots.
 pub struct MBots;
 
 impl MBots {
@@ -28,7 +29,7 @@ impl MBots {
         if name == "blind" || name.starts_with("blind:") {
             let mut knobs: Opts = HashMap::new();
             if name.len() > 6 {
-                for kv in name[6..].split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                for kv in name[6..].split([',', '+']).map(|s| s.trim()).filter(|s| !s.is_empty()) {
                     let p: Vec<&str> = kv.split('=').collect();
                     if p.len() != 2 {
                         return Err(format!("bad knob '{}' in '{}' (want key=value)", kv, name));
