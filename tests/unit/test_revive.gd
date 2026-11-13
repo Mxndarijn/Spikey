@@ -290,11 +290,12 @@ func test_a_revived_run_meets_the_same_map() -> void:
 			var r := _map(seed_value, 1, digit)
 			if not r.has("revived"):
 				continue
-			# A room whose exit opened at another tick was played another way
-			# (Bumper Cloud, wind): the rooms after it follow from that play.
+			# A room whose exit opened at another tick, or in one play only (the
+			# other died there), was played another way (Bumper Cloud, wind): the
+			# rooms after it follow from that play.
 			var last := 1 << 30
-			for k: String in a:
-				if k.begins_with("open ") and r.has(k) and r[k] != a[k]:
+			for k: String in a.keys() + r.keys():
+				if k.begins_with("open ") and a.get(k, -1) != r.get(k, -1):
 					last = mini(last, int(k.substr(5)))
 			for k: String in a:
 				if not r.has(k) or k == "revived" or k.begins_with("open "):

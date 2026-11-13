@@ -261,7 +261,9 @@ func test_pairs_drop_two_crates_at_once_in_different_columns() -> void:
 			if b < 0:
 				# No fair column for a second crate: this drop has one.
 				var one: int = cd.drops
-				while cd.drops == one:
+				for _i in 3000:
+					if cd.drops != one or cd.col == -1:
+						break
 					_fly(sim, 1)
 				continue
 			assert_true(b != a, "a second crate in another column")
@@ -273,9 +275,12 @@ func test_pairs_drop_two_crates_at_once_in_different_columns() -> void:
 			assert_true(cd.kills(sim), "crate b kills")
 			var ha: int = cd.heights[a]
 			var hb: int = cd.heights[b]
-			var drops: int = cd.drops
-			while cd.drops == drops:
-				sim.room.step(sim)
+			# Fly on while they land: a bird parked in a column could keep the next
+			# pick waiting (CrateDrop.WAIT) for ever.
+			for _i in 600:
+				if cd.heights[a] > ha and cd.heights[b] > hb:
+					break
+				_fly(sim, 1)
 			assert_eq(cd.heights[a], ha + 1, "crate a landed")
 			assert_eq(cd.heights[b], hb + 1, "crate b landed")
 			pairs += 1
