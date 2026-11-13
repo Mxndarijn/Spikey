@@ -174,6 +174,8 @@ pub struct BlindPlanner {
     /// Free tap timing that the buckets can hold: a line may tap again once it
     /// has left the speed bucket of a fresh tap (C# BlindPlanner.tap_free).
     pub tap_free: bool,
+    /// Ticks looked past the next bounce on the last two crossings before an exit (0 = `past` as always).
+    pub exit_past: i64,
     pub follows: i64,
     pub follow_fails: i64,
     _guess: i64,
@@ -252,6 +254,7 @@ impl BlindPlanner {
             mid_offset: 0,
             follow: 0,
             tap_free: false,
+            exit_past: 0,
             follows: 0,
             follow_fails: 0,
             _guess: 0,
@@ -410,7 +413,14 @@ impl BlindPlanner {
 
     fn look(&mut self, sim: &GameSim) {
         let heading = if sim.state.vx > 0 { 1 } else { 0 };
-        let want = self.horizon.min(sim.steps_to_wall(heading) + self.past);
+        // `exit_past`: a longer look on the last crossings before an exit (its spot is small
+        // and drawn late; the honest line often sets up two crossings before).
+        let (h, past) = if self.exit_past > 0 && !sim.state.exit_open && sim.points_to_exit() <= 2 {
+            (self.horizon.max(self.exit_past + 90), self.past.max(self.exit_past))
+        } else {
+            (self.horizon, self.past)
+        };
+        let want = h.min(sim.steps_to_wall(heading) + past);
         self.looks += 1;
         self.last_look = 0;
         let n = self.copies.max(1);
