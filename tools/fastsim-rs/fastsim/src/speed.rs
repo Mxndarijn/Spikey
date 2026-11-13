@@ -38,6 +38,7 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.tap_cost = l(opts, "tap", bot.tap_cost);
     bot.margin = l(opts, "margin", bot.margin);
     bot.margin_cost = l(opts, "margincost", bot.margin_cost);
+    bot.press_bonus = l(opts, "press", bot.press_bonus);
     bot.worst_fangs = l(opts, "fangs", bot.worst_fangs as i64) as i32;
     bot.no_pingpong = l(opts, "pingpong", 1) != 0;
     bot.keep_plan = l(opts, "keep", 1) != 0;

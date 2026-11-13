@@ -36,8 +36,8 @@ impl RoomPacing {
         ("gates", Self::MIDDLE), // 46 (single 53, classic 39)
         ("flip", Self::MIDDLE), // 47
         ("hunter", Self::MIDDLE), // 60 (human bots 78-90, analytic 33-37: one step until a playtest)
-        ("buttons", Self::MIDDLE), // not measurable yet (bots never press the buttons): design guess
         ("bubbles", Self::HARD), // 50
+        ("buttons", Self::HARD), // 50 (classic, slim, apart 50; measured on its own at 162437a, 72 entries)
         ("midnight", Self::HARD), // 51
         ("squeeze", Self::HARD), // 52
         ("beams", Self::HARD), // 53

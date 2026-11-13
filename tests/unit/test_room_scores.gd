@@ -49,9 +49,10 @@ func test_room_page_shows_the_score() -> void:
 
 
 func test_a_room_no_bot_can_measure_shows_a_dash() -> void:
-	if RoomScores.UNMEASURED.is_empty():
+	var ids: Array[String] = RoomScores.UNMEASURED
+	if ids.is_empty():
 		return
-	var id := RoomScores.UNMEASURED[0]
+	var id: String = ids[0]
 	DevMode.override = 1
 	var screen := RoomDetailScreen.new(Profile.new(), id)
 	(Engine.get_main_loop() as SceneTree).root.add_child(screen)

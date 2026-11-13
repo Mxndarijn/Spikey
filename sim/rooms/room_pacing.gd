@@ -59,8 +59,8 @@ const TIERS := {
 	"gates": MIDDLE,  # 46 (single 53, classic 39)
 	"flip": MIDDLE,  # 47
 	"hunter": MIDDLE,  # 60 (human bots 78-90, analytic 33-37: one step until a playtest)
-	"buttons": MIDDLE,  # not measurable yet (bots never press the buttons): design guess
 	"bubbles": HARD,  # 50
+	"buttons": HARD,  # 50 (classic, slim, apart 50; measured on its own at 162437a, 72 entries)
 	"midnight": HARD,  # 51
 	"squeeze": HARD,  # 52
 	"beams": HARD,  # 53

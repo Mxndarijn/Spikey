@@ -7,11 +7,13 @@ extends RefCounted
 ##
 ## Source: fastsim-rs difficulty, room-regroup run on next-features-2 at
 ## 62aca6f (2026-11-13, 24 entries per variant): SpikeCage-coord
-## research/room-difficulty/v23-regroup/report.json. Buttons has no number (no
-## bot presses buttons). Lava Rise and Locked Out changed after 62aca6f: their
-## numbers are from 62aca6f until a new run. Piston Press (generated) measured
-## on its own on next-features-2 at deca255 with the new human bots (72
-## entries): 41.
+## research/room-difficulty/v23-regroup/report.json. Lava Rise and Locked Out
+## changed after 62aca6f: their numbers are from 62aca6f until a new run.
+## Piston Press (generated) measured on its own on next-features-2 at deca255
+## with the new human bots (72 entries): 41. Buttons measured on its own on
+## next-features-2 at 162437a once the bots press buttons (72 entries per
+## variant, every bot tier; scored with the room-regroup rows): 50,
+## research/room-difficulty/buttons-press.
 
 const SCORES := {
 	"open": 24,
@@ -66,10 +68,11 @@ const SCORES := {
 	"boss_saw": 46,
 	"cave": 44,
 	"pegs": 44,
+	"buttons": 50,
 }
 
 ## Rooms no bot can measure (the page shows no number).
-const UNMEASURED: Array[String] = ["buttons"]
+const UNMEASURED: Array[String] = []
 
 
 ## The room's score, or -1 when it has none (not measured, or an id

@@ -87,6 +87,11 @@ pub struct BlindPlanner {
     /// has no cap, so a player keeps it low with the stone, the ice block or the rafts, all on
     /// screen. Lines that sink it win their bucket.
     pub lava_cost: i64,
+    /// Buttons (`ButtonPair`, both buttons and which one is lit are on screen): each tick the line
+    /// is also pulled to the height that presses the lit button instead of the middle, and each
+    /// press it makes takes `press_bonus` off its cost (px of `mid_cost` per tick), more than the
+    /// pull to the other button costs a line that pressed. 0 = buttons are only obstacles.
+    pub press_bonus: i64,
     /// Extra cost per tick while a bird `margin` px higher or lower would die (0 = not checked).
     pub margin: i64,
     pub margin_cost: i64,
@@ -190,6 +195,7 @@ impl BlindPlanner {
             mid_cost: 1,
             tap_cost: 0,
             lava_cost: 1500,
+            press_bonus: 100_000,
             margin: 16,
             margin_cost: 2000,
             spike_margin: true,
@@ -516,6 +522,19 @@ impl BlindPlanner {
         self._since = 0;
     }
 
+    /// Buttons: the height that presses the lit button (its face, from the room side) and the
+    /// presses made so far; None in a room without them. Both are on screen.
+    fn button_aim(s: &GameSim) -> Option<(i64, i64)> {
+        for h in &s.room.hazards {
+            if let Hz::ButtonPair(b) = h {
+                let r = SimConfig::BIRD_RADIUS;
+                let y = if b.lit_top { ButtonPair::face(true) + r } else { ButtonPair::face(false) - r };
+                return Some((y, b.presses));
+            }
+        }
+        None
+    }
+
     /// The steps Lava Rise has risen (its `rises`, shown by where the line glides to), 0 in a
     /// room without it.
     fn lava_rises(s: &GameSim) -> i64 {
@@ -840,6 +859,11 @@ impl BlindPlanner {
             mid += self.mid_offset * SimConfig::SUB;
         }
         let lava_room = self.lava_cost > 0 && root.room.hazards.iter().any(|h| matches!(h, Hz::Lava(_)));
+        // Buttons: aim at the lit one until the exit opens (then the exit is the aim). The exit's
+        // preview shows a press early: the last press is still to make.
+        let button_room = self.press_bonus > 0
+            && !root.state.exit_open
+            && root.room.hazards.iter().any(|h| matches!(h, Hz::ButtonPair(_)));
         let mut parents: Vec<i32> = Vec::new();
         let mut taps: Vec<u8> = Vec::new();
         let since0 = root.state.tick - self.last_press;
@@ -856,6 +880,7 @@ impl BlindPlanner {
                 let vx0 = e.sim.state.vx;
                 let room0 = e.sim.state.room_index;
                 let e_open = e.sim.state.exit_open;
+                let presses0 = if button_room { Self::button_aim(&e.sim).map_or(0, |b| b.1) } else { 0 };
                 let mut wait_sim = Some(e.sim);
                 let a_from: i64 = if can_tap { 1 } else { 0 };
                 for a in (0..=a_from).rev() {
@@ -893,6 +918,7 @@ impl BlindPlanner {
                         continue;
                     }
                     let q2 = sim::prof::enter(sim::prof::KEEP);
+                    let mut cost_bonus = 0;
                     let st = &s.state;
                     let along = st.vy * s.room.gravity - SimConfig::FLAP_VY;
                     let speed = G::clampi(along / bvy, 0, speeds - 1);
@@ -900,7 +926,15 @@ impl BlindPlanner {
                     if self.wide_key {
                         key = (key * 64 + st.x / (16 * SimConfig::SUB)) * 2 + if st.vx > 0 { 1 } else { 0 };
                     }
-                    let mut cost = e.cost + G::absi(st.y - mid) / SimConfig::SUB * self.mid_cost + a * self.tap_cost;
+                    let mut aim = mid;
+                    if button_room && st.room_index == room0 {
+                        if let Some((y, presses)) = Self::button_aim(&s) {
+                            aim = y;
+                            cost_bonus = (presses - presses0) * self.press_bonus;
+                        }
+                    }
+                    let mut cost = e.cost + G::absi(st.y - aim) / SimConfig::SUB * self.mid_cost + a * self.tap_cost
+                        - cost_bonus;
                     if lava_room {
                         cost += Self::lava_rises(&s) * self.lava_cost;
                     }

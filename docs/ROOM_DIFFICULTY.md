@@ -34,6 +34,9 @@ room: when the boss is down), dies, or runs past the room's cap (`Passable.CASES
 
 Each human-like tier (beginner, normal, good, expert, beast: `MotorPlayer` on BlindPlanner,
 docs/HUMAN_BOT.md) and the honest BlindPlanner play every entry. A clear is a room left alive.
+In Buttons the planner aims for the lit button (both buttons and the light are on screen): its
+lines are pulled to the height that presses it, and each press takes `press_bonus` off a line's
+cost, until the exit opens.
 
 An item-response (Rasch) fit over all clears gives every bot a skill and every room a
 difficulty `b`: P(clear) = 1 / (1 + e^-(skill - b)). The skill a room needs for 90% clears is
@@ -118,10 +121,10 @@ rerun of a few rooms goes after the full run; rooms and variants no longer in th
 left out):
 
 ```
-godot --headless --path . -s res://tools/make_room_scores.gd -- full/report.json rerun/report.json --none buttons --stale lava,piston --source "next-features-2 at <commit>, <date>"
+godot --headless --path . -s res://tools/make_room_scores.gd -- full/report.json rerun/report.json --stale lava,piston --source "next-features-2 at <commit>, <date>"
 ```
 
-`--none` lists rooms no bot can measure (Buttons: no bot presses buttons); the page shows "—".
+`--none` lists rooms no bot can measure (none today); the page shows "—".
 `--stale` marks rooms changed since the run with a comment on their entry. `--set id=score`
 gives a number by hand. `tests/unit/test_room_scores.gd` fails while a room in the catalog has
 neither a score nor a `--none` entry.
