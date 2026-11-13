@@ -162,6 +162,62 @@ func test_beside_a_button_the_edge_still_kills() -> void:
 	assert_false(sim.state.alive, "the ceiling kills beside the button")
 
 
+func test_the_spikes_stay_behind_a_hanging_button() -> void:
+	for top: bool in [true, false]:
+		var sim := sim_in("buttons", "classic")
+		var b: ButtonPair = sim.room.hazards[0]
+		sim.state.x = (b.x0(top) + b.x1(top)) / 2
+		if top:
+			sim.state.y = SimConfig.KILL_TOP + R - SUB
+		else:
+			sim.state.y = SimConfig.KILL_BOTTOM - R + SUB
+		sim._check_ceiling_floor()
+		assert_false(sim.state.alive, "the edge kills behind the button (top %s)" % top)
+
+
+func test_the_faces_hang_a_hop_inside_the_kill_lines() -> void:
+	assert_eq(ButtonPair.TOP_FACE - SimConfig.KILL_TOP, ButtonPair.GAP)
+	assert_eq(SimConfig.KILL_BOTTOM - ButtonPair.BOTTOM_FACE, ButtonPair.GAP)
+	# A bird that taps as its top meets the top face, and misses, stops short
+	# of the ceiling's kill line (one flap, the way GameSim._move steps).
+	var y := ButtonPair.TOP_FACE + R
+	var vy := SimConfig.FLAP_VY
+	var top_y := y
+	while vy < 0:
+		vy += SimConfig.GRAVITY
+		y += vy
+		top_y = mini(top_y, y)
+	assert_true(top_y - R > SimConfig.KILL_TOP, "one hop stays under the ceiling")
+	assert_true(top_y - R < SimConfig.KILL_TOP + 8 * SUB, "but the button hangs close to it")
+
+
+func test_touching_a_button_from_the_side_is_no_press() -> void:
+	var sim := sim_in("buttons", "classic")
+	var b: ButtonPair = sim.room.hazards[0]
+	var score := sim.state.score
+	sim.state.x = b.x0(true)
+	sim.state.y = ButtonPair.TOP_FACE - 4 * SUB
+	sim.state.vy = SimConfig.FLAP_VY
+	sim._check_hazards()
+	assert_eq(sim.state.score, score, "no point")
+	assert_true(b.lit_top, "the top one stays lit")
+	assert_true(sim.state.y > ButtonPair.TOP_FACE + R, "put back under the button")
+	assert_true(sim.state.vy > 0, "and pushed down")
+
+
+func test_a_press_never_sends_the_bird_at_an_edge() -> void:
+	var sim := sim_in("buttons", "classic")
+	var b: ButtonPair = sim.room.hazards[0]
+	_press(sim, b, true)
+	assert_true(sim.state.vy > 0, "the top one pushes down")
+	_press(sim, b, false)
+	assert_true(sim.state.vy < 0, "the bottom one throws up")
+	for i in 30:
+		sim._move()
+		sim._check_ceiling_floor()
+	assert_true(sim.state.alive, "and the throw stays under the ceiling")
+
+
 func test_presses_wait_for_the_exit_once_it_is_due() -> void:
 	var sim := sim_in("buttons", "classic")
 	var b: ButtonPair = sim.room.hazards[0]
@@ -195,7 +251,8 @@ func test_buttons_sit_on_the_grid_and_come_from_the_seed() -> void:
 			var again: ButtonPair = sim_in("buttons", v, seed_value).room.hazards[0]
 			assert_eq(again.top_x0, b.top_x0, "%s: same seed, same top" % v)
 			assert_eq(again.bottom_x0, b.bottom_x0, "%s: same seed, same bottom" % v)
-		assert_true(spots.size() > 20, "%s: many spots (%d)" % [v, spots.size()])
+		var many := 10 if v == "apart" else 20
+		assert_true(spots.size() > many, "%s: many spots (%d)" % [v, spots.size()])
 
 
 func test_apart_puts_the_buttons_in_opposite_halves() -> void:
@@ -227,9 +284,9 @@ func _press(sim: GameSim, b: ButtonPair, top: bool) -> void:
 	sim.state.alive = true
 	sim.state.x = (b.x0(top) + b.x1(top)) / 2
 	if top:
-		sim.state.y = SimConfig.KILL_TOP + R - SUB
+		sim.state.y = ButtonPair.TOP_FACE + R - SUB
 		sim.state.vy = SimConfig.FLAP_VY
 	else:
-		sim.state.y = SimConfig.KILL_BOTTOM - R + SUB
+		sim.state.y = ButtonPair.BOTTOM_FACE - R + SUB
 		sim.state.vy = SimConfig.MAX_FALL_VY
-	sim._check_ceiling_floor()
+	sim._check_hazards()

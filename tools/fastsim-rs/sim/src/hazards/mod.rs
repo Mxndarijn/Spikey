@@ -293,6 +293,7 @@ impl Hz {
             self,
             Hz::Bubble(_)
                 | Hz::Bumper(_)
+                | Hz::ButtonPair(_)
                 | Hz::CoinPickup(_)
                 | Hz::CrateDrop(_)
                 | Hz::ExitKey(_)

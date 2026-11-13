@@ -1,18 +1,23 @@
 extends Hazard
-## Buttons: one button in the ceiling, one in the floor. Press the lit one
-## (the top first), then the other, in turn: only a press of the lit button
-## scores, wall bounces score nothing here (RoomDef.bounce_points). Ten
-## presses open the exit, at the next wall bounce as in every room.
+## Buttons: two hanging buttons. The top one hangs from the ceiling on a rod
+## and is pressed from below, the bottom one stands on a post from the floor
+## and is pressed by landing on it. Press the lit one (the top first), then
+## the other, in turn: only a press of the lit button scores, wall bounces
+## score nothing here (RoomDef.bounce_points). Ten presses open the exit, at
+## the next wall bounce as in every room.
 ##
-## A button is the edge where it sits (guards_edge): there the ceiling or
-## floor is safe and bounces the bird, the rest of the edge still kills, so a
-## press never kills. Pressing the button that isn't lit is the same bounce
-## and scores nothing.
+## A button's face sits GAP inside the kill line (the ceiling and floor keep
+## their spikes, also behind a button). GAP is one hop plus a little: a bird
+## that taps just under the top face and misses the button stops below the
+## ceiling spikes. A press never sends the bird at an edge: the top one pushes
+## it down, the bottom one throws it up. The bird touching a button from the
+## side (between the button and the edge) is put back on the room side of the
+## face, and that is no press. The rods are only looks.
 ##
-## Where each button sits on its line is drawn from the room's RNG at room
-## start (top first, then bottom), on an 8 px grid, and never changes in the
-## room. Variants (the room's variant id):
-##   classic: WIDE buttons anywhere on their lines.
+## Where each button sits across the cage is drawn from the room's RNG at
+## room start (top first, then bottom), on an 8 px grid, at least MARGIN from
+## the walls, and never changes in the room. Variants (the room's variant id):
+##   classic: WIDE buttons.
 ##   slim:    SLIM buttons.
 ##   apart:   SLIM buttons, the bottom one in the other half of the room,
 ##            centres at least APART_MIN apart, so you cross over too.
@@ -21,9 +26,19 @@ const SUB := SimConfig.SUB
 const WIDE := 120 * SUB
 const SLIM := 96 * SUB
 const GRID := 8 * SUB
-## A button's left end is never nearer a wall than this.
-const MARGIN := 32 * SUB
-const APART_MIN := 140 * SUB
+## A button's ends are never nearer a wall than this: past the wall spike
+## tips (SPIKE_DEPTH) by more than a bird's width.
+const MARGIN := 64 * SUB
+const APART_MIN := 96 * SUB
+## From the kill line to a button's face: one flap's hop plus a margin. A
+## flap rises 59 px in steps (sum of FLAP_VY + k GRAVITY while going up), so
+## a bird that taps as its top meets the face height and misses the button
+## stops 5 px short of the ceiling's kill line. The same on the floor side.
+const GAP := 64 * SUB
+## How deep a button is, face to back (the cap and its base).
+const BODY := 26 * SUB
+const TOP_FACE := SimConfig.KILL_TOP + GAP
+const BOTTOM_FACE := SimConfig.KILL_BOTTOM - GAP
 ## The bird counts as on a button if its centre is this close past an end.
 const GRACE := SimConfig.BIRD_RADIUS / 2
 ## Speeds the bird leaves the buttons with: the top one pushes down gently,
@@ -114,24 +129,41 @@ func covers(top: bool, x: int) -> bool:
 	return x >= x0(top) - GRACE and x <= x1(top) + GRACE
 
 
-func guards_edge(sim: GameSim, p_top: bool) -> bool:
-	if not covers(p_top, sim.state.x):
-		return false
+## The y of button `top`'s face, the side the bird presses.
+static func face(top: bool) -> int:
+	return TOP_FACE if top else BOTTOM_FACE
+
+
+func touch(sim: GameSim) -> void:
+	for top: bool in [true, false]:
+		_touch(sim, top)
+
+
+func _touch(sim: GameSim, top: bool) -> void:
+	if not covers(top, sim.state.x):
+		return
 	var r := SimConfig.BIRD_RADIUS
-	if p_top:
-		sim.state.y = maxi(sim.state.y, SimConfig.KILL_TOP + r + 1)
+	var y := sim.state.y
+	var f := face(top)
+	if top and (y - r > f or y + r < f - BODY):
+		return
+	if not top and (y + r < f or y - r > f + BODY):
+		return
+	# On the room side of the face: a press. Else it came in from the side.
+	var pressed := y > f if top else y < f
+	if top:
+		sim.state.y = f + r + 1
 		sim.state.vy = TOP_VY
 	else:
-		sim.state.y = mini(sim.state.y, SimConfig.KILL_BOTTOM - r - 1)
+		sim.state.y = f - r - 1
 		sim.state.vy = BOTTOM_VY
-	last_top = p_top
-	if p_top == lit_top and sim._score_press():
+	last_top = top
+	if pressed and top == lit_top and sim._score_press():
 		lit_top = not lit_top
 		presses += 1
 		since_press = 0
 	else:
 		since_wrong = 0
-	return true
 
 
 func checksum(h: int) -> int:

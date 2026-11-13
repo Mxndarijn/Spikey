@@ -70,6 +70,7 @@ Bumper.y	game/run/painters/bumper_painter.gd
 ButtonPair.alive	game/run/painters/button_pair_painter.gd
 ButtonPair.last_top	game/run/painters/button_pair_painter.gd
 ButtonPair.lit_top	game/run/painters/button_pair_painter.gd
+ButtonPair.presses	game/run/painters/button_pair_painter.gd
 ButtonPair.since_press	game/run/painters/button_pair_painter.gd
 ButtonPair.since_wrong	game/run/painters/button_pair_painter.gd
 CaveDrip.alive	game/run/painters/cave_drip_painter.gd

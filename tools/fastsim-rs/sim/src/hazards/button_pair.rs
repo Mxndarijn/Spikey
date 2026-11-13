@@ -1,9 +1,5 @@
-//! Port of sim/hazards/button_pair.gd: Buttons, a button in the ceiling and one in the floor,
-//! pressed in turn.
-//!
-//! GDScript `guards_edge` is not read-only: when it guards, it pushes the bird and may score a
-//! press. That full version is `guards_edge_mut` (GameSim._edge_guarded runs it through
-//! `with_hazard`). The trait's read-only `guards_edge` gives the same answer.
+//! Port of sim/hazards/button_pair.gd: Buttons, two hanging buttons (one on a rod from the
+//! ceiling, one on a post from the floor), pressed in turn.
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -24,8 +20,12 @@ impl ButtonPair {
     pub const WIDE: i64 = 120 * Self::SUB;
     pub const SLIM: i64 = 96 * Self::SUB;
     pub const GRID: i64 = 8 * Self::SUB;
-    pub const MARGIN: i64 = 32 * Self::SUB;
-    pub const APART_MIN: i64 = 140 * Self::SUB;
+    pub const MARGIN: i64 = 64 * Self::SUB;
+    pub const APART_MIN: i64 = 96 * Self::SUB;
+    pub const GAP: i64 = 64 * Self::SUB;
+    pub const BODY: i64 = 26 * Self::SUB;
+    pub const TOP_FACE: i64 = SimConfig::KILL_TOP + Self::GAP;
+    pub const BOTTOM_FACE: i64 = SimConfig::KILL_BOTTOM - Self::GAP;
     pub const GRACE: i64 = SimConfig::BIRD_RADIUS / 2;
     pub const TOP_VY: i64 = -SimConfig::FLAP_VY * 3 / 5;
     pub const BOTTOM_VY: i64 = SimConfig::FLAP_VY * 6 / 5;
@@ -71,28 +71,43 @@ impl ButtonPair {
         x >= self.x0(top) - Self::GRACE && x <= self.x1(top) + Self::GRACE
     }
 
-    /// GDScript ButtonPair.guards_edge with its side effects (see the top comment).
-    pub fn guards_edge_mut(&mut self, sim: &mut GameSim, p_top: bool) -> bool {
-        if !self.covers(p_top, sim.state.x) {
-            return false;
+    pub fn face(top: bool) -> i64 {
+        if top {
+            Self::TOP_FACE
+        } else {
+            Self::BOTTOM_FACE
+        }
+    }
+
+    fn _touch(&mut self, sim: &mut GameSim, top: bool) {
+        if !self.covers(top, sim.state.x) {
+            return;
         }
         let r = SimConfig::BIRD_RADIUS;
-        if p_top {
-            sim.state.y = G::maxi(sim.state.y, SimConfig::KILL_TOP + r + 1);
+        let y = sim.state.y;
+        let f = Self::face(top);
+        if top && (y - r > f || y + r < f - Self::BODY) {
+            return;
+        }
+        if !top && (y + r < f || y - r > f + Self::BODY) {
+            return;
+        }
+        let pressed = if top { y > f } else { y < f };
+        if top {
+            sim.state.y = f + r + 1;
             sim.state.vy = Self::TOP_VY;
         } else {
-            sim.state.y = G::mini(sim.state.y, SimConfig::KILL_BOTTOM - r - 1);
+            sim.state.y = f - r - 1;
             sim.state.vy = Self::BOTTOM_VY;
         }
-        self.last_top = p_top;
-        if p_top == self.lit_top && sim._score_press() {
+        self.last_top = top;
+        if pressed && top == self.lit_top && sim._score_press() {
             self.lit_top = !self.lit_top;
             self.presses += 1;
             self.since_press = 0;
         } else {
             self.since_wrong = 0;
         }
-        true
     }
 }
 
@@ -139,10 +154,10 @@ impl Hazard for ButtonPair {
         self.since_wrong += 1;
     }
 
-    /// The answer of GDScript guards_edge only; the push and the press happen in
-    /// `guards_edge_mut`.
-    fn guards_edge(&self, sim: &GameSim, p_top: bool) -> bool {
-        self.covers(p_top, sim.state.x)
+    fn touch(&mut self, sim: &mut GameSim) {
+        for top in [true, false] {
+            self._touch(sim, top);
+        }
     }
 
     fn checksum(&self, h: i64) -> i64 {
