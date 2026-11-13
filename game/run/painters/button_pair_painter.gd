@@ -60,7 +60,7 @@ func _button(c: CanvasItem, h: ButtonPairHazard, look: HazardLook, top: bool) ->
 	_box(c, Rect2(x0 - 6.0, base_y, x1 - x0 + 12.0, BASE), theme.ink, 4, 4, 4, 4)
 	# The cap, on the room side of the base, pushed back by `sink`.
 	var cap_y := face - CAP - sink if top else face + sink
-	var cap_col := Color(theme.ink, 0.22)
+	var cap_col := theme.paper.lerp(theme.ink, 0.3)
 	if lit:
 		cap_col = theme.world_accent
 	elif done:
