@@ -168,6 +168,17 @@ without replaying the easy first rooms.
   honest line for. Re-judge one seed with `--first <seed-1> --seeds 1`; judge a
   room late in a run with `--room R --variant V --roomscore N` (its walls drawn
   as at score N).
+- **A `lost` death** (no line inside the look-back, even with the true future):
+  `fastsim-rs rl review lastline --seed N <the same planner knobs>` plays the
+  judge's run again, keeps the state every `--every` ticks (60) and, from the
+  death back to `--before` ticks (600) before the room's arrival, asks
+  SurvivalSearch whether any line lives `--tail` ticks (40) past the death. It
+  prints the last state that still has one and what came on screen in the
+  next `--every` ticks (new warnings, walls drawn, the exit, the bird's taps).
+  Nothing new on screen means the bird's own play lost the line; a warning
+  under a reaction time before it, a room bug. For a state with no line it
+  prints when the best line dies: every line dying at the same tick (the bird's
+  x is the same in all of them) points at a wall no height can pass then.
 
 ## Tier calibration (`tools/calibrate_tiers.ps1`, `measure median`)
 

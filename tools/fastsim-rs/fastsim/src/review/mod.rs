@@ -22,6 +22,7 @@ pub mod blindcheck;
 pub mod exit_pass;
 pub mod fairness;
 pub mod honest;
+pub mod lastline;
 pub mod trace;
 
 /// C# `Environment.NewLine` (what `StringBuilder.AppendLine` and `Console.WriteLine` end with).
@@ -59,6 +60,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
         "atlas" => atlas::atlas(opts, seeds, cap),
         "blindcheck" => blindcheck::blindcheck(seeds),
         "trace" => trace::trace(opts, cap),
+        "lastline" => lastline::lastline(opts, cap),
         "rescue" | "speed" | "sens" | "shape" => {
             eprintln!("rl review {what}: not ported to Rust (use C# FastSim)");
             2
