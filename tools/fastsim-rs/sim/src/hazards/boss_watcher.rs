@@ -44,14 +44,14 @@ impl BossWatcher {
         500 * SimConfig::SUB,
         560 * SimConfig::SUB,
     ];
-    pub const CYCLE: i64 = 240;
+    pub const CYCLE: i64 = 300;
     pub const BEAM_TELL: i64 = SimConfig::WARN_TICKS;
-    pub const GAZE_TELL: i64 = 75;
+    pub const GAZE_TELL: i64 = SimConfig::WARN_TICKS;
     pub const BEAM_ON: i64 = 70;
     pub const HALF_H: i64 = 6 * SimConfig::SUB;
     pub const MAX_RUN: i64 = 3;
-    pub const GAZE: i64 = 120;
-    pub const GAZE_FAST: i64 = 115;
+    pub const GAZE: i64 = 180;
+    pub const GAZE_FAST: i64 = 160;
     pub const GAZE_AT: i64 = 130;
     pub const DART_SPEED: i64 = 10 * SimConfig::SUB;
     pub const DART_LEN: i64 = 34 * SimConfig::SUB;

@@ -12,7 +12,7 @@ extends "res://sim/hazards/boss.gd"
 
 enum Crate { NONE, MARK, FALL }
 
-const CYCLE := 240
+const CYCLE := 300
 const TELL := SimConfig.WARN_TICKS
 ## Press: its bottom edge (`press_y`) at rest; its teeth reach TEETH below it.
 ## At rest the teeth are the ceiling's.
@@ -25,7 +25,7 @@ const SLAM_DOWN := 12 * SimConfig.SUB
 const LIFT := 6 * SimConfig.SUB
 ## Phase 1: when in the cycle the press goes down and lifts.
 const SLAM_AT := TELL
-const LIFT_AT := 170
+const LIFT_AT := TELL + 110
 ## Where its teeth stop (two heights a cycle picks from; tier 2 and up: lower).
 const SLAMS: Array[int] = [250 * SimConfig.SUB, 320 * SimConfig.SUB]
 const SLAM_TIER := 30 * SimConfig.SUB

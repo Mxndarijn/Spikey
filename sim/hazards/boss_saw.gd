@@ -17,12 +17,14 @@ const RING_YS: Array[int] = [260 * SimConfig.SUB, 380 * SimConfig.SUB]
 const CYCLE := 240
 ## Phase 3's cycle from tier 2.
 const CYCLE_FAST := 180
+## Phase 2's cycle (the ring).
+const RING_CYCLE := 300
 const TELL := SimConfig.WARN_TICKS
 const JUMP := 30
 ## Phase 2: blades swing out after the drift, hold, swing back in.
 const RING_OUT := TELL + JUMP
 const RING_HOLD := 120
-const RING_IN := 180
+const RING_IN := RING_OUT + 90
 const RING_MAX := 115 * SimConfig.SUB
 const RING_MAX_TIER3 := 130 * SimConfig.SUB
 const RING_HOP := 72 * SimConfig.SUB
@@ -69,6 +71,8 @@ func boss_setup(sim: GameSim) -> void:
 
 
 func cycle() -> int:
+	if phase == 2:
+		return RING_CYCLE
 	return CYCLE_FAST if phase == 3 and tier >= 2 else CYCLE
 
 
@@ -105,8 +109,8 @@ func boss_step(_sim: GameSim) -> void:
 		if phase != 2:
 			king_y = _toward(king_y, HEIGHTS[nearest(king_y)], SLIDE)
 	elif phase == 2:
-		var k := c / CYCLE
-		var lt := c % CYCLE
+		var k := c / RING_CYCLE
+		var lt := c % RING_CYCLE
 		if _k != k:
 			_k = k
 			from_y = king_y
@@ -174,10 +178,10 @@ func safe_y(y: int, steps: int) -> bool:
 	var c := clock_in(steps)
 	if c < 0:
 		return true
-	var lt := c % CYCLE
+	var lt := c % RING_CYCLE
 	if lt < RING_OUT or lt >= RING_IN:
 		return true
-	var k := c / CYCLE
+	var k := c / RING_CYCLE
 	var at := to_y if k == _k else RING_YS[draw(k, 2) % 2]
 	return absi(y - at) >= ring_max() + BLADE_R + SimConfig.BIRD_RADIUS + MARGIN
 

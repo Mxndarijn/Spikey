@@ -27,11 +27,12 @@ impl BossSaw {
     pub const RING_YS: [i64; 2] = [260 * SimConfig::SUB, 380 * SimConfig::SUB];
     pub const CYCLE: i64 = 240;
     pub const CYCLE_FAST: i64 = 180;
+    pub const RING_CYCLE: i64 = 300;
     pub const TELL: i64 = SimConfig::WARN_TICKS;
     pub const JUMP: i64 = 30;
     pub const RING_OUT: i64 = Self::TELL + Self::JUMP;
     pub const RING_HOLD: i64 = 120;
-    pub const RING_IN: i64 = 180;
+    pub const RING_IN: i64 = Self::RING_OUT + 90;
     pub const RING_MAX: i64 = 115 * SimConfig::SUB;
     pub const RING_MAX_TIER3: i64 = 130 * SimConfig::SUB;
     pub const RING_HOP: i64 = 72 * SimConfig::SUB;
@@ -73,7 +74,9 @@ impl BossSaw {
     }
 
     pub fn cycle(&self) -> i64 {
-        if self.boss.phase == 3 && self.boss.tier >= 2 {
+        if self.boss.phase == 2 {
+            Self::RING_CYCLE
+        } else if self.boss.phase == 3 && self.boss.tier >= 2 {
             Self::CYCLE_FAST
         } else {
             Self::CYCLE
@@ -173,8 +176,8 @@ impl BossKind for BossSaw {
                 self.king_y = Self::_toward(self.king_y, Self::HEIGHTS[Self::nearest(self.king_y) as usize], Self::SLIDE);
             }
         } else if phase == 2 {
-            let k = c / Self::CYCLE;
-            let lt = c % Self::CYCLE;
+            let k = c / Self::RING_CYCLE;
+            let lt = c % Self::RING_CYCLE;
             if self._k != k {
                 self._k = k;
                 self.from_y = self.king_y;
@@ -227,11 +230,11 @@ impl BossKind for BossSaw {
         if c < 0 {
             return true;
         }
-        let lt = c % Self::CYCLE;
+        let lt = c % Self::RING_CYCLE;
         if lt < Self::RING_OUT || lt >= Self::RING_IN {
             return true;
         }
-        let k = c / Self::CYCLE;
+        let k = c / Self::RING_CYCLE;
         let at = if k == self._k { self.to_y } else { Self::RING_YS[(self.boss.draw(k, 2) % 2) as usize] };
         G::absi(y - at) >= self.ring_max() + Self::BLADE_R + SimConfig::BIRD_RADIUS + Boss::MARGIN
     }

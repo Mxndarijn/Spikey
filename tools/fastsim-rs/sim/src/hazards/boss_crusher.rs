@@ -30,7 +30,7 @@ pub struct BossCrusher {
 }
 
 impl BossCrusher {
-    pub const CYCLE: i64 = 240;
+    pub const CYCLE: i64 = 300;
     pub const TELL: i64 = SimConfig::WARN_TICKS;
     pub const TEETH: i64 = 24 * SimConfig::SUB;
     pub const BITE: i64 = 20 * SimConfig::SUB;
@@ -39,7 +39,7 @@ impl BossCrusher {
     pub const SLAM_DOWN: i64 = 12 * SimConfig::SUB;
     pub const LIFT: i64 = 6 * SimConfig::SUB;
     pub const SLAM_AT: i64 = Self::TELL;
-    pub const LIFT_AT: i64 = 170;
+    pub const LIFT_AT: i64 = Self::TELL + 110;
     pub const SLAMS: [i64; 2] = [250 * SimConfig::SUB, 320 * SimConfig::SUB];
     pub const SLAM_TIER: i64 = 30 * SimConfig::SUB;
     pub const LANE_HALF: [i64; 3] = [116 * SimConfig::SUB, 100 * SimConfig::SUB, 90 * SimConfig::SUB];
