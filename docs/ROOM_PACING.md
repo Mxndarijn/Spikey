@@ -24,6 +24,9 @@ between the points, the last weight after the last point.
 | Hardest | over 63 | 4 at 90, 16 at 160, 20 at 300 |
 | Bonus | bonus rooms | 3 from 20 |
 
+Every tier but Bonus has its weights times 5 (`RoomPacing.OTHERS_SCALE`, version 23), so bonus rooms come up a
+quarter as often as the table gives: 6.6 -> 1.75 per 100 rooms with no season, 8.0 -> 2.0 in summer, 7.6 -> 1.9 at
+New Year (`tools/room_odds.gd`, 1000 runs to 990). The odds tables below are from before that.
 Seasonal rooms (not bonus) take their tier's weights times 3/2 in their season. Rooms that change the controls
 (`RoomPacing.CONTROL_ROOMS`: Flip, Echo, Blink) unlock no earlier than `CONTROL_FLOOR` (40): their
 curve starts there at its weight there. After a new

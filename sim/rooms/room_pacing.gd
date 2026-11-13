@@ -26,6 +26,12 @@ const HARDER := [70, 4, 130, 14, 250, 18]
 const HARDEST := [90, 4, 160, 16, 300, 20]
 ## Bonus rooms (coins, no real threat): occasional at any score.
 const BONUS := [20, 3]
+## The weights of every other tier are times this when a room gets its curve,
+## so bonus rooms come up a quarter as often as with the curves alone (the
+## user, 2026-11-13: tools/room_odds.gd, 1000 runs to 990, 6.6 -> 1.75 per 100
+## rooms) and the other tiers keep their shares. 5, not 4: the shuffle bag
+## gives light rooms a little more than their weight.
+const OTHERS_SCALE := 5
 ## Seasonal rooms (not bonus) come up more often while their season is on:
 ## their tier's weights times this over 2.
 const SEASON_BOOST := 3
@@ -102,8 +108,11 @@ static func apply(defs: Array[RoomDef]) -> void:
 		var tier: Array = TIERS[def.id]
 		var pace := PackedInt32Array()
 		var boost := def.season != Seasons.NONE and def.group != "bonus"
+		var scale := 1 if tier == BONUS else OTHERS_SCALE
 		for i in tier.size():
 			var v: int = tier[i]
+			if i % 2 == 1:
+				v *= scale
 			if boost and i % 2 == 1:
 				v = v * SEASON_BOOST / 2
 			pace.append(v)

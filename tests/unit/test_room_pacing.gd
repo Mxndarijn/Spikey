@@ -74,6 +74,8 @@ func test_rooms_that_change_the_controls_wait_for_the_floor() -> void:
 		assert_eq(def.from_score, RoomPacing.CONTROL_FLOOR, "%s unlocks at the floor" % id)
 		assert_eq(def.weight_at(RoomPacing.CONTROL_FLOOR - 1), 0, id)
 		var tier := PackedInt32Array(RoomPacing.TIERS[id])
+		for i in range(1, tier.size(), 2):
+			tier[i] *= RoomPacing.OTHERS_SCALE
 		for score in [40, 70, 150, 300]:
 			assert_eq(
 				def.weight_at(score), RoomPacing.weight(tier, score), "%s keeps its curve" % id
@@ -84,8 +86,8 @@ func test_rooms_that_change_the_controls_wait_for_the_floor() -> void:
 
 func test_seasonal_rooms_are_boosted_but_bonus_rooms_are_not() -> void:
 	var hearts := RoomCatalog.find("hearts")
-	assert_eq(hearts.weight_at(30), 7, "a middle seasonal room: 5 * 3 / 2")
-	assert_eq(RoomCatalog.find("crawl").weight_at(30), 5)
+	assert_eq(hearts.weight_at(30), 37, "a middle seasonal room: 5 * 5 * 3 / 2")
+	assert_eq(RoomCatalog.find("crawl").weight_at(30), 25, "a middle room: 5 * 5")
 	for id: String in ["beachball", "countdown", "garden", "slowmo"]:
 		assert_eq(RoomCatalog.find(id).weight_at(300), RoomPacing.BONUS[1], "%s occasional" % id)
 

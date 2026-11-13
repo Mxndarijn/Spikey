@@ -283,9 +283,9 @@ func test_a_revived_run_meets_the_same_map() -> void:
 	var compared := 0
 	# Seeds where the gap seeker gets past the revived room and that room's
 	# exit opens at the same room tick in both plays (else nothing after it is
-	# compared): found by a scan of seeds 20..139 after the walls went to 14
-	# slots on top of the wall timing (no seed there met a different map).
-	for seed_value: int in [25, 75]:
+	# compared): found by a scan of seeds 20..139 after bonus rooms went to a
+	# quarter (RoomPacing.OTHERS_SCALE; no seed there met a different map).
+	for seed_value: int in [26, 95, 133]:
 		for digit: int in [4, 5]:
 			var a := _map(seed_value, -1, 0)
 			var r := _map(seed_value, 1, digit)

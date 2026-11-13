@@ -12,6 +12,7 @@ impl RoomPacing {
     pub const HARDER: &'static [i64] = &[70, 4, 130, 14, 250, 18];
     pub const HARDEST: &'static [i64] = &[90, 4, 160, 16, 300, 20];
     pub const BONUS: &'static [i64] = &[20, 3];
+    pub const OTHERS_SCALE: i64 = 5;
     pub const SEASON_BOOST: i64 = 3;
     pub const CONTROL_FLOOR: i64 = 40;
     pub const CONTROL_ROOMS: [&'static str; 3] = ["flip", "echo", "blink"];
@@ -77,8 +78,12 @@ impl RoomPacing {
             };
             let mut pace = Vec::new();
             let boost = def.season != Seasons::NONE && def.group != "bonus";
+            let scale = if tier == Self::BONUS { 1 } else { Self::OTHERS_SCALE };
             for i in 0..tier.len() {
                 let mut v = tier[i];
+                if i % 2 == 1 {
+                    v *= scale;
+                }
                 if boost && i % 2 == 1 {
                     v = v * Self::SEASON_BOOST / 2;
                 }
