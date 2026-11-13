@@ -157,6 +157,14 @@ without replaying the easy first rooms.
   had none (a room to fix). `finishable.share` = alive at the cap / (alive +
   `bot` deaths), with a Wilson CI; `infinite` is true when no `bot` death is
   left. Pass the judge's output with `-Fair`.
+- **Release judge** (the 400-seed fairness run before a release, so a no-way
+  verdict means the room, not the judge's search): `fastsim-rs rl review fair
+  --seeds 400 --cap 216000 --budget 96 --back 480 --threads 8`. The defaults
+  (`--budget 24 --back 240`) are for quick looks: on the v23 release candidate
+  they called 6 of 8 checked deaths no-way that the bigger search found an
+  honest line for. Re-judge one seed with `--first <seed-1> --seeds 1`; judge a
+  room late in a run with `--room R --variant V --roomscore N` (its walls drawn
+  as at score N).
 
 ## Tier calibration (`tools/calibrate_tiers.ps1`, `measure median`)
 
