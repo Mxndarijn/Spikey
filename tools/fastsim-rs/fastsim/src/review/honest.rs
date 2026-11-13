@@ -130,6 +130,9 @@ struct Res {
     room: String,
     look: i32,
     cause: String,
+    seed: i64,
+    /// Ticks since the run last scored (a run alive at the cap that stopped scoring is stuck).
+    since_score: i64,
 }
 
 /// The BlindPlanner (Bots/BlindPlanner.cs) on full runs: deaths per 100 points by score band,
@@ -149,10 +152,15 @@ pub fn honest(opts: &Opts, seeds: i32, cap: i64) {
             let mut bot = BlindPlanner::new(first + i + 1);
             configure(&mut bot, opts);
             let mut ticks: i64 = 0;
+            let (mut last_score, mut scored_at) = (sim.state.score, 0i64);
             while !sim.is_over() && ticks < cap {
                 let tap = bot.decide(&sim);
                 sim.step(tap);
                 ticks += 1;
+                if sim.state.score != last_score {
+                    last_score = sim.state.score;
+                    scored_at = ticks;
+                }
             }
             let r = Res {
                 points: sim.state.score,
@@ -160,6 +168,8 @@ pub fn honest(opts: &Opts, seeds: i32, cap: i64) {
                 dead: sim.is_over(),
                 room: room_name(&sim),
                 look: bot.last_look,
+                seed: first + i + 1,
+                since_score: ticks - scored_at,
                 cause: if sim.is_over() {
                     DeathCause::NAMES[sim.state.death_cause as usize].to_string()
                 } else {
@@ -203,6 +213,12 @@ pub fn honest(opts: &Opts, seeds: i32, cap: i64) {
             "  scores: {}",
             res.iter().map(|r| format!("{}{}", r.points, if r.dead { "" } else { "+" })).collect::<Vec<_>>().join(" ")
         );
+    }
+    // `--ends 1`: where each run alive at the cap ended, and how long since it last scored.
+    if opts.contains_key("ends") {
+        for r in res.iter().filter(|r| !r.dead) {
+            println!("  end seed {} points {} room {} ticks since the last point {}", r.seed, r.points, r.room, r.since_score);
+        }
     }
     for (lo, hi) in [(0i64, 40i64), (40, 100000)] {
         let played: i64 = res.iter().map(|r| (r.points - lo).clamp(0, hi - lo)).sum();
