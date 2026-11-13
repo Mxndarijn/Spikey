@@ -93,8 +93,8 @@ static func defs() -> Array[RoomDef]:
 		_rain.bind(85, 10 * SUB, 40, 50, Drop.RADIUS, Drop.Style.SHATTER),
 	]
 	var wobble: Array[Callable] = [
-		_rain.bind(30, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
-		_rain.bind(90, 7 * SUB, 30, 55, Drop.RADIUS, Drop.Style.WOBBLE),
+		_rain.bind(30, 7 * SUB, 30, 60, Drop.RADIUS, Drop.Style.WOBBLE),
+		_rain.bind(90, 7 * SUB, 30, 60, Drop.RADIUS, Drop.Style.WOBBLE),
 	]
 	var stake: Array[Callable] = [
 		_rain.bind(30, 8 * SUB, 30, 60, 13 * SUB, Drop.Style.STAKE),

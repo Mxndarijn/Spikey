@@ -469,6 +469,7 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
     // --boss 0|1|2 --score N: each run starts in that boss room (Watcher,
     // Crusher, Saw King) out of the boss portal at score N, as in a real run.
     let (boss, boss_score) = (l("boss", -1), l("score", SimConfig::BOSS_EVERY));
+    let room_score = l("roomscore", 0);
     let start = |seed: i64| -> GameSim {
         if boss >= 0 {
             let mut g = GameSim::new(seed);
@@ -481,7 +482,13 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
         if only.is_empty() {
             GameSim::new(seed)
         } else {
-            Setups::practice(&only, seed, &only_v)
+            let mut g = Setups::practice(&only, seed, &only_v);
+            // --roomscore N: the practice room's walls drawn as at score N (dense walls).
+            if room_score > 0 {
+                g.state.score = room_score;
+                g.room.entry_score = room_score;
+            }
+            g
         }
     };
     let make = || {

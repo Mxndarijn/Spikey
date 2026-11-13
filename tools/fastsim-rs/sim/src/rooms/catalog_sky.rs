@@ -72,8 +72,8 @@ impl CatalogSky {
             mk(|| Self::_rain(85, 10 * SUB, 40, 50, Drop::RADIUS, Style::SHATTER)),
         ];
         let wobble: Vec<Factory> = vec![
-            mk(|| Self::_rain(30, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
-            mk(|| Self::_rain(90, 7 * SUB, 30, 55, Drop::RADIUS, Style::WOBBLE)),
+            mk(|| Self::_rain(30, 7 * SUB, 30, 60, Drop::RADIUS, Style::WOBBLE)),
+            mk(|| Self::_rain(90, 7 * SUB, 30, 60, Drop::RADIUS, Style::WOBBLE)),
         ];
         let stake: Vec<Factory> = vec![
             mk(|| Self::_rain(30, 8 * SUB, 30, 60, 13 * SUB, Style::STAKE)),
