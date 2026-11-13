@@ -42,6 +42,12 @@ impl BossFair {
             ("boss_crusher", 1, 12, "crate", 3),
             "wall-timing: pre-tell plan into a wall dead end (fair line exists, seed 12 tick 1734)",
         ),
+        // 14-slot walls: the hop from 180 to 320 px meets the old plan (tap at step 10) during the
+        // reaction; that plan plus one tap at step 6, 15, 18 or 21 gets through (tell at tick 1504).
+        (
+            ("boss_saw", 3, 15, "hop", 3),
+            "edge-corners: pre-tell plan into the king's landing (fair line exists, seed 15 tick 1504)",
+        ),
     ];
 
     fn known(boss: &str, tier: i64, seed: i64, kind: &str, phase: i64) -> bool {

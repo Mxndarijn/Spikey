@@ -28,11 +28,11 @@ const SUB := SimConfig.SUB
 const STEP := 30 * SUB
 ## 270 px: at least 300 px of room always stays open (lava, cold).
 const MAX_RISES := 9
-## Rafts: RAFT_PER_POINT rises a point, up to RAFT_MAX_RISES (300 px). That is
-## as high as exits allow: a fork's two exits (FORK_APART) must both fit above
-## the highest line plus EXIT_CLEAR.
+## Rafts: RAFT_PER_POINT rises a point, up to RAFT_MAX_RISES (270 px). That is
+## as high as exits allow: a fork's two exits (FORK_APART, on slot centres from
+## EXIT_MIN_Y) must both fit above the highest line plus EXIT_CLEAR.
 const RAFT_PER_POINT := 2
-const RAFT_MAX_RISES := 10
+const RAFT_MAX_RISES := 9
 ## 1.25 px a step: one STEP in 24 steps.
 const SPEED := 80
 const STONE_RADIUS := 14 * SUB

@@ -158,7 +158,7 @@ impl ExitKey {
 
     pub fn band_key(&self, side: i64) -> i64 {
         for i in 0..self.count {
-            if !self.shown(i) {
+            if self.mode == Mode::CHAIN && !self.shown(i) {
                 continue;
             }
             let off = if side == 0 { self.kx[i as usize] } else { SimConfig::WORLD_W - self.kx[i as usize] };

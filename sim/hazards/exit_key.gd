@@ -203,11 +203,12 @@ func _show_next(sim: GameSim, i: int) -> void:
 	born[i] = t
 
 
-## The first key still out in wall `side`'s band (within CHAIN_OFF_MAX of
-## it), or -1.
+## The first key in wall `side`'s band (within CHAIN_OFF_MAX of it), or -1.
+## Laid-out keys (trio, quad) count once taken too, so the walls and exit near
+## them follow the seed, not which keys the player took. Chain: the key out.
 func band_key(side: int) -> int:
 	for i in count:
-		if not shown(i):
+		if mode == Mode.CHAIN and not shown(i):
 			continue
 		var off := kx[i] if side == 0 else SimConfig.WORLD_W - kx[i]
 		if off <= CHAIN_OFF_MAX:

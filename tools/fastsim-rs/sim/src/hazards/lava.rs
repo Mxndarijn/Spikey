@@ -36,7 +36,7 @@ impl Lava {
     pub const STEP: i64 = 30 * Self::SUB;
     pub const MAX_RISES: i64 = 9;
     pub const RAFT_PER_POINT: i64 = 2;
-    pub const RAFT_MAX_RISES: i64 = 10;
+    pub const RAFT_MAX_RISES: i64 = 9;
     pub const SPEED: i64 = 80;
     pub const STONE_RADIUS: i64 = 14 * Self::SUB;
     pub const STONE_AFTER: i64 = 3;

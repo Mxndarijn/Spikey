@@ -242,7 +242,7 @@ func test_controls_fit_a_tall_and_a_short_phone() -> void:
 ## same end; a chip jumps to its room's start; Crash -3 s lands 3 s before.
 func test_scrubbing_in_the_game() -> void:
 	var main := _make_main()
-	var r := SimBots.play(5175, SimBots.gap_seeker, 6)
+	var r := SimBots.play(5182, SimBots.gap_seeker, 6)
 	assert_true(r.end_tick > 400, "long enough to scrub")
 	main.play_replay(_run_of(r))
 	_fit_phone(main, true)

@@ -21,7 +21,7 @@ func test_rafts_rise_twice_as_fast_and_stop_once_the_exit_is_open() -> void:
 	sim.room.points = 100
 	l.on_bounce(sim, SimRng.new(2))
 	assert_eq(l.rises, Lava.RAFT_MAX_RISES, "up to the rafts' cap")
-	assert_true(Lava.RAFT_MAX_RISES > Lava.MAX_RISES, "higher than the other variants")
+	assert_true(Lava.RAFT_MAX_RISES >= Lava.MAX_RISES, "as high as the other variants")
 	l.rises = 4
 	l.counted = sim.room.points
 	sim.state.exit_open = true
