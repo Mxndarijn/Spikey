@@ -28,7 +28,7 @@ RUST_ONLY = {
 # The Rust field type -> Ty (fields.rs).
 TY = {'i64': 'Long', 'bool': 'Bool', "&'static str": 'Str', 'SimRng': 'Rng', 'Vec<i64>': 'ListLong',
       'Vec<bool>': 'ListBool', 'Vec<Hz>': 'Hazards', "Option<&'static RoomDef>": 'Def',
-      # another hazard of the room, by index (Gate.partner, Piston.leader, Stalactite.partner)
+      # another hazard of the room, by index (Gate.partner, Stalactite.partner)
       'Option<usize>': 'Ref',
       # a hazard object of its own (SplittingBouncer.other)
       'Option<Bouncer>': 'Child'}

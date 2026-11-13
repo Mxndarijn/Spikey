@@ -1,62 +1,39 @@
 extends Hazard
-## A piston in a side wall (Piston Press). It waits, glows as a warning, slams
-## across part of the room, holds, then pulls back. Deadly only while out.
-## After each wall bounce an idle piston may move to a new height.
+## A piston in a side wall (Piston Press). It waits, shows its lane as a
+## warning, slams across part of the room, holds, then pulls back. Deadly only
+## while out. Its row, wall, reach, warning and rhythm are set when the room is
+## built (the generated layout, catalog_machines._gen_press) and never change.
 ##
-## In Double Trouble it glows for 1 s (glow_ticks) and keeps its height inside
-## the other hazard's band (share_band), so the lanes that hazard leaves free
-## stay free.
-##
-## Variants (Piston Press): a shorter ram (reach), the whole room to pick from
-## (HALF_ALL), a ram that copies the height of the piston before it so both
-## slam as one (follows), or a fixed height that never moves (fixed_y).
-##
-## A piston whose ram would reach into an open or ghost exit's mouth
-## (ExitZone) sits that cycle out.
+## A ram that would reach into an open or ghost exit's mouth (ExitZone) sits
+## that cycle out; an exit is never planned where a ram reaches (blocks_exit).
 
 enum State { IDLE, GLOW, EXTEND, HOLD, RETRACT }
 
 const IDLE_TICKS := 70
+## Today's shortest warning (0.53 s): no ram warns for less.
 const GLOW_TICKS := 32
 const EXTEND_TICKS := 8
 const HOLD_TICKS := 34
 const RETRACT_TICKS := 30
-const PERIOD := IDLE_TICKS + GLOW_TICKS + EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS
 
 ## How far the ram reaches into the room when fully out (nose included).
 const REACH := 200 * SimConfig.SUB
 ## Half the height of the ram's body.
 const HALF_H := 18 * SimConfig.SUB
-## Where the piston can sit (centre heights), clear of the ceiling and floor.
+## Where a ram can sit (centre heights), clear of the ceiling and floor.
 const Y_MIN := 110 * SimConfig.SUB
 const Y_MAX := 530 * SimConfig.SUB
-## Pistons in one room stay in their own half (upper / lower).
-const Y_MID := 320 * SimConfig.SUB
-## `half` for a piston that picks from the whole room.
-const HALF_ALL := 2
 
 ## 0 = left wall, 1 = right wall.
 var side := 0
 ## Centre height of the ram, sub-units.
 var y := 0
-## Steps before the first cycle starts (staggers pistons in one room).
+## Steps before the first cycle starts (its place in the room's rhythm).
 var delay := 0
-## 0 = upper half of the room, 1 = lower half, HALF_ALL = anywhere.
-var half := 0
-## Steps of warning glow before each slam.
+## Steps of warning before each slam.
 var glow_ticks := GLOW_TICKS
-## Keep the ram inside another hazard's band (Hazard.band_top()).
-var share_band := false
-## The centre heights it picks from (set in setup()).
-var y_lo := Y_MIN
-var y_hi := Y_MAX
 ## How far the ram reaches into the room when fully out.
 var reach := REACH
-## Copies the height of the piston before it in the room (found at setup).
-var follows := false
-var leader: Hazard = null
-## A fixed centre height (sub-units), or -1 to pick one after each bounce.
-var fixed_y := -1
 ## Sits out the rest of this cycle: fully out, the ram would reach into an
 ## open or ghost exit's mouth (ExitZone).
 var skip := false
@@ -64,74 +41,31 @@ var skip := false
 
 func _init(
 	p_side: int = 0,
-	p_half: int = 0,
+	p_y: int = Y_MIN,
 	p_delay: int = 0,
 	p_glow: int = GLOW_TICKS,
-	p_share_band: bool = false
+	p_reach: int = REACH
 ) -> void:
 	kind = "piston"
 	side = p_side
-	half = p_half
+	y = p_y
 	delay = p_delay
 	glow_ticks = p_glow
-	share_band = p_share_band
+	reach = p_reach
 
 
-func setup(sim: GameSim, rng: SimRng) -> void:
-	if fixed_y >= 0:
-		y = fixed_y
-		return
-	if follows:
-		leader = null
-		for h: Hazard in sim.room.hazards:
-			if h == self:
-				break
-			if h.kind == kind:
-				leader = h
-		if leader != null:
-			y = leader.y
-			return
-	y_lo = Y_MIN if half != 1 else Y_MID + HALF_H
-	y_hi = Y_MID - HALF_H if half == 0 else Y_MAX
-	if share_band:
-		for h: Hazard in sim.room.hazards:
-			if h == self or h.band_top() < 0:
-				continue
-			var lo := maxi(Y_MIN, h.band_top() + HALF_H)
-			var hi := mini(Y_MAX, h.band_bottom() - HALF_H)
-			if lo <= hi:
-				y_lo = lo
-				y_hi = hi
-	_pick_y(rng)
-
-
-func on_bounce(sim: GameSim, rng: SimRng) -> void:
-	if fixed_y >= 0:
-		_clear_spikes(sim)
-		return
-	if leader != null:
-		# The leader has already moved (or kept still): stay level with it.
-		y = leader.y
-		_clear_spikes(sim)
-		return
-	# Always draw so the RNG order does not depend on the piston's state.
-	var old := y
-	_pick_y(rng)
-	_clear_row(sim)
-	if _cycle_state() != State.IDLE:
-		y = old
+func on_bounce(sim: GameSim, _rng: SimRng) -> void:
 	_clear_spikes(sim)
 
 
 ## No wall spike shares the ram's row on its own wall (it would poke out above
 ## or below the ram): the slots whose spike would touch the ram's body are
-## cleared. Done here, not in adjust_wall: the ram only takes its new height
-## after the wall is drawn. No RNG draws.
+## cleared after each bounce's new wall. No RNG draws.
 func _clear_spikes(sim: GameSim) -> void:
-	var reach := HALF_H + SimConfig.SPIKE_HALF_BASE
+	var near := HALF_H + SimConfig.SPIKE_HALF_BASE
 	var mask := sim.state.left_spikes if side == 0 else sim.state.right_spikes
 	for slot in SimConfig.SLOT_COUNT:
-		if absi(SimConfig.slot_center_y(slot) - y) < reach:
+		if absi(SimConfig.slot_center_y(slot) - y) < near:
 			mask &= ~(1 << slot)
 	if side == 0:
 		sim.state.left_spikes = mask
@@ -139,21 +73,7 @@ func _clear_spikes(sim: GameSim) -> void:
 		sim.state.right_spikes = mask
 
 
-## Moves a ram that may move off the rows of the room's exits (ExitZone) on
-## its wall (both walls for a pair that slams level), if there is room.
-func _clear_row(sim: GameSim) -> void:
-	if fixed_y >= 0 or leader != null:
-		return
-	var c := ExitZone.clear_y(sim, side if half != HALF_ALL else -1, y, HALF_H, y_lo, y_hi)
-	if c >= y_lo and c <= y_hi:
-		y = c
-
-
-func _pick_y(rng: SimRng) -> void:
-	y = y_lo + rng.next_below(y_hi - y_lo + 1)
-
-
-## Steps in one cycle (idle, glow, slam, hold, pull back).
+## Steps in one cycle (idle, warning, slam, hold, pull back).
 func period() -> int:
 	return IDLE_TICKS + glow_ticks + EXTEND_TICKS + HOLD_TICKS + RETRACT_TICKS
 
@@ -166,13 +86,8 @@ func cycle_pos() -> int:
 
 
 ## Each step: a ram that would reach into an exit's mouth (ExitZone) stays in
-## the wall, glow and all, until its next cycle.
+## the wall, warning and all, until its next cycle.
 func step(sim: GameSim) -> void:
-	# The room's exits are known from its first step (set up before them).
-	if t == 1:
-		_clear_row(sim)
-		if leader != null:
-			y = leader.y
 	if _cycle_state() == State.IDLE:
 		skip = false
 	elif not skip and _reaches_exit(sim):
@@ -189,11 +104,9 @@ func _far_x() -> int:
 	return base_x() + reach if side == 0 else base_x() - reach
 
 
-## A ram that never moves (a ladder rung), or one already in its cycle, would
-## have to sit out at an exit planned in its way, so the exit goes elsewhere.
+## The ram never moves off its row, so an exit is never planned where it
+## reaches (the exit goes elsewhere).
 func blocks_exit(sim: GameSim, p_side: int, p_y: int) -> bool:
-	if fixed_y < 0 and (skip or _cycle_state() == State.IDLE):
-		return false
 	return ExitZone.rect_in_box(sim, p_side, p_y, base_x(), y - HALF_H, _far_x(), y + HALF_H)
 
 
@@ -220,7 +133,7 @@ func _cycle_state() -> State:
 	return State.RETRACT
 
 
-## 0..1024 how far into the warning glow (0 outside it).
+## 0..1024 how far into the warning (0 outside it).
 func glow() -> int:
 	if state() != State.GLOW:
 		return 0
@@ -259,10 +172,10 @@ func kills(sim: GameSim) -> bool:
 
 
 func checksum(h: int) -> int:
-	return mix_all(h, [side, y, delay, half, int(skip)])
+	return mix_all(h, [side, y, delay, glow_ticks, reach, int(skip)])
 
 
-## While it glows: the whole reach of the slam, until it is back in the wall.
+## While it warns: the whole reach of the slam, until it is back in the wall.
 func warnings(_sim: GameSim, out: PackedInt64Array) -> void:
 	if state() != State.GLOW:
 		return

@@ -32,6 +32,7 @@ const ROOMS: Array[String] = [
 	"ghostdoors",
 	"pumpkin",
 	"eggs",
+	"piston",
 ]
 ## The hard rule: a generated layout is built once, at room start, and stays
 ## as it is while the bird is in the room. Per hazard kind, the fields that
@@ -106,10 +107,11 @@ const LAYOUT_FIELDS := {
 	],
 	"cave_drip": ["x", "tip_y", "floor_y", "first", "every"],
 	"peg": ["x", "base_y", "bob", "phase"],
+	"piston": ["side", "y", "delay", "glow_ticks", "reach"],
 }
 ## Rooms built once when they start and never reshaped: only the declared
 ## moving parts (MOVING) of their hazards change after that.
-const FIXED_ROOMS: Array[String] = ["gates", "stalac", "cave", "pegs"]
+const FIXED_ROOMS: Array[String] = ["gates", "stalac", "cave", "pegs", "piston"]
 ## Declared moving parts, per hazard kind: the fields a fixed room's hazard may
 ## change after the room starts (visible motion on a timetable fixed then).
 const MOVING := {
@@ -119,6 +121,7 @@ const MOVING := {
 	"cave_drip": ["falling", "y", "eta"],
 	"mover": ["xs", "ys", "facing"],
 	"peg": ["y"],
+	"piston": ["skip"],
 }
 
 
@@ -308,13 +311,8 @@ func test_mirror_turns_round_a_height_away_from_the_arrival() -> void:
 		)
 
 
-## Static variants keep their hand-made factories (Piston Press and Beam Gates
-## stay hand made).
-func test_static_variants_stay_static() -> void:
-	for id: String in ["piston"]:
-		for v in RoomCatalog.find(id).variants:
-			assert_eq(v.kind, RoomVariant.Kind.STATIC, "%s/%s" % [id, v.id])
-			assert_false(v.hazards.is_empty(), "%s/%s has its factories" % [id, v.id])
+## Beam Gates stay hand made (no variants).
+func test_beam_gates_stay_hand_made() -> void:
 	assert_true(RoomCatalog.find("beams").variants.is_empty(), "beams has no variants")
 
 

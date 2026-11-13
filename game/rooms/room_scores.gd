@@ -8,8 +8,10 @@ extends RefCounted
 ## Source: fastsim-rs difficulty, room-regroup run on next-features-2 at
 ## 62aca6f (2026-11-13, 24 entries per variant): SpikeCage-coord
 ## research/room-difficulty/v23-regroup/report.json. Buttons has no number (no
-## bot presses buttons). Lava Rise, Locked Out and Piston Press changed after
-## 62aca6f: their numbers are from 62aca6f until a new run.
+## bot presses buttons). Lava Rise and Locked Out changed after 62aca6f: their
+## numbers are from 62aca6f until a new run. Piston Press (generated) measured
+## on its own on next-features-2 at deca255 with the new human bots (72
+## entries): 41.
 
 const SCORES := {
 	"open": 24,
@@ -31,7 +33,7 @@ const SCORES := {
 	"stalker": 41,
 	"pinwheel": 70,
 	"sawring": 59,
-	"piston": 36,  # changed since the run: measure again
+	"piston": 41,
 	"crates": 30,
 	"beams": 53,
 	"stalac": 25,

@@ -47,7 +47,7 @@ const TIERS := {
 	"belt": EASY,  # 25
 	"stalac": EASY,  # 25 (alternating 40)
 	"crates": EASY,  # 30
-	"piston": STEADY,  # 36
+	"piston": STEADY,  # 41 (generated layout, new human bots; on the Middle line)
 	"echo": STEADY,  # 39
 	"cloud": STEADY,  # 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
 	"stalker": MIDDLE,  # 41

@@ -34,7 +34,7 @@ pub const STATE_TYPES: &[(&str, &[&str])] = &[
     ("Gate", &["band_bottom", "band_top", "clone_deep", "gap_bottom", "gap_top", "wide"]),
     ("HeavyBouncer", &["band_bottom", "band_top", "bottom_y", "bounce_bottom", "bounce_top", "clone_deep", "straight_path", "top_y", "y_range"]),
     ("KeepyBall", &["band_bottom", "band_top", "clone_deep", "heavy"]),
-    ("Lava", &["band_bottom", "band_top", "clone_deep", "ice_y0", "ice_y1", "rest"]),
+    ("Lava", &["band_bottom", "band_top", "clone_deep", "ice_y0", "ice_y1", "max_rises", "per_point", "rest"]),
     ("Mover", &["band_bottom", "band_top", "clone_deep", "period"]),
     ("OrbitCoin", &["band_bottom", "band_top", "clone_deep", "visible"]),
     ("OrchardSpawner", &["band_bottom", "band_top", "clone_deep", "live_count"]),

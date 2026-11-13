@@ -74,7 +74,7 @@ func test_machine_rooms_are_in_the_catalog_in_order() -> void:
 
 func test_rooms_spawn_their_hazards() -> void:
 	var expect := {
-		"piston": ["piston", 2],
+		"piston": ["piston", 3],
 		"crates": ["crate_drop", 1],
 		"beams": ["beam", 1],
 		"stalac": ["stalactite", 2],
@@ -102,7 +102,7 @@ func test_nothing_spawns_on_the_bird() -> void:
 
 
 func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
-	assert_between(Piston.GLOW_TICKS, 25, 40, "the glow lasts about half a second")
+	assert_between(Piston.GLOW_TICKS, 25, 40, "the shortest warning lasts about half a second")
 	var sim := _classic("piston", 3)
 	var p: Hazard = _hazards(sim, "piston")[0]
 	var reach_x: int = p.base_x() + (60 * SUB if p.side == 0 else -60 * SUB)
@@ -110,7 +110,7 @@ func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
 	var seen := {}
 	var killed_in_glow := false
 	var killed_out := false
-	for i in p.delay + Piston.PERIOD:
+	for i in p.delay + p.period():
 		sim.room.step(sim)
 		var st: int = p.state()
 		seen[st] = true
@@ -120,13 +120,13 @@ func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
 			assert_eq(p.extent(), 0, "retracted while idle or glowing")
 		if st == Piston.State.HOLD:
 			killed_out = killed_out or k
-			assert_eq(p.extent(), Piston.REACH)
+			assert_eq(p.extent(), p.reach)
 	assert_eq(seen.size(), 5, "goes through every state")
 	assert_false(killed_in_glow, "the warning glow is safe")
 	assert_true(killed_out, "the ram kills when out")
 	# The far side of the room stays open.
 	_bird(sim, p.base_x() + (300 * SUB if p.side == 0 else -300 * SUB), p.y)
-	sim.room.t = p.delay + Piston.IDLE_TICKS + Piston.GLOW_TICKS + Piston.EXTEND_TICKS
+	sim.room.t = p.delay + Piston.IDLE_TICKS + p.glow_ticks + Piston.EXTEND_TICKS
 	p.t = sim.room.t
 	assert_eq(p.state(), Piston.State.HOLD)
 	assert_false(p.kills(sim), "the ram leaves room past its reach")

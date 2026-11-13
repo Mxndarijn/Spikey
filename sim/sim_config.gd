@@ -86,7 +86,9 @@ extends RefCounted
 ## 23 (pending, with the next bump): no frozen wait out of a normal portal
 ##     (PORTAL_HOLD and the ARRIVAL_BLIND fallback wait are gone); the arrival
 ##     check holds height for ARRIVAL_BLIND ticks of flight, and where no layout
-##     fits, another variant is tried instead of waiting.
+##     fits, another variant is tried instead of waiting. Piston Press is one
+##     generated layout (3 rams, 4 from 100 points, on fixed rows, drawn walls, reach and rhythm,
+##     a warning of at least 0.53 s) instead of classic, double slam and ladder.
 const GAMEPLAY_VERSION := 22
 ## How often a run can be revived.
 const MAX_REVIVES := 1

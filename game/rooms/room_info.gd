@@ -122,7 +122,7 @@ const ROOMS := {
 	"piston":
 	[
 		"Piston Press",
-		"Spiked pistons punch out of the walls: in turns, together or in a wave.",
+		"Spiked pistons punch out of the walls. Watch for the striped lane.",
 		3,
 		"lava",
 		"blocks"

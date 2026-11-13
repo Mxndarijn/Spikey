@@ -6,11 +6,25 @@ pub struct CatalogMachines;
 impl CatalogMachines {
     pub const SUB: i64 = SimConfig::SUB;
 
-    pub const SLAM_REACH: i64 = 150 * Self::SUB;
-    pub const SLAM_GLOW: i64 = 60;
-    pub const LADDER_Y: [i64; 3] = [170 * Self::SUB, 300 * Self::SUB, 430 * Self::SUB];
-    pub const LADDER_REACH: i64 = 140 * Self::SUB;
-    pub const LADDER_BEAT: i64 = 36;
+    pub const PRESS_MIN: i64 = 3;
+    pub const PRESS_MORE_AT: i64 = 100;
+    pub const PRESS_ROW_GAP: i64 = 84 * Self::SUB;
+    pub const PRESS_ROW_GAP_FEW: i64 = 110 * Self::SUB;
+    pub const PRESS_TOP: i64 = 150 * Self::SUB;
+    pub const PRESS_BOTTOM: i64 = 490 * Self::SUB;
+    pub const PRESS_MAX_RIGHT: i64 = 2;
+    pub const PRESS_REACH_MIN: i64 = 120 * Self::SUB;
+    pub const PRESS_REACH_STEP: i64 = 20 * Self::SUB;
+    pub const PRESS_REACH_STEPS: i64 = 4;
+    pub const PRESS_GLOW: i64 = 44;
+    pub const PRESS_GLOW_STEP: i64 = 6;
+    pub const PRESS_DELAY: i64 = 30;
+    pub const PRESS_BEAT_MIN: i64 = 24;
+    pub const PRESS_BEAT_SPAN: i64 = 24;
+    pub const WAVE_DOWN: i64 = 0;
+    pub const WAVE_UP: i64 = 1;
+    pub const HALVES: i64 = 2;
+    pub const SCATTER: i64 = 3;
     pub const WIDE_COLS: i64 = 4;
     pub const WIDE_COL_W: i64 = 70 * Self::SUB;
     pub const WIDE_W: i64 = 64 * Self::SUB;
@@ -39,19 +53,8 @@ impl CatalogMachines {
 
         let mut piston = RoomDef::new("piston", "mid", 30);
         piston.max_spikes = 6;
-        piston.variants = vec![
-            RoomVariant::new("classic").with(vec![
-                mk(|| Self::_piston(0, 0, 30)),
-                mk(|| Self::_piston(1, 1, 30 + Piston::PERIOD / 2)),
-            ]),
-            RoomVariant::new("double-slam")
-                .with(vec![mk(|| Self::_slam(0)), mk(|| Self::_slam(1))]),
-            RoomVariant::new("ladder").with(vec![
-                mk(|| Self::_rung(0)),
-                mk(|| Self::_rung(1)),
-                mk(|| Self::_rung(2)),
-            ]),
-        ];
+        piston.variants =
+            vec![RoomVariant::new("generated").generated(recipe(|sim, p| Self::_gen_press(sim, p)), false, 0)];
         out_.push(piston);
 
         let mut crates = RoomDef::new("crates", "mid", 60);
@@ -196,27 +199,56 @@ impl CatalogMachines {
         .into()
     }
 
-    /// Piston(side, half, delay): C# defaults p_glow = GLOW_TICKS, p_share_band = false.
-    fn _piston(side: i64, half: i64, delay: i64) -> Hz {
-        Piston::new(side, half, delay, Piston::GLOW_TICKS, false).into()
-    }
-
     fn _hunter(slot: i64, home: i64) -> Hz {
         Dart::new(false, slot, home).into()
     }
 
-    fn _slam(side: i64) -> Hz {
-        let mut p = Piston::new(side, Piston::HALF_ALL, 30, Self::SLAM_GLOW, false);
-        p.reach = Self::SLAM_REACH;
-        p.follows = side == 1;
-        p.into()
-    }
-
-    fn _rung(i: i64) -> Hz {
-        let mut p = Piston::new(1, 0, 30 + i * Self::LADDER_BEAT, Piston::GLOW_TICKS, false);
-        p.reach = Self::LADDER_REACH;
-        p.fixed_y = Self::LADDER_Y[i as usize];
-        p.into()
+    /// Generated Piston Press (_gen_press).
+    fn _gen_press(sim: &mut GameSim, p: &VariantParams) {
+        let n = Self::PRESS_MIN + if p.score >= Self::PRESS_MORE_AT { 1 } else { 0 };
+        let gap = if n == Self::PRESS_MIN { Self::PRESS_ROW_GAP_FEW } else { Self::PRESS_ROW_GAP };
+        let slack = Self::PRESS_BOTTOM - Self::PRESS_TOP - (n - 1) * gap;
+        let mut offs: Vec<i64> = Vec::new();
+        for _i in 0..n {
+            offs.push(sim._rng.next_below(slack + 1));
+        }
+        offs.sort();
+        let glow = G::maxi(Piston::GLOW_TICKS, Self::PRESS_GLOW - p.level * Self::PRESS_GLOW_STEP);
+        let rhythm = sim._rng.next_below(4);
+        let beat = Self::PRESS_BEAT_MIN + sim._rng.next_below(Self::PRESS_BEAT_SPAN + 1);
+        let period = Piston::IDLE_TICKS + glow + Piston::EXTEND_TICKS + Piston::HOLD_TICKS + Piston::RETRACT_TICKS;
+        let mut rams: Vec<Piston> = Vec::new();
+        let mut rights = 0;
+        for i in 0..n {
+            let mut side = sim._rng.next_below(2);
+            if side == 1 && rights >= Self::PRESS_MAX_RIGHT {
+                side = 0;
+            }
+            rights += side;
+            let reach = Self::PRESS_REACH_MIN + sim._rng.next_below(Self::PRESS_REACH_STEPS) * Self::PRESS_REACH_STEP;
+            let at = sim._rng.next_below(period);
+            let mut delay = Self::PRESS_DELAY;
+            if rhythm == Self::WAVE_DOWN {
+                delay += i * beat;
+            } else if rhythm == Self::WAVE_UP {
+                delay += (n - 1 - i) * beat;
+            } else if rhythm == Self::HALVES {
+                delay += (i % 2) * (period / 2);
+            } else {
+                delay += at;
+            }
+            rams.push(Piston::new(side, Self::PRESS_TOP + i * gap + offs[i as usize], delay, glow, reach));
+        }
+        if rights == 0 {
+            rams[(n / 2) as usize].side = 1;
+        }
+        for ram in rams {
+            let crosses = ram.y + Piston::HALF_H > p.hold_top(sim) && ram.y - Piston::HALF_H < p.hold_bottom(sim);
+            if p.fallback && p.arriving && crosses {
+                continue;
+            }
+            p.add(sim, ram.into());
+        }
     }
 
     fn _finger(i: i64) -> Stalactite {

@@ -202,7 +202,7 @@ start and never comes back.
   season, wall rules (spike count/gap, tide, blink, squeeze), gravity, speed,
   and the hazards it builds (factories, or variants drawn at room start).
   Double Trouble (two known hazards in one room) was taken out; its combo
-  support (`RoomDef.combos`, `Piston.share_band`, `Beam.yields`) is unused.
+  support (`RoomDef.combos`, `Beam.yields`) is unused.
 - `sim/rooms/catalog_*.gd`: rooms in batches (core, motion, machines, sky,
   seasonal, twists, boss). `RoomCatalog.BATCHES` fixes the order; append new
   batches at the end.
@@ -240,7 +240,7 @@ start and never comes back.
   (the plan is hidden, so a bot or player can't read it from the hazards).
   Hazards treat a mouth as part of the wall: balls bounce off it, the Stalker
   stops at its edge, the Echo keeps out, darts, drops, crates and sparks break
-  on it, pistons move off its row or sit the cycle out, and beams stop short.
+  on it, pistons sit the cycle out, and beams stop short.
   Whatever is in a mouth when it is drawn gets out on the next step (bounces
   out, jumps clear, breaks, pulls back). Fixed rams and swinging lanterns
   can't, so an exit is never planned where they reach (`blocks_exit`). Wall
@@ -355,8 +355,9 @@ Bubble Lift, Echo (mirror), Gift Stack, Bee Line, Updraft, Pinwheel, Lantern
 Swing, Crate Drop, Bramble Ball and Spike Rain (every variant), and the
 recipe-only rooms Cave Tunnel and Peg Field (`catalog_caves.gd`). Since gameplay
 version 23 (no wait out of a portal) also Saw Ring, Bat Loop, Ghost Doors,
-Pumpkin Bounce (Bramble's recipe) and Egg Hunt (Floating Isles' recipe). Hand
-made on purpose: Piston Press, Beam Gates and the rest.
+Pumpkin Bounce (Bramble's recipe), Egg Hunt (Floating Isles' recipe) and
+Piston Press (`_gen_press`: 3 or 4 rams on rows drawn at room start, never
+moved). Hand made on purpose: Beam Gates and the rest.
 `tests/unit/test_generated_variants.gd` checks the contract at every height;
 `fastsim-rs variants [arrivals] [rooms]` measures each variant's real share
 out of a portal, the full-wait rate and deaths within 2 s.

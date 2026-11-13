@@ -9,14 +9,37 @@ const Dart := preload("res://sim/hazards/dart.gd")
 
 const SUB := SimConfig.SUB
 
-## Double slam: how far each ram reaches (a gap stays between the two tips)
-## and its warning glow (1 s).
-const SLAM_REACH := 150 * SUB
-const SLAM_GLOW := 60
-## Ladder: the rungs' heights, how far they reach, steps between rungs.
-const LADDER_Y: Array[int] = [170 * SUB, 300 * SUB, 430 * SUB]
-const LADDER_REACH := 140 * SUB
-const LADDER_BEAT := 36
+## Generated Piston Press: how many rams (PRESS_MIN, one more from
+## PRESS_MORE_AT points), the least room between two rows (centre to centre:
+## PRESS_ROW_GAP_FEW for three rams, a 74 px gap, more than a hop; 48 px for
+## four), at most PRESS_MAX_RIGHT in the right
+## wall (the exits' wall), the reach (PRESS_REACH_MIN plus up to
+## PRESS_REACH_STEPS - 1 steps), the warning (PRESS_GLOW, PRESS_GLOW_STEP
+## shorter per level, never under today's Piston.GLOW_TICKS), the first ram's
+## wait and the beat between rams in a wave.
+const PRESS_MIN := 3
+const PRESS_MORE_AT := 100
+const PRESS_ROW_GAP := 84 * SUB
+const PRESS_ROW_GAP_FEW := 110 * SUB
+## The rows' range (centres): far enough from the ceiling and floor that a
+## bird above the top ram or under the bottom one still has a hop's room.
+const PRESS_TOP := 150 * SUB
+const PRESS_BOTTOM := 490 * SUB
+const PRESS_MAX_RIGHT := 2
+const PRESS_REACH_MIN := 120 * SUB
+const PRESS_REACH_STEP := 20 * SUB
+const PRESS_REACH_STEPS := 4
+const PRESS_GLOW := 44
+const PRESS_GLOW_STEP := 6
+const PRESS_DELAY := 30
+const PRESS_BEAT_MIN := 24
+const PRESS_BEAT_SPAN := 24
+## Rhythms: a wave top to bottom or bottom to top, every other ram half a cycle
+## apart, or each ram at a drawn place in the cycle.
+const WAVE_DOWN := 0
+const WAVE_UP := 1
+const HALVES := 2
+const SCATTER := 3
 ## Wide crates: four columns of 70 px, crates 64 x 48, stacks of up to three
 ## (as tall as a classic full stack).
 const WIDE_COLS := 4
@@ -67,20 +90,12 @@ const ENTRY_GAP := (
 static func defs() -> Array[RoomDef]:
 	var out: Array[RoomDef] = []
 
-	# Piston Press: pistons glow, slam across part of the room, hold and pull
-	# back. Classic: one in each wall, one high and one low, taking turns.
-	# Double slam: one in each wall at the same height, firing together (a 1 s
-	# glow, and a gap between the rams). Ladder: three in the right wall at
-	# fixed heights, firing top to bottom like a wave.
+	# Piston Press: rams mark their lane, slam across part of the room, hold
+	# and pull back. One GENERATED layout (_gen_press): the rams' rows, walls,
+	# reach and rhythm are drawn when the room starts and never change.
 	var piston := RoomDef.new("piston", "mid", 30)
 	piston.max_spikes = 6
-	piston.variants = [
-		RoomVariant.new("classic").with(
-			[_piston.bind(0, 0, 30), _piston.bind(1, 1, 30 + Piston.PERIOD / 2)]
-		),
-		RoomVariant.new("double-slam").with([_slam.bind(0), _slam.bind(1)]),
-		RoomVariant.new("ladder").with([_rung.bind(0), _rung.bind(1), _rung.bind(2)]),
-	]
+	piston.variants = [RoomVariant.new("generated").generated(_gen_press)]
 	out.append(piston)
 
 	# Crate Drop: crates fall one at a time and pile up in columns (classic),
@@ -171,29 +186,61 @@ static func _crates(gifts: bool, wide: bool, pair: bool) -> Hazard:
 	)
 
 
-static func _piston(side: int, half: int, delay: int) -> Hazard:
-	return Piston.new(side, half, delay)
-
-
 ## Twin hunters: dart `slot` fires from wall `home`.
 static func _hunter(slot: int, home: int) -> Hazard:
 	return Dart.new(false, slot, home)
 
 
-## Double slam: both rams at one height (the right one copies the left).
-static func _slam(side: int) -> Hazard:
-	var p := Piston.new(side, Piston.HALF_ALL, 30, SLAM_GLOW)
-	p.reach = SLAM_REACH
-	p.follows = side == 1
-	return p
-
-
-## Ladder: rung i of three in the right wall, each a beat after the one above.
-static func _rung(i: int) -> Hazard:
-	var p := Piston.new(1, 0, 30 + i * LADDER_BEAT)
-	p.reach = LADDER_REACH
-	p.fixed_y = LADDER_Y[i]
-	return p
+## Generated Piston Press: PRESS_MIN or PRESS_MIN + 1 rams in rows at least
+## PRESS_ROW_GAP_FEW or PRESS_ROW_GAP apart between PRESS_TOP and PRESS_BOTTOM (slack drawn per
+## row), each in a drawn wall (both walls get one, the right at most
+## PRESS_MAX_RIGHT) with a drawn reach, all with one warning and one drawn
+## rhythm. Built from the room's draws and the score only, never the bird. The
+## fallback leaves out the rams whose row crosses the band a bird holding its
+## height out of the exit sweeps.
+static func _gen_press(p: VariantParams) -> void:
+	var n := PRESS_MIN + (1 if p.score >= PRESS_MORE_AT else 0)
+	var gap := PRESS_ROW_GAP_FEW if n == PRESS_MIN else PRESS_ROW_GAP
+	var slack := PRESS_BOTTOM - PRESS_TOP - (n - 1) * gap
+	var offs: Array[int] = []
+	for i in n:
+		offs.append(p.rng.next_below(slack + 1))
+	offs.sort()
+	var glow := maxi(Piston.GLOW_TICKS, PRESS_GLOW - p.level * PRESS_GLOW_STEP)
+	var rhythm := p.rng.next_below(4)
+	var beat := PRESS_BEAT_MIN + p.rng.next_below(PRESS_BEAT_SPAN + 1)
+	var period := (
+		Piston.IDLE_TICKS + glow + Piston.EXTEND_TICKS + Piston.HOLD_TICKS + Piston.RETRACT_TICKS
+	)
+	var rams: Array[Piston] = []
+	var rights := 0
+	for i in n:
+		var side := p.rng.next_below(2)
+		if side == 1 and rights >= PRESS_MAX_RIGHT:
+			side = 0
+		rights += side
+		var reach := PRESS_REACH_MIN + p.rng.next_below(PRESS_REACH_STEPS) * PRESS_REACH_STEP
+		var at := p.rng.next_below(period)
+		var delay := PRESS_DELAY
+		match rhythm:
+			WAVE_DOWN:
+				delay += i * beat
+			WAVE_UP:
+				delay += (n - 1 - i) * beat
+			HALVES:
+				delay += (i % 2) * (period / 2)
+			_:
+				delay += at
+		rams.append(Piston.new(side, PRESS_TOP + i * gap + offs[i], delay, glow, reach))
+	if rights == 0:
+		rams[n / 2].side = 1
+	for ram: Piston in rams:
+		var crosses := (
+			ram.y + Piston.HALF_H > p.hold_top() and ram.y - Piston.HALF_H < p.hold_bottom()
+		)
+		if p.fallback and p.arriving and crosses:
+			continue
+		p.add(ram)
 
 
 static func _stalactite(x: int, follows: bool) -> Hazard:

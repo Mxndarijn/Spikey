@@ -1,7 +1,7 @@
 extends TestCase
 
 const Machines := preload("res://sim/rooms/catalog_machines.gd")
-## Variants of Piston Press (double slam, ladder), Stalactite Run (floor fangs,
+## Piston Press's generated layout, the variants of Stalactite Run (floor fangs,
 ## ceiling only, alternating, short fangs), Crate Drop and Gift Stack (wide,
 ## pairs), and the landing look of crate stacks (floor spikes sink).
 
@@ -52,7 +52,7 @@ static func _land_first(sim: GameSim, cd: Hazard) -> int:
 
 func test_rooms_have_their_variants() -> void:
 	var want := {
-		"piston": ["classic", "double-slam", "ladder"],
+		"piston": ["generated"],
 		"stalac": ["classic", "floor", "ceiling-only", "alternating", "short-fangs"],
 		"crates": ["classic", "wide", "pairs"],
 		"gifts": ["classic", "wide", "pairs"],
@@ -68,67 +68,79 @@ func test_rooms_have_their_variants() -> void:
 # --- Piston Press -------------------------------------------------------------
 
 
-func test_double_slam_fires_both_rams_together_at_one_height() -> void:
-	for s in 6:
-		var sim := _sim("piston", "double-slam", s)
+## The generated layout before 100 points: three rams in rows at least
+## PRESS_ROW_GAP_FEW apart, clear of the ceiling and floor, in both walls (at
+## most two in the right one, the exits' wall), each with a warning no shorter
+## than today's and a reach in range.
+func test_generated_press_rows_walls_and_warnings() -> void:
+	for s in 40:
+		var sim := _sim("piston", "", s)
 		var ps := _hazards(sim, "piston")
-		assert_eq(ps.size(), 2, "two pistons")
-		var a: Hazard = ps[0]
-		var b: Hazard = ps[1]
-		assert_ne(a.side, b.side, "one in each wall")
-		assert_true(a.glow_ticks >= 60, "a 1 s warning")
-		var heights := {}
-		for i in 900:
-			sim.room.step(sim)
-			if i % 37 == 0 and a.state() == Piston.State.IDLE:
-				_bounce(sim, s * 100 + i)
-			assert_eq(a.y, b.y, "same height")
-			assert_eq(a.state(), b.state(), "fire together")
-			heights[a.y] = true
-			if a.state() == Piston.State.HOLD:
-				var gap: int = b.tip_x() - a.tip_x()
-				assert_true(gap >= 2 * R + 20 * SUB, "a gap between the two tips")
-				# The middle of the gap is safe, the rams are not.
-				_bird(sim, (a.tip_x() + b.tip_x()) / 2, a.y)
-				assert_false(a.kills(sim) or b.kills(sim), "the middle is open")
-				_bird(sim, a.tip_x() - 30 * SUB, a.y)
-				assert_true(a.kills(sim), "the left ram kills")
-		assert_true(heights.size() >= 2, "the slam height moves between bounces")
-		assert_between(a.y, Piston.Y_MIN, Piston.Y_MAX, "inside the room")
+		assert_eq(ps.size(), Machines.PRESS_MIN, "seed %d" % s)
+		var rights := 0
+		var lefts := 0
+		for i in ps.size():
+			var p: Hazard = ps[i]
+			rights += p.side
+			lefts += 1 - p.side
+			assert_between(
+				p.y, Machines.PRESS_TOP, Machines.PRESS_BOTTOM, "clear of the ceiling and floor"
+			)
+			assert_true(p.glow_ticks >= Piston.GLOW_TICKS, "a full warning")
+			assert_between(p.reach, Machines.PRESS_REACH_MIN, Piston.REACH, "reach")
+			if i > 0:
+				assert_true(
+					p.y - ps[i - 1].y >= Machines.PRESS_ROW_GAP_FEW, "rows apart, seed %d" % s
+				)
+		assert_true(lefts >= 1 and rights >= 1, "both walls, seed %d" % s)
+		assert_true(rights <= Machines.PRESS_MAX_RIGHT, "the exits' wall stays open")
 
 
-func test_ladder_fires_top_to_bottom_at_fixed_heights() -> void:
-	var sim := _sim("piston", "ladder", 4)
-	var ps := _hazards(sim, "piston")
-	assert_eq(ps.size(), 3, "three rungs")
-	var ys: Array[int] = []
-	for p in ps:
-		assert_eq(p.side, 1, "all in one wall")
-		ys.append(p.y)
-	for i in 2:
-		assert_true(ys[i] < ys[i + 1], "listed top to bottom")
-		var free: int = (ys[i + 1] - Piston.HALF_H) - (ys[i] + Piston.HALF_H)
-		assert_true(free >= 2 * R + 40 * SUB, "room for the bird between rungs")
-	# Each rung starts its slam after the one above it.
-	var first_out := [-1, -1, -1]
-	for t in 400:
-		sim.room.step(sim)
-		if t % 50 == 0:
-			_bounce(sim, t)
-		for i in 3:
-			assert_eq(ps[i].y, ys[i], "rung %d never moves" % i)
-			if first_out[i] < 0 and ps[i].extent() > 0:
-				first_out[i] = t
-	assert_true(first_out[0] >= 0, "the top rung fires")
-	assert_true(first_out[0] < first_out[1] and first_out[1] < first_out[2], "a wave downwards")
-	# Never all three out at once: there is always a way to the wall.
-	for t in 2000:
-		sim.room.step(sim)
-		var out := 0
+## One ram more from PRESS_MORE_AT points, and the warning gets shorter by
+## level, never under today's 0.53 s.
+func test_generated_press_grows_with_the_score() -> void:
+	var idx := RoomCatalog.index_of("piston")
+	for score: int in [100, 250, 600]:
+		for s in 12:
+			var sim := GameSim.new(500 + s, Seasons.NONE)
+			sim.state.score = score
+			sim.state.room_kind = idx
+			sim.room.start(RoomCatalog.all()[idx], idx, sim, SimRng.new(77 + s))
+			var ps := _hazards(sim, "piston")
+			assert_eq(ps.size(), Machines.PRESS_MIN + 1, "at %d" % score)
+			var want := maxi(
+				Piston.GLOW_TICKS,
+				Machines.PRESS_GLOW - score / SimConfig.BOSS_EVERY * Machines.PRESS_GLOW_STEP
+			)
+			for p in ps:
+				assert_eq(p.glow_ticks, want, "warning at %d" % score)
+
+
+## A ram keeps its row, wall and rhythm all room, bounces included, and every
+## slam comes after a warning.
+func test_generated_rams_keep_their_rows_and_always_warn() -> void:
+	for s in 6:
+		var sim := _sim("piston", "", s)
+		var ps := _hazards(sim, "piston")
+		var start := []
 		for p in ps:
-			if p.extent() > 0:
-				out += 1
-		assert_true(out < 3, "never all rungs out")
+			start.append([p.side, p.y, p.delay, p.reach, p.glow_ticks])
+		var warned := []
+		for p in ps:
+			warned.append(false)
+		for t in 1200:
+			sim.room.step(sim)
+			if t % 41 == 0:
+				_bounce(sim, s * 1000 + t)
+			for i in ps.size():
+				var p: Hazard = ps[i]
+				assert_eq([p.side, p.y, p.delay, p.reach, p.glow_ticks], start[i], "ram %d" % i)
+				if p.state() == Piston.State.GLOW:
+					warned[i] = true
+				elif p.state() == Piston.State.IDLE:
+					warned[i] = false
+				if p.extent() > 0:
+					assert_true(warned[i], "ram %d warned before it slammed" % i)
 
 
 # --- Stalactite Run -----------------------------------------------------------

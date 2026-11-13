@@ -24,7 +24,7 @@ impl RoomPacing {
         ("belt", Self::EASY), // 25
         ("stalac", Self::EASY), // 25 (alternating 40)
         ("crates", Self::EASY), // 30
-        ("piston", Self::STEADY), // 36
+        ("piston", Self::STEADY), // 41 (generated layout, new human bots; on the Middle line)
         ("echo", Self::STEADY), // 39
         ("cloud", Self::STEADY), // 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
         ("stalker", Self::MIDDLE), // 41

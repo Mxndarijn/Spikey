@@ -218,7 +218,7 @@ impl Honesty {
     }
 
     /// Every long / long[] / List<long> / SimRng field of the hazard and its C# base classes.
-    /// Links to other hazards (Gate.partner, Piston.leader, Stalactite.partner,
+    /// Links to other hazards (Gate.partner, Stalactite.partner,
     /// SplittingBouncer.other) are skipped, as in C#.
     fn hazard_fields(s: &mut Scan, h: &Hz) {
         match h {
@@ -547,12 +547,8 @@ impl Honesty {
                 s.n("side", x.side);
                 s.n("y", x.y);
                 s.n("delay", x.delay);
-                s.n("half", x.half);
                 s.n("glow_ticks", x.glow_ticks);
-                s.n("y_lo", x.y_lo);
-                s.n("y_hi", x.y_hi);
                 s.n("reach", x.reach);
-                s.n("fixed_y", x.fixed_y);
                 Self::base_fields(s, &x.base);
             }
             Hz::RevvingBouncer(x) => {

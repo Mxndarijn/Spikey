@@ -266,7 +266,7 @@ func test_no_wall_spike_in_a_piston_row() -> void:
 	const Piston := preload("res://sim/hazards/piston.gd")
 	var reach := Piston.HALF_H + SimConfig.SPIKE_HALF_BASE
 	var bounces := 0
-	for variant: String in ["classic", "double-slam", "ladder"]:
+	for variant: String in ["generated"]:
 		for seed_value in range(1, 7):
 			var sim := RoomsTest.sim_in_room("piston", seed_value, Seasons.NONE, variant)
 			for i in 40:
