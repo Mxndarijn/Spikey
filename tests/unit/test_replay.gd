@@ -8,7 +8,7 @@ func test_honest_run_verifies() -> void:
 
 
 func test_round_trip_through_json() -> void:
-	var replay := SimBots.play(4243, SimBots.gap_seeker, 3)
+	var replay := SimBots.play(4244, SimBots.gap_seeker, 3)
 	var json := JSON.stringify(replay.to_dict())
 	var back := Replay.from_dict(JSON.parse_string(json))
 	assert_eq(back.taps, replay.taps)
