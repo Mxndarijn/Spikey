@@ -9,6 +9,8 @@ const FLAP_POSE_TIME := 0.12
 const FLAP_STRETCH := 0.18
 const BOUNCE_SQUASH := 0.22
 const SQUASH_RECOVER := 7.0
+## Landing on a Lava Rise raft: the body squashes down (shorter, wider).
+const LAND_SQUASH := 0.25
 ## Nose-up angle right after a flap and nose-down angle at full fall speed (radians).
 const TILT_UP := 0.55
 const TILT_DOWN := 1.05
@@ -45,6 +47,10 @@ var _stretch := 0.0
 ## taller), so it never pokes into a wall band (Narrow, Squeeze Box) when it
 ## turns round. 0..BOUNCE_SQUASH, easing back like the stretch.
 var _squash := 0.0
+## A raft landing (RaftLanding): 0..LAND_SQUASH, easing back like the squash.
+var _land := 0.0
+## RaftLanding's memory of the rafts that were up.
+var _rafts_up := {}
 var _tilt := 0.0
 var _fading := false
 ## Flip progress: 1 = upright, -1 = upside down (Gravity Flip). Moves linearly;
@@ -73,6 +79,8 @@ func bind(run: RunController, character: CharacterDef) -> void:
 	_shake = 0.0
 	_stretch = 0.0
 	_squash = 0.0
+	_land = 0.0
+	_rafts_up.clear()
 	_tilt = 0.0
 	_fading = false
 	_show = false
@@ -94,6 +102,23 @@ func on_flap() -> void:
 
 func on_bounce() -> void:
 	_squash = BOUNCE_SQUASH
+
+
+func on_raft_landing() -> void:
+	_land = LAND_SQUASH
+
+
+## Squashes the body when the bird lands on a raft (the sim uses a raft up on
+## its touch; RaftLanding tells). Returns whether it did.
+func watch_rafts(sim: GameSim) -> bool:
+	var hit := false
+	for h in sim.room.hazards:
+		var lava := h as RaftLanding.LavaHazard
+		if lava != null and not RaftLanding.landed(lava, _rafts_up).is_empty():
+			hit = true
+	if hit:
+		on_raft_landing()
+	return hit
 
 
 func on_death() -> void:
@@ -223,11 +248,14 @@ func _process(delta: float) -> void:
 	var facing := 1.0 if s.vx > 0 else -1.0
 	_stretch = move_toward(_stretch, 0.0, delta * SQUASH_RECOVER * absf(_stretch) + delta * 0.2)
 	_squash = move_toward(_squash, 0.0, delta * SQUASH_RECOVER * _squash + delta * 0.2)
+	watch_rafts(_run.sim)
+	_land = move_toward(_land, 0.0, delta * SQUASH_RECOVER * _land + delta * 0.2)
 	var g := _gravity_sign()
 	_flip = flip_step(_flip, flip_target(g), delta)
 	var flip := flip_scale(_flip)
-	var sx := (1.0 - _stretch) * (1.0 - _squash)
-	scale = Vector2(facing * sx, (1.0 + _stretch) * (1.0 + _squash * 0.5) * flip)
+	var sx := (1.0 - _stretch) * (1.0 - _squash) * (1.0 + _land * 0.6)
+	var sy := (1.0 + _stretch) * (1.0 + _squash * 0.5) * (1.0 - _land)
+	scale = Vector2(facing * sx, sy * flip)
 	# Ease toward the target so a flap swings the nose up instead of snapping it.
 	# Tilt is measured along gravity: "falling" is toward the ceiling when flipped.
 	var target := tilt_for(s.vy * g) if s.started else 0.0
