@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Runs every check. Nothing counts as done until this passes.
 
@@ -31,11 +31,22 @@
   "arrival", "variants_passable"); step 5 runs only with no filter or
   "fastsim".
 
+  Tiers (docs/CI.md). By default (-Unit) the check runs only what the files
+  changed against the merge-base with -Base (default next-features-2) need:
+  tools/ci/select_checks.ps1 picks the tests, parity and FastSim checks and
+  prints why. Lint, format, import and the load step always run; a docs-only
+  change runs nothing. -Full (or -Integration) runs everything: the golden
+  replays, the full parity, sameseed and the other slow whole-game tests. Use
+  -Full at the version bump, before merging next-features-2 into main, and as
+  the baseline before a batch of fixes. -TestFilter implies -Full's selection,
+  narrowed by the filter.
+
   Godot is found via $env:GODOT, then tools/godot_path.txt, then `godot` on PATH.
   On Windows point it at the *_console.exe build so output shows up.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File tools/check.ps1
+  powershell -ExecutionPolicy Bypass -File tools/check.ps1               # unit tier: what the change needs
+  powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Full         # integration tier: everything
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -TestFilter replay
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Jobs 1
   powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Jobs 8 -FastSimJobs 4
@@ -43,7 +54,15 @@
 param(
     [string]$TestFilter = "",
     [int]$Jobs = 0,
-    [int]$FastSimJobs = 0
+    [int]$FastSimJobs = 0,
+    [switch]$Unit,
+    [switch]$Full,
+    [switch]$Integration,
+    [string]$Base = "next-features-2",
+    # Unit tier: judge these files instead of the git diff (to try a selection), and
+    # -Plan prints the selection and stops.
+    [string[]]$Files = $null,
+    [switch]$Plan
 )
 
 $ErrorActionPreference = "Continue"
@@ -126,6 +145,38 @@ if ($FastSimJobs -le 0) { $FastSimJobs = [Math]::Max(2, [int]($Jobs / 2)) }
 $fastsim = Join-Path $root "tools/fastsim.ps1"
 $runParity = -not $TestFilter -or $TestFilter -eq "fastsim"
 
+# The tier: the unit tier (default) runs what the changed files need.
+$sel = $null
+if (-not ($Full -or $Integration -or $TestFilter)) {
+    Push-Location $root
+    if ($Files) { $sel = & (Join-Path $PSScriptRoot "ci/select_checks.ps1") -Files @($Files | ForEach-Object { $_ -split "," } | Where-Object { $_ }) }
+    else { $sel = & (Join-Path $PSScriptRoot "ci/select_checks.ps1") -Base $Base }
+    Pop-Location
+    if ($null -eq $sel) {
+        Write-Host "No merge-base with ${Base}: running the full check." -ForegroundColor Yellow
+    }
+}
+if ($null -eq $sel) {
+    Write-Host "Tier: integration (everything)"
+} else {
+    Write-Host "Tier: unit (changes against $Base; -Full runs everything)"
+    foreach ($w in ($sel.why | Select-Object -First 12)) { Write-Host "  $w" }
+    if ($sel.why.Count -gt 12) { Write-Host "  ... and $($sel.why.Count - 12) more" }
+    if ($sel.docs_only) {
+        Write-Host "Only docs changed (or nothing): no check needed." -ForegroundColor Green
+        Remove-Item -Recurse -Force $logDir -ErrorAction SilentlyContinue
+        exit 0
+    }
+    $runParity = $sel.parity
+    $testSel = switch ($sel.godot) { "none" { "none" } "only" { "only: " + ($sel.only -join ", ") } default { "all but " + (($sel.skip | ForEach-Object { Split-Path -Leaf $_ }) -join ", ") } }
+    Write-Host "  Godot tests: $testSel"
+    Write-Host ("  parity: " + $(if ($runParity) { "quick" } else { "no" }) + "; FastSim checks: " + $(if ($sel.checks.Count) { $sel.checks -join "," } else { "none" }))
+}
+if ($Plan) {
+    Remove-Item -Recurse -Force $logDir -ErrorAction SilentlyContinue
+    exit 0
+}
+
 # FastSim-RS (docs/FASTSIM_RS.md) is built once, here, so parity and the checks can share it.
 $fastsimRs = Join-Path $root "tools/fastsim-rs"
 $cargoBin = Join-Path $HOME ".cargo/bin"
@@ -144,8 +195,10 @@ if ($gdlint -and $gdformat) {
     Start-Step "lint" $gdlint $gdDirs
     Start-Step "format" $gdformat (@("--check", "--line-length", "100") + $gdDirs)
 }
-if ($fastsimRsBuilt) {
+$runChecks = $null -eq $sel -or $sel.checks.Count -gt 0
+if ($fastsimRsBuilt -and $runChecks) {
     $fa = @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "check", "-NoBuild", "-Jobs", $FastSimJobs)
+    if ($null -ne $sel) { $fa += @("-Check", ($sel.checks -join ",")) }
     if ($TestFilter) { $fa += @("-Filter", $TestFilter) }
     Start-Step "checks" "powershell" $fa
 }
@@ -182,9 +235,13 @@ if ($importOk) { Write-Host ("ok ({0:F0} s)" -f $importTime) } else { $failed +=
 
 # 4. Tests, shown as they run.
 Write-Step "Tests"
-if ($importOk) {
+if ($importOk -and $null -ne $sel -and $sel.godot -eq "none") {
+    Write-Host "not selected (unit tier)"
+} elseif ($importOk) {
     $testArgs = @("--jobs", $Jobs)
     if ($TestFilter) { $testArgs += $TestFilter }
+    if ($null -ne $sel -and $sel.godot -eq "only") { $testArgs += @("--only", ($sel.only -join ",")) }
+    if ($null -ne $sel -and $sel.godot -eq "all" -and $sel.skip.Count) { $testArgs += @("--skip", ($sel.skip -join ",")) }
     & $godot --headless --path $root -s res://tests/run_tests.gd -- @testArgs
     if ($LASTEXITCODE -ne 0) { $failed += "tests" }
 } else {
@@ -224,13 +281,15 @@ if (-not $hasCargo) {
     $failed += "fastsim checks (cargo not installed)"
 } elseif (-not $fastsimRsBuilt) {
     $failed += "fastsim checks (FastSim-RS build failed)"
+} elseif (-not $runChecks) {
+    Write-Host "not selected (unit tier)"
 } else {
     if ((Show-Step "checks") -ne 0) { $failed += "fastsim checks" }
 }
 
 Remove-Item -Recurse -Force $logDir -ErrorAction SilentlyContinue
 Write-Host ""
-Write-Host ("Check took {0:F0} s" -f $clock.Elapsed.TotalSeconds)
+Write-Host ("Check took {0:F0} s ({1})" -f $clock.Elapsed.TotalSeconds, $(if ($null -eq $sel) { "integration tier" } else { "unit tier" }))
 if ($failed.Count -gt 0) {
     Write-Host "CHECK FAILED: $($failed -join ', ')" -ForegroundColor Red
     exit 1

@@ -11,6 +11,53 @@ Release flow: bump `config/version` in `project.godot`, commit, then
 `git tag v0.1.0 && git push origin v0.1.0`. That runs Phone builds for both platforms.
 A test build: Actions tab, Phone builds, Run workflow (both platforms are ticked by default).
 
+## Local check: unit and integration tiers
+
+`tools/check.ps1` has two tiers. CI (`check.yml`) always runs everything.
+
+- **Unit** (the default): what the files you changed need, judged against the merge-base with
+  `-Base` (default `next-features-2`), committed, uncommitted and untracked.
+  `tools/ci/select_checks.ps1` picks it and the check prints the reasons first. Lint, format,
+  import and the load step always run; a docs-only change runs nothing.
+- **Integration** (`-Full` or `-Integration`): everything, including the golden replays, the
+  full FastSim-RS parity, sameseed and the other slow whole-game tests. Run it at the version
+  bump, before merging `next-features-2` into `main`, and once as a baseline before a batch of
+  fixes, so you know the branch is green before building on it.
+
+| changed | Godot tests | parity | FastSim checks |
+| --- | --- | --- | --- |
+| docs, `*.md` | none | no | none |
+| `game/`, `meta/`, `services/`, `server/`, `assets/`, scenes | all but the integration ones | no | `yardstick` when `game/run/` changed (the painters' visible list) |
+| one room or hazard: `sim/hazards/*.gd`, `sim/rooms/catalog_*.gd`, `sim/rooms/room_pacing.gd` | all but the integration ones (a catalog or pacing change also runs `test_generated_variants`: the room draws move) | quick | the room checks: passable, arrival, revive, points, keys, crawl, gates, isles, rescued, runs, sight, blind_seeds, yardstick, difficulty (boss files add bossfair) |
+| any other `sim/` file (shared) | all but the goldens | quick | all but sameseed |
+| `tools/fastsim-rs/` | none | quick | the room checks |
+| a test file `tests/**/test_*.gd` | that file | no | none |
+| other files under `tests/` (the runner, support) | all but the goldens | no | none |
+| other `tools/` files | none | no | none |
+| anything else (`project.godot`, workflows) | all but the integration ones | no | none |
+
+Integration-only Godot tests: `test_golden_replays`, `test_generated_variants`, `test_portals`,
+`test_arrival_check`, `sim/test_exits_reachable`, `sim/test_crawl_passable`. Integration-only
+FastSim checks: sameseed, reach, exits, bossfair.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/check.ps1                      # unit tier
+powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Full                # integration tier
+powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Plan                # what the unit tier would run, and why
+powershell -ExecutionPolicy Bypass -File tools/check.ps1 -Files sim/game_sim.gd -Plan
+powershell -ExecutionPolicy Bypass -File tools/ci/select_checks.ps1 -SelfTest  # the rules on real commits
+```
+
+Measured 2026-11-13 on `next-features-2`, `-Jobs 4 -FastSimJobs 4`, one CPU slot:
+
+TIMINGS
+
+Selection is by layer, not by file: almost every test reaches `sim/` through `class_name`
+globals, so following imports would select nearly everything. A `sim/` file that is not on the
+room-or-hazard list counts as shared, so a wrong guess runs more, not less. A failure only the
+integration tier finds shows up at the baseline or the release run and needs bisecting over that
+batch.
+
 ## What each workflow does
 
 **Check** is the Linux version of `tools/check.ps1`: gdlint and gdformat, headless import, load

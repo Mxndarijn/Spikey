@@ -6,6 +6,8 @@ const Gate := preload("res://sim/hazards/gate.gd")
 const Stalactite := preload("res://sim/hazards/stalactite.gd")
 const Echo := preload("res://sim/hazards/echo.gd")
 const SUB := SimConfig.SUB
+## Each test is its own piece of work (tests/run_tests.gd): they share no file.
+const PARALLEL := true
 ## Rooms whose variants are generated so that no height is skipped.
 const ROOMS: Array[String] = [
 	"isles",

@@ -1,6 +1,7 @@
 extends SceneTree
 ## Minimal headless test runner (no addon needed).
-##   godot --headless --path . -s res://tests/run_tests.gd [-- [filter] [--jobs N]]
+##   godot --headless --path . -s res://tests/run_tests.gd [-- [filter] [--jobs N]
+##     [--only a,b] [--skip c,d]]
 ## Runs every test_* method in res://tests/**/test_*.gd. A test fails on a
 ## failed assertion or on any engine/script error logged while it runs.
 ## Exit code 0 = all passed.
@@ -16,6 +17,8 @@ extends SceneTree
 ##   `static func combine_test_x(reports: Array) -> Array[String]` gets them all
 ##   and returns failures (for checks over the whole, like a total).
 ## Pieces start longest first, by the times of the last run (user://test_times.json).
+## --only keeps the test files whose path contains one of its comma-separated
+## parts, --skip drops them (tools/check.ps1 uses both to run one test tier).
 
 
 class ErrorCounter:
@@ -68,6 +71,8 @@ const TIMES_PATH := "user://test_times.json"
 var _started := false
 var _counter := ErrorCounter.new()
 var _filter := ""
+var _only: PackedStringArray = []
+var _skip: PackedStringArray = []
 var _passed := 0
 var _failed: Array[String] = []
 ## Combine key ("path:method") -> reports of its parts.
@@ -98,6 +103,12 @@ func _main() -> void:
 			"--worker":
 				i += 1
 				worker_dir = args[i]
+			"--only":
+				i += 1
+				_only = args[i].split(",", false)
+			"--skip":
+				i += 1
+				_skip = args[i].split(",", false)
 			_:
 				_filter = args[i]
 		i += 1
@@ -166,6 +177,10 @@ func _lead(jobs: int) -> void:
 		)
 		if not _filter.is_empty():
 			args.append(_filter)
+		if not _only.is_empty():
+			args.append_array(["--only", ",".join(_only)])
+		if not _skip.is_empty():
+			args.append_array(["--skip", ",".join(_skip)])
 		pids.append(OS.create_process(OS.get_executable_path(), args))
 	var waiting := true
 	while waiting:
@@ -275,7 +290,7 @@ func _finish(ms: int) -> void:
 	for f in _failed:
 		printerr("  FAIL ", f)
 	print("Tests: %d passed, %d failed (%d ms)" % [_passed, _failed.size(), ms])
-	if _failed.is_empty() and _filter.is_empty():
+	if _failed.is_empty() and _filter.is_empty() and _only.is_empty() and _skip.is_empty():
 		var out := FileAccess.open(TIMES_PATH, FileAccess.WRITE)
 		if out != null:
 			out.store_string(JSON.stringify(_times))
@@ -296,10 +311,25 @@ func _wanted(path: String, test_name: String) -> bool:
 	return _filter.is_empty() or (path + ":" + test_name).contains(_filter)
 
 
+## Whether the file is in the tier asked for (--only, --skip).
+func _picked(path: String) -> bool:
+	for part in _skip:
+		if path.contains(part):
+			return false
+	if _only.is_empty():
+		return true
+	for part in _only:
+		if path.contains(part):
+			return true
+	return false
+
+
 ## Every piece of work, longest first by the last run's times.
 func _units() -> Array[Unit]:
 	var out: Array[Unit] = []
 	for path in _find_tests("res://tests"):
+		if not _picked(path):
+			continue
 		var script := load(path) as GDScript
 		if script == null or not script.can_instantiate():
 			var broken := Unit.new()
