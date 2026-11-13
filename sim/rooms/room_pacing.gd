@@ -48,10 +48,10 @@ const TIERS := {
 	"stalac": EASY,  # 25 (alternating 40)
 	"crates": EASY,  # 30
 	"piston": STEADY,  # 36
-	"lockexit": STEADY,  # 37
 	"echo": STEADY,  # 39
 	"cloud": STEADY,  # 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
 	"stalker": MIDDLE,  # 41
+	"lockexit": MIDDLE,  # 42 (trio 38, quad 43, chain 45, since classic and orbit went)
 	"blink": MIDDLE,  # 43
 	"crawl": MIDDLE,  # 44
 	"pegs": MIDDLE,  # 44
