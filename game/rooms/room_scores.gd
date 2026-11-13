@@ -13,7 +13,9 @@ extends RefCounted
 ## with the new human bots (72 entries): 41. Buttons measured on its own on
 ## next-features-2 at 162437a once the bots press buttons (72 entries per
 ## variant, every bot tier; scored with the room-regroup rows): 50,
-## research/room-difficulty/buttons-press.
+## research/room-difficulty/buttons-press. Stalker Rail with its slide at half
+## speed measured on its own on next-features-2 at 98c19b5 (24 entries, scored
+## with the room-regroup rows): 34 (was 42 on the same build)
 
 const SCORES := {
 	"open": 24,
@@ -32,7 +34,7 @@ const SCORES := {
 	"gates": 46,
 	"crawl": 44,
 	"swing": 58,
-	"stalker": 41,
+	"stalker": 34,
 	"pinwheel": 70,
 	"sawring": 59,
 	"piston": 41,

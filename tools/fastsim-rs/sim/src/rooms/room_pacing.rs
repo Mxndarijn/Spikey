@@ -27,7 +27,7 @@ impl RoomPacing {
         ("crates", Self::EASY), // 30
         ("echo", Self::STEADY), // 39
         ("cloud", Self::STEADY), // 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
-        ("stalker", Self::MIDDLE), // 41
+        ("stalker", Self::STEADY), // 34 (slide at half speed; 41 before)
         ("piston", Self::MIDDLE), // 41 (generated)
         ("lockexit", Self::MIDDLE), // 42 (trio 38, quad 43, chain 45, since classic and orbit went)
         ("blink", Self::MIDDLE), // 43

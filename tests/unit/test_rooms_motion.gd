@@ -62,7 +62,7 @@ func test_rooms_are_in_the_catalog_in_order() -> void:
 	assert_eq(RoomCatalog.find("gates").from_score, 30)
 	assert_eq(RoomCatalog.find("crawl").from_score, 30)
 	assert_eq(RoomCatalog.find("swing").group, "mid")
-	assert_eq(RoomCatalog.find("stalker").from_score, 30)
+	assert_eq(RoomCatalog.find("stalker").from_score, 20)
 	assert_eq(RoomCatalog.find("pinwheel").from_score, 90)
 	assert_eq(RoomCatalog.find("sawring").group, "late")
 	assert_eq(RoomCatalog.find("sawring").from_score, 70)

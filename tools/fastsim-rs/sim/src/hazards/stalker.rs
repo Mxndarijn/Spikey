@@ -13,7 +13,7 @@ impl Stalker {
     pub const DEPTH: i64 = SimConfig::SPIKE_DEPTH;
     pub const HALF_BASE: i64 = SimConfig::SPIKE_HALF_BASE;
     pub const HALF_H: i64 = 2 * SimConfig::SPIKE_HALF_BASE;
-    pub const MAX_SPEED: i64 = 80;
+    pub const MAX_SPEED: i64 = 40;
     pub const MIN_Y: i64 = SimConfig::SLOT_TOP + Self::HALF_H;
     pub const MAX_Y: i64 = SimConfig::SLOT_TOP + SimConfig::SLOT_COUNT * SimConfig::SLOT_SIZE - Self::HALF_H;
 

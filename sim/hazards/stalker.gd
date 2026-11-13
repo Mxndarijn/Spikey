@@ -9,8 +9,9 @@ const DEPTH := SimConfig.SPIKE_DEPTH
 const HALF_BASE := SimConfig.SPIKE_HALF_BASE
 ## Half the pair's height (two spikes stacked).
 const HALF_H := 2 * SimConfig.SPIKE_HALF_BASE
-## Fastest slide per step (1.25 px; a flap moves the bird 8 px).
-const MAX_SPEED := 80
+## Fastest slide per step (0.625 px, half of what it was; a flap moves the
+## bird 8 px).
+const MAX_SPEED := 40
 ## The rail spans the wall's spike slots.
 const MIN_Y := SimConfig.SLOT_TOP + HALF_H
 const MAX_Y := SimConfig.SLOT_TOP + SimConfig.SLOT_COUNT * SimConfig.SLOT_SIZE - HALF_H
