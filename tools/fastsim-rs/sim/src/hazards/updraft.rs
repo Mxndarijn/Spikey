@@ -94,8 +94,11 @@ impl Updraft {
     pub fn _gust_on_way(&self, sim: &GameSim, side: i64) -> bool {
         let at = sim.steps_to_wall(side);
         let dir = if side == 1 { 1 } else { -1 };
-        for k in 0..at + 1 {
-            let bx = sim.state.x + dir * k * SimConfig::SPEED_X;
+        let r = SimConfig::BIRD_RADIUS;
+        let wall_x = if side == 1 { sim.room.wall_right() - r } else { sim.room.wall_left() + r };
+        let cross = (sim.room.wall_right() - sim.room.wall_left() - 2 * r) / SimConfig::SPEED_X;
+        for k in G::maxi(at - cross, 0)..at + 1 {
+            let bx = wall_x - dir * (at - k) * SimConfig::SPEED_X;
             let (mut lo, mut hi) = (self.x0, self.x1);
             if self.drift_span > 0 {
                 let c = self.drift_min

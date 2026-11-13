@@ -146,14 +146,18 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	return out
 
 
-## True if the band lifts the bird at some step it is inside it, flying
-## straight to wall `side` (a band without gusts always does; a gusty one when
-## its gust blows then).
+## True if the band lifts the bird at some step it is inside it on its last
+## crossing into wall `side` (after a bounce off the other wall first, when it
+## is flying away from `side`): a band without gusts always does, a gusty one
+## when its gust blows then.
 func _gust_on_way(sim: GameSim, side: int) -> bool:
 	var at := sim.steps_to_wall(side)
 	var dir := 1 if side == 1 else -1
-	for k in at + 1:
-		var bx := sim.state.x + dir * k * SimConfig.SPEED_X
+	var r := SimConfig.BIRD_RADIUS
+	var wall_x := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var cross := (sim.room.wall_right() - sim.room.wall_left() - 2 * r) / SimConfig.SPEED_X
+	for k in range(maxi(at - cross, 0), at + 1):
+		var bx := wall_x - dir * (at - k) * SimConfig.SPEED_X
 		var lo := x0
 		var hi := x1
 		if drift_span > 0:

@@ -420,6 +420,12 @@ func test_a_chimney_keeps_the_free_run_where_a_lifted_bird_gets() -> void:
 		assert_true(air._gust_on_way(sim, 1), "the chimney lifts on the way")
 		var out: int = air.adjust_wall(sim, 1, ALL & ~(0b1111 << 9))
 		assert_true(_free_ok(out, ok) >= need, "low %d" % (low / SUB))
+		# The wall just bounced off (drawn at the bounce, met after the far wall):
+		# the chimney lifts on the way back to it too.
+		air.last_low = low
+		assert_true(air._gust_on_way(sim, 0), "lifts on the way back")
+		out = air.adjust_wall(sim, 0, ALL & ~(0b1111 << 9))
+		assert_true(_free_ok(out, ok) >= need, "wall behind, low %d" % (low / SUB))
 
 
 ## Crate pairs out of a portal: no crate falls on a bird that holds its height
