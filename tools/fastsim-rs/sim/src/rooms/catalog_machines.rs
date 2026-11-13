@@ -28,8 +28,9 @@ impl CatalogMachines {
     pub const BEAM_STEP: i64 = 4 * Self::SUB;
     pub const BEAM_SHIFT: i64 = 60 * Self::SUB;
     pub const BEAM_APART: i64 = 80 * Self::SUB;
-    pub const BEAM_TOP: i64 = 110 * Self::SUB;
-    pub const BEAM_BOTTOM: i64 = 540 * Self::SUB;
+    pub const BEAM_HOP_ROOM: i64 = FairLanes::FIRST_HOP + 2 * SimConfig::BIRD_RADIUS + Beam::HALF_H + 8 * Self::SUB;
+    pub const BEAM_TOP: i64 = SimConfig::KILL_TOP + Self::BEAM_HOP_ROOM;
+    pub const BEAM_BOTTOM: i64 = SimConfig::KILL_BOTTOM - Self::BEAM_HOP_ROOM;
     pub const BEAM_EXIT_CLEAR: i64 = SimConfig::EXIT_HALF + Beam::HALF_H;
     pub const BEAM_PHASE_STEP: i64 = 5;
     pub const BEAM_START_STEP: i64 = 20 * Self::SUB;

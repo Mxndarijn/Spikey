@@ -49,8 +49,12 @@ const SCATTER := 3
 const BEAM_STEP := 4 * SUB
 const BEAM_SHIFT := 60 * SUB
 const BEAM_APART := 80 * SUB
-const BEAM_TOP := 110 * SUB
-const BEAM_BOTTOM := 540 * SUB
+## A bird above the top row or under the bottom one can hold its height there: a
+## hop (FairLanes.FIRST_HOP), its own size and the core's half, and a margin
+## between the row and the ceiling or floor.
+const BEAM_HOP_ROOM := FairLanes.FIRST_HOP + 2 * SimConfig.BIRD_RADIUS + Beam.HALF_H + 8 * SUB
+const BEAM_TOP := SimConfig.KILL_TOP + BEAM_HOP_ROOM
+const BEAM_BOTTOM := SimConfig.KILL_BOTTOM - BEAM_HOP_ROOM
 const BEAM_EXIT_CLEAR := SimConfig.EXIT_HALF + Beam.HALF_H
 ## The beat's places tried (steps apart) when it is timed to the exit, the
 ## heights a bird is tried from (apart) and how late it may start.

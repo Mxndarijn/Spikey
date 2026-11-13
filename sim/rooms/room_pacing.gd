@@ -69,7 +69,7 @@ const TIERS := {
 	"buttons": HARD,  # 50 (classic, slim, apart 50; measured on its own at 162437a, 72 entries)
 	"midnight": HARD,  # 51
 	"squeeze": HARD,  # 52
-	"beams": HARD,  # 51 (generated)
+	"beams": HARD,  # 48 (generated)
 	"bramble": HARD,  # 54 (heavy 34 .. curious 77, still being fixed)
 	"cave": STEADY,  # 32 (drips 40, bats 32 with one slow bat, fork 24)
 	"rain": HARDER,  # 57

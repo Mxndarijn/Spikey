@@ -236,7 +236,7 @@ func test_beams_warn_before_firing_and_kill_only_when_live() -> void:
 			prev = st as Beam.State
 			_bird(sim, SimConfig.WORLD_W / 2, b.rows[i])
 			var only_this := true
-			for j in Beam.ROWS:
+			for j in b.rows.size():
 				if j != i and b.state(j) == Beam.State.ON:
 					only_this = false
 			if only_this:
@@ -285,7 +285,7 @@ func test_generated_beams_keep_clear_of_the_planned_exits() -> void:
 					absi(b.rows[i] - e) >= M.BEAM_EXIT_CLEAR,
 					"seed %d row %d clears the exit at %d px" % [s, i, e / SUB]
 				)
-	assert_true(rows_seen > 200)
+	assert_true(rows_seen >= 60 * (Beam.ROWS - 2), "every seed's rows checked")
 
 
 ## Generated Beam Gates: a wall drawn behind the bird keeps its free run where a
