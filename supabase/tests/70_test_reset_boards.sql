@@ -18,7 +18,7 @@ begin
   end if;
   raise notice 'ok   %', what;
 end $$;
-create or replace function t_run(
+create or replace function t_reset_run(
   n integer, p_score integer, p_day date, p_status text, p_coins integer
 ) returns void language sql as $$
   insert into runs (player_id, score, day, played_at, gameplay_version, seed, status, coins)
@@ -42,12 +42,12 @@ begin
   -- 801: a checked run on each of the last 7 days (10 coins each), and a top
   -- score of 99999 (500 coins) six days ago. No prize written yet.
   for d in 0..6 loop
-    perform t_run(801, 30, t - d, 'ok', 10);
+    perform t_reset_run(801, 30, t - d, 'ok', 10);
   end loop;
-  perform t_run(801, 99999, t - 6, 'ok', 500);
+  perform t_reset_run(801, 99999, t - 6, 'ok', 500);
   -- 802: a rejected run (its coins never count) and one still waiting.
-  perform t_run(802, 50, t, 'rejected', 1000);
-  perform t_run(802, 40, t, 'pending', 200);
+  perform t_reset_run(802, 50, t, 'rejected', 1000);
+  perform t_reset_run(802, 40, t, 'pending', 200);
   -- Today's remembered place and an alert not sent yet.
   insert into spot_state (player_id, day, place) values (t_uid(801), t, 1)
   on conflict (player_id) do update set day = excluded.day, place = excluded.place;
@@ -106,7 +106,7 @@ begin
   );
 
   -- A new run starts the boards again, from its own score.
-  perform t_run(801, 40, t, 'ok', 5);
+  perform t_reset_run(801, 40, t, 'ok', 5);
   b := get_board('all_time');
   perform t_eq((b->'me'->>'score')::integer, 40, 'the new board has only the new run');
   perform t_eq(spikey_gold_ceiling(t_uid(801)), 575::bigint, 'new coins add to the carry');

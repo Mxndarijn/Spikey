@@ -16,7 +16,7 @@ begin
   end if;
   raise notice 'ok   %', what;
 end $$;
-create or replace function t_run(n integer, p_score integer, p_day date, p_status text)
+create or replace function t_erun(n integer, p_score integer, p_day date, p_status text)
 returns void language sql as $$
   insert into runs (player_id, score, day, played_at, gameplay_version, seed, status)
   values (t_uid(n), p_score, p_day, p_day::timestamp + interval '12 hours', 14, 1, p_status)
@@ -41,10 +41,10 @@ begin
   -- 702: best 80 checked (a rejected 120 counts for nothing), 9 days in a
   -- row ending today.
   for d in 0..8 loop
-    perform t_run(702, 20, t - d, 'ok');
+    perform t_erun(702, 20, t - d, 'ok');
   end loop;
-  perform t_run(702, 80, t - 3, 'ok');
-  perform t_run(702, 120, t, 'rejected');
+  perform t_erun(702, 80, t - 3, 'ok');
+  perform t_erun(702, 120, t, 'rejected');
   perform t_as(702);
   s := get_earn_status();
   perform t_eq((s->>'best')::integer, 80, 'only checked runs make the best');
@@ -59,7 +59,7 @@ begin
 
   -- 703: played up to yesterday: the row still counts, today not played.
   for d in 1..3 loop
-    perform t_run(703, 30, t - d, 'ok');
+    perform t_erun(703, 30, t - d, 'ok');
   end loop;
   perform t_as(703);
   s := get_earn_status();
@@ -68,7 +68,7 @@ begin
 
   -- 704: the last run was two days ago: the streak is broken.
   for d in 2..9 loop
-    perform t_run(704, 30, t - d, 'ok');
+    perform t_erun(704, 30, t - d, 'ok');
   end loop;
   perform t_as(704);
   s := get_earn_status();
@@ -76,7 +76,7 @@ begin
   perform t_eq((s->>'streak_won')::integer, 0, 'and a broken row shows no streak diamonds');
 
   -- 705: only a pending run today: nothing yet.
-  perform t_run(705, 60, t, 'pending');
+  perform t_erun(705, 60, t, 'pending');
   perform t_as(705);
   s := get_earn_status();
   perform t_eq((s->>'best')::integer, 0, 'a run waiting for the checker does not count yet');

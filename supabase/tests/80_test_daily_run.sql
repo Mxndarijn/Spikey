@@ -171,13 +171,13 @@ begin
   perform t_eq((get_board('daily_run')->'me'->>'score')::integer, 40, 'and not on the Daily Run');
 
   -- Yesterday's Daily Run: 901 100, 902 and 903 95 (902 earlier), 904..911
-  -- 84 - n, 912 a rejected 999, and one still waiting.
+  -- 84 - (n - 900), 912 a rejected 999, and one still waiting.
   perform t_drun(901, 100, y, 'ok');
   perform t_drun(901, 20, y, 'ok');
   perform t_drun(902, 95, y, 'ok', 0);
   perform t_drun(903, 95, y, 'ok', 1);
   for n in 904..911 loop
-    perform t_drun(n, 84 - n, y, 'ok');
+    perform t_drun(n, 84 - (n - 900), y, 'ok');
   end loop;
   perform t_drun(912, 999, y, 'rejected');
   v_run := t_drun(912, 5, y, 'pending');
