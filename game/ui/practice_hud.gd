@@ -2,16 +2,17 @@ class_name PracticeHud
 extends Control
 ## The extra HUD for a practice run, in the minimal kit: a small line
 ## "Practice: Piston Press" at the very top (the room on repeat), a bare restart
-## icon top right, "Back to rooms" while paused, and the crash screen on the
-## dimmed room: "Crashed", the room, this try's points, the practice note,
-## the round Try again and Back to rooms (with a back arrow). Hud owns it and
+## icon top right, the text button Rooms while paused, and the crash screen on
+## the dimmed room: "Crashed", the room, this try's points, the practice note,
+## the round Try again on the action line and Rooms under it. Hud owns it and
 ## shows it only in practice; its pause button and score stay Hud's.
 
 signal restart_pressed
 signal rooms_pressed
 
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
-const BACK_ICON := preload("res://assets/ui/icons/back.svg")
+## The overlays' one text button: back to Rooms.
+const ROOMS_TEXT := "Rooms"
 ## The line sits high on the ceiling's spike band, above SimConfig.KILL_TOP and the
 ## Spike Rain tells under it: the bird never gets there, so it never covers a
 ## hazard, a button or the bird.
@@ -85,28 +86,15 @@ func refresh_button_size() -> void:
 
 
 func _build_pause_rooms() -> void:
-	_pause_rooms = _scrim_link("Back to rooms")
-	_pause_rooms.anchor_right = 1.0
-	_pause_rooms.offset_top = 500
-	_pause_rooms.offset_bottom = 500 + UiTokens.SIZE_TAP_MIN
-	add_child(_pause_rooms)
+	_pause_rooms = UiKit.place_text_button(self, _rooms_button())
 
 
-## A bare white "Back to rooms" with the back arrow, centred.
-func _scrim_link(text: String) -> Control:
-	var row := CenterContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var b := Button.new()
-	b.theme_type_variation = &"ScrimButton"
-	b.text = text
-	b.icon = BACK_ICON
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	b.add_theme_constant_override("icon_max_width", 20)
+## The text button "Rooms" (the overlay's one other choice): back to Rooms.
+func _rooms_button() -> Button:
+	var b := UiKit.text_button(ROOMS_TEXT)
 	b.pressed.connect(rooms_pressed.emit)
 	UiKit.mark_back(b)
-	row.add_child(b)
-	return row
+	return b
 
 
 func _build_over() -> void:
@@ -135,17 +123,10 @@ func _build_over() -> void:
 	_at(note_box, 312)
 	var again := UiKit.primary(RESTART_ICON, "Try again", true)
 	again.name = "TryAgain"
-	again.anchor_left = 0.5
-	again.anchor_right = 0.5
-	again.offset_left = -UiKit.PRIMARY / 2.0
-	again.offset_right = UiKit.PRIMARY / 2.0
-	again.offset_top = 390
-	again.offset_bottom = 390 + UiKit.PRIMARY
 	again.pressed.connect(restart_pressed.emit)
-	_over.add_child(again)
-	var rooms := _scrim_link("Back to rooms")
+	UiKit.place_primary(_over, again)
+	var rooms := UiKit.place_text_button(_over, _rooms_button())
 	rooms.name = "BackToRooms"
-	_at(rooms, 512)
 	add_child(_over)
 
 

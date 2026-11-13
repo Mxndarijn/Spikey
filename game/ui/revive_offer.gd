@@ -2,8 +2,8 @@ class_name ReviveOffer
 extends ColorRect
 ## The revive offer after a crash, on the dimmed room (laid out like Paused):
 ## "Crashed", the score, one pip per free revive of the day, what Revive costs
-## (a free one, or a short ad), the round Revive and a bare Skip ("Ends this
-## run"). With the Revive Pass there are no pips: the line says the pass makes
+## (a free one, or a short ad), the round Revive on the action line and the
+## text button End run under it (the same button as on Paused). With the Revive Pass there are no pips: the line says the pass makes
 ## it free and a small "PASS" pill sits where the "AD" one would. It waits: no
 ## countdown. Hud owns it.
 
@@ -14,10 +14,9 @@ signal shown
 
 const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 const AD_ICON := preload("res://assets/ui/icons/ad.svg")
-const SKIP_ICON := preload("res://assets/ui/icons/chevron.svg")
 const PIP := 10.0
 const PIP_OFF := Color(1, 1, 1, 0.3)
-const REVIVE_TOP := 370.0
+const REVIVE_TOP := UiKit.ACTION_TOP
 const FREE_NOTE := "Keep your score and fly on"
 const AD_LINE := "Watch a short ad to keep going"
 const PASS_LINE := "Revive free with your Revive Pass"
@@ -103,24 +102,10 @@ func _shoulder_pill(tag_box: PanelContainer, text: String, inset: float) -> void
 
 
 func _build_skip() -> void:
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 0)
-	_skip = Button.new()
+	_skip = UiKit.text_button(PauseScreen.END_RUN)
 	_skip.name = "Skip"
-	_skip.theme_type_variation = &"ScrimButton"
-	_skip.text = "Skip"
-	_skip.icon = SKIP_ICON
-	_skip.focus_mode = Control.FOCUS_NONE
-	_skip.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	_skip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_skip.add_theme_constant_override("icon_max_width", 20)
 	_skip.pressed.connect(skip_pressed.emit)
-	col.add_child(_skip)
-	var note := UiKit.label("Ends this run", &"ScrimCaption")
-	note.add_theme_font_size_override("font_size", 12)
-	col.add_child(note)
-	_at(col, 506)
+	UiKit.place_text_button(self, _skip)
 
 
 func _at(c: Control, top: float) -> void:

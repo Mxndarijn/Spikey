@@ -1,7 +1,8 @@
 class_name PauseScreen
 extends ColorRect
 ## Paused: the dimmed room with "Paused", the score, Music and Sounds toggle
-## circles, the round Resume, and Home ("Ends this run"; not in practice).
+## switches (filled paper when on, a white ring when off), the round Resume on
+## the action line, and the text button End run under it (not in practice).
 
 signal resume_pressed
 signal home_pressed
@@ -9,10 +10,11 @@ signal home_pressed
 signal sound_toggled(which: String, on: bool)
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const HOME_ICON := preload("res://assets/ui/icons/home.svg")
 const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
 const TOGGLE := 56.0
+## The text button that ends the run (and goes Home).
+const END_RUN := "End run"
 
 var _score := Label.new()
 var _toggles: Dictionary[String, Button] = {}
@@ -38,17 +40,14 @@ func _init() -> void:
 	UiKit.across(self, row, 260)
 	var resume := UiKit.primary(PLAY_ICON, "Resume", true)
 	resume.name = "Resume"
-	resume.anchor_left = 0.5
-	resume.anchor_right = 0.5
-	resume.offset_left = -UiKit.PRIMARY / 2.0
-	resume.offset_right = UiKit.PRIMARY / 2.0
-	resume.offset_top = 380
-	resume.offset_bottom = 380 + UiKit.PRIMARY
 	resume.pressed.connect(resume_pressed.emit)
-	add_child(resume)
-	_home = UiKit.scrim_link(HOME_ICON, "Home", "Ends this run", true)
-	UiKit.link_button(_home).pressed.connect(home_pressed.emit)
-	UiKit.across(self, _home, 500)
+	UiKit.place_primary(self, resume)
+	# One text button that says what it does: the run ends and Home opens.
+	var end := UiKit.text_button(END_RUN)
+	end.name = "EndRun"
+	UiKit.mark_back(end)
+	end.pressed.connect(home_pressed.emit)
+	_home = UiKit.place_text_button(self, end)
 
 
 ## Shows the score and the sound switches as they are; `can_go_home`: Home
@@ -74,7 +73,8 @@ func home_visible() -> bool:
 	return _home.visible
 
 
-## A Music or Sounds circle: paper with an ink icon when on, faint when off.
+## A Music or Sounds switch: filled paper with an ink icon when on, a white
+## ring with a white icon when off (the same rule as Settings).
 func _toggle(which: String, icon: Texture2D) -> Control:
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -88,7 +88,9 @@ func _toggle(which: String, icon: Texture2D) -> Control:
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(TOGGLE, TOGGLE)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var off := UiTheme.flat(Color(1, 1, 1, 0.18), UiTokens.RADIUS_PILL, 0)
+	var off := UiTheme.flat(Color(UiTokens.ON_SCRIM, 0.0), UiTokens.RADIUS_PILL, 0)
+	off.set_border_width_all(3)
+	off.border_color = UiTokens.ON_SCRIM
 	var on := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
 	for state in ["normal", "hover"]:
 		b.add_theme_stylebox_override(state, off)

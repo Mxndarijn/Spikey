@@ -1,10 +1,10 @@
 class_name ReplayHud
 extends Control
 ## The HUD for watching a leaderboard run, in the minimal kit like PracticeHud:
-## a small ink chip "Replay: Noor, 31" at the top and a bare close icon top
-## left that leaves. When the run ends, the dimmed room shows "Noor scored 31",
-## the round Watch again and Back. A run that can't be played shows only its
-## message and Back. Under the room sits the ReplayScrubber: the run's rooms
+## a small ink chip "Replay: Noor, 31" at the top and the back arrow in the
+## corner slot that leaves (it stays when the run ends). When the run ends, the
+## dimmed room shows "Noor scored 31" and the round Again on the action line.
+## A run that can't be played shows only its message and the back arrow. Under the room sits the ReplayScrubber: the run's rooms
 ## as chapters, a timeline to drag and the pause controls. Hud owns it and
 ## shows it only while replaying; the score stays Hud's.
 
@@ -13,7 +13,6 @@ signal back_pressed
 ## Shown, hidden, or the result screen came up (Hud follows it).
 signal changed
 
-const CLOSE_ICON := preload("res://assets/ui/icons/close.svg")
 const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const CHIP_TOP := 48.0
@@ -65,7 +64,7 @@ func _build_banner() -> void:
 
 
 func _build_exit() -> void:
-	_exit = UiKit.hud_icon_button(CLOSE_ICON, "Stop watching")
+	_exit = UiKit.hud_icon_button(BACK_ICON, "Back")
 	_exit.name = "ExitReplay"
 	_exit.add_theme_constant_override("icon_max_width", 24)
 	_place_exit(UiKit.ICON_BUTTON)
@@ -100,31 +99,14 @@ func _build_over() -> void:
 	_over_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_box.add_child(_over_title)
 	_at(title_box, 150)
-	_again = UiKit.primary(RESTART_ICON, "Watch again", true)
+	_again = UiKit.primary(RESTART_ICON, "Again", true)
 	_again.name = "WatchAgain"
-	_again.anchor_left = 0.5
-	_again.anchor_right = 0.5
-	_again.offset_left = -UiKit.PRIMARY / 2.0
-	_again.offset_right = UiKit.PRIMARY / 2.0
-	_again.offset_top = 330
-	_again.offset_bottom = 330 + UiKit.PRIMARY
+	_again.tooltip_text = "Watch again"
 	_again.pressed.connect(again_pressed.emit)
-	_over.add_child(_again)
-	var back := CenterContainer.new()
-	back.name = "Back"
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var b := Button.new()
-	b.theme_type_variation = &"ScrimButton"
-	b.text = "Back"
-	b.icon = BACK_ICON
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	b.add_theme_constant_override("icon_max_width", 20)
-	b.pressed.connect(back_pressed.emit)
-	UiKit.mark_back(b)
-	back.add_child(b)
-	_at(back, 470)
+	UiKit.place_primary(_over, _again)
 	add_child(_over)
+	# The back arrow stays over the dimmed room: it is the way out there too.
+	move_child(_exit, -1)
 
 
 func _at(c: Control, top: float) -> void:
@@ -152,14 +134,14 @@ func show_playing() -> void:
 	changed.emit()
 
 
-## The run played out: "Noor scored 31", Watch again and Back.
+## The run played out: "Noor scored 31" and Again.
 func show_over() -> void:
 	_over_title.text = "%s scored %d" % [_player, _score]
 	_again.visible = true
 	_show_over_screen()
 
 
-## The run can't be played: just the message and Back.
+## The run can't be played: just the message (the back arrow leaves).
 func show_message(text: String) -> void:
 	visible = true
 	_scrubber.unbind()
@@ -170,7 +152,7 @@ func show_message(text: String) -> void:
 
 func _show_over_screen() -> void:
 	_banner.visible = false
-	_exit.visible = false
+	_exit.visible = true
 	_over.visible = true
 	changed.emit()
 

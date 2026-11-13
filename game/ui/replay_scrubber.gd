@@ -37,9 +37,10 @@ const TRACK_PAD := 5.0
 const SKULL_D := 20.0
 const THUMB_D := 18.0
 const THUMB_DRAG_D := 26.0
-## The pill's bottom edge in the room: 12 px above the floor spike tips (the
-## floor row is drawn 28 px tall at the room's bottom).
-const PILL_BOTTOM := 600.0
+## The pill's bottom edge in the room: the pill is centred on the action line
+## (UiKit.ACTION_Y), clear of the chapter band also where the band covers the
+## room's bottom (16:9 phones).
+const PILL_BOTTOM := UiKit.ACTION_Y + 22.0
 const PILL_H := 44.0
 const PILL_FILL := Color(UiTokens.INK_900, 0.82)
 ## Seconds the pill stays after a drag that started while playing.
