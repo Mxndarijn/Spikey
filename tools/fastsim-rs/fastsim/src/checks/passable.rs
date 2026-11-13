@@ -17,11 +17,11 @@ impl Passable {
     /// Practice seeds per room variant (the GD test played the first 2 of these).
     pub const SEEDS_EACH: i64 = 6;
     /// test_variants_passable.gd CASES: [room id, ticks].
-    pub const CASES: [(&'static str, i64); 47] = [
+    pub const CASES: [(&'static str, i64); 46] = [
         ("narrow", 900), ("tide", 1150), ("cloud", 1150), ("bramble", 1150), ("rain", 1150),
         ("swing", 1150), ("updraft", 1150), ("crosswind", 1150), ("belt", 1150), ("lockexit", 1700),
         ("lava", 1150), ("echo", 1150), ("bubbles", 1150), ("garden", 1150), ("slowmo", 2300),
-        ("court", 1150), ("crowded", 1150), ("squeeze", 1150), ("blink", 1150), ("hunter", 1150),
+        ("crowded", 1150), ("squeeze", 1150), ("blink", 1150), ("hunter", 1150),
         ("flip", 1150), ("midnight", 1150), ("sawring", 1150), ("bats", 1150), ("cupid", 1150),
         ("fireworks", 1150), ("crawl", 1150), ("crabs", 1150), ("pumpkin", 1150), ("keepy", 1150),
         ("beachball", 1150), ("hearts", 1150), ("isles", 1150), ("eggs", 1150), ("gates", 1150),

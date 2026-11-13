@@ -142,12 +142,6 @@ Echo.x	game/run/painters/echo_painter.gd
 Echo.xs	game/run/painters/echo_painter.gd
 Echo.y	game/run/painters/echo_painter.gd
 Echo.ys	game/run/painters/echo_painter.gd
-EdgePad.alive	game/run/painters/edge_pad_painter.gd
-EdgePad.line_y()	game/run/painters/edge_pad_painter.gd
-EdgePad.since_bump	game/run/painters/edge_pad_painter.gd
-EdgePad.top	game/run/painters/edge_pad_painter.gd
-EdgePad.x0()	game/run/painters/edge_pad_painter.gd
-EdgePad.x1()	game/run/painters/edge_pad_painter.gd
 ExitKey.alive	game/run/painters/exit_key_painter.gd
 ExitKey.born	game/run/painters/exit_key_painter.gd
 ExitKey.count	game/run/painters/exit_key_painter.gd

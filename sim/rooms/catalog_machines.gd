@@ -2,8 +2,6 @@ extends RefCounted
 ## Rooms batch: machines. Order is part of the rules (see RoomCatalog).
 
 const Piston := preload("res://sim/hazards/piston.gd")
-const EdgePad := preload("res://sim/hazards/edge_pad.gd")
-const PadCoin := preload("res://sim/hazards/pad_coin.gd")
 const CrateDrop := preload("res://sim/hazards/crate_drop.gd")
 const Beam := preload("res://sim/hazards/beam.gd")
 const Stalactite := preload("res://sim/hazards/stalactite.gd")
@@ -80,19 +78,6 @@ static func defs() -> Array[RoomDef]:
 		RoomVariant.new("ladder").with([_rung.bind(0), _rung.bind(1), _rung.bind(2)]),
 	]
 	out.append(piston)
-
-	# Bumper Court: a pad slides along the ceiling and one along the floor;
-	# they bounce the bird, the rest of the edge still kills. Variants: classic;
-	# goal-pad (a coin rides the floor pad: land on it to take it, and the next
-	# one shows up on the other pad).
-	var court := RoomDef.new("court", "mid", 40)
-	court.hazards.append(_pad.bind(true, 300))
-	court.hazards.append(_pad.bind(false, 240))
-	court.variants = [
-		RoomVariant.new("classic"),
-		RoomVariant.new("goal-pad").with([func() -> Hazard: return PadCoin.new(false)]),
-	]
-	out.append(court)
 
 	# Crate Drop: crates fall one at a time and pile up in columns (classic),
 	# or big crates make fat towers (wide), or two fall at once (pairs).
@@ -205,10 +190,6 @@ static func _rung(i: int) -> Hazard:
 	p.reach = LADDER_REACH
 	p.fixed_y = LADDER_Y[i]
 	return p
-
-
-static func _pad(top: bool, period: int) -> Hazard:
-	return EdgePad.new(top, period)
 
 
 static func _stalactite(x: int, follows: bool) -> Hazard:

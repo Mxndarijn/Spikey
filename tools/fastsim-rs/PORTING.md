@@ -145,7 +145,7 @@ Keep names, order and structure the same as the GDScript line.
   method, and parity catches it).
 - Read-only methods (`kills`, `blocks_exit`, `guards_edge`, `band_top`,
   `band_bottom`, `near_row`, `wall_shift`, `locks_exit`, `checksum`) take
-  `&self, sim: &GameSim`. If GDScript changes state in one (EdgePad.guards_edge
+  `&self, sim: &GameSim`. If GDScript changes state in one (ButtonPair.guards_edge
   pushes the bird), give it a `_mut` twin and call that from GameSim.
 - A reference to another hazard (`Gate.partner`) is an index into
   `sim.room.hazards` (`Option<usize>`). Hazards are never removed or reordered.

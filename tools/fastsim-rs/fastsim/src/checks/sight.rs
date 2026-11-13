@@ -100,8 +100,8 @@ impl SightCheck {
         let mut out_: Vec<&'static str> = vec![
             "Beam", "Belt", "Block", "Boss", "BossCrusher", "BossSaw", "BossWatcher", "Bouncer", "Bubble",
             "Bumper", "CoinPickup", "CrateDrop", "Crawler", "CuriousBouncer", "Dart", "Drop", "Echo",
-            "EdgePad", "ExitKey", "Firework", "Gate", "HeavyBouncer", "KeepyBall", "Lava", "Mover",
-            "OrbitCoin", "OrchardSpawner", "PadCoin", "Pendulum", "Piston", "RevvingBouncer", "Rotor",
+            "ExitKey", "Firework", "Gate", "HeavyBouncer", "KeepyBall", "Lava", "Mover",
+            "OrbitCoin", "OrchardSpawner", "Pendulum", "Piston", "RevvingBouncer", "Rotor",
             "SawRing", "SpikeBall", "SplittingBouncer", "Stalactite", "Stalker", "Updraft", "Wind",
         ];
         out_.sort_by(|a, b| culture_cmp(a, b));

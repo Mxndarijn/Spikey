@@ -209,7 +209,6 @@ func test_all_picked_rooms_exist() -> void:
 		"crawl",
 		"piston",
 		"swing",
-		"court",
 		"squeeze",
 		"stalker",
 		"crates",

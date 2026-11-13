@@ -424,12 +424,6 @@ impl Honesty {
                 s.rng("_rng", &x._rng);
                 Self::base_fields(s, &x.base);
             }
-            Hz::EdgePad(x) => {
-                s.n("period", x.period);
-                s.n("phase", x.phase);
-                s.n("since_bump", x.since_bump);
-                Self::base_fields(s, &x.base);
-            }
             Hz::ExitKey(x) => {
                 s.n("mode", x.mode);
                 s.n("count", x.count);
@@ -527,10 +521,6 @@ impl Honesty {
                 // live: List<bool> (skipped).
                 s.rng("_rng", &x._rng);
                 Self::base_fields(s, &x.base);
-            }
-            Hz::PadCoin(x) => {
-                s.n("wait", x.wait);
-                Self::coin_fields(s, &x.c);
             }
             Hz::Pendulum(x) => {
                 s.n("pivot_x", x.pivot_x);
@@ -875,7 +865,6 @@ pub fn hz_name(h: &Hz) -> &'static str {
         Hz::Dart(_) => "Dart",
         Hz::Drop(_) => "Drop",
         Hz::Echo(_) => "Echo",
-        Hz::EdgePad(_) => "EdgePad",
         Hz::ExitKey(_) => "ExitKey",
         Hz::Firework(_) => "Firework",
         Hz::Gate(_) => "Gate",
@@ -885,7 +874,6 @@ pub fn hz_name(h: &Hz) -> &'static str {
         Hz::Mover(_) => "Mover",
         Hz::OrbitCoin(_) => "OrbitCoin",
         Hz::OrchardSpawner(_) => "OrchardSpawner",
-        Hz::PadCoin(_) => "PadCoin",
         Hz::Peg(_) => "Peg",
         Hz::Pendulum(_) => "Pendulum",
         Hz::Piston(_) => "Piston",

@@ -1,6 +1,6 @@
 extends TestCase
-## Machine rooms: Piston Press, Bumper Court, Crate Drop, Beam Gates,
-## Stalactite Run and Hunter Spike (plus the Gift Stack and Cupid Lanes modes).
+## Machine rooms: Piston Press, Crate Drop, Beam Gates, Stalactite Run and
+## Hunter Spike (plus the Gift Stack and Cupid Lanes modes).
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
 const Piston := preload("res://sim/hazards/piston.gd")
@@ -62,7 +62,7 @@ static func _land_first(sim: GameSim, cd: Hazard) -> int:
 
 
 func test_machine_rooms_are_in_the_catalog_in_order() -> void:
-	var ids: Array[String] = ["piston", "court", "crates", "beams", "stalac", "hunter"]
+	var ids: Array[String] = ["piston", "crates", "beams", "stalac", "hunter"]
 	var last := -1
 	for id in ids:
 		var i := RoomCatalog.index_of(id)
@@ -75,7 +75,6 @@ func test_machine_rooms_are_in_the_catalog_in_order() -> void:
 func test_rooms_spawn_their_hazards() -> void:
 	var expect := {
 		"piston": ["piston", 2],
-		"court": ["edge_pad", 2],
 		"crates": ["crate_drop", 1],
 		"beams": ["beam", 1],
 		"stalac": ["stalactite", 2],
@@ -89,7 +88,7 @@ func test_rooms_spawn_their_hazards() -> void:
 
 ## Nothing in a machine room is deadly to the bird where it starts the room.
 func test_nothing_spawns_on_the_bird() -> void:
-	for id: String in ["piston", "court", "crates", "beams", "stalac", "hunter"]:
+	for id: String in ["piston", "crates", "beams", "stalac", "hunter"]:
 		for s in 20:
 			var sim := RoomsTest.sim_in_room(id, s)
 			for x: int in [SimConfig.BIRD_RADIUS + 2 * SUB, SimConfig.WORLD_W - 16 * SUB]:
@@ -131,70 +130,6 @@ func test_piston_glows_then_slams_and_kills_only_when_out() -> void:
 	p.t = sim.room.t
 	assert_eq(p.state(), Piston.State.HOLD)
 	assert_false(p.kills(sim), "the ram leaves room past its reach")
-
-
-# --- Bumper Court -------------------------------------------------------------
-
-
-func test_court_pad_saves_the_bird_rest_of_edge_kills() -> void:
-	var sim := RoomsTest.sim_in_room("court", 4)
-	var pads := _hazards(sim, "edge_pad")
-	for pad in pads:
-		var top: bool = pad.top
-		var r := SimConfig.BIRD_RADIUS
-		var y := SimConfig.KILL_TOP + r - SUB if top else SimConfig.KILL_BOTTOM - r + SUB
-		_bird(sim, (pad.x0() + pad.x1()) / 2, y)
-		sim.state.vy = -4 * SUB if top else 4 * SUB
-		assert_true(pad.guards_edge(sim, top), "pad guards its edge")
-		assert_true(sim.state.vy > 0 if top else sim.state.vy < 0, "bounced back into the room")
-		assert_false(pad.guards_edge(sim, not top), "only its own edge")
-		# Far from the pad: not guarded.
-		var away: int = (
-			20 * SUB if pad.x0() > SimConfig.WORLD_W / 2 else SimConfig.WORLD_W - 20 * SUB
-		)
-		_bird(sim, away, y)
-		assert_false(pad.guards_edge(sim, top), "edge away from the pad is not guarded")
-
-
-func test_court_full_sim_bounce_on_pad_and_death_beside_it() -> void:
-	# On the floor pad: the bird lives and heads up.
-	var sim := RoomsTest.sim_in_room("court", 6)
-	sim.state.started = true
-	var floor_pad: Hazard = _hazards(sim, "edge_pad")[1]
-	sim.room.step(sim)
-	_bird(
-		sim,
-		(floor_pad.x0() + floor_pad.x1()) / 2,
-		SimConfig.KILL_BOTTOM - SimConfig.BIRD_RADIUS - SUB
-	)
-	sim.state.vx = 0
-	sim.state.vy = 4 * SUB
-	sim.step(false)
-	assert_true(sim.state.alive, "floor pad saves the bird")
-	assert_true(sim.state.vy < 0, "and bounces it up")
-	# Beside the pad: the floor kills.
-	var sim2 := RoomsTest.sim_in_room("court", 6)
-	sim2.state.started = true
-	var pad2: Hazard = _hazards(sim2, "edge_pad")[1]
-	sim2.room.step(sim2)
-	var away: int = 20 * SUB if pad2.x0() > SimConfig.WORLD_W / 2 else SimConfig.WORLD_W - 60 * SUB
-	_bird(sim2, away, SimConfig.KILL_BOTTOM - SimConfig.BIRD_RADIUS - SUB)
-	sim2.state.vx = 0
-	sim2.state.vy = 4 * SUB
-	sim2.step(false)
-	assert_false(sim2.state.alive, "the floor still kills away from the pad")
-	assert_eq(sim2.state.death_cause, SimState.DeathCause.FLOOR)
-
-
-func test_court_pads_slide() -> void:
-	var sim := RoomsTest.sim_in_room("court", 2)
-	var pad: Hazard = _hazards(sim, "edge_pad")[0]
-	var xs := {}
-	for i in 300:
-		sim.room.step(sim)
-		xs[pad.x0()] = true
-		assert_true(pad.x0() >= 0 and pad.x1() <= SimConfig.WORLD_W, "pad stays in the room")
-	assert_true(xs.size() > 50, "the pad slides along the edge")
 
 
 # --- Crate Drop ---------------------------------------------------------------
@@ -468,7 +403,7 @@ func test_cupid_lanes_flash_then_cross_at_most_two() -> void:
 
 
 func test_machine_rooms_replay_the_same() -> void:
-	for id: String in ["piston", "court", "crates", "beams", "stalac", "hunter"]:
+	for id: String in ["piston", "crates", "beams", "stalac", "hunter"]:
 		var a := RoomsTest._run_room(id, 21)
 		var b := RoomsTest._run_room(id, 21)
 		assert_eq(a, b, "%s is deterministic" % id)

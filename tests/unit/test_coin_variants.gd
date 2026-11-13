@@ -1,20 +1,16 @@
 extends TestCase
 ## The coin and bubble room variants: Bubble Lift (giants, spiky,
-## coin-bubbles), Coin Garden (orbit, decoy), Slow-Mo Breather (zigzag) and
-## Bumper Court (goal-pad).
+## coin-bubbles), Coin Garden (orbit, decoy) and Slow-Mo Breather (zigzag).
 
 const Bubble := preload("res://sim/hazards/bubble.gd")
 const CoinPickup := preload("res://sim/hazards/coin_pickup.gd")
 const SpikeBall := preload("res://sim/hazards/spike_ball.gd")
-const PadCoin := preload("res://sim/hazards/pad_coin.gd")
-const EdgePad := preload("res://sim/hazards/edge_pad.gd")
 
 const SUB := SimConfig.SUB
 const VARIANTS := {
 	"bubbles": ["classic", "giants", "spiky", "coin-bubbles"],
 	"garden": ["classic", "orbit", "decoy"],
 	"slowmo": ["classic", "zigzag"],
-	"court": ["classic", "goal-pad"],
 }
 
 
@@ -232,53 +228,3 @@ func test_zigzag_coins_alternate_high_and_low() -> void:
 		var c := coins[i] as CoinPickup
 		assert_eq(c.x, (90 + i * 45) * SUB)
 		assert_eq(c.y, (380 if i % 2 == 1 else 280) * SUB, "coin %d" % i)
-
-
-func test_goal_pad_coin_rides_a_pad_and_moves_to_the_other_when_taken() -> void:
-	var sim := started("court", "goal-pad")
-	var coins := of_kind(sim, "coin")
-	assert_eq(coins.size(), 1)
-	var c := coins[0] as PadCoin
-	var floor_pad: EdgePad = null
-	for h in of_kind(sim, "edge_pad"):
-		if not (h as EdgePad).top:
-			floor_pad = h
-	for i in 50:
-		sim.room.step(sim)
-		var mid := (floor_pad.x0() + floor_pad.x1()) / 2
-		assert_true(absi(c.x - mid) <= 2 * SUB, "rides the middle of the floor pad")
-		assert_eq(c.y, SimConfig.COIN_MAX_Y, "just above it")
-	park(sim, c.x, c.y)
-	c.touch(sim)
-	assert_eq(sim.state.coins, 1, "taken")
-	assert_true(c.alive, "it comes back")
-	assert_false(c.visible(), "after a moment")
-	assert_true(c.on_top, "on the ceiling pad")
-	for i in PadCoin.RESPAWN:
-		sim.room.step(sim)
-	assert_true(c.visible())
-	assert_eq(c.y, SimConfig.COIN_MIN_Y)
-
-
-## Landing on the floor pad flies the bird through the coin.
-func test_landing_on_the_goal_pad_takes_the_coin() -> void:
-	var sim := started("court", "goal-pad")
-	var c := of_kind(sim, "coin")[0] as PadCoin
-	var pad: EdgePad = null
-	for h in of_kind(sim, "edge_pad"):
-		if not (h as EdgePad).top:
-			pad = h
-	# Fall straight down onto the middle of the pad.
-	sim.state.x = c.x
-	sim.state.y = 470 * SUB
-	sim.state.vx = 0
-	sim.state.vy = 0
-	var took := false
-	for i in 60:
-		sim.state.x = (pad.x0() + pad.x1()) / 2
-		sim.step(false)
-		if sim.state.coins > 0:
-			took = true
-			break
-	assert_true(took, "the coin is taken on the way down")
-	assert_true(sim.state.alive, "and the pad catches the bird")

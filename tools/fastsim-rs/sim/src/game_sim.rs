@@ -1147,15 +1147,14 @@ impl GameSim {
         }
     }
 
-    /// EdgePad.guards_edge pushes the bird (C# changes state in it), so it runs
+    /// ButtonPair.guards_edge pushes the bird (GDScript changes state in it), so it runs
     /// taken out (`guards_edge_mut`); every other hazard's guards_edge is read-only.
     fn _edge_guarded(&mut self, top: bool) -> bool {
         let mut i = 0;
         while i < self.room.hazards.len() {
             if self.room.hazards[i].alive() {
-                let hit = if matches!(self.room.hazards[i], Hz::EdgePad(_) | Hz::ButtonPair(_)) {
+                let hit = if matches!(self.room.hazards[i], Hz::ButtonPair(_)) {
                     self.with_hazard(i, |h, sim| match h {
-                        Hz::EdgePad(p) => p.guards_edge_mut(sim, top),
                         Hz::ButtonPair(p) => p.guards_edge_mut(sim, top),
                         _ => unreachable!(),
                     })

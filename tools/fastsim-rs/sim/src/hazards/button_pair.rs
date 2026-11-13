@@ -3,7 +3,7 @@
 //!
 //! GDScript `guards_edge` is not read-only: when it guards, it pushes the bird and may score a
 //! press. That full version is `guards_edge_mut` (GameSim._edge_guarded runs it through
-//! `with_hazard`, as for EdgePad). The trait's read-only `guards_edge` gives the same answer.
+//! `with_hazard`). The trait's read-only `guards_edge` gives the same answer.
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]

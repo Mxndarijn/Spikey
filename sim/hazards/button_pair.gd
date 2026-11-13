@@ -4,10 +4,10 @@ extends Hazard
 ## scores, wall bounces score nothing here (RoomDef.bounce_points). Ten
 ## presses open the exit, at the next wall bounce as in every room.
 ##
-## A button is the edge where it sits, like Bumper Court's pads
-## (guards_edge): there the ceiling or floor is safe and bounces the bird, the
-## rest of the edge still kills, so a press never kills. Pressing the button
-## that isn't lit is the same bounce and scores nothing.
+## A button is the edge where it sits (guards_edge): there the ceiling or
+## floor is safe and bounces the bird, the rest of the edge still kills, so a
+## press never kills. Pressing the button that isn't lit is the same bounce
+## and scores nothing.
 ##
 ## Where each button sits on its line is drawn from the room's RNG at room
 ## start (top first, then bottom), on an 8 px grid, and never changes in the
@@ -27,7 +27,7 @@ const APART_MIN := 140 * SUB
 ## The bird counts as on a button if its centre is this close past an end.
 const GRACE := SimConfig.BIRD_RADIUS / 2
 ## Speeds the bird leaves the buttons with: the top one pushes down gently,
-## the bottom one throws a little harder than a flap (as Bumper Court's pads).
+## the bottom one throws a little harder than a flap.
 const TOP_VY := -SimConfig.FLAP_VY * 3 / 5
 const BOTTOM_VY := SimConfig.FLAP_VY * 6 / 5
 

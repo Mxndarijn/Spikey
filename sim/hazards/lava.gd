@@ -56,7 +56,7 @@ const RAFT_TWO := 5
 const MAX_RAFTS := 2
 const RAFT_RISE := 60
 const RAFT_SINK := 2
-## A raft throws the bird up like Bumper Court's floor pad.
+## A raft throws the bird up a little harder than a flap.
 const RAFT_VY := SimConfig.FLAP_VY * 6 / 5
 
 var mode := Mode.STONE

@@ -53,15 +53,6 @@ impl CatalogMachines {
         ];
         out_.push(piston);
 
-        let mut court = RoomDef::new("court", "mid", 40);
-        court.hazards.push(mk(|| Self::_pad(true, 300)));
-        court.hazards.push(mk(|| Self::_pad(false, 240)));
-        court.variants = vec![
-            RoomVariant::new("classic"),
-            RoomVariant::new("goal-pad").with(vec![mk(|| PadCoin::new(false).into())]),
-        ];
-        out_.push(court);
-
         let mut crates = RoomDef::new("crates", "mid", 60);
         crates.max_spikes = 6;
         crates.variants = Self::crate_variants(false);
@@ -223,10 +214,6 @@ impl CatalogMachines {
         p.reach = Self::LADDER_REACH;
         p.fixed_y = Self::LADDER_Y[i as usize];
         p.into()
-    }
-
-    fn _pad(top: bool, period: i64) -> Hz {
-        EdgePad::new(top, period).into()
     }
 
     fn _finger(i: i64) -> Stalactite {

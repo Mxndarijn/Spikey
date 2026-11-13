@@ -127,14 +127,6 @@ const ROOMS := {
 		"lava",
 		"blocks"
 	],
-	"court":
-	[
-		"Bumper Court",
-		"Pads on the ceiling and floor are the only safe spots. Some carry a coin.",
-		3,
-		"sugar",
-		"cloud"
-	],
 	"buttons":
 	["Buttons", "Press the lit button: top, bottom, top. Only presses score.", 3, "sugar", "cloud"],
 	"crates":

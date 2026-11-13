@@ -1,10 +1,4 @@
 //! Port of sim/hazards/coin_pickup.gd (Sim/Hazards/CoinPickup.cs).
-//!
-//! `visible()` is virtual in C# (PadCoin overrides it). Only CoinPickup's own
-//! `step` and `touch` call it, and PadCoin overrides both of those itself, so
-//! CoinPickup's methods always run with CoinPickup's `visible()`, exactly as in
-//! C#. Code holding a `&CoinPickup` from `Hz::as_coin_pickup` must not call
-//! `visible()` for a PadCoin (nothing in the sim does).
 use crate::hazards::Hz;
 use crate::prelude::*;
 
@@ -43,7 +37,6 @@ impl CoinPickup {
         }
     }
 
-    /// CoinPickup's own `visible()` (PadCoin has its own, see the top comment).
     pub fn visible(&self) -> bool {
         self.base.t >= self.appear_at
     }

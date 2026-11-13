@@ -20,7 +20,6 @@ impl RoomPacing {
         ("lava", Self::EASY),  // 16
         ("cloud", Self::EASY),  // 24
         ("tide", Self::EASY),  // 26
-        ("court", Self::EASY),  // 28
         ("crosswind", Self::EASY),  // 31
         ("crates", Self::EASY),  // 32
         ("piston", Self::STEADY),  // 32

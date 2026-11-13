@@ -25,7 +25,6 @@ pub mod curious_bouncer;
 pub mod dart;
 pub mod drop;
 pub mod echo;
-pub mod edge_pad;
 pub mod exit_key;
 pub mod firework;
 pub mod gate;
@@ -35,7 +34,6 @@ pub mod lava;
 pub mod mover;
 pub mod orbit_coin;
 pub mod orchard_spawner;
-pub mod pad_coin;
 pub mod peg;
 pub mod pendulum;
 pub mod piston;
@@ -68,7 +66,6 @@ pub use curious_bouncer::CuriousBouncer;
 pub use dart::Dart;
 pub use drop::Drop;
 pub use echo::Echo;
-pub use edge_pad::EdgePad;
 pub use exit_key::ExitKey;
 pub use firework::Firework;
 pub use gate::Gate;
@@ -78,7 +75,6 @@ pub use lava::Lava;
 pub use mover::Mover;
 pub use orbit_coin::OrbitCoin;
 pub use orchard_spawner::OrchardSpawner;
-pub use pad_coin::PadCoin;
 pub use pendulum::Pendulum;
 pub use piston::Piston;
 pub use revving_bouncer::RevvingBouncer;
@@ -209,7 +205,6 @@ hazard_enum!(
     Dart,
     Drop,
     Echo,
-    EdgePad,
     ExitKey,
     Firework,
     Gate,
@@ -219,7 +214,6 @@ hazard_enum!(
     Mover,
     OrbitCoin,
     OrchardSpawner,
-    PadCoin,
     Peg,
     Pendulum,
     Piston,
@@ -240,7 +234,6 @@ impl Hz {
         match self {
             Hz::CoinPickup(c) => Some(c),
             Hz::OrbitCoin(o) => Some(o.coin()),
-            Hz::PadCoin(p) => Some(p.coin()),
             _ => None,
         }
     }
@@ -249,7 +242,6 @@ impl Hz {
         match self {
             Hz::CoinPickup(c) => Some(c),
             Hz::OrbitCoin(o) => Some(o.coin_mut()),
-            Hz::PadCoin(p) => Some(p.coin_mut()),
             _ => None,
         }
     }
@@ -308,7 +300,6 @@ impl Hz {
                 | Hz::Lava(_)
                 | Hz::OrbitCoin(_)
                 | Hz::OrchardSpawner(_)
-                | Hz::PadCoin(_)
                 | Hz::Updraft(_)
                 | Hz::Wind(_)
         )
@@ -359,7 +350,6 @@ impl Hz {
                 | Hz::CoinPickup(_)
                 | Hz::Crawler(_)
                 | Hz::Gate(_)
-                | Hz::PadCoin(_)
                 | Hz::Piston(_)
                 | Hz::SpikeBall(_)
                 | Hz::Stalactite(_)

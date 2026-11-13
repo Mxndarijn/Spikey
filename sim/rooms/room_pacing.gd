@@ -42,7 +42,6 @@ const TIERS := {
 	"lava": EASY,  # 16
 	"cloud": EASY,  # 24
 	"tide": EASY,  # 26
-	"court": EASY,  # 28
 	"crosswind": EASY,  # 31
 	"crates": EASY,  # 32
 	"piston": STEADY,  # 32

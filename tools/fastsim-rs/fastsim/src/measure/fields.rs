@@ -475,15 +475,6 @@ pub const ECHO: &[F] = &[
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
 ];
-pub const EDGEPAD: &[F] = &[
-    F { name: "top", ty: Ty::Bool, readonly: false },
-    F { name: "period", ty: Ty::Long, readonly: false },
-    F { name: "phase", ty: Ty::Long, readonly: false },
-    F { name: "since_bump", ty: Ty::Long, readonly: false },
-    F { name: "kind", ty: Ty::Str, readonly: false },
-    F { name: "alive", ty: Ty::Bool, readonly: false },
-    F { name: "t", ty: Ty::Long, readonly: false },
-];
 pub const EXITKEY: &[F] = &[
     F { name: "mode", ty: Ty::Long, readonly: false },
     F { name: "count", ty: Ty::Long, readonly: false },
@@ -623,22 +614,6 @@ pub const ORCHARDSPAWNER: &[F] = &[
     F { name: "ys", ty: Ty::ListLong, readonly: false },
     F { name: "live", ty: Ty::ListBool, readonly: false },
     F { name: "_rng", ty: Ty::Rng, readonly: false },
-    F { name: "kind", ty: Ty::Str, readonly: false },
-    F { name: "alive", ty: Ty::Bool, readonly: false },
-    F { name: "t", ty: Ty::Long, readonly: false },
-];
-pub const PADCOIN: &[F] = &[
-    F { name: "on_top", ty: Ty::Bool, readonly: false },
-    F { name: "wait", ty: Ty::Long, readonly: false },
-    F { name: "x", ty: Ty::Long, readonly: false },
-    F { name: "y", ty: Ty::Long, readonly: false },
-    F { name: "appear_at", ty: Ty::Long, readonly: false },
-    F { name: "vy", ty: Ty::Long, readonly: false },
-    F { name: "beside_band", ty: Ty::Long, readonly: false },
-    F { name: "value", ty: Ty::Long, readonly: false },
-    F { name: "behind", ty: Ty::Bool, readonly: false },
-    F { name: "drift", ty: Ty::Long, readonly: false },
-    F { name: "home_x", ty: Ty::Long, readonly: false },
     F { name: "kind", ty: Ty::Str, readonly: false },
     F { name: "alive", ty: Ty::Bool, readonly: false },
     F { name: "t", ty: Ty::Long, readonly: false },
@@ -854,7 +829,6 @@ pub fn hz_class(h: &Hz) -> &'static str {
         Hz::Dart(_) => "Dart",
         Hz::Drop(_) => "Drop",
         Hz::Echo(_) => "Echo",
-        Hz::EdgePad(_) => "EdgePad",
         Hz::ExitKey(_) => "ExitKey",
         Hz::Firework(_) => "Firework",
         Hz::Gate(_) => "Gate",
@@ -864,7 +838,6 @@ pub fn hz_class(h: &Hz) -> &'static str {
         Hz::Mover(_) => "Mover",
         Hz::OrbitCoin(_) => "OrbitCoin",
         Hz::OrchardSpawner(_) => "OrchardSpawner",
-        Hz::PadCoin(_) => "PadCoin",
         Hz::Peg(_) => "Peg",
         Hz::Pendulum(_) => "Pendulum",
         Hz::Piston(_) => "Piston",
@@ -903,7 +876,6 @@ pub fn hz_get(h: &Hz, i: usize) -> V {
         Hz::Dart(x) => dart_get(x, i),
         Hz::Drop(x) => drop_get(x, i),
         Hz::Echo(x) => echo_get(x, i),
-        Hz::EdgePad(x) => edgepad_get(x, i),
         Hz::ExitKey(x) => exitkey_get(x, i),
         Hz::Firework(x) => firework_get(x, i),
         Hz::Gate(x) => gate_get(x, i),
@@ -913,7 +885,6 @@ pub fn hz_get(h: &Hz, i: usize) -> V {
         Hz::Mover(x) => mover_get(x, i),
         Hz::OrbitCoin(x) => orbitcoin_get(x, i),
         Hz::OrchardSpawner(x) => orchardspawner_get(x, i),
-        Hz::PadCoin(x) => padcoin_get(x, i),
         Hz::Peg(x) => peg_get(x, i),
         Hz::Pendulum(x) => pendulum_get(x, i),
         Hz::Piston(x) => piston_get(x, i),
@@ -952,7 +923,6 @@ pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
         Hz::Dart(x) => dart_set(x, i, v),
         Hz::Drop(x) => drop_set(x, i, v),
         Hz::Echo(x) => echo_set(x, i, v),
-        Hz::EdgePad(x) => edgepad_set(x, i, v),
         Hz::ExitKey(x) => exitkey_set(x, i, v),
         Hz::Firework(x) => firework_set(x, i, v),
         Hz::Gate(x) => gate_set(x, i, v),
@@ -962,7 +932,6 @@ pub fn hz_set(h: &mut Hz, i: usize, v: &V) -> () {
         Hz::Mover(x) => mover_set(x, i, v),
         Hz::OrbitCoin(x) => orbitcoin_set(x, i, v),
         Hz::OrchardSpawner(x) => orchardspawner_set(x, i, v),
-        Hz::PadCoin(x) => padcoin_set(x, i, v),
         Hz::Peg(x) => peg_set(x, i, v),
         Hz::Pendulum(x) => pendulum_set(x, i, v),
         Hz::Piston(x) => piston_set(x, i, v),
@@ -1001,7 +970,6 @@ pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
         Hz::Dart(x) => dart_method(x, name),
         Hz::Drop(x) => drop_method(x, name),
         Hz::Echo(x) => echo_method(x, name),
-        Hz::EdgePad(x) => edgepad_method(x, name),
         Hz::ExitKey(x) => exitkey_method(x, name),
         Hz::Firework(x) => firework_method(x, name),
         Hz::Gate(x) => gate_method(x, name),
@@ -1011,7 +979,6 @@ pub fn hz_method(h: &Hz, name: &str) -> Option<V> {
         Hz::Mover(x) => mover_method(x, name),
         Hz::OrbitCoin(x) => orbitcoin_method(x, name),
         Hz::OrchardSpawner(x) => orchardspawner_method(x, name),
-        Hz::PadCoin(x) => padcoin_method(x, name),
         Hz::Peg(x) => peg_method(x, name),
         Hz::Pendulum(x) => pendulum_method(x, name),
         Hz::Piston(x) => piston_method(x, name),
@@ -1053,7 +1020,6 @@ pub fn class_fields(c: &str) -> &'static [F] {
         "Dart" => DART,
         "Drop" => DROP,
         "Echo" => ECHO,
-        "EdgePad" => EDGEPAD,
         "ExitKey" => EXITKEY,
         "Firework" => FIREWORK,
         "Gate" => GATE,
@@ -1063,7 +1029,6 @@ pub fn class_fields(c: &str) -> &'static [F] {
         "Mover" => MOVER,
         "OrbitCoin" => ORBITCOIN,
         "OrchardSpawner" => ORCHARDSPAWNER,
-        "PadCoin" => PADCOIN,
         "Peg" => PEG,
         "Pendulum" => PENDULUM,
         "Piston" => PISTON,
@@ -1091,7 +1056,6 @@ pub fn class_methods(c: &str) -> &'static [&'static str] {
         "Bubble" => &["coin_in_reach"],
         "Dart" => &["glow", "tail_x"],
         "Drop" => &["falling", "stake_half_base", "stake_height", "staked", "warn_progress", "warning"],
-        "EdgePad" => &["line_y", "x0", "x1"],
         "ExitKey" => &["done", "locked"],
         "Firework" => &["fuse_progress", "spark_count"],
         "Gate" => &["gap_bottom", "gap_top"],
@@ -2223,40 +2187,6 @@ fn echo_method(x: &Echo, name: &str) -> Option<V> {
     }
 }
 
-fn edgepad_get(x: &EdgePad, i: usize) -> V {
-    match i {
-        0 => V::B(x.top),
-        1 => V::I(x.period),
-        2 => V::I(x.phase),
-        3 => V::I(x.since_bump),
-        4 => V::S(x.base.kind),
-        5 => V::B(x.base.alive),
-        6 => V::I(x.base.t),
-        _ => panic!("EdgePad: no field {}", i),
-    }
-}
-
-fn edgepad_set(x: &mut EdgePad, i: usize, v: &V) {
-    match i {
-        0 => x.top = v.b(),
-        1 => x.period = v.i(),
-        2 => x.phase = v.i(),
-        3 => x.since_bump = v.i(),
-        5 => x.base.alive = v.b(),
-        6 => x.base.t = v.i(),
-        _ => panic!("EdgePad: field {} is not a transplant candidate", i),
-    }
-}
-
-fn edgepad_method(x: &EdgePad, name: &str) -> Option<V> {
-    match name {
-        "line_y" => Some(V::I(x.line_y())),
-        "x0" => Some(V::I(x.x0())),
-        "x1" => Some(V::I(x.x1())),
-        _ => None,
-    }
-}
-
 fn exitkey_get(x: &ExitKey, i: usize) -> V {
     match i {
         0 => V::I(x.mode),
@@ -2662,52 +2592,6 @@ fn orchardspawner_set(x: &mut OrchardSpawner, i: usize, v: &V) {
 }
 
 fn orchardspawner_method(x: &OrchardSpawner, name: &str) -> Option<V> {
-    let _ = x;
-    match name {
-        _ => None,
-    }
-}
-
-fn padcoin_get(x: &PadCoin, i: usize) -> V {
-    match i {
-        0 => V::B(x.on_top),
-        1 => V::I(x.wait),
-        2 => V::I(x.c.x),
-        3 => V::I(x.c.y),
-        4 => V::I(x.c.appear_at),
-        5 => V::I(x.c.vy),
-        6 => V::I(x.c.beside_band),
-        7 => V::I(x.c.value),
-        8 => V::B(x.c.behind),
-        9 => V::I(x.c.drift),
-        10 => V::I(x.c.home_x),
-        11 => V::S(x.c.base.kind),
-        12 => V::B(x.c.base.alive),
-        13 => V::I(x.c.base.t),
-        _ => panic!("PadCoin: no field {}", i),
-    }
-}
-
-fn padcoin_set(x: &mut PadCoin, i: usize, v: &V) {
-    match i {
-        0 => x.on_top = v.b(),
-        1 => x.wait = v.i(),
-        2 => x.c.x = v.i(),
-        3 => x.c.y = v.i(),
-        4 => x.c.appear_at = v.i(),
-        5 => x.c.vy = v.i(),
-        6 => x.c.beside_band = v.i(),
-        7 => x.c.value = v.i(),
-        8 => x.c.behind = v.b(),
-        9 => x.c.drift = v.i(),
-        10 => x.c.home_x = v.i(),
-        12 => x.c.base.alive = v.b(),
-        13 => x.c.base.t = v.i(),
-        _ => panic!("PadCoin: field {} is not a transplant candidate", i),
-    }
-}
-
-fn padcoin_method(x: &PadCoin, name: &str) -> Option<V> {
     let _ = x;
     match name {
         _ => None,

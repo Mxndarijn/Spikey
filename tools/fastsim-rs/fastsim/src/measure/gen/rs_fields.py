@@ -117,7 +117,6 @@ METHODS = {
     'Dart': [('glow', 'I', None), ('tail_x', 'I', None)],
     'Drop': [('falling', 'B', None), ('stake_half_base', 'I', None), ('stake_height', 'I', None),
              ('staked', 'B', None), ('warn_progress', 'I', None), ('warning', 'B', None)],
-    'EdgePad': [('line_y', 'I', None), ('x0', 'I', None), ('x1', 'I', None)],
     'ExitKey': [('done', 'B', None), ('locked', 'B', None)],
     'Firework': [('fuse_progress', 'I', None), ('spark_count', 'I', None)],
     'Gate': [('gap_bottom', 'I', None), ('gap_top', 'I', None)],
