@@ -44,6 +44,10 @@ var spike_num := 1
 var spike_den := 1
 ## Added to the room's spike count per wall (may be negative).
 var extra_spikes := 0
+## Tide Spikes: how far a sliding spike reaches at high tide, as a fraction of
+## this variant's still spike (3/2; Tide big 9/4, half as far again).
+var tide_num := 3
+var tide_den := 2
 ## Extra hazard factories, built after the room's own.
 var hazards: Array[Callable] = []
 ## Out of a portal this variant isn't drawn when the bird comes in at a height
@@ -68,6 +72,13 @@ func sized(num: int, den: int, p_extra_spikes: int) -> RoomVariant:
 	spike_num = num
 	spike_den = den
 	extra_spikes = p_extra_spikes
+	return self
+
+
+## Tide Spikes: sliding spikes reach `num` / `den` of a still spike.
+func tide_reach(num: int, den: int) -> RoomVariant:
+	tide_num = num
+	tide_den = den
 	return self
 
 

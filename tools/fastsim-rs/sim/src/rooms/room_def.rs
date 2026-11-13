@@ -174,6 +174,8 @@ pub struct RoomVariant {
     pub spike_num: i64,
     pub spike_den: i64,
     pub extra_spikes: i64,
+    pub tide_num: i64,
+    pub tide_den: i64,
     pub hazards: Vec<Factory>,
     pub arrival_skip: Vec<i64>,
     pub lean: i64,
@@ -194,6 +196,8 @@ impl RoomVariant {
             spike_num: 1,
             spike_den: 1,
             extra_spikes: 0,
+            tide_num: 3,
+            tide_den: 2,
             hazards: Vec::new(),
             arrival_skip: Vec::new(),
             lean: 0,
@@ -207,6 +211,12 @@ impl RoomVariant {
         self.spike_num = num;
         self.spike_den = den;
         self.extra_spikes = p_extra_spikes;
+        self
+    }
+
+    pub fn tide_reach(mut self, num: i64, den: i64) -> RoomVariant {
+        self.tide_num = num;
+        self.tide_den = den;
         self
     }
 

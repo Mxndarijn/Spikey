@@ -34,7 +34,7 @@ impl CatalogCore {
         tide.wall_mode = WallMode::TIDE;
         tide.variants = vec![
             RoomVariant::new("normal"),
-            RoomVariant::new("big").sized(3, 2, -1),
+            RoomVariant::new("big").sized(3, 2, -1).tide_reach(9, 4),
             RoomVariant::new("small").sized(2, 3, 3),
         ];
         out_.push(tide);

@@ -223,9 +223,13 @@ func spike_half_base() -> int:
 	return mini(SimConfig.SPIKE_HALF_BASE * v.spike_num / v.spike_den, SimConfig.SLOT_SIZE / 2)
 
 
-## Tide spikes slide from flat to this far out: 1.5 times a still spike.
+## Tide spikes slide from flat to this far out: 1.5 times a still spike (the
+## variant can reach further: Tide big 2.25 times).
 func tide_max_depth() -> int:
-	return spike_depth() * 3 / 2
+	if def.variants.is_empty():
+		return spike_depth() * 3 / 2
+	var v := _variant()
+	return spike_depth() * v.tide_num / v.tide_den
 
 
 ## The furthest any wall spike can reach in this room.

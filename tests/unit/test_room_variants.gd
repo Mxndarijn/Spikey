@@ -61,8 +61,37 @@ func test_tide_variants_scale_the_spikes() -> void:
 				assert_true(depth < SimConfig.SPIKE_DEPTH, "small spikes are shorter")
 				assert_true(half < SimConfig.SPIKE_HALF_BASE, "and thinner")
 				assert_true(count > normal, "and there are more")
-		assert_eq(sim.room.tide_max_depth(), depth * 3 / 2, "high tide is 1.5 times")
+		if def.variants[i].id == "big":
+			# Big spikes slide out half as far again as the others: 2.25 times.
+			assert_eq(sim.room.tide_max_depth(), depth * 9 / 4, "big high tide is 2.25 times")
+		else:
+			assert_eq(sim.room.tide_max_depth(), depth * 3 / 2, "high tide is 1.5 times")
 		assert_eq(sim.room.slot_depth(0, 0), depth, "a still spike has the variant's size")
+
+
+## Tide big's sliding spikes reach past COIN_MIN_X: its coins keep clear of the
+## full reach on both walls; the other Tide variants keep the usual box.
+func test_tide_coins_clear_the_high_tide() -> void:
+	for id: String in ["normal", "big", "small"]:
+		var sim := sim_in_room("tide", 1)
+		for i in sim.room.def.variants.size():
+			if sim.room.def.variants[i].id == id:
+				sim.room.variant = i
+		var reach := sim.room.max_spike_depth() + SimConfig.COIN_RADIUS
+		var lo := SimConfig.WORLD_W
+		var hi := 0
+		for n in 300:
+			sim.state.coin_active = false
+			sim._spawn_coin()
+			lo = mini(lo, sim.state.coin_x)
+			hi = maxi(hi, sim.state.coin_x)
+		assert_true(lo >= reach, "%s: coin clear of the left high tide" % id)
+		assert_true(hi <= SimConfig.WORLD_W - reach, "%s: and the right" % id)
+		assert_true(
+			lo >= SimConfig.COIN_MIN_X and hi <= SimConfig.COIN_MAX_X, "%s: in the box" % id
+		)
+		if id != "big":
+			assert_true(lo < SimConfig.COIN_MIN_X + 10 * SUB, "%s: the usual box" % id)
 
 
 ## A big spike kills where a normal one would not reach, a small one spares

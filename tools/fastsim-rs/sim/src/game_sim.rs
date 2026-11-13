@@ -10,7 +10,7 @@ use crate::fair_lanes::FairLanes;
 use crate::g::G;
 use crate::hazards::Hz;
 use crate::rooms::room_catalog::RoomCatalog;
-use crate::rooms::room_def::{Kind, RoomDef, RoomVariant};
+use crate::rooms::room_def::{Kind, RoomDef, RoomVariant, WallMode};
 use crate::rooms::variant_check::VariantCheck;
 use crate::rooms::variant_params::VariantParams;
 use crate::rooms::room_rules::RoomRules;
@@ -1119,9 +1119,14 @@ impl GameSim {
         if extra && !self.room.def().bounce_coin_stacks {
             return;
         }
-        let span_x = SimConfig::COIN_MAX_X - SimConfig::COIN_MIN_X + 1;
+        let mut min_x = SimConfig::COIN_MIN_X;
+        if self.room.def().wall_mode == WallMode::TIDE {
+            min_x = G::maxi(min_x, self.room.max_spike_depth() + SimConfig::COIN_RADIUS);
+        }
+        let max_x = SimConfig::COIN_MAX_X - (min_x - SimConfig::COIN_MIN_X);
+        let span_x = max_x - min_x + 1;
         let span_y = SimConfig::COIN_MAX_Y - SimConfig::COIN_MIN_Y + 1;
-        let x = SimConfig::COIN_MIN_X + self._rng.next_below(span_x);
+        let x = min_x + self._rng.next_below(span_x);
         let y = SimConfig::COIN_MIN_Y + self._rng.next_below(span_y);
         if extra {
             self.room.add_coin(x, y);

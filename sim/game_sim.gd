@@ -904,9 +904,15 @@ func _spawn_coin() -> void:
 	var extra := state.coin_active
 	if extra and not room.def.bounce_coin_stacks:
 		return
-	var span_x := SimConfig.COIN_MAX_X - SimConfig.COIN_MIN_X + 1
+	# Tide Spikes: the coin keeps clear of the sliding spikes' full reach (Tide
+	# big reaches past COIN_MIN_X). The same draws.
+	var min_x := SimConfig.COIN_MIN_X
+	if room.def.wall_mode == RoomDef.WallMode.TIDE:
+		min_x = maxi(min_x, room.max_spike_depth() + SimConfig.COIN_RADIUS)
+	var max_x := SimConfig.COIN_MAX_X - (min_x - SimConfig.COIN_MIN_X)
+	var span_x := max_x - min_x + 1
 	var span_y := SimConfig.COIN_MAX_Y - SimConfig.COIN_MIN_Y + 1
-	var x := SimConfig.COIN_MIN_X + _rng.next_below(span_x)
+	var x := min_x + _rng.next_below(span_x)
 	var y := SimConfig.COIN_MIN_Y + _rng.next_below(span_y)
 	if extra:
 		room.add_coin(x, y)

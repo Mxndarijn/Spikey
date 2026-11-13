@@ -50,12 +50,13 @@ static func defs() -> Array[RoomDef]:
 	out.append(narrow)
 
 	# Tide Spikes: some wall spikes slide in and out on a slow beat. Variants:
-	# normal; fewer but big spikes (1.5 times); more but small ones (2/3).
+	# normal; fewer but big spikes (1.5 times, sliding out 2.25 times a big
+	# spike, half as far again as the others' 1.5); more but small ones (2/3).
 	var tide := RoomDef.new("tide", "starter", 10)
 	tide.wall_mode = RoomDef.WallMode.TIDE
 	tide.variants = [
 		RoomVariant.new("normal"),
-		RoomVariant.new("big").sized(3, 2, -1),
+		RoomVariant.new("big").sized(3, 2, -1).tide_reach(9, 4),
 		RoomVariant.new("small").sized(2, 3, 3),
 	]
 	out.append(tide)

@@ -194,7 +194,11 @@ impl RoomRuntime {
     }
 
     pub fn tide_max_depth(&self) -> i64 {
-        self.spike_depth() * 3 / 2
+        if self.def().variants.is_empty() {
+            return self.spike_depth() * 3 / 2;
+        }
+        let v = self._variant();
+        self.spike_depth() * v.tide_num / v.tide_den
     }
 
     pub fn max_spike_depth(&self) -> i64 {
