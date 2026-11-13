@@ -245,9 +245,10 @@ func _steps_to_pass(sim: GameSim, gate: Hazard, side: int) -> int:
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if follows:
 		return mask
-	var s := sim.state
 	var near := _last_before(side)
-	var steps := absi(near.x - s.x) / SimConfig.SPEED_X
+	var r := SimConfig.BIRD_RADIUS
+	var wall_x := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var steps := maxi(sim.steps_to_wall(side) - absi(wall_x - near.x) / SimConfig.SPEED_X, 0)
 	var gap: int = near.gap_at(t + steps)
 	var out := mask
 	for slot in SimConfig.SLOT_COUNT:

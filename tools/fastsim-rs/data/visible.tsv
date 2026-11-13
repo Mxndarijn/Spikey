@@ -266,8 +266,10 @@ SimState.exit_side	game/run/*.gd state.<field>
 SimState.left_spikes	game/run/*.gd state.<field>
 SimState.pickup_x	game/run/*.gd state.<field>
 SimState.pickup_y	game/run/*.gd state.<field>
+SimState.revives	game/run/*.gd state.<field>
 SimState.right_spikes	game/run/*.gd state.<field>
 SimState.room_index	game/run/*.gd state.<field>
+SimState.room_kind	game/run/*.gd state.<field>
 SimState.route	game/run/*.gd state.<field>
 SimState.score	game/run/*.gd state.<field>
 SimState.started	game/run/*.gd state.<field>

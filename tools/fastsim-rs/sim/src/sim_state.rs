@@ -39,6 +39,10 @@ pub struct SimState {
     pub room_kind: i64,
     pub left_spikes: i64,
     pub right_spikes: i64,
+    pub left_new: i64,
+    pub right_new: i64,
+    pub left_drawn: i64,
+    pub right_drawn: i64,
     pub coin_active: bool,
     pub coin_x: i64,
     pub coin_y: i64,
@@ -85,6 +89,10 @@ impl Default for SimState {
             room_kind: 0,
             left_spikes: 0,
             right_spikes: 0,
+            left_new: 0,
+            right_new: 0,
+            left_drawn: 0,
+            right_drawn: 0,
             coin_active: false,
             coin_x: 0,
             coin_y: 0,
@@ -142,6 +150,10 @@ impl SimState {
         h = SimHash::mix(h, self.room_kind);
         h = SimHash::mix(h, self.left_spikes);
         h = SimHash::mix(h, self.right_spikes);
+        h = SimHash::mix(h, self.left_new);
+        h = SimHash::mix(h, self.right_new);
+        h = SimHash::mix(h, self.left_drawn);
+        h = SimHash::mix(h, self.right_drawn);
         h = SimHash::mix(h, G::b(self.coin_active));
         h = SimHash::mix(h, self.coin_x);
         h = SimHash::mix(h, self.coin_y);

@@ -16,11 +16,14 @@ pub struct Belt {
     pub right_dir: i64,
     pub left_shift: i64,
     pub right_shift: i64,
+    pub left_hold: bool,
+    pub right_hold: bool,
 }
 
 impl Belt {
-    pub const SPEED: i64 = 29;
+    pub const SPEED: i64 = 15;
     pub const MAX_SHIFT: i64 = 2 * SimConfig::SLOT_SIZE;
+    pub const HOLD_POINTS: i64 = 2;
 
     /// C# default: p_mode = -1.
     pub fn new(p_mode: i64) -> Belt {
@@ -31,6 +34,8 @@ impl Belt {
             right_dir: -1,
             left_shift: 0,
             right_shift: 0,
+            left_hold: false,
+            right_hold: false,
         }
     }
 }
@@ -55,22 +60,29 @@ impl Hazard for Belt {
             return;
         }
         let s = &sim.state;
-        if !(s.exit_open && s.exit_side == 0) {
+        if !self.left_hold && !(s.exit_open && s.exit_side == 0) {
             self.left_shift =
                 G::clampi(self.left_shift + self.left_dir * Self::SPEED, -Self::MAX_SHIFT, Self::MAX_SHIFT);
         }
-        if !(s.exit_open && s.exit_side == 1) {
+        if !self.right_hold && !(s.exit_open && s.exit_side == 1) {
             self.right_shift =
                 G::clampi(self.right_shift + self.right_dir * Self::SPEED, -Self::MAX_SHIFT, Self::MAX_SHIFT);
         }
     }
 
-    fn on_bounce(&mut self, sim: &mut GameSim, _rng: &mut SimRng) {
-        if sim.state.vx > 0 {
-            self.right_shift = 0;
-        } else {
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        let hold = side == SimConfig::EXIT_WALL && sim.points_to_exit() <= Self::HOLD_POINTS;
+        if side == 0 {
             self.left_shift = 0;
+            self.left_hold = hold;
+        } else {
+            self.right_shift = 0;
+            self.right_hold = hold;
         }
+        mask
+    }
+
+    fn on_bounce(&mut self, _sim: &mut GameSim, _rng: &mut SimRng) {
         if self.mode == Mode::SWITCHBACK {
             self.left_dir = -self.left_dir;
             self.right_dir = -self.right_dir;
@@ -86,6 +98,17 @@ impl Hazard for Belt {
     }
 
     fn checksum(&self, h: i64) -> i64 {
-        mix_all(h, &[self.mode, self.left_dir, self.right_dir, self.left_shift, self.right_shift])
+        mix_all(
+            h,
+            &[
+                self.mode,
+                self.left_dir,
+                self.right_dir,
+                self.left_shift,
+                self.right_shift,
+                self.left_hold as i64,
+                self.right_hold as i64,
+            ],
+        )
     }
 }

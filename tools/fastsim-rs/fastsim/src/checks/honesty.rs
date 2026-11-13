@@ -111,8 +111,9 @@ impl<'a> Scan<'a> {
 
 impl Honesty {
     /// Seed-bearing values that may stay as they are in a blind copy, each with the reason.
-    pub const SEEDS_SHOWN: [(&'static str, &'static str); 3] = [
-        ("room.tide_salt", "the phase of the tide spikes: their motion is on screen"),
+    pub const SEEDS_SHOWN: [(&'static str, &'static str); 4] = [
+        ("room.tide_salt_left", "the phase of the tide spikes: their motion is on screen"),
+        ("room.tide_salt_right", "the phase of the tide spikes: their motion is on screen"),
         ("state.deck_lo", "the rooms drawn from the room bag (a bitmask): every one was on screen"),
         ("state.deck_hi", "the rooms drawn from the room bag (a bitmask): every one was on screen"),
     ];
@@ -172,7 +173,8 @@ impl Honesty {
         }
         s.n("tide_left", r.tide_left);
         s.n("tide_right", r.tide_right);
-        s.n("tide_salt", r.tide_salt);
+        s.n("tide_salt_left", r.tide_salt_left);
+        s.n("tide_salt_right", r.tide_salt_right);
         s.n("blink_left", r.blink_left);
         s.n("blink_right", r.blink_right);
         s.n("gravity", r.gravity);

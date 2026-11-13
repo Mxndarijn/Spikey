@@ -87,7 +87,8 @@ func test_flying_through_moves_to_the_next_room() -> void:
 	assert_true(sim.state.vx > 0, "it keeps flying the same way (right)")
 	var r := SimConfig.BIRD_RADIUS
 	assert_eq(sim.state.x, sim.room.wall_left() + r, "out of the opposite (left) wall")
-	assert_eq(sim.state.left_spikes, 0, "no spikes on the wall it came out of")
+	assert_true(sim.state.left_spikes != 0, "the wall it came out of has its next spikes")
+	assert_eq(sim.state.left_new, sim.state.left_spikes, "sliding out as the bird leaves")
 	assert_true(sim.state.right_spikes != 0, "the wall ahead has spikes again")
 	var t := sim.room.t
 	sim.step(true)
@@ -224,20 +225,17 @@ func test_both_fork_exits_lead_to_the_same_room() -> void:
 func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
 	for seed_value in [3, 8, 21, 5]:
 		var pair := _both_forks(seed_value)
-		var more := 0
+		var calm_n := 0
+		var wild_n := 0
 		for i in 4:
 			var side := 0 if pair[0].state.vx < 0 else 1
 			for sim: GameSim in pair:
 				_hit_wall(sim, side, 300 * SimConfig.SUB)
-			var heading := 1 - side
-			var calm_n := _spikes(pair[0].wall_mask(heading))
-			var wild_n := _spikes(pair[1].wall_mask(heading))
-			assert_true(
-				wild_n >= calm_n, "seed %d wall %d: %d vs %d" % [seed_value, i, wild_n, calm_n]
-			)
-			if wild_n > calm_n:
-				more += 1
-		assert_true(more > 0, "Wild walls have more spikes, seed %d" % seed_value)
+			# The wall just bounced off gets its next spikes (Wild's with more). Each
+			# wall's free run is chained to the other wall's, so one wall may differ.
+			calm_n += _spikes(pair[0].wall_mask(side))
+			wild_n += _spikes(pair[1].wall_mask(side))
+		assert_true(wild_n > calm_n, "seed %d: %d vs %d spikes" % [seed_value, wild_n, calm_n])
 		# On to the next exit (at 60) and through it: from here the map is one.
 		for sim: GameSim in pair:
 			sim.state.score = 59
@@ -311,6 +309,8 @@ func test_no_safe_bounce_between_portal_and_spike() -> void:
 		while y <= SimConfig.slot_center_y(SimConfig.SLOT_COUNT - 1):
 			var sim := _sim_at(start[0], start[1])
 			_hit_wall(sim, 0, 300 * SimConfig.SUB)
+			# The crossing: the right wall's spikes are out by the time it is met.
+			sim.room.t += GameSim.SPIKE_SLIDE
 			var r := SimConfig.BIRD_RADIUS
 			sim.state.y = y
 			sim.state.anchor_y = sim.state.y

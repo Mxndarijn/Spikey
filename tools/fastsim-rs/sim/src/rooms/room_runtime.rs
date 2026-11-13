@@ -21,7 +21,8 @@ pub struct RoomRuntime {
     pub hazards: Vec<Hz>,
     pub tide_left: i64,
     pub tide_right: i64,
-    pub tide_salt: i64,
+    pub tide_salt_left: i64,
+    pub tide_salt_right: i64,
     pub blink_left: i64,
     pub blink_right: i64,
     pub gravity: i64,
@@ -57,7 +58,8 @@ impl RoomRuntime {
         self.variant = o.variant;
         self.tide_left = o.tide_left;
         self.tide_right = o.tide_right;
-        self.tide_salt = o.tide_salt;
+        self.tide_salt_left = o.tide_salt_left;
+        self.tide_salt_right = o.tide_salt_right;
         self.blink_left = o.blink_left;
         self.blink_right = o.blink_right;
         self.gravity = o.gravity;
@@ -79,7 +81,8 @@ impl Default for RoomRuntime {
             hazards: Vec::new(),
             tide_left: 0,
             tide_right: 0,
-            tide_salt: 0,
+            tide_salt_left: 0,
+            tide_salt_right: 0,
             blink_left: 0,
             blink_right: 0,
             gravity: 1,
@@ -251,7 +254,8 @@ impl RoomRuntime {
         if !RoomRules::has_slot(moving, slot) {
             return self.spike_depth();
         }
-        let phase = (slot * 29 + self.tide_salt) % Self::TIDE_PERIOD;
+        let salt = if side == 0 { self.tide_salt_left } else { self.tide_salt_right };
+        let phase = (slot * 29 + salt) % Self::TIDE_PERIOD;
         SimTrig::ping_pong(self.t + phase, Self::TIDE_PERIOD, self.tide_max_depth())
     }
 
@@ -267,10 +271,12 @@ impl RoomRuntime {
         let def = self.def();
         if def.wall_mode == WallMode::TIDE {
             let moving = rng.next_u32() & mask;
-            self.tide_salt = rng.next_below(Self::TIDE_PERIOD);
+            let salt = rng.next_below(Self::TIDE_PERIOD);
             if side == 0 {
+                self.tide_salt_left = salt;
                 self.tide_left = moving;
             } else {
+                self.tide_salt_right = salt;
                 self.tide_right = moving;
             }
         } else if def.wall_mode == WallMode::BLINK {
@@ -297,7 +303,8 @@ impl RoomRuntime {
                 self.variant,
                 self.tide_left,
                 self.tide_right,
-                self.tide_salt,
+                self.tide_salt_left,
+                self.tide_salt_right,
                 self.blink_left,
                 self.blink_right,
                 self.gravity,

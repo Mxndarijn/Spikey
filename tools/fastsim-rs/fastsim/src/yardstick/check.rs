@@ -77,10 +77,12 @@ pub fn run() -> (Vec<String>, Value) {
                 ));
             }
         }
-        // The leak check: PlannerBot rolls out real copies, so it must be caught; the gap seeker reads only the screen.
-        let lp = Leak::check(&Bots::find("planner").expect("the planner bot"), 2, 1);
+        // The leak check: SearchBot looks 240 ticks ahead on real copies, so it must be caught (the
+        // wall a bounce draws is met two crossings later: PlannerBot's 120-tick rollouts reach it
+        // only once it is on screen); the gap seeker reads only the screen.
+        let lp = Leak::check(&Bots::find("search").expect("the search bot"), 2, 1);
         if lp["leaks"].as_str() != Some("yes") {
-            fails.push(format!("the leak check misses PlannerBot's real copies ({})", serde_json::to_string(&lp).unwrap()));
+            fails.push(format!("the leak check misses SearchBot's real copies ({})", serde_json::to_string(&lp).unwrap()));
         }
         let lg = Leak::check(&gap, 4, 1);
         if lg["leaks"].as_str() != Some("no") {

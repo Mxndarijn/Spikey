@@ -318,6 +318,7 @@ impl Hz {
         matches!(
             self,
             Hz::Beam(_)
+                | Hz::Belt(_)
                 | Hz::BossCrusher(_)
                 | Hz::BossSaw(_)
                 | Hz::BossWatcher(_)

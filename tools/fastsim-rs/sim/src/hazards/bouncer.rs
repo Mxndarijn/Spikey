@@ -133,6 +133,9 @@ impl Bouncer {
     ) -> i64 {
         let at = sim.steps_to_wall(side);
         let dir = if side == 1 { 1 } else { -1 };
+        let r = SimConfig::BIRD_RADIUS;
+        let wall_x = if side == 1 { sim.room.wall_right() - r } else { sim.room.wall_left() + r };
+        let span = sim.room.wall_right() - sim.room.wall_left() - 2 * r;
         let near = self.radius + SimConfig::BIRD_RADIUS + Self::ESCORT_MARGIN;
         let keep_x = self.x;
         let keep_y = self.y;
@@ -144,8 +147,13 @@ impl Bouncer {
         let mut blocked = 0;
         for k in 1..at + Self::ARRIVE_AFTER + 1 {
             step(self, sim);
-            let steps = if k <= at { k } else { 2 * at - k };
-            let by = sim.state.x + dir * steps * SimConfig::SPEED_X;
+            // The bird's x k steps on: it gets to wall `side` at `at`, maybe after
+            // a bounce off the other wall first, and leaves it again after.
+            let mut back = G::absi(at - k) * SimConfig::SPEED_X;
+            if back > span {
+                back = 2 * span - back;
+            }
+            let by = wall_x - dir * back;
             let close = G::absi(self.x - by) < near;
             if k <= at {
                 if close {

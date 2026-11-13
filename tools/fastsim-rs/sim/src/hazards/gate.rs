@@ -261,9 +261,10 @@ impl Hazard for Gate {
             return mask;
         }
         let sim: &GameSim = sim;
-        let s = &sim.state;
         let near = self._last_before(sim, side);
-        let steps = G::absi(near.x - s.x) / SimConfig::SPEED_X;
+        let r = SimConfig::BIRD_RADIUS;
+        let wall_x = if side == 1 { sim.room.wall_right() - r } else { sim.room.wall_left() + r };
+        let steps = G::maxi(sim.steps_to_wall(side) - G::absi(wall_x - near.x) / SimConfig::SPEED_X, 0);
         let gap = near.gap_at(self.base.t + steps);
         let mut out_ = mask;
         for slot in 0..SimConfig::SLOT_COUNT {

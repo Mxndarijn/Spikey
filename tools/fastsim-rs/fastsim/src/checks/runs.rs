@@ -77,9 +77,6 @@ impl Check for Runs {
             if s.room_index > s.score / SimConfig::POINTS_PER_ROOM {
                 fails.push(format!("run {} tick {}: room {} at score {}", run, s.tick, s.room_index, s.score));
             }
-            if s.left_spikes != 0 && s.right_spikes != 0 {
-                fails.push(format!("run {} tick {}: both walls have spikes", run, s.tick));
-            }
             if !fails.is_empty() {
                 return result(fails, json!({}));
             }

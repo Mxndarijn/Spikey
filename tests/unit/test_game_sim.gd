@@ -47,8 +47,9 @@ func test_wall_bounce_scores_and_spawns_spikes_ahead() -> void:
 	assert_true(bounced, "bird reached the right wall")
 	assert_eq(sim.state.score, 1)
 	assert_true(sim.state.vx < 0, "now heading left")
-	assert_eq(sim.state.right_spikes, 0)
-	assert_ne(sim.state.left_spikes, 0)
+	assert_ne(sim.state.left_spikes, 0, "the wall ahead has spikes")
+	assert_ne(sim.state.right_spikes, 0, "the wall just left has its next spikes")
+	assert_eq(sim.state.right_new, sim.state.right_spikes, "all new: they slide out")
 
 
 func test_dead_sim_ignores_steps() -> void:

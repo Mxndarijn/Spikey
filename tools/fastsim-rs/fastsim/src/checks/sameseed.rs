@@ -136,8 +136,8 @@ impl SameSeed {
     }
 
     /// The inputs of the wall just drawn for `side` (GameSim._new_wall), besides the score, the
-    /// route and the room's seed and wall number: the anchor, `from`, the wall bounced off as
-    /// _anchor_at_wall saw it before the step (`drawn`; its free run steers the new one), the side's spike
+    /// route and the room's seed and wall number: the anchor, `from`, the wall ahead as
+    /// _new_wall saw it before the step (`drawn`; its free run steers the new one), the side's spike
     /// bonus (a variant's lean differs per side) and the exit state _wall_target reads. The
     /// side itself is not one: in a room with a bumper, a wall drawn on the other side from the
     /// same inputs has the same spikes.
@@ -229,9 +229,11 @@ impl SameSeed {
             let d = decide(&sim);
             let Some(d) = d else { break };
             steps += 1;
-            // The walls as _anchor_at_wall sees them, before the step: a bounce clears the
-            // wall bounced off.
+            // The walls as _new_wall sees them, before the step: a bounce draws the wall
+            // bounced off, chained to the wall ahead (drawn before; none at a room's first
+            // bounce, when both are drawn).
             let drawn = [Self::drawn(&sim, 0), Self::drawn(&sim, 1)];
+            let walls_before = sim.room.walls;
             sim.step(d);
             let events = sim.events.clone();
             for e in events {
@@ -260,7 +262,12 @@ impl SameSeed {
                     p.rooms[cur].open = Self::exit_text(st);
                 }
                 if e == Event::BOUNCE || e == Event::ROOM_CHANGE {
-                    let side = if st.vx > 0 { 1 } else { 0 };
+                    // A bounce: the wall just left. An arrival: the wall ahead (the room's
+                    // first wall; the one behind is chained to it).
+                    let heading = if st.vx > 0 { 1 } else { 0 };
+                    let side = if e == Event::ROOM_CHANGE { heading } else { 1 - heading };
+                    let from = if e == Event::ROOM_CHANGE || walls_before == 0 { 0 } else { drawn[heading as usize] };
+                    let number = if e == Event::ROOM_CHANGE { 1 } else { sim.room.walls };
                     let w = Wall {
                         tick: rel(st.tick),
                         in_room: rel(st.tick) - p.rooms[cur].arrive_tick,
@@ -272,12 +279,10 @@ impl SameSeed {
                         life,
                         hazards: Self::hz_all(&sim),
                         adj: Self::hz_adj(&sim),
-                        // A room's first wall is drawn with no wall bounced off (the free run is
-                        // only kept from a bounce in the room).
-                        gen: Self::gen_inputs(&sim, side, if e == Event::ROOM_CHANGE { 0 } else { drawn[(1 - side) as usize] }),
+                        gen: Self::gen_inputs(&sim, side, from),
                         coin: String::new(),
                     };
-                    p.walls.set(format!("{}:{}", st.room_index, sim.room.walls), w);
+                    p.walls.set(format!("{}:{}", st.room_index, number), w);
                 }
                 if e == Event::COIN_SPAWN {
                     let k = format!("{}:{}", st.room_index, sim.room.walls);

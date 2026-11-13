@@ -36,6 +36,12 @@ impl BossFair {
             ("boss_saw", 3, 11, "hop", 3),
             "boss-rhythm: pre-tell tap into a wall dead end (fair line exists, seed 11 tick 1324)",
         ),
+        // The exit opens on the right wall 16 steps after the tell (slots 7-9); the old plan
+        // (taps at 8 and 56) meets the slot-6 spike, one more tap at steps 0-21 gets through.
+        (
+            ("boss_crusher", 1, 12, "crate", 3),
+            "wall-timing: pre-tell plan into a wall dead end (fair line exists, seed 12 tick 1734)",
+        ),
     ];
 
     fn known(boss: &str, tier: i64, seed: i64, kind: &str, phase: i64) -> bool {

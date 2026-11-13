@@ -33,7 +33,10 @@ var hazards: Array[Hazard] = []
 ## Tide: which spiked slots move, and a phase offset (redrawn every bounce).
 var tide_left := 0
 var tide_right := 0
-var tide_salt := 0
+## Tide: each wall's beat offset (its own, so drawing one wall never moves
+## the other's).
+var tide_salt_left := 0
+var tide_salt_right := 0
 ## Blink: the second pattern of each wall.
 var blink_left := 0
 var blink_right := 0
@@ -61,7 +64,8 @@ func start(p_def: RoomDef, p_index: int, sim: GameSim, rng: SimRng) -> void:
 	variant = 0
 	tide_left = 0
 	tide_right = 0
-	tide_salt = 0
+	tide_salt_left = 0
+	tide_salt_right = 0
 	blink_left = 0
 	blink_right = 0
 	gravity = def.gravity_sign
@@ -281,7 +285,8 @@ func slot_depth(side: int, slot: int) -> int:
 	var moving := tide_left if side == 0 else tide_right
 	if not RoomRules.has_slot(moving, slot):
 		return spike_depth()
-	var phase := (slot * 29 + tide_salt) % TIDE_PERIOD
+	var salt := tide_salt_left if side == 0 else tide_salt_right
+	var phase := (slot * 29 + salt) % TIDE_PERIOD
 	return SimTrig.ping_pong(t + phase, TIDE_PERIOD, tide_max_depth())
 
 
@@ -292,15 +297,33 @@ func add_coin(x: int, y: int) -> void:
 	hazards.append(h)
 
 
+## A boss's attacks run on its phase clock, so one can start after the wall
+## ahead was drawn: at each bounce the boss's wall rule runs on that wall again
+## (Boss.adjust_wall only takes spikes away). No RNG draws.
+func _boss_recheck(sim: GameSim, side: int) -> void:
+	if not def.boss:
+		return
+	var mask := sim.state.left_spikes if side == 0 else sim.state.right_spikes
+	for h in hazards:
+		if h.alive:
+			mask = h.adjust_wall(sim, side, mask)
+	if side == 0:
+		sim.state.left_spikes = mask
+	else:
+		sim.state.right_spikes = mask
+
+
 ## A wall just got new spikes: redraw the extra wall rules for it.
 func on_wall_generated(side: int, mask: int, sim: GameSim, rng: SimRng) -> void:
 	match def.wall_mode:
 		RoomDef.WallMode.TIDE:
 			var moving := rng.next_u32() & mask
-			tide_salt = rng.next_below(TIDE_PERIOD)
+			var salt := rng.next_below(TIDE_PERIOD)
 			if side == 0:
+				tide_salt_left = salt
 				tide_left = moving
 			else:
+				tide_salt_right = salt
 				tide_right = moving
 		RoomDef.WallMode.BLINK:
 			var second := RoomRules.generate_wall(rng, sim.state.score, def)
@@ -325,7 +348,8 @@ func checksum(h: int) -> int:
 			variant,
 			tide_left,
 			tide_right,
-			tide_salt,
+			tide_salt_left,
+			tide_salt_right,
 			blink_left,
 			blink_right,
 			gravity,

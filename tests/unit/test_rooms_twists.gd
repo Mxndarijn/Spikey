@@ -90,7 +90,7 @@ func test_belt_holds_while_reading_then_slides_and_resets_on_a_new_wall() -> voi
 		sim.room.step(sim)
 	assert_eq(b.right_shift, -20 * Belt.SPEED, "slides up at its speed")
 	assert_eq(sim.wall_shift(1), b.right_shift, "the sim sees the shift")
-	b.on_bounce(sim, SimRng.new(1))
+	b.adjust_wall(sim, 1, 0)
 	assert_eq(b.right_shift, 0, "a new wall starts at rest")
 
 

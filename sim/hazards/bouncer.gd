@@ -206,6 +206,9 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 		return mask
 	var at := sim.steps_to_wall(side)
 	var dir := 1 if side == 1 else -1
+	var r := SimConfig.BIRD_RADIUS
+	var wall_x := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var span := sim.room.wall_right() - sim.room.wall_left() - 2 * r
 	var near := radius + SimConfig.BIRD_RADIUS + ESCORT_MARGIN
 	var keep := path_save()
 	var start := -1
@@ -214,8 +217,12 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var blocked := 0
 	for k in range(1, at + ARRIVE_AFTER + 1):
 		path_step(sim)
-		var steps := k if k <= at else 2 * at - k
-		var by := sim.state.x + dir * steps * SimConfig.SPEED_X
+		# The bird's x k steps on: it gets to wall `side` at `at`, maybe after
+		# a bounce off the other wall first, and leaves it again after.
+		var back := absi(at - k) * SimConfig.SPEED_X
+		if back > span:
+			back = 2 * span - back
+		var by := wall_x - dir * back
 		var close := absi(x - by) < near
 		if k <= at:
 			if close:

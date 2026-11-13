@@ -96,6 +96,7 @@ impl GameSim {
     pub const ARRIVAL_HEIGHTS: [i64; 5] =
         [0, -SimConfig::EXIT_FIT, SimConfig::EXIT_FIT, -SimConfig::EXIT_FIT / 2, SimConfig::EXIT_FIT / 2];
     pub const EXIT_STEER: i64 = 3;
+    pub const SPIKE_SLIDE: i64 = 10;
 
     /// C#'s private `GameSim()` (what clone_deep starts from).
     fn blank() -> GameSim {
@@ -386,6 +387,13 @@ impl GameSim {
         self.state.vy = if self.state.y < cy { -Self::BUMP_VY } else { Self::BUMP_VY };
         if (self.state.x < cx) == (self.state.vx > 0) {
             self.state.vx = -self.state.vx;
+            if self.state.vx > 0 {
+                self.state.right_spikes = 0;
+                self.state.right_new = 0;
+            } else {
+                self.state.left_spikes = 0;
+                self.state.left_new = 0;
+            }
         }
     }
 
@@ -417,7 +425,8 @@ impl GameSim {
         room.variant = 0;
         room.tide_left = 0;
         room.tide_right = 0;
-        room.tide_salt = 0;
+        room.tide_salt_left = 0;
+        room.tide_salt_right = 0;
         room.blink_left = 0;
         room.blink_right = 0;
         room.gravity = p_def.gravity_sign;
@@ -585,7 +594,7 @@ impl GameSim {
 
     fn _hits_wall(&self, side: i64, base_x: i64, dir: i64) -> bool {
         let mask = self.wall_mask(side);
-        if mask == 0 {
+        if mask == 0 || (self.state.vx > 0) == (side == 0) {
             return false;
         }
         let hb = self.room.spike_half_base();
@@ -593,6 +602,14 @@ impl GameSim {
         for slot in 0..SimConfig::SLOT_COUNT {
             if !RoomRules::has_slot(mask, slot) {
                 continue;
+            }
+            // A new spike kills only once it is all the way out.
+            let fresh = if side == 0 { self.state.left_new } else { self.state.right_new };
+            if RoomRules::has_slot(fresh, slot) {
+                let since = self.room.t - if side == 0 { self.state.left_drawn } else { self.state.right_drawn };
+                if since < Self::SPIKE_SLIDE {
+                    continue;
+                }
             }
             let depth = self.room.slot_depth(side, slot);
             if depth <= 0 {
@@ -641,9 +658,8 @@ impl GameSim {
             self.state.x = 2 * (right - r) - self.state.x;
             self.state.vx = -SimConfig::SPEED_X;
             self.room.on_wall_bounce();
-            self.state.right_spikes = 0;
             self._bounce_score();
-            self._new_wall(0);
+            self._walls_after_bounce(1);
             self._maybe_open_exit();
         } else if self.state.vx < 0 && self.state.x - r <= left {
             if self._take_exit(0) {
@@ -653,10 +669,38 @@ impl GameSim {
             self.state.x = 2 * (left + r) - self.state.x;
             self.state.vx = SimConfig::SPEED_X;
             self.room.on_wall_bounce();
-            self.state.left_spikes = 0;
             self._bounce_score();
-            self._new_wall(1);
+            self._walls_after_bounce(0);
             self._maybe_open_exit();
+        }
+    }
+
+    fn _walls_after_bounce(&mut self, side: i64) {
+        if self.room.walls == 0 {
+            self._new_wall(1 - side, false);
+        }
+        self._new_wall(side, true);
+        self._boss_recheck(1 - side);
+    }
+
+    /// RoomRuntime._boss_recheck: a boss's wall rule runs on the wall ahead again.
+    fn _boss_recheck(&mut self, side: i64) {
+        if !self.room.def().boss {
+            return;
+        }
+        let mut mask = if side == 0 { self.state.left_spikes } else { self.state.right_spikes };
+        let mut i = 0;
+        while i < self.room.hazards.len() {
+            let h = &self.room.hazards[i];
+            if h.alive() && h.has_adjust_wall() {
+                mask = self.with_hazard(i, |h, sim| h.adjust_wall(sim, side, mask));
+            }
+            i += 1;
+        }
+        if side == 0 {
+            self.state.left_spikes = mask;
+        } else {
+            self.state.right_spikes = mask;
         }
     }
 
@@ -764,19 +808,20 @@ impl GameSim {
         G::maxi(ahead, 0) / SimConfig::SPEED_X + (touch - 1) * ((right - left) / SimConfig::SPEED_X)
     }
 
-    fn _wall_target(&self) -> i64 {
+    fn _wall_target(&self, anchor: i64) -> i64 {
         let reach = RoomRules::gap_reach(self.room.def());
         if reach <= 0 || self.state.exit_open {
-            return self.state.anchor_y;
+            return anchor;
         }
-        if self.room.def().reach <= 0 && self.points_to_exit() > Self::EXIT_STEER {
+        // The wall drawn now is met a bounce after the wall ahead.
+        if self.room.def().reach <= 0 && self.points_to_exit() - 1 > Self::EXIT_STEER {
             if self._free_lo >= 0 && reach - (self._free_hi - self._free_lo) / 2 >= SimConfig::SLOT_SIZE {
                 return -1;
             }
-            return self.state.anchor_y;
+            return anchor;
         }
-        let to = ExitPlanner::planned_y(self, SimConfig::EXIT_WALL, self.state.anchor_y);
-        self.state.anchor_y + G::clampi(to - self.state.anchor_y, -reach / 2, reach / 2)
+        let to = ExitPlanner::planned_y(self, SimConfig::EXIT_WALL, anchor);
+        anchor + G::clampi(to - anchor, -reach / 2, reach / 2)
     }
 
     pub fn steps_to_wall(&self, side: i64) -> i64 {
@@ -940,10 +985,18 @@ impl GameSim {
         self.state.vy = 0;
         self.state.left_spikes = 0;
         self.state.right_spikes = 0;
+        self.state.left_new = 0;
+        self.state.right_new = 0;
         self.events.push(ev);
-        self._new_wall(side);
+        self._new_wall(side, true);
         if ev == Event::ROOM_CHANGE {
             self._keep_hold_band_open(side);
+        }
+        // The wall behind (the portal's), for the bird's way back: in a narrow room
+        // a player still reading the room can get back to it too.
+        self._new_wall(1 - side, false);
+        if ev == Event::ROOM_CHANGE {
+            self._keep_hold_band_open(1 - side);
         }
     }
 
@@ -979,13 +1032,22 @@ impl GameSim {
         }
     }
 
-    fn _new_wall(&mut self, side: i64) {
+    fn _new_wall(&mut self, side: i64, extras: bool) {
+        // What the wall shows now: any spike it shows after that is new and slides out.
+        let before = self.wall_mask(side);
+        let other_drawn = self.room.walls > 0;
         if self.room.walls > 0 {
             self._rng.reseed(SimHash::mix(self.room.rng_seed, self.room.walls));
         }
         self.room.walls += 1;
+        // The new free run is kept within reach of the other wall's, which the
+        // bird meets first (its free part and the anchor the bird will have there).
+        let mut anchor = self.state.anchor_y;
+        if other_drawn {
+            anchor = self._free_run_of(1 - side);
+        }
         let mut reach = -1;
-        let mut target = self._wall_target();
+        let mut target = self._wall_target(anchor);
         if target < 0 {
             reach = RoomRules::gap_reach(self.room.def()) - (self._free_hi - self._free_lo) / 2;
             target = (self._free_lo + self._free_hi) / 2;
@@ -993,7 +1055,7 @@ impl GameSim {
         self._free_lo = -1;
         self._free_hi = -1;
         let mut bonus = self.room.spike_bonus(side);
-        if self.state.route == ExitKind::WILD && self.room.walls > 1 && !self._checking {
+        if self.state.route == ExitKind::WILD && self.room.walls > 2 && !self._checking {
             bonus += SimConfig::WILD_SPIKES;
         }
         let def = self.room.def();
@@ -1016,6 +1078,21 @@ impl GameSim {
         }
         let score = self.state.score;
         self.room.on_wall_generated(side, mask, score, &mut self._rng);
+        // Blink Walls: the second pattern is new too.
+        let mut shown = mask;
+        if self.room.def().wall_mode == WallMode::BLINK {
+            shown |= if side == 0 { self.room.blink_left } else { self.room.blink_right };
+        }
+        if side == 0 {
+            self.state.left_new = shown & !before;
+            self.state.left_drawn = self.room.t;
+        } else {
+            self.state.right_new = shown & !before;
+            self.state.right_drawn = self.room.t;
+        }
+        if !extras {
+            return;
+        }
         let mut i = 0;
         while i < self.room.hazards.len() {
             let h = &self.room.hazards[i];
@@ -1048,6 +1125,10 @@ impl GameSim {
     }
 
     fn _anchor_at_wall(&mut self, side: i64) {
+        self.state.anchor_y = self._free_run_of(side);
+    }
+
+    fn _free_run_of(&mut self, side: i64) -> i64 {
         let mask = self._drawn_mask(side);
         let target = self._anchor_target();
         let mut best = self.state.anchor_y;
@@ -1078,7 +1159,7 @@ impl GameSim {
             }
             slot += 1;
         }
-        self.state.anchor_y = best;
+        best
     }
 
     fn _bounce_score(&mut self) {
