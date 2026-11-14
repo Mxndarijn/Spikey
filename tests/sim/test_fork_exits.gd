@@ -7,7 +7,7 @@ extends TestCase
 ## (RoomDef.hosts_fork, RoomCatalog.pick_next). The full sweep (40 arrivals per
 ## variant at three fork scores) runs on FastSim-RS: `fastsim-rs check
 ## forkexits` (tools/fastsim-rs/fastsim/src/checks/forkexits.rs), part of
-## tools/check.ps1. Here: two arrivals per variant at the first fork.
+## tools/check.ps1. Here: one arrival per variant at the first fork.
 
 ## Each test can run in a worker of its own (tests/run_tests.gd).
 const PARALLEL := true
@@ -23,23 +23,22 @@ func test_both_fork_exits_are_free_in_every_room() -> void:
 		var def := rooms[c[0]]
 		if def.boss or not def.hosts_fork:
 			continue
-		for i in 2:
-			var sim := ArrivalBench.arrival(c[0], i, c[1], FORK_SCORE)
-			assert_true(ExitPlanner.is_fork(sim, sim.state.plan_at), "%s/%s fork" % [def.id, c[1]])
-			forks += 1
-			var s := sim.state
-			for wall: Array in [
-				[0, s.plan_a_y_left, s.plan_b_y_left], [1, s.plan_a_y_right, s.plan_b_y_right]
-			]:
-				for y: int in [wall[1], wall[2]]:
-					assert_false(
-						ExitPlanner.in_mouth(sim, wall[0], y),
-						(
-							"%s/%s arrival %d: fork exit at %d px on wall %d is in a hazard"
-							% [def.id, sim.room.variant_id(), i, y / SimConfig.SUB, wall[0]]
-						)
+		var sim := ArrivalBench.arrival(c[0], 0, c[1], FORK_SCORE)
+		assert_true(ExitPlanner.is_fork(sim, sim.state.plan_at), "%s/%s fork" % [def.id, c[1]])
+		forks += 1
+		var s := sim.state
+		for wall: Array in [
+			[0, s.plan_a_y_left, s.plan_b_y_left], [1, s.plan_a_y_right, s.plan_b_y_right]
+		]:
+			for y: int in [wall[1], wall[2]]:
+				assert_false(
+					ExitPlanner.in_mouth(sim, wall[0], y),
+					(
+						"%s/%s: fork exit at %d px on wall %d is in a hazard"
+						% [def.id, sim.room.variant_id(), y / SimConfig.SUB, wall[0]]
 					)
-	assert_true(forks > 100, "%d fork plans" % forks)
+				)
+	assert_true(forks > 50, "%d fork plans" % forks)
 
 
 func test_a_room_that_hosts_no_fork_never_gets_a_fork_exit() -> void:
