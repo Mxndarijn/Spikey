@@ -1,6 +1,7 @@
 //! Port of sim/rooms/room_catalog.gd (Sim/Rooms/RoomCatalog.cs).
 use std::sync::OnceLock;
 
+use crate::exit_planner::ExitPlanner;
 use crate::rooms::room_def::RoomDef;
 use crate::rooms::room_pacing::RoomPacing;
 use crate::rooms::seasons::Seasons;
@@ -122,6 +123,8 @@ impl RoomCatalog {
         let list = Self::all();
         let score = state.score;
         let start = Self::first_index();
+        let every = SimConfig::POINTS_PER_ROOM;
+        let fork = ExitPlanner::fork_at((score / every + 1) * every);
         let mut weights = [0i64; 128];
         assert!(list.len() <= weights.len());
         let mut total = 0;
@@ -134,6 +137,7 @@ impl RoomCatalog {
                 && !list[i].boss
                 && Self::allowed(&list[i], score, season)
                 && list[i].fits_arrival(state.anchor_y)
+                && (list[i].hosts_fork || !fork)
             {
                 w = list[i].weight_at(score);
             }

@@ -42,6 +42,11 @@ static func is_fork(sim: GameSim, at: int) -> bool:
 		return false
 	if sim.room.def != null and sim.room.def.boss:
 		return true
+	return fork_at(at)
+
+
+## Whether exit score `at` is a fork's, out of practice and boss rooms.
+static func fork_at(at: int) -> bool:
 	return at % SimConfig.FORK_EVERY == 0 and at % SimConfig.BOSS_EVERY != 0
 
 

@@ -45,6 +45,11 @@ var inset := 0
 ## height (sub-units). 0 = the usual rule: RoomRules.GAP_REACH for the free run
 ## in rooms with hazards, anywhere otherwise.
 var reach := 0
+## Whether a Calm/Wild fork fits: both exits, FORK_APART apart (ExitPlanner),
+## somewhere free on each wall. A room with one short way out per wall (Cave
+## Tunnel: its rock leaves one mouth) has no room for two, so it is never
+## picked when its exit would be a fork (RoomCatalog.pick_next).
+var hosts_fork := true
 
 # Movement
 var gravity_sign := 1

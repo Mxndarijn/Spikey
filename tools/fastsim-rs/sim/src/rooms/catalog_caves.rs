@@ -63,6 +63,8 @@ impl CatalogCaves {
         let mut out_ = Vec::new();
         let mut cave = RoomDef::new("cave", "mid", 40);
         cave.max_spikes = 4;
+        // One mouth per wall (the gallery, the bend's end): no room for a fork.
+        cave.hosts_fork = false;
         cave.variants = vec![
             RoomVariant::new("fork")
                 .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::FORK)), false, 0)

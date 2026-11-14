@@ -25,6 +25,7 @@ pub mod revive;
 pub mod searches;
 pub mod runs;
 pub mod exits;
+pub mod forkexits;
 pub mod sameseed;
 
 /// One check (C# `Checks.Check`).
@@ -111,6 +112,7 @@ pub fn all() -> &'static Vec<Box<dyn Check>> {
             Box::new(searches::Rescued::default()),
             Box::new(runs::Runs::default()),
             Box::new(exits::Exits::default()),
+            Box::new(forkexits::ForkExits::default()),
             Box::new(reach::Reach::default()),
             Box::new(Yardstick),
             Box::new(sameseed::SameSeedRevive::default()),

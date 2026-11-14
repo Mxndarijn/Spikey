@@ -30,7 +30,7 @@ pushes to other branches.
 | --- | --- | --- | --- |
 | docs, `*.md` | none | no | none |
 | `game/`, `meta/`, `services/`, `server/`, `assets/`, scenes | all but the integration ones | no | `yardstick` when `game/run/` changed (the painters' visible list) |
-| one room or hazard: `sim/hazards/*.gd`, `sim/rooms/catalog_*.gd`, `sim/rooms/room_pacing.gd` | all but the integration ones (a catalog or pacing change also runs `test_generated_variants`: the room draws move) | quick | the room checks: passable, arrival, revive, points, keys, crawl, gates, isles, rescued, runs, sight, blind_seeds, yardstick, difficulty (boss files add bossfair) |
+| one room or hazard: `sim/hazards/*.gd`, `sim/rooms/catalog_*.gd`, `sim/rooms/room_pacing.gd` | all but the integration ones (a catalog or pacing change also runs `test_generated_variants`: the room draws move) | quick | the room checks: passable, arrival, revive, points, keys, crawl, gates, isles, rescued, runs, sight, blind_seeds, yardstick, difficulty, forkexits (boss files add bossfair) |
 | any other `sim/` file (shared) | all but the goldens | quick | all but sameseed |
 | `tools/fastsim-rs/` | none | quick | the room checks |
 | a test file `tests/**/test_*.gd` | that file | no | none |
@@ -87,7 +87,7 @@ merge-base with `main` need, as `tools/check.ps1` does locally; the `plan` job's
 it picked and why. The run passes only when every job passes or is skipped because the tier
 needs nothing.
 
-The FastSim checks are grouped by measured length (`plan` job, `$groups`): `reach`, `sameseed`, and the other sixteen together (`exits` the largest of them). Measured 2026-11-13, each check alone with `--jobs 4`: `reach` and `sameseed` about 40% of the time each, `exits` 10%, `yardstick` 7%, `bossfair` and `passable` 3% each, the other twelve 1% together. A check
+The FastSim checks are grouped by measured length (`plan` job, `$groups`): `reach`, `sameseed`, and the other seventeen together (`exits` the largest of them). Measured 2026-11-13, each check alone with `--jobs 4`: `reach` and `sameseed` about 40% of the time each, `exits` 10%, `yardstick` 7%, `bossfair` and `passable` 3% each, the other twelve 1% together. A check
 missing from the list runs in the last group; when a group grows much longer than the others,
 move a check. The Rust toolchain is pinned (`RUST_TOOLCHAIN` in `check.yml`, keep it equal to the
 local `rustc --version`) and the cargo cache key names the exact compiler, so a new Rust release

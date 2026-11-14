@@ -136,10 +136,16 @@ impl Reaction {
     /// C# default: variant = "".
     pub fn arrival(index: i64, i: i64, variant: &str) -> GameSim {
         let def = &RoomCatalog::all()[index as usize];
+        Self::arrival_at(index, i, variant, G::maxi(def.from_score, 10) + (i % 3) * 10)
+    }
+
+    /// `arrival`, with the score the bird arrives at.
+    pub fn arrival_at(index: i64, i: i64, variant: &str, score: i64) -> GameSim {
+        let def = &RoomCatalog::all()[index as usize];
         let mut sim = GameSim::new(9000 + i * 37);
         sim.forced_variant = sim::game_sim::intern(variant);
         sim.step(true);
-        sim.state.score = G::maxi(def.from_score, 10) + (i % 3) * 10;
+        sim.state.score = score;
         let mut y = 130 + (i * 53) % 380;
         // A forced variant is only tried at heights the game would draw it for.
         let forced = def.variants.iter().find(|v| v.id == variant);

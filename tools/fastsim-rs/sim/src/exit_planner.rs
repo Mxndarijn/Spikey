@@ -37,6 +37,11 @@ impl ExitPlanner {
                 return true;
             }
         }
+        Self::fork_at(at)
+    }
+
+    /// Whether exit score `at` is a fork's, out of practice and boss rooms.
+    pub fn fork_at(at: i64) -> bool {
         at % SimConfig::FORK_EVERY == 0 && at % SimConfig::BOSS_EVERY != 0
     }
 

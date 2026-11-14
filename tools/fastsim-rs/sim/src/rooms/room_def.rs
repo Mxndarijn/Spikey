@@ -60,6 +60,9 @@ pub struct RoomDef {
     pub squeeze: bool,
     pub inset: i64,
     pub reach: i64,
+    /// Whether a Calm/Wild fork fits (both exits, FORK_APART apart, free on each wall);
+    /// a room without (Cave Tunnel) is never picked when its exit would be a fork.
+    pub hosts_fork: bool,
 
     pub gravity_sign: i64,
     pub speed: i64,
@@ -95,6 +98,7 @@ impl RoomDef {
             squeeze: false,
             inset: 0,
             reach: 0,
+            hosts_fork: true,
             gravity_sign: 1,
             speed: Speed::NORMAL,
             bounce_points: true,

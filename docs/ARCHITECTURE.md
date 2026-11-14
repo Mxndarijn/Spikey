@@ -196,7 +196,9 @@ room waits until the bag refills, which it does once what is left weighs under
 `DECK_REFILL_PCT` of the allowed rooms; among the rest the pick is by each
 room's weight at this score, `RoomDef.pace`, a curve from its difficulty tier in
 `sim/rooms/room_pacing.gd`; never the current room, only rooms whose season
-matches the run's; `tools/room_odds.gd` prints the odds per score band). The exit at
+matches the run's, and never a room with no room for a fork's two exits
+(`RoomDef.hosts_fork`, Cave Tunnel) when its exit will be a fork, checked by
+`fastsim-rs check forkexits`; `tools/room_odds.gd` prints the odds per score band). The exit at
 every 100 points leads into a boss room instead (no fork there; the boss's
 own exit, 20 bounces later, is the fork): see [BOSS_ROOMS.md](BOSS_ROOMS.md).
 

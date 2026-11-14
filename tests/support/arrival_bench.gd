@@ -59,13 +59,14 @@ static func cases() -> Array[Array]:
 
 ## Arrival `i` into room `index`, just out of the portal. With `variant` set,
 ## the room plays that variant (GameSim.forced_variant) and only heights it
-## can be drawn at are used.
-static func arrival(index: int, i: int, variant := "") -> GameSim:
+## can be drawn at are used. `score` (if 0 or more) is the score it arrives
+## at, instead of one from the room's own.
+static func arrival(index: int, i: int, variant := "", score := -1) -> GameSim:
 	var def := RoomCatalog.all()[index]
 	var sim := GameSim.new(9000 + i * 37)
 	sim.forced_variant = variant
 	sim.step(true)
-	sim.state.score = maxi(def.from_score, 10) + (i % 3) * 10
+	sim.state.score = score if score >= 0 else maxi(def.from_score, 10) + (i % 3) * 10
 	# Only heights the room can be picked at out of a portal
 	# (RoomDef.arrival_skip): spread from 130 to 510 px, skipped ones moved on.
 	var y := 130 + (i * 53) % 380

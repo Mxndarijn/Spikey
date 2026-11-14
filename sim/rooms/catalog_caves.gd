@@ -117,6 +117,8 @@ static func defs() -> Array[RoomDef]:
 	# whole exit (the user allowed the cave to be that much tighter).
 	var cave := RoomDef.new("cave", "mid", 40)
 	cave.max_spikes = 4
+	# One mouth per wall (the gallery, the bend's end): no room for a fork.
+	cave.hosts_fork = false
 	cave.variants = [
 		RoomVariant.new("fork").generated(_gen_cave.bind(FORK)).checked_within(CAVE_SPREAD),
 		RoomVariant.new("drips").generated(_gen_cave.bind(DRIPS)).checked_within(CAVE_SPREAD),

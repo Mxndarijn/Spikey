@@ -48,7 +48,7 @@ $IntegrationTests = @(
 # FastSim checks that only the integration tier runs, and the ones a room change needs.
 $IntegrationChecks = @("sameseed", "reach", "exits", "bossfair")
 $RoomChecks = @("passable", "arrival", "revive", "points", "keys", "crawl", "gates", "isles", "rescued",
-    "runs", "sight", "blind_seeds", "yardstick", "difficulty")
+    "runs", "sight", "blind_seeds", "yardstick", "difficulty", "forkexits")
 $AllChecks = $RoomChecks + $IntegrationChecks
 
 function Select-Checks([string[]]$files) {

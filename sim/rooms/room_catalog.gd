@@ -123,7 +123,8 @@ static func mark_drawn(state: SimState, index: int) -> void:
 ## at this score (RoomDef.pace); a room unlocked meanwhile joins the bag.
 ## Never the current room or the open first room, nor a boss, nor one that
 ## doesn't fit a bird coming out of a portal at state.anchor_y
-## (RoomDef.arrival_skip). The deck lives in `state` (deck_lo, deck_hi) and
+## (RoomDef.arrival_skip), nor one with no room for a fork's two exits when its
+## exit will be a fork (RoomDef.hosts_fork). The deck lives in `state` (deck_lo, deck_hi) and
 ## only the rooms picked change it, so it is the same for every route: a fork
 ## never changes which room comes next. On a refill only the current room
 ## stays drawn. One RNG draw (none if no room fits).
@@ -132,6 +133,8 @@ static func pick_next(rng: SimRng, state: SimState, current: int, season: int) -
 	var score := state.score
 	# The open first room is only the start: a run never comes back to it.
 	var start := first_index()
+	var every := SimConfig.POINTS_PER_ROOM
+	var fork := ExitPlanner.fork_at((score / every + 1) * every)
 	var weights: Array[int] = []
 	var total := 0
 	var left := 0
@@ -143,6 +146,7 @@ static func pick_next(rng: SimRng, state: SimState, current: int, season: int) -
 			and not list[i].boss
 			and allowed(list[i], score, season)
 			and list[i].fits_arrival(state.anchor_y)
+			and (list[i].hosts_fork or not fork)
 		):
 			w = list[i].weight_at(score)
 		weights.append(w)
