@@ -563,9 +563,9 @@ impl BlindPlanner {
         out
     }
 
-    /// The rising band's `low` (the bottom of the last wall's gap, or the anchor before the
-    /// room's first wall), -1 in a room without rising air. Read from the screen: the last wall
-    /// drawn is the one ahead (a bounce draws the wall the bird flies to).
+    /// The rising band's `low` (the bottom of the longest gap of the wall the bird flies to, or
+    /// the anchor before the room's first wall), -1 in a room without rising air. Read from the
+    /// screen: the wall ahead by the bird's heading, whichever bounce drew it.
     fn air_low_of(s: &GameSim) -> i64 {
         for h in &s.room.hazards {
             if let Hz::Updraft(u) = h {

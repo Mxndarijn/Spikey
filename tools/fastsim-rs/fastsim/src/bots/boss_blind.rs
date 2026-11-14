@@ -6,6 +6,10 @@ use sim::hazards::boss_crusher::Crate;
 use sim::hazards::boss_watcher::Beam as WBeam;
 use sim::hazards::boss_watcher::Dart as WDart;
 use sim::prelude::*;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Watcher: a blind copy's boss seed lights the same rows as the beam on screen (knob `beammatch`).
+pub static BEAM_MATCH: AtomicBool = AtomicBool::new(false);
 
 pub struct BossBlind;
 
@@ -21,6 +25,15 @@ impl BossBlind {
                 // `lit` is kept for the cycle it was drawn in (on screen while it warns and fires).
                 if unseen && w.beam == WBeam::WARN && w._lit_k >= 0 {
                     w.lit = w.lit_rows(w.boss.phase, w._lit_k);
+                } else if BEAM_MATCH.load(Ordering::Relaxed) && w.beam != WBeam::OFF && w._lit_k >= 0 {
+                    // The rows on screen are drawn from the seed again by the boss's wall rule
+                    // (`safe_y`, rerun on the wall ahead at each bounce): a guessed seed must
+                    // light the same rows, or the copy's wall ahead loses spikes the true one keeps.
+                    let mut i = 0;
+                    while i < 1024 && w.lit_rows(w.boss.phase, w._lit_k) != w.lit {
+                        w.boss.seed = own.next_u32();
+                        i += 1;
+                    }
                 }
             }
             Hz::BossCrusher(cr) => {

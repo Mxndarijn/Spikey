@@ -56,6 +56,7 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.tap_free = l(opts, "tapfree", 0) != 0;
     bot.exit_past = l(opts, "exitpast", 0);
     bot.air_aim = l(opts, "airaim", 0) != 0;
+    crate::bots::boss_blind::BEAM_MATCH.store(l(opts, "beammatch", 0) != 0, std::sync::atomic::Ordering::Relaxed);
     format!(
         "h {} past {} k {}/{} n {} lines {} margin {} bpx {}",
         bot.horizon, bot.past, bot.replan, bot.replan_danger, bot.copies, bot.lines, bot.margin, bot.bucket_px
