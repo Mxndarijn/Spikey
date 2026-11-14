@@ -18,6 +18,7 @@ use crate::speed::Opts;
 
 pub mod atlas;
 pub mod autopsy;
+pub mod crossings;
 pub mod blindcheck;
 pub mod exit_pass;
 pub mod fairness;
@@ -47,6 +48,7 @@ pub fn run(pos: &[String], opts: &Opts) -> i32 {
         "bouncefair" => autopsy::bouncefair(opts, seeds),
         "fixtest" => autopsy::fixtest(opts),
         "autopsy" => autopsy::run(opts, seeds, cap),
+        "crossings" => crossings::run(opts, seeds),
         "horizon" => {
             for h in o("h", "20,40,60,90").split(',') {
                 honest::horizon(h.parse().expect("--h"), o("k", "4").parse().expect("--k"), o("cut", "0") == "1", seeds, cap);
