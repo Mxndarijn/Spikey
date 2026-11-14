@@ -36,7 +36,7 @@ func test_constant_tapping_hits_ceiling() -> void:
 	assert_eq(sim.state.death_cause, SimState.DeathCause.CEILING)
 
 
-func test_wall_bounce_scores_and_spawns_spikes_ahead() -> void:
+func test_wall_bounce_scores_and_spawns_spikes_on_the_wall_left() -> void:
 	var sim := GameSim.new(3)
 	sim.step(true)
 	var bounced := false
@@ -47,7 +47,7 @@ func test_wall_bounce_scores_and_spawns_spikes_ahead() -> void:
 	assert_true(bounced, "bird reached the right wall")
 	assert_eq(sim.state.score, 1)
 	assert_true(sim.state.vx < 0, "now heading left")
-	assert_ne(sim.state.left_spikes, 0, "the wall ahead has spikes")
+	assert_eq(sim.state.left_spikes, 0, "the bare wall ahead stays bare")
 	assert_ne(sim.state.right_spikes, 0, "the wall just left has its next spikes")
 	assert_eq(sim.state.right_new, sim.state.right_spikes, "all new: they slide out")
 

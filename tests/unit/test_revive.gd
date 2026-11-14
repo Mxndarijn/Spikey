@@ -108,7 +108,7 @@ func test_the_room_restarts_the_same_way_every_time() -> void:
 
 func test_the_run_goes_on_after_a_revive() -> void:
 	# A seed whose revived room the gap seeker gets through (the room deck).
-	var sim := _dead(3)
+	var sim := _dead(4)
 	var score := sim.state.score
 	sim.revive()
 	var rng := SimRng.new(5)
