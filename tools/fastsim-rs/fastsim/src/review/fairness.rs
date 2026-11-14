@@ -505,11 +505,26 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
     };
     let clock = Instant::now();
     let done = AtomicUsize::new(0);
-    let outs: Vec<SeedOut> = (0..seeds as i64)
+    // `--seedlist a,b,c`: judge only these seeds (instead of first+1..first+seeds).
+    // `--tapsdir dir`: a seed whose `<seed>.taps` is there (`rl review autopsy --taps`) replays
+    // those taps instead of playing the bot (same knobs, so the same run, much faster).
+    let list: Vec<i64> = match opts.get("seedlist") {
+        Some(v) => v.split(',').filter(|x| !x.is_empty()).map(|x| x.trim().parse().expect("--seedlist")).collect(),
+        None => (0..seeds as i64).map(|i| first + i + 1).collect(),
+    };
+    let seeds = list.len() as i32;
+    let taps_dir = opts.get("tapsdir").cloned().unwrap_or_default();
+    let outs: Vec<SeedOut> = list
         .into_par_iter()
-        .map(|i| {
+        .map(|seed| {
             let t0 = Instant::now();
-            let seed = first + i + 1;
+            let replay: Option<Vec<bool>> = if taps_dir.is_empty() {
+                None
+            } else {
+                std::fs::read(std::path::Path::new(&taps_dir).join(format!("{seed}.taps")))
+                    .ok()
+                    .map(|b| b.into_iter().map(|x| x != 0).collect())
+            };
             let mut sim = start(seed);
             let room0 = sim.state.room_index;
             let mut bot = BlindPlanner::new(seed);
@@ -527,7 +542,15 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
                     ri0 = sim.state.room_index;
                     add(&mut rooms, room_name(&sim));
                 }
-                let tap = bot.decide(&sim);
+                let tap = match &replay {
+                    Some(r) => {
+                        if taps.len() >= r.len() {
+                            break;
+                        }
+                        r[taps.len()]
+                    }
+                    None => bot.decide(&sim),
+                };
                 taps.push(tap);
                 let (vx, ri) = (sim.state.vx, sim.state.room_index);
                 sim.step(tap);
@@ -677,9 +700,11 @@ pub fn run(opts: &Opts, seeds: i32, cap: i64) -> i32 {
         sb.push_str(NL);
     };
     line(format!(
-        "fairness of BlindPlanner deaths [{setup}], seeds {}..{}, cap {cap}, gameplay {}",
-        first + 1,
-        first + seeds as i64,
+        "fairness of BlindPlanner deaths [{setup}], seeds {}, cap {cap}, gameplay {}",
+        match opts.get("seedlist") {
+            Some(v) => v.clone(),
+            None => format!("{}..{}", first + 1, first + seeds as i64),
+        },
         SimConfig::GAMEPLAY_VERSION
     ));
     line(format!(

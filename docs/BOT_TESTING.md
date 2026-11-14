@@ -168,6 +168,10 @@ without replaying the easy first rooms.
   honest line for. Re-judge one seed with `--first <seed-1> --seeds 1`; judge a
   room late in a run with `--room R --variant V --roomscore N` (its walls drawn
   as at score N).
+- **Judge only the deaths of a run you already played**: `rl review autopsy
+  --taps <dir>` keeps each seed's taps; `rl review fair --seedlist 10003,10045
+  --tapsdir <dir>` (same planner knobs and `--cap`) replays those taps instead of
+  playing the bot again, so judging a 4-hour death takes seconds.
 - **A `lost` death** (no line inside the look-back, even with the true future):
   `fastsim-rs rl review lastline --seed N <the same planner knobs>` plays the
   judge's run again, keeps the state every `--every` ticks (60) and, from the
