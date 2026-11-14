@@ -1,4 +1,5 @@
-//! `rl review lastline --seed N [planner knobs] [--every 60] [--tail 40] [--before 600]`:
+//! `rl review lastline --seed N [planner knobs] [--every 60] [--tail 40] [--before 600]
+//! [--room id --variant v --roomscore N]`:
 //! settles a fairness-judge `lost` death (no line found inside the judge's look-back). It plays
 //! the judge's run of seed N (the same BlindPlanner and knobs as `rl review fair`) and keeps the
 //! state every `every` ticks. Then, from the death backwards, SurvivalSearch (the oracle: the
@@ -14,6 +15,7 @@ use sim::prelude::*;
 
 use super::{configure, room_name};
 use crate::bots::{BlindPlanner, SurvivalSearch};
+use crate::setups::Setups;
 use crate::speed::Opts;
 
 fn l(opts: &Opts, k: &str, d: i64) -> i64 {
@@ -49,7 +51,21 @@ pub fn lastline(opts: &Opts, cap: i64) -> i32 {
     let every = l(opts, "every", 60).max(1);
     let tail = l(opts, "tail", 40);
     let before = l(opts, "before", 600);
-    let mut sim = GameSim::new(seed);
+    // `--room id [--variant v] [--roomscore N]`: a practice start in that room, as
+    // `rl review fair --room` plays it (its deaths can be settled the same way).
+    let only = opts.get("room").cloned().unwrap_or_default();
+    let mut sim = if only.is_empty() {
+        GameSim::new(seed)
+    } else {
+        let v = opts.get("variant").cloned().unwrap_or_else(|| "classic".to_string());
+        let mut g = Setups::practice(&only, seed, &v);
+        let room_score = l(opts, "roomscore", 0);
+        if room_score > 0 {
+            g.state.score = room_score;
+            g.room.entry_score = room_score;
+        }
+        g
+    };
     let mut bot = BlindPlanner::new(seed);
     println!("lastline seed {} [{}]", seed, configure(&mut bot, opts));
     let mut kept: Vec<(i64, GameSim)> = Vec::new();
