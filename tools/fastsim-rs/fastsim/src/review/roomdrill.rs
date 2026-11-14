@@ -24,7 +24,7 @@ pub fn run(opts: &Opts, seeds: i32) -> i32 {
     };
     let cfgs: Vec<String> =
         opts.get("cfgs").map(|s| s.as_str()).unwrap_or("base").split(';').map(|s| s.to_string()).collect();
-    // Entries: (seed, tick of entry, the sim at entry).
+    // Entries (`--room` takes a,b,c): (seed, tick of entry, the sim at entry).
     let mut entries: Vec<(i64, i64, GameSim)> = list
         .into_par_iter()
         .filter_map(|seed| {
@@ -40,7 +40,8 @@ pub fn run(opts: &Opts, seeds: i32) -> i32 {
                 }
                 if sim.state.room_index != ri {
                     ri = sim.state.room_index;
-                    if room_name(&sim).starts_with(room.as_str()) {
+                    let name = room_name(&sim);
+                    if room.split(',').any(|r| name.starts_with(r)) {
                         if n % every == 0 {
                             out.push((seed, t as i64 + 1, sim.clone_deep()));
                         }
