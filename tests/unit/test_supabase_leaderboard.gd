@@ -188,6 +188,43 @@ func test_runs_wait_while_offline_and_survive_a_restart() -> void:
 	_clean()
 
 
+## The queue file gives every number back as a float. Sent like that ("p_score": 42.0) the
+## database refuses it for an integer and the run is dropped, so a try whose first send
+## didn't make it before the app closed was lost: after a restart it goes out as integers.
+func test_runs_sent_after_a_restart_keep_whole_numbers() -> void:
+	_clean()
+	var p := _profile()
+	var c := _client(p)
+	var daily_try := DailyTry.new()
+	daily_try.id = "8a6f3c2e-0000-4000-8000-000000000001"
+	daily_try.n = 1
+	daily_try.seed_value = 3000000000
+	var replay := {
+		"gameplay_version": 23,
+		"seed": 3000000000,
+		"season": -1,
+		"taps": [12, 40, 77],
+		"coins": 3,
+		"end_tick": 900
+	}
+	c.submit_daily_run(daily_try, 42, replay)
+	c.submit_run(55, {"seed": 2, "taps": [10], "revives": [80], "season": -1})
+	var again := _client(p)
+	again.restore()
+	assert_eq(again.pending_runs(), 2)
+	for body: Dictionary in again._queue:
+		for key: String in ["p_score", "p_gameplay_version", "p_seed", "p_season"]:
+			assert_eq(typeof(body[key]), TYPE_INT, "%s is a whole number" % key)
+		var sent := JSON.stringify(body)
+		assert_false(".0" in sent, "no number goes out as a float: " + sent)
+	var daily: Dictionary = again._queue[0]
+	assert_eq(daily["p_seed"], 3000000000, "the day's seed as it was")
+	assert_eq(daily["p_try"], daily_try.id, "the try's id stays text")
+	assert_eq(daily[SupabaseLeaderboard.RPC_KEY], "submit_daily_run")
+	assert_eq(again._queue[1]["p_revives"], [80])
+	_clean()
+
+
 func test_a_saved_session_is_restored() -> void:
 	_clean()
 	_write(SESSION, '{"access_token": "a", "refresh_token": "r", "expires_at": 4102444800}')

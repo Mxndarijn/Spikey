@@ -41,7 +41,26 @@ func restore() -> void:
 	if q is Array:
 		for item: Variant in q:
 			if item is Dictionary:
-				_queue.append(item as Dictionary)
+				_queue.append(whole_numbers(item) as Dictionary)
+
+
+## A body read back from the queue file, with its numbers whole again. JSON gives
+## every number back as a float, which would go out as "42.0"; the database refuses
+## that for an integer argument and the run would be dropped as bad data.
+static func whole_numbers(value: Variant) -> Variant:
+	if value is float and is_finite(value) and value == floorf(value):
+		return int(value)
+	if value is Array:
+		var out := []
+		for item: Variant in value:
+			out.append(whole_numbers(item))
+		return out
+	if value is Dictionary:
+		var out := {}
+		for key: Variant in value:
+			out[key] = whole_numbers(value[key])
+		return out
+	return value
 
 
 func request_board(board_id: String) -> void:
