@@ -1,5 +1,5 @@
 //! `rl review lastline --seed N [planner knobs] [--every 60] [--tail 40] [--before 600]
-//! [--room id --variant v --roomscore N]`:
+//! [--room id --variant v --roomscore N] [--tapsdir dir]`:
 //! settles a fairness-judge `lost` death (no line found inside the judge's look-back). It plays
 //! the judge's run of seed N (the same BlindPlanner and knobs as `rl review fair`) and keeps the
 //! state every `every` ticks. Then, from the death backwards, SurvivalSearch (the oracle: the
@@ -68,6 +68,15 @@ pub fn lastline(opts: &Opts, cap: i64) -> i32 {
     };
     let mut bot = BlindPlanner::new(seed);
     println!("lastline seed {} [{}]", seed, configure(&mut bot, opts));
+    // `--tapsdir dir`: replay `<seed>.taps` (`rl review autopsy --taps`) instead of playing the
+    // bot: the very run a long bot sweep died in, whatever knobs it had.
+    let replay: Option<Vec<bool>> = opts.get("tapsdir").map(|d| {
+        std::fs::read(std::path::Path::new(d).join(format!("{seed}.taps")))
+            .expect("--tapsdir")
+            .into_iter()
+            .map(|x| x != 0)
+            .collect()
+    });
     let mut kept: Vec<(i64, GameSim)> = Vec::new();
     let mut taps: Vec<bool> = Vec::new();
     let mut entry = 0i64;
@@ -77,7 +86,10 @@ pub fn lastline(opts: &Opts, cap: i64) -> i32 {
             kept.push((t, sim.clone_deep()));
         }
         let room = sim.state.room_index;
-        let tap = bot.decide(&sim);
+        let tap = match &replay {
+            Some(r) => r.get(t as usize).copied().unwrap_or(false),
+            None => bot.decide(&sim),
+        };
         taps.push(tap);
         sim.step(tap);
         if sim.state.room_index != room {
