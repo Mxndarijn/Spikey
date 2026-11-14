@@ -7,6 +7,7 @@ extends TestCase
 
 const RoomsTest := preload("res://tests/unit/test_rooms.gd")
 const Gate := preload("res://sim/hazards/gate.gd")
+const ExitKey := preload("res://sim/hazards/exit_key.gd")
 
 
 ## A run already at `score`, heading right, about to bounce off the left wall.
@@ -192,6 +193,18 @@ static func _both_forks(seed_value: int) -> Array[GameSim]:
 	return [calm, wild]
 
 
+## Takes every key in the room (Locked Out), so its exit leads on.
+static func _take_keys(sim: GameSim) -> void:
+	for h in sim.room.hazards:
+		var k := h as ExitKey
+		if k == null:
+			continue
+		for i in k.count:
+			sim.state.x = k.kx[i]
+			sim.state.y = k.ky[i]
+			k.touch(sim)
+
+
 static func _spikes(mask: int) -> int:
 	var n := 0
 	for slot in SimConfig.SLOT_COUNT:
@@ -242,6 +255,7 @@ func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
 			var side := 0 if sim.state.vx < 0 else 1
 			_hit_wall(sim, side, 300 * SimConfig.SUB)
 			assert_true(sim.state.exit_open, "seed %d: the exit at 60" % seed_value)
+			_take_keys(sim)
 			_hit_wall(sim, sim.state.exit_side, sim.state.exit_a_y)
 		var calm := pair[0].state
 		var wild := pair[1].state
