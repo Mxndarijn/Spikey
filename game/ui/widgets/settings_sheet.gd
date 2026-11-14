@@ -5,11 +5,11 @@ extends Control
 ##   Sound: Music and Sounds, each a round on/off button with its icon, the
 ##          name, a volume slider (0 to 100) and the value.
 ##   Play:  Haptics, Reduced flashing, Color-blind spikes, Large buttons.
-##   Credits at the bottom (opens the credits in the same card).
-##   Ad choices, only where the player has an ad privacy choice to change
-##   (Europe), opens Google's form; it shares the Credits row.
-##   Debug (DebugPage), also in the same card: the Debug link in that row
-##   (every build), or tap the "Settings" title seven times.
+##   About at the bottom: one full-width row that opens the About page in the
+##          same card: the credits, Ad choices (only where the player has an ad
+##          privacy choice to change, Europe; opens Google's form) and Debug
+##          (DebugPage; its row only in developer mode, DevMode). Tapping the
+##          "Settings" title seven times opens Debug in any build.
 ## Every change goes straight into the profile and emits `changed`; main saves
 ## and applies it (audio, RoomView.flash_enabled, button size, spikes).
 
@@ -50,9 +50,11 @@ var _toggles := {}
 var _values := {}
 var _switches: Dictionary[PlayerSettings.Switch, SettingSwitch] = {}
 var _main_page := VBoxContainer.new()
-var _credits_page := VBoxContainer.new()
+var _about_page := VBoxContainer.new()
 var _debug_page := VBoxContainer.new()
 var _debug: DebugPage
+## The page Back on the debug page returns to.
+var _debug_from: Control = _main_page
 var _title_taps := 0
 
 
@@ -82,13 +84,13 @@ func _init(profile: Profile, services: AppServices) -> void:
 	var pages := VBoxContainer.new()
 	pages.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(pages)
-	for page: VBoxContainer in [_main_page, _credits_page, _debug_page]:
+	for page: VBoxContainer in [_main_page, _about_page, _debug_page]:
 		page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		page.add_theme_constant_override("separation", UiTokens.SPACE_2)
 		pages.add_child(page)
 	_build_main()
-	_build_credits()
-	show_credits(false)
+	_build_about()
+	show_about(false)
 	_sync()
 
 
@@ -119,50 +121,63 @@ func _build_main() -> void:
 		_main_page.add_child(s)
 		_switches[key] = s
 	_main_page.add_child(UiKit.spacer(0, true))
-	var credits := _link("Credits", "Credits")
-	credits.pressed.connect(show_credits.bind(true))
 	_main_page.add_child(_divider())
-	var ads := _services.ads
-	var links: Array[Button] = []
-	if ads != null and ads.privacy_options_required():
-		var choices := _link("AdChoices", "Ad choices")
-		choices.pressed.connect(ads.show_privacy_options)
-		links.append(choices)
-	links.append(credits)
-	var debug := _link("Debug", "Debug")
-	debug.pressed.connect(show_debug.bind(true))
-	links.append(debug)
-	# Side by side, so the extra links don't push the sheet off the screen.
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", UiTokens.SPACE_4)
-	for b: Button in links:
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(b)
-	_main_page.add_child(row)
+	var about := _link("About", "About")
+	about.pressed.connect(show_about.bind(true))
+	var caption := UiKit.label(_about_caption(), &"MutedLabel", false)
+	caption.name = "Caption"
+	caption.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE, Control.PRESET_MODE_MINSIZE)
+	caption.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	# Left of the chevron (row_button: 20px icon, SPACE_4 right margin).
+	var inset := UiTokens.SPACE_4 + 20 + UiTokens.SPACE_2
+	caption.offset_right = -inset
+	caption.offset_left = -inset - caption.get_minimum_size().x
+	about.add_child(caption)
+	_main_page.add_child(about)
 
 
-## A row that opens something (UiKit.row_button), paper-raised on the card,
-## 44px so the rows fit side by side under the switches.
+## What the About page holds, under the About row's name.
+func _about_caption() -> String:
+	return "Credits, ad choices" if _has_ad_choices() else "Credits"
+
+
+func _has_ad_choices() -> bool:
+	return _services.ads != null and _services.ads.privacy_options_required()
+
+
+## A full-width row that opens something (UiKit.row_button), paper-raised on
+## the card, 44px.
 func _link(node_name: String, text: String) -> Button:
 	var b := UiKit.row_button(text, UiTokens.PANEL_RAISED)
 	b.name = node_name
 	b.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
-	# Side by side they share the width: a long name trims, never widens it.
-	b.clip_text = true
-	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b
 
 
-func _build_credits() -> void:
+## The About page: the credits, then Ad choices and Debug where they apply.
+func _build_about() -> void:
 	var back := UiKit.icon_button(BACK_ICON, "Back")
-	_credits_page.add_child(_head("Credits", back, show_credits.bind(false), true))
+	_about_page.add_child(_head("About", back, show_about.bind(false), true))
 	for row: Array in CREDITS:
-		_credits_page.add_child(_section(row[0]))
+		_about_page.add_child(_section(row[0]))
 		var l := UiKit.wrapped(row[1], &"CaptionLabel", 280)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		l.add_theme_font_size_override("font_size", 14)
-		_credits_page.add_child(l)
+		_about_page.add_child(l)
+	_about_page.add_child(UiKit.spacer(0, true))
+	if _has_ad_choices():
+		_about_page.add_child(_section("Privacy"))
+		var choices := _link("AdChoices", "Ad choices")
+		choices.pressed.connect(_services.ads.show_privacy_options)
+		_about_page.add_child(choices)
+	if DevMode.enabled():
+		_about_page.add_child(_section("Debug"))
+		var debug := _link("Debug", "Debug")
+		debug.pressed.connect(show_debug.bind(true))
+		_about_page.add_child(debug)
 
 
 ## The card's title row: title at the left (display 28), a bare icon button.
@@ -333,12 +348,15 @@ func switch(key: PlayerSettings.Switch) -> SettingSwitch:
 	return _switches.get(key)
 
 
-func show_credits(value: bool) -> void:
-	_show_page(_credits_page if value else _main_page)
+func show_about(value: bool) -> void:
+	_show_page(_about_page if value else _main_page)
 
 
-## The debug page (built the first time it opens), or back to the settings.
+## The debug page (built the first time it opens), or back to the page it
+## opened from (About from its row, the settings from the title taps).
 func show_debug(value: bool) -> void:
+	if value and not _debug_page.visible:
+		_debug_from = _about_page if _about_page.visible else _main_page
 	if value and _debug == null:
 		var back := UiKit.icon_button(BACK_ICON, "Back")
 		_debug_page.add_child(_head("Debug", back, show_debug.bind(false), true))
@@ -348,7 +366,7 @@ func show_debug(value: bool) -> void:
 		_debug.seed_requested.connect(seed_requested.emit)
 		_debug_page.add_child(_debug)
 	_title_taps = 0
-	_show_page(_debug_page if value else _main_page)
+	_show_page(_debug_page if value else _debug_from)
 
 
 ## The open debug page, or null.
@@ -369,12 +387,12 @@ func _on_title_input(event: InputEvent) -> void:
 
 
 func _show_page(page: Control) -> void:
-	for p: Control in [_main_page, _credits_page, _debug_page]:
+	for p: Control in [_main_page, _about_page, _debug_page]:
 		p.visible = p == page
 
 
-func is_showing_credits() -> bool:
-	return _credits_page.visible
+func is_showing_about() -> bool:
+	return _about_page.visible
 
 
 func _on_scrim_input(event: InputEvent) -> void:

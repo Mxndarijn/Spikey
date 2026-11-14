@@ -160,9 +160,9 @@ func test_settings_sheet_edits_the_profile() -> void:
 		"saved in profile"
 	)
 	assert_eq(changes[0], 5)
-	assert_false(sheet.is_showing_credits())
-	sheet.show_credits(true)
-	assert_true(sheet.is_showing_credits(), "Credits and licenses")
+	assert_false(sheet.is_showing_about())
+	sheet.show_about(true)
+	assert_true(sheet.is_showing_about(), "About: credits and licenses")
 	sheet.close_dialog()
 	assert_true(home.settings() == null, "the close button closes it")
 	holder.free()

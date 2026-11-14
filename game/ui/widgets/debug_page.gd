@@ -3,8 +3,8 @@ extends VBoxContainer
 ## The debug screen inside the settings sheet: what the app, the ads and the
 ## notifications are doing right now, with buttons to try each of them on a
 ## real phone, plus pickers that practise one room or replay a seed. It opens
-## from the Debug row in the settings, or by tapping the "Settings" title
-## TAPS_TO_OPEN times (both in any build).
+## from the Debug row on the settings' About page (developer mode only), or by
+## tapping the "Settings" title TAPS_TO_OPEN times (any build).
 ##
 ## Everything here is safe in a release build: nothing gives coins, points or
 ## revives. Only developer mode shows "Give free revives back" and "Revive

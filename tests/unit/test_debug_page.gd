@@ -48,20 +48,7 @@ func test_seven_taps_on_the_title_open_it() -> void:
 	assert_true(sheet.debug_page() != null, "the seventh opens it")
 	sheet.show_debug(false)
 	assert_true(sheet.debug_page() == null, "Back returns to the settings")
-	assert_false(sheet.is_showing_credits())
-	sheet.free()
-	_reset()
-
-
-func test_every_build_has_a_debug_row() -> void:
-	_reset(0)
-	var sheet := _sheet(Profile.new())
-	var row := sheet.find_child("Debug", true, false) as Button
-	assert_true(row != null, "players see the row too")
-	row.pressed.emit()
-	var page := sheet.debug_page()
-	assert_true(page != null, "and it opens the page")
-	assert_true(page.find_child("GiveRevives", true, false) == null, "without the developer tools")
+	assert_false(sheet.is_showing_about())
 	sheet.free()
 	_reset()
 
@@ -70,11 +57,14 @@ func test_developer_mode_has_a_debug_row() -> void:
 	_reset(1)
 	var sheet := _sheet(Profile.new())
 	var row := sheet.find_child("Debug", true, false) as Button
-	assert_true(row != null, "developer mode shows the row")
+	assert_true(row != null, "developer mode shows the row on About")
+	sheet.show_about(true)
 	row.pressed.emit()
 	var page := sheet.debug_page()
 	assert_true(page != null)
 	assert_true(page.find_child("GiveRevives", true, false) != null, "and may give revives back")
+	sheet.show_debug(false)
+	assert_true(sheet.is_showing_about(), "Back returns to About, where the row is")
 	sheet.free()
 	_reset()
 
