@@ -53,7 +53,7 @@ longer run to its end itself (up to `RunFile.LONG_MAX_TICKS`, 4 hours). Such a
 run renders, but it could never be submitted to a leaderboard.
 
 A long beast-planner run as a run file: `fastsim-rs planrun --seeds 8
---target 2000 --outdir <dir> --follow 48 --tapfree 1 --bpx 4 --speeds 12`
+--target 2000 --outdir <dir> --follow 48 --tapfree 1 --bpx 4 --speeds 12 --airaim 1`
 (stops tapping at the target score; also writes `seed_<n>.rooms.json`, each
 room entered with its tick, for cutting highlights).
 

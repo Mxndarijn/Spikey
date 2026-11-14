@@ -160,9 +160,13 @@ without replaying the easy first rooms.
 - **Release judge** (the 400-seed fairness run before a release, so a no-way
   verdict means the room, not the judge's search): `fastsim-rs rl review fair
   --seeds 400 --cap 216000 --budget 96 --back 480 --follow 48 --tapfree 1
-  --bpx 4 --speeds 12 --threads 8`. The beast planner knobs (`--follow` ..
-  `--speeds`) keep `bot` deaths few (95 -> 13 on the same seeds and build), so
-  room bugs stand out. The defaults (`--budget 24 --back 240`, the default
+  --bpx 4 --speeds 12 --airaim 1 --threads 8`. The beast planner knobs (`--follow` ..
+  `--airaim`) keep `bot` deaths few (95 -> 13 on the same seeds and build), so
+  room bugs stand out. `--airaim 1` (rising air: aim at the bottom of the gap
+  ahead, as a player comes off a wall low so the air cannot carry it past the
+  next gap) took 400 dev seeds at 1 h from 17 deaths to 9 (no Updraft
+  deaths left; was 7) and 64 seeds at 4 h from 10 to 3 (was 6 Updraft), on
+  v23 before the wall-ahead fix. The defaults (`--budget 24 --back 240`, the default
   planner) are for quick looks: on the v23 release candidate
   they called 6 of 8 checked deaths no-way that the bigger search found an
   honest line for. Re-judge one seed with `--first <seed-1> --seeds 1`; judge a
