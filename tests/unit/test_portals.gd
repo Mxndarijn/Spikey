@@ -214,7 +214,7 @@ static func _spikes(mask: int) -> int:
 
 
 func test_both_fork_exits_lead_to_the_same_room() -> void:
-	for seed_value in [3, 8, 21, 5]:
+	for seed_value in [3, 8, 21, 13]:
 		var pair := _both_forks(seed_value)
 		var calm := pair[0].state
 		var wild := pair[1].state
@@ -237,7 +237,7 @@ func test_both_fork_exits_lead_to_the_same_room() -> void:
 
 
 func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
-	for seed_value in [3, 8, 21, 5]:
+	for seed_value in [3, 8, 21, 13]:
 		var pair := _both_forks(seed_value)
 		var calm_n := 0
 		var wild_n := 0
@@ -249,7 +249,10 @@ func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
 			# wall's free run is chained to the other wall's, so one wall may differ.
 			calm_n += _spikes(pair[0].wall_mask(side))
 			wild_n += _spikes(pair[1].wall_mask(side))
-		assert_true(wild_n > calm_n, "seed %d: %d vs %d spikes" % [seed_value, wild_n, calm_n])
+		var room_id: String = RoomCatalog.all()[pair[0].state.room_kind].id
+		assert_true(
+			wild_n > calm_n, "seed %d (%s): %d vs %d spikes" % [seed_value, room_id, wild_n, calm_n]
+		)
 		# On to the next exit (at 60) and through it: from here the map is one.
 		for sim: GameSim in pair:
 			sim.state.score = 59

@@ -60,13 +60,13 @@ const TIERS := {
 	"lockexit": MIDDLE,  # 42 (trio 38, quad 43, chain 45, since classic and orbit went)
 	"blink": MIDDLE,  # 43
 	"crawl": MIDDLE,  # 44
-	"pegs": MIDDLE,  # 44
+	"pegs": EASY,  # 32 on v23 (drift 34, classic 30; 44 at 62aca6f)
 	"isles": MIDDLE,  # 45
-	"gates": MIDDLE,  # 46 (single 53, classic 39)
+	"gates": STEADY,  # 38 on v23 (single 42, classic 35; 46 at 62aca6f)
 	"flip": MIDDLE,  # 47
 	"hunter": MIDDLE,  # 60 (human bots 78-90, analytic 33-37: one step until a playtest)
 	"bubbles": HARD,  # 50
-	"buttons": HARD,  # 50 (classic, slim, apart 50; measured on its own at 162437a, 72 entries)
+	"buttons": MIDDLE,  # 44 on v23 (classic, slim 44, apart 43; 50 at 162437a)
 	"midnight": HARD,  # 51
 	"squeeze": HARD,  # 52
 	"beams": HARD,  # 48 (generated)
