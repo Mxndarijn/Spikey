@@ -40,6 +40,8 @@ impl Updraft {
     pub const GUST_UP_REACH: i64 = 160 * Self::SUB;
     pub const GUST_DOWN_REACH: i64 = 40 * Self::SUB;
     pub const GUST_TOP: i64 = 160 * Self::SUB;
+    /// A free run reaching this many of the lowest slots counts from its middle.
+    pub const BOTTOM_SLOTS: i64 = 2;
 
     /// C# defaults: p_center = WORLD_W / 2, p_half_w = HALF_W, p_lift = LIFT.
     pub fn new(p_center: i64, p_half_w: i64, p_lift: i64) -> Updraft {
@@ -170,9 +172,16 @@ impl Hazard for Updraft {
             out = RoomRules::keep_run(mask, need, ok);
         }
         let run = RoomRules::longest_gap_mask(out);
+        let mut top = -1;
         for slot in 0..SimConfig::SLOT_COUNT {
             if (run >> slot) & 1 == 1 {
+                if top < 0 {
+                    top = SimConfig::slot_center_y(slot);
+                }
                 self.last_low = SimConfig::slot_center_y(slot);
+                if slot >= SimConfig::SLOT_COUNT - Self::BOTTOM_SLOTS {
+                    self.last_low = (top + self.last_low) / 2;
+                }
             }
         }
         out

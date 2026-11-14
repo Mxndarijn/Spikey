@@ -39,6 +39,8 @@ const GUST_PERIOD := GUST_OFF + GUST_WARN + GUST_ON
 const GUST_UP_REACH := 160 * SUB
 const GUST_DOWN_REACH := 40 * SUB
 const GUST_TOP := 160 * SUB
+## A free run reaching this many of the lowest slots counts from its middle.
+const BOTTOM_SLOTS := 2
 
 ## Band edges, sub-units (they move when the band drifts).
 var x0 := 0
@@ -59,8 +61,10 @@ var y1 := SimConfig.KILL_BOTTOM
 var gust := Gust.NONE
 ## Steps into the cycle (drift or gust), drawn at setup.
 var phase := 0
-## Bottom (centre of its lowest slot) of the free run of the last wall drawn,
-## or -1 before the room's first wall.
+## Where the bird comes off the last wall drawn: the bottom (centre of the
+## lowest slot) of its free run, or the run's middle when the run reaches the
+## BOTTOM_SLOTS lowest slots (so a bottom-only wall doesn't pin the next wall
+## to the bottom too, with the lift in between); -1 before the room's first wall.
 var last_low := -1
 
 
@@ -140,9 +144,14 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 		var need := mini(sim.room.def.gap, RoomRules.longest_gap(all & ~ok))
 		out = RoomRules.keep_run(mask, need, ok)
 	var run := RoomRules.longest_gap_mask(out)
+	var top := -1
 	for slot in SimConfig.SLOT_COUNT:
 		if (run >> slot) & 1 == 1:
+			if top < 0:
+				top = SimConfig.slot_center_y(slot)
 			last_low = SimConfig.slot_center_y(slot)
+			if slot >= SimConfig.SLOT_COUNT - BOTTOM_SLOTS:
+				last_low = (top + last_low) / 2
 	return out
 
 
