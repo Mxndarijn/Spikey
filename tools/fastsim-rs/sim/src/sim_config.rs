@@ -4,7 +4,7 @@ use crate::g::G;
 pub struct SimConfig;
 
 impl SimConfig {
-    pub const GAMEPLAY_VERSION: i64 = 22;
+    pub const GAMEPLAY_VERSION: i64 = 23;
     pub const MAX_REVIVES: i64 = 1;
     pub const TICKS_PER_SECOND: i64 = 60;
     pub const WARN_TICKS: i64 = 2 * Self::TICKS_PER_SECOND;
@@ -53,7 +53,7 @@ impl SimConfig {
     pub const ARRIVAL_FOLLOW: i64 = 120;
     pub const ARRIVAL_TRIES: i64 = 16;
     pub const ARRIVAL_EDGE: i64 = 84 * Self::SUB;
-    pub const MAX_TICKS: i64 = 60 * 60 * 30;
+    pub const MAX_TICKS: i64 = 60 * 60 * 60 * 4;
 
     pub fn boss_tier(entry_score: i64) -> i64 {
         G::clampi(entry_score / Self::BOSS_EVERY, 1, Self::BOSS_COINS.len() as i64)

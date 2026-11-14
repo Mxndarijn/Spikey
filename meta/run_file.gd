@@ -114,9 +114,9 @@ func save_file(path: String) -> bool:
 ## Re-simulates the run and checks it against what the file claims
 ## (Replay.verify: gameplay version, taps, score, coins, end tick, checksum).
 ## {ok, reason, score, coins, end_tick, checksum}.
-## A run longer than SimConfig.MAX_TICKS (the 30 minutes the leaderboard
+## A run longer than SimConfig.MAX_TICKS (the 4 hours the leaderboard
 ## verifier replays) is replayed here to its end, up to LONG_MAX_TICKS: the game
-## itself plays on past 30 minutes, so a long bot run still renders.
+## itself plays on past that, so a long bot run still renders.
 func check() -> Dictionary:
 	if not read_problem.is_empty():
 		return {"ok": false, "reason": read_problem}

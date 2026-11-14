@@ -83,13 +83,16 @@ extends RefCounted
 ##     weights by score, a shuffle-bag picker), generated variants built at room
 ##     start, Lava Rise variants, new rooms Cave Tunnel, Peg Field and Buttons,
 ##     and a remade Crowded.
-## 23 (pending, with the next bump): no frozen wait out of a normal portal
-##     (PORTAL_HOLD and the ARRIVAL_BLIND fallback wait are gone); the arrival
-##     check holds height for ARRIVAL_BLIND ticks of flight, and where no layout
-##     fits, another variant is tried instead of waiting. Piston Press is one
-##     generated layout (3 rams, 4 from 100 points, on fixed rows, drawn walls, reach and rhythm,
-##     a warning of at least 0.53 s) instead of classic, double slam and ladder.
-const GAMEPLAY_VERSION := 22
+## 23: no frozen wait out of a normal portal (PORTAL_HOLD and the ARRIVAL_BLIND
+##     fallback wait are gone); a wall's next spikes are drawn at the bounce off
+##     it and slide out as the bird leaves; 14 wall slots; room fixes for fair
+##     ways through (arrival walls, updraft lift, bramble escort, hail and wobble
+##     warnings); generated Piston Press and Beam Gates; unlimited Lava Rise with
+##     stronger sinks; hanging Buttons; Locked Out without its one-key variants;
+##     one slow Cave bat, slower Stalker Rail, longer big Tide spikes; the boss
+##     rhythm (every attack warned 2 s); room regroup and rarer Bonus rooms;
+##     replays run up to MAX_TICKS = 4 hours (was 30 minutes).
+const GAMEPLAY_VERSION := 23
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
@@ -197,8 +200,8 @@ const ARRIVAL_TRIES := 16
 ## a player holding height hops about 60 px, plus the bird, plus a margin.
 const ARRIVAL_EDGE := 84 * SUB
 
-# Safety cap for replays (30 minutes of play).
-const MAX_TICKS := 60 * 60 * 30
+# Safety cap for replays (4 hours of play).
+const MAX_TICKS := 60 * 60 * 60 * 4
 
 
 ## A boss room's tier for the score it was entered at: 1 at the first
