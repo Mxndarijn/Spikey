@@ -84,7 +84,7 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.fine_px = l(opts, "fine", bot.fine_px);
     let f = |b: bool, c: &str| if b { c.to_string() } else { "-".to_string() };
     format!(
-        "h {} past {} k {}/{} n {} lines {} wobble {} part {} mid {} tap {} margin {}/{}{} fangs {} rules {}{}{}{}{}{}{}{} buckets {}px x{} fine {}{}{}{}",
+        "h {} past {} k {}/{} n {} lines {} wobble {} part {} mid {} tap {} margin {}/{}{} fangs {} rules {}{}{}{}{}{}{}{} buckets {}px x{} fine {}{}{}{}{}{}",
         bot.horizon,
         bot.past,
         bot.replan,
@@ -113,7 +113,9 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
         // C# also prints " longest", " aimwall" and " midvisible": research switches only C# has.
         if bot.follow > 0 { format!(" follow {}", bot.follow) } else { String::new() },
         if bot.tap_free { " tapfree" } else { "" },
-        if bot.aim_anchor { " aimanchor" } else { "" }
+        if bot.aim_anchor { " aimanchor" } else { "" },
+        if bot.exit_past > 0 { format!(" exitpast {}", bot.exit_past) } else { String::new() },
+        if bot.air_aim { " airaim" } else { "" }
     )
 }
 

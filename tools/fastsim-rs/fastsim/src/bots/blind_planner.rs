@@ -176,6 +176,11 @@ pub struct BlindPlanner {
     pub tap_free: bool,
     /// Ticks looked past the next bounce on the last two crossings before an exit (0 = `past` as always).
     pub exit_past: i64,
+    /// Rising air (Updraft): until the exit shows, the height the cost pulls to is the bottom of
+    /// the gap of the wall ahead (on screen) instead of the middle. The next bounce draws the
+    /// other wall, its gap at most GUST_DOWN_REACH below that bottom, and a bird the air lifts
+    /// cannot sink to it on the way: a player comes off the wall low.
+    pub air_aim: bool,
     pub follows: i64,
     pub follow_fails: i64,
     _guess: i64,
@@ -255,6 +260,7 @@ impl BlindPlanner {
             follow: 0,
             tap_free: false,
             exit_past: 0,
+            air_aim: false,
             follows: 0,
             follow_fails: 0,
             _guess: 0,
@@ -555,6 +561,31 @@ impl BlindPlanner {
             }
         }
         out
+    }
+
+    /// The rising band's `low` (the bottom of the last wall's gap, or the anchor before the
+    /// room's first wall), -1 in a room without rising air. Read from the screen: the last wall
+    /// drawn is the one ahead (a bounce draws the wall the bird flies to).
+    fn air_low_of(s: &GameSim) -> i64 {
+        for h in &s.room.hazards {
+            if let Hz::Updraft(u) = h {
+                if u.lift > 0 && h.alive() {
+                    if u.last_low < 0 {
+                        return s.state.anchor_y;
+                    }
+                    let ahead = if s.state.vx > 0 { s.state.right_spikes } else { s.state.left_spikes };
+                    let run = RoomRules::longest_gap_mask(ahead);
+                    let mut low = -1;
+                    for slot in 0..SimConfig::SLOT_COUNT {
+                        if (run >> slot) & 1 == 1 {
+                            low = SimConfig::slot_center_y(slot);
+                        }
+                    }
+                    return if low >= 0 { low } else { s.state.anchor_y };
+                }
+            }
+        }
+        -1
     }
 
     /// After a bounce in a copy: one-sided fangs aim as far out as their rule
@@ -867,6 +898,12 @@ impl BlindPlanner {
         }
         if !(self.aim_exit && exit_shown) {
             mid += self.mid_offset * SimConfig::SUB;
+        }
+        if self.air_aim && !exit_shown {
+            let low = Self::air_low_of(&root);
+            if low >= 0 {
+                mid = low;
+            }
         }
         let lava_room = self.lava_cost > 0 && root.room.hazards.iter().any(|h| matches!(h, Hz::Lava(_)));
         // Buttons: aim at the lit one until the exit opens (then the exit is the aim). The exit's

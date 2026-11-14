@@ -55,6 +55,7 @@ pub fn configure(bot: &mut BlindPlanner, opts: &Opts) -> String {
     bot.follow = l(opts, "follow", bot.follow as i64) as i32;
     bot.tap_free = l(opts, "tapfree", 0) != 0;
     bot.exit_past = l(opts, "exitpast", 0);
+    bot.air_aim = l(opts, "airaim", 0) != 0;
     format!(
         "h {} past {} k {}/{} n {} lines {} margin {} bpx {}",
         bot.horizon, bot.past, bot.replan, bot.replan_danger, bot.copies, bot.lines, bot.margin, bot.bucket_px
