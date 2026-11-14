@@ -27,7 +27,8 @@ const INK_SPIKE := UiTokens.INK_900
 const INK_SPIKE_EDGE := Color(0.32, 0.29, 0.35, 1.0)
 const INK_SPIKE_LINE := Color("#FFFFFF")
 const INK_SPIKE_LINE_W := 2.0
-## Wall spikes slide in over about 125 ms; the sky fades over 400 ms.
+## Wall spikes slide in over about 125 ms (a wall a bounce redraws follows the
+## sim instead: _redraw_wall); the sky fades over 400 ms.
 const SLIDE_SPEED := 8.0
 const FADE_SPEED := 2.5
 const FLASH_ALPHA := 0.35
@@ -126,6 +127,11 @@ var _drawn_sky: Array[Color] = []
 ## Per-slot slide-in progress (0..1) for each side wall.
 var _left_reveal := PackedFloat32Array()
 var _right_reveal := PackedFloat32Array()
+## Per wall: the draw being shown (room, the room step it was drawn at, the
+## step it is all the way out at) and how far out each spike was when it began.
+var _draws: Array[Vector3i] = [Vector3i(-1, -1, -1), Vector3i(-1, -1, -1)]
+var _old_left := PackedFloat32Array()
+var _old_right := PackedFloat32Array()
 var _sky: Array[Color] = []
 var _prev_sky: Array[Color] = []
 var _fade := 1.0
@@ -156,6 +162,11 @@ func bind(run: RunController, theme: ThemeDef) -> void:
 	_right_reveal.resize(SimConfig.SLOT_COUNT)
 	_left_reveal.fill(0.0)
 	_right_reveal.fill(0.0)
+	_old_left.resize(SimConfig.SLOT_COUNT)
+	_old_right.resize(SimConfig.SLOT_COUNT)
+	_old_left.fill(0.0)
+	_old_right.fill(0.0)
+	_draws = [Vector3i(-1, -1, -1), Vector3i(-1, -1, -1)]
 	_room_index = 0
 	set_theme(theme)
 
@@ -214,6 +225,9 @@ func snap() -> void:
 		var mask := _run.sim.wall_mask(side)
 		for slot in SimConfig.SLOT_COUNT:
 			reveal[slot] = 1.0 if RoomRules.has_slot(mask, slot) else 0.0
+		# Mid-redraw: the old spikes are not known, the new ones come out.
+		_draws[side] = _draw_of(side)
+		(_old_left if side == 0 else _old_right).fill(0.0)
 	_drawn_sky = []
 	_backdrop.queue_redraw()
 	queue_redraw()
@@ -241,8 +255,11 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	var s := _run.sim.state
-	_animate_wall(_left_reveal, _run.sim.wall_mask(0), delta)
-	_animate_wall(_right_reveal, _run.sim.wall_mask(1), delta)
+	for side in 2:
+		if not _redraw_wall(side):
+			_animate_wall(
+				_left_reveal if side == 0 else _right_reveal, _run.sim.wall_mask(side), delta
+			)
 	_fade = minf(_fade + delta * FADE_SPEED, 1.0)
 	_flash = maxf(_flash - delta * FADE_SPEED, 0.0)
 	# Exits fade in over EXIT_FADE_TIME when they open.
@@ -258,6 +275,39 @@ func _process(delta: float) -> void:
 		_ghost_fade = 0.0
 	_arrival = maxf(_arrival - delta / ARRIVAL_CLOSE_TIME, 0.0)
 	queue_redraw()
+
+
+## Wall `side`'s last draw: room, room step drawn at, room step all the way out at.
+func _draw_of(side: int) -> Vector3i:
+	var s := _run.sim.state
+	if side == 0:
+		return Vector3i(s.room_index, s.left_drawn, s.left_out)
+	return Vector3i(s.room_index, s.right_drawn, s.right_out)
+
+
+## A wall a bounce just redrew (GameSim.SLIDE_PARTS), in step with the sim: its
+## old spikes slide into the wall over the first half, its new ones out over the
+## second, all the way out when they start to kill. False once it is out (or
+## the draw was out at once, as out of a portal).
+func _redraw_wall(side: int) -> bool:
+	var draw := _draw_of(side)
+	var reveal := _left_reveal if side == 0 else _right_reveal
+	var old := _old_left if side == 0 else _old_right
+	if draw != _draws[side]:
+		_draws[side] = draw
+		for slot in SimConfig.SLOT_COUNT:
+			old[slot] = reveal[slot]
+	var t := _run.sim.room.t
+	if t >= draw.z or draw.z <= draw.y:
+		return false
+	var p := float(t - draw.y) / float(draw.z - draw.y)
+	var mask := _run.sim.wall_mask(side)
+	for slot in SimConfig.SLOT_COUNT:
+		if p < 0.5:
+			reveal[slot] = minf(old[slot], 1.0 - 2.0 * p)
+		else:
+			reveal[slot] = 2.0 * p - 1.0 if RoomRules.has_slot(mask, slot) else 0.0
+	return true
 
 
 func _animate_wall(reveal: PackedFloat32Array, mask: int, delta: float) -> void:

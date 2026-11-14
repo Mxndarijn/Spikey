@@ -48,16 +48,6 @@ impl BossFair {
             ("boss_saw", 3, 15, "hop", 3),
             "edge-corners: pre-tell plan into the king's landing (fair line exists, seed 15 tick 1504)",
         ),
-        // The wall ahead drawn at each bounce: the old plan held for 60 steps after the hop tell
-        // leaves no way, a reaction within 50 steps gets through (tell at tick 1324).
-        (
-            ("boss_saw", 1, 16, "hop", 3),
-            "wall-side: pre-tell plan into a dead end (fair line exists at R=50, seed 16 tick 1324)",
-        ),
-        (
-            ("boss_saw", 1, 17, "hop", 3),
-            "wall-side: pre-tell plan into a dead end (fair line exists at R=50, seed 17 tick 1324)",
-        ),
     ];
 
     fn known(boss: &str, tier: i64, seed: i64, kind: &str, phase: i64) -> bool {

@@ -21,7 +21,7 @@ pub struct Belt {
 }
 
 impl Belt {
-    pub const SPEED: i64 = 29;
+    pub const SPEED: i64 = 15;
     pub const MAX_SHIFT: i64 = 2 * SimConfig::SLOT_SIZE;
     pub const HOLD_POINTS: i64 = 2;
 

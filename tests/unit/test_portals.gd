@@ -90,6 +90,7 @@ func test_flying_through_moves_to_the_next_room() -> void:
 	assert_eq(sim.state.x, sim.room.wall_left() + r, "out of the opposite (left) wall")
 	assert_true(sim.state.left_spikes != 0, "the wall it came out of has its next spikes")
 	assert_eq(sim.state.left_new, sim.state.left_spikes, "sliding out as the bird leaves")
+	assert_eq(sim.state.left_out, sim.room.t, "out at once: the room waits to be read")
 	assert_true(sim.state.right_spikes != 0, "the wall ahead has spikes again")
 	var t := sim.room.t
 	sim.step(true)
@@ -324,7 +325,7 @@ func test_no_safe_bounce_between_portal_and_spike() -> void:
 			var sim := _sim_at(start[0], start[1])
 			_hit_wall(sim, 0, 300 * SimConfig.SUB)
 			# The crossing: the right wall's spikes are out by the time it is met.
-			sim.room.t += GameSim.SPIKE_SLIDE
+			sim.room.t = maxi(sim.room.t, sim.state.right_out)
 			var r := SimConfig.BIRD_RADIUS
 			sim.state.y = y
 			sim.state.anchor_y = sim.state.y

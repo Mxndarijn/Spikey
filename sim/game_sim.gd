@@ -29,10 +29,10 @@ const PRACTICE_START_GAP := 40 * SimConfig.SUB
 ## Bounces before an exit when the anchor and the walls steer toward it
 ## (_anchor_target, _wall_target).
 const EXIT_STEER := 3
-## New wall spikes slide out over this many room steps (RoomView: 7.5 ticks)
-## and kill only once all the way out. A wall never kills a bird flying away
-## from it (a wall that moves in, a tide spike that grows, a belt that resets).
-const SPIKE_SLIDE := 10
+## A redrawn wall's spikes go in and its new ones come out (RoomView), all out
+## and only then deadly a SLIDE_PARTS-th of a crossing after the draw. A wall
+## never kills a bird flying away from it (it moves in, a tide grows, a belt resets).
+const SLIDE_PARTS := 3
 ## Bird heights (from the exit's) a portal arrival is checked at: anywhere a
 ## bird can come through the exit (see _arrival_retries).
 const ARRIVAL_HEIGHTS: Array[int] = [
@@ -366,7 +366,7 @@ func _hits_wall(side: int, base_x: int, dir: int) -> bool:
 		# A new spike kills only once it is all the way out.
 		var fresh := state.left_new if side == 0 else state.right_new
 		if RoomRules.has_slot(fresh, slot):
-			if room.t - (state.left_drawn if side == 0 else state.right_drawn) < SPIKE_SLIDE:
+			if room.t < (state.left_out if side == 0 else state.right_out):
 				continue
 		var depth := room.slot_depth(side, slot)
 		if depth <= 0:
@@ -410,10 +410,13 @@ func _check_walls() -> void:
 		_maybe_open_exit()
 
 
-## A bounce off wall `side` draws the wall the bird now flies to (1 - side),
-## never the wall just bounced off: that one keeps its spikes.
+## A bounce off wall `side` redraws it as the bird flies off (two crossings to
+## see it), a room's first bounce the wall ahead too.
 func _walls_after_bounce(side: int) -> void:
-	_new_wall(1 - side)
+	if room.walls == 0:
+		_new_wall(1 - side, false)
+	_new_wall(side)
+	room._boss_recheck(self, 1 - side)
 
 
 ## The bird reached wall `side`: if it is inside an open exit there, it goes
@@ -732,6 +735,9 @@ func _arrive(side: int, event: Event) -> void:
 	# The wall behind (the portal's): a narrow room's is met while still reading.
 	_new_wall(1 - side, false)
 	_keep_hold_band_open(1 - side)
+	# The room waits while the player reads it: both walls are out at once.
+	state.left_out = room.t
+	state.right_out = room.t
 
 
 ## Out of a portal with _arrival_band, a wall the bird gets to within the
@@ -756,19 +762,14 @@ func _keep_hold_band_open(side: int) -> void:
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
 	var mask := state.right_spikes if side == 1 else state.left_spikes
-	# Blink Walls: the second pattern too.
-	var blink := room.blink_right if side == 1 else room.blink_left
 	for slot in SimConfig.SLOT_COUNT:
 		var cy := SimConfig.slot_center_y(slot)
 		if cy + SimConfig.SPIKE_HALF_BASE > top and cy - SimConfig.SPIKE_HALF_BASE < bottom:
 			mask &= ~(1 << slot)
-			blink &= ~(1 << slot)
 	if side == 1:
 		state.right_spikes = mask
-		room.blink_right = blink
 	else:
 		state.left_spikes = mask
-		room.blink_left = blink
 
 
 ## Spikes for wall `side`, then (with `extras`) the room's per-bounce extras,
@@ -776,14 +777,11 @@ func _keep_hold_band_open(side: int) -> void:
 ## arrival's reseeds from the room's seed and the wall's number, so nothing a
 ## player did changes it. Its free run is chained to the other wall's.
 func _new_wall(side: int, extras: bool = true) -> void:
-	# What the wall shows now: any other spike it shows after is new.
-	var before := wall_mask(side)
 	var other_drawn := room.walls > 0
 	if room.walls > 0:
 		_rng.reseed(SimHash.mix(room.rng_seed, room.walls))
 	room.walls += 1
-	# Chained to the other wall (the one just bounced off, or met first): its
-	# free part and anchor there.
+	# Chained to the other wall (met first): its free part and anchor there.
 	var anchor := state.anchor_y
 	if other_drawn:
 		anchor = _free_run_of(1 - side)
@@ -816,16 +814,20 @@ func _new_wall(side: int, extras: bool = true) -> void:
 	else:
 		state.right_spikes = mask
 	room.on_wall_generated(side, mask, self, _rng)
-	# Blink Walls: the second pattern is new too.
+	# All of it is new, out a crossing / SLIDE_PARTS on (Blink: both patterns).
+	var crossing := room.wall_right() - room.wall_left() - 2 * SimConfig.BIRD_RADIUS
+	var out := room.t + maxi(1, crossing / SimConfig.SPEED_X / SLIDE_PARTS)
 	var shown := mask
 	if room.def.wall_mode == RoomDef.WallMode.BLINK:
 		shown |= room.blink_left if side == 0 else room.blink_right
 	if side == 0:
-		state.left_new = shown & ~before
+		state.left_new = shown
 		state.left_drawn = room.t
+		state.left_out = out
 	else:
-		state.right_new = shown & ~before
+		state.right_new = shown
 		state.right_drawn = room.t
+		state.right_out = out
 	if not extras:
 		return
 	for h in room.hazards:
@@ -847,7 +849,8 @@ func _wall_target(anchor: int) -> int:
 	var reach := RoomRules.gap_reach(room.def)
 	if reach <= 0 or state.exit_open:
 		return anchor
-	if room.def.reach <= 0 and points_to_exit() > EXIT_STEER:
+	# The wall drawn now is met a bounce after the wall ahead.
+	if room.def.reach <= 0 and points_to_exit() - 1 > EXIT_STEER:
 		if _free_lo >= 0 and reach - (_free_hi - _free_lo) / 2 >= SimConfig.SLOT_SIZE:
 			return -1
 		return anchor

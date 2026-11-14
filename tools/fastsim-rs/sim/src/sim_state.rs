@@ -43,6 +43,8 @@ pub struct SimState {
     pub right_new: i64,
     pub left_drawn: i64,
     pub right_drawn: i64,
+    pub left_out: i64,
+    pub right_out: i64,
     pub coin_active: bool,
     pub coin_x: i64,
     pub coin_y: i64,
@@ -93,6 +95,8 @@ impl Default for SimState {
             right_new: 0,
             left_drawn: 0,
             right_drawn: 0,
+            left_out: 0,
+            right_out: 0,
             coin_active: false,
             coin_x: 0,
             coin_y: 0,
@@ -154,6 +158,8 @@ impl SimState {
         h = SimHash::mix(h, self.right_new);
         h = SimHash::mix(h, self.left_drawn);
         h = SimHash::mix(h, self.right_drawn);
+        h = SimHash::mix(h, self.left_out);
+        h = SimHash::mix(h, self.right_out);
         h = SimHash::mix(h, G::b(self.coin_active));
         h = SimHash::mix(h, self.coin_x);
         h = SimHash::mix(h, self.coin_y);

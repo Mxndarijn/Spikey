@@ -161,18 +161,18 @@ impl Beam {
     }
 
 
-    /// Slots of wall side (drawn now) a bird gets to in time from every free slot of the other
-    /// wall (reach_time, REACH_SPARE to spare): the wall just bounced off, or the one met first.
-    /// All slots if the other wall is bare (an arrival).
+    /// Slots of wall side (drawn now, met after the other wall) a bird gets to in time from
+    /// every free slot of the other wall (reach_time, REACH_SPARE to spare); all slots if the
+    /// bird meets side first.
     pub fn reachable_slots(&self, sim: &GameSim, side: i64) -> i64 {
         let all = (1i64 << SimConfig::SLOT_COUNT) - 1;
         let heading = if sim.state.vx > 0 { 1 } else { 0 };
-        let other = if side == 0 { sim.state.right_spikes } else { sim.state.left_spikes };
-        if other == 0 {
+        if heading == side {
             return all;
         }
-        let first = if heading == side { 0 } else { sim.steps_to_wall(heading) };
+        let first = sim.steps_to_wall(heading);
         let c = sim.steps_to_wall(side) - first;
+        let other = if heading == 0 { sim.state.left_spikes } else { sim.state.right_spikes };
         let t_b = self.base.t + first;
         let half = SimConfig::SLOT_SIZE / 2;
         let mut out_ = 0;

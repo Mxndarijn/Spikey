@@ -24,12 +24,14 @@ var room_kind := 0
 ## Bitmasks of spiked slots on each side wall.
 var left_spikes := 0
 var right_spikes := 0
-## The slots each wall got when its spikes were last drawn (they slide out,
-## GameSim.SPIKE_SLIDE room steps) and the room step that happened at.
+## The slots each wall got when its spikes were last drawn, the room step that
+## happened at and the room step they are all the way out at (GameSim.SLIDE_PARTS).
 var left_new := 0
 var right_new := 0
 var left_drawn := 0
 var right_drawn := 0
+var left_out := 0
+var right_out := 0
 
 ## The one coin in the room, if any, and how many this run collected.
 var coin_active := false
@@ -114,6 +116,8 @@ func assign(o: SimState) -> void:
 	right_new = o.right_new
 	left_drawn = o.left_drawn
 	right_drawn = o.right_drawn
+	left_out = o.left_out
+	right_out = o.right_out
 	coin_active = o.coin_active
 	coin_x = o.coin_x
 	coin_y = o.coin_y
@@ -164,6 +168,8 @@ func checksum() -> int:
 		right_new,
 		left_drawn,
 		right_drawn,
+		left_out,
+		right_out,
 		int(coin_active),
 		coin_x,
 		coin_y,

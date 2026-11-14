@@ -206,18 +206,17 @@ static func reach_time(
 	return t - t0
 
 
-## Slots of wall `side` (drawn now) a bird gets to in time from every free slot
-## of the other wall (reach_time, REACH_SPARE steps to spare): the wall it just
-## bounced off, or the one it meets first. Every slot if the other wall is bare
-## (an arrival: the bird is at its portal). No draws.
+## Slots of wall `side` (drawn now, met after the other wall) a bird gets to in
+## time from every free slot of the other wall (reach_time, REACH_SPARE steps to
+## spare); every slot if the bird meets `side` first. No draws.
 func reachable_slots(sim: GameSim, side: int) -> int:
 	var all := (1 << SimConfig.SLOT_COUNT) - 1
 	var heading := 1 if sim.state.vx > 0 else 0
-	var other := sim.state.right_spikes if side == 0 else sim.state.left_spikes
-	if other == 0:
+	if heading == side:
 		return all
-	var first := 0 if heading == side else sim.steps_to_wall(heading)
+	var first := sim.steps_to_wall(heading)
 	var c := sim.steps_to_wall(side) - first
+	var other := sim.state.left_spikes if heading == 0 else sim.state.right_spikes
 	var t_b := t + first
 	var half := SimConfig.SLOT_SIZE / 2
 	var out := 0
@@ -268,7 +267,8 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
 	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
 	# Generated Beam Gates: the free run is also one a bird can get to through
-	# the beams from anywhere in the other wall's free run.
+	# the beams from anywhere in the other wall's free run, the wall it bounces
+	# off first.
 	if calm_spikes > 0:
 		var both := safe & reachable_slots(sim, side)
 		var all := (1 << SimConfig.SLOT_COUNT) - 1

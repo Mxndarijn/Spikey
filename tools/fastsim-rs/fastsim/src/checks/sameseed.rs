@@ -136,7 +136,7 @@ impl SameSeed {
     }
 
     /// The inputs of the wall just drawn for `side` (GameSim._new_wall), besides the score, the
-    /// route and the room's seed and wall number: the anchor, `from`, the other wall as
+    /// route and the room's seed and wall number: the anchor, `from`, the wall ahead as
     /// _new_wall saw it before the step (`drawn`; its free run steers the new one), the side's spike
     /// bonus (a variant's lean differs per side) and the exit state _wall_target reads. The
     /// side itself is not one: in a room with a bumper, a wall drawn on the other side from the
@@ -230,7 +230,8 @@ impl SameSeed {
             let Some(d) = d else { break };
             steps += 1;
             // The walls as _new_wall sees them, before the step: a bounce draws the wall
-            // ahead, chained to the wall bounced off (none at a room's first wall).
+            // bounced off, chained to the wall ahead (drawn before; none at a room's first
+            // bounce, when both are drawn).
             let drawn = [Self::drawn(&sim, 0), Self::drawn(&sim, 1)];
             let walls_before = sim.room.walls;
             sim.step(d);
@@ -261,11 +262,11 @@ impl SameSeed {
                     p.rooms[cur].open = Self::exit_text(st);
                 }
                 if e == Event::BOUNCE || e == Event::ROOM_CHANGE {
-                    // The wall ahead: at a bounce chained to the wall just left; at an
-                    // arrival the room's first wall (the one behind is chained to it).
+                    // A bounce: the wall just left. An arrival: the wall ahead (the room's
+                    // first wall; the one behind is chained to it).
                     let heading = if st.vx > 0 { 1 } else { 0 };
-                    let side = heading;
-                    let from = if e == Event::ROOM_CHANGE || walls_before == 0 { 0 } else { drawn[(1 - heading) as usize] };
+                    let side = if e == Event::ROOM_CHANGE { heading } else { 1 - heading };
+                    let from = if e == Event::ROOM_CHANGE || walls_before == 0 { 0 } else { drawn[heading as usize] };
                     let number = if e == Event::ROOM_CHANGE { 1 } else { sim.room.walls };
                     let w = Wall {
                         tick: rel(st.tick),
