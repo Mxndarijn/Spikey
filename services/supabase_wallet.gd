@@ -34,6 +34,10 @@ func sync() -> void:
 		return
 	_profile.diamonds = wallet.diamonds
 	synced.emit(wallet.diamonds, wallet.prizes)
+	# Once a session: the milestones won and the ladder mark, so Game over
+	# names only the prizes the server will pay (last_status).
+	if _last_status == null:
+		await earn_status()
 
 
 ## The server's answer, else the last one it gave (marked not fresh), else a
@@ -47,6 +51,10 @@ func earn_status() -> EarnStatus:
 	if _last_status != null:
 		return _last_status.stale()
 	return EarnStatus.from_profile(_profile)
+
+
+func last_status() -> EarnStatus:
+	return _last_status
 
 
 ## Each spend carries a request id; the server answers a repeat of it with the

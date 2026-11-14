@@ -63,3 +63,19 @@ func claim() -> int:
 ## May wait for the server: call it with `await`.
 func earn_status() -> EarnStatus:
 	return EarnStatus.from_profile(_profile)
+
+
+## The last status the server sent (null: none yet, or no server). Game over
+## uses its won milestones and ladder mark to say which prizes a run reaches.
+func last_status() -> EarnStatus:
+	return null
+
+
+## The milestones a run of `score` reached past `previous_best` that the
+## server will pay, as far as the phone knows: without those the last status
+## says are won or at or below the ladder mark (EarnRules.new_prizes).
+func run_prizes(previous_best: int, score: int) -> Array[int]:
+	var known := last_status()
+	if known == null:
+		return EarnRules.new_prizes(previous_best, score)
+	return EarnRules.new_prizes(previous_best, score, known.milestones, known.ladder_mark)

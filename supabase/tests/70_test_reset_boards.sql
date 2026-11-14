@@ -67,7 +67,7 @@ begin
   perform t_eq(
     (select count(*)::integer from bonus_prizes
      where player_id = t_uid(801) and kind = 'milestone'),
-    4, 'every milestone reached before the reset is written'
+    22, 'every milestone reached before the reset is written (4, then the ladder to 1000)'
   );
   perform t_eq(
     (select count(*)::integer from bonus_prizes
@@ -87,7 +87,12 @@ begin
   -- Carried: the Earn screen, streaks and the gold ceiling go on.
   s := get_earn_status();
   perform t_eq((s->>'best')::integer, 99999, 'the Earn best is kept');
-  perform t_eq(s->'milestones', '[25, 50, 75, 100]'::jsonb, 'milestones are kept');
+  perform t_eq(
+    s->'milestones',
+    '[25, 50, 75, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800,
+      850, 900, 950, 1000]'::jsonb,
+    'milestones are kept'
+  );
   perform t_eq((s->>'streak')::integer, 7, 'the streak is kept');
   perform t_eq((s->>'played_today')::boolean, true, 'today still counts as played');
   perform t_eq((s->>'streak_won')::integer, 1, 'and its streak diamond');

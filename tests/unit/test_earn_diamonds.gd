@@ -80,9 +80,9 @@ func _free(screen: EarnScreen) -> void:
 
 func test_rules_match_the_server() -> void:
 	# supabase/migrations/20261110100000_diamonds.sql: (25, 1), (50, 1), (75, 2), (100, 3).
-	assert_eq(EarnRules.milestone_scores(), [25, 50, 75, 100])
+	assert_eq(EarnRules.first_scores(), [25, 50, 75, 100])
 	var prizes: Array[int] = []
-	for score in EarnRules.milestone_scores():
+	for score in EarnRules.first_scores():
 		prizes.append(EarnRules.milestone_prize(score))
 	assert_eq(prizes, [1, 1, 2, 3])
 	assert_eq(EarnRules.milestone_prize(60), 0, "60 is not a milestone")
@@ -94,14 +94,14 @@ func test_milestones_in_order() -> void:
 	assert_eq(EarnRules.next_milestone(none), 25, "a new player aims for 25")
 	var some: Array[int] = [25, 50, 75]
 	assert_eq(EarnRules.next_milestone(some), 100)
-	var all: Array[int] = [25, 50, 75, 100]
-	assert_eq(EarnRules.next_milestone(all), 0, "nothing left")
+	var four: Array[int] = [25, 50, 75, 100]
+	assert_eq(EarnRules.next_milestone(four), 150, "then the ladder")
 	assert_eq(EarnRules.reached(0), [])
 	assert_eq(EarnRules.reached(74), [25, 50])
-	assert_eq(EarnRules.reached(250), [25, 50, 75, 100])
-	assert_eq(EarnRules.progress(0), 0.0)
-	assert_eq(EarnRules.progress(87), 0.87)
-	assert_eq(EarnRules.progress(500), 1.0, "the bar stops full")
+	assert_eq(EarnRules.reached(250), [25, 50, 75, 100, 150, 200, 250])
+	assert_eq(EarnRules.progress(0, none), 0.0)
+	assert_eq(EarnRules.progress(87, some), 0.48, "from 75 to 100")
+	assert_eq(EarnRules.progress(5000, EarnRules.milestone_scores()), 1.0, "the bar stops full")
 
 
 func test_streak_counting() -> void:
@@ -217,7 +217,7 @@ func test_mid_progress_cards() -> void:
 	assert_eq(screen.balance_text(), "3")
 	assert_eq(screen.milestone_labels(), ["Won", "Won", "Won", "+3"])
 	assert_eq(screen.best_text(), "Best 87. 13 more for 3 diamonds.")
-	assert_eq(screen.bar_ratio(), 0.87)
+	assert_eq(screen.bar_ratio(), 0.48, "12 of the 25 from 75 to 100")
 	assert_eq(screen.streak_dots_filled(), 4)
 	assert_eq(screen.streak_text(), "4 days in a row. 3 more days for 1 diamond.")
 	assert_eq(screen.daily_text(), "You're #14 today. Beat 63 to reach the top 10.")
@@ -229,15 +229,15 @@ func test_mid_progress_cards() -> void:
 	_free(screen)
 
 
-func test_everything_earned_cards() -> void:
+func test_first_four_won_cards() -> void:
 	var p := Profile.new()
 	p.diamonds = 12
 	var screen := _screen(p)
 	screen.show_status(_status(112, [25, 50, 75, 100], 15, true, 2))
 	screen.show_board(_board(2))
 	assert_eq(screen.milestone_labels(), ["Won", "Won", "Won", "Won"])
-	assert_eq(screen.best_text(), "All four won. Your best is 112.")
-	assert_eq(screen.bar_ratio(), 1.0)
+	assert_eq(screen.best_text(), "Best 112. 38 more for 3 diamonds.")
+	assert_eq(screen.bar_ratio(), 0.24, "12 of the 50 from 100 to 150")
 	assert_eq(screen.streak_dots_filled(), 1, "day 15 is the first of the third week")
 	assert_eq(screen.streak_text(), "15 days in a row, 2 diamonds won. Next one in 6 days.")
 	assert_eq(screen.lit_tier(), 1, "#2 lights the #2 and #3 tier")

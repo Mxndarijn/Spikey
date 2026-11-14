@@ -6,6 +6,9 @@ extends Control
 ## corner slot and the Game over dock, the same slots as Home's (Rooms, Style | Again | Ranks,
 ## Runs). A new best gets the gold ribbon, the score counting up, three sparkles and confetti that
 ## falls through once (still with reduced motion).
+## A run that reaches best-score milestones (show_prize) gets a cream pill in the seed's place:
+## "+6 for Best 150 and 200 · yours once checked" (the server pays them after its check;
+## the seed is still in Your runs). A Daily Run try keeps its tries line there instead.
 ## A Daily Run try (show_daily) says "Daily Run" instead of "Game over", its
 ## place on the Daily Run board in the stats, the day's number, the tries left
 ## and the time to the next map where the seed goes, and its dock has Share where Rooms is and
@@ -24,7 +27,10 @@ const RUNS_ICON := preload("res://assets/ui/icons/history.svg")
 const RESTART_ICON := preload("res://assets/ui/icons/restart.svg")
 const HEART_ICON := preload("res://assets/ui/icons/heart.svg")
 const SHARE_ICON := preload("res://assets/ui/icons/share.svg")
+const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const CAPTION := "Game over"
+## After the prize pill's diamonds: the server pays once it has checked the run.
+const PRIZE_AFTER := "yours once checked"
 ## A new best counts the score up over COUNT_TIME; the effect runs FX_TIME.
 const COUNT_TIME := 1.1
 const FX_TIME := 2.6
@@ -68,6 +74,9 @@ var _seed := Label.new()
 var _revived_line := HBoxContainer.new()
 var _revived_icon := TextureRect.new()
 var _revived_text := Label.new()
+## The milestones this run reached (show_prize), in the seed's place.
+var _prize := CenterContainer.new()
+var _prize_text := Label.new()
 var _stat_coins: Label
 var _stat_rooms: Label
 var _stat_rank: Label
@@ -129,6 +138,30 @@ func _init() -> void:
 	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiKit.across(self, _seed, STATS_Y + 56.0)
+	_prize.name = "Prize"
+	_prize.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pill := PanelContainer.new()
+	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 2)
+	box.content_margin_left = 8
+	box.content_margin_right = 12
+	pill.add_theme_stylebox_override("panel", box)
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	var icon := TextureRect.new()
+	icon.texture = DIAMOND_ICON
+	icon.custom_minimum_size = Vector2(16, 16)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	_prize_text.theme_type_variation = &"CaptionLabel"
+	_prize_text.add_theme_color_override("font_color", UiTokens.ON_PANEL)
+	row.add_child(_prize_text)
+	pill.add_child(row)
+	_prize.add_child(pill)
+	_prize.visible = false
+	UiKit.across(self, _prize, STATS_Y + 56.0)
 	# Home leaves from the corner slot, like every back arrow.
 	_home = UiKit.icon_button(HOME_ICON, "Home")
 	_home.name = "Home"
@@ -221,6 +254,7 @@ func show_result(
 	_seed.visible = not seed_line.is_empty()
 	_seed.offset_top = _stats.offset_bottom + SEED_GAP
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
+	_prize.visible = false
 	visible = true
 	_new_best.still = still
 	_time = 0.0 if is_new_best and not still else FX_TIME
@@ -236,6 +270,8 @@ func show_daily(number: int, tries_line: String, next: String) -> void:
 	_seed.text = "No. %d · %s" % [number, tries_line]
 	_seed.visible = not tries_line.is_empty()
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
+	# The tries line matters more on a Daily Run: no prize pill there.
+	_prize.visible = false
 	_daily_dock.set_text("again", next)
 	_show_rank(0)
 
@@ -263,6 +299,43 @@ func caption_text() -> String:
 
 func seed_line() -> String:
 	return _seed.text if _seed.visible else ""
+
+
+## After show_result: the milestones this run reached that weren't won yet
+## (EarnRules.new_prizes). Shows the pill in the seed's place; none: nothing.
+func show_prize(scores: Array[int]) -> void:
+	if scores.is_empty() or _daily:
+		_prize.visible = false
+		return
+	_prize_text.text = prize_text(scores)
+	_seed.visible = false
+	_prize.visible = true
+	_prize.offset_top = _stats.offset_bottom + SEED_GAP
+	_prize.offset_bottom = _prize.offset_top + _prize.get_combined_minimum_size().y
+
+
+func prize_line() -> String:
+	return _prize_text.text if _prize.visible else ""
+
+
+## The pill's rect on screen, for tests.
+func prize_rect() -> Rect2:
+	var min_size := _prize.get_combined_minimum_size()
+	var pill := _prize.get_child(0) as Control
+	var w := pill.get_combined_minimum_size().x
+	return Rect2((UiTokens.SIZE_VIEWPORT_W - w) / 2.0, _prize.offset_top, w, min_size.y)
+
+
+## "+3 for Best 150 · yours once checked"; two: "+6 for Best 150
+## and 200 · ..."; more: "+9 for Best 150 to 250 · ...".
+static func prize_text(scores: Array[int]) -> String:
+	var total := EarnRules.prizes_total(scores)
+	var which := UiKit.thousands(scores[0])
+	if scores.size() == 2:
+		which += " and " + UiKit.thousands(scores[1])
+	elif scores.size() > 2:
+		which += " to " + UiKit.thousands(scores[-1])
+	return "+%d for Best %s · %s" % [total, which, PRIZE_AFTER]
 
 
 ## Hidden, with the effect stopped.

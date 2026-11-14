@@ -995,5 +995,6 @@ func _finish_run(replay: Replay) -> void:
 		_revive.revived_at,
 		replay.season
 	)
+	_hud.game_over.show_prize(wallet.run_prizes(previous_best, replay.score))
 	_daily.finished(replay, _rooms_cleared)
 	_stage.show_empty(is_new_best, _hud.reduced_motion)

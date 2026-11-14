@@ -10,6 +10,9 @@ var known := false
 var best := 0
 ## Milestone scores won (claimed or not), lowest first.
 var milestones: Array[int] = []
+## Ladder steps at or below this never pay (EarnRules.payable): the player's
+## best when the ladder came. 0 for later players and when it isn't known.
+var ladder_mark := 0
 ## Days in a row with a checked run, ending today or yesterday (0: none).
 ## -1: not known (offline before the server ever answered).
 var streak := 0
@@ -43,6 +46,7 @@ static func parse(data: Variant) -> EarnStatus:
 			if EarnRules.milestone_prize(score) > 0 and not s.milestones.has(score):
 				s.milestones.append(score)
 	s.milestones.sort()
+	s.ladder_mark = maxi(int(d.get("ladder_mark", 0)), 0)
 	s.streak = maxi(int(d.get("streak", 0)), 0)
 	s.played_today = bool(d.get("played_today", false)) and s.streak > 0
 	s.streak_won = maxi(int(d.get("streak_won", 0)), 0)
@@ -54,6 +58,7 @@ func stale() -> EarnStatus:
 	var s := EarnStatus.new()
 	s.best = best
 	s.milestones = milestones.duplicate()
+	s.ladder_mark = ladder_mark
 	s.streak = streak
 	s.played_today = played_today
 	s.streak_won = streak_won

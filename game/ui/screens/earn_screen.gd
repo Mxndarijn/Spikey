@@ -5,7 +5,9 @@ extends Control
 ## tabs and from the prize popup's "Ways to earn diamonds".
 ## - Today's board: the three prize tiers (Economy.DAILY_PRIZES), the player's
 ##   place today and the time to the reset (from the Daily LeaderboardBoard).
-## - Best score: the four milestones (EarnRules), won or still to win, and a bar.
+## - Best score: the four milestones (EarnRules), won or still to win, then a
+##   window on the ladder (150 to 1000): the last step won, the next one and
+##   the ones after it ("300 ..." for the rest), and a bar to the next prize.
 ## - Streak: this week of days in a row as seven dots.
 ## The Get diamonds tab opens the Shop. Main hands it the player's EarnStatus
 ## (show_status) and the Daily board (show_board) as they arrive; offline it
@@ -19,7 +21,7 @@ const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const TITLE := "Wallet"
 const SIDE := UiKit.SCREEN_SIDE
 const TOP := UiKit.SCREEN_TOP
-const BOTTOM := 24
+const BOTTOM := 12
 const OFFLINE := "Offline. Showing what you had last time."
 ## Room for a sentence inside a card (or the banner) on a 360 px screen.
 const LINE_W := 300.0
@@ -35,6 +37,10 @@ var _tiers: Array[PanelContainer] = []
 var _daily_line: Label
 var _miles: Array[PanelContainer] = []
 var _mile_labels: Array[Label] = []
+## The ladder chips, a second row in the same grid (EarnRules.ladder_window).
+var _ladder: Array[PanelContainer] = []
+var _ladder_tops: Array[Label] = []
+var _ladder_labels: Array[Label] = []
 var _bar: ProgressLine
 var _best_line: Label
 var _dots: Array[PanelContainer] = []
@@ -60,7 +66,7 @@ func _ready() -> void:
 	add_child(margin)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 10)
+	col.add_theme_constant_override("separation", 6)
 	margin.add_child(col)
 	_balance.set_amount(_profile.diamonds)
 	col.add_child(UiKit.header(TITLE, closed.emit, _balance))
@@ -98,21 +104,29 @@ func _refresh() -> void:
 	for i in _tiers.size():
 		_chip_style(_tiers[i], UiTokens.ACTION if i == tier else UiTokens.PANEL_RAISED)
 	_daily_line.text = daily_line(_board)
-	var next := EarnRules.next_milestone(status.milestones)
-	var scores := EarnRules.milestone_scores()
+	var next := EarnRules.next_milestone(status.milestones, status.ladder_mark)
+	var scores := EarnRules.first_scores()
 	for i in scores.size():
-		var won := status.milestones.has(scores[i])
-		var fill := UiTokens.PANEL_RAISED
-		if won:
-			fill = UiTokens.INK_LINE
-		elif scores[i] == next:
-			fill = UiTokens.ACTION
-		_chip_style(_miles[i], fill)
-		var text_color := UiTokens.ON_PRIMARY if won else UiTokens.ON_PANEL
-		for l: Label in _miles[i].find_children("*", "Label", true, false):
-			l.add_theme_color_override("font_color", text_color)
+		_mile_style(_miles[i], status.milestones.has(scores[i]), scores[i] == next)
 		_mile_labels[i].text = milestone_label(status, scores[i])
-	_bar.ratio = EarnRules.progress(status.best)
+	var window := EarnRules.ladder_window(status.milestones, status.ladder_mark)
+	var steps: Array[int] = window["steps"]
+	var more: int = window["more"]
+	for i in _ladder.size():
+		var chip := _ladder[i]
+		if i < steps.size():
+			chip.visible = true
+			_ladder_tops[i].text = step_text(steps[i])
+			_ladder_labels[i].text = milestone_label(status, steps[i])
+			_mile_style(chip, status.milestones.has(steps[i]), steps[i] == next)
+		elif i == steps.size() and more > 0:
+			chip.visible = true
+			_ladder_tops[i].text = "%s ..." % step_text(more)
+			_ladder_labels[i].text = "+%d each" % EarnRules.LADDER_PRIZE
+			_mile_style(chip, false, false)
+		else:
+			chip.visible = false
+	_bar.ratio = EarnRules.progress(status.best, status.milestones, status.ladder_mark)
 	_best_line.text = best_line(status)
 	var filled := EarnRules.week_days(maxi(status.streak, 0))
 	for i in _dots.size():
@@ -189,20 +203,48 @@ func _daily_card() -> PanelContainer:
 
 
 func _best_card() -> PanelContainer:
-	var grid := GridContainer.new()
-	grid.columns = EarnRules.MILESTONES.size()
-	grid.add_theme_constant_override("h_separation", 6)
-	for score in EarnRules.milestone_scores():
+	var grid := _mile_grid()
+	for score in EarnRules.first_scores():
 		var label := UiKit.label("", &"CaptionLabel")
 		var chip := _chip(str(score), label, true)
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(chip)
 		_miles.append(chip)
 		_mile_labels.append(label)
+	for i in EarnRules.WINDOW:
+		var label := UiKit.label("", &"CaptionLabel")
+		var chip := _chip("", label, true)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(chip)
+		_ladder.append(chip)
+		_ladder_tops.append(chip.get_child(0).get_child(0) as Label)
+		_ladder_labels.append(label)
 	_bar = ProgressLine.new()
 	_best_line = UiKit.wrapped("", &"MutedLabel", LINE_W)
 	_best_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	return _card("Best score", UiKit.label("Once each", &"MutedLabel"), [grid, _bar, _best_line])
+
+
+## The first four milestones over the ladder's window, four to a row.
+func _mile_grid() -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = EarnRules.WINDOW
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	return grid
+
+
+## A milestone chip: ink when won, gold when it is the next one to win.
+func _mile_style(chip: PanelContainer, won: bool, next: bool) -> void:
+	var fill := UiTokens.PANEL_RAISED
+	if won:
+		fill = UiTokens.INK_LINE
+	elif next:
+		fill = UiTokens.ACTION
+	_chip_style(chip, fill, 14, 2)
+	var text_color := UiTokens.ON_PRIMARY if won else UiTokens.ON_PANEL
+	for l: Label in chip.find_children("*", "Label", true, false):
+		l.add_theme_color_override("font_color", text_color)
 
 
 func _streak_card() -> PanelContainer:
@@ -261,8 +303,8 @@ func _diamonds_row(count: int) -> HBoxContainer:
 	return row
 
 
-func _chip_style(chip: PanelContainer, fill: Color, radius: int = 14) -> void:
-	var box := UiTheme.flat(fill, radius, 6)
+func _chip_style(chip: PanelContainer, fill: Color, radius: int = 14, pad: int = 6) -> void:
+	var box := UiTheme.flat(fill, radius, pad)
 	box.content_margin_left = 2
 	box.content_margin_right = 2
 	chip.add_theme_stylebox_override("panel", box)
@@ -334,10 +376,15 @@ static func milestone_label(status: EarnStatus, score: int) -> String:
 	return "+%d" % EarnRules.milestone_prize(score)
 
 
+## "1,150" for a ladder step.
+static func step_text(score: int) -> String:
+	return UiKit.thousands(score)
+
+
 static func best_line(status: EarnStatus) -> String:
-	var next := EarnRules.next_milestone(status.milestones)
+	var next := EarnRules.next_milestone(status.milestones, status.ladder_mark)
 	if next == 0:
-		return "All four won. Your best is %d." % status.best
+		return "All won. Your best is %d." % status.best
 	var prize := SpotAlert.diamonds(EarnRules.milestone_prize(next))
 	if status.milestones.is_empty() and status.best <= 0:
 		return "Score %d in one run for your first diamond." % next
@@ -391,6 +438,24 @@ func milestone_labels() -> Array[String]:
 	for l in _mile_labels:
 		out.append(l.text)
 	return out
+
+
+## The ladder chips shown, "200 +3" each (none when the ladder is hidden).
+func ladder_chips() -> Array[String]:
+	var out: Array[String] = []
+	for i in _ladder.size():
+		if _ladder[i].visible:
+			out.append("%s %s" % [_ladder_tops[i].text, _ladder_labels[i].text])
+	return out
+
+
+## The ladder chip lit gold (the next step to win), or "".
+func next_ladder_chip() -> String:
+	for i in _ladder.size():
+		var box := _ladder[i].get_theme_stylebox("panel") as StyleBoxFlat
+		if _ladder[i].visible and box.bg_color == UiTokens.ACTION:
+			return _ladder_tops[i].text
+	return ""
 
 
 func streak_dots_filled() -> int:

@@ -211,3 +211,15 @@ client: `meta/daily_run_rules.gd`, `game/app/daily_run_flow.gd`).
 
 Database tests: `supabase/tests/80_test_daily_run.sql` (`tools/db_test.ps1`,
 needs Docker).
+
+## Score ladder
+
+Past the four best-score milestones (25, 50, 75, 100), every 50 points from 150
+to 1000 wins 3 diamonds once (`20261114120000_score_ladder.sql`, client:
+`EarnRules.LADDER_*`): 18 steps, 54 diamonds at most. They are `bonus_prizes`
+rows of kind `milestone` like the first four (ref `"150"`), written by
+`spikey_award_bonuses` from the best checked score, so one run passing several
+steps pays each. No back-pay: when the file was applied, `spikey_mark_ladder`
+stored every player's best checked score in `ladder_marks`, and steps at or
+below a player's mark never pay (players who came later start at 0).
+`get_earn_status` sends the mark as `ladder_mark`.
