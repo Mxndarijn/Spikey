@@ -10,6 +10,8 @@ extends RefCounted
 const PROFILE_PATH := "user://render_run_profile.json"
 ## A board config that never exists: the boards stay samples, nothing goes online.
 const NO_BOARD_CONFIG := "user://render_run_no_board_config.json"
+const HUD_REPLAY := "replay"
+const HUD_LIVE := "live"
 
 var run_file: RunFile
 var main: Node
@@ -44,7 +46,10 @@ static func look_problem(loadout: Dictionary) -> String:
 
 
 ## Builds the game under `parent` and starts the replay. Check problem() first.
-func start(parent: Node) -> void:
+## `hud`: HUD_REPLAY shows the replay overlay (chip, "<name> scored N");
+## HUD_LIVE the HUD a player sees in a run ("Tap to flap", then the score,
+## coins and pause), and after the crash the final score stays up.
+func start(parent: Node, hud: String = HUD_REPLAY) -> void:
 	var p := Profile.new()
 	p.onboarded = true
 	run_file.apply_settings(p.settings)
@@ -56,16 +61,31 @@ func start(parent: Node) -> void:
 	parent.add_child(main)
 	main._scrub.shown = false
 	main.play_replay(run_file.to_dict())
+	if hud == HUD_LIVE:
+		_live_hud()
+		# After main's own handler, which shows the replay result.
+		controller().died.connect(_on_died_live.unbind(1))
+
+
+## The run's own HUD in place of the replay overlay.
+func _live_hud() -> void:
+	main._hud.replay_hud().set_run("", 0)
+	main._hud.show_ready()
+
+
+func _on_died_live() -> void:
+	main._hud.replay_hud().set_run("", 0)
+	main._hud.show_running()
 
 
 func controller() -> RunController:
 	return main.get_node("RunController") as RunController
 
 
-## The run in the game has ended (died for good, or MAX_TICKS).
+## The run in the game has ended (died for good, or RunFile.LONG_MAX_TICKS).
 func run_over() -> bool:
 	var sim := controller().sim
-	return sim.is_over() or sim.state.tick >= SimConfig.MAX_TICKS
+	return sim.is_over() or sim.state.tick >= RunFile.LONG_MAX_TICKS
 
 
 ## The run as the game played it against the sim replay and the file's

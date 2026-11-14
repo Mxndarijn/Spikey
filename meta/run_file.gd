@@ -12,6 +12,8 @@ extends RefCounted
 const FORMAT := "flapjaw_run"
 const FORMAT_VERSION := 1
 ## The look settings a run file may set (PlayerSettings fields, all bools).
+## The longest run check() replays (4 hours of play).
+const LONG_MAX_TICKS := 4 * 60 * 60 * SimConfig.TICKS_PER_SECOND
 const SETTINGS: Array[String] = ["color_blind_spikes", "reduced_flashing", "large_buttons"]
 
 var replay := Replay.new()
@@ -112,10 +114,64 @@ func save_file(path: String) -> bool:
 ## Re-simulates the run and checks it against what the file claims
 ## (Replay.verify: gameplay version, taps, score, coins, end tick, checksum).
 ## {ok, reason, score, coins, end_tick, checksum}.
+## A run longer than SimConfig.MAX_TICKS (the 30 minutes the leaderboard
+## verifier replays) is replayed here to its end, up to LONG_MAX_TICKS: the game
+## itself plays on past 30 minutes, so a long bot run still renders.
 func check() -> Dictionary:
 	if not read_problem.is_empty():
 		return {"ok": false, "reason": read_problem}
-	return replay.verify()
+	if replay.end_tick <= SimConfig.MAX_TICKS:
+		return replay.verify()
+	return _check_long()
+
+
+## Replay.verify's checks, with Replay.simulate's loop run to LONG_MAX_TICKS.
+func _check_long() -> Dictionary:
+	var r := replay
+	var out := {"ok": false, "reason": "", "score": 0, "coins": 0, "end_tick": 0, "checksum": 0}
+	if r.gameplay_version != SimConfig.GAMEPLAY_VERSION:
+		out.reason = "unsupported gameplay_version %d" % r.gameplay_version
+		return out
+	for i in r.taps.size():
+		if r.taps[i] < 0 or (i > 0 and r.taps[i] <= r.taps[i - 1]):
+			out.reason = "taps must be ascending and non-negative"
+			return out
+	if r.revive_ticks.size() > SimConfig.MAX_REVIVES:
+		out.reason = "too many revives"
+		return out
+	var sim := GameSim.new(r.seed_value, r.season)
+	var next := 0
+	var next_revive := 0
+	while sim.state.tick < LONG_MAX_TICKS:
+		if sim.is_over():
+			var due := (
+				next_revive < r.revive_ticks.size()
+				and r.revive_ticks[next_revive] == sim.state.tick
+			)
+			if not due or not sim.revive():
+				break
+			next_revive += 1
+		var tap := next < r.taps.size() and r.taps[next] == sim.state.tick
+		if tap:
+			next += 1
+		sim.step(tap)
+	out.score = sim.state.score
+	out.coins = sim.state.coins
+	out.end_tick = sim.state.tick
+	out.checksum = sim.checksum()
+	if not sim.is_over():
+		out.reason = "run did not end"
+	elif sim.state.score != r.score:
+		out.reason = "score mismatch (claimed %d, replayed %d)" % [r.score, sim.state.score]
+	elif sim.state.coins != r.coins:
+		out.reason = "coins mismatch (claimed %d, replayed %d)" % [r.coins, sim.state.coins]
+	elif sim.state.tick != r.end_tick:
+		out.reason = "end_tick mismatch"
+	elif r.checksum != 0 and r.checksum != out.checksum:
+		out.reason = "checksum mismatch"
+	else:
+		out.ok = true
+	return out
 
 
 ## Turns the file's look settings on in `p` (the rest off).

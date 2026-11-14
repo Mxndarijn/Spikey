@@ -34,6 +34,11 @@ param(
     [double]$HoldSeconds = 1.5,
     # Godot's rendering driver: opengl3, or opengl3_angle (Direct3D under the hood).
     [ValidateSet("opengl3", "opengl3_angle")][string]$Driver = "opengl3",
+    # live: the HUD a player sees in a run (score, coins, pause); replay: the
+    # replay overlay ("Replay: name, score", then "name scored N").
+    [ValidateSet("live", "replay")][string]$Hud = "live",
+    # H.264 quality (lower is better and bigger): 18 for short clips, 23-26 for long runs.
+    [int]$Crf = 18,
     # Where to write the JSON summary of the check (and of the render).
     [string]$Summary = "",
     [int]$TimeoutMinutes = 60
@@ -69,11 +74,18 @@ function Show-Summary($s, [string]$what) {
 }
 
 try {
+    # A fresh checkout has no class cache yet: import it first (headless).
+    if (-not (Test-Path (Join-Path $root ".godot/global_script_class_cache.cfg"))) {
+        Write-Host "render: importing the project (fresh checkout)..."
+        $ErrorActionPreference = "Continue"
+        & $godot --headless --path $root --import 2>&1 | Out-Null
+        $ErrorActionPreference = "Stop"
+    }
     # 1. Headless check: never draws, never opens a window.
     $checkSummary = Join-Path $work "check.json"
     $ErrorActionPreference = "Continue"
     $log = & $godot --headless --audio-driver Dummy --path $root --fixed-fps 60 `
-        -s res://tools/render_run.gd -- $runPath $checkSummary $hold 2>&1
+        -s res://tools/render_run.gd -- $runPath $checkSummary $hold $Hud 2>&1
     $ErrorActionPreference = "Stop"
     # Leak notes at exit are harmless; show script errors only.
     $log | Where-Object { "$_" -match "SCRIPT ERROR|Parse Error" } | ForEach-Object { Write-Host $_ }
@@ -98,7 +110,7 @@ try {
         "--audio-driver", "Dummy", "--path", (& $q $root), "--rendering-driver", $Driver,
         "--windowed", "--resolution", $Resolution, "--fixed-fps", "60",
         "--write-movie", (& $q (Join-Path $frameDir "frame.png")), "--log-file", (& $q $godotLog),
-        "-s", "res://tools/render_run.gd", "--", (& $q $runPath), (& $q $renderSummary), $hold
+        "-s", "res://tools/render_run.gd", "--", (& $q $runPath), (& $q $renderSummary), $hold, $Hud
     ) -join " "
     # render/hidden_desktop.cs is a small Win32 helper (CreateDesktop), compiled here by
     # PowerShell; it is not part of FastSim (the bot sim is Rust, tools/fastsim-rs).
@@ -133,7 +145,7 @@ try {
         if ($outDir) { New-Item -ItemType Directory -Force $outDir | Out-Null }
         $ErrorActionPreference = "Continue"
         & $ffmpeg -hide_banner -loglevel error -y -framerate 60 -i (Join-Path $frameDir "frame%08d.png") `
-            -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p -crf 18 $Out
+            -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -preset medium -pix_fmt yuv420p -crf $Crf $Out
         $ErrorActionPreference = "Stop"
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path $Out)) { Write-Host "ffmpeg failed" -ForegroundColor Red; exit 1 }
         Write-Host "render: wrote $Out" -ForegroundColor Green

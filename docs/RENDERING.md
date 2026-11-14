@@ -41,7 +41,21 @@ and no server, so the player's save and the leaderboards never change.
 
 Options: `-Resolution 540x960` (frame size; the world is 360x640, 9:16),
 `-HoldSeconds 1.5` (keep filming after the crash), `-Driver opengl3_angle`
-(if `opengl3` gives empty frames), `-Summary out.json` (the result below).
+(if `opengl3` gives empty frames), `-Summary out.json` (the result below),
+`-Hud live|replay` (default live: the HUD of a run; replay: the replay
+overlay), `-Crf 18` (H.264 quality; 23-26 for long runs: a 52-minute run at
+24 is 134 MB), `-TimeoutMinutes 60` (raise it for long runs: filming runs at
+about 30-45 frames a second).
+
+Long runs: the leaderboard verifier replays at most `SimConfig.MAX_TICKS`
+(30 minutes). The game plays on past that, so `RunFile.check()` replays a
+longer run to its end itself (up to `RunFile.LONG_MAX_TICKS`, 4 hours). Such a
+run renders, but it could never be submitted to a leaderboard.
+
+A long beast-planner run as a run file: `fastsim-rs planrun --seeds 8
+--target 2000 --outdir <dir> --follow 48 --tapfree 1 --bpx 4 --speeds 12`
+(stops tapping at the target score; also writes `seed_<n>.rooms.json`, each
+room entered with its tick, for cutting highlights).
 
 Exit code 0: the run matched (and was rendered). 1: mismatch, bad file or
 empty frames, with the reason printed. 2: setup problem (no Godot, no
@@ -117,9 +131,11 @@ writes an example (a gap seeker run).
 ## What it shows, and what it doesn't
 
 The world is exactly what the player saw: the same scene, views and painters,
-fed tick by tick from the same sim. The overlay is the replay one: the replay
-chip and score, and "<name> scored N" at the end, not the live HUD and Game
-over screen. The replay scrubber (timeline and controls) is off in renders. A revive plays on at once (no revive offer or 3-2-1 countdown;
+fed tick by tick from the same sim. With `-Hud live` (the default) the HUD
+is a run's: "Tap to flap", then the pause button, the score and the coins;
+after the crash the final score stays up (no revive offer or Game over
+screen). With `-Hud replay` it is the replay overlay: the replay chip and
+score, and "<name> scored N" at the end. The replay scrubber (timeline and controls) is off in renders. A revive plays on at once (no revive offer or 3-2-1 countdown;
 those were menu time, not run ticks). No sound is recorded.
 
 ## Why a hidden desktop

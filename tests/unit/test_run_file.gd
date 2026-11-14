@@ -126,3 +126,18 @@ func test_result_fails_on_a_wrong_claim() -> void:
 	assert_false(result.ok)
 	assert_true(str(result.reason).contains("coins mismatch"), str(result.reason))
 	render.finish()
+
+
+## The live HUD: no replay overlay, the run's score, and the score stays up after the crash.
+func test_live_hud_shows_the_run_hud() -> void:
+	var f := RunFile.from_replay(_recorded(7107, 240), {}, "tier 4")
+	var render := RunRender.new(f)
+	render.start((Engine.get_main_loop() as SceneTree).root, RunRender.HUD_LIVE)
+	var hud: Hud = render.main._hud
+	assert_false(hud.replay_hud().visible, "no replay chip")
+	while not render.run_over():
+		render.controller().advance()
+	assert_true(render.result().ok, str(render.result().reason))
+	assert_false(hud.replay_hud().visible, "no replay result screen")
+	assert_true(hud._score.visible, "the final score stays up")
+	render.finish()
