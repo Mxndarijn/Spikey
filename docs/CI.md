@@ -267,7 +267,9 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
   if they differ). It must name a release on
   github.com/godotengine/godot-builds (e.g. `4.7.2-stable`). CI downloads the matching export
   templates, so keep it equal to the editor you use locally (`tools/godot_path.txt`, now
-  4.7.2-stable). The iOS AdMob libraries are built per Godot version (see `docs/REVIVE.md`).
+  4.7.2-stable). The Android SDK packages in `build.yml` (`build-tools;36.1.0 platforms;android-36`
+  for 4.7) must match `compileSdk` and `buildTools` in that release's
+  `platform/android/java/app/config.gradle`. The iOS AdMob libraries are built per Godot version (see `docs/REVIVE.md`).
 - **Icons**: both platforms use `icon.svg` for now. For a sharper store icon, add a square,
   full-bleed 1024×1024 PNG and set `icons/icon_1024x1024` (iOS) and the
   `launcher_icons/*` options (Android adaptive icon) in `export_presets.cfg`.
@@ -284,7 +286,7 @@ game's SVG textures are lossless, so nothing looks different.
 
 ## Tested and untested
 
-Tested on this PC (Godot 4.6-beta2, headless; the full check also passes on 4.7.2-stable): the presets load, the iOS Xcode project export
+Tested on this PC (Godot 4.7.2-stable, headless): the full check passes, the presets load, the iOS Xcode project export
 works with the stamped version and team id, the icon flattening works, and the workflow YAML
 parses. Not tested: the Android export (needs JDK 17, which this PC lacks), anything on
 GitHub's runners, signing, and the TestFlight upload.
