@@ -223,7 +223,9 @@ func test_both_fork_exits_lead_to_the_same_room() -> void:
 
 
 func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
-	for seed_value in [3, 8, 21, 5]:
+	# Seeds whose room after the fork has a plain exit at 60 (seed 3 now lands in
+	# Locked Out, whose exit waits for its keys).
+	for seed_value in [2, 8, 21, 5]:
 		var pair := _both_forks(seed_value)
 		var calm_n := 0
 		var wild_n := 0
