@@ -186,6 +186,8 @@ pub struct BlindPlanner {
     /// they can drop the only one that lives (knob `plainlook`).
     pub plain_look: bool,
     pub plain_looks: i64,
+    /// airaim: a gap down at the floor aims at its middle, as Updraft's `last_low` (knob `airmid`).
+    pub air_mid: bool,
     pub follows: i64,
     pub follow_fails: i64,
     _guess: i64,
@@ -268,6 +270,7 @@ impl BlindPlanner {
             air_aim: false,
             plain_look: false,
             plain_looks: 0,
+            air_mid: false,
             follows: 0,
             follow_fails: 0,
             _guess: 0,
@@ -586,8 +589,10 @@ impl BlindPlanner {
 
     /// The rising band's `low` (the bottom of the longest gap of the wall the bird flies to, or
     /// the anchor before the room's first wall), -1 in a room without rising air. Read from the
-    /// screen: the wall ahead by the bird's heading, whichever bounce drew it.
-    fn air_low_of(s: &GameSim) -> i64 {
+    /// screen: the wall ahead by the bird's heading, whichever bounce drew it. With `mid` (knob
+    /// `airmid`), a gap reaching the lowest `Updraft::BOTTOM_SLOTS` counts from its middle, as the
+    /// sim's own `last_low` does.
+    fn air_low_of(s: &GameSim, mid: bool) -> i64 {
         for h in &s.room.hazards {
             if let Hz::Updraft(u) = h {
                 if u.lift > 0 && h.alive() {
@@ -596,10 +601,16 @@ impl BlindPlanner {
                     }
                     let ahead = if s.state.vx > 0 { s.state.right_spikes } else { s.state.left_spikes };
                     let run = RoomRules::longest_gap_mask(ahead);
-                    let mut low = -1;
+                    let (mut low, mut top) = (-1, -1);
                     for slot in 0..SimConfig::SLOT_COUNT {
                         if (run >> slot) & 1 == 1 {
+                            if top < 0 {
+                                top = SimConfig::slot_center_y(slot);
+                            }
                             low = SimConfig::slot_center_y(slot);
+                            if mid && slot >= SimConfig::SLOT_COUNT - Updraft::BOTTOM_SLOTS {
+                                low = (top + low) / 2;
+                            }
                         }
                     }
                     return if low >= 0 { low } else { s.state.anchor_y };
@@ -921,7 +932,7 @@ impl BlindPlanner {
             mid += self.mid_offset * SimConfig::SUB;
         }
         if self.air_aim && !exit_shown {
-            let low = Self::air_low_of(&root);
+            let low = Self::air_low_of(&root, self.air_mid);
             if low >= 0 {
                 mid = low;
             }
