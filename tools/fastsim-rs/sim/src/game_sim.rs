@@ -672,9 +672,6 @@ impl GameSim {
     }
 
     fn _walls_after_bounce(&mut self, side: i64) {
-        if self.room.walls == 0 {
-            self._new_wall(1 - side, false);
-        }
         self._new_wall(side, true);
         self._boss_recheck(1 - side);
     }

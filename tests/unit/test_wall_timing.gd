@@ -2,7 +2,8 @@ extends TestCase
 ## A bounce off a wall draws that wall's next spikes at once: its old spikes
 ## go in and the new ones come out as the bird leaves, all the way out a third
 ## of the way across (GameSim.SLIDE_PARTS; about two crossings to see them).
-## The wall ahead keeps the spikes it got at the bounce before. A new spike only
+## The wall ahead keeps the spikes it got at the bounce before, at a room's
+## first bounce too (a bare wall stays bare). A new spike only
 ## kills once it is all the way out, and never a bird still flying away from
 ## its wall.
 
@@ -43,11 +44,14 @@ static func _to_bounce(sim: GameSim) -> int:
 func test_a_bounce_draws_the_wall_just_left_and_keeps_the_wall_ahead() -> void:
 	var sim := _sim()
 	sim.step(true)
+	assert_eq(
+		sim.state.left_spikes | sim.state.right_spikes, 0, "a practice start's walls are bare"
+	)
 	var side := _to_bounce(sim)
 	assert_true(side >= 0, "a bounce")
-	assert_eq(sim.room.walls, 2, "the first bounce draws both walls")
+	assert_eq(sim.room.walls, 1, "the first bounce draws only the wall bounced off")
 	assert_true(_mask(sim, side) != 0, "the wall just left has its next spikes")
-	assert_true(_mask(sim, 1 - side) != 0, "the wall ahead has spikes")
+	assert_eq(_mask(sim, 1 - side), 0, "the wall ahead stays bare")
 	for i in 6:
 		var ahead := _mask(sim, side)
 		side = _to_bounce(sim)
@@ -64,8 +68,9 @@ func test_a_bounce_draws_the_wall_just_left_and_keeps_the_wall_ahead() -> void:
 		)
 
 
-## The rule holds in every room and every variant: a bounce off one wall
-## redraws that wall and never adds a spike to the one ahead, and the new
+## The rule holds in every room and every variant, from the room's first
+## bounce on: a bounce off one wall redraws that wall and never adds a spike
+## to the one ahead, and the new
 ## spikes are all the way out before the bird is a third of the way across.
 func test_every_room_and_variant_redraws_the_wall_just_left_out_by_a_third() -> void:
 	var defs := RoomCatalog.all()
@@ -89,7 +94,6 @@ func test_every_room_and_variant_redraws_the_wall_just_left_out_by_a_third() -> 
 				sim.state.y = MID_Y
 				sim.state.vy = 0
 				var heading := 1 if sim.state.vx > 0 else 0
-				var walls := sim.room.walls
 				var before := [sim.state.left_spikes, sim.state.right_spikes]
 				var drawn_before := [sim.state.left_drawn, sim.state.right_drawn]
 				sim.step(false)
@@ -107,8 +111,6 @@ func test_every_room_and_variant_redraws_the_wall_just_left_out_by_a_third() -> 
 					3 * slide * SimConfig.SPEED_X <= span,
 					"%s: out by a third of the way across (%d steps)" % [name, slide]
 				)
-				if walls == 0:
-					continue
 				seen += 1
 				var now: Array = [sim.state.left_spikes, sim.state.right_spikes]
 				var ahead: int = now[1 - heading]

@@ -411,10 +411,10 @@ func _check_walls() -> void:
 
 
 ## A bounce off wall `side` redraws it as the bird flies off (two crossings to
-## see it), a room's first bounce the wall ahead too.
+## see it). The wall ahead is never drawn here, a room's first bounce included
+## (a practice start's bare wall stays bare until the bird bounces off it), so
+## no wall is ever drawn with only one crossing to read it.
 func _walls_after_bounce(side: int) -> void:
-	if room.walls == 0:
-		_new_wall(1 - side, false)
 	_new_wall(side)
 	room._boss_recheck(self, 1 - side)
 

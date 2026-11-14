@@ -86,8 +86,10 @@ flowchart TD
     are close enough together, else near the anchor.
   - Wall timing (gameplay version 23): a bounce off a wall draws that wall's
     next spikes at once, so each wall is on view for about two crossings; the
-    wall ahead keeps the spikes it got at the bounce before. An arrival (and a
-    room's first bounce) draws both walls. A wall's free run is chained to the
+    wall ahead keeps the spikes it got at the bounce before. An arrival draws
+    both walls; a room's first bounce (a practice start, a run's first room)
+    draws only the wall bounced off, as every bounce does, so the bare wall
+    ahead stays bare until the bird bounces off it. A wall's free run is chained to the
     other wall's, the one the bird meets first, at the point `_anchor_at_wall`
     will move the anchor to (`GameSim._free_run_of`). At a bounce the whole
     wall just left goes in and comes out again with its new spikes, all the way
