@@ -2,7 +2,7 @@
 //! a long bot run with tools/render_run.ps1 (docs/RENDERING.md).
 //!
 //!   fastsim-rs planrun --seeds 8 [--first 0] [--target 2000] [--cap 216000]
-//!       --outdir <dir> [BlindPlanner knobs as `rl review fair`: --follow 48 --tapfree 1 --bpx 4 --speeds 12 --airaim 1]
+//!       --outdir <dir> [BlindPlanner knobs as `rl review fair`: --follow 48 --tapfree 1 --bpx 4 --speeds 12 --airaim 1 --beammatch 1]
 //!
 //! Each seed plays until death or --cap ticks. Once the score reaches --target the
 //! bot stops tapping, so the run ends on the next death (the run file needs an end).
