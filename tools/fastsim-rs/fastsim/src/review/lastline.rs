@@ -4,7 +4,8 @@
 //! state every `every` ticks. Then, from the death backwards, SurvivalSearch (the oracle: the
 //! true future) asks of each kept state whether any line lives to `tail` ticks past the death;
 //! it goes back as far as `before` ticks before the death room's arrival. The first state that
-//! has one is the last moment the bird could still live. What happened in the `every` ticks
+//! has one is the last moment the bird could still live. The warnings on screen at it are
+//! listed (which attack was told), then what happened in the `every` ticks
 //! after it says whose fault the death was: the warnings that came on screen then (the
 //! hazards' tells), the walls drawn, the exit opening, and the bird's own taps. A warning that
 //! came on screen less than a reaction time before that point, or nothing new at all on screen
@@ -132,6 +133,12 @@ pub fn lastline(opts: &Opts, cap: i64) -> i32 {
         wall(&c, 1 - side0),
         seen.len()
     );
+    for w in &seen {
+        println!(
+            "  on screen: x {}..{} y {}..{} eta {} dur {} kind {}",
+            w[0], w[2], w[1], w[3], w[4], w[5], w[6]
+        );
+    }
     let stop = (t0 + every).min(died);
     let mut t = *t0;
     while t < stop && !c.is_over() {
