@@ -337,9 +337,8 @@ Nothing opens or closes for the arrival, and what is drawn is what kills
 slides to its next drawn height, drips, bats and a bob move as drawn).
 `test_fixed_rooms_never_change_shape_after_they_start` checks the rooms built
 for it the other way round: every hazard field but its declared moving ones
-(`MOVING`) at every step of a surviving line, bounces included. A variant may be checked within a narrower band than the whole exit
-(`RoomVariant.arrival_spread`, `checked_within`): Cave Tunnel is checked within
-`EXIT_HALF`, a little tighter than the whole exit, by design.
+(`MOVING`) at every step of a surviving line, bounces included. Every variant
+is checked with the bird anywhere in the whole exit, as real arrivals come.
 
 **Hard rule: a generated room is always the same for a seed.** A recipe (and
 its check and fallback) may only use the room's RNG, which is seeded from the

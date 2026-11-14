@@ -13,7 +13,6 @@ impl CatalogCaves {
     pub const DRIPS: i64 = 1;
     pub const BATS: i64 = 2;
     pub const GALLERY_X: i64 = 272 * Self::SUB;
-    pub const CAVE_SPREAD: i64 = SimConfig::EXIT_HALF;
     pub const BEND: [i64; 3] = [40, 65, 90];
     pub const BEND_HALF: [i64; 3] = [120, 115, 110];
     pub const BEND_CUT_TOP: i64 = 8 * Self::SUB;
@@ -67,14 +66,11 @@ impl CatalogCaves {
         cave.hosts_fork = false;
         cave.variants = vec![
             RoomVariant::new("fork")
-                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::FORK)), false, 0)
-                .checked_within(Self::CAVE_SPREAD),
+                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::FORK)), false, 0),
             RoomVariant::new("drips")
-                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::DRIPS)), false, 0)
-                .checked_within(Self::CAVE_SPREAD),
+                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::DRIPS)), false, 0),
             RoomVariant::new("bats")
-                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::BATS)), false, 0)
-                .checked_within(Self::CAVE_SPREAD),
+                .generated(recipe(|sim, p| Self::_gen_cave(sim, p, Self::BATS)), false, 0),
         ];
         out_.push(cave);
 
@@ -111,13 +107,8 @@ impl CatalogCaves {
 
     fn _cave_band(p: &VariantParams) -> [i64; 2] {
         let r = SimConfig::BIRD_RADIUS + VariantParams::MARGIN;
-        let spread = Self::CAVE_SPREAD;
-        let high = GameSim::_arrival_y(p.entry_y - spread);
-        let low = GameSim::_arrival_y(p.entry_y + spread);
-        let mut top = high - FairLanes::FIRST_HOP - r;
-        let mut bottom = low + r;
-        top = G::mini(top, GameSim::_arrival_y(p.entry_y - SimConfig::EXIT_FIT) - r);
-        bottom = G::maxi(bottom, GameSim::_arrival_y(p.entry_y + SimConfig::EXIT_FIT) + r);
+        let top = GameSim::_arrival_y(p.entry_y - SimConfig::EXIT_FIT) - FairLanes::FIRST_HOP - r;
+        let bottom = GameSim::_arrival_y(p.entry_y + SimConfig::EXIT_FIT) + r;
         [top, bottom]
     }
 

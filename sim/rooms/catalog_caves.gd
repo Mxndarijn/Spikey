@@ -22,9 +22,6 @@ const BATS := 2
 ## How far from the wall the bird comes in at the hold band must stay clear
 ## (the bird's 1 s hold, its body included, and a little more).
 const GALLERY_X := 272 * SUB
-## The cave is checked within the exit's half height of the planned height,
-## a little less than the whole exit (RoomVariant.arrival_spread).
-const CAVE_SPREAD := SimConfig.EXIT_HALF
 ## The far end's bend (up to, per level 0, 1, 2+) and half height there.
 const BEND: Array[int] = [40, 65, 90]
 const BEND_HALF: Array[int] = [120, 115, 110]
@@ -113,16 +110,15 @@ static func defs() -> Array[RoomDef]:
 	# arrival band, then a bend to the far wall. Fork: an island splits the
 	# bend into two branches, the exit at the end of one. Drips: the long
 	# points drip on a timetable, each with a glint first. Bats: bats loop
-	# through the gallery. Checked within CAVE_SPREAD, a little less than the
-	# whole exit (the user allowed the cave to be that much tighter).
+	# through the gallery. Checked over the whole exit, as real arrivals come.
 	var cave := RoomDef.new("cave", "mid", 40)
 	cave.max_spikes = 4
 	# One mouth per wall (the gallery, the bend's end): no room for a fork.
 	cave.hosts_fork = false
 	cave.variants = [
-		RoomVariant.new("fork").generated(_gen_cave.bind(FORK)).checked_within(CAVE_SPREAD),
-		RoomVariant.new("drips").generated(_gen_cave.bind(DRIPS)).checked_within(CAVE_SPREAD),
-		RoomVariant.new("bats").generated(_gen_cave.bind(BATS)).checked_within(CAVE_SPREAD),
+		RoomVariant.new("fork").generated(_gen_cave.bind(FORK)),
+		RoomVariant.new("drips").generated(_gen_cave.bind(DRIPS)),
+		RoomVariant.new("bats").generated(_gen_cave.bind(BATS)),
 	]
 	out.append(cave)
 
@@ -159,18 +155,13 @@ static func _level(p: VariantParams) -> int:
 	return mini(p.level, 2)
 
 
-## The cave's arrival band, [top, bottom]: a bird holding its height within
-## CAVE_SPREAD of the planned height, and the bird itself anywhere in the whole
-## exit (it never comes out in the rock; only a hop from the exit's very top
-## may reach the fangs).
+## The cave's arrival band, [top, bottom]: a bird holding its height (by
+## tapping: its first hop up included) anywhere in the whole exit, its very top
+## too (a real arrival can be there).
 static func _cave_band(p: VariantParams) -> PackedInt32Array:
 	var r := SimConfig.BIRD_RADIUS + VariantParams.MARGIN
-	var high := GameSim._arrival_y(p.entry_y - CAVE_SPREAD)
-	var low := GameSim._arrival_y(p.entry_y + CAVE_SPREAD)
-	var top := high - FairLanes.FIRST_HOP - r
-	var bottom := low + r
-	top = mini(top, GameSim._arrival_y(p.entry_y - SimConfig.EXIT_FIT) - r)
-	bottom = maxi(bottom, GameSim._arrival_y(p.entry_y + SimConfig.EXIT_FIT) + r)
+	var top := GameSim._arrival_y(p.entry_y - SimConfig.EXIT_FIT) - FairLanes.FIRST_HOP - r
+	var bottom := GameSim._arrival_y(p.entry_y + SimConfig.EXIT_FIT) + r
 	return PackedInt32Array([top, bottom])
 
 

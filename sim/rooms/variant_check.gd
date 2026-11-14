@@ -26,19 +26,10 @@ static func holds(sim: GameSim, avoid_touch: bool = false, steps: int = 0) -> bo
 		return true
 	var n := steps if steps > 0 else HOLD_STEPS
 	for dy: int in GameSim.ARRIVAL_HEIGHTS:
-		var at := GameSim._arrival_y(sim.state.anchor_y + arrival_dy(sim, dy))
+		var at := GameSim._arrival_y(sim.state.anchor_y + dy)
 		if not _holds_at(sim, at, avoid_touch, n):
 			return false
 	return true
-
-
-## Arrival height `dy` (one of GameSim.ARRIVAL_HEIGHTS) scaled to the room
-## variant's arrival_spread: where the arrival checks put the bird in it.
-static func arrival_dy(sim: GameSim, dy: int) -> int:
-	var room := sim.room
-	if room.def.variants.is_empty() or room.def.variants[room.variant].arrival_spread == 0:
-		return dy
-	return dy * room.def.variants[room.variant].arrival_spread / SimConfig.EXIT_FIT
 
 
 ## The hazard (its index in the room) that first hits a bird holding its
@@ -50,7 +41,7 @@ static func first_hit(sim: GameSim, steps: int = 0) -> int:
 		return -1
 	var n := steps if steps > 0 else HOLD_STEPS
 	for dy: int in GameSim.ARRIVAL_HEIGHTS:
-		var at := GameSim._arrival_y(sim.state.anchor_y + arrival_dy(sim, dy))
+		var at := GameSim._arrival_y(sim.state.anchor_y + dy)
 		var hit := _hit_at(sim, at, false, n)
 		if hit != -1:
 			return hit

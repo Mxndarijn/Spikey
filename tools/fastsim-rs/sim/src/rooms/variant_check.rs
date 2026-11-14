@@ -14,20 +14,12 @@ impl VariantCheck {
         }
         let n = if steps > 0 { steps } else { Self::HOLD_STEPS };
         for dy in GameSim::ARRIVAL_HEIGHTS {
-            let at = GameSim::_arrival_y(sim.state.anchor_y + Self::arrival_dy(sim, dy));
+            let at = GameSim::_arrival_y(sim.state.anchor_y + dy);
             if !Self::_holds_at(sim, at, avoid_touch, n) {
                 return false;
             }
         }
         true
-    }
-
-    pub fn arrival_dy(sim: &GameSim, dy: i64) -> i64 {
-        let def = sim.room.def();
-        if def.variants.is_empty() || def.variants[sim.room.variant as usize].arrival_spread == 0 {
-            return dy;
-        }
-        dy * def.variants[sim.room.variant as usize].arrival_spread / SimConfig::EXIT_FIT
     }
 
     /// GD first_hit(sim, steps = 0): the hazard index that first hits a held-height bird,
@@ -38,7 +30,7 @@ impl VariantCheck {
         }
         let n = if steps > 0 { steps } else { Self::HOLD_STEPS };
         for dy in GameSim::ARRIVAL_HEIGHTS {
-            let at = GameSim::_arrival_y(sim.state.anchor_y + Self::arrival_dy(sim, dy));
+            let at = GameSim::_arrival_y(sim.state.anchor_y + dy);
             let hit = Self::_hit_at(sim, at, false, n);
             if hit != -1 {
                 return hit;

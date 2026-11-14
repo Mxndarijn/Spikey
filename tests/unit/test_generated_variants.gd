@@ -446,6 +446,29 @@ func test_cave_exits_are_planned_within_reach_of_the_gallery() -> void:
 						)
 
 
+## Cave Tunnel: a bird out of the exit's very top that holds its height by
+## tapping (its first hop up) clears the upper fangs for the whole 1 s hold, and
+## a player who reacts after 0.75 s still has a way to live. Real arrivals: the
+## bird anywhere in the exit, not a narrower band (a tapping hold from the top
+## once met the fangs 23 ticks in).
+func test_cave_arrival_at_the_exit_top_lives_a_tapping_hold() -> void:
+	var index := RoomCatalog.index_of("cave")
+	for v in RoomCatalog.all()[index].variants:
+		# ArrivalBench arrivals 2, 3, 12 and 13: the exit's top (OFFSETS -65), both sides.
+		for i: int in [2, 3, 12, 13]:
+			var sim := ArrivalBench.arrival(index, i, v.id)
+			var top := GameSim._arrival_y(sim.state.anchor_y + ArrivalBench.OFFSETS[1] * SUB)
+			assert_eq(sim.state.y, top, "cave/%s arrival %d at the exit's top" % [v.id, i])
+			assert_true(
+				ArrivalBench.hold(sim, SimConfig.ARRIVAL_BLIND),
+				"cave/%s arrival %d: a tapping hold lives 1 s" % [v.id, i]
+			)
+			assert_false(
+				ArrivalBench.forced(index, i, ArrivalBench.EARLY_DELAY, 120, v.id),
+				"cave/%s arrival %d: a 0.75 s reaction has a way to live" % [v.id, i]
+			)
+
+
 ## Cave Tunnel, bats: one bat at every score, taking at least 5 s per swoop.
 func test_cave_bats_are_one_and_slow() -> void:
 	var index := RoomCatalog.index_of("cave")

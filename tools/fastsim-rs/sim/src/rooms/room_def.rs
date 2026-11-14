@@ -174,7 +174,6 @@ pub struct RoomVariant {
     pub recipe: Option<Recipe>,
     pub avoid_touch: bool,
     pub hold_steps: i64,
-    pub arrival_spread: i64,
     pub spike_num: i64,
     pub spike_den: i64,
     pub extra_spikes: i64,
@@ -196,7 +195,6 @@ impl RoomVariant {
             recipe: None,
             avoid_touch: false,
             hold_steps: 0,
-            arrival_spread: 0,
             spike_num: 1,
             spike_den: 1,
             extra_spikes: 0,
@@ -237,11 +235,6 @@ impl RoomVariant {
         self.recipe = Some(p_recipe);
         self.avoid_touch = p_avoid_touch;
         self.hold_steps = p_hold_steps;
-        self
-    }
-
-    pub fn checked_within(mut self, p_spread: i64) -> RoomVariant {
-        self.arrival_spread = p_spread;
         self
     }
 
