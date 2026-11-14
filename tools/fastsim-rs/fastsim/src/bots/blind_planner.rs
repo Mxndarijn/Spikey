@@ -181,6 +181,11 @@ pub struct BlindPlanner {
     /// other wall, its gap at most GUST_DOWN_REACH below that bottom, and a bird the air lifts
     /// cannot sink to it on the way: a player comes off the wall low.
     pub air_aim: bool,
+    /// When a look finds no full line: one more look with no aim and no margin cost (only
+    /// whether a line lives), before the shorter looks. The costs pick a bucket's line, and
+    /// they can drop the only one that lives (knob `plainlook`).
+    pub plain_look: bool,
+    pub plain_looks: i64,
     pub follows: i64,
     pub follow_fails: i64,
     _guess: i64,
@@ -261,6 +266,8 @@ impl BlindPlanner {
             tap_free: false,
             exit_past: 0,
             air_aim: false,
+            plain_look: false,
+            plain_looks: 0,
             follows: 0,
             follow_fails: 0,
             _guess: 0,
@@ -447,6 +454,20 @@ impl BlindPlanner {
             self.fine_looks += 1;
             let c0 = self.copy(sim, seeds[0]);
             self.beam(c0, want, self.fine_px, self.fine_speeds);
+        }
+        if self._found.is_empty() && self.plain_look {
+            let (mc, mg, pb) = (self.mid_cost, self.margin, self.press_bonus);
+            self.mid_cost = 0;
+            self.margin = 0;
+            let c0 = self.copy(sim, seeds[0]);
+            self.beam(c0, want, self.bucket_px, self.speed_buckets);
+            self.mid_cost = mc;
+            self.margin = mg;
+            self.press_bonus = pb;
+            if !self._found.is_empty() {
+                self.last_look = 1;
+                self.plain_looks += 1;
+            }
         }
         let mut found: Option<Vec<u8>> = None;
         self.last_agree = 0;
