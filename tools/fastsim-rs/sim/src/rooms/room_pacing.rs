@@ -32,13 +32,13 @@ impl RoomPacing {
         ("lockexit", Self::MIDDLE), // 42 (trio 38, quad 43, chain 45, since classic and orbit went)
         ("blink", Self::MIDDLE), // 43
         ("crawl", Self::MIDDLE), // 44
-        ("pegs", Self::EASY), // 32 on v23 (drift 34, classic 30; 44 at 62aca6f)
+        ("pegs", Self::STEADY), // 33 on v23 + wall retract (drift 34, classic 32; 44 at 62aca6f)
         ("isles", Self::MIDDLE), // 45
-        ("gates", Self::STEADY), // 38 on v23 (single 42, classic 35; 46 at 62aca6f)
+        ("gates", Self::STEADY), // 39 on v23 + wall retract (single 43, classic 35; 46 at 62aca6f)
         ("flip", Self::MIDDLE), // 47
         ("hunter", Self::MIDDLE), // 60 (human bots 78-90, analytic 33-37: one step until a playtest)
         ("bubbles", Self::HARD), // 50
-        ("buttons", Self::MIDDLE), // 44 on v23 (classic, slim 44, apart 43; 50 at 162437a)
+        ("buttons", Self::MIDDLE), // 44 on v23 + wall retract (classic 45, slim 44, apart 43; 50 at 162437a)
         ("midnight", Self::HARD), // 51
         ("squeeze", Self::HARD), // 52
         ("beams", Self::HARD), // 48 (generated)
