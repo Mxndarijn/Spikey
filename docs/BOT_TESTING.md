@@ -176,6 +176,10 @@ without replaying the easy first rooms.
   --taps <dir>` keeps each seed's taps; `rl review fair --seedlist 10003,10045
   --tapsdir <dir>` (same planner knobs and `--cap`) replays those taps instead of
   playing the bot again, so judging a 4-hour death takes seconds.
+- **How long a wall is on screen before the bird meets it**: `rl review crossings
+  --tapsdir <dir> --first N --seeds M [--rooms a,b]` replays saved taps and gives,
+  per room/variant, the ticks from each bounce to the opposite wall (min, p10,
+  median, p90, max).
 - **A `lost` death** (no line inside the look-back, even with the true future):
   `fastsim-rs rl review lastline --seed N <the same planner knobs>` plays the
   judge's run again, keeps the state every `--every` ticks (60) and, from the
