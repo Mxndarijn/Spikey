@@ -68,13 +68,19 @@ param(
     [string]$Step = "measure",
     [string]$What = "tube,react,bots",
     [string]$Bots = "",
-    [string]$In = "",
+    # A comma list, or a PowerShell array (-In a.tsv,b.tsv from a PowerShell prompt).
+    [string[]]$In = @(),
     # Use the FastSim-RS already built (tools/check.ps1 builds once, then runs
     # parity and the checks side by side).
     [switch]$NoBuild
 )
 
 $root = Split-Path -Parent $PSScriptRoot
+
+# A path as the caller meant it: relative to their PowerShell location, not to the
+# process's working directory ([IO.Path]::GetFullPath alone uses the latter, which
+# differs after Set-Location / Push-Location in the calling shell).
+function Get-FullPath([string]$p) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($p) }
 $jobs = $(if ($Jobs -gt 0) { $Jobs } else { 4 })
 
 if ($Mode -eq "parity") {
@@ -93,23 +99,26 @@ if ($Mode -eq "check") { $ra = @("check", $Check); if ($Filter) { $ra += @("--fi
 elseif ($Mode -eq "bench") { $ra = @("bench") }
 elseif ($Mode -eq "runfile") {
     if (-not $Out) { Write-Host "-Mode runfile needs -Out <file.json>" -ForegroundColor Red; exit 2 }
-    $ra = @("runfile", $Seed, $(if ($Seeds) { $Seeds } else { 1 }), "--out", [IO.Path]::GetFullPath($Out))
+    $ra = @("runfile", $Seed, $(if ($Seeds) { $Seeds } else { 1 }), "--out", (Get-FullPath $Out))
 }
 elseif ($Mode -eq "difficulty") {
     $ra = @("difficulty", $Step)
     if ($Room -ne "*") { $ra += @("--rooms", $Room) }
     if ($Step -eq "measure") {
         $ra += @("--what", $What, "--trials", $(if ($Seeds) { $Seeds } else { 16 }),
-            "--out", $(if ($Out) { [IO.Path]::GetFullPath($Out) } else { "difficulty.tsv" }))
+            "--out", $(if ($Out) { (Get-FullPath $Out) } else { "difficulty.tsv" }))
         if ($Bots) { $ra += @("--bots", $Bots) }
     }
     if ($Step -eq "show") { $ra += @("--first", $Seed) }
     if ($Step -eq "score") {
         # Join first: in @("--in", (...) -join ",") the comma binds before -join, and the
-        # whole list (with "--in") becomes one argument.
-        $inFiles = (($In -split ",") | Where-Object { $_ } | ForEach-Object { [IO.Path]::GetFullPath($_) }) -join ","
+        # whole list (with "--in") becomes one argument. -In is a [string[]]: from a
+        # PowerShell prompt "-In a.tsv,b.tsv" is an array, which a [string] would join
+        # with spaces into one file name.
+        $inFiles = (($In -join ",") -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ } | ForEach-Object { Get-FullPath $_ }) -join ","
+        if (-not $inFiles) { Write-Host "-Step score needs -In <file.tsv>[,<file.tsv>...]" -ForegroundColor Red; exit 2 }
         $ra += @("--in", $inFiles)
-        if ($Out) { $ra += @("--out", [IO.Path]::GetFullPath($Out)) }
+        if ($Out) { $ra += @("--out", (Get-FullPath $Out)) }
     }
 }
 else {
@@ -125,7 +134,7 @@ else {
         "scan" { $ra += @($(if ($Room -ne "*") { $Room } else { "ghostdoors" }), $(if ($Delays) { $Delays } else { 45 }), $(if ($Seeds) { $Seeds } else { 4 })) }
     }
     $ra += @("--priority", $Priority.ToLower())
-    if ($Out) { $ra += @("--out", $Out) }
+    if ($Out) { $ra += @("--out", (Get-FullPath $Out)) }
     if ($Variant) { $ra += @("--variant", $Variant) }
 }
 $ra += @("--jobs", $jobs)
