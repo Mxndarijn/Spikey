@@ -319,6 +319,7 @@ impl Hz {
             self,
             Hz::Beam(_)
                 | Hz::Belt(_)
+                | Hz::Drop(_)
                 | Hz::BossCrusher(_)
                 | Hz::BossSaw(_)
                 | Hz::BossWatcher(_)
@@ -353,6 +354,7 @@ impl Hz {
                 | Hz::Bumper(_)
                 | Hz::CoinPickup(_)
                 | Hz::Crawler(_)
+                | Hz::Drop(_)
                 | Hz::Gate(_)
                 | Hz::Piston(_)
                 | Hz::SpikeBall(_)

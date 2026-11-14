@@ -1,5 +1,6 @@
 //! Port of sim/hazards/drop.gd (Sim/Hazards/Drop.cs).
 use crate::rooms::hazard::{add_warning, WARN_KILL};
+use crate::hazards::Hz;
 use crate::prelude::*;
 
 pub struct Phase;
@@ -68,6 +69,10 @@ impl Drop {
     pub const STAKE_GROW: i64 = 8;
     pub const STAKE_SINK: i64 = 15;
     pub const STAKE_STEPS: i64 = 135;
+
+    pub const WALL_FROM: i64 = -30;
+    pub const WALL_TO: i64 = 12;
+    pub const MARGIN: i64 = 4 * Self::SUB;
 
     /// C# defaults: p_delay = 0, p_speed = 10 * SUB, p_gap = 25, p_warn = WARN,
     /// p_radius = RADIUS, p_style = Style.PLAIN, p_column = -1.
@@ -189,29 +194,9 @@ impl Drop {
         let cross = dx * ey - dy * ex;
         cross * cross <= r * r * len2
     }
-}
 
-impl Hazard for Drop {
-    impl_base!();
-
-    fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
-        self._rng.reseed(rng.next_u32());
-        self.phase = Phase::WAIT;
-        self.timer = self.delay;
-        self.y = Self::TOP;
-    }
-
-    fn step(&mut self, sim: &mut GameSim) {
-        if self.shard_t > 0 {
-            self._step_shards();
-            let sx = self.shard_x - self.shard_dx;
-            let sx2 = self.shard_x + self.shard_dx;
-            if ExitZone::hits_circle(sim, sx, self.shard_y, Self::SHARD_RADIUS)
-                || ExitZone::hits_circle(sim, sx2, self.shard_y, Self::SHARD_RADIUS)
-            {
-                self.shard_t = 0;
-            }
-        }
+    /// The drop's own clock (drop.gd _advance): wait, warn, fall (and land).
+    fn _advance(&mut self, sim: &GameSim) {
         match self.phase {
             Phase::WAIT => {
                 self.timer -= 1;
@@ -266,6 +251,80 @@ impl Hazard for Drop {
             }
             _ => {}
         }
+    }
+
+    /// The slots of wall `side` this drop falls past in front of the bird around its
+    /// arrival there (drop.gd _blocked), on a copy (self is consumed).
+    fn _blocked(mut self, sim: &GameSim, side: i64) -> i64 {
+        let at = sim.steps_to_wall(side);
+        let r = SimConfig::BIRD_RADIUS;
+        let edge = if side == 1 { sim.room.wall_right() - r } else { sim.room.wall_left() + r };
+        let into = if side == 1 { -1 } else { 1 };
+        let reach = self.radius + r + Self::MARGIN;
+        let mut blocked = 0;
+        for k in 1..at + Self::WALL_TO + 1 {
+            self._advance(sim);
+            let d = k - at;
+            if d < Self::WALL_FROM || self.phase != Phase::FALL {
+                continue;
+            }
+            let bx = edge + into * G::absi(d) * SimConfig::SPEED_X;
+            for slot in 0..SimConfig::SLOT_COUNT {
+                let dx = bx - self.x;
+                let dy = SimConfig::slot_center_y(slot) - self.y;
+                if dx * dx + dy * dy < reach * reach {
+                    blocked |= 1i64 << slot;
+                }
+            }
+        }
+        blocked
+    }
+}
+
+impl Hazard for Drop {
+    impl_base!();
+
+    fn setup(&mut self, _sim: &mut GameSim, rng: &mut SimRng) {
+        self._rng.reseed(rng.next_u32());
+        self.phase = Phase::WAIT;
+        self.timer = self.delay;
+        self.y = Self::TOP;
+    }
+
+    fn step(&mut self, sim: &mut GameSim) {
+        if self.shard_t > 0 {
+            self._step_shards();
+            let sx = self.shard_x - self.shard_dx;
+            let sx2 = self.shard_x + self.shard_dx;
+            if ExitZone::hits_circle(sim, sx, self.shard_y, Self::SHARD_RADIUS)
+                || ExitZone::hits_circle(sim, sx2, self.shard_y, Self::SHARD_RADIUS)
+            {
+                self.shard_t = 0;
+            }
+        }
+        self._advance(sim);
+    }
+
+    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mask: i64) -> i64 {
+        // The room's first drop keeps the way past all of them (self is the Taken slot).
+        for h in sim.room.hazards.iter() {
+            match h {
+                Hz::Taken => break,
+                Hz::Drop(d) if d.base.alive => return mask,
+                _ => {}
+            }
+        }
+        let mut blocked = self.clone()._blocked(sim, side);
+        for h in sim.room.hazards.iter() {
+            if let Hz::Drop(d) = h {
+                if d.base.alive {
+                    blocked |= d.clone()._blocked(sim, side);
+                }
+            }
+        }
+        let safe = ((1i64 << SimConfig::SLOT_COUNT) - 1) & !blocked;
+        let need = G::mini(sim.room.def().gap, RoomRules::longest_gap(blocked));
+        RoomRules::keep_run(mask, need, safe)
     }
 
     fn kills(&self, sim: &GameSim) -> bool {

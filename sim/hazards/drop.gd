@@ -9,6 +9,8 @@ extends Hazard
 ## sways from side to side as it falls, STAKE lands on a floor spike's tip and
 ## makes that spike grow for a while. A falling drop (or its shards) breaks on
 ## an open or ghost exit's mouth (ExitZone).
+##
+## Fair: a wall drawn while drops come keeps a way past them (adjust_wall).
 
 enum Phase { WAIT, WARN, FALL, STAKE }
 enum Style { PLAIN, SHATTER, WOBBLE, STAKE }
@@ -45,6 +47,13 @@ const STAKE_HEIGHT := 40 * SUB
 const STAKE_GROW := 8
 const STAKE_SINK := 15
 const STAKE_STEPS := 135
+
+## A wall keeps a free run whose heights no drop passes in front of (by
+## MARGIN) from WALL_FROM to WALL_TO steps around the bird's arrival there,
+## flying in and back out.
+const WALL_FROM := -30
+const WALL_TO := 12
+const MARGIN := 4 * SUB
 
 var x := 0
 var y := TOP
@@ -117,6 +126,12 @@ func step(sim: GameSim) -> void:
 			or ExitZone.hits_circle(sim, sx2, shard_y, SHARD_RADIUS)
 		):
 			shard_t = 0
+	_advance(sim)
+
+
+## The drop's own clock: wait, warn, fall (and land). Its columns come from
+## its own RNG, so a copy stepped ahead (_blocked) meets the same drops.
+func _advance(sim: GameSim) -> void:
 	match phase:
 		Phase.WAIT:
 			timer -= 1
@@ -158,6 +173,71 @@ func step(sim: GameSim) -> void:
 			if timer <= 0:
 				phase = Phase.WAIT
 				timer = gap
+
+
+## Keeps a way past the drops on the wall the bird flies to: a free run as
+## wide as the room's gap (or the widest the drops leave) whose heights no
+## drop falls past in front of the bird around its arrival there
+## (WALL_FROM..WALL_TO). A drop's columns come from its own RNG and its timing
+## from the clock, so its path is stepped ahead on a copy; the bird's x is
+## fixed by time too, so every player of a seed gets the same wall. The room's
+## first drop keeps the way past all of them. No RNG draws.
+func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
+	if _first_drop(sim) != self:
+		return mask
+	var blocked := 0
+	for h in sim.room.hazards:
+		if h.alive and h.get_script() == get_script():
+			blocked |= h._blocked(sim, side)
+	var safe := ((1 << SimConfig.SLOT_COUNT) - 1) & ~blocked
+	var need := mini(sim.room.def.gap, RoomRules.longest_gap(blocked))
+	return RoomRules.keep_run(mask, need, safe)
+
+
+func _first_drop(sim: GameSim) -> Hazard:
+	for h in sim.room.hazards:
+		if h.alive and h.get_script() == get_script():
+			return h
+	return null
+
+
+## The slots of wall `side` this drop falls past in front of the bird around
+## its arrival there. Steps the drop ahead and puts it back.
+func _blocked(sim: GameSim, side: int) -> int:
+	var at := sim.steps_to_wall(side)
+	var r := SimConfig.BIRD_RADIUS
+	var edge := sim.room.wall_right() - r if side == 1 else sim.room.wall_left() + r
+	var into := -1 if side == 1 else 1
+	var reach := radius + r + MARGIN
+	var keep := [x, y, phase, timer, base_x, fall_t, column, shard_t, shard_x, shard_dx, shard_y]
+	keep.append(shard_vy)
+	var keep_rng := SimCopy.copy_rng(_rng)
+	var blocked := 0
+	for k in range(1, at + WALL_TO + 1):
+		_advance(sim)
+		var d := k - at
+		if d < WALL_FROM or phase != Phase.FALL:
+			continue
+		var bx := edge + into * absi(d) * SimConfig.SPEED_X
+		for slot in SimConfig.SLOT_COUNT:
+			var dx := bx - x
+			var dy := SimConfig.slot_center_y(slot) - y
+			if dx * dx + dy * dy < reach * reach:
+				blocked |= 1 << slot
+	x = keep[0]
+	y = keep[1]
+	phase = keep[2]
+	timer = keep[3]
+	base_x = keep[4]
+	fall_t = keep[5]
+	column = keep[6]
+	shard_t = keep[7]
+	shard_x = keep[8]
+	shard_dx = keep[9]
+	shard_y = keep[10]
+	shard_vy = keep[11]
+	_rng = keep_rng
+	return blocked
 
 
 func _next_column() -> int:
