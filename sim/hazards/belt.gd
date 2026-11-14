@@ -2,8 +2,8 @@ extends Hazard
 ## Spike Belt: the side-wall spikes ride a belt. The spikes keep their slots in
 ## the wall mask; only their height slides (GameSim.wall_shift). A wall starts
 ## at rest when it gets new spikes, then slides at SPEED while the bird flies
-## to it, so the gap it aims for travels about 37 px in the two crossings the
-## wall is on view before the bird gets there. The exit wall holds still from
+## to it, so the gap it aims for travels about 37 px in the crossing the wall
+## is on view before the bird gets there. The exit wall holds still from
 ## the bounce it is drawn at once the exit is HOLD_POINTS points away (its ghost
 ## and opening show on it, and never get spikes slid into them). The belt
 ## holds still on a wall with an open exit (the opening never moves) and for
@@ -14,8 +14,8 @@ extends Hazard
 ## runs up and the right down; both reverse at every wall.
 enum Mode { UP, COUNTER, SWITCHBACK }
 
-## 0.23 px a step (14 px/s).
-const SPEED := 15
+## 0.45 px a step (27 px/s).
+const SPEED := 29
 ## Never further than two slots from rest.
 const MAX_SHIFT := 2 * SimConfig.SLOT_SIZE
 ## The exit wall drawn this close to the exit (points to go) holds still.

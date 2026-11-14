@@ -200,8 +200,7 @@ func near_row(sim: GameSim, p_y: int, half: int, from: int, to: int) -> bool:
 ## path is fixed, the bird's x too): a free run as wide as the room's gap (or
 ## the widest the ball leaves) clear of the ball as the bird gets there, and on
 ## the anchor's side of it when the escort began within ESCORT_REACT steps of
-## the bird's last bounce before that wall (the wall drawn at a bounce is met
-## after the far wall). No RNG draws.
+## the bird's last bounce before that wall. No RNG draws.
 func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	if not predictable():
 		return mask

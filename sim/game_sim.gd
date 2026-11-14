@@ -410,13 +410,10 @@ func _check_walls() -> void:
 		_maybe_open_exit()
 
 
-## A bounce off wall `side` draws its next spikes (two crossings to see them),
-## a room's first bounce the wall ahead too.
+## A bounce off wall `side` draws the wall the bird now flies to (1 - side),
+## never the wall just bounced off: that one keeps its spikes.
 func _walls_after_bounce(side: int) -> void:
-	if room.walls == 0:
-		_new_wall(1 - side, false)
-	_new_wall(side)
-	room._boss_recheck(self, 1 - side)
+	_new_wall(1 - side)
 
 
 ## The bird reached wall `side`: if it is inside an open exit there, it goes
@@ -759,14 +756,19 @@ func _keep_hold_band_open(side: int) -> void:
 	var top := mini(up, down)
 	var bottom := maxi(up, down)
 	var mask := state.right_spikes if side == 1 else state.left_spikes
+	# Blink Walls: the second pattern too.
+	var blink := room.blink_right if side == 1 else room.blink_left
 	for slot in SimConfig.SLOT_COUNT:
 		var cy := SimConfig.slot_center_y(slot)
 		if cy + SimConfig.SPIKE_HALF_BASE > top and cy - SimConfig.SPIKE_HALF_BASE < bottom:
 			mask &= ~(1 << slot)
+			blink &= ~(1 << slot)
 	if side == 1:
 		state.right_spikes = mask
+		room.blink_right = blink
 	else:
 		state.left_spikes = mask
+		room.blink_left = blink
 
 
 ## Spikes for wall `side`, then (with `extras`) the room's per-bounce extras,
@@ -780,7 +782,8 @@ func _new_wall(side: int, extras: bool = true) -> void:
 	if room.walls > 0:
 		_rng.reseed(SimHash.mix(room.rng_seed, room.walls))
 	room.walls += 1
-	# Chained to the other wall (met first): its free part and anchor there.
+	# Chained to the other wall (the one just bounced off, or met first): its
+	# free part and anchor there.
 	var anchor := state.anchor_y
 	if other_drawn:
 		anchor = _free_run_of(1 - side)
@@ -844,8 +847,7 @@ func _wall_target(anchor: int) -> int:
 	var reach := RoomRules.gap_reach(room.def)
 	if reach <= 0 or state.exit_open:
 		return anchor
-	# The wall drawn now is met a bounce after the wall ahead.
-	if room.def.reach <= 0 and points_to_exit() - 1 > EXIT_STEER:
+	if room.def.reach <= 0 and points_to_exit() > EXIT_STEER:
 		if _free_lo >= 0 and reach - (_free_hi - _free_lo) / 2 >= SimConfig.SLOT_SIZE:
 			return -1
 		return anchor

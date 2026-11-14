@@ -84,12 +84,12 @@ flowchart TD
     the room's exit for the last `GameSim.EXIT_STEER` bounces. A new wall keeps
     its free run within reach of every free spot of the wall before when they
     are close enough together, else near the anchor.
-  - Wall timing (gameplay version 23): a bounce off a wall draws that wall's
-    next spikes at once, so each wall is on view for about two crossings; the
-    wall ahead keeps the spikes it got at the bounce before. An arrival (and a
-    room's first bounce) draws both walls. A wall's free run is chained to the
-    other wall's, the one the bird meets first, at the point `_anchor_at_wall`
-    will move the anchor to (`GameSim._free_run_of`). New spikes slide out over
+  - Wall timing: a bounce off a wall draws the wall the bird now flies to
+    (`GameSim._walls_after_bounce`); the wall just bounced off keeps its
+    spikes. (Version 23 drew the wall just bounced off instead; that was
+    reverted.) An arrival draws both walls. A wall's free run is chained to the
+    other wall's (the one just bounced off), at the point `_anchor_at_wall`
+    moves the anchor to (`GameSim._free_run_of`). New spikes slide out over
     `GameSim.SPIKE_SLIDE` room steps and kill only once all the way out
     (`SimState.left_new`/`left_drawn`), never ahead of `RoomView`'s slide. A
     wall never kills a bird flying away from it (as when it was bare). A bumper

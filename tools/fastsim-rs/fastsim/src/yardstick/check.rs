@@ -77,9 +77,8 @@ pub fn run() -> (Vec<String>, Value) {
                 ));
             }
         }
-        // The leak check: SearchBot looks 240 ticks ahead on real copies, so it must be caught (the
-        // wall a bounce draws is met two crossings later: PlannerBot's 120-tick rollouts reach it
-        // only once it is on screen); the gap seeker reads only the screen.
+        // The leak check: SearchBot looks 240 ticks ahead on real copies (past the wall the next
+        // bounce draws), so it must be caught; the gap seeker reads only the screen.
         let lp = Leak::check(&Bots::find("search").expect("the search bot"), 2, 1);
         if lp["leaks"].as_str() != Some("yes") {
             fails.push(format!("the leak check misses SearchBot's real copies ({})", serde_json::to_string(&lp).unwrap()));

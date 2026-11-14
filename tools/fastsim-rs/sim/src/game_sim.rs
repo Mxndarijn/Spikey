@@ -673,32 +673,7 @@ impl GameSim {
     }
 
     fn _walls_after_bounce(&mut self, side: i64) {
-        if self.room.walls == 0 {
-            self._new_wall(1 - side, false);
-        }
-        self._new_wall(side, true);
-        self._boss_recheck(1 - side);
-    }
-
-    /// RoomRuntime._boss_recheck: a boss's wall rule runs on the wall ahead again.
-    fn _boss_recheck(&mut self, side: i64) {
-        if !self.room.def().boss {
-            return;
-        }
-        let mut mask = if side == 0 { self.state.left_spikes } else { self.state.right_spikes };
-        let mut i = 0;
-        while i < self.room.hazards.len() {
-            let h = &self.room.hazards[i];
-            if h.alive() && h.has_adjust_wall() {
-                mask = self.with_hazard(i, |h, sim| h.adjust_wall(sim, side, mask));
-            }
-            i += 1;
-        }
-        if side == 0 {
-            self.state.left_spikes = mask;
-        } else {
-            self.state.right_spikes = mask;
-        }
+        self._new_wall(1 - side, true);
     }
 
     fn _take_exit(&mut self, side: i64) -> bool {
@@ -810,8 +785,7 @@ impl GameSim {
         if reach <= 0 || self.state.exit_open {
             return anchor;
         }
-        // The wall drawn now is met a bounce after the wall ahead.
-        if self.room.def().reach <= 0 && self.points_to_exit() - 1 > Self::EXIT_STEER {
+        if self.room.def().reach <= 0 && self.points_to_exit() > Self::EXIT_STEER {
             if self._free_lo >= 0 && reach - (self._free_hi - self._free_lo) / 2 >= SimConfig::SLOT_SIZE {
                 return -1;
             }
@@ -1026,16 +1000,21 @@ impl GameSim {
         let top = G::mini(up, down);
         let bottom = G::maxi(up, down);
         let mut mask = if side == 1 { self.state.right_spikes } else { self.state.left_spikes };
+        // Blink Walls: the second pattern too.
+        let mut blink = if side == 1 { self.room.blink_right } else { self.room.blink_left };
         for slot in 0..SimConfig::SLOT_COUNT {
             let cy = SimConfig::slot_center_y(slot);
             if cy + SimConfig::SPIKE_HALF_BASE > top && cy - SimConfig::SPIKE_HALF_BASE < bottom {
                 mask &= !(1i64 << slot);
+                blink &= !(1i64 << slot);
             }
         }
         if side == 1 {
             self.state.right_spikes = mask;
+            self.room.blink_right = blink;
         } else {
             self.state.left_spikes = mask;
+            self.room.blink_left = blink;
         }
     }
 

@@ -297,22 +297,6 @@ func add_coin(x: int, y: int) -> void:
 	hazards.append(h)
 
 
-## A boss's attacks run on its phase clock, so one can start after the wall
-## ahead was drawn: at each bounce the boss's wall rule runs on that wall again
-## (Boss.adjust_wall only takes spikes away). No RNG draws.
-func _boss_recheck(sim: GameSim, side: int) -> void:
-	if not def.boss:
-		return
-	var mask := sim.state.left_spikes if side == 0 else sim.state.right_spikes
-	for h in hazards:
-		if h.alive:
-			mask = h.adjust_wall(sim, side, mask)
-	if side == 0:
-		sim.state.left_spikes = mask
-	else:
-		sim.state.right_spikes = mask
-
-
 ## A wall just got new spikes: redraw the extra wall rules for it.
 func on_wall_generated(side: int, mask: int, sim: GameSim, rng: SimRng) -> void:
 	match def.wall_mode:
