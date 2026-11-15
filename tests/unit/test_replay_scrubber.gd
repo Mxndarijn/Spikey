@@ -195,6 +195,7 @@ static func _run_of(r: Replay) -> Dictionary:
 		"seed": r.seed_value,
 		"taps": Array(r.taps),
 		"end_tick": r.end_tick,
+		"revives": Array(r.revive_ticks),
 		"loadout": {},
 	}
 
@@ -239,7 +240,7 @@ func test_controls_fit_a_tall_and_a_short_phone() -> void:
 
 
 ## In the game: jump back from the end screen, then the run plays on to the
-## same end; a chip jumps to its room's start; Crash -3 s lands 3 s before.
+## same end; a chip jumps to its room's start; the crash's skull lands 3 s before.
 func test_scrubbing_in_the_game() -> void:
 	var main := _make_main()
 	var r := SimBots.play(5182, SimBots.gap_seeker, 6)
@@ -255,7 +256,7 @@ func test_scrubbing_in_the_game() -> void:
 	while not main._scrub.index.is_done():
 		main._scrub.index.build(400)
 	s._process(0.0)
-	s._jump_to_crash()
+	s.jump_to_death(s.death_ticks().size() - 1)
 	assert_eq(rc.sim.state.tick, r.end_tick - ReplayScrubber.CRASH_LEAD, "3 s before the crash")
 	assert_false(hud.is_over_showing(), "back in the run")
 	assert_true(s.is_paused() and rc.paused, "paused there")
@@ -306,4 +307,118 @@ func test_index_building_never_changes_the_watched_run() -> void:
 		index.build(16)
 	assert_eq(rc.sim.state.tick, r.end_tick, "the same end tick")
 	assert_eq(rc.sim.checksum(), r.checksum, "the same final state")
+	rc.free()
+
+
+## A scrubber on its own over `r`'s full index: its seeks go straight to `rc`.
+static func _bare_scrubber(r: Replay, rc: RunController) -> ReplayScrubber:
+	var index := _index_of(r)
+	rc.new_replay(ReplayDriver.new(r.seed_value, r.taps, r.season, r.revive_ticks))
+	var s := ReplayScrubber.new()
+	s.bind(index, rc)
+	s.seek_requested.connect(func(t: int) -> void: rc.seek(index.seek(t)))
+	return s
+
+
+static func _press(s: ReplayScrubber, x: float, down: bool) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = down
+	e.position = Vector2(x, ReplayScrubber.TRACK_PAD)
+	s._on_track_input(e)
+
+
+## -3 s goes 3 s back from the tick shown, wherever that is, and stops at 0.
+func test_back_three_goes_three_seconds_back_from_now() -> void:
+	var r := SimBots.play(5183, SimBots.gap_seeker, 8)
+	assert_true(r.end_tick > 600, "long enough")
+	var rc := RunController.new()
+	var s := _bare_scrubber(r, rc)
+	s.jump(500)
+	s.back_three()
+	assert_eq(rc.sim.state.tick, 500 - 180, "3 s back from 500")
+	assert_true(s.is_paused(), "paused there")
+	s.back_three()
+	assert_eq(rc.sim.state.tick, 500 - 360, "and 3 s further")
+	s.jump(100)
+	s.back_three()
+	assert_eq(rc.sim.state.tick, 0, "under 3 s in: the start")
+	s.back_three()
+	assert_eq(rc.sim.state.tick, 0, "at the start: stays")
+	# Not the crash: from the end, 3 s back from the end.
+	s.jump(r.end_tick)
+	var at := rc.sim.state.tick
+	s.back_three()
+	assert_eq(rc.sim.state.tick, at - 180, "from the end, 3 s back")
+	var b := s.pill_buttons()[4]
+	assert_eq(b.text, "−3 s", "the pill's last button")
+	s.jump(400)
+	b.pressed.emit()
+	assert_eq(rc.sim.state.tick, 400 - 180, "the button does the same")
+	s.free()
+	rc.free()
+
+
+## The crash's skull jumps to 3 s before the crash; tapping it, too.
+func test_crash_skull_jumps_three_seconds_before_the_crash() -> void:
+	var r := SimBots.play(5184, SimBots.gap_seeker, 9)
+	assert_true(r.end_tick > 400, "long enough")
+	var rc := RunController.new()
+	var s := _bare_scrubber(r, rc)
+	assert_eq(s.death_ticks(), [r.end_tick] as Array[int], "one death: the crash")
+	s.jump(10)
+	var skull := s.death_x(0)
+	assert_eq(s.death_at_x(skull), 0, "the skull is the crash's")
+	_press(s, skull, true)
+	_press(s, skull, false)
+	assert_eq(rc.sim.state.tick, r.end_tick - 180, "3 s before the crash, not the crash")
+	assert_true(s.is_paused(), "paused there")
+	s.free()
+	rc.free()
+
+
+## A crash under 3 s into the run: its skull goes to the start.
+func test_crash_skull_clamps_at_the_start() -> void:
+	var r := Replay.from_sim(Replay.simulate(5185, PackedInt32Array([0])), PackedInt32Array([0]))
+	assert_true(r.end_tick < ReplayScrubber.CRASH_LEAD, "a crash under 3 s in")
+	var rc := RunController.new()
+	var s := _bare_scrubber(r, rc)
+	s.jump(r.end_tick)
+	s.jump_to_death(0)
+	assert_eq(rc.sim.state.tick, 0, "the start, not before it")
+	s.free()
+	rc.free()
+
+
+## A revived run: every death has a skull, and each jumps to 3 s before its own.
+func test_each_death_of_a_revived_run_jumps_before_itself() -> void:
+	var r := SimBots.play_revived(5170, SimBots.gap_seeker, 4, 700, 700)
+	assert_eq(r.revive_ticks.size(), 1, "the run was revived")
+	var rc := RunController.new()
+	var s := _bare_scrubber(r, rc)
+	var deaths := s.death_ticks()
+	assert_eq(deaths, [r.revive_ticks[0], r.end_tick] as Array[int], "the revived death, the crash")
+	assert_true(deaths[0] > ReplayScrubber.CRASH_LEAD, "the first death is past 3 s")
+	for k in deaths.size():
+		s.jump(0 if k > 0 else r.end_tick)
+		var x := s.death_x(k)
+		assert_eq(s.death_at_x(x), k, "death %d's skull" % k)
+		_press(s, x, true)
+		_press(s, x, false)
+		assert_eq(rc.sim.state.tick, deaths[k] - 180, "3 s before death %d" % k)
+		assert_false(rc.sim.is_over(), "alive there")
+	# A press on the revived skull that moves on drags instead.
+	s.set_paused(false)
+	var x0 := s.death_x(0)
+	_press(s, x0, true)
+	var m := InputEventMouseMotion.new()
+	m.position = Vector2(x0 + 40.0, ReplayScrubber.TRACK_PAD)
+	s._on_track_input(m)
+	assert_eq(rc.sim.state.tick, s.x_tick(x0 + 40.0), "dragged to where it moved")
+	_press(s, x0 + 40.0, false)
+	assert_false(s.is_paused(), "let go: plays on")
+	# Away from any skull, a press drags as before.
+	var mid := s.tick_x(deaths[0] / 2)
+	assert_eq(s.death_at_x(mid), -1, "no skull there")
+	s.free()
 	rc.free()

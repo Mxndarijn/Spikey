@@ -36,7 +36,7 @@ func _init() -> void:
 	_build_banner()
 	_build_exit()
 	_build_over()
-	# Over the end screen too: drag back from the crash, or Crash -3 s.
+	# Over the end screen too: drag back from the crash, or tap its skull.
 	add_child(_scrubber)
 	set_run("", 0)
 

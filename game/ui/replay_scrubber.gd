@@ -3,10 +3,11 @@ extends Control
 ## The replay's timeline (design A3 + P1a, docs/mockups: the replay scrubber
 ## review page): an ink band under the room with a strip of chapter chips (one
 ## per room: its Rooms-screen picture, number, name and the fork exit taken)
-## and a track split by room, ending in a skull at the crash. Paused, a slim
-## control pill floats above the floor spikes: speed, one bounce back, Play,
-## one bounce forward and Crash -3 s. Drag the track or tap a chip to jump;
-## tap the room to pause or play on. It only asks: main seeks the run
+## and a track split by room, ending in a skull at the crash (and a small skull
+## at each death a revive undid). Paused, a slim control pill floats above the
+## floor spikes: speed, one bounce back, Play, one bounce forward and -3 s (3 s
+## back from now). Drag the track or tap a chip to jump; tap a skull to jump to
+## 3 s before that death; tap the room to pause or play on. It only asks: main seeks the run
 ## (ReplayIndex.seek, RunController.seek) and pauses it.
 
 signal seek_requested(tick: int)
@@ -47,8 +48,15 @@ const PILL_FILL := Color(UiTokens.INK_900, 0.82)
 const DRAG_LINGER := 2.0
 ## Speed steps, in quarters (RunController.speed_q), in tap order.
 const SPEEDS: Array[int] = [4, 8, 1, 2]
-## Crash -3 s jumps this many ticks before the crash.
+## A tap on a death's skull jumps this many ticks before that death.
 const CRASH_LEAD := 3 * SimConfig.TICKS_PER_SECOND
+## The pill's -3 s jumps this many ticks back from the tick shown.
+const BACK_STEP := 3 * SimConfig.TICKS_PER_SECOND
+## A revived death's skull on the track, and how near a tap must land (px).
+const DEATH_D := 14.0
+const DEATH_HIT := 11.0
+## A press on a revived death's skull that moves this far becomes a drag.
+const DRAG_SLOP := 6.0
 
 var reduced_motion := false
 
@@ -60,6 +68,9 @@ var _paused := false
 var _dragging := false
 var _drag_was_playing := false
 var _drag_tick := -1
+## A press on a revived death's skull (index into death_ticks()), -1 if none.
+var _death_press := -1
+var _death_press_x := 0.0
 var _linger := 0.0
 var _chip_count := 0
 var _chips: Array[Button] = []
@@ -72,7 +83,7 @@ var _back: Button
 var _play: Button
 var _play_icon := TextureRect.new()
 var _forward: Button
-var _crash: Button
+var _back3: Button
 var _bubble := PanelContainer.new()
 var _bubble_text := Label.new()
 var _pill_tween: Tween
@@ -104,6 +115,7 @@ func bind(index: ReplayIndex, run: RunController) -> void:
 	_run = run
 	_paused = false
 	_dragging = false
+	_death_press = -1
 	_linger = 0.0
 	_clear_chips()
 	_show_pill(false, true)
@@ -182,7 +194,65 @@ func chip_buttons() -> Array[Button]:
 
 
 func pill_buttons() -> Array[Button]:
-	return [_speed, _back, _play, _forward, _crash]
+	return [_speed, _back, _play, _forward, _back3]
+
+
+## The tick of every death on the timeline, in order: each one a revive undid,
+## then the crash that ended the run (the timeline's end).
+func death_ticks() -> Array[int]:
+	var out: Array[int] = []
+	if _index == null:
+		return out
+	for r in _index.revived_at:
+		out.append(r)
+	out.append(_index.length())
+	return out
+
+
+## Where death `k`'s skull sits on the track (scrubber-local x): the revived
+## ones on the track, the crash's past its end.
+func death_x(k: int) -> float:
+	var deaths := death_ticks()
+	if k == deaths.size() - 1:
+		return TRACK_X + TRACK_W + 4.0 + SKULL_D / 2.0
+	return tick_x(deaths[k])
+
+
+## The death whose skull is under the scrubber-local x (-1 if none): the crash's
+## skull takes everything right of the track, a revived one DEATH_HIT around it.
+func death_at_x(x: float) -> int:
+	var deaths := death_ticks()
+	if deaths.is_empty():
+		return -1
+	if x > TRACK_X + TRACK_W + 2.0:
+		return deaths.size() - 1
+	var best := -1
+	var best_d := DEATH_HIT
+	for k in deaths.size() - 1:
+		var d := absf(x - death_x(k))
+		if d <= best_d:
+			best = k
+			best_d = d
+	return best
+
+
+## Death `k`'s skull was tapped: pause and jump to 3 s before that death.
+func jump_to_death(k: int) -> void:
+	var deaths := death_ticks()
+	if k < 0 or k >= deaths.size():
+		return
+	if not _paused:
+		set_paused(true)
+	jump(maxi(0, deaths[k] - CRASH_LEAD))
+
+
+## The pill's -3 s: pause and jump 3 s back from the tick shown.
+func back_three() -> void:
+	if _index == null:
+		return
+	if not _paused:
+		set_paused(true)
+	jump(maxi(0, shown_tick() - BACK_STEP))
 
 
 func band_rect() -> Rect2:
@@ -417,12 +487,14 @@ func _draw_track() -> void:
 		_pill_bar(Rect2(a2, cy - h / 2.0, TRACK_X + TRACK_W - a2, h), Color(UiTokens.ON_SCRIM, 0.1))
 	for c in _index.coins:
 		_track.draw_rect(Rect2(tick_x(c) - 1.0, cy - 1.0, 2.0, 2.0), UiTokens.COIN)
-	for r in _index.revived_at:
-		_track.draw_arc(Vector2(tick_x(r), cy), 5.0, 0.0, TAU, 16, UiTokens.ON_SCRIM, 1.5, true)
-	var skull := Vector2(TRACK_X + TRACK_W + 4.0 + SKULL_D / 2.0, cy)
-	_track.draw_circle(skull, SKULL_D / 2.0, UiTokens.ON_SCRIM)
-	var s := Vector2(14, 14)
-	_track.draw_texture_rect(SKULL_ICON, Rect2(skull - s / 2.0, s), false, UiTokens.INK_LINE)
+	var deaths := death_ticks()
+	for k in deaths.size():
+		var crash := k == deaths.size() - 1
+		var d := SKULL_D if crash else DEATH_D
+		var at_skull := Vector2(death_x(k), cy)
+		_track.draw_circle(at_skull, d / 2.0, UiTokens.ON_SCRIM)
+		var s := Vector2(d - 6.0, d - 6.0)
+		_track.draw_texture_rect(SKULL_ICON, Rect2(at_skull - s / 2.0, s), false, UiTokens.INK_LINE)
 	if _paused or _dragging:
 		var d := THUMB_DRAG_D if _dragging else THUMB_D
 		var at := Vector2(tick_x(tick), cy)
@@ -450,13 +522,32 @@ func _on_track_input(event: InputEvent) -> void:
 	if (press != null and press.button_index == MOUSE_BUTTON_LEFT) or touch != null:
 		var down := press.pressed if press != null else touch.pressed
 		var x := press.position.x if press != null else touch.position.x
-		if down and not _dragging:
-			_begin_drag(x)
-		elif not down and _dragging:
-			_end_drag()
+		if down and not _dragging and _death_press < 0:
+			var k := death_at_x(x)
+			if k == death_ticks().size() - 1:
+				jump_to_death(k)
+			elif k >= 0:
+				# A revived death's skull sits on the track: a tap jumps,
+				# a press that moves on drags.
+				_death_press = k
+				_death_press_x = x
+			else:
+				_begin_drag(x)
+		elif not down:
+			if _dragging:
+				_end_drag()
+			elif _death_press >= 0:
+				var k := _death_press
+				_death_press = -1
+				jump_to_death(k)
 		accept_event()
-	elif _dragging and (drag != null or sdrag != null):
-		_drag_to(drag.position.x if drag != null else sdrag.position.x)
+	elif drag != null or sdrag != null:
+		var mx := drag.position.x if drag != null else sdrag.position.x
+		if _death_press >= 0 and absf(mx - _death_press_x) >= DRAG_SLOP:
+			_death_press = -1
+			_begin_drag(mx)
+		elif _dragging:
+			_drag_to(mx)
 		accept_event()
 
 
@@ -537,10 +628,8 @@ func _build_pill() -> void:
 	_play.add_theme_color_override("icon_pressed_color", UiTokens.INK_LINE)
 	_forward = _pill_button("BounceForward", FORWARD_ICON, "", TAP, "One bounce forward")
 	_forward.pressed.connect(func() -> void: _step(1))
-	_crash = _pill_button("CrashJump", SKULL_ICON, "−3 s", 64.0, "Jump to 3 s before the crash")
-	_crash.pressed.connect(_jump_to_crash)
-	_crash.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_crash.add_theme_constant_override("icon_max_width", 16)
+	_back3 = _pill_button("BackThree", null, "−3 s", 52.0, "3 s back")
+	_back3.pressed.connect(back_three)
 	var x := 4.0
 	for b in pill_buttons():
 		b.position = Vector2(x, 0)
@@ -628,14 +717,6 @@ func _step(dir: int) -> void:
 	var to := _index.bounce_before(now) if dir < 0 else _index.bounce_after(now)
 	if to >= 0:
 		jump(to)
-
-
-func _jump_to_crash() -> void:
-	if _index == null:
-		return
-	if not _paused:
-		set_paused(true)
-	jump(_index.length() - CRASH_LEAD)
 
 
 # --- the drag bubble ---------------------------------------------------------
