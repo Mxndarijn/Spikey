@@ -92,7 +92,13 @@ extends RefCounted
 ##     one slow Cave bat, slower Stalker Rail, longer big Tide spikes; the boss
 ##     rhythm (every attack warned 2 s); room regroup and rarer Bonus rooms;
 ##     replays run up to MAX_TICKS = 4 hours (was 30 minutes).
-const GAMEPLAY_VERSION := 23
+## 24: a wall retracts after the bounce and regrows its new spikes while the
+##     bird crosses; a room's first bounce keeps the wall ahead bare; Spike Rain
+##     and Wobble drop fixes; fork exits skip rooms with no room for two exits;
+##     Cave Tunnel hold band; Updraft chimney free runs counted from their middle;
+##     steered walls near an exit stay in reach of the wall before; Spike Belt
+##     twice as fast; room tiers by rank (8 rooms moved).
+const GAMEPLAY_VERSION := 24
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
