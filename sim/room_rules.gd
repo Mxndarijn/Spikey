@@ -34,6 +34,18 @@ static func gap_reach(def: RoomDef) -> int:
 	return 0
 
 
+## A steered wall's free run: near `target` (within gap_reach) and within reach
+## of every free spot `lo`..`hi` of the wall before, when a run fits both.
+## [target, reach] for generate_wall_run; else [target, -1] (gap_reach alone).
+static func both_in_reach(target: int, lo: int, hi: int, def: RoomDef) -> PackedInt32Array:
+	var r := gap_reach(def)
+	var a := maxi(target, hi) - r
+	var b := mini(target, lo) + r
+	if b - a >= SimConfig.SLOT_SIZE:
+		return PackedInt32Array([(a + b) / 2, (b - a) / 2])
+	return PackedInt32Array([target, -1])
+
+
 ## Returns a bitmask of spiked slots for one wall.
 ## A run of `def.gap` consecutive slots is always left free. With a known bird
 ## height `bird_y`, that run is within gap_reach(def) of it (or `p_reach`,

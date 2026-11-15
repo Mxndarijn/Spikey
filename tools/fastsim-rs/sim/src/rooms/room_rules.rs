@@ -34,6 +34,19 @@ impl RoomRules {
         0
     }
 
+    /// A steered wall's free run: near `target` (within gap_reach) and within reach
+    /// of every free spot `lo`..`hi` of the wall before, when a run fits both.
+    /// [target, reach] for generate_wall_run; else [target, -1] (gap_reach alone).
+    pub fn both_in_reach(target: i64, lo: i64, hi: i64, def: &RoomDef) -> [i64; 2] {
+        let r = Self::gap_reach(def);
+        let a = G::maxi(target, hi) - r;
+        let b = G::mini(target, lo) + r;
+        if b - a >= SimConfig::SLOT_SIZE {
+            return [(a + b) / 2, (b - a) / 2];
+        }
+        [target, -1]
+    }
+
     /// GDScript defaults: bird_y = -1, bonus = 0, p_reach = -1.
     pub fn generate_wall(rng: &mut SimRng, score: i64, def: &RoomDef, bird_y: i64, bonus: i64, p_reach: i64) -> i64 {
         Self::generate_wall_run(rng, score, def, bird_y, bonus, p_reach)[0]

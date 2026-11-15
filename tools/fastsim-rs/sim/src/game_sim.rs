@@ -1053,17 +1053,10 @@ impl GameSim {
             reach = RoomRules::gap_reach(self.room.def()) - (self._free_hi - self._free_lo) / 2;
             target = (self._free_lo + self._free_hi) / 2;
         } else if other_drawn && self._free_lo >= 0 {
-            // Steered (toward the exit, or the anchor): also within reach of every
-            // free spot of the other wall, where the bird may come off it, when a
-            // run fits both (a steered run once sat 246 px from the bird's way in,
-            // past Spike Rain's drops).
-            let r = RoomRules::gap_reach(self.room.def());
-            let lo = G::maxi(target, self._free_hi) - r;
-            let hi = G::mini(target, self._free_lo) + r;
-            if hi - lo >= SimConfig::SLOT_SIZE {
-                target = (lo + hi) / 2;
-                reach = (hi - lo) / 2;
-            }
+            // Steered: also in reach of all the other wall's free spots (the bird's way in).
+            let steer = RoomRules::both_in_reach(target, self._free_lo, self._free_hi, self.room.def());
+            target = steer[0];
+            reach = steer[1];
         }
         self._free_lo = -1;
         self._free_hi = -1;
