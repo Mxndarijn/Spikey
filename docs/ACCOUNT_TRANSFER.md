@@ -1,7 +1,12 @@
-# Move to a new phone (plan)
+# Move to a new phone
 
-Status: **plan only, waiting on the user's go-ahead.** It is built on the new
-server (`docs/SERVER_MIGRATION.md`) after the switch, as its own branch.
+Status: **built** with the server move (decided: a transfer code, 24 h,
+single use; Apple and Google sign-in not now). Client: Settings > Account >
+Move to a new phone (`game/ui/widgets/phone_move_page.gd`,
+`game/app/phone_move.gd`); server: `backend/src/transfer.rs`. It is a page in
+the settings card rather than the separate screens of the mockups. The moved
+player's synced settings come along with the save; Your runs come from the
+server (`get_my_runs`), with the rooms counted from the score.
 Visual version with the screen mockups:
 <https://claude.ai/artifact/VWL3jnUqwuM1tTWU8HynT5> (source:
 `docs/mockups/account_transfer.html`). Keep both in step.

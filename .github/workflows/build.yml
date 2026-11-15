@@ -280,6 +280,20 @@ jobs:
             echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
           fi
 
+      - name: Write the game server config (our own server)
+        # Optional: with the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks
+        # to our own server instead of Supabase (docs/DEPLOY.md, the cutover). A new
+        # FLAPJAW_SERVER_ID makes every phone start fresh once (BackendReset).
+        env:
+          FLAPJAW_API_URL: ${{ secrets.FLAPJAW_API_URL }}
+          FLAPJAW_SERVER_ID: ${{ secrets.FLAPJAW_SERVER_ID }}
+        run: |
+          if [ -n "$FLAPJAW_API_URL" ] && [ -n "$FLAPJAW_SERVER_ID" ]; then
+            printf '{"kind": "flapjaw", "url": "%s", "server_id": "%s"}\n' \
+              "$FLAPJAW_API_URL" "$FLAPJAW_SERVER_ID" > services/backend_config.json
+            echo "Leaderboards: our own server"
+          fi
+
       - name: Write the Firebase config (Board alerts)
         # Optional: with the GOOGLE_SERVICES_JSON secret set (the whole google-services.json
         # from Firebase, docs/PUSH_SETUP.md) the build can receive push notifications;
@@ -583,6 +597,20 @@ jobs:
             echo "Leaderboards: Supabase"
           else
             echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
+          fi
+
+      - name: Write the game server config (our own server)
+        # Optional: with the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks
+        # to our own server instead of Supabase (docs/DEPLOY.md, the cutover). A new
+        # FLAPJAW_SERVER_ID makes every phone start fresh once (BackendReset).
+        env:
+          FLAPJAW_API_URL: ${{ secrets.FLAPJAW_API_URL }}
+          FLAPJAW_SERVER_ID: ${{ secrets.FLAPJAW_SERVER_ID }}
+        run: |
+          if [ -n "$FLAPJAW_API_URL" ] && [ -n "$FLAPJAW_SERVER_ID" ]; then
+            printf '{"kind": "flapjaw", "url": "%s", "server_id": "%s"}\n' \
+              "$FLAPJAW_API_URL" "$FLAPJAW_SERVER_ID" > services/backend_config.json
+            echo "Leaderboards: our own server"
           fi
 
       - name: Write the Firebase config (Board alerts)

@@ -1,7 +1,10 @@
-# Moving the backend from Supabase to our own server (plan)
+# Moving the backend from Supabase to our own server
 
-Status: **plan only.** Decided: Rust, fresh start, the game's own Hetzner VM
-with k3s. Waiting on the go-ahead (open questions at the end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
+Status: **built on this branch, not deployed.** The user said go ("prepare it
+on a branch"). What is in the repository now, and where it differs from the
+plan below, is in "What was built" at the end; the steps to run it are in
+docs/DEPLOY.md. Nothing is deployed, no account or cloud resource exists, and
+the live Supabase project is untouched. Branch: `claude/server-backend-e4288c`,
 cut from `next-features-3` at 6714cff.
 
 Visual version, with the architecture and flow diagrams (old vs new), the
@@ -388,3 +391,45 @@ Open:
 6. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
 7. **Move to a new phone**: approve the transfer-code-first plan
    (`docs/ACCOUNT_TRANSFER.md`)?
+
+## What was built
+
+Defaults for the open questions (each changes in one place): a 2 GB VM
+(`server_type` in `infra/hetzner/variables.tf`), GitHub Container Registry
+(`REGISTRY` in `deploy/.env.example`), backups to Hetzner Object Storage
+(`BACKUP_S3_*`, any S3-compatible bucket), the API host as `API_HOST`, the
+fresh start clearing Your runs and keeping settings and the name
+(`BackendReset`), a 24-hour single-use transfer code (`transfer::VALID_HOURS`),
+no Apple or Google sign-in.
+
+- **Client** (`services/`): `BackendClient` with `SupabaseClient` (unchanged)
+  and `FlapjawClient`, picked by `services/backend_config.json` (else the old
+  `supabase_config.json`). `OnlineLeaderboard` and `OnlineWallet` are the
+  renamed Supabase classes. 426 shows "Update Flapjaw", `account_moved`
+  "Moved to another phone", the one-time reset "Fresh start" (`NoticePopup`,
+  `BackendEvents`).
+- **Server** (`backend/`, Rust, axum, sqlx). It keeps the game's rules where
+  they were tested: it applies every Supabase migration as it is, behind
+  small platform stand-ins (`backend/migrations/0001_platform.sql`: the roles,
+  `auth.users`, `auth.uid()` from `request.jwt.claim.sub`, `net.http_post`
+  only written down), and runs each SQL function as the signed-in player. So
+  the plan's "port the SQL to typed handlers" became "call the same SQL from
+  typed routes"; the answers are the same by construction. Around it: device
+  key sign-in with hashed, rotating tokens (`auth.rs`), the replay check with
+  the Rust sim and Godot confirming rejections (`verify.rs`,
+  `deploy/godot-check/`), the FCM sender (`push.rs`), transfer codes with rate
+  limits (`transfer.rs`, `limits.rs`) and `get_my_runs` for Your runs.
+  Migrations run when the server starts (an advisory lock keeps it to one),
+  not as a separate Job. Tests: `tools/backend_test.ps1` (unit, and with
+  Docker integration tests against a throwaway Postgres), a step of
+  `tools/check.ps1`.
+- **Infrastructure** (`infra/hetzner/`, `deploy/`, `tools/deploy.ps1`,
+  `tools/restore.ps1`): as in "Infrastructure as code" above, except DNS,
+  which stays a manual record (the address is a `tofu output`), and staging,
+  which shares the VM in its own namespace.
+- **Move to a new phone** (docs/ACCOUNT_TRANSFER.md): Settings > Account.
+  The moved player's synced settings come along with the save.
+
+Not verified yet: `tofu validate` (OpenTofu isn't installed on this PC), the
+Godot check image (it downloads Godot in the build), and of course a real
+deploy.

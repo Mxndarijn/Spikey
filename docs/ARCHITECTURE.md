@@ -44,7 +44,8 @@ flowchart TD
 | `game/` | Scenes, drawing, input, audio, haptics, UI. `game/cosmetics/`: `Catalog` (every look by kind), `Shop` (prices), `Checkout` (buying and converting through the wallet), the style + painter pairs. `game/app/`: `AppServices`, `RunLook`, `ReviveFlow`, `BoardAlerts` | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | — | — |
-| `server/` | Headless verifier; later the cloud wrapper around it | `sim/`, `meta/` | Fork the sim (it runs the same files) |
+| `server/` | Headless verifier (the godot-check job on our own server) | `sim/`, `meta/` | Fork the sim (it runs the same files) |
+| `backend/` | The game server in Rust (docs/SERVER_MIGRATION.md, docs/DEPLOY.md): the same operations as the Supabase SQL, sign-in, the replay check with the Rust sim, transfers | `tools/fastsim-rs/sim`, `supabase/migrations/` | Put game rules here (they stay in the SQL and `sim/`) |
 | `tests/` | Unit tests, golden replays, bot simulations | everything | — |
 | `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | — |
 
