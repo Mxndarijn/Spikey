@@ -787,6 +787,17 @@ func _new_wall(side: int, extras: bool = true) -> void:
 		# Every free spot of the last wall can reach the new free run.
 		reach = RoomRules.gap_reach(room.def) - (_free_hi - _free_lo) / 2
 		target = (_free_lo + _free_hi) / 2
+	elif other_drawn and _free_lo >= 0:
+		# Steered (toward the exit, or the anchor): also within reach of every
+		# free spot of the other wall, where the bird may come off it, when a
+		# run fits both (a steered run once sat 246 px from the bird's way in,
+		# past Spike Rain's drops).
+		var r := RoomRules.gap_reach(room.def)
+		var lo := maxi(target, _free_hi) - r
+		var hi := mini(target, _free_lo) + r
+		if hi - lo >= SimConfig.SLOT_SIZE:
+			target = (lo + hi) / 2
+			reach = (hi - lo) / 2
 	_free_lo = -1
 	_free_hi = -1
 	var bonus := room.spike_bonus(side)

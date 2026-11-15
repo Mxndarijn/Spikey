@@ -83,7 +83,9 @@ flowchart TD
     bounce it moves to the point of that wall's free run nearest it, or nearest
     the room's exit for the last `GameSim.EXIT_STEER` bounces. A new wall keeps
     its free run within reach of every free spot of the wall before when they
-    are close enough together, else near the anchor.
+    are close enough together, else near the anchor (stepping toward the exit
+    for the last `EXIT_STEER` bounces), and then still within reach of every
+    free spot of the wall before whenever a run fits both.
   - Wall timing (gameplay version 23): a bounce off a wall draws that wall's
     next spikes at once, so each wall is on view for about two crossings; the
     wall ahead keeps the spikes it got at the bounce before. An arrival draws
