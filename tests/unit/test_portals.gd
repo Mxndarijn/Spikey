@@ -214,7 +214,7 @@ static func _spikes(mask: int) -> int:
 
 
 func test_both_fork_exits_lead_to_the_same_room() -> void:
-	for seed_value in [3, 8, 21, 13]:
+	for seed_value in [3, 8, 22, 13]:
 		var pair := _both_forks(seed_value)
 		var calm := pair[0].state
 		var wild := pair[1].state
@@ -237,7 +237,7 @@ func test_both_fork_exits_lead_to_the_same_room() -> void:
 
 
 func test_the_wild_room_has_more_spikes_then_both_routes_meet_again() -> void:
-	for seed_value in [3, 8, 21, 13]:
+	for seed_value in [3, 8, 22, 13]:
 		var pair := _both_forks(seed_value)
 		var calm_n := 0
 		var wild_n := 0

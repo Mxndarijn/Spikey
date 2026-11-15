@@ -17,57 +17,58 @@ impl RoomPacing {
     pub const CONTROL_FLOOR: i64 = 40;
     pub const CONTROL_ROOMS: [&'static str; 3] = ["flip", "echo", "blink"];
 
+    /// By rank (rule B, 2026-11-15, clear moves only): see room_pacing.gd TIERS.
     pub const TIERS: &'static [(&'static str, &'static [i64])] = &[
-        ("crosswind", Self::EASY), // 14
-        ("crowded", Self::EASY), // 15
-        ("lava", Self::EASY), // 19
-        ("tide", Self::EASY), // 23
-        ("belt", Self::EASY), // 25
-        ("stalac", Self::EASY), // 25 (alternating 40)
-        ("crates", Self::EASY), // 30
-        ("echo", Self::STEADY), // 39
-        ("cloud", Self::STEADY), // 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
-        ("stalker", Self::STEADY), // 34 (slide at half speed; 41 before)
-        ("piston", Self::MIDDLE), // 41 (generated)
-        ("lockexit", Self::MIDDLE), // 42 (trio 38, quad 43, chain 45, since classic and orbit went)
-        ("blink", Self::MIDDLE), // 43
-        ("crawl", Self::MIDDLE), // 44
-        ("pegs", Self::STEADY), // 33 on v23 + wall retract (drift 34, classic 32; 44 at 62aca6f)
-        ("isles", Self::MIDDLE), // 45
-        ("gates", Self::STEADY), // 39 on v23 + wall retract (single 43, classic 35; 46 at 62aca6f)
-        ("flip", Self::MIDDLE), // 47
-        ("hunter", Self::MIDDLE), // 60 (human bots 78-90, analytic 33-37: one step until a playtest)
-        ("bubbles", Self::HARD), // 50
-        ("buttons", Self::MIDDLE), // 44 on v23 + wall retract (classic 45, slim 44, apart 43; 50 at 162437a)
-        ("midnight", Self::HARD), // 51
-        ("squeeze", Self::HARD), // 52
-        ("beams", Self::HARD), // 48 (generated)
-        ("bramble", Self::HARD), // 54 (heavy 34 .. curious 77, still being fixed)
-        ("cave", Self::STEADY), // 32 (drips 40, bats 32 with one slow bat, fork 24)
-        ("rain", Self::HARDER), // 57
-        ("swing", Self::HARDER), // 58
-        ("sawring", Self::HARDER), // 59
-        ("updraft", Self::HARDER), // 55 (gust 90, chimney 69; gust still being fixed)
-        ("narrow", Self::HARDEST), // 70
-        ("pinwheel", Self::HARDEST), // 70
-        ("slowmo", Self::BONUS), // 0
-        ("keepy", Self::BONUS), // 4
-        ("orchard", Self::BONUS), // 6
-        ("garden", Self::BONUS), // 14
-        // Seasonal
-        ("eggs", Self::MIDDLE), // 42
-        ("crabs", Self::MIDDLE), // 41
-        ("hearts", Self::MIDDLE), // 44
-        ("gifts", Self::MIDDLE), // 48
-        ("pumpkin", Self::HARD), // 56
-        ("cupid", Self::HARD), // 63 (human bots 54-97, analytic 43-51: one step until a playtest)
-        ("bats", Self::HARDER), // 58
-        ("ghostdoors", Self::HARDER), // 59
-        ("bees", Self::HARDER), // 62
-        ("icicle", Self::HARDEST), // 65
-        ("fireworks", Self::HARDEST), // 86
-        ("countdown", Self::BONUS), // 4
-        ("beachball", Self::BONUS), // 1
+        ("crowded", Self::EASY), // 16 (storm 23 .. lopsided 7)
+        ("belt", Self::EASY), // 21 (switchback 24 .. counter 16)
+        ("crosswind", Self::EASY), // 24 (gusty 27 .. split 22)
+        ("lava", Self::EASY), // 24 (rafts 32 .. lava 20)
+        ("stalac", Self::EASY), // 24 (alternating 33 .. floor 16)
+        ("tide", Self::EASY), // 25 (small 33 .. big 15)
+        ("crates", Self::EASY), // 28 (pairs 29 .. wide 26)
+        ("piston", Self::STEADY), // 29, was Middle
+        ("cloud", Self::STEADY), // 30 (one 31 .. two 28)
+        ("cave", Self::STEADY), // 32 (drips 36 .. fork 29)
+        ("stalker", Self::STEADY), // 32, ranks Middle: kept, within the noise
+        ("pegs", Self::STEADY), // 33 (drift 34 .. classic 32), ranks Middle: kept, within the noise
+        ("isles", Self::MIDDLE), // 32 (classic 32 .. drifting 31), ranks Steady: kept, within the noise
+        ("lockexit", Self::MIDDLE), // 32 (chain 33 .. quad 29), ranks Steady: kept, within the noise
+        ("eggs", Self::MIDDLE), // 32 (classic 32 .. drifting 31), ranks Steady: kept, within the noise
+        ("blink", Self::MIDDLE), // 32 (classic 34 .. fast 30)
+        ("updraft", Self::MIDDLE), // 32 (gust 49 .. drift 22), was Harder
+        ("hunter", Self::MIDDLE), // 34 (twin 37 .. classic 31)
+        ("hearts", Self::MIDDLE), // 35 (orbit 36 .. classic 34)
+        ("gifts", Self::MIDDLE), // 35 (pairs 40 .. classic 33)
+        ("flip", Self::MIDDLE), // 35 (flip-flop 38 .. classic 33)
+        ("crawl", Self::MIDDLE), // 36 (swarm 37 .. sprinters 36)
+        ("icicle", Self::MIDDLE), // 36, was Hardest
+        ("squeeze", Self::HARD), // 35 (breathing 36 .. left-only 33), ranks Middle: kept, within the noise
+        ("bramble", Self::HARD), // 36 (curious 41 .. heavy 27), ranks Middle: kept, within the noise
+        ("cupid", Self::HARD), // 36 (slow-volley 38 .. classic 34)
+        ("pumpkin", Self::HARD), // 37 (splitting 39 .. classic 36)
+        ("echo", Self::HARD), // 37 (echo 40 .. mirror 34), was Steady
+        ("midnight", Self::HARD), // 38 (classic 38 .. classic 38)
+        ("bubbles", Self::HARD), // 38 (spiky 44 .. classic 34), ranks Harder: kept, within the noise
+        ("rain", Self::HARDER), // 37 (classic 41 .. stake 32), ranks Hard: kept, within the noise
+        ("sawring", Self::HARDER), // 37 (two-rings 43 .. pair 31), ranks Hard: kept, within the noise
+        ("bats", Self::HARDER), // 37 (classic 39 .. wide 36), ranks Hard: kept, within the noise
+        ("swing", Self::HARDER), // 38 (big 41 .. winch 35)
+        ("gates", Self::HARDER), // 39 (single 43 .. classic 35), was Steady
+        ("crabs", Self::HARDER), // 39 (swarm 44 .. classic 35), was Middle
+        ("bees", Self::HARDER), // 40
+        ("ghostdoors", Self::HARDER), // 40 (classic 46 .. row 36)
+        ("narrow", Self::HARDEST), // 42, ranks Harder: kept, within the noise
+        ("beams", Self::HARDEST), // 42, was Hard
+        ("pinwheel", Self::HARDEST), // 44 (rock 47 .. twin 42)
+        ("buttons", Self::HARDEST), // 45 (classic 46 .. apart 44), was Middle
+        ("fireworks", Self::HARDEST), // 57 (classic 59 .. double 53)
+        // Bonus rooms (not ranked)
+        ("slowmo", Self::BONUS),
+        ("keepy", Self::BONUS),
+        ("orchard", Self::BONUS),
+        ("garden", Self::BONUS),
+        ("countdown", Self::BONUS),
+        ("beachball", Self::BONUS),
     ];
 
     pub fn apply(defs: &mut Vec<RoomDef>) {

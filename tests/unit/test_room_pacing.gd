@@ -71,7 +71,8 @@ func test_tiers_unlock_and_grow_in_order() -> void:
 func test_rooms_that_change_the_controls_wait_for_the_floor() -> void:
 	for id: String in RoomPacing.CONTROL_ROOMS:
 		var def := RoomCatalog.find(id)
-		assert_eq(def.from_score, RoomPacing.CONTROL_FLOOR, "%s unlocks at the floor" % id)
+		var unlock := maxi(RoomPacing.TIERS[id][0], RoomPacing.CONTROL_FLOOR)
+		assert_eq(def.from_score, unlock, "%s unlocks at the floor or its tier's unlock" % id)
 		assert_eq(def.weight_at(RoomPacing.CONTROL_FLOOR - 1), 0, id)
 		var tier := PackedInt32Array(RoomPacing.TIERS[id])
 		for i in range(1, tier.size(), 2):

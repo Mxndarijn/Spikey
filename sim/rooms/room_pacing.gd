@@ -11,18 +11,19 @@ extends RefCounted
 ## line (integer) between two points, the last weight after the last point.
 ## The first score is the room's unlock (RoomDef.from_score).
 
-## Tiers by measured difficulty score (20 beginner, 40 normal, 60 good).
-## Up to 32: a beginner clears it nearly always.
+## Tiers, easiest first: a room's tier comes from its rank by measured
+## difficulty (TIERS); scores at 860b5b4.
+## Easy: 7 rooms (16-28).
 const EASY := [10, 10, 60, 10, 150, 1]
-## 32 to 40.
+## Steady: 5 rooms (29-33).
 const STEADY := [20, 6, 40, 10, 100, 10, 250, 2]
-## 40 to 48: a normal player clears it 9 times in 10.
+## Middle: 11 rooms (32-36).
 const MIDDLE := [30, 5, 60, 10, 160, 10, 400, 4]
-## 48 to 56.
+## Hard: 7 rooms (35-38).
 const HARD := [50, 4, 100, 12, 200, 14]
-## 56 to 63.
+## Harder: 8 rooms (37-40).
 const HARDER := [70, 4, 130, 14, 250, 18]
-## Over 63: needs more than a good player.
+## Hardest: 5 rooms (42-57).
 const HARDEST := [90, 4, 160, 16, 300, 20]
 ## Bonus rooms (coins, no real threat): occasional at any score.
 const BONUS := [20, 3]
@@ -42,60 +43,67 @@ const CONTROL_FLOOR := 40
 const CONTROL_ROOMS := ["flip", "echo", "blink"]
 
 ## The tier of every room the picker can pick (not the open first room or
-## the bosses). Measured on next-features-2 at 62aca6f (2026-11-13, Rust
-## difficulty tool, 24 entries per variant, every bot tier); the mean score
-## is in the comment.
+## the bosses), by rank (the user's rule B, 2026-11-15): every room ranked by
+## its measured mean score (seasonal rooms with the rest; bonus rooms keep
+## BONUS) and split into the tiers in order, Easy 7, Steady 6, Middle 12,
+## Hard 7, Harder 7, Hardest 4. Only clear moves were taken: a room whose
+## score is within 2 points of its old tier's range stays in its old tier
+## (the user, 2026-11-15), so the tiers hold 7, 5, 11, 7, 8, 5 rooms.
+## Measured on next-features-3 at 860b5b4 (2026-11-15, Rust difficulty tool,
+## 24 entries per variant, every bot tier: SpikeCage-coord
+## research/room-difficulty/ruleb-860b5b4); the mean score is in the comment,
+## with the hardest and easiest variant.
 const TIERS := {
-	"crosswind": EASY,  # 14
-	"crowded": EASY,  # 15
-	"lava": EASY,  # 19
-	"tide": EASY,  # 23
-	"belt": EASY,  # 25
-	"stalac": EASY,  # 25 (alternating 40)
-	"crates": EASY,  # 30
-	"echo": STEADY,  # 39
-	"cloud": STEADY,  # 44 (bots clear it like Steady: skill 26 / 35; analytic 54 / 59)
-	"stalker": STEADY,  # 34 (slide at half speed; 41 before)
-	"piston": MIDDLE,  # 41 (generated)
-	"lockexit": MIDDLE,  # 42 (trio 38, quad 43, chain 45, since classic and orbit went)
-	"blink": MIDDLE,  # 43
-	"crawl": MIDDLE,  # 44
-	"pegs": STEADY,  # 33 on v23 + wall retract (drift 34, classic 32; 44 at 62aca6f)
-	"isles": MIDDLE,  # 45
-	"gates": STEADY,  # 39 on v23 + wall retract (single 43, classic 35; 46 at 62aca6f)
-	"flip": MIDDLE,  # 47
-	"hunter": MIDDLE,  # 60 (human bots 78-90, analytic 33-37: one step until a playtest)
-	"bubbles": HARD,  # 50
-	"buttons": MIDDLE,  # 44 on v23 + wall retract (classic 45, slim 44, apart 43; 50 at 162437a)
-	"midnight": HARD,  # 51
-	"squeeze": HARD,  # 52
-	"beams": HARD,  # 48 (generated)
-	"bramble": HARD,  # 54 (heavy 34 .. curious 77, still being fixed)
-	"cave": STEADY,  # 32 (drips 40, bats 32 with one slow bat, fork 24)
-	"rain": HARDER,  # 57
-	"swing": HARDER,  # 58
-	"sawring": HARDER,  # 59
-	"updraft": HARDER,  # 55 (gust 90, chimney 69; gust still being fixed)
-	"narrow": HARDEST,  # 70
-	"pinwheel": HARDEST,  # 70
-	"slowmo": BONUS,  # 0
-	"keepy": BONUS,  # 4
-	"orchard": BONUS,  # 6
-	"garden": BONUS,  # 14
-	# Seasonal
-	"eggs": MIDDLE,  # 42
-	"crabs": MIDDLE,  # 41
-	"hearts": MIDDLE,  # 44
-	"gifts": MIDDLE,  # 48
-	"pumpkin": HARD,  # 56
-	"cupid": HARD,  # 63 (human bots 54-97, analytic 43-51: one step until a playtest)
-	"bats": HARDER,  # 58
-	"ghostdoors": HARDER,  # 59
-	"bees": HARDER,  # 62
-	"icicle": HARDEST,  # 65
-	"fireworks": HARDEST,  # 86
-	"countdown": BONUS,  # 4
-	"beachball": BONUS,  # 1
+	"crowded": EASY,  # 16 (storm 23 .. lopsided 7)
+	"belt": EASY,  # 21 (switchback 24 .. counter 16)
+	"crosswind": EASY,  # 24 (gusty 27 .. split 22)
+	"lava": EASY,  # 24 (rafts 32 .. lava 20)
+	"stalac": EASY,  # 24 (alternating 33 .. floor 16)
+	"tide": EASY,  # 25 (small 33 .. big 15)
+	"crates": EASY,  # 28 (pairs 29 .. wide 26)
+	"piston": STEADY,  # 29, was Middle
+	"cloud": STEADY,  # 30 (one 31 .. two 28)
+	"cave": STEADY,  # 32 (drips 36 .. fork 29)
+	"stalker": STEADY,  # 32, ranks Middle: kept, within the noise
+	"pegs": STEADY,  # 33 (drift 34 .. classic 32), ranks Middle: kept, within the noise
+	"isles": MIDDLE,  # 32 (classic 32 .. drifting 31), ranks Steady: kept, within the noise
+	"lockexit": MIDDLE,  # 32 (chain 33 .. quad 29), ranks Steady: kept, within the noise
+	"eggs": MIDDLE,  # 32 (classic 32 .. drifting 31), ranks Steady: kept, within the noise
+	"blink": MIDDLE,  # 32 (classic 34 .. fast 30)
+	"updraft": MIDDLE,  # 32 (gust 49 .. drift 22), was Harder
+	"hunter": MIDDLE,  # 34 (twin 37 .. classic 31)
+	"hearts": MIDDLE,  # 35 (orbit 36 .. classic 34)
+	"gifts": MIDDLE,  # 35 (pairs 40 .. classic 33)
+	"flip": MIDDLE,  # 35 (flip-flop 38 .. classic 33)
+	"crawl": MIDDLE,  # 36 (swarm 37 .. sprinters 36)
+	"icicle": MIDDLE,  # 36, was Hardest
+	"squeeze": HARD,  # 35 (breathing 36 .. left-only 33), ranks Middle: kept, within the noise
+	"bramble": HARD,  # 36 (curious 41 .. heavy 27), ranks Middle: kept, within the noise
+	"cupid": HARD,  # 36 (slow-volley 38 .. classic 34)
+	"pumpkin": HARD,  # 37 (splitting 39 .. classic 36)
+	"echo": HARD,  # 37 (echo 40 .. mirror 34), was Steady
+	"midnight": HARD,  # 38 (classic 38 .. classic 38)
+	"bubbles": HARD,  # 38 (spiky 44 .. classic 34), ranks Harder: kept, within the noise
+	"rain": HARDER,  # 37 (classic 41 .. stake 32), ranks Hard: kept, within the noise
+	"sawring": HARDER,  # 37 (two-rings 43 .. pair 31), ranks Hard: kept, within the noise
+	"bats": HARDER,  # 37 (classic 39 .. wide 36), ranks Hard: kept, within the noise
+	"swing": HARDER,  # 38 (big 41 .. winch 35)
+	"gates": HARDER,  # 39 (single 43 .. classic 35), was Steady
+	"crabs": HARDER,  # 39 (swarm 44 .. classic 35), was Middle
+	"bees": HARDER,  # 40
+	"ghostdoors": HARDER,  # 40 (classic 46 .. row 36)
+	"narrow": HARDEST,  # 42, ranks Harder: kept, within the noise
+	"beams": HARDEST,  # 42, was Hard
+	"pinwheel": HARDEST,  # 44 (rock 47 .. twin 42)
+	"buttons": HARDEST,  # 45 (classic 46 .. apart 44), was Middle
+	"fireworks": HARDEST,  # 57 (classic 59 .. double 53)
+	# Bonus rooms (not ranked)
+	"slowmo": BONUS,
+	"keepy": BONUS,
+	"orchard": BONUS,
+	"garden": BONUS,
+	"countdown": BONUS,
+	"beachball": BONUS,
 }
 
 

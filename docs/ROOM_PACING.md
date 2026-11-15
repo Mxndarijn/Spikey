@@ -8,21 +8,24 @@ Page with the curve: https://claude.ai/artifact/AzyWMy11kN2qCpNmAPJa36
 
 Every room the picker can pick has a tier, set from its measured difficulty
 (`fastsim difficulty`, docs/ROOM_DIFFICULTY.md: the mean score over its variants), not from its
-group label. Data: `D:/SoftwareProjects/SpikeCage-coord/research/room-difficulty/` (2026-11-12 run)
-and its `rerun-pacing/` (the 11 rooms room-fixes changed, measured again at next-features-2 2055eb8).
+group label, by rank (the user's rule B, 2026-11-15): every room but the bonus ones, seasonal
+ones included, is ranked by its score and the ranks are split into the tiers in order (Easy 7,
+Steady 6, Middle 12, Hard 7, Harder 7, Hardest 4). Only the clear moves were taken: a room within
+2 points of its old tier's range kept its tier (the user), so the tier sizes drift. Data: `D:/SoftwareProjects/SpikeCage-coord/research/room-difficulty/ruleb-860b5b4/`
+(next-features-3 at 860b5b4, 24 entries per variant, every bot tier; `ruleb.json` has the ranking).
 The tier gives the room a weight curve over the score (`RoomDef.pace`): score,
 weight pairs, 0 before the first score (the unlock, `RoomDef.from_score`), straight integer lines
 between the points, the last weight after the last point.
 
-| Tier | Measured score | Curve (weight at score) |
-|---|---|---|
-| Easy | up to 32 | 10 at 10, 10 at 60, 1 at 150 |
-| Steady | 32-40 | 6 at 20, 10 at 40, 10 at 100, 2 at 250 |
-| Middle | 40-48 | 5 at 30, 10 at 60, 10 at 160, 4 at 400 |
-| Hard | 48-56 | 4 at 50, 12 at 100, 14 at 200 |
-| Harder | 56-63 | 4 at 70, 14 at 130, 18 at 250 |
-| Hardest | over 63 | 4 at 90, 16 at 160, 20 at 300 |
-| Bonus | bonus rooms | 3 from 20 |
+| Tier | Rooms | Scores at 860b5b4 | Curve (weight at score) |
+|---|---|---|---|
+| Easy | 7 | 16-28 | 10 at 10, 10 at 60, 1 at 150 |
+| Steady | 5 | 29-33 | 6 at 20, 10 at 40, 10 at 100, 2 at 250 |
+| Middle | 11 | 32-36 | 5 at 30, 10 at 60, 10 at 160, 4 at 400 |
+| Hard | 7 | 35-38 | 4 at 50, 12 at 100, 14 at 200 |
+| Harder | 8 | 37-40 | 4 at 70, 14 at 130, 18 at 250 |
+| Hardest | 5 | 42-57 | 4 at 90, 16 at 160, 20 at 300 |
+| Bonus | bonus rooms | - | 3 from 20 |
 
 Every tier but Bonus has its weights times 5 (`RoomPacing.OTHERS_SCALE`, version 23), so bonus rooms come up a
 quarter as often as the table gives: 6.6 -> 1.75 per 100 rooms with no season, 8.0 -> 2.0 in summer, 7.6 -> 1.9 at
@@ -30,7 +33,7 @@ New Year (`tools/room_odds.gd`, 1000 runs to 990). The odds tables below are fro
 Seasonal rooms (not bonus) take their tier's weights times 3/2 in their season. Rooms that change the controls
 (`RoomPacing.CONTROL_ROOMS`: Flip, Echo, Blink) unlock no earlier than `CONTROL_FLOOR` (40): their
 curve starts there at its weight there. After a new
-difficulty run, change the room's tier in `RoomPacing.TIERS` (and its port in
+difficulty run, rank the rooms again and change their tiers in `RoomPacing.TIERS` (and its port in
 `tools/fastsim-rs/sim/src/rooms/room_pacing.rs`).
 
 ## The deck
