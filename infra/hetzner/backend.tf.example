@@ -1,0 +1,18 @@
+# Keep the OpenTofu state in a Hetzner Object Storage bucket (S3-compatible).
+# Copy to backend.tf, fill in the bucket, then: tofu init -migrate-state
+# The keys come from the environment: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# (the bucket's S3 credentials from the Hetzner console).
+terraform {
+  backend "s3" {
+    bucket                      = "<STATE_BUCKET>"
+    key                         = "flapjaw/terraform.tfstate"
+    region                      = "eu-central"
+    endpoints                   = { s3 = "https://nbg1.your-objectstorage.com" }
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    skip_s3_checksum            = true
+    use_path_style              = true
+  }
+}

@@ -1,0 +1,29 @@
+# Staging: the namespace `flapjaw-staging`, on the same VM. On 2 GB it runs only
+# while you test (tools/deploy.ps1 -Env staging -Stop scales it to 0 after).
+# Secrets from .env.staging (git-ignored, copy deploy/.env.example).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flapjaw-staging
+resources:
+  - namespace.yaml
+  - ../../base
+secretGenerator:
+  - name: flapjaw-env
+    envs:
+      - .env.staging
+patches:
+  # A smaller disk, and no backups of test data.
+  - target:
+      kind: StatefulSet
+      name: postgres
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 2Gi
+  - target:
+      kind: CronJob
+      name: backup
+    patch: |-
+      - op: add
+        path: /spec/suspend
+        value: true

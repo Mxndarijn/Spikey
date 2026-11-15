@@ -1,0 +1,12 @@
+# Production: the namespace `flapjaw`. Secrets from .env.prod (git-ignored,
+# copy deploy/.env.example). Deploy with: tools/deploy.ps1 -Env prod
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: flapjaw
+resources:
+  - namespace.yaml
+  - ../../base
+secretGenerator:
+  - name: flapjaw-env
+    envs:
+      - .env.prod

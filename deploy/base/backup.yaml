@@ -1,0 +1,93 @@
+# The nightly backup: pg_dump (with --clean, so a restore replaces what is
+# there), gzipped, to the S3 bucket; dumps older than BACKUP_KEEP_DAYS go.
+# Timed away from the Godot check (03:35 vs every 10 minutes on the 0).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+spec:
+  schedule: "35 3 * * *"
+  timeZone: Europe/Amsterdam
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: backup
+            db-client: "true"
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+            - name: dump
+              emptyDir: {}
+          initContainers:
+            - name: dump
+              image: postgres:16.6-alpine
+              command: ["sh", "-c"]
+              args:
+                - pg_dump --clean --if-exists --no-owner "$DATABASE_URL" | gzip > /dump/flapjaw.sql.gz
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: flapjaw-env
+                      key: DATABASE_URL
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+              resources:
+                requests:
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+          containers:
+            - name: upload
+              image: amazon/aws-cli:2.22.0
+              command: ["bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  key="flapjaw-$(date -u +%Y-%m-%dT%H%M%SZ).sql.gz"
+                  aws s3 cp /dump/flapjaw.sql.gz "s3://$BUCKET/$NAMESPACE/$key" --endpoint-url "$ENDPOINT"
+                  echo "uploaded $key"
+                  cutoff=$(date -u -d "-${KEEP_DAYS:-14} days" +%Y-%m-%d)
+                  aws s3 ls "s3://$BUCKET/$NAMESPACE/" --endpoint-url "$ENDPOINT" | while read -r d t s name; do
+                    if [[ "$d" < "$cutoff" ]]; then
+                      aws s3 rm "s3://$BUCKET/$NAMESPACE/$name" --endpoint-url "$ENDPOINT"
+                    fi
+                  done
+              env:
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: ENDPOINT
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_S3_ENDPOINT}
+                - name: BUCKET
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_S3_BUCKET}
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_S3_REGION}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_S3_ACCESS_KEY}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_S3_SECRET_KEY}
+                - name: KEEP_DAYS
+                  valueFrom:
+                    secretKeyRef: {name: flapjaw-env, key: BACKUP_KEEP_DAYS, optional: true}
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+              resources:
+                requests:
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi

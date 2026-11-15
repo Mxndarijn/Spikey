@@ -1,0 +1,4 @@
+# Made by tools/deploy.ps1 for each deploy.
+.out/
+# The real settings and secrets (copy .env.example).
+overlays/*/.env.*

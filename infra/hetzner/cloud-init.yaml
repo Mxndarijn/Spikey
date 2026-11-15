@@ -1,0 +1,41 @@
+#cloud-config
+# First boot of the game's VM (infra/hetzner/main.tf): the data volume on
+# /mnt/data, a swap file, then k3s (one node, its Traefik, local-path storage
+# on the volume, metrics-server off to save memory, swap allowed).
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+write_files:
+  - path: /etc/rancher/k3s/config.yaml
+    permissions: "0600"
+    content: |
+      write-kubeconfig-mode: "0600"
+      tls-san:
+        - "${api_host}"
+      disable:
+        - metrics-server
+      default-local-storage-path: /mnt/data/k3s-storage
+      kubelet-arg:
+        - "fail-swap-on=false"
+  - path: /etc/sysctl.d/90-flapjaw.conf
+    content: |
+      vm.swappiness = 10
+runcmd:
+  # The volume is attached right after the VM is made: wait for it.
+  - |
+    dev=/dev/disk/by-id/scsi-0HC_Volume_${volume_id}
+    for i in $(seq 1 120); do [ -e "$dev" ] && break; sleep 5; done
+    mkdir -p /mnt/data
+    blkid "$dev" || mkfs.ext4 -F "$dev"
+    grep -q "$dev" /etc/fstab || echo "$dev /mnt/data ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+    mount -a
+    mkdir -p /mnt/data/k3s-storage
+  - |
+    if [ ! -f /swapfile ]; then
+      fallocate -l ${swap_gb}G /swapfile && chmod 600 /swapfile && mkswap /swapfile
+      echo "/swapfile none swap sw 0 0" >> /etc/fstab
+    fi
+    swapon -a
+    sysctl --system
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${k3s_version}" sh -s - server

@@ -1,0 +1,16 @@
+# One environment of the game (docs/DEPLOY.md). The overlays add the
+# namespace, the Secret (from their .env file) and their sizes; tools/deploy.ps1
+# pins the images to the git commit and sets the host. Every container has a
+# memory request and limit: the 2 GB VM's budget (docs/SERVER_MIGRATION.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: flapjaw
+resources:
+  - postgres.yaml
+  - server.yaml
+  - ingress.yaml
+  - godot-check.yaml
+  - backup.yaml
+  - networkpolicy.yaml

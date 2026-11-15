@@ -1,0 +1,7 @@
+# Cluster-wide pieces, applied once per cluster before an environment
+# (tools/deploy.ps1 does it): cert-manager at a pinned release and the Let's
+# Encrypt issuer. k3s brings Traefik itself.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
