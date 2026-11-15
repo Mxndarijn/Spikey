@@ -29,7 +29,7 @@ func _make_main(board: LeaderboardService) -> Node:
 	return main
 
 
-## A run as SupabaseLeaderboard.parse_run() gives it, from a bot recording.
+## A run as OnlineLeaderboard.parse_run() gives it, from a bot recording.
 static func _run_of(replay: Replay, look: Dictionary = {}) -> Dictionary:
 	return {
 		"run": 7,

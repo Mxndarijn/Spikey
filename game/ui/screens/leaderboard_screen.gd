@@ -18,7 +18,7 @@ signal play_pressed
 signal daily_run_pressed
 ## The player picked a new leaderboard name (already in the profile).
 signal name_changed(player_name: String)
-## Watch replay was pressed and the run arrived (SupabaseLeaderboard.parse_run()
+## Watch replay was pressed and the run arrived (OnlineLeaderboard.parse_run()
 ## shape; {} when it could not be loaded). main.gd plays it back.
 signal replay_requested(run: Dictionary)
 

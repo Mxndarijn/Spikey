@@ -3,7 +3,7 @@ extends RefCounted
 ## Plays a recorded run back: hands RunController a tap on exactly the ticks
 ## the run recorded, the same timing as Replay.simulate(). Taps come only from
 ## here while it is set; input does nothing. Also checks a leaderboard run
-## (SupabaseLeaderboard.parse_run output) before it is played.
+## (OnlineLeaderboard.parse_run output) before it is played.
 
 const EMPTY_MESSAGE := "Couldn't load this replay. Check your connection"
 const OLD_VERSION_MESSAGE := (

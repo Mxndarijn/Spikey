@@ -47,9 +47,10 @@ const BACK_TO_EARN := "earn"
 var profile_path := Profile.PATH
 ## Where Your runs keeps the player's runs; tests point this somewhere else.
 var runs_path := RunStore.PATH
-## The Supabase config that turns on the online boards and wallet; tests that
-## need the offline ones clear it, so a config on the PC changes nothing.
-var board_config_path := SupabaseClient.CONFIG_PATH
+## The backend config that turns on the online boards and wallet
+## (BackendClient); tests that need the offline ones clear it, so a config on
+## the PC changes nothing.
+var board_config_path := BackendClient.BACKEND_CONFIG_PATH
 var mode := Mode.MENU
 ## Seasonal rooms in play (Seasons.*), from today's date; tests can set it.
 var season := SeasonCalendar.today()
@@ -109,6 +110,7 @@ var _revive_count := false
 var _countdown := 0.0
 ## Game over empties the room behind its text and shows the flyer big.
 var _stage := GameOverStage.new()
+var _backend: BackendEvents
 
 @onready var _run: RunController = $RunController
 @onready var _room: RoomView = $RoomView
@@ -129,6 +131,7 @@ func _ready() -> void:
 	# A test's own save keeps its runs next to it, never in the player's file.
 	if runs_path == RunStore.PATH and profile_path != Profile.PATH:
 		runs_path = profile_path.get_basename() + "_runs.json"
+	_backend = BackendEvents.new(_profile, board_config_path, profile_path, runs_path)
 	_runs = RunStore.new(runs_path)
 	_make_services()
 	_look = RunLook.new(_profile, _room, _hazards, _trail, _bird, _crash, _menus, _hud, _audio)
@@ -140,6 +143,7 @@ func _ready() -> void:
 	_revive.revived.connect(_on_revive)
 	_alerts = BoardAlerts.new(_profile, push, _save_profile)
 	_popups = HomePopups.new(_profile, wallet, _menus, _save_profile, _show_earn)
+	_backend.watch(_runs, _popups, leaderboard, _first_start, show_home)
 	var board := show_leaderboard.bind(LeaderboardService.DAILY_RUN)
 	_daily = DailyRunFlow.new(
 		leaderboard, _menus, _hud, _popups, _start_daily_run, show_home, board, play_replay
@@ -191,7 +195,7 @@ func _ready() -> void:
 func _make_services() -> void:
 	if leaderboard == null:
 		leaderboard = AppServices.make_leaderboard(_profile, self, board_config_path)
-	var api := AppServices.supabase_of(leaderboard)
+	var api := AppServices.backend_of(leaderboard)
 	if wallet == null:
 		wallet = AppServices.make_wallet(_profile, api)
 	if store == null:
@@ -281,6 +285,7 @@ func show_home() -> void:
 	home.practice_requested.connect(start_picker_practice)
 	home.seed_requested.connect(start_seed_practice)
 	_menus.show_screen(home)
+	_popups.show_pending()
 	leaderboard.request_board(LeaderboardService.DAILY)
 	_daily.refresh()
 	# The balance and any daily prize waiting to be claimed.
@@ -341,7 +346,7 @@ func watch_run(record: RunRecord, back: Callable = Callable()) -> void:
 	play_replay(run)
 
 
-## Plays a leaderboard run (SupabaseLeaderboard.parse_run output) back in the
+## Plays a leaderboard run (OnlineLeaderboard.parse_run output) back in the
 ## live room, with that player's flyer, world, trail, portal and music. Taps
 ## come only from the recording. A run from another gameplay version, or an
 ## empty one (it didn't load), shows a message instead.
@@ -659,12 +664,7 @@ func set_world(id: String) -> void:
 ## First start: no pickers. The player gets the first free flyer and the
 ## default world, already in use, and goes straight to Home.
 func _first_start() -> void:
-	var flyer := Shop.starters(ItemKind.FLYER)[0]
-	_profile.grant(ItemKind.FLYER, flyer)
-	_profile.equip(ItemKind.FLYER, flyer)
-	_profile.grant(ItemKind.WORLD, ThemeCatalog.DEFAULT_ID)
-	_profile.equip(ItemKind.WORLD, ThemeCatalog.DEFAULT_ID)
-	_profile.onboarded = true
+	Catalog.give_starters(_profile)
 	_save_profile()
 	_look.use_equipped()
 

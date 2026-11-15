@@ -2,7 +2,7 @@ class_name ProfileSync
 extends RefCounted
 ## Keeps a copy of the player's save on the server (sync_profile in
 ## supabase/migrations/20261110150000_profiles.sql), so a reinstall that signs
-## in as the same player (SupabaseClient's device key) gets its flyers, worlds,
+## in as the same player (the BackendClient's device key) gets its flyers, worlds,
 ## gold and rooms back. The save on the phone stays the one the game plays
 ## from; this only sends it after it changed and takes in the server's copy
 ## when the two went apart (Profile.merge_cloud).
@@ -23,14 +23,14 @@ const CONFLICT := "conflict"
 const MAX_MERGES := 3
 
 var _profile: Profile
-var _api: SupabaseClient
+var _api: BackendClient
 var _busy := false
 var _again := false
 ## What the server last took, to skip a call when nothing changed.
 var _last_sent := ""
 
 
-func _init(profile: Profile, api: SupabaseClient) -> void:
+func _init(profile: Profile, api: BackendClient) -> void:
 	_profile = profile
 	_api = api
 

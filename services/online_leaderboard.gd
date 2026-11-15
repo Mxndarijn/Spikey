@@ -1,11 +1,10 @@
-class_name SupabaseLeaderboard
+class_name OnlineLeaderboard
 extends LeaderboardService
-## The real leaderboards for friends, on Supabase's free plan (supabase/migrations/,
-## setup in docs/LEADERBOARD_SETUP.md), through this phone's SupabaseClient.
-## Runs are sent with their seed and taps; a
-## checker replays each one (.github/workflows/verify-runs.yml, started by the
-## database when a run arrives) and the boards only show runs that passed, plus
-## the player's own runs still waiting.
+## The real leaderboards, through this phone's BackendClient: the Supabase
+## project (supabase/migrations/, docs/LEADERBOARD_SETUP.md) or our own server
+## (server/, docs/SERVER_MIGRATION.md), which take the same operations.
+## Runs are sent with their seed and taps; the server replays each one and the
+## boards only show runs that passed, plus the player's own runs still waiting.
 ## Runs that can't be sent (offline) wait in user:// and go out with the next
 ## board request or run.
 
@@ -20,7 +19,7 @@ const NEWER_ARGS := [["p_loadout"], ["p_season", "p_coins", "p_end_tick"]]
 ## Tests point this somewhere else.
 var queue_path := QUEUE_PATH
 ## The connection, shared with the wallet and push alerts.
-var client: SupabaseClient
+var client: BackendClient
 
 var _profile: Profile
 ## Runs not sent yet, oldest first (each the body of a submit_run call).
@@ -28,7 +27,7 @@ var _queue: Array[Dictionary] = []
 var _sending := false
 
 
-func _init(profile: Profile, p_client: SupabaseClient) -> void:
+func _init(profile: Profile, p_client: BackendClient) -> void:
 	_profile = profile
 	client = p_client
 

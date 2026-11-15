@@ -39,31 +39,41 @@ static func offline(profile: Profile) -> AppServices:
 	return s
 
 
-## Supabase when its config file is there (docs/LEADERBOARD_SETUP.md), else
-## samples. `host`: a node in the tree for the HTTP requests.
+## The online boards when a backend config is there (BackendClient: Supabase,
+## docs/LEADERBOARD_SETUP.md, or our own server, docs/DEPLOY.md), else samples.
+## `host`: a node in the tree for the HTTP requests. The older Supabase-only
+## config is read only next to the default path.
 static func make_leaderboard(
 	profile: Profile, host: Node, config_path: String
 ) -> LeaderboardService:
-	var config := SupabaseClient.load_config(config_path)
-	if config.is_empty():
+	var config := config_at(config_path)
+	var client := BackendClient.make(host, config)
+	if client == null:
 		return SampleLeaderboard.new(profile)
-	var online := SupabaseLeaderboard.new(
-		profile, SupabaseClient.new(host, config.url, config.anon_key)
-	)
+	var online := OnlineLeaderboard.new(profile, client)
 	online.restore()
 	return online
 
 
-## The Supabase connection the leaderboards use, shared with the wallet and
-## push alerts; null when the boards are samples (no server).
-static func supabase_of(leaderboard: LeaderboardService) -> SupabaseClient:
-	var online := leaderboard as SupabaseLeaderboard
+## The backend config at `config_path` ({} for none; see
+## BackendClient.load_backend_config).
+static func config_at(config_path: String) -> Dictionary:
+	var default := config_path == BackendClient.BACKEND_CONFIG_PATH
+	return BackendClient.load_backend_config(
+		config_path, SupabaseClient.CONFIG_PATH if default else ""
+	)
+
+
+## The connection the leaderboards use, shared with the wallet and push
+## alerts; null when the boards are samples (no server).
+static func backend_of(leaderboard: LeaderboardService) -> BackendClient:
+	var online := leaderboard as OnlineLeaderboard
 	return online.client if online != null else null
 
 
-## Diamonds on the server when the leaderboards are (Supabase), else in the save.
-static func make_wallet(profile: Profile, api: SupabaseClient) -> WalletService:
-	return SupabaseWallet.new(profile, api) if api != null else WalletService.new(profile)
+## Diamonds on the server when the leaderboards are, else in the save.
+static func make_wallet(profile: Profile, api: BackendClient) -> WalletService:
+	return OnlineWallet.new(profile, api) if api != null else WalletService.new(profile)
 
 
 ## A pretend store in debug builds with a local wallet, else a closed one
@@ -76,7 +86,7 @@ static func make_store(wallet: WalletService) -> StoreService:
 
 
 ## Firebase push in a phone build that carries the plugin, else no push.
-static func make_push(api: SupabaseClient) -> PushService:
+static func make_push(api: BackendClient) -> PushService:
 	if Engine.has_singleton(FIREBASE_SINGLETON):
 		# Loaded by path, like the ads: naming the class here crashes Godot 4.6
 		# beta 2 on exit when every script is loaded (tools/ci/load_all.gd).

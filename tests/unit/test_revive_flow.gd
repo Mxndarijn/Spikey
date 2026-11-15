@@ -408,7 +408,7 @@ func test_a_revived_run_replays_with_its_revive() -> void:
 			)
 		)
 	)
-	var run := SupabaseLeaderboard.parse_run(answer)
+	var run := OnlineLeaderboard.parse_run(answer)
 	assert_eq(run.revives, [recorded.revive_ticks[0]], "the revive tick is read as an int")
 	var rc := RunController.new()
 	var events: Array[String] = []
@@ -447,9 +447,9 @@ func test_recorded_revives_verify() -> void:
 
 func test_only_revived_runs_send_revives() -> void:
 	var p := Profile.new()
-	var plain := SupabaseLeaderboard.run_body(p, 5, {"seed": 1, "taps": [], "revives": []}, 0)
+	var plain := OnlineLeaderboard.run_body(p, 5, {"seed": 1, "taps": [], "revives": []}, 0)
 	assert_false(plain.has("p_revives"), "older databases still take a plain run")
-	var revived := SupabaseLeaderboard.run_body(p, 5, {"seed": 1, "taps": [], "revives": [80]}, 0)
+	var revived := OnlineLeaderboard.run_body(p, 5, {"seed": 1, "taps": [], "revives": [80]}, 0)
 	assert_eq(revived.p_revives, [80])
 
 
@@ -461,7 +461,7 @@ func test_boards_mark_revived_runs() -> void:
 			{"rank": 2, "name": "Pip", "flyer": "pip", "score": 68},
 		],
 	}
-	var b := SupabaseLeaderboard.parse_board(LeaderboardService.DAILY, answer)
+	var b := OnlineLeaderboard.parse_board(LeaderboardService.DAILY, answer)
 	assert_true(b.entries[0].revived)
 	assert_false(b.entries[1].revived, "missing reads as not revived")
 	var marked := LeaderboardRow.new(b.entries[0])

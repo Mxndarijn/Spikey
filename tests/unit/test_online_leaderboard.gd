@@ -22,11 +22,11 @@ func _write(path: String, text: String) -> void:
 	f.close()
 
 
-func _client(p: Profile) -> SupabaseLeaderboard:
+func _client(p: Profile) -> OnlineLeaderboard:
 	# No host node: every request fails at once, like a phone without internet.
 	var api := SupabaseClient.new(null, "https://example.supabase.co/", "public-key")
 	api.session_path = SESSION
-	var c := SupabaseLeaderboard.new(p, api)
+	var c := OnlineLeaderboard.new(p, api)
 	c.queue_path = QUEUE
 	return c
 
@@ -67,7 +67,7 @@ func test_reads_a_board_from_the_server_answer() -> void:
 			)
 		)
 	)
-	var b := SupabaseLeaderboard.parse_board(LeaderboardService.DAILY, answer)
+	var b := OnlineLeaderboard.parse_board(LeaderboardService.DAILY, answer)
 	assert_eq(b.status, LeaderboardBoard.Status.OK)
 	assert_eq(b.entries.size(), 2)
 	assert_eq(b.entries[0].player_name, "Noor")
@@ -84,16 +84,16 @@ func test_reads_a_board_from_the_server_answer() -> void:
 	var nobody: Variant = JSON.parse_string(
 		'{"entries": [], "me": null, "players": 0, "resets_in_s": -1}'
 	)
-	var empty := SupabaseLeaderboard.parse_board(LeaderboardService.ALL_TIME, nobody)
+	var empty := OnlineLeaderboard.parse_board(LeaderboardService.ALL_TIME, nobody)
 	assert_true(empty.is_empty(), "an empty board")
 	assert_true(empty.me == null, "no run yet")
-	var broken := SupabaseLeaderboard.parse_board(LeaderboardService.DAILY, "oops")
+	var broken := OnlineLeaderboard.parse_board(LeaderboardService.DAILY, "oops")
 	assert_eq(broken.status, LeaderboardBoard.Status.OFFLINE, "a strange answer reads as offline")
 
 
 func test_a_run_is_sent_with_its_seed_taps_name_and_flyer() -> void:
 	var body := (
-		SupabaseLeaderboard
+		OnlineLeaderboard
 		. run_body(
 			_profile(),
 			42,
@@ -122,14 +122,14 @@ func test_a_run_is_sent_with_its_seed_taps_name_and_flyer() -> void:
 
 
 func test_older_databases_get_the_arguments_they_know() -> void:
-	var body := SupabaseLeaderboard.run_body(_profile(), 42, {"seed": 1, "taps": []}, 0)
-	var no_check := SupabaseLeaderboard.older_body(body)
+	var body := OnlineLeaderboard.run_body(_profile(), 42, {"seed": 1, "taps": []}, 0)
+	var no_check := OnlineLeaderboard.older_body(body)
 	assert_false(no_check.has("p_season") or no_check.has("p_coins"), "before verified runs")
 	assert_true(no_check.has("p_loadout"), "drops only the newest arguments first")
-	var oldest := SupabaseLeaderboard.older_body(no_check)
+	var oldest := OnlineLeaderboard.older_body(no_check)
 	assert_false(oldest.has("p_loadout"), "before loadouts")
 	assert_true(oldest.has("p_taps"))
-	assert_eq(SupabaseLeaderboard.older_body(oldest), {}, "nothing left to drop")
+	assert_eq(OnlineLeaderboard.older_body(oldest), {}, "nothing left to drop")
 	assert_true(body.has("p_season"), "the original body is left alone")
 
 
@@ -153,7 +153,7 @@ func test_reads_a_run_for_its_replay() -> void:
 			+ ' "taps": [4, 18, 40], "loadout": {"flyer": "pip", "world": "ice"}}'
 		)
 	)
-	var run := SupabaseLeaderboard.parse_run(answer)
+	var run := OnlineLeaderboard.parse_run(answer)
 	assert_eq(run.run, 12)
 	assert_eq(run.seed, 77)
 	assert_eq(run.gameplay_version, 9)
@@ -162,8 +162,8 @@ func test_reads_a_run_for_its_replay() -> void:
 	assert_false(run.has("season"), "an old run without a season replays in today's")
 	answer.season = float(Seasons.HALLOWEEN)
 	answer.erase("loadout")
-	assert_eq(SupabaseLeaderboard.parse_run(answer).season, Seasons.HALLOWEEN, "its own season")
-	assert_eq(SupabaseLeaderboard.parse_run(null), {}, "no run")
+	assert_eq(OnlineLeaderboard.parse_run(answer).season, Seasons.HALLOWEEN, "its own season")
+	assert_eq(OnlineLeaderboard.parse_run(null), {}, "no run")
 
 
 ## Offline: runs stay on the phone, survive a restart, and the board says offline.
@@ -220,7 +220,7 @@ func test_runs_sent_after_a_restart_keep_whole_numbers() -> void:
 	var daily: Dictionary = again._queue[0]
 	assert_eq(daily["p_seed"], 3000000000, "the day's seed as it was")
 	assert_eq(daily["p_try"], daily_try.id, "the try's id stays text")
-	assert_eq(daily[SupabaseLeaderboard.RPC_KEY], "submit_daily_run")
+	assert_eq(daily[OnlineLeaderboard.RPC_KEY], "submit_daily_run")
 	assert_eq(again._queue[1]["p_revives"], [80])
 	_clean()
 

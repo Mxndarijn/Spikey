@@ -1,8 +1,10 @@
 class_name HomePopups
 extends RefCounted
 ## The popups Home shows by itself: the prize popup for unclaimed diamonds
-## (WalletService.synced) and, once after a reset, yesterday's Daily Run when
-## the player had a try on it but won nothing (a prize says it instead).
+## (WalletService.synced), once after a reset, yesterday's Daily Run when
+## the player had a try on it but won nothing (a prize says it instead), and
+## the notices (NoticePopup: fresh start, please update, moved to another
+## phone), which wait for Home when they arrive elsewhere.
 
 ## Watch yesterday's winner (its LeaderboardBoard.Entry.run_id).
 signal watch_requested(run_id: int)
@@ -14,6 +16,9 @@ var _menus: MenuLayer
 var _save: Callable
 ## Opens the Wallet's Earn free tab.
 var _show_earn: Callable
+## Notices (NoticePopup ids) waiting for Home, oldest first, and the one shown.
+var _pending: Array[String] = []
+var _card: NoticePopup
 
 
 func _init(
@@ -86,3 +91,41 @@ func on_daily(info: DailyRunInfo) -> void:
 		return
 	var popup := home.show_daily_result(past)
 	popup.watch_requested.connect(watch_requested.emit)
+
+
+## Shows a notice (NoticePopup id) on Home now, or the next time Home shows.
+func notice(id: String) -> void:
+	if id in _pending or (_has_card() and _card.id == id):
+		return
+	_pending.append(id)
+	show_pending()
+
+
+## The next waiting notice, when Home is up and none is showing.
+func show_pending() -> void:
+	var home := _home()
+	if home == null or _has_card() or _pending.is_empty():
+		return
+	var card := NoticePopup.new(_pending.pop_front())
+	_card = card
+	card.closed.connect(
+		func() -> void:
+			card.queue_free()
+			_card = null
+			show_pending()
+	)
+	home.add_child(card)
+
+
+## Whether Home is the screen showing.
+func home_open() -> bool:
+	return _home() != null
+
+
+## The notice on Home now, or null.
+func notice_card() -> NoticePopup:
+	return _card if _has_card() else null
+
+
+func _has_card() -> bool:
+	return _card != null and is_instance_valid(_card) and not _card.is_queued_for_deletion()

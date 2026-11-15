@@ -1,9 +1,10 @@
-class_name SupabaseWallet
+class_name OnlineWallet
 extends WalletService
-## Diamonds kept on Supabase (supabase/migrations/20261110100000_diamonds.sql).
+## Diamonds kept on the server (Supabase: supabase/migrations/20261110100000_diamonds.sql;
+## our own server: server/).
 ## The server holds the balance, pays the daily top-10 prizes and checks every
 ## spend; `Profile.diamonds` is only a copy for the screens. Shares the
-## SupabaseClient with the leaderboards, so a phone is the same player on both.
+## BackendClient with the leaderboards, so a phone is the same player on both.
 ## Offline, or on a database without the migration yet: the copy stays as it
 ## is, nothing can be spent and no prizes show.
 
@@ -11,12 +12,12 @@ extends WalletService
 ## request id every time, so the server charges once at most.
 const SPEND_TRIES := 3
 
-var _api: SupabaseClient
+var _api: BackendClient
 ## The last status the server sent, shown again while offline.
 var _last_status: EarnStatus
 
 
-func _init(profile: Profile, api: SupabaseClient) -> void:
+func _init(profile: Profile, api: BackendClient) -> void:
 	super(profile)
 	_api = api
 

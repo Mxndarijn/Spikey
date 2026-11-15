@@ -283,7 +283,7 @@ func test_rows_with_a_dark_plate_have_white_text() -> void:
 
 func test_boards_carry_plates() -> void:
 	var board := (
-		SupabaseLeaderboard
+		OnlineLeaderboard
 		. parse_board(
 			LeaderboardService.DAILY,
 			{

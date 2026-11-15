@@ -1,5 +1,5 @@
 class_name SupabaseClient
-extends RefCounted
+extends BackendClient
 ## This phone's connection to the Supabase project (supabase/migrations/, setup
 ## in docs/LEADERBOARD_SETUP.md): the anonymous player's session and calls to
 ## the database's functions. The leaderboards, the wallet and push alerts all
@@ -16,19 +16,14 @@ extends RefCounted
 ## there the key is also kept in the Keychain, which outlives a reinstall (the
 ## FlapjawKeychain engine module, tools/engine/modules/flapjaw_keychain).
 
-## A sign-in or token refresh finished (ok: there is a valid session now).
-signal session_checked(ok: bool)
-
 const CONFIG_PATH := "res://services/supabase_config.json"
 const SESSION_PATH := "user://supabase_session.json"
 const DEVICE_PATH := "user://device_key.json"
 ## The Edge Function that turns the device key into a sign-in.
 const DEVICE_FUNCTION := "/functions/v1/device-key"
-## The iOS engine's Keychain singleton, and the name the key is saved under
-## there (as the same {"key", "email"} JSON as the file).
-const KEYCHAIN_SINGLETON := "FlapjawKeychain"
+## The name the key is saved under in the iOS Keychain (as the same
+## {"key", "email"} JSON as the file).
 const KEYCHAIN_ITEM := "device_key"
-const TIMEOUT_S := 10.0
 ## Refresh the access token this long before it runs out.
 const REFRESH_MARGIN_S := 60
 ## Auth error codes that mean the saved session can never work again; anything
@@ -38,18 +33,7 @@ const SESSION_GONE: Array[String] = [
 	"refresh_token_not_found", "session_not_found", "session_expired", "user_not_found"
 ]
 
-## Tests point this somewhere else.
-var session_path := SESSION_PATH
-var device_path := DEVICE_PATH
-## The Keychain (read(name) -> String, write(name, value) -> bool), or null
-## where there is none (every build but iOS). Looked up by name, never by class.
-var keychain: Object = (
-	Engine.get_singleton(KEYCHAIN_SINGLETON) if Engine.has_singleton(KEYCHAIN_SINGLETON) else null
-)
-
-var _url := ""
 var _key := ""
-var _host: Node
 var _access := ""
 var _refresh := ""
 var _expires_at := 0
@@ -64,6 +48,8 @@ var _enrolling := false
 ## url: "https://<project>.supabase.co"; key: the project's public anon key.
 ## host: a node in the tree to hang the HTTP requests on.
 func _init(host: Node, url: String, key: String) -> void:
+	session_path = SESSION_PATH
+	device_path = DEVICE_PATH
 	_host = host
 	_url = url.trim_suffix("/")
 	_key = key
@@ -174,6 +160,10 @@ func _renew_session(now: int) -> bool:
 	return not _access.is_empty()
 
 
+func kind() -> String:
+	return KIND_SUPABASE
+
+
 ## Whether a saved device key can sign in (the server took it).
 func has_device_login() -> bool:
 	return not _device_key.is_empty() and not _device_email.is_empty()
@@ -216,30 +206,6 @@ static func device_entry(saved: Variant) -> Dictionary:
 	return {"key": key, "email": str(d.get("email", ""))}
 
 
-## "Fj-" and 64 hex characters from 32 random bytes (the function's KEY).
-static func new_device_key() -> String:
-	return "Fj-" + Crypto.new().generate_random_bytes(32).hex_encode()
-
-
-static func is_device_key(key: String) -> bool:
-	if key.length() != 67 or not key.begins_with("Fj-"):
-		return false
-	for c in key.substr(3):
-		if c not in "0123456789abcdef":
-			return false
-	return true
-
-
-## Whether the auth server answered and said no (as opposed to no answer, or
-## the server failing): then the next way in is worth a try.
-static func refused(res: Dictionary) -> bool:
-	return int(res.get("code", 0)) >= 400 and int(res.get("code", 0)) < 500
-
-
-static func _rate_limited(res: Dictionary) -> bool:
-	return int(res.get("code", 0)) == 429
-
-
 ## Whether an auth answer says the session can never be refreshed again.
 static func session_gone(res: Dictionary) -> bool:
 	if not res.data is Dictionary:
@@ -256,29 +222,8 @@ func call_db(function: String, body: Dictionary) -> Dictionary:
 	return await post("/rest/v1/rpc/" + function, body, true)
 
 
-## One POST. Returns {"ok": bool, "code": HTTP status (0: no answer), "data": parsed JSON}.
-func post(path: String, body: Dictionary, signed_in: bool) -> Dictionary:
-	if _host == null or not _host.is_inside_tree():
-		return {"ok": false, "code": 0, "data": null}
-	var req := HTTPRequest.new()
-	req.timeout = TIMEOUT_S
-	_host.add_child(req)
+func _headers(signed_in: bool) -> PackedStringArray:
 	var headers := PackedStringArray(["apikey: " + _key, "Content-Type: application/json"])
 	if signed_in:
 		headers.append("Authorization: Bearer " + _access)
-	var err := req.request(_url + path, headers, HTTPClient.METHOD_POST, JSON.stringify(body))
-	if err != OK:
-		req.queue_free()
-		return {"ok": false, "code": 0, "data": null}
-	var answer: Array = await req.request_completed
-	req.queue_free()
-	var code := int(answer[1])
-	var text := (answer[3] as PackedByteArray).get_string_from_utf8()
-	var ok := int(answer[0]) == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 300
-	return {"ok": ok, "code": code, "data": parse(text)}
-
-
-## Parsed JSON, or null for an empty or broken text (never logs an error).
-static func parse(text: String) -> Variant:
-	var json := JSON.new()
-	return json.data if not text.is_empty() and json.parse(text) == OK else null
+	return headers

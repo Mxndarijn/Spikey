@@ -35,6 +35,12 @@ func set_saved(id: int, on: bool) -> bool:
 	return ok
 
 
+## Forgets every run (the player moved to another phone).
+func clear() -> void:
+	history = RunHistory.new()
+	_write()
+
+
 func _write() -> void:
 	SafeFile.write_json(_path, history.to_dict())
 	changed.emit()

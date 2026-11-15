@@ -386,10 +386,10 @@ Checkout ..> Shop
 Checkout ..> WalletService : premium items, converting
 Checkout ..> Profile
 Catalog ..> Profile : repair()
-LeaderboardService <|-- SupabaseLeaderboard
-WalletService <|-- SupabaseWallet
-SupabaseLeaderboard ..> SupabaseClient
-SupabaseWallet ..> SupabaseClient
+LeaderboardService <|-- OnlineLeaderboard
+WalletService <|-- OnlineWallet
+OnlineLeaderboard ..> SupabaseClient
+OnlineWallet ..> SupabaseClient
 PushService ..> SupabaseClient
 ProfileSync ..> SupabaseClient
 ProfileSync ..> Profile : merge_cloud()

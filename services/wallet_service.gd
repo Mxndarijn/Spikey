@@ -4,7 +4,7 @@ extends RefCounted
 ## interface and read the balance from `Profile.diamonds`, which every wallet
 ## keeps up to date.
 ## This base class is the local wallet: the balance lives only in the save
-## file (no Supabase project set up, and tests). SupabaseWallet keeps it on
+## file (no Supabase project set up, and tests). OnlineWallet keeps it on
 ## the server, where a save file can't change it, and the save holds a copy.
 ## spend() and claim() may wait for the server: call them with `await`.
 

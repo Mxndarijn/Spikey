@@ -151,7 +151,7 @@ func test_parses_a_try() -> void:
 
 func test_wallet_reads_daily_run_prizes() -> void:
 	var w := (
-		SupabaseWallet
+		OnlineWallet
 		. parse_wallet(
 			{
 				"diamonds": 5,
@@ -194,10 +194,10 @@ func test_migration_matches_the_game() -> void:
 			"%s is not callable by the game" % fn
 		)
 	# Every argument the game sends is one the function takes.
-	var body := SupabaseLeaderboard.daily_body(Profile.new(), DailyTry.new(), 5, {})
+	var body := OnlineLeaderboard.daily_body(Profile.new(), DailyTry.new(), 5, {})
 	var head := sql.substr(sql.find("function public.submit_daily_run("), 500)
 	for key: String in body:
-		if key != SupabaseLeaderboard.RPC_KEY:
+		if key != OnlineLeaderboard.RPC_KEY:
 			assert_true(head.contains(key + " "), "submit_daily_run takes %s" % key)
 	assert_true(sql.contains("select %d\n$$" % DailyRunRules.TRIES_PER_DAY), "the same tries")
 	assert_true(sql.contains("select public.spikey_daily_prize(p_rank)"), "the same tiers as Today")

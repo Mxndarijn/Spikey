@@ -268,7 +268,7 @@ than the final score. Hazards are drawn from `sim.room.hazards`, so the fresh
 room shows by itself.
 
 Boards: `LeaderboardBoard.Entry.revived` puts a small ink heart next to the
-score in rows and on the podium. `SupabaseLeaderboard` sends `p_revives` only
+score in rows and on the podium. `OnlineLeaderboard` sends `p_revives` only
 for a revived run, and keeps such a run in its queue while the database
 answers 404 (the migration is not deployed yet).
 

@@ -36,7 +36,7 @@ with no policies, so the public key can only call the granted functions.
 | `get_board(board)`: `daily` (Today), `daily_run`, `alltime` | Best run per player, top 100, `ok` runs for everyone plus the caller's own `pending`, the caller's rank, player count, `resets_in_s`. Daily Run rows of others are `locked` until the day is over. Premium looks only when bought (`spikey_may_show`, `spikey_paid_loadout`). Plates, revived flag. |
 | `get_run(run)` | The replay (seed, taps, revives, season, loadout) for Watch; never a rejected run; Daily Run runs locked until the reset. |
 | Checker: `worker_pending_runs`, `worker_record_results` (service role), `.github/workflows/verify-runs.yml` + `server/verify_batch.gd` (`RunChecker`), woken by `spikey_wake_checker` (pg_net -> GitHub dispatch, token in `worker_settings`), every 10 min as a safety net | Replay every pending run with the sim. Same score, coins and end tick and a season in play around that day: `ok`. Different: `rejected` with a reason. Older gameplay version: `outdated`. Newer than the checker: stays `pending`. Today this takes about 2 minutes (a GitHub job starting Godot); on our own server it can be well under a second. |
-| Queued runs (client): `user://pending_runs.json` in `SupabaseLeaderboard` | The client side stays. The server must keep the contract the queue relies on: 4xx (not 401) = bad data, dropped; 404 = "function unknown", so the run waits or is sent with fewer arguments (`NEWER_ARGS`); 401 = sign in again; anything else = try later. A run played offline counts for its own day if sent within 2 days. **Idempotency is missing today**: a run whose answer was lost is sent twice. The new server should take a client run id and ignore repeats. |
+| Queued runs (client): `user://pending_runs.json` in `OnlineLeaderboard` | The client side stays. The server must keep the contract the queue relies on: 4xx (not 401) = bad data, dropped; 404 = "function unknown", so the run waits or is sent with fewer arguments (`NEWER_ARGS`); 401 = sign in again; anything else = try later. A run played offline counts for its own day if sent within 2 days. **Idempotency is missing today**: a run whose answer was lost is sent twice. The new server should take a client run id and ignore repeats. |
 
 ### 1.3 Daily Run
 
@@ -125,7 +125,7 @@ BackendClient (services/backend_client.gd, new, abstract)
   FlapjawClient    (new: POST <url>/v1/<op>, Bearer token, device-key sign-in)
 ```
 
-- Rename `SupabaseLeaderboard` -> `OnlineLeaderboard`, `SupabaseWallet` ->
+- Rename `OnlineLeaderboard` -> `OnlineLeaderboard`, `OnlineWallet` ->
   `OnlineWallet` (or keep the names) and type them against `BackendClient`.
 - The new server keeps **the same operation names, argument names and JSON
   answers** as the SQL functions, and the same status-code meanings (404 =

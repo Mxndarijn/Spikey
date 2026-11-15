@@ -14,7 +14,8 @@ const PATH := "user://profile.json"
 ## 3: diamonds and bought packs.
 ## 4: the copy on the server (cloud_revision, cloud_coins).
 ## 5: per-room reached and death counts (room_reached, room_deaths).
-const VERSION := 5
+## 6: the server this save belongs to (backend_server, the one-time reset).
+const VERSION := 6
 ## Keys that belong to this phone, not to the player: never sent to the server
 ## and never taken from it (cloud_dict, merge_cloud). Diamonds live in the
 ## server's wallet; the prize spot and the free revives are checked against the
@@ -32,6 +33,7 @@ const LOCAL_KEYS: Array[String] = [
 	"test_ads",
 	"cloud_revision",
 	"cloud_coins",
+	"backend_server",
 ]
 
 ## Gold: collected in runs (Economy).
@@ -78,6 +80,9 @@ var daily_run_seen := ""
 ## spent since is `coins - cloud_coins`, which a merge adds to the server's gold.
 var cloud_revision := 0
 var cloud_coins := 0
+## The server this save was last used with (the backend config's server_id;
+## "" for Supabase or none). A new one means a fresh start (BackendReset).
+var backend_server := ""
 ## Keys a newer version of the game saved that this one doesn't know: written
 ## back as they were, so opening an older build never deletes them.
 var _unknown := {}
@@ -217,6 +222,7 @@ func to_dict() -> Dictionary:
 				"daily_run_seen": daily_run_seen,
 				"cloud_revision": cloud_revision,
 				"cloud_coins": cloud_coins,
+				"backend_server": backend_server,
 			},
 			true
 		)
@@ -255,6 +261,7 @@ static func from_dict(saved: Dictionary) -> Profile:
 	p.daily_run_seen = str(d.get("daily_run_seen", "")).left(10)
 	p.cloud_revision = maxi(int(d.get("cloud_revision", 0)), 0)
 	p.cloud_coins = maxi(int(d.get("cloud_coins", 0)), 0)
+	p.backend_server = str(d.get("backend_server", "")).left(64)
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in ItemKind.ALL:

@@ -79,7 +79,7 @@ func test_local_wallet_spends_from_the_save() -> void:
 
 func test_reads_the_server_wallet() -> void:
 	var w := (
-		SupabaseWallet
+		OnlineWallet
 		. parse_wallet(
 			{
 				"diamonds": 7.0,
@@ -97,7 +97,7 @@ func test_reads_the_server_wallet() -> void:
 		w.prizes, [{"kind": "daily", "day": "2026-11-09", "rank": 2, "score": 87, "diamonds": 2}]
 	)
 	var mixed := (
-		SupabaseWallet
+		OnlineWallet
 		. parse_wallet(
 			{
 				"diamonds": 0,
@@ -119,11 +119,11 @@ func test_reads_the_server_wallet() -> void:
 		],
 		"only the kinds the game knows, and only ones that pay"
 	)
-	assert_eq(SupabaseWallet.parse_wallet(null), {}, "no answer")
-	assert_eq(SupabaseWallet.parse_wallet({"message": "not found"}), {}, "not a wallet")
-	assert_eq(SupabaseWallet.parse_wallet({"diamonds": -3}).diamonds, 0)
+	assert_eq(OnlineWallet.parse_wallet(null), {}, "no answer")
+	assert_eq(OnlineWallet.parse_wallet({"message": "not found"}), {}, "not a wallet")
+	assert_eq(OnlineWallet.parse_wallet({"diamonds": -3}).diamonds, 0)
 	assert_eq(
-		SupabaseWallet.spend_body(30, WalletService.ITEM, "world:neon", "r"),
+		OnlineWallet.spend_body(30, WalletService.ITEM, "world:neon", "r"),
 		{"p_amount": 30, "p_reason": "item", "p_ref": "world:neon", "p_request": "r"}
 	)
 
@@ -131,8 +131,8 @@ func test_reads_the_server_wallet() -> void:
 ## Every spend gets its own request id, so the server can tell a repeat (a
 ## lost answer asked again) from a new spend.
 func test_spends_carry_a_fresh_request_id() -> void:
-	var a := SupabaseWallet.new_request_id()
-	var b := SupabaseWallet.new_request_id()
+	var a := OnlineWallet.new_request_id()
+	var b := OnlineWallet.new_request_id()
 	assert_ne(a, b)
 	var uuid := RegEx.create_from_string(
 		"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"

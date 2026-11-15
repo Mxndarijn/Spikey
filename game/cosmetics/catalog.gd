@@ -18,6 +18,16 @@ static var _crashes: Array[CrashStyle] = []
 static var _plates: Array[PlateStyle] = []
 
 
+## The first start: the free flyer and the default world, owned and worn.
+static func give_starters(profile: Profile) -> void:
+	var flyer := Shop.starters(ItemKind.FLYER)[0]
+	profile.grant(ItemKind.FLYER, flyer)
+	profile.equip(ItemKind.FLYER, flyer)
+	profile.grant(ItemKind.WORLD, ThemeCatalog.DEFAULT_ID)
+	profile.equip(ItemKind.WORLD, ThemeCatalog.DEFAULT_ID)
+	profile.onboarded = true
+
+
 ## Swaps equipped looks that no longer exist (a portal style, crash effect or
 ## name plate that was retired) for the default of their kind, so a save from
 ## an older build always shows something. Returns true if it changed any.

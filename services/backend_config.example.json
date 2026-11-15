@@ -1,0 +1,5 @@
+{
+  "kind": "flapjaw",
+  "url": "https://<API_HOST>",
+  "server_id": "<SERVER_ID>"
+}

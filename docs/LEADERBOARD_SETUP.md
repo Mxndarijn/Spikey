@@ -68,7 +68,7 @@ Restore; scores are kept.
 
 ## How it works
 
-- `services/supabase_leaderboard.gd` signs the phone in anonymously once and
+- `services/online_leaderboard.gd` signs the phone in anonymously once and
   keeps the session in `user://supabase_session.json`.
 - **Same player after a reinstall.** Each player also gets a device key: 32
   random bytes in `user://device_key.json`. The Edge Function

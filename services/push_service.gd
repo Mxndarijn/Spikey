@@ -26,13 +26,13 @@ const TEST_ANSWERS := {
 ## The last thing that went wrong, for the debug screen.
 var last_error := ""
 
-var _api: SupabaseClient
+var _api: BackendClient
 var _token := ""
 var _platform := ""
 
 
 ## api: the Supabase session to register with, or null (no server).
-func _init(api: SupabaseClient = null) -> void:
+func _init(api: BackendClient = null) -> void:
 	_api = api
 
 
