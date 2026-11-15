@@ -23,6 +23,8 @@ var profile_sync: ProfileSync
 var checkout: Checkout
 ## The music and sounds; null in tests that build screens on their own.
 var audio: AudioDirector
+## Move to a new phone; null unless the boards are on our own server.
+var phone_move: PhoneMove
 
 
 ## Everything offline: sample boards, the local wallet, a closed store, no

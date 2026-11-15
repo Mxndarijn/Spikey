@@ -143,7 +143,7 @@ func _ready() -> void:
 	_revive.revived.connect(_on_revive)
 	_alerts = BoardAlerts.new(_profile, push, _save_profile)
 	_popups = HomePopups.new(_profile, wallet, _menus, _save_profile, _show_earn)
-	_backend.watch(_runs, _popups, leaderboard, _first_start, show_home)
+	_backend.watch(_runs, _popups, _services, _first_start, show_home)
 	var board := show_leaderboard.bind(LeaderboardService.DAILY_RUN)
 	_daily = DailyRunFlow.new(
 		leaderboard, _menus, _hud, _popups, _start_daily_run, show_home, board, play_replay

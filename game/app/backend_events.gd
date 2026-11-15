@@ -15,23 +15,22 @@ var _popups: HomePopups
 ## The first start (free flyer and world) and Home, for a new player here.
 var _first_start: Callable
 var _home: Callable
+var _profile_path := ""
 
 
 ## Runs the one-time fresh start, before anything signs in or reads the
 ## runs file.
 func _init(profile: Profile, config_path: String, profile_path: String, runs_path: String) -> void:
 	_profile = profile
+	_profile_path = profile_path
 	fresh = fresh_start(profile, config_path, profile_path, runs_path)
 
 
 ## Listens to the backend the leaderboards use (none for sample boards), and
 ## shows the fresh start's notice.
+## On our own server it also sets up Move to a new phone (services.phone_move).
 func watch(
-	runs: RunStore,
-	popups: HomePopups,
-	leaderboard: LeaderboardService,
-	first_start: Callable,
-	home: Callable
+	runs: RunStore, popups: HomePopups, services: AppServices, first_start: Callable, home: Callable
 ) -> void:
 	_runs = runs
 	_popups = popups
@@ -39,11 +38,15 @@ func watch(
 	_home = home
 	if fresh:
 		popups.notice(NoticePopup.FRESH_START)
-	var api := AppServices.backend_of(leaderboard)
+	var api := AppServices.backend_of(services.leaderboard)
 	if api == null:
 		return
 	api.update_required.connect(popups.notice.bind(NoticePopup.UPDATE))
 	api.account_moved.connect(on_account_moved)
+	if api is FlapjawClient:
+		var save := func() -> void: _profile.save(_profile_path)
+		services.phone_move = PhoneMove.new(api, _profile, services, runs, save, first_start)
+		services.phone_move.moved.connect(home)
 
 
 ## The one-time fresh start. True when the save held progress the player will

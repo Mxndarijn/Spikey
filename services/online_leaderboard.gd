@@ -234,6 +234,12 @@ func pending_runs() -> int:
 	return _queue.size()
 
 
+## Sends the runs waiting on this phone now; how many still wait after.
+func send_waiting() -> int:
+	await _send_queue()
+	return _queue.size()
+
+
 func _load_board(board_id: String) -> void:
 	if not await client.ensure_session():
 		_deliver(LeaderboardBoard.make(board_id, LeaderboardBoard.Status.OFFLINE))

@@ -35,6 +35,15 @@ func set_saved(id: int, on: bool) -> bool:
 	return ok
 
 
+## Your runs become these (oldest first): the runs of a player who just moved
+## to this phone.
+func replace(records: Array[RunRecord]) -> void:
+	history = RunHistory.new()
+	for r in records:
+		history.add(r)
+	_write()
+
+
 ## Forgets every run (the player moved to another phone).
 func clear() -> void:
 	history = RunHistory.new()

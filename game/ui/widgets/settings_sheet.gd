@@ -5,6 +5,8 @@ extends Control
 ##   Sound: Music and Sounds, each a round on/off button with its icon, the
 ##          name, a volume slider (0 to 100) and the value.
 ##   Play:  Haptics, Reduced flashing, Color-blind spikes, Large buttons.
+##   Account (on our own server only): Move to a new phone, a page in the
+##          same card (PhoneMovePage).
 ##   About at the bottom: one full-width row that opens the About page in the
 ##          same card: the credits, Ad choices (only where the player has an ad
 ##          privacy choice to change, Europe; opens Google's form) and Debug
@@ -53,6 +55,8 @@ var _switches: Dictionary[PlayerSettings.Switch, SettingSwitch] = {}
 var _main_page := VBoxContainer.new()
 var _about_page := VBoxContainer.new()
 var _debug_page := VBoxContainer.new()
+var _move_page := VBoxContainer.new()
+var _move: PhoneMovePage
 var _debug: DebugPage
 ## The page Back on the debug page returns to.
 var _debug_from: Control = _main_page
@@ -85,7 +89,7 @@ func _init(profile: Profile, services: AppServices) -> void:
 	var pages := VBoxContainer.new()
 	pages.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(pages)
-	for page: VBoxContainer in [_main_page, _about_page, _debug_page]:
+	for page: VBoxContainer in [_main_page, _about_page, _debug_page, _move_page]:
 		page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		page.add_theme_constant_override("separation", UiTokens.SPACE_2)
 		pages.add_child(page)
@@ -122,6 +126,11 @@ func _build_main() -> void:
 		_main_page.add_child(s)
 		_switches[key] = s
 	_main_page.add_child(UiKit.spacer(0, true))
+	if _services.phone_move != null:
+		_main_page.add_child(_section("Account"))
+		var move := _link("MovePhone", "Move to a new phone")
+		move.pressed.connect(show_move.bind(true))
+		_main_page.add_child(move)
 	_main_page.add_child(_divider())
 	var about := _link("About", "About")
 	about.pressed.connect(show_about.bind(true))
@@ -370,6 +379,24 @@ func show_debug(value: bool) -> void:
 	_show_page(_debug_page if value else _debug_from)
 
 
+## Move to a new phone (built the first time it opens), or back to the settings.
+func show_move(value: bool) -> void:
+	if value and _move == null:
+		var back := UiKit.icon_button(BACK_ICON, "Back")
+		_move_page.add_child(_head("New phone", back, show_move.bind(false), true))
+		_move = PhoneMovePage.new(_services.phone_move)
+		_move.finished.connect(close_dialog)
+		_move_page.add_child(_move)
+	if value:
+		_move.show_step(PhoneMovePage.Step.CHOOSE)
+	_show_page(_move_page if value else _main_page)
+
+
+## The open Move to a new phone page, or null.
+func move_page() -> PhoneMovePage:
+	return _move if _move_page.visible else null
+
+
 ## The open debug page, or null.
 func debug_page() -> DebugPage:
 	return _debug if _debug_page.visible else null
@@ -388,7 +415,7 @@ func _on_title_input(event: InputEvent) -> void:
 
 
 func _show_page(page: Control) -> void:
-	for p: Control in [_main_page, _about_page, _debug_page]:
+	for p: Control in [_main_page, _about_page, _debug_page, _move_page]:
 		p.visible = p == page
 
 
