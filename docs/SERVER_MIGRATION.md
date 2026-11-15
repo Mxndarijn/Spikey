@@ -164,18 +164,18 @@ controller; the one add-on is **cert-manager** with a Let's Encrypt
 ClusterIssuer (HTTP-01). The API host stays a placeholder,
 `api.<your-domain>`, until the user picks one.
 
-Manifests (in the repo, `deploy/k8s/` with Kustomize, applied by the user with
-`kubectl apply -k deploy/k8s`; no session deploys):
+Manifests (in the repo under `deploy/`, see 3b; every deploy goes through
+`tools/deploy.ps1`, run by the user; no session deploys):
 
 - Namespace `flapjaw`.
 - Deployment `server`: the Rust server and verifier, 1 replica to start,
   readiness and liveness on `/v1/ping`.
-- Deployment `godot-worker`: headless Godot that re-checks rejected runs.
+- CronJob `godot-check`: headless Godot that re-checks runs the Rust check
+  rejected, every 10 minutes, exiting at once when nothing waits.
 - Service (ClusterIP) and Ingress: host `api.<your-domain>`, class `traefik`,
   annotation `cert-manager.io/cluster-issuer: letsencrypt`; the ClusterIssuer.
-- Secret from a git-ignored `.env`:
-  `kubectl -n flapjaw create secret generic flapjaw-env --from-env-file=.env`.
-  A checked-in `.env.example` lists every key (database password, token
+- Secret made by Kustomize's `secretGenerator` from a git-ignored
+  `.env.<env>`. A checked-in `.env.example` lists every key (database password, token
   signing key, Daily Run secret, Firebase service account, backup bucket keys).
 - StatefulSet `postgres`: Postgres 16, one pod, its volume on k3s local-path
   storage or a Hetzner volume.
@@ -198,9 +198,86 @@ but is one more thing to run on one node.
 and survives losing the VM, its disk or the namespace. A Hetzner volume is
 cheaper but sits next to the database; fine as a second, local copy.
 
-Rough monthly cost (estimates, not quotes): the VM EUR 5 to 10 (2 vCPU /
-4 GB), an optional volume about EUR 1, Object Storage about EUR 5, a domain
-about EUR 1 (EUR 10 a year). Total about EUR 11 to 17.
+Rough monthly cost (estimates, not quotes): the VM EUR 4 to 8 (2 GB by
+default, 4 GB a little more), an optional volume about EUR 1, Object Storage
+about EUR 5, a domain about EUR 1 (EUR 10 a year). Total about EUR 10 to 15.
+
+**VM size (default 2 GB)**: fits with a memory limit on every pod, the Godot
+check as an on-demand CronJob, Postgres tuned small and swap as a safety net.
+4 GB is the comfortable option (staging beside prod, no tuning to watch); the
+price gap is small. x86 types only (ARM needs arm64 builds of the server and
+Godot). Estimates, measured in rollout step 3:
+
+| On the VM | Steady | Limit | Notes |
+|---|---|---|---|
+| Linux, sshd, containerd | 180 MB | - | Ubuntu minimal |
+| k3s server and kubelet | 550 MB | - | SQLite datastore, metrics-server off |
+| CoreDNS, local-path | 50 MB | 170 MB | k3s defaults |
+| Traefik | 70 MB | 128 MB | built into k3s |
+| cert-manager (3 pods) | 90 MB | 160 MB | |
+| Postgres 16 | 200 MB | 384 MB | `shared_buffers=128MB`, `max_connections=20`, `work_mem=4MB`, `maintenance_work_mem=64MB`, `effective_cache_size=512MB` |
+| Rust API and verifier | 50 MB | 192 MB | pool of at most 10 connections |
+| Godot check (CronJob) | 0 | 384 MB | about 250 MB only while running, every 10 min, exits when nothing waits |
+| Backup (CronJob) | 0 | 128 MB | about 40 MB at night, timed away from the Godot check |
+| **Total** | **about 1190 MB** | | peak about 1440 MB; about 600 MB left plus swap |
+
+Swap: a 2 GB swap file from cloud-init, `vm.swappiness=10`, kubelet
+`fail-swap-on=false`. Every container has a memory request and limit (the
+deploy script refuses a manifest without). Staging on 2 GB runs only while
+testing and is scaled to 0 after.
+
+## 3b. Infrastructure as code
+
+The VM and everything on it are described in the repo, so the game is always
+deployed the same way and can be rebuilt from nothing.
+
+```
+repo (your PC)                                 Hetzner
+  infra/hetzner  --tofu apply-->  Hetzner API --> VM + firewall + volume + DNS
+  (OpenTofu + cloud-init)                          cloud-init: k3s + swap
+  tofu state -------------------> Hetzner bucket
+  tools/deploy.ps1 --1 build + push (tag = git sha)--> container registry
+                   --2 kubectl apply -k deploy/overlays/prod--> k3s (pulls image)
+                   --3 rollout status, 4 smoke test--> api.<domain>/v1/ping
+  deploy/ (Kustomize) + server/ + .env.prod (git-ignored) feed the script
+  k3s --nightly pg_dump--> Hetzner Object Storage
+```
+
+1. **The VM: OpenTofu** (`infra/hetzner/`, `hcloud` provider): the server
+   (type, image, location), a firewall (80 and 443 open; SSH and the
+   Kubernetes API only from the user's IP), the Postgres volume and the DNS
+   record (Hetzner DNS, or wherever the domain lives). `cloud-init.yaml`
+   installs k3s (metrics-server off, swap allowed) and makes the swap file; it
+   holds no secrets. State in a Hetzner bucket (S3 backend), so losing the PC
+   loses nothing; a local git-ignored state file also works.
+2. **On the cluster: Kustomize** (`deploy/`): `base/` holds the namespace, the
+   server Deployment, the Godot check and backup CronJobs, Service, Ingress,
+   the Postgres StatefulSet, NetworkPolicy, and cert-manager (its release
+   manifest at a pinned version) with the ClusterIssuer. `overlays/staging`
+   and `overlays/prod` set namespace, host, sizes and image tag. Images are
+   pinned to the git sha, never `latest`.
+3. **One deploy script**, `tools/deploy.ps1 -Env prod`: refuse a dirty tree,
+   build and push the image tagged with the git sha, set the tag in the
+   overlay, run database migrations as a Job, `kubectl apply -k
+   deploy/overlays/prod`, wait for `kubectl rollout status`, smoke test
+   (`/v1/ping` answers that sha and the gameplay version). `-Rollback`
+   redeploys the previous sha; `-Sha <sha>` deploys any earlier one.
+   Migrations are forward only and work with the previous server version, so a
+   rollback never undoes one.
+4. **Secrets as env files**: `.env.staging` and `.env.prod`, git-ignored, made
+   into Secrets by Kustomize's `secretGenerator` (a hash in the name, so a
+   changed secret restarts its pods). `.env.example` lists every key.
+5. **GitOps (Argo CD, Flux) later, not now**: for one VM and one person it
+   costs a few hundred MB of the 2 GB and one more thing to upgrade; the script
+   already makes every deploy the same. Worth it with more environments,
+   people, or deploys from CI.
+
+**Rebuilding from scratch if the VM dies**: (1) `tofu apply`, about 5 minutes,
+then copy the kubeconfig; (2) `tools/deploy.ps1 -Env prod`, the same sha as
+before, with a new Let's Encrypt certificate; (3) `tools/restore.ps1 -Env prod`
+scales the server to 0, loads the newest dump from the bucket, scales back up;
+(4) the smoke test and a board load. At most a day of runs is lost (since the
+last dump). Rehearsed once on staging before the cutover.
 
 The repo gets `server/` as a Cargo workspace member (next to the GDScript
 verifier that is there now) or `backend/`, the manifests, and a local dev
@@ -268,12 +345,14 @@ switched off, so it is the rollback the whole way. No GitHub checker fallback.
    `get_board`, `get_run`, `set_player`, the Rust checker. Contract fixtures
    pass against both the SQL (`tools/db_test.ps1`) and the new server.
 3. **The rest, local**: Daily Run, wallet, prizes, earn status and ladder,
-   profiles, push; `supabase/tests/*.sql` cases ported; the manifests, checked
-   with a dry run.
-4. **On the VM** (the user creates it, installs k3s and cert-manager, fills
-   `.env`, creates the Secret, applies the manifests, with a step-by-step
-   guide): debug builds point at the new server, release builds stay on
-   Supabase. Rollback: `kubectl delete namespace flapjaw`.
+   profiles, push; `supabase/tests/*.sql` cases ported; the OpenTofu files,
+   `deploy/` overlays and `tools/deploy.ps1`, checked with `tofu validate` and a
+   server-side dry run; memory measured on a test VM.
+4. **On the VM** (the user fills `.env.staging` and `.env.prod`, runs `tofu
+   apply` and `tools/deploy.ps1`, with a step-by-step guide, and rehearses the
+   rebuild once on staging): debug builds point at the new server, release
+   builds stay on Supabase. Rollback: `tools/deploy.ps1 -Rollback`; `tofu
+   destroy` removes it all.
 5. **Cutover**: a release build on the new server with the reset on, forced
    update. Old builds keep talking to Supabase until it is switched off, so
    friends are told to update. Rollback: ship a build with the Supabase config.
@@ -286,8 +365,9 @@ Then, as its own branch: **Move to a new phone** (`docs/ACCOUNT_TRANSFER.md`).
 ## 7. Decisions and open questions
 
 Decided: Rust; fresh start with a one-time phone reset; the game's own Hetzner
-VM with k3s, Traefik, cert-manager and Let's Encrypt; Postgres; Secrets from a
-git-ignored `.env`; Kustomize with kubectl; no GitHub checker fallback; the
+VM with k3s, Traefik, cert-manager and Let's Encrypt; Postgres; Secrets from
+git-ignored `.env.<env>` files; Kustomize with kubectl, all of it as code
+(OpenTofu, Kustomize, one deploy script); a 2 GB VM by default; no GitHub checker fallback; the
 Amsterdam midnight reset stays.
 
 Open:
@@ -296,6 +376,9 @@ Open:
 2. **Backups**: is a Hetzner Object Storage bucket (about EUR 5 a month) fine?
 3. **The reset**: clear Your runs too, keep sound and accessibility settings
    and the name?
-4. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
-5. **Move to a new phone**: approve the transfer-code-first plan
+4. **Container registry**: GitHub Container Registry (free, public images like
+   the repo, which holds no secrets), or a private registry?
+5. **VM size**: 2 GB as planned, or 4 GB for staging beside prod?
+6. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
+7. **Move to a new phone**: approve the transfer-code-first plan
    (`docs/ACCOUNT_TRANSFER.md`)?
