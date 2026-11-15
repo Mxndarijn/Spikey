@@ -153,7 +153,7 @@ async fn operations_answer_like_supabase() {
     let t = Some(p.access.as_str());
     let (status, _) = call(&app, "/v1/set_player", t, json!({"p_name": "apitester", "p_flyer": "buzz"})).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, board) = call(&app, "/v1/get_board", t, json!({"p_board": "alltime"})).await;
+    let (status, board) = call(&app, "/v1/get_board", t, json!({"p_board": "all_time"})).await;
     assert_eq!(status, StatusCode::OK, "{board}");
     assert!(board["entries"].is_array());
     let (status, _) = call(&app, "/v1/get_board", t, json!({"p_board": "daily", "p_newer": 1})).await;
