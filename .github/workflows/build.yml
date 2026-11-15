@@ -66,6 +66,10 @@ env:
   IOS_BUNDLE_ID: com.mxndarijn.spikey
 
 jobs:
+  # A tag push has no inputs: every inputs.x is null, and in an expression null == false
+  # (both read as 0), so `inputs.x != false` would skip the job. Each rule that reads a
+  # default-on input says `github.event_name == 'push' || inputs.x` instead: a tag builds
+  # everything, like a manual run with the defaults.
   # Pushes to main run Check (check.yml) on their own. When this commit already has a Check
   # run, the builds use its result instead of testing the same code again: a passed run counts,
   # a running one is waited for. Only full-tier Check runs count: a push to main or a manual
@@ -77,7 +81,7 @@ jobs:
     name: Find the tests of this commit
     if: >-
       inputs.skip_check != true
-      && (inputs.android != false || (inputs.ios != false && inputs.upload != false))
+      && (github.event_name == 'push' || inputs.android || (inputs.ios && inputs.upload))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -134,13 +138,13 @@ jobs:
     if: >-
       always() && needs.check_reuse.outputs.passed != 'true'
       && inputs.skip_check != true
-      && (inputs.android != false || (inputs.ios != false && inputs.upload != false))
+      && (github.event_name == 'push' || inputs.android || (inputs.ios && inputs.upload))
     uses: ./.github/workflows/check.yml
 
   # The small 2D-only engine (tools/engine), cached between runs.
   android_engine:
     name: Android engine
-    if: inputs.android != false
+    if: (github.event_name == 'push' || inputs.android)
     uses: ./.github/workflows/engine.yml
     with:
       platform: android
@@ -404,8 +408,8 @@ jobs:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       # Tags always publish and announce; a manual run can switch either off.
-      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release != false }}
-      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.release != false && inputs.announce != false) }}
+      WANT_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' || inputs.release) }}
+      WANT_ANNOUNCE: ${{ startsWith(github.ref, 'refs/tags/v') || ((github.event_name == 'push' || inputs.release) && (github.event_name == 'push' || inputs.announce)) }}
 
     steps:
       - name: Checkout repository
@@ -491,7 +495,7 @@ jobs:
   # Godot's stock engine (build 58) starts fine. Tags and plain runs use the stock engine.
   ios_engine:
     name: iOS engine
-    if: inputs.ios != false && inputs.small_engine == true
+    if: (github.event_name == 'push' || inputs.ios) && inputs.small_engine == true
     uses: ./.github/workflows/engine.yml
     with:
       platform: ios
@@ -503,7 +507,7 @@ jobs:
     needs: ios_engine
     # The engine job is skipped for a stock-engine build.
     if: >-
-      always() && inputs.ios != false
+      always() && (github.event_name == 'push' || inputs.ios)
       && (needs.ios_engine.result == 'success' || needs.ios_engine.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -674,7 +678,7 @@ jobs:
     if: >-
       always() && needs.ios_export.result == 'success'
       && (needs.check.result == 'success' || needs.check_reuse.outputs.passed == 'true'
-          || inputs.skip_check == true || inputs.upload == false)
+          || inputs.skip_check == true || (github.event_name != 'push' && !inputs.upload))
     # macOS is required to build iOS. Apple requires the iOS 26 SDK (Xcode 26) for App Store
     # Connect uploads since 2026-04-28; bump the image if latest-stable resolves lower.
     runs-on: macos-15
@@ -799,7 +803,7 @@ jobs:
         working-directory: .github/ios
         env:
           # A manual run with "upload" off stops after building and signing.
-          SKIP_UPLOAD: ${{ inputs.upload == false && 'true' || 'false' }}
+          SKIP_UPLOAD: ${{ (github.event_name != 'push' && !inputs.upload) && 'true' || 'false' }}
 
       - name: Keep the IPA
         if: success()
@@ -818,7 +822,7 @@ jobs:
       - name: Announce on Discord
         # Optional, same DISCORD_WEBHOOK_URL secret as the Android workflow. No file: an IPA
         # only installs through TestFlight.
-        if: success() && env.DISCORD_WEBHOOK_URL != '' && inputs.upload != false
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && (github.event_name == 'push' || inputs.upload)
         uses: ./.github/actions/discord-embed
         with:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}

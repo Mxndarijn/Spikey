@@ -40,7 +40,9 @@ jobs:
       - name: Set up the Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" asks GitHub's API for the newest release and failed once on its
+          # rate limit (v0.1.1 release). 3.1.0 applied score_ladder.sql. Raise it on purpose.
+          version: 3.1.0
 
       - name: Push migrations
         run: |
