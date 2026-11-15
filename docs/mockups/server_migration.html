@@ -62,6 +62,7 @@ code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
 nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
 nav.toc a { color: var(--accent); text-decoration: none; }
 nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+a { color: var(--accent); }
 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -124,9 +125,11 @@ footer { font-size: 13px; color: var(--muted); }
   <h1>Moving from Supabase to our own server</h1>
   <p class="lede">What the game uses Supabase for today, how a new server can sit next to it during the move, how runs stay verified, and the steps to switch. Nothing is built yet; the open questions at the end decide the next step.</p>
   <div class="status">
-    <span class="chip hold">Waiting on the remaining answers</span>
-    <span class="chip">Decided: fresh start, no data carried over</span>
-    <span class="chip">Decided: a new node in your Hetzner Kubernetes cluster</span>
+    <span class="chip hold">Waiting on your go-ahead</span>
+    <span class="chip">Decided: Rust</span>
+    <span class="chip">Decided: fresh start, phones reset once</span>
+    <span class="chip">Decided: own Hetzner VM with k3s, kubectl + Kustomize</span>
+    <span class="chip">Decided: Amsterdam midnight reset stays</span>
     <span class="chip">Branch <span class="mono">claude/server-backend-e4288c</span></span>
     <span class="chip">From <span class="mono">next-features-3</span> @ 6714cff</span>
     <span class="chip">Nothing deployed · Supabase untouched</span>
@@ -137,7 +140,9 @@ footer { font-size: 13px; color: var(--muted); }
     <a href="#features">Features</a>
     <a href="#stack">Stack and hosting</a>
     <a href="#verify">Replay check</a>
+    <a href="#reset">Phone reset</a>
     <a href="#rollout">Rollout</a>
+    <a href="https://claude.ai/artifact/VWL3jnUqwuM1tTWU8HynT5">Move to a new phone (separate plan)</a>
     <a href="#questions">Open questions</a>
   </nav>
 </header>
@@ -172,20 +177,21 @@ flowchart TB
   S --> I["BackendClient interface<br/>restore · ensure_session · call_db"]
   I -.->|"during the move"| C["SupabaseClient"]
   I --> F["FlapjawClient<br/>POST /v1/{op}"]
-  F --> IN["cluster Ingress + TLS<br/>(your existing setup)"]
-  subgraph NS["namespace flapjaw · on the new Hetzner node"]
+  F --> IN["k3s Traefik Ingress<br/>TLS: cert-manager + Let's Encrypt"]
+  subgraph NS["namespace flapjaw · k3s on its own Hetzner VM"]
     SVC["Service"] --> SV["Deployment: Flapjaw server<br/>Rust · axum · sqlx"]
-    SV --> DB[("Postgres 16<br/>StatefulSet or operator")]
+    SV --> DB[("Postgres 16<br/>StatefulSet")]
     SV --> VR["verifier<br/>fastsim-rs sim crate<br/>one per gameplay version"]
     VR -->|"on reject only"| GW["Deployment: Godot worker<br/>verify_batch.gd"]
     SV --> JOBS["background jobs<br/>settle days · alerts"]
-    SEC["Secrets<br/>DB, daily secret, Firebase"] -.-> SV
+    SEC["Secret from .env<br/>DB, keys, daily secret, Firebase"] -.-> SV
+    CJ["CronJob<br/>nightly pg_dump"] --> DB
   end
   IN --> SVC
   JOBS --> FCM["Firebase<br/>Cloud Messaging"]
-  DB --> BK["nightly backup<br/>object storage"]
+  CJ --> BK["Hetzner Object Storage<br/>14 daily dumps"]
       </pre></div>
-      <p class="note">Same operation names, arguments, JSON answers and status codes as the SQL functions. Runs are checked in-process as they arrive. The game's pods run only on its own node (nodeSelector plus a taint), so it never competes with your other application.</p>
+      <p class="note">Same operation names, arguments, JSON answers and status codes as the SQL functions. Runs are checked in-process as they arrive. The game runs on its own VM, apart from your other application, as a one-node k3s cluster.</p>
     </div>
   </div>
 </section>
@@ -373,6 +379,7 @@ sequenceDiagram
       <tr><td>Paid items, gold check</td><td><code>spikey_paid_items</code>, <code>spikey_gold_ceiling</code></td><td class="ep">in sync_profile, get_board</td><td>premium_items, diamond_ledger</td><td>Premium looks only if bought; gold excess recorded, not enforced</td><td><span class="risk mid">Medium</span></td></tr>
       <tr><td>Push alerts</td><td><code>register_push</code>, <code>set_push_enabled</code>, <code>send_test_push</code>, <code>send-alerts</code></td><td class="ep">/v1/register_push<br/>/v1/set_push_enabled<br/>/v1/send_test_push</td><td>push_devices, spot_alerts, spot_state</td><td>Token and platform checks; FCM service account stays secret on the server</td><td><span class="risk low">Low</span></td></tr>
       <tr><td>Keep-alive</td><td><code>ping</code>, keepalive workflow</td><td class="ep">/v1/ping</td><td>none</td><td>Not needed on the cluster; the readiness probe uses ping</td><td><span class="risk low">Low</span></td></tr>
+      <tr><td>Move to a new phone <b>(new)</b></td><td>not possible today</td><td class="ep">/v1/transfer/create<br/>/v1/transfer/cancel<br/>/v1/transfer/preview<br/>/v1/transfer/redeem</td><td>transfer_codes</td><td>One-time code, hashed, 24 h, rate limits. <a href="https://claude.ai/artifact/VWL3jnUqwuM1tTWU8HynT5">Separate plan</a></td><td><span class="risk mid">Medium</span></td></tr>
       <tr><td>Database tests</td><td><code>tools/db_test.ps1</code>, <code>supabase/tests/*.sql</code></td><td class="ep">server tests</td><td>throwaway Postgres</td><td>Same cases ported; contract fixtures shared by both clients</td><td><span class="risk low">Low</span></td></tr>
     </tbody>
   </table>
@@ -386,7 +393,7 @@ sequenceDiagram
   <table class="stack-table">
     <thead><tr><th>Option</th><th>For</th><th>Against</th><th>Replay check</th></tr></thead>
     <tbody>
-      <tr class="pick"><td><span class="pick-label">Recommended</span><br/><b>A. Rust</b> · axum + sqlx + Postgres</td><td>Links the fastsim-rs sim crate; one small binary; typed end to end; SQL checked at build time</td><td>Second production language next to GDScript; slower builds</td><td>In-process, microseconds per run</td></tr>
+      <tr class="pick"><td><span class="pick-label">Decided</span><br/><b>A. Rust</b> · axum + sqlx + Postgres</td><td>Links the fastsim-rs sim crate; one small binary; typed end to end; SQL checked at build time</td><td>Second production language next to GDScript; slower builds</td><td>In-process, microseconds per run</td></tr>
       <tr><td><b>B. TypeScript</b> · Node/Deno + Postgres</td><td>Quick to write; the two Edge Functions are TypeScript already</td><td>Must shell out for the replay</td><td>Calls the Rust or Godot binary</td></tr>
       <tr><td><b>C. Go</b> · net/http + Postgres</td><td>Simple to run, fast builds</td><td>Shares no code with the game or tools</td><td>Calls the Rust or Godot binary</td></tr>
       <tr><td><b>D. Keep the SQL</b>, thin HTTP layer in front</td><td>Least rewriting: the plpgsql moves as is</td><td>Keeps logic in the hardest-to-test layer; auth still to write</td><td>Separate worker, like today</td></tr>
@@ -394,46 +401,55 @@ sequenceDiagram
   </table>
   </div>
 
-  <h3>Where it runs: one extra node in your Hetzner Kubernetes cluster</h3>
-  <p>The game gets its own namespace, <code>flapjaw</code>, on a new Hetzner VM joined to the cluster you already run with kubectl. The node is labelled and tainted for the game (<code>flapjaw=true</code>, taint <code>dedicated=flapjaw:NoSchedule</code>); every game pod has the matching nodeSelector and toleration, so the game and your other application never share a machine. The cluster's existing ingress controller and certificates are reused.</p>
+  <h3>Where it runs: its own Hetzner VM with k3s</h3>
+  <p>The game gets its own Hetzner VM, apart from your other application, running <b>k3s</b> as a one-node cluster that you manage with kubectl. Everything lives in the namespace <code>flapjaw</code>. k3s ships the <b>Traefik</b> ingress controller, so the only add-on is <b>cert-manager</b> with a Let's Encrypt ClusterIssuer (HTTP-01). The API host stays a placeholder, <code>api.&lt;your-domain&gt;</code>, until you pick one. If the game ever needs more machines, a second k3s node joins the same cluster.</p>
   <div class="scroll">
   <table class="stack-table">
     <thead><tr><th>Manifest</th><th>What it is</th></tr></thead>
     <tbody>
-      <tr><td class="ep">Namespace</td><td><code>flapjaw</code>, with a ResourceQuota so the game can't outgrow its node</td></tr>
+      <tr><td class="ep">Namespace</td><td><code>flapjaw</code></td></tr>
       <tr><td class="ep">Deployment server</td><td>The Rust server and its verifier, 1 replica to start (stateless, can go to 2). Readiness and liveness on <code>/v1/ping</code></td></tr>
       <tr><td class="ep">Deployment godot-worker</td><td>Headless Godot that re-checks rejected runs; small, 1 replica</td></tr>
       <tr><td class="ep">Service</td><td>ClusterIP in front of the server</td></tr>
-      <tr><td class="ep">Ingress</td><td>One host (for example <code>api.&lt;your domain&gt;</code>) on your ingress class, TLS from your existing certificate setup</td></tr>
-      <tr><td class="ep">Secret</td><td>Database password, token signing key, Daily Run secret, Firebase service account</td></tr>
-      <tr><td class="ep">Postgres</td><td>See the options below; its volume on the Hetzner CSI driver</td></tr>
-      <tr><td class="ep">CronJob backup</td><td>Nightly <code>pg_dump</code> to object storage (not needed with an operator that backs up itself)</td></tr>
+      <tr><td class="ep">Ingress</td><td>Host <code>api.&lt;your-domain&gt;</code>, ingress class <code>traefik</code>, annotation <code>cert-manager.io/cluster-issuer: letsencrypt</code></td></tr>
+      <tr><td class="ep">ClusterIssuer</td><td>Let's Encrypt, HTTP-01 through Traefik (installed once with cert-manager)</td></tr>
+      <tr><td class="ep">Secret</td><td>Made from a git-ignored <code>.env</code>: <code>kubectl -n flapjaw create secret generic flapjaw-env --from-env-file=.env</code>. A checked-in <code>.env.example</code> lists every key: database password, token signing key, Daily Run secret, Firebase service account, backup bucket keys</td></tr>
+      <tr><td class="ep">StatefulSet postgres</td><td>Postgres 16, one pod, its volume on k3s's local-path storage or a Hetzner volume</td></tr>
+      <tr><td class="ep">CronJob backup</td><td>Nightly <code>pg_dump</code>, gzipped, uploaded to Hetzner Object Storage; keeps 14 days</td></tr>
       <tr><td class="ep">NetworkPolicy</td><td>Only the ingress reaches the server; only the server reaches Postgres</td></tr>
     </tbody>
   </table>
   </div>
-  <p class="note">The manifests live in the repo (for example <code>deploy/k8s/</code> with Kustomize, applied with <code>kubectl apply -k</code>). You apply them; no session deploys anything.</p>
+  <p class="note">The manifests live in the repo (<code>deploy/k8s/</code>, Kustomize, applied with <code>kubectl apply -k deploy/k8s</code>). You apply them; no session deploys anything. <code>.env</code> is in <code>.gitignore</code>; only <code>.env.example</code> is checked in.</p>
 
-  <h3>Postgres in the cluster</h3>
+  <h3>Database: Postgres, not MySQL</h3>
   <div class="scroll">
   <table class="stack-table">
-    <thead><tr><th>Option</th><th>For</th><th>Against</th></tr></thead>
+    <thead><tr><th></th><th>Postgres 16 (recommended)</th><th>MySQL 8</th></tr></thead>
     <tbody>
-      <tr class="pick"><td><span class="pick-label">Recommended at this size</span><br/><b>Plain StatefulSet</b> · postgres:16 + volume</td><td>Simplest, one pod, nothing new to learn; a pg_dump CronJob covers backups</td><td>No automatic failover; restore is by hand from the dump</td></tr>
-      <tr><td><b>CloudNativePG operator</b></td><td>Backups and point-in-time restore to object storage built in, failover, upgrades</td><td>An operator to install and run, unless your cluster already has it (then this one)</td></tr>
-      <tr><td><b>Your existing Postgres</b>, a new database and user</td><td>No new database pods</td><td>Ties the game to your other application's database and its maintenance windows</td></tr>
-      <tr><td><b>Managed Postgres outside the cluster</b></td><td>Someone else runs it</td><td>Another provider and bill, more latency, about €15 or more a month</td></tr>
+      <tr><td>Today's schema</td><td>Runs as it is: the 18 migrations use <code>jsonb</code> (taps, loadouts, saves), <code>timestamptz</code> with <code>at time zone 'Europe/Amsterdam'</code> for the board day, and partial indexes (pending runs, unclaimed prizes)</td><td>Every table and query rewritten: JSON works differently, time zones need loaded zone tables, no partial indexes</td></tr>
+      <tr><td>Tests</td><td><code>tools/db_test.ps1</code> and <code>supabase/tests</code> already run on <code>postgres:16-alpine</code></td><td>New test setup</td></tr>
+      <tr><td>Rust (sqlx)</td><td>First-class: compile-time checked queries, <code>jsonb</code> to <code>serde_json</code>, arrays</td><td>Supported, fewer types</td></tr>
+      <tr><td>For it</td><td>Least work and least risk</td><td>Same engine as your other application, if that matters to you</td></tr>
     </tbody>
   </table>
+  </div>
+  <p class="note">Run as a plain StatefulSet: one pod is plenty at this size. An operator (CloudNativePG) would add failover and point-in-time restore, but it is one more thing to run on a one-node cluster.</p>
+
+  <h3>Backups</h3>
+  <div class="cards">
+    <div class="card pick"><span class="pick-label">Recommended</span><h3>Object storage</h3><p class="note">A CronJob runs <code>pg_dump</code> every night and uploads it to a Hetzner Object Storage bucket, keeping 14 days. The copy lives off the VM, so it survives losing the VM, its disk or the namespace. Restore: <code>psql</code> the dump into a fresh Postgres.</p></div>
+    <div class="card"><h3>A Hetzner volume</h3><p class="note">Cheaper and simpler, but the dumps sit next to the database: a deleted volume, a broken VM or a wrong <code>kubectl delete</code> can take both. Fine as a second, local copy.</p></div>
   </div>
 
   <h3>Rough monthly cost</h3>
   <div class="cards">
-    <div class="card pick"><h3>One extra Hetzner cloud VM</h3><div class="price">€5–10</div><p class="note">2 vCPU / 4 GB is plenty for the server, Postgres and the Godot worker. Larger if your cluster uses a bigger node type.</p></div>
-    <div class="card"><h3>Volume for Postgres</h3><div class="price">about €1</div><p class="note">10 to 20 GB block storage.</p></div>
-    <div class="card"><h3>Backups</h3><div class="price">€0–5</div><p class="note">Object storage for the nightly dump; nothing extra if your cluster already has a bucket.</p></div>
+    <div class="card pick"><h3>One Hetzner cloud VM</h3><div class="price">€5–10</div><p class="note">2 vCPU / 4 GB runs k3s, the server, Postgres and the Godot worker.</p></div>
+    <div class="card"><h3>Volume for Postgres</h3><div class="price">about €1</div><p class="note">Optional: 10 to 20 GB, if the VM's own disk isn't used.</p></div>
+    <div class="card"><h3>Object Storage for backups</h3><div class="price">about €5</div><p class="note">The bucket's base price; the dumps are tiny.</p></div>
+    <div class="card"><h3>Domain</h3><div class="price">about €1</div><p class="note">About €10 a year, if you don't already own one to use.</p></div>
   </div>
-  <p class="note">Total about €6–16 a month. Rough estimates for planning, not checked quotes; Hetzner's own price list decides. Ingress, certificates and the domain come from your existing setup.</p>
+  <p class="note">Total about €11–17 a month. Rough estimates for planning, not checked quotes; Hetzner's own price list decides. Traefik, cert-manager and Let's Encrypt cost nothing.</p>
 </section>
 
 <section id="verify">
@@ -454,28 +470,36 @@ sequenceDiagram
   </div>
   <p>With a fresh start there is no data to copy and no freeze. Supabase keeps running untouched until the switch-off, so it is the rollback the whole way.</p>
   <ol class="timeline">
-    <li><div class="dot"><span>1</span></div><div class="step"><span class="phase">Build · no server</span><h3>BackendClient interface and an update prompt</h3><p>SupabaseClient implements the interface; the config picks the backend. Also a minimum-version answer the game shows as "please update", so this build and later ones can be told to update. Today's builds have no such prompt. No other behaviour change, check passes.</p><p class="rb"><b>Rollback:</b> revert the commits.</p></div></li>
+    <li><div class="dot"><span>1</span></div><div class="step"><span class="phase">Build · no server</span><h3>BackendClient interface, update prompt, one-time reset</h3><p>SupabaseClient implements the interface; the config picks the backend. A minimum-version answer the game shows as "please update" (today's builds have no such prompt). The one-time local reset, switched off until the cutover build (see below). No other behaviour change, check passes.</p><p class="rb"><b>Rollback:</b> revert the commits.</p></div></li>
     <li><div class="dot"><span>2</span></div><div class="step"><span class="phase">Build · local only</span><h3>Server skeleton</h3><p>Auth with device key, ping, submit_run, get_board, get_run, set_player, the Rust checker. Contract fixtures pass against both the SQL (via <code>tools/db_test.ps1</code>) and the new server.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
     <li><div class="dot"><span>3</span></div><div class="step"><span class="phase">Build · local only</span><h3>The rest of the features, and the manifests</h3><p>Daily Run, wallet, prizes, earn status and ladder, profiles, push; the <code>supabase/tests</code> cases ported as server tests. The Kubernetes manifests, checked with a dry run.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
-    <li><div class="dot dual"><span>4</span></div><div class="step"><span class="phase">On the cluster · you apply</span><h3>Namespace on the new node, debug builds point at it</h3><p>You add the node and apply the manifests. Debug builds use the new server for playtests; release builds stay on Supabase.</p><p class="rb"><b>Rollback:</b> <code>kubectl delete namespace flapjaw</code>; nothing else changes.</p></div></li>
-    <li><div class="dot cut"><span>5</span></div><div class="step"><span class="phase">Cutover</span><h3>New build on the new server, forced update</h3><p>A release build with the new server in its config. Everyone starts fresh: new players, empty boards, no diamonds. Old builds keep talking to Supabase until it is switched off, so friends are told to update. Builds from step 1 onward get the update prompt.</p><p class="rb"><b>Rollback:</b> ship a build with the Supabase config again; Supabase is still running.</p></div></li>
-    <li><div class="dot done"><span>6</span></div><div class="step"><span class="phase">Retire · later</span><h3>Supabase switched off</h3><p>Once no old builds call it (a few weeks), you pause or delete the Supabase project. A later change removes the Supabase client, migrations, Edge Functions and workflows.</p><p class="rb"><b>Rollback:</b> until you delete the project, it can be restored.</p></div></li>
+    <li><div class="dot dual"><span>4</span></div><div class="step"><span class="phase">On the VM · you apply</span><h3>k3s up, debug builds point at it</h3><p>You create the VM, install k3s and cert-manager, fill <code>.env</code>, create the Secret and apply the manifests (a step-by-step guide comes with them). Debug builds use the new server for playtests; release builds stay on Supabase.</p><p class="rb"><b>Rollback:</b> <code>kubectl delete namespace flapjaw</code>; nothing else changes.</p></div></li>
+    <li><div class="dot cut"><span>5</span></div><div class="step"><span class="phase">Cutover</span><h3>New build on the new server, forced update</h3><p>A release build with the new server in its config. Everyone starts fresh: new players, empty boards, no diamonds, and on first launch each phone resets its local save once. Old builds keep talking to Supabase until it is switched off, so friends are told to update. Builds from step 1 onward get the update prompt.</p><p class="rb"><b>Rollback:</b> ship a build with the Supabase config again; Supabase is still running.</p></div></li>
+    <li><div class="dot done"><span>6</span></div><div class="step"><span class="phase">Retire · later</span><h3>Supabase switched off</h3><p>Once no old builds call it (a few weeks), you pause or delete the Supabase project. A later change removes the Supabase client, migrations, Edge Functions and workflows, the GitHub checker (<code>verify-runs.yml</code>) with them. No GitHub fallback runs in the meantime.</p><p class="rb"><b>Rollback:</b> until you delete the project, it can be restored.</p></div></li>
   </ol>
+</section>
+
+<section id="reset">
+  <h2>The one-time reset on the phones</h2>
+  <p>With a fresh start the phone's own save has to start over too, or the first sync would upload old gold and items to the new server.</p>
+  <div class="cards">
+    <div class="card"><h3>When</h3><p class="note">The new build's config names its server (<code>server_id</code>). The save remembers the server it last used. On the first launch where they differ, the phone resets once, before it signs in. A crash halfway simply runs the reset again on the next launch.</p></div>
+    <div class="card"><h3>Cleared</h3><p class="note">Gold, owned and worn cosmetics, best scores, rooms reached, earn, streak and ladder state, the cached diamonds and prizes, today's Daily Run state, the queued runs (<code>pending_runs.json</code>), the old session and device key (file and iOS Keychain) and Your runs (<code>runs.json</code>).</p></div>
+    <div class="card"><h3>Kept</h3><p class="note">This phone's settings: music, sounds, haptics, reduced flashing, color-blind spikes, large buttons. The leaderboard name, so nobody is asked again.</p></div>
+    <div class="card"><h3>What the player sees</h3><p class="note">One card on Home: "Fresh start. Flapjaw has a new server, so scores, coins and items start over." and a Play button. Shown once.</p></div>
+  </div>
 </section>
 
 <section id="questions">
   <div class="qbox">
     <h2>Open questions for you</h2>
-    <p>Already decided: a fresh start with no data carried over, and hosting on a new node in your Hetzner Kubernetes cluster. Nothing gets built until these are answered too.</p>
+    <p>Decided: Rust; a fresh start with a one-time reset on the phones; the game's own Hetzner VM with k3s, Traefik and cert-manager; Secrets from a git-ignored <code>.env</code>; Kustomize with kubectl; no GitHub fallback; the Amsterdam midnight reset stays. Left:</p>
     <ol class="questions">
-      <li><b>Language</b>Rust (recommended, shares the sim with the server), TypeScript, Go, or something you'd rather maintain yourself?</li>
-      <li><b>Ingress and certificates</b>Which ingress controller and ingress class does the cluster use (ingress-nginx, Traefik, something else)? Is it cert-manager, and which ClusterIssuer? Which host name should the game's API get?</li>
-      <li><b>Postgres</b>Does the cluster already run Postgres or an operator such as CloudNativePG? If not, is a plain StatefulSet with a nightly dump fine? Where should backups go (an object storage bucket you already have)?</li>
-      <li><b>Secrets and backups</b>Who holds the secrets (database, token key, Daily Run secret, Firebase key)? Plain Kubernetes Secrets you create by hand, or something like Sealed Secrets, SOPS or External Secrets? Who keeps the backups?</li>
-      <li><b>How manifests are applied</b>Is Kustomize with <code>kubectl apply -k</code> fine, or do you use Helm or a GitOps tool for your other application?</li>
-      <li><b>Fallback checker</b>Keep the GitHub + Godot checker running as a fallback until Supabase is switched off?</li>
-      <li><b>Board clock</b>Keep the Amsterdam midnight reset for both daily boards?</li>
-      <li><b>How far the fresh start goes</b>Diamonds, prizes and boards start empty on the new server. Phones still have their local save (gold, owned items, best score, settings), which the first sync would upload. Keep those local saves, or reset them too with the new build?</li>
+      <li><b>Go-ahead</b>May work start on rollout step 1 (interface, update prompt, one-time reset), then the server?</li>
+      <li><b>Backups</b>Is a Hetzner Object Storage bucket (about €5 a month) fine for the nightly dumps?</li>
+      <li><b>The reset</b>Is it right to clear Your runs too and keep the sound and accessibility settings and the name?</li>
+      <li><b>Host name</b>Which domain should the API use? It stays <code>api.&lt;your-domain&gt;</code> in the manifests until you say.</li>
+      <li><b>Move to a new phone</b>Do you approve the plan on its own page: a transfer code first, platform sign-in later? <a href="https://claude.ai/artifact/VWL3jnUqwuM1tTWU8HynT5">Open the Move to a new phone plan</a>.</li>
     </ol>
   </div>
 </section>

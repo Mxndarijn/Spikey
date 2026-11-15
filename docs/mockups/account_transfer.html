@@ -1,0 +1,434 @@
+<title>Flapjaw Phone Transfer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; the screen mockups sit in a wrapping row of 288 x 512 phone frames. */
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --ink: #1b1d2a;
+  --muted: #5b6075;
+  --line: #dde0ea;
+  --accent: #e2574c;
+  --accent-soft: #fde9e6;
+  --new: #2a7a5f;
+  --new-soft: #e3f3ec;
+  --warn: #9a6a00;
+  --warn-soft: #fbf0d4;
+  --bad: #b3261e;
+  --bad-soft: #fbe2df;
+  --font-body: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  /* Flapjaw Design Kit tokens, used only inside the phone mockups (the game has one look). */
+  --fj-sky-top: #FFC78E;
+  --fj-sky-mid: #FF8F74;
+  --fj-hill-far: #F59A7E;
+  --fj-hill-near: #E9786A;
+  --fj-panel: #FFF4E2;
+  --fj-panel-raised: #F4E5CC;
+  --fj-edge: #D8CBBE;
+  --fj-ink: #231A33;
+  --fj-muted: #665C68;
+  --fj-on-primary: #FFFFFF;
+  --fj-action: #FFC93C;
+  --fj-coin-edge: #F0A81E;
+  --fj-success: #5FD3A8;
+  --fj-danger: #C21F36;
+  --fj-scrim: #1F14289E;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161f; --surface: #1d2030; --ink: #eceef6; --muted: #a2a7bd; --line: #32364a;
+    --accent: #ff7a6e; --accent-soft: #3a2224; --new: #5cc8a0; --new-soft: #1b3229;
+    --warn: #e9b949; --warn-soft: #3a3019; --bad: #ff8a80; --bad-soft: #3c1f1d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161f; --surface: #1d2030; --ink: #eceef6; --muted: #a2a7bd; --line: #32364a;
+  --accent: #ff7a6e; --accent-soft: #3a2224; --new: #5cc8a0; --new-soft: #1b3229;
+  --warn: #e9b949; --warn-soft: #3a3019; --bad: #ff8a80; --bad-soft: #3c1f1d;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+  display: grid; gap: 48px;
+}
+header { display: grid; gap: 12px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-weight: 800; font-size: clamp(28px, 5vw, 42px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-weight: 800; font-size: 24px; margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; font-weight: 700; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { font-size: 17px; color: var(--muted); }
+section { display: grid; gap: 16px; min-width: 0; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.chip.hold { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.note { font-size: 13px; color: var(--muted); }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.ep { font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; }
+.wide { min-width: 960px; }
+.mid { min-width: 720px; }
+.pick { outline: 2px solid var(--new); outline-offset: -2px; }
+.pick-label { font-size: 11px; font-weight: 600; color: var(--new); text-transform: uppercase; letter-spacing: .06em; }
+.lvl { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.lvl.good { background: var(--new-soft); color: var(--new); }
+.lvl.mid { background: var(--warn-soft); color: var(--warn); }
+.lvl.bad { background: var(--bad-soft); color: var(--bad); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.card ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.diagram pre.mermaid { margin: 0; background: transparent; }
+.qbox { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
+ol.questions { margin: 0; padding-left: 22px; display: grid; gap: 14px; }
+ol.questions li b { display: block; }
+footer { font-size: 13px; color: var(--muted); }
+
+/* Phone mockups: drawn at the game's 360 x 640 and shown at 80%. */
+.screens { display: flex; flex-wrap: wrap; gap: 24px 20px; }
+figure.shot { margin: 0; display: grid; gap: 8px; width: 288px; max-width: 100%; }
+figure.shot figcaption { font-size: 13px; color: var(--muted); }
+figure.shot figcaption b { color: var(--ink); display: block; font-size: 14px; }
+.frame { width: 288px; height: 512px; border-radius: 26px; overflow: hidden; position: relative; border: 6px solid #231A33; box-sizing: content-box; background: var(--fj-sky-mid); }
+.phone {
+  width: 360px; height: 640px; transform: scale(.8); transform-origin: top left;
+  position: absolute; top: 0; left: 0; overflow: hidden;
+  font-family: "Archivo", system-ui, sans-serif; color: var(--fj-ink);
+  background: linear-gradient(var(--fj-sky-top), var(--fj-sky-mid) 55%, var(--fj-sky-mid));
+  font-variant-numeric: tabular-nums;
+}
+.phone::before { content: ""; position: absolute; width: 520px; height: 260px; left: -120px; bottom: -150px; border-radius: 50%; background: var(--fj-hill-far); }
+.phone::after { content: ""; position: absolute; width: 480px; height: 220px; right: -170px; bottom: -140px; border-radius: 50%; background: var(--fj-hill-near); }
+.phone > * { position: relative; z-index: 1; }
+.scrim { position: absolute; inset: 0; background: var(--fj-scrim); z-index: 1; }
+.topbar { display: flex; align-items: center; gap: 10px; padding: 48px 16px 0; }
+.back { width: 44px; height: 44px; display: grid; place-items: center; font-size: 26px; font-weight: 800; }
+.title-l { font-weight: 900; font-stretch: 125%; font-size: 26px; line-height: 30px; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: var(--fj-panel); border-radius: 22px 22px 0 0; padding: 20px 16px 24px; display: grid; gap: 12px; }
+.sheet .h { font-weight: 900; font-stretch: 125%; font-size: 24px; }
+.group { display: grid; gap: 2px; }
+.group-label { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fj-muted); padding: 4px 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 4px; font-size: 15px; font-weight: 700; }
+.row small { display: block; font-size: 12px; font-weight: 600; color: var(--fj-muted); }
+.switch { width: 44px; height: 26px; border-radius: 999px; background: var(--fj-ink); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #fff; top: 3px; right: 3px; }
+.switch.off { background: var(--fj-edge); }
+.switch.off::after { right: auto; left: 3px; }
+.row.link { background: var(--fj-panel-raised); border-radius: 999px; padding: 0 16px; }
+.chev { font-size: 20px; font-weight: 800; }
+.body { padding: 20px 16px; display: grid; gap: 16px; }
+.card-fj { background: var(--fj-panel); border-radius: 22px; padding: 20px; display: grid; gap: 12px; }
+.card-fj .h { font-size: 19px; font-weight: 800; line-height: 24px; }
+.card-fj p { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--fj-muted); margin: 0; }
+.btn { height: 56px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 800; }
+.btn.primary { background: var(--fj-ink); color: var(--fj-on-primary); }
+.btn.secondary { background: var(--fj-panel-raised); color: var(--fj-ink); }
+.btn.danger { background: var(--fj-danger); color: #fff; }
+.btn.plain { height: 44px; color: var(--fj-ink); }
+.code { font-weight: 900; font-stretch: 125%; font-size: 30px; letter-spacing: .02em; text-align: center; padding: 14px 0; background: #fff; border-radius: 16px; }
+.timer { text-align: center; font-size: 13px; font-weight: 700; color: var(--fj-muted); }
+.warnline { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; font-weight: 700; line-height: 18px; color: var(--fj-ink); }
+.warnline .ic { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--fj-action); display: grid; place-items: center; font-size: 13px; font-weight: 900; }
+.warnline.red { color: var(--fj-danger); }
+.warnline.red .ic { background: var(--fj-danger); color: #fff; }
+.field { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.field span { background: #fff; border-radius: 14px; height: 52px; display: grid; place-items: center; font-weight: 900; font-stretch: 125%; font-size: 21px; }
+.field span.cur { box-shadow: 0 0 0 3px var(--fj-ink); }
+.err { font-size: 12px; font-weight: 700; color: var(--fj-danger); }
+.popup { position: absolute; left: 16px; right: 16px; top: 92px; z-index: 2; background: var(--fj-panel); border-radius: 22px; padding: 22px 20px; display: grid; gap: 14px; }
+.popup .h { font-weight: 900; font-stretch: 125%; font-size: 23px; line-height: 27px; }
+.vs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vs > div { background: var(--fj-panel-raised); border-radius: 16px; padding: 12px; display: grid; gap: 4px; font-size: 13px; font-weight: 700; }
+.vs > div.to { background: #fff; box-shadow: inset 0 0 0 2px var(--fj-success); }
+.vs .lab { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fj-muted); }
+.vs .num { font-size: 18px; font-weight: 800; }
+.coin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--fj-action); box-shadow: inset 0 0 0 2px var(--fj-coin-edge); vertical-align: -1px; margin-right: 4px; }
+.gem { display: inline-block; width: 11px; height: 11px; background: #7DE2FF; transform: rotate(45deg); margin-right: 5px; vertical-align: 0; }
+.home-word { text-align: center; font-weight: 900; font-stretch: 125%; font-size: 40px; padding-top: 70px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Flapjaw · plan for review · part of the server move</div>
+  <h1>Move to a new phone</h1>
+  <p class="lede">How a player takes their progress to a new phone, or between Android and iPhone. It is built on the new server, after the switch. Back to the <a href="https://claude.ai/artifact/6KYxuzHJ5gEMQq6bxGNaUm">server move plan</a>.</p>
+  <div class="status">
+    <span class="chip hold">Waiting on your go-ahead</span>
+    <span class="chip">Recommendation: a transfer code first, Apple and Google sign-in later</span>
+    <span class="chip">No personal data in phase 1</span>
+  </div>
+</header>
+
+<section id="options">
+  <h2>The options</h2>
+  <div class="scroll">
+  <table class="wide">
+    <thead><tr><th>Option</th><th>Effort</th><th>Personal data we'd store</th><th>Store rules</th><th>Player experience</th><th>Lost phone</th><th>Android ↔ iPhone</th></tr></thead>
+    <tbody>
+      <tr class="pick"><td><span class="pick-label">Phase 1</span><br/><b>Transfer code</b><br/>old phone shows a one-time code, new phone types it</td><td><span class="lvl good">Small</span><br/>4 endpoints, 5 screens, no plugins</td><td>None. The account stays anonymous</td><td>Nothing new to declare. Players stay anonymous, so no sign-up</td><td>Needs both phones at hand; one code to type</td><td><span class="lvl bad">No</span></td><td><span class="lvl good">Yes</span></td></tr>
+      <tr><td><span class="pick-label">Phase 2</span><br/><b>Sign in with Apple and Google</b><br/>"Link account" in Settings</td><td><span class="lvl mid">Medium to large</span><br/>native plugins on both platforms, token checks on the server</td><td>A provider user id (a pseudonym). No email if we don't ask for it</td><td>Apple: an app that offers Google sign-in must also offer Sign in with Apple. Both stores: once players can make an account, in-app account deletion is required, and Google Play also wants a web deletion link. Privacy labels change</td><td>One tap, nothing to type</td><td><span class="lvl good">Yes</span></td><td><span class="lvl good">Yes</span> with Google on both, or both linked</td></tr>
+      <tr><td><b>Email magic link</b> or emailed code</td><td><span class="lvl mid">Medium</span><br/>a mail provider, sender setup, deep links</td><td>An email address (personal data under GDPR)</td><td>Account deletion required; a privacy policy covering email</td><td>Leave the game, find the mail, come back; spam folders</td><td><span class="lvl good">Yes</span></td><td><span class="lvl good">Yes</span></td></tr>
+      <tr><td><b>Play Games / Game Center</b> saved games</td><td><span class="lvl bad">Large</span><br/>two SDKs, two save systems</td><td>A platform player id</td><td>Each platform's own terms</td><td>Automatic on the same platform</td><td><span class="lvl good">Yes</span>, same platform only</td><td><span class="lvl bad">No</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Saved-game blobs don't fit Flapjaw anyway: diamonds, prizes and the ladder live on the server, so the server must know who the player is, whatever the option. Store rules summarised from Apple's App Review Guidelines (sign-in and account deletion) and Google Play's account deletion policy; check the current text before phase 2.</p>
+  <div class="cards">
+    <div class="card pick"><span class="pick-label">Recommendation</span><h3>Phase 1: a transfer code</h3><p class="note">Small, needs no plugins, stores nothing personal, and works between Android and iPhone. Ship it with or soon after the server switch.</p></div>
+    <div class="card"><h3>Phase 2: Apple and Google sign-in</h3><p class="note">For a lost or broken phone. Ship it before a public release, together with "Delete my account", because that is when the store rules start to apply.</p></div>
+  </div>
+</section>
+
+<section id="progress">
+  <h2>What counts as progress</h2>
+  <p>On the new server everything a player owns is stored under their player id. A transfer doesn't copy anything: the new phone simply becomes that player, so it all moves at once.</p>
+  <div class="cards">
+    <div class="card"><h3>Moves</h3><ul>
+      <li>Diamonds, the ledger and unclaimed prizes</li>
+      <li>Gold, owned and worn cosmetics (the server's save)</li>
+      <li>Premium items bought with diamonds</li>
+      <li>Best scores, rooms reached, runs on the boards</li>
+      <li>Milestones, ladder steps, the 7-day streak</li>
+      <li>Today's Daily Run tries (still counted, not reset)</li>
+      <li>Leaderboard name and flyer</li>
+      <li>Synced settings</li>
+    </ul></div>
+    <div class="card"><h3>Stays on each phone</h3><ul>
+      <li>This phone's own switches (<code>Profile.LOCAL_KEYS</code>)</li>
+      <li>Push alerts: the new phone registers its own token</li>
+      <li>Your runs (<code>user://runs.json</code>), unless we add an upload later</li>
+    </ul></div>
+    <div class="card"><h3>Never merged</h3><p class="note">If the new phone already has progress of its own, it is replaced, not added. Merging would let one person farm diamonds and prizes on several accounts and pour them into one.</p></div>
+  </div>
+</section>
+
+<section id="screens">
+  <h2>Screens</h2>
+  <p class="note">Mockups in the Flapjaw Design Kit style (Archivo, cream panels, ink buttons, Sunset Glow room), shown at 80% of the game's 360 × 640.</p>
+  <div class="screens">
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="home-word">FLAPJAW</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="h">Settings</div>
+          <div class="group">
+            <div class="group-label">Sound</div>
+            <div class="row">Music <span class="switch"></span></div>
+            <div class="row">Sounds <span class="switch"></span></div>
+          </div>
+          <div class="group">
+            <div class="group-label">Play</div>
+            <div class="row">Haptics <span class="switch"></span></div>
+            <div class="row">Large buttons <span class="switch off"></span></div>
+          </div>
+          <div class="group">
+            <div class="group-label">Account</div>
+            <div class="row link"><span>Move to a new phone<small>Take your progress with you</small></span><span class="chev">›</span></div>
+          </div>
+          <div class="row" style="justify-content:center;color:var(--fj-muted);font-size:13px">About · Credits, ad choices</div>
+        </div>
+      </div></div>
+      <figcaption><b>1 · Settings</b>A new Account group with one row, above About.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="topbar"><span class="back">‹</span><span class="title-l">New phone</span></div>
+        <div class="body">
+          <div class="card-fj">
+            <div class="h">This is my old phone</div>
+            <p>Get a code here, then type it on your new phone. Your progress moves there.</p>
+            <div class="btn primary">Get a code</div>
+          </div>
+          <div class="card-fj">
+            <div class="h">This is my new phone</div>
+            <p>Got a code from your old phone? Type it here.</p>
+            <div class="btn secondary">Enter a code</div>
+          </div>
+        </div>
+      </div></div>
+      <figcaption><b>2 · Move to a new phone</b>Two cards, one per phone. The screen title is short to fit next to the back arrow.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="topbar"><span class="back">‹</span><span class="title-l">Your code</span></div>
+        <div class="body">
+          <div class="card-fj">
+            <p>Type this on your new phone:</p>
+            <div class="code">K7QF-3MZD-PX9W</div>
+            <div class="timer">Works once · expires in 23:58</div>
+            <div class="btn secondary">Copy code</div>
+            <div class="warnline"><span class="ic">!</span><span>Anyone with this code gets your progress. Flapjaw will never ask you for it.</span></div>
+            <div class="warnline"><span class="ic">!</span><span>Once it is used, this phone starts over as a new player.</span></div>
+          </div>
+          <div class="btn plain">Cancel code</div>
+        </div>
+      </div></div>
+      <figcaption><b>3 · Old phone shows a code</b>Shown only after queued runs and the save have been sent, so nothing is left behind.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="topbar"><span class="back">‹</span><span class="title-l">Enter code</span></div>
+        <div class="body">
+          <div class="card-fj">
+            <p>The code from your old phone:</p>
+            <div class="field"><span>K7QF</span><span>3MZD</span><span class="cur">PX9</span></div>
+            <div class="err">That code doesn't work. Check it and try again (4 tries left this hour).</div>
+            <div class="btn primary">Continue</div>
+          </div>
+          <p style="font-size:13px;font-weight:600;color:var(--fj-ink);margin:0 4px">Letters and numbers only; O and 0, I and 1 count as the same.</p>
+        </div>
+      </div></div>
+      <figcaption><b>4 · New phone enters the code</b>Three groups of four. The error state is shown; a wrong code costs one try.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="topbar"><span class="back">‹</span><span class="title-l">Enter code</span></div>
+        <div class="scrim"></div>
+        <div class="popup">
+          <div class="h">Replace this phone's progress?</div>
+          <div class="vs">
+            <div><span class="lab">This phone</span><span class="num">Best 12</span><span><span class="coin"></span>140</span><span><span class="gem"></span>0</span><span>3 items</span></div>
+            <div class="to"><span class="lab">Moving here</span><span class="num">Best 87</span><span><span class="coin"></span>2,310</span><span><span class="gem"></span>45</span><span>18 items · Mika</span></div>
+          </div>
+          <div class="warnline red"><span class="ic">!</span><span>This phone's own progress is lost, and your old phone is signed out.</span></div>
+          <div class="btn danger">Move progress here</div>
+          <div class="btn plain">Cancel</div>
+        </div>
+      </div></div>
+      <figcaption><b>5 · Confirm and overwrite</b>Always shown, even when this phone is empty, so the old phone's sign-out is no surprise.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="frame"><div class="phone">
+        <div class="home-word">FLAPJAW</div>
+        <div class="scrim"></div>
+        <div class="popup" style="top:150px">
+          <div class="h">Moved to another phone</div>
+          <p style="font-size:14px;font-weight:600;line-height:20px;color:var(--fj-muted);margin:0">Your progress is on your new phone now. This phone starts over as a new player.</p>
+          <div class="btn primary">Play</div>
+        </div>
+      </div></div>
+      <figcaption><b>6 · The old phone afterwards</b>Shown once, on the server's <code>account_moved</code> answer, before a new player is made.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<section id="server">
+  <h2>Server: endpoints and data</h2>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Endpoint</th><th>Who</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="ep">POST /v1/transfer/create</td><td>old phone, signed in</td><td>Makes a 12-character code (Crockford base32, 60 bits), valid 24 h, single use. Cancels any earlier unused code. Answers <code>{code, expires_at}</code>. At most 5 a day per player.</td></tr>
+      <tr><td class="ep">POST /v1/transfer/cancel</td><td>old phone</td><td>Cancels its open code.</td></tr>
+      <tr><td class="ep">POST /v1/transfer/preview</td><td>new phone, signed in</td><td><code>{code}</code> to a summary for screen 5: name, best score, gold, diamonds, item count. Counts as a try.</td></tr>
+      <tr><td class="ep">POST /v1/transfer/redeem</td><td>new phone</td><td><code>{code, device_key}</code>. In one transaction: marks the code used, revokes every session and device key of the old phone, enrols the new device key, answers a session for that player. The new phone's own anonymous player is left behind.</td></tr>
+      <tr><td class="ep">any call from the old phone</td><td>old phone</td><td><code>401 {"error": "account_moved"}</code>. The client shows screen 6, then signs up as a new player.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>transfer_codes</h3><p class="note"><code>code_hash</code> (sha-256, the code itself is never stored), <code>player_id</code>, <code>created_at</code>, <code>expires_at</code>, <code>used_at</code>, <code>used_by_ip</code>.</p></div>
+    <div class="card"><h3>device_keys and sessions</h3><p class="note">Each key and refresh token belongs to a player and can be revoked. A redeem revokes all of them for that player.</p></div>
+    <div class="card"><h3>transfer_attempts</h3><p class="note">Per device and IP, for the rate limits; kept 7 days.</p></div>
+    <div class="card"><h3>transfer_log</h3><p class="note">Who moved when, from which player id. It shows what happened when a player says "my progress is gone".</p></div>
+  </div>
+  <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  participant O as Old phone
+  participant S as Flapjaw server
+  participant N as New phone
+  O->>S: send queued runs, sync_profile
+  O->>S: POST /v1/transfer/create
+  S-->>O: code, expires in 24 h
+  Note over O,N: the player types the code on the new phone
+  N->>S: POST /v1/transfer/preview with code
+  S-->>N: name, best, gold, diamonds, items
+  N->>S: POST /v1/transfer/redeem with code + new device key
+  S->>S: one transaction: code used, old sessions and keys revoked, new key enrolled
+  S-->>N: session for the moved player
+  N->>S: sync_profile, get_wallet
+  O->>S: any call
+  S-->>O: 401 account_moved
+  O->>O: show "Moved to another phone", start as a new player
+  </pre></div>
+</section>
+
+<section id="conflicts">
+  <h2>Conflicts</h2>
+  <div class="cards">
+    <div class="card"><h3>One phone per account</h3><p class="note">A transfer moves the account; it never shares it. After a redeem only the new phone is that player, so two phones can't write to one account at once.</p></div>
+    <div class="card"><h3>Two phones type the same code</h3><p class="note">The first redeem wins inside its transaction; the second gets "That code was already used".</p></div>
+    <div class="card"><h3>The old phone keeps playing</h3><p class="note">Screen 3 sends queued runs and the save before it shows the code. Anything played after that on the old phone is lost once the code is used; screen 3 says so.</p></div>
+    <div class="card"><h3>The new phone has its own progress</h3><p class="note">Screen 5 shows both sides and replaces, never merges. The left-behind player keeps its runs on the boards, like any player who stopped playing.</p></div>
+    <div class="card"><h3>Moving back</h3><p class="note">Works the same way: the new phone makes a code and the old phone types it. Daily Run tries and prizes stay with the player, so a move never resets them.</p></div>
+  </div>
+</section>
+
+<section id="abuse">
+  <h2>Abuse cases</h2>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Case</th><th>Guard</th></tr></thead>
+    <tbody>
+      <tr><td>Guessing codes</td><td>60 bits per code, valid 24 h and once. A redeem or preview counts as a try: 5 tries per device per hour, 20 per IP per hour, then a 1-hour block. Guessing would take more tries than all players together are allowed in years.</td></tr>
+      <tr><td>Stealing a code ("send me your code for free diamonds")</td><td>The warning on screen 3; codes never go in links, push messages or logs; a player can cancel a code; screen 5 shows what moves before anything happens.</td></tr>
+      <tr><td>Farming prizes on many accounts and merging them</td><td>No merge: a transfer replaces. Diamonds can't be moved between players.</td></tr>
+      <tr><td>Spamming code creation</td><td>5 codes a day per player; a new code cancels the old one.</td></tr>
+      <tr><td>Resetting Daily Run tries by moving</td><td>Tries belong to the player, so they move along.</td></tr>
+      <tr><td>Selling accounts</td><td>Possible, as in most games. Everything is cosmetic, so the payoff is small; not worth blocking.</td></tr>
+      <tr><td>Replaying an intercepted redeem</td><td>HTTPS only; the code is single use and the redeem is one transaction.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="when">
+  <h2>When it ships</h2>
+  <div class="cards">
+    <div class="card"><h3>After the server switch</h3><p class="note">It needs the new server's sessions and device keys, so it comes after rollout step 5 of the server plan, as its own branch.</p></div>
+    <div class="card"><h3>Work</h3><ul>
+      <li>Server: 4 endpoints, 4 tables, rate limits, tests for every conflict case above</li>
+      <li>Client: the Account row, screens 2 to 6, the <code>account_moved</code> answer in the session code</li>
+      <li>Tests: code format and look-alike letters, the confirm screen, the old phone's moved state</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="questions">
+  <div class="qbox">
+    <h2>Open questions for you</h2>
+    <ol class="questions">
+      <li><b>Approach</b>A transfer code first and Apple and Google sign-in later: OK?</li>
+      <li><b>Code lifetime</b>24 hours, or shorter (1 hour) for safety?</li>
+      <li><b>Your runs</b>Should the local Your runs list move too (an upload to the server), or stay on the old phone?</li>
+      <li><b>Phase 2 timing</b>Apple and Google sign-in, with Delete my account, before the public release?</li>
+    </ol>
+  </div>
+</section>
+
+<footer>Source: <span class="mono">docs/ACCOUNT_TRANSFER.md</span> and <span class="mono">docs/mockups/account_transfer.html</span> on <span class="mono">claude/server-backend-e4288c</span>. No code is written yet.</footer>
+</div>

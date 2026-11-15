@@ -1,14 +1,15 @@
 # Moving the backend from Supabase to our own server (plan)
 
-Status: **plan only.** Decided: fresh start, hosting on the user's Hetzner
-Kubernetes cluster. Waiting on the other answers (open questions at the end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
+Status: **plan only.** Decided: Rust, fresh start, the game's own Hetzner VM
+with k3s. Waiting on the go-ahead (open questions at the end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
 cut from `next-features-3` at 6714cff.
 
 Visual version, with the architecture and flow diagrams (old vs new), the
 feature table with endpoints and risk, hosting costs and the rollout timeline:
 <https://claude.ai/artifact/6KYxuzHJ5gEMQq6bxGNaUm> (source:
 `docs/mockups/server_migration.html`). This file is the text copy; keep both in
-step.
+step. The Move to a new phone plan: <https://claude.ai/artifact/VWL3jnUqwuM1tTWU8HynT5>
+(`docs/ACCOUNT_TRANSFER.md`).
 
 ## 1. What the game uses Supabase for today
 
@@ -156,42 +157,50 @@ checks move into typed handlers. Jobs that pg_net and GitHub run today (wake
 the checker, settle, send push alerts) become background tasks in the same
 process; the FCM sender is ported from `send-alerts/index.ts`.
 
-**Where it runs (decided)**: one extra Hetzner VM joined to the user's
-existing Kubernetes cluster (managed with kubectl), in its own namespace
-`flapjaw`. The node is labelled and tainted for the game (`flapjaw=true`,
-`dedicated=flapjaw:NoSchedule`); every game pod has the matching nodeSelector
-and toleration, so the game and the other application never share a machine.
-The cluster's existing ingress controller and certificates are reused.
+**Where it runs (decided)**: the game's own Hetzner VM, apart from the user's
+other application, running **k3s** as a one-node cluster managed with kubectl.
+Everything is in the namespace `flapjaw`. k3s ships the **Traefik** ingress
+controller; the one add-on is **cert-manager** with a Let's Encrypt
+ClusterIssuer (HTTP-01). The API host stays a placeholder,
+`api.<your-domain>`, until the user picks one.
 
-Manifests (in the repo, for example `deploy/k8s/` with Kustomize, applied by
-the user with `kubectl apply -k`; no session deploys):
+Manifests (in the repo, `deploy/k8s/` with Kustomize, applied by the user with
+`kubectl apply -k deploy/k8s`; no session deploys):
 
-- Namespace `flapjaw`, with a ResourceQuota.
+- Namespace `flapjaw`.
 - Deployment `server`: the Rust server and verifier, 1 replica to start,
   readiness and liveness on `/v1/ping`.
 - Deployment `godot-worker`: headless Godot that re-checks rejected runs.
-- Service (ClusterIP) and Ingress: one host on the cluster's ingress class,
-  TLS from its certificate setup.
-- Secret: database password, token signing key, Daily Run secret, Firebase
-  service account.
-- Postgres (below), its volume on the Hetzner CSI driver; a CronJob for a
-  nightly `pg_dump` to object storage unless an operator backs up itself.
+- Service (ClusterIP) and Ingress: host `api.<your-domain>`, class `traefik`,
+  annotation `cert-manager.io/cluster-issuer: letsencrypt`; the ClusterIssuer.
+- Secret from a git-ignored `.env`:
+  `kubectl -n flapjaw create secret generic flapjaw-env --from-env-file=.env`.
+  A checked-in `.env.example` lists every key (database password, token
+  signing key, Daily Run secret, Firebase service account, backup bucket keys).
+- StatefulSet `postgres`: Postgres 16, one pod, its volume on k3s local-path
+  storage or a Hetzner volume.
+- CronJob `backup`: nightly `pg_dump`, gzipped, to Hetzner Object Storage,
+  14 days kept.
 - NetworkPolicy: only the ingress reaches the server, only the server reaches
   Postgres.
 
-Postgres options:
+**Postgres, not MySQL** (the other application's MySQL doesn't matter now the
+game is apart): today's 18 migrations run as they are on Postgres (`jsonb` for
+taps, loadouts and saves, `timestamptz ... at time zone 'Europe/Amsterdam'` for
+the board day, partial indexes for pending runs and unclaimed prizes);
+`tools/db_test.ps1` already runs on `postgres:16-alpine`; sqlx supports
+Postgres best (compile-time checked queries, `jsonb` to `serde_json`). MySQL
+would mean rewriting every table and query. A plain StatefulSet is enough at
+this size; an operator (CloudNativePG) adds failover and point-in-time restore
+but is one more thing to run on one node.
 
-| Option | For | Against |
-|---|---|---|
-| **Plain StatefulSet** (recommended at this size) | Simplest; a pg_dump CronJob covers backups | No automatic failover; restore by hand |
-| CloudNativePG operator | Backups, point-in-time restore, failover built in | An operator to run, unless the cluster has one already (then use it) |
-| The other application's Postgres, a new database | No new database pods | Ties the game to that database and its maintenance |
-| Managed Postgres outside the cluster | Someone else runs it | Another provider and bill, latency, about EUR 15+ a month |
+**Backups**: object storage (recommended), because the copy lives off the VM
+and survives losing the VM, its disk or the namespace. A Hetzner volume is
+cheaper but sits next to the database; fine as a second, local copy.
 
 Rough monthly cost (estimates, not quotes): the VM EUR 5 to 10 (2 vCPU /
-4 GB is plenty), a 10 to 20 GB volume about EUR 1, object storage for backups
-EUR 0 to 5. Total about EUR 6 to 16. Ingress, certificates and the domain come
-from the existing setup.
+4 GB), an optional volume about EUR 1, Object Storage about EUR 5, a domain
+about EUR 1 (EUR 10 a year). Total about EUR 11 to 17.
 
 The repo gets `server/` as a Cargo workspace member (next to the GDScript
 verifier that is there now) or `backend/`, the manifests, and a local dev
@@ -227,62 +236,66 @@ seeds for endless runs (as the Daily Run does already), rate limits per player
 and IP, plausibility checks (tap speed, timing variance, jumps above history)
 into a review queue, Play Integrity / App Attest tokens checked on sign-in.
 
-## 5. Data (decided: fresh start)
+## 5. Data (decided: fresh start, phones reset once)
 
-No player data carries over. The new server starts empty: new players, empty
-boards, no diamonds or prizes. Nothing is copied from Supabase and no session
-reads its data. The new server gets its own Daily Run secret.
+No player data carries over. The new server starts empty, with its own Daily
+Run secret. Nothing is copied from Supabase and no session reads its data.
 
-Still to decide: phones keep their local save (gold, owned items, best score,
-settings), and the first `sync_profile` would upload it to the new server.
-Keep those saves, or reset them with the new build (question 8)?
+**The one-time reset on the phones**: the new build's config names its server
+(`server_id`); the save remembers the server it last used. On the first launch
+where they differ, the phone resets once, before signing in (a crash halfway
+runs it again next launch).
+
+- Cleared: gold, owned and worn cosmetics, best scores, rooms reached, earn,
+  streak and ladder state, cached diamonds and prizes, today's Daily Run state,
+  `user://pending_runs.json`, the old session and device key (file and iOS
+  Keychain), Your runs (`user://runs.json`).
+- Kept: this phone's settings (music, sounds, haptics, reduced flashing,
+  color-blind spikes, large buttons) and the leaderboard name.
+- Shown once on Home: "Fresh start. Flapjaw has a new server, so scores,
+  coins and items start over." with a Play button.
 
 ## 6. Rollout
 
-With no data to copy there is no freeze. Supabase keeps running untouched
-until it is switched off, so it is the rollback the whole way.
+No data to copy, no freeze. Supabase keeps running untouched until it is
+switched off, so it is the rollback the whole way. No GitHub checker fallback.
 
-1. **BackendClient interface and an update prompt** (no server): Supabase stays
-   the only backend; plus a minimum-version answer the game shows as "please
-   update", since today's builds have no such prompt. Check passes.
-   Rollback: revert the commits.
+1. **BackendClient interface, update prompt, one-time reset** (no server): a
+   minimum-version answer the game shows as "please update" (today's builds
+   have none) and the reset, switched off until the cutover build. Check
+   passes. Rollback: revert the commits.
 2. **Server skeleton, local**: auth with device key, `ping`, `submit_run`,
    `get_board`, `get_run`, `set_player`, the Rust checker. Contract fixtures
    pass against both the SQL (`tools/db_test.ps1`) and the new server.
 3. **The rest, local**: Daily Run, wallet, prizes, earn status and ladder,
-   profiles, push; `supabase/tests/*.sql` cases ported as server tests; the
-   Kubernetes manifests, checked with a dry run.
-4. **On the cluster** (the user adds the node and applies the manifests):
-   debug builds point at the new server for playtests, release builds stay on
+   profiles, push; `supabase/tests/*.sql` cases ported; the manifests, checked
+   with a dry run.
+4. **On the VM** (the user creates it, installs k3s and cert-manager, fills
+   `.env`, creates the Secret, applies the manifests, with a step-by-step
+   guide): debug builds point at the new server, release builds stay on
    Supabase. Rollback: `kubectl delete namespace flapjaw`.
-5. **Cutover**: a release build with the new server in its config, forced
-   update. Everyone starts fresh. Old builds keep talking to Supabase until it
-   is switched off, so friends are told to update; builds from step 1 on get
-   the prompt. Rollback: ship a build with the Supabase config again.
-6. **Retire, later**: once no old builds call it (a few weeks), the user pauses
-   or deletes the Supabase project; a later change removes the Supabase client,
-   migrations, Edge Functions and workflows.
+5. **Cutover**: a release build on the new server with the reset on, forced
+   update. Old builds keep talking to Supabase until it is switched off, so
+   friends are told to update. Rollback: ship a build with the Supabase config.
+6. **Retire, later**: the user pauses or deletes the Supabase project; a later
+   change removes the Supabase client, migrations, Edge Functions and workflows,
+   `verify-runs.yml` with them.
 
-## 7. Open questions for the user
+Then, as its own branch: **Move to a new phone** (`docs/ACCOUNT_TRANSFER.md`).
 
-Decided: fresh start, no data carried over (Q3); a new node in the user's
-Hetzner Kubernetes cluster (Q1).
+## 7. Decisions and open questions
 
-1. **Language**: Rust (recommended, shares the sim), TypeScript, Go, or
-   something else?
-2. **Ingress and certificates**: which ingress controller and class
-   (ingress-nginx, Traefik, ...)? cert-manager, and which ClusterIssuer? Which
-   host name for the game's API?
-3. **Postgres**: does the cluster already run Postgres or an operator such as
-   CloudNativePG? If not, is a plain StatefulSet with a nightly dump fine?
-   Where do backups go?
-4. **Secrets and backups**: who holds the secrets (database, token key, Daily
-   Run secret, Firebase key)? Plain Secrets made by hand, or Sealed Secrets,
-   SOPS or External Secrets? Who keeps the backups?
-5. **Applying manifests**: Kustomize with `kubectl apply -k`, or Helm or a
-   GitOps tool like the other application?
-6. **Fallback checker**: keep the GitHub + Godot checker until Supabase is
-   switched off?
-7. **Board clock**: keep the Amsterdam midnight reset for both daily boards?
-8. **How far the fresh start goes**: keep the phones' local saves (gold,
-   items, best score, settings), or reset them too?
+Decided: Rust; fresh start with a one-time phone reset; the game's own Hetzner
+VM with k3s, Traefik, cert-manager and Let's Encrypt; Postgres; Secrets from a
+git-ignored `.env`; Kustomize with kubectl; no GitHub checker fallback; the
+Amsterdam midnight reset stays.
+
+Open:
+
+1. **Go-ahead**: may work start on rollout step 1, then the server?
+2. **Backups**: is a Hetzner Object Storage bucket (about EUR 5 a month) fine?
+3. **The reset**: clear Your runs too, keep sound and accessibility settings
+   and the name?
+4. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
+5. **Move to a new phone**: approve the transfer-code-first plan
+   (`docs/ACCOUNT_TRANSFER.md`)?
