@@ -429,7 +429,7 @@ sequenceDiagram
   </div>
   <p class="note">The manifests live in the repo under <code>deploy/</code> (see <a href="#iac">Infrastructure as code</a>) and every deploy goes through <code>tools/deploy.ps1</code>. You run it; no session deploys anything. <code>.env.*</code> files are in <code>.gitignore</code>; only <code>.env.example</code> is checked in.</p>
 
-  <h3>Database: Postgres, not MySQL</h3>
+  <h3>Database: Postgres in Kubernetes (decided)</h3>
   <div class="scroll">
   <table class="stack-table">
     <thead><tr><th></th><th>Postgres 16 (recommended)</th><th>MySQL 8</th></tr></thead>
@@ -441,11 +441,11 @@ sequenceDiagram
     </tbody>
   </table>
   </div>
-  <p class="note">Run as a plain StatefulSet: one pod is plenty at this size. An operator (CloudNativePG) would add failover and point-in-time restore, but it is one more thing to run on a one-node cluster.</p>
+  <p class="note"><b>Decided:</b> Postgres inside Kubernetes as a plain StatefulSet, one pod, tuned small for the 2 GB VM, with the nightly <code>pg_dump</code> CronJob to Hetzner Object Storage. <b>Upgrade path at 4 GB:</b> CloudNativePG, an operator with built-in continuous backups to object storage and point-in-time restore (and failover once there is a second node). On 2 GB it would cost memory the VM doesn't have.</p>
 
   <h3>Backups</h3>
   <div class="cards">
-    <div class="card pick"><span class="pick-label">Recommended</span><h3>Object storage</h3><p class="note">A CronJob runs <code>pg_dump</code> every night and uploads it to a Hetzner Object Storage bucket, keeping 14 days. The copy lives off the VM, so it survives losing the VM, its disk or the namespace. Restore: <code>psql</code> the dump into a fresh Postgres.</p></div>
+    <div class="card pick"><span class="pick-label">Decided</span><h3>Object storage</h3><p class="note">A CronJob runs <code>pg_dump</code> every night and uploads it to a Hetzner Object Storage bucket, keeping 14 days. The copy lives off the VM, so it survives losing the VM, its disk or the namespace. Restore: <code>psql</code> the dump into a fresh Postgres.</p></div>
     <div class="card"><h3>A Hetzner volume</h3><p class="note">Cheaper and simpler, but the dumps sit next to the database: a deleted volume, a broken VM or a wrong <code>kubectl delete</code> can take both. Fine as a second, local copy.</p></div>
   </div>
 
@@ -572,10 +572,9 @@ flowchart LR
 <section id="questions">
   <div class="qbox">
     <h2>Open questions for you</h2>
-    <p>Decided: Rust; a fresh start with a one-time reset on the phones; the game's own Hetzner VM with k3s, Traefik and cert-manager; Secrets from git-ignored <code>.env.&lt;env&gt;</code> files; Kustomize with kubectl, all of it as code; a 2 GB VM by default; no GitHub fallback; the Amsterdam midnight reset stays. Left:</p>
+    <p>Decided: Rust; a fresh start with a one-time reset on the phones; the game's own Hetzner VM with k3s, Traefik and cert-manager; Postgres as a StatefulSet with nightly dumps to Hetzner Object Storage; Secrets from git-ignored <code>.env.&lt;env&gt;</code> files; Kustomize with kubectl, all of it as code; a 2 GB VM by default; no GitHub fallback; the Amsterdam midnight reset stays. Left:</p>
     <ol class="questions">
       <li><b>Go-ahead</b>May work start on rollout step 1 (interface, update prompt, one-time reset), then the server?</li>
-      <li><b>Backups</b>Is a Hetzner Object Storage bucket (about €5 a month) fine for the nightly dumps?</li>
       <li><b>The reset</b>Is it right to clear Your runs too and keep the sound and accessibility settings and the name?</li>
       <li><b>Container registry</b>Push the server image to GitHub Container Registry (free; images are public like the repo, which holds no secrets), or a private registry?</li>
       <li><b>VM size</b>The plan uses 2 GB. Switch to 4 GB for staging beside prod and more headroom?</li>
