@@ -1,0 +1,46 @@
+[package]
+name = "flapjaw-server"
+version = "0.1.0"
+edition = "2021"
+description = "Flapjaw's own game server: sign-in, the leaderboard operations, the replay check and phone transfers"
+publish = false
+
+[[bin]]
+name = "flapjaw-server"
+path = "src/main.rs"
+
+[dependencies]
+# The deterministic sim, the same crate the bots use (a line-by-line port of sim/).
+sim = { path = "../tools/fastsim-rs/sim" }
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "signal", "sync"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "json", "chrono", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+jsonwebtoken = "9"
+base64 = "0.22"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+# The sim's integers wrap like GDScript's; overflow checks would change results.
+[profile.dev]
+opt-level = 1
+overflow-checks = false
+
+[profile.test]
+opt-level = 1
+overflow-checks = false
+
+[profile.release]
+overflow-checks = false
+lto = "thin"

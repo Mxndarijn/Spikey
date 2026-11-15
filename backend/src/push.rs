@@ -1,0 +1,164 @@
+//! Sends the queued board alerts (lost prize spots) through Firebase Cloud
+//! Messaging. A port of supabase/functions/send-alerts: the database decides
+//! who gets an alert and what it says; this only carries the outbox to
+//! Firebase and reports back. Off when FIREBASE_SERVICE_ACCOUNT is empty.
+
+use base64::Engine;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use sqlx::PgPool;
+
+const SCOPE: &str = "https://www.googleapis.com/auth/firebase.messaging";
+/// The Android notification channel the game creates for these.
+pub const CHANNEL: &str = "board_alerts";
+const BATCH: i32 = 100;
+
+#[derive(Deserialize, Clone)]
+pub struct Account {
+    pub project_id: String,
+    pub client_email: String,
+    pub private_key: String,
+    pub token_uri: String,
+}
+
+/// The service account key: the JSON text itself, or that text in base64.
+pub fn parse_account(text: &str) -> Option<Account> {
+    let t = text.trim();
+    if t.is_empty() {
+        return None;
+    }
+    let json = if t.starts_with('{') {
+        t.to_string()
+    } else {
+        String::from_utf8(base64::engine::general_purpose::STANDARD.decode(t).ok()?).ok()?
+    };
+    serde_json::from_str(&json).ok()
+}
+
+/// What Firebase is asked to deliver for one alert.
+pub fn message(alert: &Value) -> Value {
+    json!({
+        "message": {
+            "token": alert["token"],
+            "notification": {"title": alert["title"], "body": alert["body"]},
+            "data": {"kind": "board_alert"},
+            "android": {"priority": "HIGH", "notification": {"channel_id": CHANNEL}},
+            "apns": {"payload": {"aps": {"sound": "default"}}},
+        }
+    })
+}
+
+/// True when Firebase says this phone's token is gone for good.
+pub fn token_is_dead(status: u16, body: &Value) -> bool {
+    status == 404
+        || body["error"]["details"].as_array().is_some_and(|d| d.iter().any(|x| x["errorCode"] == "UNREGISTERED"))
+}
+
+async fn access_token(http: &reqwest::Client, account: &Account) -> Result<String, String> {
+    #[derive(serde::Serialize)]
+    struct Claims<'a> {
+        iss: &'a str,
+        scope: &'a str,
+        aud: &'a str,
+        iat: i64,
+        exp: i64,
+    }
+    let now = chrono::Utc::now().timestamp();
+    let claims = Claims { iss: &account.client_email, scope: SCOPE, aud: &account.token_uri, iat: now, exp: now + 600 };
+    let key = jsonwebtoken::EncodingKey::from_rsa_pem(account.private_key.as_bytes()).map_err(|e| e.to_string())?;
+    let assertion = jsonwebtoken::encode(&jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256), &claims, &key)
+        .map_err(|e| e.to_string())?;
+    let res = http
+        .post(&account.token_uri)
+        .form(&[("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"), ("assertion", &assertion)])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let data: Value = res.json().await.map_err(|e| e.to_string())?;
+    data["access_token"].as_str().map(str::to_string).ok_or_else(|| "Google sent no access token".into())
+}
+
+/// One sender round: (sent, failed).
+pub async fn round(pool: &PgPool, http: &reqwest::Client, account: &Account) -> Result<(usize, usize), String> {
+    let pending: Value = sqlx::query_scalar("select public.worker_pending_alerts($1)")
+        .bind(BATCH)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let alerts = pending.as_array().cloned().unwrap_or_default();
+    if alerts.is_empty() {
+        return Ok((0, 0));
+    }
+    let token = access_token(http, account).await?;
+    let url = format!("https://fcm.googleapis.com/v1/projects/{}/messages:send", account.project_id);
+    let mut results = vec![];
+    let (mut sent, mut failed) = (0, 0);
+    for alert in &alerts {
+        let res = http.post(&url).bearer_auth(&token).json(&message(alert)).send().await;
+        match res {
+            Ok(r) if r.status().is_success() => {
+                sent += 1;
+                results.push(json!({"id": alert["id"], "status": "sent"}));
+            }
+            Ok(r) => {
+                failed += 1;
+                let status = r.status().as_u16();
+                let body: Value = r.json().await.unwrap_or(Value::Null);
+                results
+                    .push(json!({"id": alert["id"], "status": "failed", "forget_token": token_is_dead(status, &body)}));
+            }
+            Err(_) => {
+                failed += 1;
+                results.push(json!({"id": alert["id"], "status": "failed"}));
+            }
+        }
+    }
+    sqlx::query("select public.worker_mark_alerts($1)")
+        .bind(Value::Array(results))
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok((sent, failed))
+}
+
+/// send_test_push queues only when the database knows a sender
+/// (worker_settings push_url and push_secret). The server is the sender now.
+pub async fn register_sender(pool: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "insert into public.worker_settings (key, value) values
+           ('push_url', 'internal://flapjaw-server'), ('push_secret', 'internal')
+         on conflict (key) do update set value = excluded.value",
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_account_may_come_as_base64() {
+        let raw = r#"{"project_id":"p","client_email":"e","private_key":"k","token_uri":"https://t"}"#;
+        assert_eq!(parse_account(raw).unwrap().project_id, "p");
+        let b64 = base64::engine::general_purpose::STANDARD.encode(raw);
+        assert_eq!(parse_account(&b64).unwrap().client_email, "e");
+        assert!(parse_account("").is_none());
+        assert!(parse_account("not json").is_none());
+    }
+
+    #[test]
+    fn dead_tokens_are_forgotten() {
+        assert!(token_is_dead(404, &Value::Null));
+        assert!(token_is_dead(400, &json!({"error": {"details": [{"errorCode": "UNREGISTERED"}]}})));
+        assert!(!token_is_dead(500, &json!({})));
+    }
+
+    #[test]
+    fn messages_use_the_games_channel() {
+        let m = message(&json!({"token": "t", "title": "Lost #3", "body": "x"}));
+        assert_eq!(m["message"]["android"]["notification"]["channel_id"], CHANNEL);
+        assert_eq!(m["message"]["token"], "t");
+    }
+}

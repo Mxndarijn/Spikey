@@ -17,6 +17,9 @@
   6. FastSim checks: every test that plays a bot (searches, PlannerBot, gap
      seeker, random tapper: tools/fastsim-rs/fastsim/src/checks/), one process
      with -FastSimJobs threads
+  7. Server tests: the game server in backend/ (tools/backend_test.ps1: its
+     unit tests, and with Docker running the integration tests against a
+     throwaway Postgres), when backend/, the migrations or a sim changed
 
   The steps run side by side where they can: lint, format and the FastSim
   checks (which need no Godot) start at once; once the import is done, the
@@ -196,6 +199,12 @@ if ($gdlint -and $gdformat) {
     Start-Step "format" $gdformat (@("--check", "--line-length", "100") + $gdDirs)
 }
 $runChecks = $null -eq $sel -or $sel.checks.Count -gt 0
+# The game server (backend/): its unit tests, and with Docker its integration tests.
+$runServer = -not $TestFilter -and ($null -eq $sel -or $sel.server)
+if ($hasCargo -and $runServer) {
+    Start-Step "server" "powershell" @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $root "tools/backend_test.ps1"), "-Jobs", "2")
+    Set-BelowNormal "server"
+}
 if ($fastsimRsBuilt -and $runChecks) {
     $fa = @("-ExecutionPolicy", "Bypass", "-File", $fastsim, "-Mode", "check", "-NoBuild", "-Jobs", $FastSimJobs)
     if ($null -ne $sel) { $fa += @("-Check", ($sel.checks -join ",")) }
@@ -285,6 +294,17 @@ if (-not $hasCargo) {
     Write-Host "not selected (unit tier)"
 } else {
     if ((Show-Step "checks") -ne 0) { $failed += "fastsim checks" }
+}
+
+# 7. The game server (docs/SERVER_MIGRATION.md).
+Write-Step "Server tests"
+if (-not $runServer) {
+    Write-Host "not selected (unit tier)"
+} elseif (-not $hasCargo) {
+    Write-Host "cargo not installed: install Rust (docs/FASTSIM_RS.md)" -ForegroundColor Red
+    $failed += "server tests (cargo not installed)"
+} else {
+    if ((Show-Step "server") -ne 0) { $failed += "server tests (tools/backend_test.ps1)" }
 }
 
 Remove-Item -Recurse -Force $logDir -ErrorAction SilentlyContinue

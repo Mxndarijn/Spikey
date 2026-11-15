@@ -1,0 +1,14 @@
+# The game project without what the checker never loads.
+.git
+.godot
+**/target
+backend
+deploy/terraform
+infra
+android/build
+build
+*.keystore
+*.jks
+.env*
+services/backend_config.json
+services/supabase_config.json

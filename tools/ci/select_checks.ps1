@@ -22,6 +22,8 @@
     game, meta, services, server, assets, scenes  -> the fast tests, plus the yardstick
                 check when a painter or a view changed (visible.tsv)
     tools       tools/** other files              -> lint and the always set only
+    server      backend/**                        -> the server tests (tools/backend_test.ps1)
+                (supabase/migrations/** and the sims add them too: the server runs them)
     anything else (project.godot, workflows ...)  -> the fast tests
 
   Always (when anything but docs changed): lint, format, import, load all.
@@ -55,6 +57,7 @@ $AllChecks = $RoomChecks + $IntegrationChecks
 function Select-Checks([string[]]$files) {
     $s = [ordered]@{
         docs_only = $true; godot = "none"; only = @(); skip = @(); parity = $false; checks = @(); why = @()
+        server = $false
     }
     $fast = $false; $allButGolden = $false; $draws = $false
     $only = New-Object System.Collections.Generic.List[string]
@@ -64,6 +67,14 @@ function Select-Checks([string[]]$files) {
         if ($f.EndsWith(".uid")) { $f = $f.Substring(0, $f.Length - 4) }
         if ($f -match '\.md$' -or $f -match '^docs/') { continue }
         $s.docs_only = $false
+        # The game server links the Rust sim and applies the Supabase migrations.
+        if ($f -match '^(backend|supabase/migrations|tools/fastsim-rs/sim|sim)/' -or $f -eq 'tools/backend_test.ps1') {
+            $s.server = $true
+        }
+        if ($f -match '^backend/') {
+            $s.why += "server: $f"
+            continue
+        }
         if ($f -match '^tools/fastsim-rs/') {
             $s.parity = $true
             foreach ($c in $RoomChecks) { [void]$checks.Add($c) }
