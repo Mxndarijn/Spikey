@@ -192,12 +192,13 @@ the board day, partial indexes for pending runs and unclaimed prizes);
 Postgres best (compile-time checked queries, `jsonb` to `serde_json`). MySQL
 would mean rewriting every table and query. **Decided**: Postgres inside
 Kubernetes as a plain StatefulSet, one pod, tuned small for the 2 GB VM, with
-the nightly `pg_dump` CronJob to Hetzner Object Storage. **Upgrade path at
+a nightly `pg_dump` CronJob (where the dumps go is not decided yet, see
+Backups). **Upgrade path at
 4 GB**: CloudNativePG, an operator with built-in continuous backups to object
 storage and point-in-time restore (failover once there is a second node); on
 2 GB it would cost memory the VM doesn't have.
 
-**Backups (decided)**: object storage, because the copy lives off the VM
+**Backups (recommended, not decided)**: object storage, because the copy lives off the VM
 and survives losing the VM, its disk or the namespace. A Hetzner volume is
 cheaper but sits next to the database; fine as a second, local copy.
 
@@ -368,8 +369,8 @@ Then, as its own branch: **Move to a new phone** (`docs/ACCOUNT_TRANSFER.md`).
 ## 7. Decisions and open questions
 
 Decided: Rust; fresh start with a one-time phone reset; the game's own Hetzner
-VM with k3s, Traefik, cert-manager and Let's Encrypt; Postgres as a
-StatefulSet with nightly dumps to Hetzner Object Storage; Secrets from
+VM with k3s, Traefik, cert-manager and Let's Encrypt; Postgres in
+Kubernetes as a StatefulSet; Secrets from
 git-ignored `.env.<env>` files; Kustomize with kubectl, all of it as code
 (OpenTofu, Kustomize, one deploy script); a 2 GB VM by default; no GitHub checker fallback; the
 Amsterdam midnight reset stays.
@@ -377,11 +378,13 @@ Amsterdam midnight reset stays.
 Open:
 
 1. **Go-ahead**: may work start on rollout step 1, then the server?
-2. **The reset**: clear Your runs too, keep sound and accessibility settings
+2. **Backups**: is a Hetzner Object Storage bucket (about EUR 5 a month) fine
+   for the nightly dumps? Recommended, not decided.
+3. **The reset**: clear Your runs too, keep sound and accessibility settings
    and the name?
-3. **Container registry**: GitHub Container Registry (free, public images like
+4. **Container registry**: GitHub Container Registry (free, public images like
    the repo, which holds no secrets), or a private registry?
-4. **VM size**: 2 GB as planned, or 4 GB for staging beside prod?
-5. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
-6. **Move to a new phone**: approve the transfer-code-first plan
+5. **VM size**: 2 GB as planned, or 4 GB for staging beside prod?
+6. **Host name**: which domain for the API (placeholder `api.<your-domain>`)?
+7. **Move to a new phone**: approve the transfer-code-first plan
    (`docs/ACCOUNT_TRANSFER.md`)?
