@@ -430,6 +430,11 @@ no Apple or Google sign-in.
 - **Move to a new phone** (docs/ACCOUNT_TRANSFER.md): Settings > Account.
   The moved player's synced settings come along with the save.
 
-Not verified yet: `tofu validate` (OpenTofu isn't installed on this PC), the
-Godot check image (it downloads Godot in the build), and of course a real
-deploy.
+Checked on this PC, offline: `tofu validate` (OpenTofu 1.13, the hcloud
+provider; `.terraform.lock.hcl` is checked in), both overlays with
+`tools/deploy.ps1 -Check` and kubeconform (13 valid objects each), both images
+built locally, and the pipeline in throwaway containers: the server migrated
+a fresh Postgres, signed a player up, took an honest and a tampered run,
+marked the honest one `ok` at once and queued the other; the godot-check image
+then rejected it ("score mismatch"). Not done: anything at Hetzner, a push, a
+real deploy.

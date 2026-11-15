@@ -8,7 +8,8 @@
 #   -Rollback        deploy the sha before the last one (no build)
 #   -Sha <sha>       deploy an earlier sha that is in the registry (no build)
 #   -Stop            scale the environment to 0 (staging on the 2 GB VM, after testing)
-#   -Check           offline only: render both overlays and check them; touches nothing
+#   -Check           render both overlays and check them (kubeconform too when it is
+#                    installed); touches no cluster
 # Settings come from deploy/overlays/<env>/.env.<env> (copy deploy/.env.example).
 # No session runs this against a real cluster: the user does.
 param(
@@ -119,6 +120,13 @@ if ($Check) {
         $yaml = Render $wrap
         $problems = @(Test-Rendered $yaml)
         $count = ([regex]::Matches($yaml, "(?m)^kind:")).Count
+        # With kubeconform (in PATH or $env:KUBECONFORM) also against the Kubernetes schemas.
+        $kc = $env:KUBECONFORM
+        if (-not $kc -and (Get-Command kubeconform -ErrorAction SilentlyContinue)) { $kc = "kubeconform" }
+        if ($kc) {
+            $res = $yaml | & $kc -strict -summary -kubernetes-version 1.31.0 - 2>&1
+            if ($LASTEXITCODE -ne 0) { $problems += "kubeconform: $($res -join ' ')" } else { Write-Host "  $e kubeconform: $($res -join ' ')" }
+        }
         if ($problems.Count) {
             $failed = $true
             $problems | ForEach-Object { Write-Host "  $e $_" -ForegroundColor Red }
