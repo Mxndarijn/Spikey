@@ -124,7 +124,9 @@ footer { font-size: 13px; color: var(--muted); }
   <h1>Moving from Supabase to our own server</h1>
   <p class="lede">What the game uses Supabase for today, how a new server can sit next to it during the move, how runs stay verified, and the steps to switch. Nothing is built yet; the open questions at the end decide the next step.</p>
   <div class="status">
-    <span class="chip hold">Waiting on your answers</span>
+    <span class="chip hold">Waiting on the remaining answers</span>
+    <span class="chip">Decided: fresh start, no data carried over</span>
+    <span class="chip">Decided: a new node in your Hetzner Kubernetes cluster</span>
     <span class="chip">Branch <span class="mono">claude/server-backend-e4288c</span></span>
     <span class="chip">From <span class="mono">next-features-3</span> @ 6714cff</span>
     <span class="chip">Nothing deployed · Supabase untouched</span>
@@ -170,16 +172,20 @@ flowchart TB
   S --> I["BackendClient interface<br/>restore · ensure_session · call_db"]
   I -.->|"during the move"| C["SupabaseClient"]
   I --> F["FlapjawClient<br/>POST /v1/{op}"]
-  F --> CA["Caddy · HTTPS"]
-  CA --> SV["Flapjaw server<br/>Rust · axum · sqlx"]
-  SV --> DB[("Postgres 16<br/>same tables")]
-  SV --> VR["verifier<br/>fastsim-rs sim crate<br/>one per gameplay version"]
-  VR -->|"on reject only"| GW["Godot worker<br/>verify_batch.gd"]
-  SV --> JOBS["background jobs<br/>settle days · alerts"]
+  F --> IN["cluster Ingress + TLS<br/>(your existing setup)"]
+  subgraph NS["namespace flapjaw · on the new Hetzner node"]
+    SVC["Service"] --> SV["Deployment: Flapjaw server<br/>Rust · axum · sqlx"]
+    SV --> DB[("Postgres 16<br/>StatefulSet or operator")]
+    SV --> VR["verifier<br/>fastsim-rs sim crate<br/>one per gameplay version"]
+    VR -->|"on reject only"| GW["Deployment: Godot worker<br/>verify_batch.gd"]
+    SV --> JOBS["background jobs<br/>settle days · alerts"]
+    SEC["Secrets<br/>DB, daily secret, Firebase"] -.-> SV
+  end
+  IN --> SVC
   JOBS --> FCM["Firebase<br/>Cloud Messaging"]
-  DB --> BK["nightly pg_dump<br/>off-site"]
+  DB --> BK["nightly backup<br/>object storage"]
       </pre></div>
-      <p class="note">Same operation names, arguments, JSON answers and status codes as the SQL functions. Runs are checked in-process as they arrive.</p>
+      <p class="note">Same operation names, arguments, JSON answers and status codes as the SQL functions. Runs are checked in-process as they arrive. The game's pods run only on its own node (nodeSelector plus a taint), so it never competes with your other application.</p>
     </div>
   </div>
 </section>
@@ -282,7 +288,7 @@ sequenceDiagram
   SV->>V: replay with the day's seed
   V-->>SV: ok / rejected
       </pre></div>
-      <p class="note">The daily secret moves out of the database into server config; the day's seed stays the same, so a day can't change mid-move.</p>
+      <p class="note">The new server gets its own Daily Run secret, kept in a Kubernetes Secret, so the database never holds it.</p>
     </div>
   </div>
 
@@ -328,7 +334,7 @@ sequenceDiagram
   end
   opt refresh refused
     P->>SV: POST /v1/auth/device with player id + key
-    SV->>SV: check key against stored hash<br/>(bcrypt hashes copied from Supabase)
+    SV->>SV: check key against its stored hash
     SV-->>P: session, same player
   end
   opt nothing works and server said gone
@@ -353,7 +359,7 @@ sequenceDiagram
     <thead><tr><th>Feature</th><th>Today</th><th>New endpoint</th><th>Data</th><th>Server-side checks</th><th>Risk</th></tr></thead>
     <tbody>
       <tr><td>Sign-in</td><td>Supabase Auth (anonymous), refresh token</td><td class="ep">/v1/auth/anon<br/>/v1/auth/refresh</td><td>players, sessions</td><td>Short access tokens, rotating refresh tokens, never a new player on a network error</td><td><span class="risk high">High</span></td></tr>
-      <tr><td>Same player after reinstall</td><td>Edge Function <code>device-key</code></td><td class="ep">/v1/auth/device</td><td>device key hash</td><td>Key checked against its hash; bcrypt hashes carried from <code>auth.users</code></td><td><span class="risk high">High</span></td></tr>
+      <tr><td>Same player after reinstall</td><td>Edge Function <code>device-key</code></td><td class="ep">/v1/auth/device</td><td>device key hash</td><td>Key checked against its hash, stored when the player is made; nothing carried from Supabase (fresh start)</td><td><span class="risk high">High</span></td></tr>
       <tr><td>Name and flyer</td><td><code>set_player</code>, name filter</td><td class="ep">/v1/set_player</td><td>players, banned_words</td><td>Banned words, look-alike collapsing</td><td><span class="risk low">Low</span></td></tr>
       <tr><td>Submit a run</td><td><code>submit_run</code></td><td class="ep">/v1/submit_run</td><td>runs</td><td>Played-at within 2 days, taps ≤ 20000, revives ≤ 1, loadout ≤ 1 KB, value ranges; new: run id</td><td><span class="risk mid">Medium</span></td></tr>
       <tr><td>Replay check</td><td>GitHub + Godot, <code>worker_*</code></td><td class="ep">internal</td><td>runs.status, reason</td><td>Same score, coins, end tick; season in play; outdated / newer versions</td><td><span class="risk mid">Medium</span></td></tr>
@@ -366,7 +372,7 @@ sequenceDiagram
       <tr><td>Save on the server</td><td><code>sync_profile</code></td><td class="ep">/v1/sync_profile</td><td>profiles</td><td>≤ 64 KB, revision check, conflict returns newest copy</td><td><span class="risk high">High</span></td></tr>
       <tr><td>Paid items, gold check</td><td><code>spikey_paid_items</code>, <code>spikey_gold_ceiling</code></td><td class="ep">in sync_profile, get_board</td><td>premium_items, diamond_ledger</td><td>Premium looks only if bought; gold excess recorded, not enforced</td><td><span class="risk mid">Medium</span></td></tr>
       <tr><td>Push alerts</td><td><code>register_push</code>, <code>set_push_enabled</code>, <code>send_test_push</code>, <code>send-alerts</code></td><td class="ep">/v1/register_push<br/>/v1/set_push_enabled<br/>/v1/send_test_push</td><td>push_devices, spot_alerts, spot_state</td><td>Token and platform checks; FCM service account stays secret on the server</td><td><span class="risk low">Low</span></td></tr>
-      <tr><td>Keep-alive</td><td><code>ping</code>, keepalive workflow</td><td class="ep">/v1/ping</td><td>none</td><td>Not needed on a VPS; health check instead</td><td><span class="risk low">Low</span></td></tr>
+      <tr><td>Keep-alive</td><td><code>ping</code>, keepalive workflow</td><td class="ep">/v1/ping</td><td>none</td><td>Not needed on the cluster; the readiness probe uses ping</td><td><span class="risk low">Low</span></td></tr>
       <tr><td>Database tests</td><td><code>tools/db_test.ps1</code>, <code>supabase/tests/*.sql</code></td><td class="ep">server tests</td><td>throwaway Postgres</td><td>Same cases ported; contract fixtures shared by both clients</td><td><span class="risk low">Low</span></td></tr>
     </tbody>
   </table>
@@ -388,14 +394,46 @@ sequenceDiagram
   </table>
   </div>
 
-  <h3>Where it runs, rough monthly cost</h3>
-  <div class="cards">
-    <div class="card pick"><span class="pick-label">Recommended</span><h3>Small EU VPS</h3><div class="price">€5–10</div><p class="note">2 vCPU / 4 GB (Hetzner, OVH, Scaleway or similar). docker compose: server, Postgres 16, Caddy. Nightly <code>pg_dump</code> off-site (about €1). You look after updates.</p></div>
-    <div class="card"><h3>Container platform + managed Postgres</h3><div class="price">€20–45</div><p class="note">Fly.io, Railway or Cloud Run plus a managed database. Less to look after; the database is the expensive part.</p></div>
-    <div class="card"><h3>Stay on Supabase Pro</h3><div class="price">about €25</div><p class="note">No move at all; only fixes the pausing and limits of the free plan. Listed for comparison.</p></div>
-    <div class="card"><h3>Your own PC</h3><div class="price">€0</div><p class="note">Not recommended: uptime, home IP, exposing your machine to the internet.</p></div>
+  <h3>Where it runs: one extra node in your Hetzner Kubernetes cluster</h3>
+  <p>The game gets its own namespace, <code>flapjaw</code>, on a new Hetzner VM joined to the cluster you already run with kubectl. The node is labelled and tainted for the game (<code>flapjaw=true</code>, taint <code>dedicated=flapjaw:NoSchedule</code>); every game pod has the matching nodeSelector and toleration, so the game and your other application never share a machine. The cluster's existing ingress controller and certificates are reused.</p>
+  <div class="scroll">
+  <table class="stack-table">
+    <thead><tr><th>Manifest</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td class="ep">Namespace</td><td><code>flapjaw</code>, with a ResourceQuota so the game can't outgrow its node</td></tr>
+      <tr><td class="ep">Deployment server</td><td>The Rust server and its verifier, 1 replica to start (stateless, can go to 2). Readiness and liveness on <code>/v1/ping</code></td></tr>
+      <tr><td class="ep">Deployment godot-worker</td><td>Headless Godot that re-checks rejected runs; small, 1 replica</td></tr>
+      <tr><td class="ep">Service</td><td>ClusterIP in front of the server</td></tr>
+      <tr><td class="ep">Ingress</td><td>One host (for example <code>api.&lt;your domain&gt;</code>) on your ingress class, TLS from your existing certificate setup</td></tr>
+      <tr><td class="ep">Secret</td><td>Database password, token signing key, Daily Run secret, Firebase service account</td></tr>
+      <tr><td class="ep">Postgres</td><td>See the options below; its volume on the Hetzner CSI driver</td></tr>
+      <tr><td class="ep">CronJob backup</td><td>Nightly <code>pg_dump</code> to object storage (not needed with an operator that backs up itself)</td></tr>
+      <tr><td class="ep">NetworkPolicy</td><td>Only the ingress reaches the server; only the server reaches Postgres</td></tr>
+    </tbody>
+  </table>
   </div>
-  <p class="note">Prices are rough estimates for planning, not checked quotes; confirm on the provider's site before choosing. Plus a domain, about €10 a year, if you don't have one.</p>
+  <p class="note">The manifests live in the repo (for example <code>deploy/k8s/</code> with Kustomize, applied with <code>kubectl apply -k</code>). You apply them; no session deploys anything.</p>
+
+  <h3>Postgres in the cluster</h3>
+  <div class="scroll">
+  <table class="stack-table">
+    <thead><tr><th>Option</th><th>For</th><th>Against</th></tr></thead>
+    <tbody>
+      <tr class="pick"><td><span class="pick-label">Recommended at this size</span><br/><b>Plain StatefulSet</b> · postgres:16 + volume</td><td>Simplest, one pod, nothing new to learn; a pg_dump CronJob covers backups</td><td>No automatic failover; restore is by hand from the dump</td></tr>
+      <tr><td><b>CloudNativePG operator</b></td><td>Backups and point-in-time restore to object storage built in, failover, upgrades</td><td>An operator to install and run, unless your cluster already has it (then this one)</td></tr>
+      <tr><td><b>Your existing Postgres</b>, a new database and user</td><td>No new database pods</td><td>Ties the game to your other application's database and its maintenance windows</td></tr>
+      <tr><td><b>Managed Postgres outside the cluster</b></td><td>Someone else runs it</td><td>Another provider and bill, more latency, about €15 or more a month</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Rough monthly cost</h3>
+  <div class="cards">
+    <div class="card pick"><h3>One extra Hetzner cloud VM</h3><div class="price">€5–10</div><p class="note">2 vCPU / 4 GB is plenty for the server, Postgres and the Godot worker. Larger if your cluster uses a bigger node type.</p></div>
+    <div class="card"><h3>Volume for Postgres</h3><div class="price">about €1</div><p class="note">10 to 20 GB block storage.</p></div>
+    <div class="card"><h3>Backups</h3><div class="price">€0–5</div><p class="note">Object storage for the nightly dump; nothing extra if your cluster already has a bucket.</p></div>
+  </div>
+  <p class="note">Total about €6–16 a month. Rough estimates for planning, not checked quotes; Hetzner's own price list decides. Ingress, certificates and the domain come from your existing setup.</p>
 </section>
 
 <section id="verify">
@@ -412,32 +450,32 @@ sequenceDiagram
 <section id="rollout">
   <h2>Rollout</h2>
   <div class="legend">
-    <span class="chip">Build</span><span class="chip hold">Dual-run</span><span class="chip" style="color:var(--accent)">Cutover</span><span class="chip" style="color:var(--new)">Retire</span>
+    <span class="chip">Build</span><span class="chip hold">On the cluster, debug builds</span><span class="chip" style="color:var(--accent)">Cutover</span><span class="chip" style="color:var(--new)">Retire</span>
   </div>
+  <p>With a fresh start there is no data to copy and no freeze. Supabase keeps running untouched until the switch-off, so it is the rollback the whole way.</p>
   <ol class="timeline">
-    <li><div class="dot"><span>1</span></div><div class="step"><span class="phase">Build · no server</span><h3>BackendClient interface</h3><p>SupabaseClient implements it; config picks the backend. No behaviour change, check passes.</p><p class="rb"><b>Rollback:</b> revert one commit.</p></div></li>
-    <li><div class="dot"><span>2</span></div><div class="step"><span class="phase">Build · local only</span><h3>Server skeleton</h3><p>Auth with device key, ping, submit_run, get_board, get_run, set_player, the Rust checker. Contract fixtures pass against both the SQL and the new server.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
-    <li><div class="dot"><span>3</span></div><div class="step"><span class="phase">Build · local only</span><h3>The rest of the features</h3><p>Daily Run, wallet, prizes, earn status and ladder, profiles, push. The <code>supabase/tests</code> cases ported as server tests.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
-    <li><div class="dot dual"><span>4</span></div><div class="step"><span class="phase">Dual-run · debug builds</span><h3>Playtest on a local server</h3><p>Debug builds can point at the new server; release builds stay on Supabase.</p><p class="rb"><b>Rollback:</b> switch the config back.</p></div></li>
-    <li><div class="dot dual"><span>5</span></div><div class="step"><span class="phase">Dual-run · you set up hosting</span><h3>Staging server</h3><p>You create the VPS and domain (a step-by-step guide like LEADERBOARD_SETUP.md); staging goes up there.</p><p class="rb"><b>Rollback:</b> delete the VPS; Supabase still live.</p></div></li>
-    <li><div class="dot dual"><span>6</span></div><div class="step"><span class="phase">Dual-run · data</span><h3>Copy data into staging</h3><p>pg_dump from Supabase (by you, or with your go-ahead), load, compare counts and sums: diamonds per player against the ledger, best scores per board.</p><p class="rb"><b>Rollback:</b> wipe staging, copy again.</p></div></li>
-    <li><div class="dot cut"><span>7</span></div><div class="step"><span class="phase">Cutover</span><h3>Freeze, final copy, switch</h3><p>Short write freeze on Supabase, final copy, new app build with the new config, forced update. Older builds get a "please update" answer.</p><p class="rb"><b>Rollback:</b> unfreeze Supabase and ship the old config; runs made on the new server in between are copied back by script.</p></div></li>
-    <li><div class="dot done"><span>8</span></div><div class="step"><span class="phase">Retire</span><h3>Supabase read-only, then gone</h3><p>Kept read-only for a month as a fallback, then the Supabase workflows and migrations are removed in a later change.</p><p class="rb"><b>Rollback:</b> until removal, step 7's rollback still works.</p></div></li>
+    <li><div class="dot"><span>1</span></div><div class="step"><span class="phase">Build · no server</span><h3>BackendClient interface and an update prompt</h3><p>SupabaseClient implements the interface; the config picks the backend. Also a minimum-version answer the game shows as "please update", so this build and later ones can be told to update. Today's builds have no such prompt. No other behaviour change, check passes.</p><p class="rb"><b>Rollback:</b> revert the commits.</p></div></li>
+    <li><div class="dot"><span>2</span></div><div class="step"><span class="phase">Build · local only</span><h3>Server skeleton</h3><p>Auth with device key, ping, submit_run, get_board, get_run, set_player, the Rust checker. Contract fixtures pass against both the SQL (via <code>tools/db_test.ps1</code>) and the new server.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
+    <li><div class="dot"><span>3</span></div><div class="step"><span class="phase">Build · local only</span><h3>The rest of the features, and the manifests</h3><p>Daily Run, wallet, prizes, earn status and ladder, profiles, push; the <code>supabase/tests</code> cases ported as server tests. The Kubernetes manifests, checked with a dry run.</p><p class="rb"><b>Rollback:</b> nothing live yet.</p></div></li>
+    <li><div class="dot dual"><span>4</span></div><div class="step"><span class="phase">On the cluster · you apply</span><h3>Namespace on the new node, debug builds point at it</h3><p>You add the node and apply the manifests. Debug builds use the new server for playtests; release builds stay on Supabase.</p><p class="rb"><b>Rollback:</b> <code>kubectl delete namespace flapjaw</code>; nothing else changes.</p></div></li>
+    <li><div class="dot cut"><span>5</span></div><div class="step"><span class="phase">Cutover</span><h3>New build on the new server, forced update</h3><p>A release build with the new server in its config. Everyone starts fresh: new players, empty boards, no diamonds. Old builds keep talking to Supabase until it is switched off, so friends are told to update. Builds from step 1 onward get the update prompt.</p><p class="rb"><b>Rollback:</b> ship a build with the Supabase config again; Supabase is still running.</p></div></li>
+    <li><div class="dot done"><span>6</span></div><div class="step"><span class="phase">Retire · later</span><h3>Supabase switched off</h3><p>Once no old builds call it (a few weeks), you pause or delete the Supabase project. A later change removes the Supabase client, migrations, Edge Functions and workflows.</p><p class="rb"><b>Rollback:</b> until you delete the project, it can be restored.</p></div></li>
   </ol>
 </section>
 
 <section id="questions">
   <div class="qbox">
     <h2>Open questions for you</h2>
-    <p>Nothing gets built past the plan until these are answered.</p>
+    <p>Already decided: a fresh start with no data carried over, and hosting on a new node in your Hetzner Kubernetes cluster. Nothing gets built until these are answered too.</p>
     <ol class="questions">
-      <li><b>Hosting and budget</b>Is a small VPS at about €5–10 a month fine? Do you already have a hosting provider or a domain? Or must it stay free?</li>
       <li><b>Language</b>Rust (recommended, shares the sim with the server), TypeScript, Go, or something you'd rather maintain yourself?</li>
-      <li><b>Existing player data</b>Must players, diamonds, prizes and saves carry over? Or is a fresh start before release fine (much less work)?</li>
-      <li><b>Cutover style</b>One freeze and a forced app update (simplest with few players), or a longer window where old builds keep working?</li>
-      <li><b>Fallback checker</b>Keep the GitHub + Godot checker running as a fallback until Supabase is retired?</li>
-      <li><b>Who sets up the server</b>You, following a step-by-step guide? Who keeps the backups and the server secrets (Firebase key, Daily Run secret)?</li>
+      <li><b>Ingress and certificates</b>Which ingress controller and ingress class does the cluster use (ingress-nginx, Traefik, something else)? Is it cert-manager, and which ClusterIssuer? Which host name should the game's API get?</li>
+      <li><b>Postgres</b>Does the cluster already run Postgres or an operator such as CloudNativePG? If not, is a plain StatefulSet with a nightly dump fine? Where should backups go (an object storage bucket you already have)?</li>
+      <li><b>Secrets and backups</b>Who holds the secrets (database, token key, Daily Run secret, Firebase key)? Plain Kubernetes Secrets you create by hand, or something like Sealed Secrets, SOPS or External Secrets? Who keeps the backups?</li>
+      <li><b>How manifests are applied</b>Is Kustomize with <code>kubectl apply -k</code> fine, or do you use Helm or a GitOps tool for your other application?</li>
+      <li><b>Fallback checker</b>Keep the GitHub + Godot checker running as a fallback until Supabase is switched off?</li>
       <li><b>Board clock</b>Keep the Amsterdam midnight reset for both daily boards?</li>
+      <li><b>How far the fresh start goes</b>Diamonds, prizes and boards start empty on the new server. Phones still have their local save (gold, owned items, best score, settings), which the first sync would upload. Keep those local saves, or reset them too with the new build?</li>
     </ol>
   </div>
 </section>

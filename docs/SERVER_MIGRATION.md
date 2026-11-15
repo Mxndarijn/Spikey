@@ -1,7 +1,7 @@
 # Moving the backend from Supabase to our own server (plan)
 
-Status: **plan only, waiting on the user's answers** (open questions at the
-end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
+Status: **plan only.** Decided: fresh start, hosting on the user's Hetzner
+Kubernetes cluster. Waiting on the other answers (open questions at the end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
 cut from `next-features-3` at 6714cff.
 
 Visual version, with the architecture and flow diagrams (old vs new), the
@@ -156,17 +156,46 @@ checks move into typed handlers. Jobs that pg_net and GitHub run today (wake
 the checker, settle, send push alerts) become background tasks in the same
 process; the FCM sender is ported from `send-alerts/index.ts`.
 
-**Where it runs**: one small VPS (for example a 2 vCPU / 4 GB box at about
-EUR 4 to 8 a month; Hetzner, OVH, Scaleway or similar in the EU) with
-`docker compose`: the server container, Postgres 16, and Caddy for HTTPS.
-Nightly `pg_dump` to off-site object storage. A container platform (Fly.io,
-Railway, Cloud Run) plus a managed Postgres also works and needs less
-looking after, but costs more and the database is the expensive part. The
-user's own PC is not a good host (uptime, home IP, exposure).
+**Where it runs (decided)**: one extra Hetzner VM joined to the user's
+existing Kubernetes cluster (managed with kubectl), in its own namespace
+`flapjaw`. The node is labelled and tainted for the game (`flapjaw=true`,
+`dedicated=flapjaw:NoSchedule`); every game pod has the matching nodeSelector
+and toleration, so the game and the other application never share a machine.
+The cluster's existing ingress controller and certificates are reused.
+
+Manifests (in the repo, for example `deploy/k8s/` with Kustomize, applied by
+the user with `kubectl apply -k`; no session deploys):
+
+- Namespace `flapjaw`, with a ResourceQuota.
+- Deployment `server`: the Rust server and verifier, 1 replica to start,
+  readiness and liveness on `/v1/ping`.
+- Deployment `godot-worker`: headless Godot that re-checks rejected runs.
+- Service (ClusterIP) and Ingress: one host on the cluster's ingress class,
+  TLS from its certificate setup.
+- Secret: database password, token signing key, Daily Run secret, Firebase
+  service account.
+- Postgres (below), its volume on the Hetzner CSI driver; a CronJob for a
+  nightly `pg_dump` to object storage unless an operator backs up itself.
+- NetworkPolicy: only the ingress reaches the server, only the server reaches
+  Postgres.
+
+Postgres options:
+
+| Option | For | Against |
+|---|---|---|
+| **Plain StatefulSet** (recommended at this size) | Simplest; a pg_dump CronJob covers backups | No automatic failover; restore by hand |
+| CloudNativePG operator | Backups, point-in-time restore, failover built in | An operator to run, unless the cluster has one already (then use it) |
+| The other application's Postgres, a new database | No new database pods | Ties the game to that database and its maintenance |
+| Managed Postgres outside the cluster | Someone else runs it | Another provider and bill, latency, about EUR 15+ a month |
+
+Rough monthly cost (estimates, not quotes): the VM EUR 5 to 10 (2 vCPU /
+4 GB is plenty), a 10 to 20 GB volume about EUR 1, object storage for backups
+EUR 0 to 5. Total about EUR 6 to 16. Ingress, certificates and the domain come
+from the existing setup.
 
 The repo gets `server/` as a Cargo workspace member (next to the GDScript
-verifier that is there now) or `backend/`, a `docker-compose.yml`, and a local
-dev setup that runs fully offline; the existing `tools/db_test.ps1` pattern
+verifier that is there now) or `backend/`, the manifests, and a local dev
+setup that runs fully offline; the existing `tools/db_test.ps1` pattern
 (throwaway Postgres container) carries over for its tests.
 
 ## 4. The replay check on the server
@@ -198,77 +227,62 @@ seeds for endless runs (as the Daily Run does already), rate limits per player
 and IP, plausibility checks (tap speed, timing variance, jumps above history)
 into a review queue, Play Integrity / App Attest tokens checked on sign-in.
 
-## 5. Moving the data
+## 5. Data (decided: fresh start)
 
-Needs the user's answer to "must existing player data carry over" first.
+No player data carries over. The new server starts empty: new players, empty
+boards, no diamonds or prizes. Nothing is copied from Supabase and no session
+reads its data. The new server gets its own Daily Run secret.
 
-If yes:
-
-1. Freeze writes for a short window (or run both and copy twice, see rollout).
-2. `pg_dump` the `public` schema data from Supabase (read-only use of the
-   connection string the user already has; done by the user or with their
-   go-ahead, never by a session on its own).
-3. Players keep their UUID. Supabase stores each device key as a bcrypt hash
-   in `auth.users.encrypted_password`; copying that hash lets the new server
-   check a phone's existing device key, so phones that enrolled a key sign in
-   as the same player with no step from the player. Phones without a key yet
-   (the function never reached them) would need one last sign-in to the old
-   project to enroll, or start fresh.
-4. Load into the new schema, then compare counts and a few sums (diamonds per
-   player = sum of the ledger, best scores per board) with a script.
-5. Rejected and outdated runs can be left behind; wallets, ledger, prizes,
-   profiles, players, `run_carry`, `played_days`, `ladder_marks` must come.
-
-If no: a fresh start, and a one-time notice in the app (boards and diamonds
-reset). Much less work, but players lose diamonds, so only before a public
-release.
+Still to decide: phones keep their local save (gold, owned items, best score,
+settings), and the first `sync_profile` would upload it to the new server.
+Keep those saves, or reset them with the new build (question 8)?
 
 ## 6. Rollout
 
-1. `BackendClient` refactor on this branch; Supabase stays the only backend;
-   check passes; no behaviour change.
-2. Server skeleton running locally (docker compose): auth with device key,
-   `ping`, `submit_run`, `get_board`, `get_run`, `set_player`, the Rust checker.
-   Contract tests: the same fixtures against Supabase's SQL (via
-   `tools/db_test.ps1`) and the new server, the same answers.
-3. The rest: Daily Run, wallet, earn status, ladder, profiles, push. Port the
-   `supabase/tests/*.sql` cases as server tests.
-4. Debug builds can point at a local server (`backend_config.json`
-   kind `flapjaw`) for the user's playtests.
-5. Hosting set up by the user (account, VPS, domain); then a staging server.
-6. Data copy into staging, compare; the user plays on it.
-7. Switch: a new app build with the new config; old builds keep talking to
-   Supabase for a while, so for that window either the new server pulls
-   Supabase's new rows across, or Supabase's submit functions are pointed
-   at a "please update" answer. Simplest, given the small player base: a
-   forced update with one freeze and copy.
-8. Supabase read-only for a month, then retired (workflows and migrations
-   removed in a later change).
+With no data to copy there is no freeze. Supabase keeps running untouched
+until it is switched off, so it is the rollback the whole way.
+
+1. **BackendClient interface and an update prompt** (no server): Supabase stays
+   the only backend; plus a minimum-version answer the game shows as "please
+   update", since today's builds have no such prompt. Check passes.
+   Rollback: revert the commits.
+2. **Server skeleton, local**: auth with device key, `ping`, `submit_run`,
+   `get_board`, `get_run`, `set_player`, the Rust checker. Contract fixtures
+   pass against both the SQL (`tools/db_test.ps1`) and the new server.
+3. **The rest, local**: Daily Run, wallet, prizes, earn status and ladder,
+   profiles, push; `supabase/tests/*.sql` cases ported as server tests; the
+   Kubernetes manifests, checked with a dry run.
+4. **On the cluster** (the user adds the node and applies the manifests):
+   debug builds point at the new server for playtests, release builds stay on
+   Supabase. Rollback: `kubectl delete namespace flapjaw`.
+5. **Cutover**: a release build with the new server in its config, forced
+   update. Everyone starts fresh. Old builds keep talking to Supabase until it
+   is switched off, so friends are told to update; builds from step 1 on get
+   the prompt. Rollback: ship a build with the Supabase config again.
+6. **Retire, later**: once no old builds call it (a few weeks), the user pauses
+   or deletes the Supabase project; a later change removes the Supabase client,
+   migrations, Edge Functions and workflows.
 
 ## 7. Open questions for the user
 
-1. **Hosting and budget**: is a small VPS at about EUR 5 to 10 a month fine,
-   and do you already have a provider or a domain? Or should it stay free
-   (then: keep Supabase for the database and only move logic, or a free tier
-   with limits)?
-2. **Language**: Rust (shares the sim, recommended), TypeScript, Go, or
-   something you'd rather maintain yourself?
-3. **Existing player data**: must players, diamonds, prizes and saves carry
-   over, or is a fresh start before release fine?
-4. **Cutover style**: one freeze and a forced app update (simplest with few
-   players), or a longer window where old builds keep working?
-5. **Fallback checker**: keep the GitHub + Godot checker running until
-   Supabase is retired?
-6. **Who sets up the server**: you, with a step-by-step guide like
-   LEADERBOARD_SETUP.md? Who keeps the backups and the server secrets
-   (Firebase key, Daily Run secret)?
+Decided: fresh start, no data carried over (Q3); a new node in the user's
+Hetzner Kubernetes cluster (Q1).
+
+1. **Language**: Rust (recommended, shares the sim), TypeScript, Go, or
+   something else?
+2. **Ingress and certificates**: which ingress controller and class
+   (ingress-nginx, Traefik, ...)? cert-manager, and which ClusterIssuer? Which
+   host name for the game's API?
+3. **Postgres**: does the cluster already run Postgres or an operator such as
+   CloudNativePG? If not, is a plain StatefulSet with a nightly dump fine?
+   Where do backups go?
+4. **Secrets and backups**: who holds the secrets (database, token key, Daily
+   Run secret, Firebase key)? Plain Secrets made by hand, or Sealed Secrets,
+   SOPS or External Secrets? Who keeps the backups?
+5. **Applying manifests**: Kustomize with `kubectl apply -k`, or Helm or a
+   GitOps tool like the other application?
+6. **Fallback checker**: keep the GitHub + Godot checker until Supabase is
+   switched off?
 7. **Board clock**: keep the Amsterdam midnight reset for both daily boards?
-
-Rough monthly costs (estimates, not quotes): small EU VPS EUR 5 to 10;
-container platform plus managed Postgres EUR 20 to 45; Supabase Pro about
-EUR 25 (no move, listed for comparison); a domain about EUR 10 a year.
-
-Rollback per rollout step: 1 revert a commit; 2 to 4 nothing live (switch the
-config back); 5 to 6 delete the VPS or wipe staging, Supabase still live;
-7 unfreeze Supabase and ship the old config, copying any runs made on the new
-server back by script; 8 step 7's rollback works until Supabase is removed.
+8. **How far the fresh start goes**: keep the phones' local saves (gold,
+   items, best score, settings), or reset them too?
