@@ -120,3 +120,5 @@ begin
   s := get_earn_status();
   perform t_eq(t_steps(955), '[150]'::jsonb, 'a claimed step still counts as won');
 end $$;
+
+select 'ALL DATABASE TESTS PASSED' as result;
