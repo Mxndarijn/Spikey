@@ -4,6 +4,12 @@ Status: **plan only, waiting on the user's answers** (open questions at the
 end). Nothing is built, deployed or created yet. Branch: `claude/server-backend-e4288c`,
 cut from `next-features-3` at 6714cff.
 
+Visual version, with the architecture and flow diagrams (old vs new), the
+feature table with endpoints and risk, hosting costs and the rollout timeline:
+<https://claude.ai/artifact/6KYxuzHJ5gEMQq6bxGNaUm> (source:
+`docs/mockups/server_migration.html`). This file is the text copy; keep both in
+step.
+
 ## 1. What the game uses Supabase for today
 
 Every call from the phone goes through one class, `SupabaseClient`
@@ -249,6 +255,20 @@ release.
    something you'd rather maintain yourself?
 3. **Existing player data**: must players, diamonds, prizes and saves carry
    over, or is a fresh start before release fine?
-4. Smaller: keep the Amsterdam board clock and the GitHub-based checker as a
-   fallback during the move? Who sets up the server (you, with a step-by-step
-   guide like LEADERBOARD_SETUP.md)?
+4. **Cutover style**: one freeze and a forced app update (simplest with few
+   players), or a longer window where old builds keep working?
+5. **Fallback checker**: keep the GitHub + Godot checker running until
+   Supabase is retired?
+6. **Who sets up the server**: you, with a step-by-step guide like
+   LEADERBOARD_SETUP.md? Who keeps the backups and the server secrets
+   (Firebase key, Daily Run secret)?
+7. **Board clock**: keep the Amsterdam midnight reset for both daily boards?
+
+Rough monthly costs (estimates, not quotes): small EU VPS EUR 5 to 10;
+container platform plus managed Postgres EUR 20 to 45; Supabase Pro about
+EUR 25 (no move, listed for comparison); a domain about EUR 10 a year.
+
+Rollback per rollout step: 1 revert a commit; 2 to 4 nothing live (switch the
+config back); 5 to 6 delete the VPS or wipe staging, Supabase still live;
+7 unfreeze Supabase and ship the old config, copying any runs made on the new
+server back by script; 8 step 7's rollback works until Supabase is removed.
