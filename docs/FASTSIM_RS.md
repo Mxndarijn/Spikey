@@ -60,6 +60,8 @@ the thread count for every mode.
     fastsim-rs search|searchruns|rooms|runs|reaction|odds|scan ...   fastsim-rs runfile <seed> [bot_seed] --out f
     fastsim-rs honesty plan|anchor|rooms|seeds ...   fastsim-rs sameseed ...
     fastsim-rs boss run|fair ...    fastsim-rs difficulty list|measure|score|show ...
+    fastsim-rs repeats [runs] [max_score] [season]     room repeats per score band (the real picker)
+    fastsim-rs plain [seeds] [cap]                     PlannerBot time on screens that look like the starter
 
 Modes and options keep C#'s names; `--threads` is read where C# read it, but
 one pool (`--jobs`) runs everything. `measure/fields.rs` lists every SimState,

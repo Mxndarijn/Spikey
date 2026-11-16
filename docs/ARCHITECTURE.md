@@ -204,7 +204,8 @@ that one room has `WILD_SPIKES` more spikes on every wall after the arrival's
 picked by the seed
 (`RoomCatalog.pick_next`, a shuffle bag kept in `SimState.deck_lo/hi`: a drawn
 room waits until the bag refills, which it does once what is left weighs under
-`DECK_REFILL_PCT` of the allowed rooms; among the rest the pick is by each
+`DECK_REFILL_PCT` of the allowed rooms, and none of the last `RECENT_ROOMS` picks in
+`SimState.recent_rooms` comes back, the window shrinking only if no other room fits; among the rest the pick is by each
 room's weight at this score, `RoomDef.pace`, a curve from its difficulty tier in
 `sim/rooms/room_pacing.gd`; never the current room, only rooms whose season
 matches the run's, and never a room with no room for a fork's two exits

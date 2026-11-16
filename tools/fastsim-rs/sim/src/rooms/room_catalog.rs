@@ -96,6 +96,8 @@ impl RoomCatalog {
 
     pub const DECK_BITS: i64 = 62;
     pub const DECK_REFILL_PCT: i64 = 25;
+    pub const RECENT_ROOMS: i64 = 8;
+    pub const RECENT_BITS: i64 = 7;
 
     pub fn allowed(def: &RoomDef, score: i64, season: i64) -> bool {
         if def.weight_at(score) <= 0 {
@@ -119,6 +121,45 @@ impl RoomCatalog {
         }
     }
 
+    /// The room picked `k` picks ago (0 = the last one), or -1 (room_catalog.gd).
+    pub fn recent(state: &SimState, k: i64) -> i64 {
+        ((state.recent_rooms >> (k * Self::RECENT_BITS)) & ((1i64 << Self::RECENT_BITS) - 1)) - 1
+    }
+
+    /// Whether room `index` is among the last `n` picks.
+    pub fn is_recent(state: &SimState, index: i64, n: i64) -> bool {
+        for k in 0..n {
+            if Self::recent(state, k) == index {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Puts room `index` first in the last picks (the oldest one drops out).
+    pub fn remember(state: &mut SimState, index: i64) {
+        let keep = (1i64 << (Self::RECENT_BITS * (Self::RECENT_ROOMS - 1))) - 1;
+        state.recent_rooms = ((state.recent_rooms & keep) << Self::RECENT_BITS) | (index + 1);
+    }
+
+    /// How many of the last picks to keep out: RECENT_ROOMS, or fewer if that leaves no room.
+    pub fn recent_window(state: &SimState, weights: &[i64], count: usize) -> i64 {
+        let mut n = Self::RECENT_ROOMS;
+        while n > 0 {
+            let mut open = 0;
+            for i in 0..count {
+                if !Self::is_recent(state, i as i64, n) {
+                    open += weights[i];
+                }
+            }
+            if open > 0 {
+                return n;
+            }
+            n -= 1;
+        }
+        0
+    }
+
     pub fn pick_next(rng: &mut SimRng, state: &mut SimState, current: i64, season: i64) -> i64 {
         let list = Self::all();
         let score = state.score;
@@ -126,9 +167,9 @@ impl RoomCatalog {
         let every = SimConfig::POINTS_PER_ROOM;
         let fork = ExitPlanner::fork_at((score / every + 1) * every);
         let mut weights = [0i64; 128];
-        assert!(list.len() <= weights.len());
+        assert!(list.len() < weights.len());
         let mut total = 0;
-        let mut left = 0;
+        let mut bag_left = 0;
         for i in 0..list.len() {
             let mut w = 0;
             let ii = i as i64;
@@ -144,19 +185,32 @@ impl RoomCatalog {
             weights[i] = w;
             total += w;
             if !Self::drawn(state, ii) {
-                left += w;
+                bag_left += w;
             }
         }
         if total == 0 {
             return current;
         }
-        if left == 0 || left * 100 < total * Self::DECK_REFILL_PCT {
+        let n = Self::recent_window(state, &weights, list.len());
+        let mut open = 0;
+        let mut left = 0;
+        for i in 0..list.len() {
+            let ii = i as i64;
+            if Self::is_recent(state, ii, n) {
+                weights[i] = 0;
+            }
+            open += weights[i];
+            if !Self::drawn(state, ii) {
+                left += weights[i];
+            }
+        }
+        if left == 0 || bag_left * 100 < total * Self::DECK_REFILL_PCT {
             state.deck_lo = 0;
             state.deck_hi = 0;
             if current >= 0 {
                 Self::mark_drawn(state, current);
             }
-            left = total;
+            left = open;
         }
         let mut r = rng.next_below(left);
         for i in 0..list.len() {
@@ -165,6 +219,7 @@ impl RoomCatalog {
                 r -= weights[i];
                 if r < 0 {
                     Self::mark_drawn(state, ii);
+                    Self::remember(state, ii);
                     return ii;
                 }
             }

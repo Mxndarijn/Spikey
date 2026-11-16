@@ -69,6 +69,9 @@ var bosses_met := 0
 ## deck_hi from room 62 on) is set once room i has been drawn from this bag.
 var deck_lo := 0
 var deck_hi := 0
+## The last RoomCatalog.RECENT_ROOMS rooms picked (RoomCatalog.pick_next keeps
+## them out): RECENT_BITS bits each, room index + 1, the last pick lowest.
+var recent_rooms := 0
 ## Where the last coin was collected (the view flies it from there).
 var pickup_x := 0
 var pickup_y := 0
@@ -142,6 +145,7 @@ func assign(o: SimState) -> void:
 	bosses_met = o.bosses_met
 	deck_lo = o.deck_lo
 	deck_hi = o.deck_hi
+	recent_rooms = o.recent_rooms
 	pickup_x = o.pickup_x
 	pickup_y = o.pickup_y
 	arrival_hold = o.arrival_hold
@@ -221,6 +225,7 @@ func checksum() -> int:
 		deck_lo,
 		deck_hi,
 		flap_tick,
+		recent_rooms,
 	]:
 		h = SimHash.mix(h, v)
 	return h

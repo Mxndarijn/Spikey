@@ -132,7 +132,80 @@ func test_rooms_rarely_come_back_soon() -> void:
 	gaps.sort()
 	var median := gaps[gaps.size() / 2]
 	assert_true(median >= 15, "a room comes back after %d picks (median)" % median)
-	assert_true(gaps[0] >= 2, "never twice in a row")
+	assert_true(gaps[0] > RoomCatalog.RECENT_ROOMS, "never within the last picks (%d)" % gaps[0])
+
+
+## Runs as the game plays them (tools/room_odds.gd): a pick every
+## POINTS_PER_ROOM points, a boss every BOSS_EVERY, arrival heights spread over
+## the exit range, so forks and arrival skips narrow some picks.
+func test_no_room_comes_back_within_the_last_picks() -> void:
+	var low := SimConfig.KILL_TOP + SimConfig.ARRIVAL_EDGE
+	var high := SimConfig.KILL_BOTTOM - SimConfig.ARRIVAL_EDGE
+	var picks := 0
+	for run in 40:
+		var rng := SimRng.new(3000 + run)
+		var heights := SimRng.new(7000 + run)
+		var state := _state(0)
+		var current := RoomCatalog.first_index()
+		var seen: Array[int] = []
+		for score in range(SimConfig.POINTS_PER_ROOM, 800, SimConfig.POINTS_PER_ROOM):
+			if score % SimConfig.BOSS_EVERY == 0:
+				current = RoomCatalog.bosses()[0]
+				continue
+			state.score = score
+			state.anchor_y = low + heights.next_below(high - low)
+			current = RoomCatalog.pick_next(rng, state, current, Seasons.NONE)
+			var from := maxi(0, seen.size() - RoomCatalog.RECENT_ROOMS)
+			assert_false(
+				current in seen.slice(from),
+				"run %d at %d: %s again" % [run, score, RoomCatalog.all()[current].id]
+			)
+			assert_eq(RoomCatalog.recent(state, 0), current, "the pick is the last one")
+			seen.append(current)
+			picks += 1
+	assert_true(picks > 2000, "%d picks" % picks)
+
+
+func test_the_last_picks_shrink_when_no_other_room_fits() -> void:
+	# At 10 only the Easy rooms are open: with all of them among the last
+	# picks, the window drops the newest ones until the oldest is free.
+	var easy: Array[int] = []
+	for i in RoomCatalog.all().size():
+		if RoomCatalog.all()[i].weight_at(10) > 0 and i != RoomCatalog.first_index():
+			easy.append(i)
+	assert_eq(easy.size(), 7, "the Easy rooms")
+	for seed_value in 50:
+		var state := _state(10)
+		for i in easy:
+			RoomCatalog.remember(state, i)
+		var next := RoomCatalog.pick_next(SimRng.new(seed_value), state, -1, Seasons.NONE)
+		assert_eq(next, easy[0], "the oldest pick is the only one free")
+		assert_eq(RoomCatalog.recent(state, 0), easy[0], "and it is the last pick now")
+		assert_eq(RoomCatalog.recent(state, 1), easy[6])
+	# The current room (the newest pick) stays out however small the window.
+	var got := {}
+	for seed_value in 50:
+		var state := _state(10)
+		for i in easy:
+			RoomCatalog.remember(state, i)
+		var next := RoomCatalog.pick_next(SimRng.new(seed_value), state, easy[6], Seasons.NONE)
+		got[next] = true
+	assert_eq(got.size(), 1, "with the current room out too only the oldest is left")
+	assert_true(got.has(easy[0]))
+
+
+func test_the_last_picks_keep_only_the_newest() -> void:
+	var state := _state(0)
+	assert_eq(RoomCatalog.recent(state, 0), -1, "none yet")
+	for i in RoomCatalog.RECENT_ROOMS + 3:
+		RoomCatalog.remember(state, 100 + i)
+	for k in RoomCatalog.RECENT_ROOMS:
+		assert_eq(RoomCatalog.recent(state, k), 100 + RoomCatalog.RECENT_ROOMS + 2 - k)
+	assert_eq(RoomCatalog.recent(state, RoomCatalog.RECENT_ROOMS), -1, "the oldest dropped out")
+	assert_true(state.recent_rooms > 0, "fits in one word")
+	assert_eq(state.copy().recent_rooms, state.recent_rooms, "a copy keeps them")
+	assert_ne(_state(0).checksum(), state.checksum(), "they are in the checksum")
+	assert_true(RoomCatalog.all().size() < (1 << RoomCatalog.RECENT_BITS), "every room index fits")
 
 
 func test_a_new_unlock_joins_the_bag() -> void:

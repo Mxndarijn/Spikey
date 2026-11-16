@@ -58,6 +58,8 @@ fn main() {
         "measure" => measure::run(&rest[1..], &opts),
         "search" | "searchruns" | "rooms" | "runs" | "reaction" | "odds" | "scan" => modes::run(mode, &rest[1..], &opts),
         "variants" => modes::variants::run(&rest[1..], &opts),
+        "repeats" => modes::repeats::run(&rest[1..]),
+        "plain" => modes::repeats::plain(&rest[1..]),
         "honesty" => honesty_mode::run(&rest[1..], &opts),
         "sameseed" => checks::sameseed::run_mode(&rest[1..], &opts),
         "runfile" => bots::run_file::RunFile::run_mode(

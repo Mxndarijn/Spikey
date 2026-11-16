@@ -63,6 +63,7 @@ pub struct SimState {
     pub bosses_met: i64,
     pub deck_lo: i64,
     pub deck_hi: i64,
+    pub recent_rooms: i64,
     pub pickup_x: i64,
     pub pickup_y: i64,
     pub arrival_hold: i64,
@@ -116,6 +117,7 @@ impl Default for SimState {
             bosses_met: 0,
             deck_lo: 0,
             deck_hi: 0,
+            recent_rooms: 0,
             pickup_x: 0,
             pickup_y: 0,
             arrival_hold: 0,
@@ -196,6 +198,7 @@ impl SimState {
         h = SimHash::mix(h, self.deck_lo);
         h = SimHash::mix(h, self.deck_hi);
         h = SimHash::mix(h, self.flap_tick);
+        h = SimHash::mix(h, self.recent_rooms);
         h
     }
 }

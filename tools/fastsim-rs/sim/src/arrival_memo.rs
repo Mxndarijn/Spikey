@@ -52,6 +52,7 @@ impl ArrivalMemo {
             s.bosses_met,
             s.deck_lo,
             s.deck_hi,
+            s.recent_rooms,
             s.arrival_hold,
             s.anchor_y,
             s.plan_a_y_left,

@@ -111,11 +111,12 @@ impl<'a> Scan<'a> {
 
 impl Honesty {
     /// Seed-bearing values that may stay as they are in a blind copy, each with the reason.
-    pub const SEEDS_SHOWN: [(&'static str, &'static str); 4] = [
+    pub const SEEDS_SHOWN: [(&'static str, &'static str); 5] = [
         ("room.tide_salt_left", "the phase of the tide spikes: their motion is on screen"),
         ("room.tide_salt_right", "the phase of the tide spikes: their motion is on screen"),
         ("state.deck_lo", "the rooms drawn from the room bag (a bitmask): every one was on screen"),
         ("state.deck_hi", "the rooms drawn from the room bag (a bitmask): every one was on screen"),
+        ("state.recent_rooms", "the last rooms picked (packed indexes): every one was on screen"),
     ];
 
     pub const RAW: i64 = 1 << 24;
@@ -145,6 +146,7 @@ impl Honesty {
         s.n("bosses_met", st.bosses_met);
         s.n("deck_lo", st.deck_lo);
         s.n("deck_hi", st.deck_hi);
+        s.n("recent_rooms", st.recent_rooms);
         s.n("pickup_x", st.pickup_x);
         s.n("pickup_y", st.pickup_y);
         s.n("arrival_hold", st.arrival_hold);

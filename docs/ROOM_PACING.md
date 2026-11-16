@@ -47,6 +47,17 @@ this bag; 62 rooms per word).
   that could be picked; on a refill only the current room stays drawn. Light rooms (easy ones
   late in a run) so don't hold the bag open and bunch up at its end. With 0 the bag refills only
   when empty: every room once per bag, but the curve sags past 200 (light leftovers).
+- No room comes back while it is among the last `RECENT_ROOMS` (8) picks, whatever its tier or
+  variant and across bags (`SimState.recent_rooms`: 7 bits per pick, room index + 1). Bosses and
+  Open are never picked, so they don't count. If every room that fits is that recent (a small
+  pool: early, or a fork's `hosts_fork` rooms), the window shrinks for that pick only, the oldest
+  picks first (`recent_window`). The refill test uses the weights before the recent rooms are
+  kept out, so the bag refills as often as without the window (or when only recent rooms are
+  left in it).
+  Measured with `fastsim-rs repeats 4000 990` (2026-11-16): before, nothing repeated under score
+  200 (no refill yet), but from 200 on 6.5-9.5% of picks were among the last 8 rooms (shortest
+  gap 2, right after a refill); with the window none are (shortest gap 10, the boss counted),
+  N=7 still left 0.3-0.75%, and the tier shares per band moved under 1 point.
 - Kept: never the current room, never Open, bosses only through `pick_boss` every 100, arrival
   height skips (`RoomDef.arrival_skip`, `state.anchor_y`). One spine RNG draw. Only the picks
   change the deck, so it is the same for every route and every player of a seed.
