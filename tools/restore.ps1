@@ -11,7 +11,9 @@ param(
     [string]$Dump = ""
 )
 
-$ErrorActionPreference = "Stop"
+# Programs report through their exit codes (checked after each); their stderr
+# (docker build progress, kubectl notes) must not stop Windows PowerShell.
+$ErrorActionPreference = "Continue"
 $repo = Split-Path -Parent $PSScriptRoot
 $namespaces = @{ prod = "flapjaw"; staging = "flapjaw-staging" }
 $ns = $namespaces[$Env]
