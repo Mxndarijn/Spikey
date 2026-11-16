@@ -8,7 +8,7 @@ notifications are doing on this phone, with buttons to try them. Code:
 
 Any build, also TestFlight and release: Home > Settings, then either
 
-- tap the **Debug** link next to Credits, or
+- tap **About** (its caption says "Credits, debug"), then the **Debug** row, or
 - tap the word **Settings** seven times.
 
 Nothing on it gives coins, points or revives, so it is safe in a release

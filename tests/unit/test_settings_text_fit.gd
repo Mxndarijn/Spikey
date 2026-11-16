@@ -2,7 +2,7 @@ extends TestCase
 ## Every button and label on the settings sheet shows its whole text on the
 ## narrowest phone (360 x 640): nothing trimmed to "...", nothing wider than its
 ## box, on the main page and on About. Checked on every world's room theme, with
-## and without Ad choices, in developer mode (the most rows). The game ships in
+## and without Ad choices, in developer mode. The game ships in
 ## English only, so the shipped strings are the ones checked.
 
 

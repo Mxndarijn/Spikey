@@ -53,18 +53,45 @@ func test_seven_taps_on_the_title_open_it() -> void:
 	_reset()
 
 
-func test_developer_mode_has_a_debug_row() -> void:
+## Every build (release and TestFlight too) offers Debug from the settings:
+## the About row on the main page names it, About holds the Debug row, and the
+## row opens the page. Guards against a settings rework dropping the entry.
+func test_every_build_offers_debug_in_the_settings() -> void:
+	for ad_choices: bool in [false, true]:
+		_reset(0)
+		if ad_choices:
+			var ads := FakeAds.new()
+			ads.privacy_required = true
+			_svc.ads = ads
+		var sheet := _sheet(Profile.new())
+		var about := sheet.find_child("About", true, false) as Button
+		assert_true(about != null and about.is_visible_in_tree(), "the main page has the About row")
+		var caption := about.get_node("Caption") as Label
+		assert_true(caption.text.contains("debug"), "its caption names Debug: " + caption.text)
+		var row := sheet.find_child("Debug", true, false) as Button
+		assert_true(row != null, "a release build has the Debug row")
+		assert_false(row.is_visible_in_tree(), "it sits on About, not the main page")
+		about.pressed.emit()
+		assert_true(sheet.is_showing_about())
+		assert_true(row.is_visible_in_tree(), "About shows it")
+		row.pressed.emit()
+		var page := sheet.debug_page()
+		assert_true(page != null, "and it opens the page")
+		assert_true(page.find_child("GiveRevives", true, false) == null, "without developer tools")
+		sheet.show_debug(false)
+		assert_true(sheet.is_showing_about(), "Back returns to About, where the row is")
+		sheet.free()
+	_reset()
+
+
+func test_developer_mode_debug_page_has_developer_tools() -> void:
 	_reset(1)
 	var sheet := _sheet(Profile.new())
-	var row := sheet.find_child("Debug", true, false) as Button
-	assert_true(row != null, "developer mode shows the row on About")
 	sheet.show_about(true)
-	row.pressed.emit()
+	(sheet.find_child("Debug", true, false) as Button).pressed.emit()
 	var page := sheet.debug_page()
 	assert_true(page != null)
 	assert_true(page.find_child("GiveRevives", true, false) != null, "and may give revives back")
-	sheet.show_debug(false)
-	assert_true(sheet.is_showing_about(), "Back returns to About, where the row is")
 	sheet.free()
 	_reset()
 

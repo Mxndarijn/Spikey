@@ -8,8 +8,9 @@ extends Control
 ##   About at the bottom: one full-width row that opens the About page in the
 ##          same card: the credits, Ad choices (only where the player has an ad
 ##          privacy choice to change, Europe; opens Google's form) and Debug
-##          (DebugPage; its row only in developer mode, DevMode). Tapping the
-##          "Settings" title seven times opens Debug in any build.
+##          (DebugPage; its row in every build, TestFlight and release too; the
+##          row's caption names it). Tapping the "Settings" title seven times
+##          also opens Debug.
 ## Every change goes straight into the profile and emits `changed`; main saves
 ## and applies it (audio, RoomView.flash_enabled, button size, spikes).
 
@@ -141,7 +142,7 @@ func _build_main() -> void:
 
 ## What the About page holds, under the About row's name.
 func _about_caption() -> String:
-	return "Credits, ad choices" if _has_ad_choices() else "Credits"
+	return "Credits, ads, debug" if _has_ad_choices() else "Credits, debug"
 
 
 func _has_ad_choices() -> bool:
@@ -157,7 +158,8 @@ func _link(node_name: String, text: String) -> Button:
 	return b
 
 
-## The About page: the credits, then Ad choices and Debug where they apply.
+## The About page: the credits, Ad choices where it applies, then Debug (every
+## build: testers on TestFlight and Play need it, see docs/DEBUG.md).
 func _build_about() -> void:
 	var back := UiKit.icon_button(BACK_ICON, "Back")
 	_about_page.add_child(_head("About", back, show_about.bind(false), true))
@@ -173,11 +175,10 @@ func _build_about() -> void:
 		var choices := _link("AdChoices", "Ad choices")
 		choices.pressed.connect(_services.ads.show_privacy_options)
 		_about_page.add_child(choices)
-	if DevMode.enabled():
-		_about_page.add_child(_section("Debug"))
-		var debug := _link("Debug", "Debug")
-		debug.pressed.connect(show_debug.bind(true))
-		_about_page.add_child(debug)
+	_about_page.add_child(_section("Debug"))
+	var debug := _link("Debug", "Debug")
+	debug.pressed.connect(show_debug.bind(true))
+	_about_page.add_child(debug)
 
 
 ## The card's title row: title at the left (display 28), a bare icon button.
