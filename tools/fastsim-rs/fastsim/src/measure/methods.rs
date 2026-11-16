@@ -6,7 +6,7 @@
 
 /// (class, its no-argument methods in ordinal order), in `state_types()` order.
 pub const STATE_TYPES: &[(&str, &[&str])] = &[
-    ("SimState", &["checksum", "copy"]),
+    ("SimState", &["can_flap", "checksum", "copy"]),
     ("RoomRuntime", &["_blink_period", "_variant", "blink_showing_second", "clone_deep", "inset", "max_spike_depth", "spike_bonus", "spike_depth", "spike_half_base", "steps_this_tick", "tide_max_depth", "variant_id", "wall_left", "wall_right"]),
     ("Beam", &["band_bottom", "band_top", "clone_deep", "live_count"]),
     ("Belt", &["band_bottom", "band_top", "clone_deep"]),

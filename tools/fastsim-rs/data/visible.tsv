@@ -4,8 +4,10 @@ Beam.rows	game/run/painters/beam_painter.gd
 Belt.alive	game/run/painters/belt_painter.gd
 Belt.left_dir	game/run/painters/belt_painter.gd
 Belt.left_shift	game/run/painters/belt_painter.gd
+Belt.left_turn	game/run/painters/belt_painter.gd
 Belt.right_dir	game/run/painters/belt_painter.gd
 Belt.right_shift	game/run/painters/belt_painter.gd
+Belt.right_turn	game/run/painters/belt_painter.gd
 Block.alive	game/run/painters/block_painter.gd
 Block.opacity()	game/run/painters/block_painter.gd
 Block.x0	game/run/painters/block_painter.gd

@@ -25,7 +25,7 @@ func paint(c: CanvasItem, hazard: Hazard, look: HazardLook) -> void:
 			var y := top + fposmod(k + shift, span)
 			c.draw_rect(Rect2(x, y, RAIL_W, TREAD_H), Color(edge, 0.8))
 			k += TREAD
-		var dir := float(h.run_dir(side))
+		var dir := float(h.left_dir * h.left_turn if side == 0 else h.right_dir * h.right_turn)
 		var cx := 50.0 if side == 0 else RoomView.W - 50.0
 		var cy := top + span / 2.0
 		for i in 3:
