@@ -174,6 +174,9 @@ func test_flip_flop_turns_gravity_round_at_every_bounce() -> void:
 func test_flap_pushes_against_gravity_after_a_flip() -> void:
 	var sim := sim_in("flip", "flip-flop")
 	sim.step(true)
+	# Past the tap gap, or the second tap is dropped.
+	for i in SimConfig.TAP_GAP - 1:
+		sim.step(false)
 	sim.room.gravity = 1
 	sim.step(true)
 	assert_true(sim.state.vy < 0, "pulled down: a flap pushes up")

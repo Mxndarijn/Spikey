@@ -76,7 +76,7 @@ func _run_once(sim: GameSim, ticks: int) -> bool:
 			var s: GameSim = e[0]
 			var node: int = e[1]
 			var grav := s.room.gravity
-			if s.state.vy * grav > TAP_BELOW_VY or not s.state.started:
+			if (s.state.vy * grav > TAP_BELOW_VY and s.state.can_flap()) or not s.state.started:
 				var c := SimClone.copy(s)
 				c.step(true)
 				_keep(next, c, node, 1)

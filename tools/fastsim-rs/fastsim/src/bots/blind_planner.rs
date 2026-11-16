@@ -408,8 +408,9 @@ impl BlindPlanner {
         }
         self._since = self._since.wrapping_add(1);
         let tap = !self._plan.is_empty() && self._plan.pop_front().unwrap();
-        // The sim ignores taps during the wait out of a portal: don't make them.
-        tap && sim.state.arrival_hold == 0
+        // The sim ignores taps during the wait out of a portal and taps too soon after
+        // a flap (SimConfig::TAP_GAP): don't make them.
+        tap && sim.state.arrival_hold == 0 && sim.state.can_flap()
     }
 
     fn copy(&self, sim: &GameSim, seed: i64) -> GameSim {
@@ -955,6 +956,7 @@ impl BlindPlanner {
             next.clear();
             for e in frontier.drain(..) {
                 let can_tap = e.sim.state.vy * e.sim.room.gravity > tap_from
+                    && e.sim.state.can_flap()
                     && (self.min_gap <= 0 || e.since >= self.min_gap);
                 let vx0 = e.sim.state.vx;
                 let room0 = e.sim.state.room_index;

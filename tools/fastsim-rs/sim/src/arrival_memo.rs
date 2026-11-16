@@ -1,7 +1,7 @@
 //! Port of Bots/ArrivalMemo.cs. Planner copies only (`GameSim.memo_arrivals`,
 //! set by BlindPlanner.blind_copy): remembers `GameSim._arrival_retries`. The
 //! key is the state but for the fields the arrival never reads (x, y, vx, vy,
-//! tick, flaps, coins, pickup_x, pickup_y, death_cause, revives), both RNGs,
+//! tick, flaps, flap_tick, coins, pickup_x, pickup_y, death_cause, revives), both RNGs,
 //! the new room's seed, the free run of the last wall and the points overrides.
 //! The real game never uses this. Tool only.
 use std::cell::RefCell;

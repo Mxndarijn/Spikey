@@ -313,7 +313,7 @@ impl Judge {
             slots.clear();
             next.clear();
             for e in &frontier {
-                let can_tap = e.since >= self.gap;
+                let can_tap = e.since >= self.gap && e.w[0].state.can_flap();
                 let mut a: i32 = if can_tap { 1 } else { 0 };
                 while a >= 0 {
                     let mut ws: Vec<GameSim> = Vec::with_capacity(e.w.len());

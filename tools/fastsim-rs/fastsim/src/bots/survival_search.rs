@@ -114,7 +114,7 @@ impl SurvivalSearch {
             for e in frontier.drain(..) {
                 let mut s = e.sim;
                 let grav = s.room.gravity;
-                if s.state.vy * grav > Self::TAP_BELOW_VY || !s.state.started {
+                if (s.state.vy * grav > Self::TAP_BELOW_VY && s.state.can_flap()) || !s.state.started {
                     let mut c = s.clone_deep();
                     c.step(true);
                     self._keep(&mut slots, &mut next, c, e.node, 1);

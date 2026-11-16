@@ -157,6 +157,10 @@ without replaying the easy first rooms.
   had none (a room to fix). `finishable.share` = alive at the cap / (alive +
   `bot` deaths), with a Wilson CI; `infinite` is true when no `bot` death is
   left. Pass the judge's output with `-Fair`.
+- **Tap gap**: the sim drops a tap fewer than `SimConfig.TAP_GAP` (6) ticks after the last
+  flap, so every bot search (BlindPlanner's beam, SurvivalSearch, PlannerBot, the judge, the
+  difficulty tube) asks `SimState.can_flap()` before it tries a tap. The judge's own `--gap`
+  (default 6) can only make it stricter.
 - **Release judge** (the 400-seed fairness run before a release, so a no-way
   verdict means the room, not the judge's search): `fastsim-rs rl review fair
   --seeds 400 --cap 216000 --budget 96 --back 480 --follow 48 --tapfree 1

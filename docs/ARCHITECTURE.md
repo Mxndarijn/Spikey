@@ -130,9 +130,11 @@ flowchart TD
   walls have 14 spike slots, 41 px apart from the ceiling's kill line to the
   floor's, stored as bitmasks (`left_spikes`, `right_spikes`).
 - **Loop**: bird flies sideways at constant speed, a tap sets an upward velocity,
-  gravity pulls down. Hitting a side wall scores a point, clears that wall and
-  generates spikes on the opposite wall. Every 10 points the run moves to a new
-  room kind.
+  gravity pulls down. A tap fewer than `SimConfig.TAP_GAP` (6) ticks after the
+  last flap is dropped (`SimState.can_flap`): no double jumps, for players and
+  bots alike. A portal resets it (the bird comes out level). Hitting a side
+  wall scores a point, clears that wall and generates spikes on the opposite
+  wall. Every 10 points the run moves to a new room kind.
 - **Room generation** (`RoomRules`) always leaves a guaranteed gap of free slots.
   The spike count grows with score.
 - **Events**: each step fills `GameSim.events` (`START`, `FLAP`, `BOUNCE`,

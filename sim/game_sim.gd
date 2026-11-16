@@ -1,8 +1,7 @@
 class_name GameSim
 extends RefCounted
-## The deterministic game. One call to step() is one 1/60 s tick.
-## Same seed + same season + same tap ticks = same run, on every device and on
-## the server.
+## The deterministic game. One call to step() is one 1/60 s tick. Same seed +
+## same season + same tap ticks = same run, on every device and on the server.
 
 enum Event {
 	START,
@@ -33,8 +32,8 @@ const EXIT_STEER := 3
 ## and only then deadly a SLIDE_PARTS-th of a crossing after the draw. A wall
 ## never kills a bird flying away from it (it moves in, a tide grows, a belt resets).
 const SLIDE_PARTS := 3
-## Bird heights (from the exit's) a portal arrival is checked at: anywhere a
-## bird can come through the exit (see _arrival_retries).
+## Bird heights (from the exit's) a portal arrival is checked at: anywhere a bird
+## comes through the exit (_arrival_retries).
 const ARRIVAL_HEIGHTS: Array[int] = [
 	0, -SimConfig.EXIT_FIT, SimConfig.EXIT_FIT, -SimConfig.EXIT_FIT / 2, SimConfig.EXIT_FIT / 2
 ]
@@ -132,8 +131,7 @@ func is_practice() -> bool:
 	return practice_room >= 0
 
 
-## The score to show: the run's score, or in practice the points scored since
-## the practice started (it starts at the room's from_score).
+## The score to show: the run's score, or in practice the points since it began.
 func shown_score() -> int:
 	if is_practice():
 		return state.score - RoomCatalog.all()[practice_room].from_score
@@ -154,7 +152,8 @@ func step(tap: bool) -> void:
 		state.tick += 1
 		return
 
-	if tap:
+	if tap and state.can_flap():
+		state.flap_tick = state.tick
 		if not state.started:
 			state.started = true
 			events.append(Event.START)
@@ -703,10 +702,11 @@ func _arrive(side: int, event: Event) -> void:
 	else:
 		state.x = room.wall_right() - r
 		state.vx = -SimConfig.SPEED_X
-	# Come out flying level: no speed up or down, so a bird that fell into the
-	# exit doesn't drop straight into the new room's floor (or, rising, into
-	# its ceiling).
+	# Come out flying level (a bird that fell into the exit would drop into the
+	# floor) and free to flap at once (so the arrival check plays the same for
+	# every player, whenever they last flapped).
 	state.vy = 0
+	state.flap_tick = state.tick - SimConfig.TAP_GAP
 	state.left_spikes = 0
 	state.right_spikes = 0
 	state.left_new = 0

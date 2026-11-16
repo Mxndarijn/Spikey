@@ -122,6 +122,10 @@ const GRAVITY := 13
 ## 300 px/s = 5 px/tick.
 const FLAP_VY := -5 * SUB
 const MAX_FALL_VY := 12 * SUB
+## The fastest a thumb taps again: a tap fewer than TAP_GAP ticks after the last
+## flap is dropped (no flap, no FLAP event). 6 ticks = 100 ms, a fast human
+## double tap. Bots play by it too, so no bot can double jump.
+const TAP_GAP := 6
 
 # Ceiling and floor are always deadly: the bird dies when its edge passes these lines.
 const KILL_TOP := 34 * SUB

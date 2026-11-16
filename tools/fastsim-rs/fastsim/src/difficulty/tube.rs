@@ -133,7 +133,8 @@ impl Tube {
             next_nodes.clear();
             let mut nodes = cur.clone();
             for (k, mut s) in frontier.drain(..).enumerate() {
-                let can = s.state.vy * s.room.gravity > SurvivalSearch::TAP_BELOW_VY || !s.state.started;
+                let can = (s.state.vy * s.room.gravity > SurvivalSearch::TAP_BELOW_VY && s.state.can_flap())
+                    || !s.state.started;
                 nodes[k].can_tap = can;
                 nodes[k].tap = DEAD;
                 nodes[k].no = DEAD;

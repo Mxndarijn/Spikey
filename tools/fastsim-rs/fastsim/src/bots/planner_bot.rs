@@ -21,6 +21,10 @@ impl PlannerBot {
         if !sim.state.started {
             return true;
         }
+        // Too soon after the last flap: the sim would drop the tap.
+        if !sim.state.can_flap() {
+            return false;
+        }
         let tap = self._value(sim, true);
         let wait = self._value(sim, false);
         tap > wait

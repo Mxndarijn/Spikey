@@ -6,9 +6,9 @@ enum DeathCause { NONE, CEILING, FLOOR, SPIKE_LEFT, SPIKE_RIGHT, HAZARD }
 ## A normal exit, or one of the two at a fork.
 enum ExitKind { NORMAL, CALM, WILD }
 
-## Left out of arrival_key: a portal arrival sets the bird's place and speed
-## itself, and nothing reads the counts.
-const NOT_IN_ARRIVAL_KEY := ["tick", "flaps", "x", "y", "vx", "vy"]
+## Left out of arrival_key: a portal arrival sets the bird's place, speed and
+## flap_tick itself, and nothing reads the counts.
+const NOT_IN_ARRIVAL_KEY := ["tick", "flaps", "flap_tick", "x", "y", "vx", "vy"]
 
 var tick := 0
 var started := false
@@ -44,6 +44,9 @@ var coin_y := 0
 var coins := 0
 ## Taps this run (for achievements).
 var flaps := 0
+## The tick of the last flap (can_flap). Far back at the start, so the
+## first tap always flaps.
+var flap_tick := -SimConfig.TAP_GAP
 ## Exit portal(s): open on `exit_side` (0 left, 1 right; always
 ## SimConfig.EXIT_WALL). `exit_a_y` is always used; `exit_b_y` only at a fork.
 ## Kinds are ExitKind values.
@@ -127,6 +130,7 @@ func assign(o: SimState) -> void:
 	coin_y = o.coin_y
 	coins = o.coins
 	flaps = o.flaps
+	flap_tick = o.flap_tick
 	exit_open = o.exit_open
 	exit_preview = o.exit_preview
 	exit_side = o.exit_side
@@ -152,14 +156,20 @@ func assign(o: SimState) -> void:
 	plan_at = o.plan_at
 
 
-## Every field but the bird's motion and the tick and flap counts, in order
-## (ArrivalPlan.key). A field added later is in it too.
+## Every field but the bird's motion, the tick and the flap count and time, in
+## order (ArrivalPlan.key). A field added later is in it too.
 func arrival_key() -> Array:
 	var out := []
 	for p in get_script().get_script_property_list():
 		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not p.name in NOT_IN_ARRIVAL_KEY:
 			out.append(get(p.name))
 	return out
+
+
+## Whether a tap this tick flaps: SimConfig.TAP_GAP ticks or more since the
+## last flap (else GameSim.step drops it). Bots ask it before they plan a tap.
+func can_flap() -> bool:
+	return tick - flap_tick >= SimConfig.TAP_GAP
 
 
 func checksum() -> int:
@@ -210,6 +220,7 @@ func checksum() -> int:
 		bosses_met,
 		deck_lo,
 		deck_hi,
+		flap_tick,
 	]:
 		h = SimHash.mix(h, v)
 	return h

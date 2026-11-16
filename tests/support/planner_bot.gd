@@ -27,6 +27,9 @@ func _init(seed_value: int = 1, horizon: int = HORIZON, rollouts: int = ROLLOUTS
 func decide(sim: GameSim) -> bool:
 	if not sim.state.started:
 		return true
+	# Too soon after the last flap: the sim would drop the tap.
+	if not sim.state.can_flap():
+		return false
 	var tap := _value(sim, true)
 	var wait := _value(sim, false)
 	return tap > wait

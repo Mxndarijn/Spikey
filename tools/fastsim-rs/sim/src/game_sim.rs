@@ -272,7 +272,8 @@ impl GameSim {
             self.state.tick += 1;
             return;
         }
-        if tap {
+        if tap && self.state.can_flap() {
+            self.state.flap_tick = self.state.tick;
             if !self.state.started {
                 self.state.started = true;
                 self.events.push(Event::START);
@@ -984,7 +985,10 @@ impl GameSim {
             self.state.x = self.room.wall_right() - r;
             self.state.vx = -SimConfig::SPEED_X;
         }
+        // Come out flying level and free to flap at once (the arrival check plays the same for
+        // every player, whenever they last flapped).
         self.state.vy = 0;
+        self.state.flap_tick = self.state.tick - SimConfig::TAP_GAP;
         self.state.left_spikes = 0;
         self.state.right_spikes = 0;
         self.state.left_new = 0;

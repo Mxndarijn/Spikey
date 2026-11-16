@@ -50,6 +50,8 @@ pub struct SimState {
     pub coin_y: i64,
     pub coins: i64,
     pub flaps: i64,
+    /// The tick of the last flap (SimState::can_flap).
+    pub flap_tick: i64,
     pub exit_open: bool,
     pub exit_preview: bool,
     pub exit_side: i64,
@@ -102,6 +104,7 @@ impl Default for SimState {
             coin_y: 0,
             coins: 0,
             flaps: 0,
+            flap_tick: -SimConfig::TAP_GAP,
             exit_open: false,
             exit_preview: false,
             exit_side: 0,
@@ -137,6 +140,12 @@ impl SimState {
     /// Every field set to `o`'s (GDScript SimState.assign).
     pub fn assign(&mut self, o: &SimState) {
         *self = *o;
+    }
+
+    /// Whether a tap this tick flaps: SimConfig::TAP_GAP ticks or more since the last flap
+    /// (else GameSim::step drops it). Bots ask it before they plan a tap.
+    pub fn can_flap(&self) -> bool {
+        self.tick - self.flap_tick >= SimConfig::TAP_GAP
     }
 
     pub fn checksum(&self) -> i64 {
@@ -186,6 +195,7 @@ impl SimState {
         h = SimHash::mix(h, self.bosses_met);
         h = SimHash::mix(h, self.deck_lo);
         h = SimHash::mix(h, self.deck_hi);
+        h = SimHash::mix(h, self.flap_tick);
         h
     }
 }

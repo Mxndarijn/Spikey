@@ -18,6 +18,8 @@ impl SimConfig {
     pub const GRAVITY: i64 = 13;
     pub const FLAP_VY: i64 = -5 * Self::SUB;
     pub const MAX_FALL_VY: i64 = 12 * Self::SUB;
+    /// A tap fewer than TAP_GAP ticks after the last flap is dropped (100 ms).
+    pub const TAP_GAP: i64 = 6;
     pub const KILL_TOP: i64 = 34 * Self::SUB;
     pub const KILL_BOTTOM: i64 = 606 * Self::SUB;
     pub const SLOT_TOP: i64 = 33 * Self::SUB;
