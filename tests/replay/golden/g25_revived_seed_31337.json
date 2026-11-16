@@ -1,5 +1,5 @@
 {
-  "gameplay_version": 24,
+  "gameplay_version": 25,
   "seed": 31337,
   "season": -1,
   "taps": [
@@ -52,5 +52,5 @@
   "score": 10,
   "coins": 0,
   "end_tick": 1792,
-  "checksum": 3206202044
+  "checksum": 2745073209
 }

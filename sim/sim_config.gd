@@ -98,7 +98,11 @@ extends RefCounted
 ##     Cave Tunnel hold band; Updraft chimney free runs counted from their middle;
 ##     steered walls near an exit stay in reach of the wall before; Spike Belt
 ##     twice as fast; room tiers by rank (8 rooms moved).
-const GAMEPLAY_VERSION := 24
+## 25: a tap within TAP_GAP ticks of the last flap is dropped (no double jumps);
+##     a cloud turn-back never touches the walls; Spike Belt twice as fast again,
+##     turning round at MAX_SHIFT; Lava Rise sinks kept clear of the walls; no room
+##     comes back within the last 8 picks.
+const GAMEPLAY_VERSION := 25
 ## How often a run can be revived.
 const MAX_REVIVES := 1
 const TICKS_PER_SECOND := 60
