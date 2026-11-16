@@ -94,6 +94,28 @@ func test_belt_holds_while_reading_then_slides_and_resets_on_a_new_wall() -> voi
 	assert_eq(b.right_shift, 0, "a new wall starts at rest")
 
 
+func test_belt_turns_round_at_its_end() -> void:
+	var sim := _started("belt", 4)
+	var b: Belt = sim.room.hazards[0]
+	b.mode = Belt.Mode.UP
+	b.left_dir = -1
+	b.right_dir = -1
+	sim.state.vx = SimConfig.SPEED_X
+	for i in SimConfig.ARRIVAL_BLIND:
+		sim.room.step(sim)
+	var lowest := 0
+	var turned := false
+	for i in 4 * Belt.MAX_SHIFT / Belt.SPEED:
+		sim.room.step(sim)
+		assert_true(absi(b.right_shift) <= Belt.MAX_SHIFT, "never past two slots")
+		lowest = mini(lowest, b.right_shift)
+		turned = turned or b.run_dir(1) == 1
+	assert_true(turned, "runs back down once it reaches the end")
+	assert_true(lowest < -Belt.MAX_SHIFT + Belt.SPEED, "reaches the end")
+	b.adjust_wall(sim, 1, 0)
+	assert_eq(b.run_dir(1), -1, "a new wall runs its belt's way again")
+
+
 func test_belt_spikes_hit_where_they_are_drawn() -> void:
 	var sim := _started("belt", 5)
 	var b: Belt = sim.room.hazards[0]

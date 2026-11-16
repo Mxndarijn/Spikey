@@ -238,6 +238,8 @@ impl Honesty {
                 s.n("mode", x.mode);
                 s.n("left_dir", x.left_dir);
                 s.n("right_dir", x.right_dir);
+                s.n("left_turn", x.left_turn);
+                s.n("right_turn", x.right_turn);
                 s.n("left_shift", x.left_shift);
                 s.n("right_shift", x.right_shift);
                 Self::base_fields(s, &x.base);
