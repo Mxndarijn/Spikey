@@ -73,8 +73,13 @@ async fn sign_up(app: &Router) -> Phone {
     }
 }
 
+/// A golden replay of the sim's current gameplay version ("seed_2024.json").
 fn golden(name: &str) -> Value {
-    let path = format!("{}/../tests/replay/golden/{name}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/../tests/replay/golden/g{}_{name}",
+        env!("CARGO_MANIFEST_DIR"),
+        sim::sim_config::SimConfig::GAMEPLAY_VERSION
+    );
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
@@ -197,7 +202,7 @@ async fn runs_are_checked_and_shown() {
     let Some((app, pool)) = setup().await else { return };
     let p = sign_up(&app).await;
     let t = Some(p.access.as_str());
-    let g = golden("g24_seed_2024.json");
+    let g = golden("seed_2024.json");
     let (status, e) = call(&app, "/v1/submit_run", t, run_body(&g, "checkme")).await;
     assert_eq!(status, StatusCode::OK, "{e}");
     let mut fake = run_body(&g, "checkme");

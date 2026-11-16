@@ -236,8 +236,11 @@ pub async fn round(pool: &PgPool) -> Result<usize, sqlx::Error> {
 mod tests {
     use super::*;
 
+    /// A golden replay of the sim's current gameplay version ("seed_11.json" ->
+    /// tests/replay/golden/g<version>_seed_11.json), so a version bump needs no edit here.
     fn golden(name: &str) -> (Run, Vec<i64>, Vec<i64>) {
-        let path = format!("{}/../tests/replay/golden/{name}", env!("CARGO_MANIFEST_DIR"));
+        let path =
+            format!("{}/../tests/replay/golden/g{}_{name}", env!("CARGO_MANIFEST_DIR"), SimConfig::GAMEPLAY_VERSION);
         let v: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         let mut run = Run::from_json(&v);
         run.day = "2026-11-15".into();
@@ -247,7 +250,7 @@ mod tests {
 
     #[test]
     fn the_golden_replays_pass() {
-        for name in ["g24_seed_2024.json", "g24_seed_11.json", "g24_revived_seed_2024.json"] {
+        for name in ["seed_2024.json", "seed_11.json", "revived_seed_2024.json"] {
             let (run, _, _) = golden(name);
             assert_eq!(check(&run).unwrap().status, OK, "{name}: {:?}", check(&run));
         }
@@ -255,19 +258,19 @@ mod tests {
 
     #[test]
     fn a_changed_score_or_tap_is_rejected() {
-        let (mut run, _, _) = golden("g24_seed_2024.json");
+        let (mut run, _, _) = golden("seed_2024.json");
         run.score += 1;
         let v = check(&run).unwrap();
         assert_eq!(v.status, REJECTED);
         assert!(v.reason.starts_with("score mismatch"), "{}", v.reason);
-        let (mut run, _, _) = golden("g24_seed_2024.json");
+        let (mut run, _, _) = golden("seed_2024.json");
         run.taps.as_mut().unwrap().pop();
         assert_eq!(check(&run).unwrap().status, REJECTED, "one tap less plays out differently");
     }
 
     #[test]
     fn versions_decide_first() {
-        let (mut run, _, _) = golden("g24_seed_11.json");
+        let (mut run, _, _) = golden("seed_11.json");
         run.gameplay_version = SimConfig::GAMEPLAY_VERSION - 1;
         assert_eq!(check(&run).unwrap().status, OUTDATED);
         run.gameplay_version = SimConfig::GAMEPLAY_VERSION + 1;
@@ -276,7 +279,7 @@ mod tests {
 
     #[test]
     fn the_season_must_be_in_play_that_day() {
-        let (mut run, _, _) = golden("g24_seed_11.json");
+        let (mut run, _, _) = golden("seed_11.json");
         run.season = Some(Seasons::HALLOWEEN);
         let v = check(&run).unwrap();
         assert_eq!(v.status, REJECTED);
