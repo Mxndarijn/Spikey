@@ -31,6 +31,11 @@ func reseed(seed_value: int) -> void:
 	_s3 = x
 
 
+## The generator's state, to compare (ArrivalPlan.key).
+func key() -> Array:
+	return [_s0, _s1, _s2, _s3]
+
+
 ## Next value in [0, 2^32).
 func next_u32() -> int:
 	var result := (_rotl((_s1 * 5) & MASK, 7) * 9) & MASK

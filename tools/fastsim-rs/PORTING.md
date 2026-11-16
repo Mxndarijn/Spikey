@@ -82,6 +82,15 @@ parity cases for it (`tools/fastsim_parity.gd` setup(), `fastsim/src/parity.rs`
 setup()). `ArrivalBench`'s thresholds are pinned to `checks/arrival.rs` by
 `tests/unit/test_fastsim_checks.gd`.
 
+## Not ported
+
+- `sim/arrival_plan.gd` (ArrivalPlan): the game's arrival check worked out ahead on a worker
+  thread (`game/app/arrival_ahead.gd`). Speed only, the same result as the check itself; the
+  Rust bots have their own memo (`arrival_memo.rs`).
+- `ArrivalCheck.layout_score` is GDScript's `GameSim._arrival_score` moved (game_sim.gd's line
+  cap); Rust keeps `GameSim::_arrival_score`. `GameSim._through_door` is the first half of
+  `_go_through`, split for ArrivalPlan; Rust keeps one `_go_through`.
+
 ## Porting rules (GDScript -> Rust)
 
 Keep names, order and structure the same as the GDScript line.

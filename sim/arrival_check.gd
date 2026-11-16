@@ -38,6 +38,37 @@ static func score(sim: GameSim) -> int:
 	return n + second
 
 
+## How layout `k` of room `next` does out of the exit on wall `side`, for
+## GameSim._arrival_retries (`unpin`: any variant; `band`: hold band open): -1
+## if fair at every GameSim.ARRIVAL_HEIGHTS height, else a rank. (FastSim-RS:
+## GameSim::_arrival_score.)
+static func layout_score(
+	sim: GameSim, side: int, next: int, k: int, unpin: bool, band: bool
+) -> int:
+	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
+	var centre := 0
+	var worst := fair
+	for dy: int in GameSim.ARRIVAL_HEIGHTS:
+		var c := SimCopy.copy(sim)
+		c._checking = true
+		c._arrival_unpin = unpin
+		c._arrival_band = band
+		c.state.y = GameSim._arrival_y(sim.state.anchor_y + dy)
+		for i in k:
+			c._rng.next_u32()
+		c._arrive_in(side, next)
+		var lived := mini(score(c), fair)
+		if dy == 0:
+			centre = lived
+		worst = mini(worst, lived)
+		# One height that fails is enough: the rest are not played.
+		if worst < fair:
+			break
+	if worst >= fair:
+		return -1
+	return centre * (fair + 1) + worst
+
+
 ## Plays on: kind 0 aims for the gap (or exit) on the wall ahead, kind 1 holds
 ## a height near where the bird came in.
 static func _follow(sim: GameSim, kind: int, i: int, y0: int) -> int:

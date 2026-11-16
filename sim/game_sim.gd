@@ -80,6 +80,10 @@ var _arrival_band := false
 ## Tool info, not gameplay (not in the checksum): the last portal arrival had no
 ## layout fair for a bird anywhere in the exit; the best one was taken.
 var _arrival_unfit := false
+## Speed only: arrival checks worked out ahead, and whether the last arrival
+## took one (ArrivalPlan; not gameplay, not in the checksum).
+var _arrival_offers: Array = []
+var _arrival_planned := false
 ## While ExitPlanner plans: points_to_exit() as if this many points were left
 ## (-1 = the real count), and a second count the plan must also be clear for
 ## (-1 = none; see ExitPlanner.plan_room).
@@ -561,6 +565,15 @@ func steps_to_wall(side: int) -> int:
 ## fork lead to one door (SimConfig.FORK_DOOR_Y), so the room behind a fork is
 ## the same for Calm and Wild; the route (`kind`) lasts that one room.
 func _go_through(side: int, kind: int, through_y: int) -> void:
+	var next := _through_door(kind, through_y)
+	# Laid out so a slow player lives: each retry skips one RNG draw.
+	for i in _arrival_retries(side, next):
+		_rng.next_u32()
+	_arrive_in(side, next)
+
+
+## _go_through up to the arrival check (ArrivalPlan too). Returns the room.
+func _through_door(kind: int, through_y: int) -> int:
 	state.exit_open = false
 	state.route = kind
 	if kind == SimState.ExitKind.WILD:
@@ -584,11 +597,7 @@ func _go_through(side: int, kind: int, through_y: int) -> void:
 	else:
 		next = RoomCatalog.pick_next(_spine, state, room.index, season)
 	_seed_room()
-	# Lay the room out so a player who needs a moment to look can live: the
-	# check plays it on copies, and each retry skips one RNG draw.
-	for i in _arrival_retries(side, next):
-		_rng.next_u32()
-	_arrive_in(side, next)
+	return next
 
 
 ## Whether the exit just taken leads into a boss room: the one at every
@@ -623,8 +632,12 @@ func _arrival_retries(side: int, next: int) -> int:
 	_arrival_unpin = false
 	_arrival_band = false
 	_arrival_unfit = false
+	_arrival_planned = false
 	if _checking or SimConfig.ARRIVAL_BLIND == 0:
 		return 0
+	var planned := ArrivalPlan.take(self, side, next)
+	if planned >= 0:
+		return planned
 	var best := 0
 	var best_score := -1
 	var best_pass := 0
@@ -633,7 +646,7 @@ func _arrival_retries(side: int, next: int) -> int:
 	for p in passes:
 		var band := (p % 2 == 1) != def.boss
 		for k in SimConfig.ARRIVAL_TRIES:
-			var score := _arrival_score(side, next, k, p >= 2, band)
+			var score := ArrivalCheck.layout_score(self, side, next, k, p >= 2, band)
 			if score < 0:
 				best_pass = p
 				best = k
@@ -649,33 +662,6 @@ func _arrival_retries(side: int, next: int) -> int:
 	_arrival_band = (best_pass % 2 == 1) != def.boss
 	_arrival_unfit = best_score != -2
 	return best
-
-
-## How layout `k` of room `next` does (`unpin`: any variant; `band`: hold band
-## open): -1 if fair at every ARRIVAL_HEIGHTS height, else a rank.
-func _arrival_score(side: int, next: int, k: int, unpin: bool, band: bool) -> int:
-	var fair := SimConfig.ARRIVAL_BLIND + SimConfig.ARRIVAL_FOLLOW
-	var centre := 0
-	var worst := fair
-	for dy: int in ARRIVAL_HEIGHTS:
-		var c := SimCopy.copy(self)
-		c._checking = true
-		c._arrival_unpin = unpin
-		c._arrival_band = band
-		c.state.y = _arrival_y(state.anchor_y + dy)
-		for i in k:
-			c._rng.next_u32()
-		c._arrive_in(side, next)
-		var lived := mini(ArrivalCheck.score(c), fair)
-		if dy == 0:
-			centre = lived
-		worst = mini(worst, lived)
-		# One height that fails is enough: the rest are not played.
-		if worst < fair:
-			break
-	if worst >= fair:
-		return -1
-	return centre * (fair + 1) + worst
 
 
 ## Starts room `next` with the bird out of a portal in the wall opposite

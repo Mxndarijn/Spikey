@@ -6,6 +6,10 @@ enum DeathCause { NONE, CEILING, FLOOR, SPIKE_LEFT, SPIKE_RIGHT, HAZARD }
 ## A normal exit, or one of the two at a fork.
 enum ExitKind { NORMAL, CALM, WILD }
 
+## Left out of arrival_key: a portal arrival sets the bird's place and speed
+## itself, and nothing reads the counts.
+const NOT_IN_ARRIVAL_KEY := ["tick", "flaps", "x", "y", "vx", "vy"]
+
 var tick := 0
 var started := false
 var alive := true
@@ -146,6 +150,16 @@ func assign(o: SimState) -> void:
 	plan_a_kind_right = o.plan_a_kind_right
 	plan_b_y_right = o.plan_b_y_right
 	plan_at = o.plan_at
+
+
+## Every field but the bird's motion and the tick and flap counts, in order
+## (ArrivalPlan.key). A field added later is in it too.
+func arrival_key() -> Array:
+	var out := []
+	for p in get_script().get_script_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not p.name in NOT_IN_ARRIVAL_KEY:
+			out.append(get(p.name))
+	return out
 
 
 func checksum() -> int:

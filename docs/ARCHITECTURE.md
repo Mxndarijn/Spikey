@@ -161,7 +161,14 @@ arrival on copies of the sim (`SimCopy`), the bird only holding its height for
 `SimConfig.ARRIVAL_BLIND` ticks (1 s, gameplay version 19) and then a few simple players trying
 to live `ARRIVAL_FOLLOW` ticks more. If fewer than two do, the layout is drawn again, up to
 `ARRIVAL_TRIES` times (each retry skips one RNG draw, so the seed still decides
-everything and replays match). Rooms also keep the way out of a portal fair: Floating Isles
+everything and replays match). That check is heavy (up to hundreds of layouts, each a room
+build, exit plan and a few hundred steps: 30 ms to seconds on a desktop), so the game works it
+out ahead: when the exit opens, `ArrivalAhead` (game/app) plays it on a copy on a worker thread
+during the last crossing (`ArrivalPlan.plan`) and offers it to the sim, which takes it only when
+its key is the arrival's exact inputs (`ArrivalPlan.key`), else checks as before. Speed only: the
+same room comes out either way (`tests/unit/test_arrival_ahead.gd`; timing:
+`tools/portal_timing.gd`). The room build and exit plan of the arrival itself still run in the
+portal tick (they read the bird's own height). Rooms also keep the way out of a portal fair: Floating Isles
 keeps the lane in front of it clear (200 px), Pinwheel
 and Saw Ring move off the bird's height, Ghost Doors time their fade for it,
 Bee Line, Bat Loop, Lantern Swing and Ghost Doors time themselves to the path

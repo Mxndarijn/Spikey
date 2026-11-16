@@ -57,8 +57,18 @@ static func _plan(script: Script) -> Array:
 		if not (p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue
 		plan.append([StringName(p.name), _mode(p)])
-	_plans[id] = plan
+	# Copy on write: a worker thread copying (ArrivalAhead) only ever reads a
+	# finished table.
+	var plans := _plans.duplicate()
+	plans[id] = plan
+	_plans = plans
 	return plan
+
+
+## Works out a class's fields now (ArrivalAhead does every sim script at boot,
+## so worker threads never add to the table).
+static func warm(script: Script) -> void:
+	_plan(script)
 
 
 static func _mode(p: Dictionary) -> Mode:

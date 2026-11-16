@@ -35,6 +35,8 @@ var _revive_ticks := PackedInt32Array()
 var _tap_pending := false
 ## Quarter-steps saved up toward the next tick (speed_q below 4).
 var _speed_acc := 0
+## Works out the next portal arrival on a worker thread (see ArrivalAhead).
+var _ahead := ArrivalAhead.new()
 
 
 ## `season` (Seasons.*) decides which seasonal rooms can appear; it is stored
@@ -45,6 +47,7 @@ var _speed_acc := 0
 func new_run(
 	seed_value: int, season: int = Seasons.NONE, practice_room: int = -1, variant: String = ""
 ) -> void:
+	_ahead.stop()
 	sim = GameSim.new(seed_value, season, practice_room, variant if practice_room >= 0 else "")
 	prev_state = sim.state.copy()
 	_taps.clear()
@@ -54,6 +57,15 @@ func new_run(
 	driver = null
 	speed_q = 4
 	_speed_acc = 0
+
+
+func _ready() -> void:
+	# Every sim class's copy plan, before any worker thread copies one.
+	ArrivalAhead.warm()
+
+
+func _exit_tree() -> void:
+	_ahead.stop()
 
 
 ## Plays a recorded run back from its first tick (see ReplayDriver).
@@ -146,7 +158,13 @@ func advance() -> void:
 	if tap:
 		_taps.append(sim.state.tick)
 	prev_state = sim.state.copy()
+	# Only in the tree (the game's own run): _exit_tree then waits for its job.
+	var ahead := _ahead if is_inside_tree() else null
+	if ahead != null:
+		ahead.before_step(sim)
 	sim.step(tap)
+	if ahead != null:
+		ahead.after_step(sim)
 	_dispatch_events()
 
 
