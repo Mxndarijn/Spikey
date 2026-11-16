@@ -43,7 +43,9 @@ impl Lava {
     pub const STONE_CLEAR: i64 = 90 * Self::SUB;
     pub const STONE_EDGE: i64 = 80 * Self::SUB;
     pub const RUN: i64 = 3;
-    pub const ICE_DEPTH: i64 = 12 * Self::SUB;
+    pub const ICE_OFF: i64 = 90 * Self::SUB;
+    pub const ICE_HALF: i64 = 12 * Self::SUB;
+    pub const ICE_CLEAR: i64 = Self::ICE_OFF - Self::ICE_HALF - SimConfig::BIRD_RADIUS - SimConfig::SPIKE_DEPTH;
     pub const ICE_AWAY: i64 = 80 * Self::SUB;
     pub const RAFT_HALF: i64 = 32 * Self::SUB;
     pub const RAFT_HIGH: i64 = 8 * Self::SUB;
@@ -116,8 +118,8 @@ impl Lava {
         G::mini(self.rises + self.per_point() * (sim.room.points - self.counted), Self::FULL_RISES)
     }
 
-    pub fn _lift_ice(&mut self, sim: &GameSim) {
-        let hi = self.line_at(self.rises_due(sim)) - Self::STONE_CLEAR;
+    pub fn _lift_ice(&mut self) {
+        let hi = self.line_at(self.rises) - Self::STONE_CLEAR;
         let lo = SimConfig::KILL_TOP + Self::STONE_EDGE;
         while self.ice_slot > 0
             && SimConfig::slot_center_y(self.ice_slot) > hi
@@ -143,20 +145,20 @@ impl Lava {
         -1
     }
 
-    pub fn ice_x0(&self, sim: &GameSim) -> i64 {
+    pub fn ice_x(&self, sim: &GameSim) -> i64 {
         if self.ice_side == 0 {
-            sim.room.wall_left()
+            sim.room.wall_left() + Self::ICE_OFF
         } else {
-            sim.room.wall_right() - Self::ICE_DEPTH
+            sim.room.wall_right() - Self::ICE_OFF
         }
     }
 
+    pub fn ice_x0(&self, sim: &GameSim) -> i64 {
+        self.ice_x(sim) - Self::ICE_HALF
+    }
+
     pub fn ice_x1(&self, sim: &GameSim) -> i64 {
-        if self.ice_side == 0 {
-            sim.room.wall_left() + Self::ICE_DEPTH
-        } else {
-            sim.room.wall_right()
-        }
+        self.ice_x(sim) + Self::ICE_HALF
     }
 
     pub fn ice_y0(&self) -> i64 {
@@ -200,7 +202,7 @@ impl Lava {
             }
             pick -= 1;
         }
-        self.ice_side = if sim.state.vx > 0 { 0 } else { 1 };
+        self.ice_side = if sim.state.vx > 0 { 1 } else { 0 };
         self.ice_on = true;
     }
 
@@ -323,15 +325,7 @@ impl Hazard for Lava {
         }
     }
 
-    fn adjust_wall(&mut self, sim: &mut GameSim, side: i64, mut mask: i64) -> i64 {
-        if self.ice_on && side == self.ice_side {
-            self._lift_ice(sim);
-            let mut slot = G::maxi(self.ice_slot - 1, 0);
-            while slot < G::mini(self.ice_slot + 2, SimConfig::SLOT_COUNT) {
-                mask &= !(1i64 << slot);
-                slot += 1;
-            }
-        }
+    fn adjust_wall(&mut self, sim: &mut GameSim, _side: i64, mut mask: i64) -> i64 {
         if mask == 0 {
             return mask;
         }
@@ -375,6 +369,9 @@ impl Hazard for Lava {
         self.rises = self.rises_due(sim);
         self.counted = sim.room.points;
         if self.mode == Mode::COLD {
+            if self.ice_on && (sim.state.vx > 0) == (self.ice_side == 1) {
+                self._lift_ice();
+            }
             self._place_ice(sim, rng);
             return;
         }

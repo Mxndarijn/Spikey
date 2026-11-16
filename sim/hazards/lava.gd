@@ -9,9 +9,9 @@ extends Hazard
 ## over an exit blocks it. What pushes it back depends on the variant:
 ## - lava: a cool stone shows up once it has risen STONE_AFTER times; touching
 ##   it sends the line back to rest.
-## - cold (Cold Wall): instead of the stone, a block of ice sits in one wall
-##   slot (that slot and its neighbours never get spikes). Bouncing off the wall
-##   on the ice sends the line back to rest.
+## - cold (Cold Wall): instead of the stone, a block of ice hangs ICE_OFF off
+##   the wall the bird flies to, at a slot's height, clear of that wall's spikes
+##   so the bird takes it mid-crossing. Touching it sends the line back to rest.
 ## - rafts: no stone, and the lava rises twice as fast. Every RAFT_EVERY
 ##   points a raft of cooled rock floats up (at most MAX_RAFTS, RAFT_RISE steps
 ##   to come up) and drifts on the lava. Over a raft the lava is safe;
@@ -45,8 +45,13 @@ const STONE_CLEAR := 90 * SUB
 const STONE_EDGE := 80 * SUB
 ## A free run on the wall ahead is this many slots, wholly clear of the line.
 const RUN := 3
-## Cold Wall: the ice block reaches this far in from the wall, over its slot.
-const ICE_DEPTH := 12 * SUB
+## Cold Wall: the ice block's centre is ICE_OFF in from its wall and it is
+## 2 * ICE_HALF wide, a slot tall. Its edge stays ICE_OFF - ICE_HALF (78 px) off
+## the wall, so a bird touching it is ICE_CLEAR (24 px) past the reach of the
+## deepest wall spike: never against the wall.
+const ICE_OFF := 90 * SUB
+const ICE_HALF := 12 * SUB
+const ICE_CLEAR := ICE_OFF - ICE_HALF - SimConfig.BIRD_RADIUS - SimConfig.SPIKE_DEPTH
 ## Its slot's centre is at least this far from the bird's height when it
 ## appears, so it never comes up on the bird.
 const ICE_AWAY := 80 * SUB
@@ -87,7 +92,8 @@ var counted := 0
 var stone_on := false
 var stone_x := 0
 var stone_y := 0
-## Cold Wall: the ice block's wall (0 left, 1 right) and slot.
+## Cold Wall: the wall the ice block hangs off (0 left, 1 right) and the slot
+## whose height it is at.
 var ice_on := false
 var ice_side := 0
 var ice_slot := 0
@@ -214,13 +220,18 @@ func touch(sim: GameSim) -> void:
 			return
 
 
-## The ice block's box: over its slot, reaching ICE_DEPTH in from its wall.
+## The ice block's centre x: ICE_OFF in from its wall.
+func ice_x(sim: GameSim) -> int:
+	return sim.room.wall_left() + ICE_OFF if ice_side == 0 else sim.room.wall_right() - ICE_OFF
+
+
+## The ice block's box: ICE_HALF either side of its centre, over its slot's height.
 func ice_x0(sim: GameSim) -> int:
-	return sim.room.wall_left() if ice_side == 0 else sim.room.wall_right() - ICE_DEPTH
+	return ice_x(sim) - ICE_HALF
 
 
 func ice_x1(sim: GameSim) -> int:
-	return sim.room.wall_left() + ICE_DEPTH if ice_side == 0 else sim.room.wall_right()
+	return ice_x(sim) + ICE_HALF
 
 
 func ice_y0() -> int:
@@ -241,11 +252,7 @@ func _slot_clear(slot: int, edge: int) -> bool:
 ## Keeps a free run of RUN slots clear of where the line is heading. If the
 ## wall has none, the run nearest the bird is cleared, and if fewer than RUN
 ## slots are clear of the line (rafts, lava high), all of those. No RNG draws.
-func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
-	if ice_on and side == ice_side:
-		_lift_ice(sim)
-		for slot in range(maxi(ice_slot - 1, 0), mini(ice_slot + 2, SimConfig.SLOT_COUNT)):
-			mask &= ~(1 << slot)
+func adjust_wall(sim: GameSim, _side: int, mask: int) -> int:
 	if mask == 0:
 		return mask
 	var edge := line_at(rises_due(sim))
@@ -276,11 +283,12 @@ func adjust_wall(sim: GameSim, side: int, mask: int) -> int:
 	return mask
 
 
-## The ice block never drowns: when its wall gets new spikes and the line is
-## heading within STONE_CLEAR of its slot, it moves up the wall to the lowest
-## slot clear of that (not above STONE_EDGE under the ceiling). No draws.
-func _lift_ice(sim: GameSim) -> void:
-	var hi := line_at(rises_due(sim)) - STONE_CLEAR
+## The ice block never drowns: on a bounce off the far wall (a crossing before
+## the bird meets it), when the line is heading within STONE_CLEAR of its slot,
+## it moves up to the lowest slot clear of that (not above STONE_EDGE under the
+## ceiling). No draws.
+func _lift_ice() -> void:
+	var hi := line_at(rises) - STONE_CLEAR
 	var lo := SimConfig.KILL_TOP + STONE_EDGE
 	while (
 		ice_slot > 0
@@ -304,6 +312,8 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	rises = rises_due(sim)
 	counted = sim.room.points
 	if mode == Mode.COLD:
+		if ice_on and (sim.state.vx > 0) == (ice_side == 1):
+			_lift_ice()
 		_place_ice(sim, rng)
 		return
 	if mode == Mode.RAFTS:
@@ -322,11 +332,12 @@ func on_bounce(sim: GameSim, rng: SimRng) -> void:
 	stone_on = true
 
 
-## Puts ice on the wall the bird just left (its next spikes come after this,
-## so adjust_wall keeps the ice's slots clear): in a slot STONE_CLEAR or more
-## above where the line is heading, STONE_EDGE or more below the ceiling and
-## ICE_AWAY or more from the anchor (never the bird's own height, so every
-## player of a seed gets the same ice). One draw, only when it appears.
+## Hangs ice ICE_OFF off the wall the bird flies to (a crossing to see it and
+## steer to it, and it is passed again on the way back), at the height of a slot
+## STONE_CLEAR or more above where the line is heading, STONE_EDGE or more below
+## the ceiling and ICE_AWAY or more from the anchor (never the bird's own height,
+## so every player of a seed gets the same ice). The wall's spikes never matter:
+## the ice is off the wall. One draw, only when it appears.
 func _place_ice(sim: GameSim, rng: SimRng) -> void:
 	if ice_on or rises < STONE_AFTER:
 		return
@@ -347,7 +358,7 @@ func _place_ice(sim: GameSim, rng: SimRng) -> void:
 			ice_slot = slot
 			break
 		pick -= 1
-	ice_side = 0 if sim.state.vx > 0 else 1
+	ice_side = 1 if sim.state.vx > 0 else 0
 	ice_on = true
 
 

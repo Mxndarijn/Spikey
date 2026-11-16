@@ -183,7 +183,9 @@ func test_the_stone_and_the_ice_stay_above_the_lava() -> void:
 	l.ice_on = true
 	l.ice_side = 1
 	l.ice_slot = SimConfig.SLOT_COUNT - 3
-	l.adjust_wall(sim, 1, (1 << SimConfig.SLOT_COUNT) - 1)
+	# A bounce off the far (left) wall: the bird flies to the ice.
+	sim.state.vx = SimConfig.SPEED_X
+	l.on_bounce(sim, SimRng.new(1))
 	var cy := SimConfig.slot_center_y(l.ice_slot)
-	assert_true(cy <= l.line_at(8) - Lava.STONE_CLEAR, "the ice moves up its wall")
+	assert_true(cy <= l.line_at(8) - Lava.STONE_CLEAR, "the ice moves up")
 	assert_true(cy >= SimConfig.KILL_TOP + Lava.STONE_EDGE, "not into the ceiling")

@@ -224,7 +224,7 @@ func test_lava_leaves_the_exits_where_the_seed_puts_them() -> void:
 			assert_eq(high, low, "mode %d seed %d: the same exits" % [mode, seed_value])
 
 
-func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
+func test_cold_wall_hangs_ice_off_the_wall_ahead() -> void:
 	var sim := _started("lava", 13)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.COLD
@@ -238,15 +238,13 @@ func test_cold_wall_puts_ice_in_the_wall_just_left() -> void:
 	l.on_bounce(sim, SimRng.new(5))
 	assert_true(l.ice_on, "ice shows up")
 	assert_false(l.stone_on, "and no stone")
-	assert_eq(l.ice_side, 1, "on the wall the bird just left")
+	assert_eq(l.ice_side, 0, "off the wall the bird flies to")
 	var cy := SimConfig.slot_center_y(l.ice_slot)
 	assert_true(absi(cy - sim.state.anchor_y) >= Lava.ICE_AWAY, "away from the anchor")
 	assert_true(cy <= l.line_at(l.rises) - Lava.STONE_CLEAR, "clear of the lava")
 	assert_true(cy >= SimConfig.KILL_TOP + Lava.STONE_EDGE, "clear of the ceiling")
-	var all := (1 << SimConfig.SLOT_COUNT) - 1
-	var mask: int = l.adjust_wall(sim, 1, all)
-	for slot in range(maxi(l.ice_slot - 1, 0), mini(l.ice_slot + 2, SimConfig.SLOT_COUNT)):
-		assert_false(RoomRules.has_slot(mask, slot), "no spike on or next to the ice")
+	assert_eq(l.ice_x0(sim) - sim.room.wall_left(), Lava.ICE_OFF - Lava.ICE_HALF, "off the wall")
+	assert_true(Lava.ICE_CLEAR > 0, "a bird touching it is past every wall spike")
 
 
 ## Generation never reads the bird: at any height, the same ice slot.
@@ -267,7 +265,7 @@ func test_the_ice_slot_never_depends_on_the_birds_height() -> void:
 	assert_eq(slots.size(), 1, "one slot for every bird height")
 
 
-func test_bouncing_on_the_ice_sinks_the_lava() -> void:
+func test_touching_the_ice_sinks_the_lava() -> void:
 	var sim := _started("lava", 14)
 	var l: Lava = sim.room.hazards[0]
 	l.mode = Lava.Mode.COLD
@@ -276,17 +274,17 @@ func test_bouncing_on_the_ice_sinks_the_lava() -> void:
 	l.ice_side = 1
 	l.ice_slot = 4
 	var cy := SimConfig.slot_center_y(4)
-	sim.state.x = sim.room.wall_right() - SimConfig.BIRD_RADIUS - 40 * SUB
+	sim.state.x = sim.room.wall_right() - SimConfig.BIRD_RADIUS
 	sim.state.y = cy
 	l.touch(sim)
-	assert_true(l.ice_on, "the ice is in the wall, not in the room")
-	sim.state.x = sim.room.wall_right() - SimConfig.BIRD_RADIUS
+	assert_true(l.ice_on, "the ice is off the wall: a bounce there misses it")
+	sim.state.x = l.ice_x(sim)
 	sim.state.y = cy + SimConfig.SLOT_SIZE + SimConfig.BIRD_RADIUS
 	l.touch(sim)
-	assert_true(l.ice_on, "a bounce past the ice misses it")
+	assert_true(l.ice_on, "flying under the ice misses it")
 	sim.state.y = cy + 10 * SUB
 	l.touch(sim)
-	assert_false(l.ice_on, "a bounce on the ice uses it")
+	assert_false(l.ice_on, "flying through the ice uses it")
 	assert_eq(l.rises, 0, "and sinks the lava")
 
 

@@ -43,7 +43,8 @@ $IntegrationTests = @(
     "tests/unit/test_portals.gd",
     "tests/unit/test_arrival_check.gd",
     "tests/sim/test_exits_reachable.gd",
-    "tests/sim/test_crawl_passable.gd"
+    "tests/sim/test_crawl_passable.gd",
+    "tests/sim/test_lava_sinks_reachable.gd"
 )
 # FastSim checks that only the integration tier runs, and the ones a room change needs.
 $IntegrationChecks = @("sameseed", "reach", "exits", "bossfair")

@@ -39,7 +39,8 @@ pushes to other branches.
 | anything else (`project.godot`, workflows) | all but the integration ones | no | none |
 
 Integration-only Godot tests: `test_golden_replays`, `test_generated_variants`, `test_portals`,
-`test_arrival_check`, `sim/test_exits_reachable`, `sim/test_crawl_passable`. Integration-only
+`test_arrival_check`, `sim/test_exits_reachable`, `sim/test_crawl_passable`,
+`sim/test_lava_sinks_reachable`. Integration-only
 FastSim checks: sameseed, reach, exits, bossfair.
 
 ```

@@ -1,7 +1,7 @@
 extends HazardPainter
 ## Lava Rise: the lava in the spike colour, the one colour that kills, with a
 ## lighter crest. What sinks it is safe, so it is paper with a mint mark: the
-## cool stone and the Cold Wall's ice block in its wall slot (mint frost and
+## cool stone and the Cold Wall's ice block hanging off a wall (mint frost and
 ## glow), and the rafts.
 ##
 ## A raft is a flat ledge to land on: paper with a darker face, a mint rim whose
@@ -276,13 +276,14 @@ func _sinking(c: CanvasItem, h: LavaHazard, line: float, look: HazardLook) -> vo
 		_arrow(c, Vector2(40.0 + k * 70.0, line + CRUST_ARROW_Y + drop), 6.0, t.paper)
 
 
-## The ice block in its wall slot, over a mint glow.
+## The ice block where it hangs off its wall, over a mint glow.
 func _ice(c: CanvasItem, h: LavaHazard, look: HazardLook) -> void:
-	var depth := HazardLayer.px(LavaHazard.ICE_DEPTH)
+	var half_w := HazardLayer.px(LavaHazard.ICE_HALF)
+	var off := HazardLayer.px(LavaHazard.ICE_OFF)
+	var cx := off if h.ice_side == 0 else RoomView.W - off
 	var cy := HazardLayer.px(SimConfig.slot_center_y(h.ice_slot))
 	var half := HazardLayer.px(SimConfig.SLOT_SIZE) / 2.0
-	var x0 := 0.0 if h.ice_side == 0 else RoomView.W - depth - 6.0
 	var glow := Color(UiTokens.SUCCESS, 0.35)
-	c.draw_rect(Rect2(x0 - 4.0, cy - half - 4.0, depth + 14.0, half * 2.0 + 8.0), glow)
-	c.draw_rect(Rect2(x0, cy - half + 1.0, depth + 6.0, half * 2.0 - 2.0), UiTokens.PANEL)
-	_frost(c, Vector2(x0 + (depth + 6.0) / 2.0, cy), 6.0, look)
+	c.draw_rect(Rect2(cx - half_w - 4.0, cy - half - 4.0, half_w * 2.0 + 8.0, half * 2.0 + 8.0), glow)
+	c.draw_rect(Rect2(cx - half_w, cy - half + 1.0, half_w * 2.0, half * 2.0 - 2.0), UiTokens.PANEL)
+	_frost(c, Vector2(cx, cy), 6.0, look)
