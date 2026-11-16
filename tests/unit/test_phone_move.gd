@@ -6,7 +6,8 @@ extends TestCase
 const TEST_PATH := "user://test_phone_move_profile.json"
 const SESSION := "user://test_phone_move_session.json"
 const DEVICE := "user://test_phone_move_device.json"
-const GOLDEN := "res://tests/replay/golden/g24_seed_2024.json"
+## A golden replay of the sim's current gameplay version.
+const GOLDEN := "res://tests/replay/golden/g%d_seed_2024.json"
 
 
 ## Our own server as a script: each path answers from `answers`.
@@ -82,7 +83,9 @@ func _home(main: Node) -> HomeScreen:
 
 
 func _golden_row() -> Dictionary:
-	var g: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GOLDEN))
+	var g: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(GOLDEN % SimConfig.GAMEPLAY_VERSION)
+	)
 	return {
 		"run": 41,
 		"score": g.score,
