@@ -1,6 +1,14 @@
 # One VM for many small apps (plan)
 
-Status: **plan only, nothing built.** It builds on what this branch made for
+Status: **built in its own repository,
+[Mxndarijn/platform-manager](https://github.com/Mxndarijn/platform-manager)**,
+which now leads; this file is the original plan. Changed since: the VM starts
+at **2 GB** and grows when needed (Hetzner's prices went up), so Postgres is
+one plain server with a nightly dump per database for now, and CloudNativePG
+waits for 4 GB or more. Moving Flapjaw onto it: that repository's
+docs/ADD_APP.md.
+
+Original status: plan only, nothing built. It builds on what this branch made for
 Flapjaw alone (docs/SERVER_MIGRATION.md, docs/DEPLOY.md): the same Hetzner VM
 with k3s, OpenTofu and Kustomize, grown into a small shared platform. Flapjaw
 becomes its first tenant.
