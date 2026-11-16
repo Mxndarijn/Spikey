@@ -1,0 +1,277 @@
+<title>Shared App Platform</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; the VM is drawn as a stack of namespaces, tenants as cards. Same family as the server-move plan page. */
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --ink: #1b1d2a;
+  --muted: #5b6075;
+  --line: #dde0ea;
+  --accent: #e2574c;
+  --accent-soft: #fde9e6;
+  --new: #2a7a5f;
+  --new-soft: #e3f3ec;
+  --warn: #9a6a00;
+  --warn-soft: #fbf0d4;
+  --shared: #3d5bb8;
+  --shared-soft: #e6ebfa;
+  --font-body: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161f; --surface: #1d2030; --ink: #eceef6; --muted: #a2a7bd; --line: #32364a;
+    --accent: #ff7a6e; --accent-soft: #3a2224; --new: #5cc8a0; --new-soft: #1b3229;
+    --warn: #e9b949; --warn-soft: #3a3019; --shared: #8ea6ff; --shared-soft: #222a45;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161f; --surface: #1d2030; --ink: #eceef6; --muted: #a2a7bd; --line: #32364a;
+  --accent: #ff7a6e; --accent-soft: #3a2224; --new: #5cc8a0; --new-soft: #1b3229;
+  --warn: #e9b949; --warn-soft: #3a3019; --shared: #8ea6ff; --shared-soft: #222a45;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+  display: grid; gap: 48px;
+}
+header { display: grid; gap: 12px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-weight: 800; font-size: clamp(28px, 5vw, 42px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-weight: 800; font-size: 24px; margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; font-weight: 700; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { font-size: 17px; color: var(--muted); }
+section { display: grid; gap: 16px; min-width: 0; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.chip.hold { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+nav.toc a { text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+.note { font-size: 13px; color: var(--muted); }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.mid { min-width: 720px; }
+.cost { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.pick { outline: 2px solid var(--new); outline-offset: -2px; }
+.pick-label { font-size: 11px; font-weight: 600; color: var(--new); text-transform: uppercase; letter-spacing: .06em; }
+
+/* The VM drawn as a stack of namespaces. */
+.vm { background: var(--surface); border: 2px solid var(--ink); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
+.vm-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-weight: 700; }
+.vm-head span { font-weight: 500; color: var(--muted); font-size: 13px; }
+.ns { border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: minmax(130px, 200px) 1fr; gap: 10px; align-items: baseline; }
+@media (max-width: 560px) { .ns { grid-template-columns: 1fr; gap: 2px; } }
+.ns.shared { background: var(--shared-soft); }
+.ns.app { background: var(--new-soft); }
+.ns.later { background: var(--bg); border: 1px dashed var(--line); }
+.ns b { font-family: var(--font-mono); font-size: 13px; }
+.ns.shared b { color: var(--shared); }
+.ns.app b { color: var(--new); }
+.ns.later b { color: var(--muted); }
+.outside { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); align-items: center; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+
+.bar { height: 10px; background: var(--line); border-radius: 999px; display: flex; overflow: hidden; min-width: 120px; }
+.bar i { display: block; height: 100%; }
+.bar i.s { background: var(--shared); }
+.bar i.a { background: var(--new); }
+.bar i.f { background: var(--warn); opacity: .55; }
+
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.diagram pre.mermaid { margin: 0; background: transparent; }
+
+ol.timeline { list-style: none; margin: 0; padding: 0; display: grid; }
+ol.timeline li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; }
+.dot { display: flex; flex-direction: column; align-items: center; }
+.dot span { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--surface); border: 2px solid var(--line); }
+.dot::after { content: ""; flex: 1; width: 2px; background: var(--line); }
+ol.timeline li:last-child .dot::after { display: none; }
+.dot.you span { border-color: var(--accent); color: var(--accent); }
+.step { padding-bottom: 20px; display: grid; gap: 4px; min-width: 0; }
+.step .phase { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qbox { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
+ol.questions { margin: 0; padding-left: 22px; display: grid; gap: 14px; }
+ol.questions li b { display: block; }
+footer { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Hosting plan · for review</div>
+  <h1>One VM for many small apps</h1>
+  <p class="lede">Grow the Flapjaw-only server into a small shared platform: one Hetzner VM with k3s, one Postgres cluster, and each app in its own namespace with its own database. Flapjaw is the first app on it.</p>
+  <div class="status">
+    <span class="chip hold">Plan only, waiting on your answers</span>
+    <span class="chip">Builds on the <a href="https://claude.ai/artifact/6KYxuzHJ5gEMQq6bxGNaUm">server move plan</a></span>
+    <span class="chip">Source: <span class="mono">docs/SHARED_PLATFORM.md</span></span>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#layout">Layout</a>
+    <a href="#repos">Repositories</a>
+    <a href="#vm">VM size</a>
+    <a href="#database">Database</a>
+    <a href="#apps">Per app</a>
+    <a href="#gitops">GitOps</a>
+    <a href="#risks">Risks</a>
+    <a href="#steps">Steps</a>
+    <a href="#questions">Open questions</a>
+  </nav>
+</header>
+
+<section id="layout">
+  <h2>What runs where</h2>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--shared-soft);outline:1px solid var(--shared)"></i>shared by every app</span>
+    <span><i class="sw" style="background:var(--new-soft);outline:1px solid var(--new)"></i>one per app</span>
+    <span><i class="sw" style="background:var(--bg);outline:1px dashed var(--muted)"></i>later</span>
+  </div>
+  <div class="vm">
+    <div class="vm-head">Hetzner VM · k3s, one node <span>8 GB to start · 40 GB data volume · 2 GB swap</span></div>
+    <div class="ns shared"><b>kube-system</b><span>Traefik (comes with k3s): every app's HTTPS goes through it. CoreDNS.</span></div>
+    <div class="ns shared"><b>cert-manager</b><span>One Let's Encrypt issuer for every host.</span></div>
+    <div class="ns shared"><b>platform-db</b><span>CloudNativePG: one Postgres cluster, one database and one role per app, backups to Object Storage.</span></div>
+    <div class="ns app"><b>app-flapjaw</b><span>The game server and the Godot check, using database <code>flapjaw</code>.</span></div>
+    <div class="ns app"><b>app-&lt;next&gt;</b><span>Its own pods, its own database, its own memory quota.</span></div>
+    <div class="ns later"><b>flux-system</b><span>From the third app: keeps the cluster in sync with git.</span></div>
+  </div>
+  <div class="outside">
+    <div class="card"><h3>DNS</h3><p class="note">One wildcard record, <code>*.apps.&lt;domain&gt;</code>, points at the VM. A new app needs no DNS change; a custom domain is one more record.</p></div>
+    <div class="card"><h3>Hetzner Object Storage</h3><p class="note"><code>postgres/</code>: continuous backups of the whole cluster. <code>dumps/&lt;app&gt;/</code>: a nightly dump per app. Both kept 14 days.</p></div>
+    <div class="card"><h3>Registries</h3><p class="note">Each app pushes its images to GitHub Container Registry (or any registry, with a pull secret in its namespace).</p></div>
+  </div>
+</section>
+
+<section id="repos">
+  <h2>Two kinds of repository</h2>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Repository</th><th>Holds</th><th>Changed</th></tr></thead>
+    <tbody>
+      <tr><td><b><code>platform</code></b> (new)</td><td><code>infra/</code> (OpenTofu: VM, firewall, volume), <code>cluster/</code> (cert-manager, issuer, CloudNativePG and the Postgres cluster, default policies), <code>apps/&lt;name&gt;/</code> (each app's namespace, quota, database, deploy rights), <code>tools/new-app.ps1</code>, <code>tools/deploy-platform.ps1</code>, its own deploy guide</td><td>Rarely, by you</td></tr>
+      <tr><td><b>Each app</b> (Flapjaw and the next ones)</td><td>Its code, Dockerfiles and <code>deploy/</code>: Kustomize for its own namespace only, and its <code>tools/deploy.ps1</code></td><td>With that app's work</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">From Flapjaw's branch, <code>infra/hetzner/</code> and the cluster-wide parts of <code>deploy/</code> (cert-manager, the issuer, its own Postgres and backup job) move to <code>platform</code>. What stays is what runs in <code>app-flapjaw</code>.</p>
+</section>
+
+<section id="vm">
+  <h2>VM size: 8 GB to start</h2>
+  <p>One Hetzner x86 VM, for example CX32 or CPX31, about €8–15 a month (check Hetzner's price list). It grows in place with a rescale, or a second k3s node can join the same cluster.</p>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>On the VM, steady</th><th>About</th><th style="width:40%">Share of 8 GB</th></tr></thead>
+    <tbody>
+      <tr><td>Linux, k3s, CoreDNS, Traefik</td><td class="cost">900 MB</td><td><div class="bar"><i class="s" style="width:11%"></i></div></td></tr>
+      <tr><td>cert-manager, CloudNativePG operator</td><td class="cost">200 MB</td><td><div class="bar"><i class="s" style="width:2.4%"></i></div></td></tr>
+      <tr><td>Postgres (shared_buffers 512 MB, max_connections 100)</td><td class="cost">900 MB</td><td><div class="bar"><i class="s" style="width:11%"></i></div></td></tr>
+      <tr><td>Flapjaw (server; the Godot check only while it runs)</td><td class="cost">100 MB</td><td><div class="bar"><i class="a" style="width:1.2%"></i></div></td></tr>
+      <tr><td><b>Room for more apps</b></td><td class="cost"><b>about 5 GB</b></td><td><div class="bar"><i class="s" style="width:24.4%"></i><i class="a" style="width:1.2%"></i><i class="f" style="width:62%"></i></div></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Estimates, measured once the platform runs. Each app gets a quota (by default 512 MB requested, 1 GB at most), so one app can't starve the others.</p>
+</section>
+
+<section id="database">
+  <h2>The shared database</h2>
+  <div class="cards">
+    <div class="card pick"><span class="pick-label">Recommended at 8 GB</span><h3>CloudNativePG</h3><p class="note">One Postgres cluster declared in <code>platform/cluster/postgres.yaml</code>. The operator handles backups, point-in-time restore and upgrades. Each app's database and role are declared too.</p></div>
+    <div class="card"><h3>Isolation inside Postgres</h3><p class="note">Each role owns only its own database. Connecting is revoked from everyone else. No app is superuser. Each role has a connection limit (20) and a statement timeout (30 s), so one app can't take every connection.</p></div>
+    <div class="card"><h3>Two kinds of backup</h3><p class="note">Continuous backups restore the whole cluster to any minute. A nightly dump per database restores one app without touching the others.</p></div>
+    <div class="card"><h3>Other engines</h3><p class="note">An app that needs MySQL or Redis runs it in its own namespace, inside its own quota. Only Postgres is shared.</p></div>
+  </div>
+  <div class="card">
+    <h3>Flapjaw needs one change for this</h3>
+    <p class="note">Its migrations create the roles <code>anon</code>, <code>authenticated</code> and <code>service_role</code>, and today the server runs as the database's owner. Roles are global across a Postgres cluster, so the platform creates those three once, and Flapjaw's server runs as an ordinary role that may change only its own database. Its tests get a mode that runs this way, so it is proven before the move.</p>
+  </div>
+</section>
+
+<section id="apps">
+  <h2>What each app gets</h2>
+  <p>One command in the platform repo, <code>tools/new-app.ps1 &lt;name&gt; &lt;host&gt;</code>, sets it all up.</p>
+  <div class="cards">
+    <div class="card"><h3>A namespace with limits</h3><p class="note"><code>app-&lt;name&gt;</code>, with a memory quota and default limits for any container that forgot them.</p></div>
+    <div class="card"><h3>Network rules</h3><p class="note">Only Traefik reaches it, plus cert-manager's check while a certificate is issued. It reaches only its own database, DNS and the internet.</p></div>
+    <div class="card"><h3>Its database</h3><p class="note">A database, a role and a Secret with <code>DATABASE_URL</code>, pointing at the shared cluster.</p></div>
+    <div class="card"><h3>Deploy rights for that app only</h3><p class="note">A kubeconfig that reaches only its own namespace. An app's deploy can never touch another app or the platform; your admin kubeconfig stays for the platform.</p></div>
+    <div class="card"><h3>A host</h3><p class="note"><code>&lt;name&gt;.apps.&lt;domain&gt;</code> works at once through the wildcard record, with a certificate from the shared issuer.</p></div>
+    <div class="card"><h3>The same deploy as Flapjaw</h3><p class="note">Images pinned to the git commit, <code>kubectl apply -k</code>, wait for the rollout, smoke test, rollback. Only the cluster pieces are gone.</p></div>
+  </div>
+</section>
+
+<section id="gitops">
+  <h2>GitOps and monitoring</h2>
+  <div class="cards">
+    <div class="card"><h3>Flux from the third app</h3><p class="note">With one app the deploy script was enough. With several, Flux (about 150 MB) keeps the cluster in sync with the platform repo and each app's deploy files; the scripts then only build images and bump the tag in git. Argo CD does the same with a web UI, for about 500 MB.</p></div>
+    <div class="card"><h3>Light monitoring</h3><p class="note">metrics-server back on (about 50 MB, so <code>kubectl top</code> works) and an outside uptime check on every app's health URL. A full Prometheus and Grafana would cost more memory than the apps; leave it until something needs it.</p></div>
+  </div>
+</section>
+
+<section id="risks">
+  <h2>Risks of sharing</h2>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Risk</th><th>What limits it</th></tr></thead>
+    <tbody>
+      <tr><td>The VM or its disk dies, and every app is down</td><td>The data volume and the Object Storage backups. Rebuild: <code>tofu apply</code>, then <code>deploy-platform.ps1</code>, then each app's deploy. Practise it once.</td></tr>
+      <tr><td>One app eats memory or CPU</td><td>A quota and default limits per namespace</td></tr>
+      <tr><td>One app floods Postgres</td><td>A connection limit and statement timeout per role</td></tr>
+      <tr><td>A Postgres upgrade or restart</td><td>Every app pauses for about a minute; done on purpose, at a quiet hour</td></tr>
+      <tr><td>One app's deploy breaks another</td><td>Its kubeconfig reaches only its own namespace</td></tr>
+      <tr><td>An app's database password leaks</td><td>That role reaches only its own database</td></tr>
+      <tr><td>An app outgrows the shared VM</td><td>Move it to its own node or VM; its deploy files change only in the kubeconfig</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="steps">
+  <h2>Steps</h2>
+  <ol class="timeline">
+    <li><div class="dot"><span>1</span></div><div class="step"><span class="phase">Code</span><h3>The platform repository</h3><p>Move <code>infra/hetzner/</code> there, grow it to 8 GB and a 40 GB volume, and document the wildcard DNS record.</p></div></li>
+    <li><div class="dot"><span>2</span></div><div class="step"><span class="phase">Code</span><h3>The shared cluster pieces</h3><p>cert-manager and the issuer (from Flapjaw's <code>deploy/cluster/</code>), CloudNativePG at a pinned version, the Postgres cluster with its backups, the three Supabase roles, the default policies.</p></div></li>
+    <li><div class="dot"><span>3</span></div><div class="step"><span class="phase">Code</span><h3>Onboarding and deploy scripts</h3><p><code>new-app.ps1</code> and <code>deploy-platform.ps1</code>, both with an offline <code>-Check</code> like Flapjaw's, plus the guide.</p></div></li>
+    <li><div class="dot"><span>4</span></div><div class="step"><span class="phase">Code, on Flapjaw's branch</span><h3>Flapjaw as the first app</h3><p>Drop its own Postgres, backup job and cluster pieces; take <code>DATABASE_URL</code> from the platform's Secret; run as an ordinary database role (tests first); namespace <code>app-flapjaw</code>.</p></div></li>
+    <li><div class="dot you"><span>5</span></div><div class="step"><span class="phase">You</span><h3>Create the VM and the platform</h3><p>Following the guide, then deploy Flapjaw to staging there, then prod. The cutover in Flapjaw's deploy guide stays the same.</p></div></li>
+    <li><div class="dot"><span>6</span></div><div class="step"><span class="phase">Each next app</span><h3>Onboard it</h3><p><code>new-app.ps1</code>, its own <code>deploy/</code>, deploy.</p></div></li>
+    <li><div class="dot"><span>7</span></div><div class="step"><span class="phase">At the third app</span><h3>Flux</h3><p>The cluster follows git by itself.</p></div></li>
+  </ol>
+  <p class="note">Steps 1 to 4 are code and tests on your PC. Step 5 is yours: no Claude session creates accounts, VMs or DNS records.</p>
+</section>
+
+<section id="questions">
+  <div class="qbox">
+    <h2>Open questions for you</h2>
+    <ol class="questions">
+      <li><b>Which other apps</b>Roughly what they run (language, Postgres or something else), how much memory, and whether they need staging too. That decides whether 8 GB is enough.</li>
+      <li><b>A separate platform repository</b>Or a <code>platform/</code> folder in one of the app repos? A separate one is recommended.</li>
+      <li><b>The domain</b>Which domain gets the wildcard (<code>*.apps.&lt;domain&gt;</code>), and is it fine that every app shows up under it by default?</li>
+      <li><b>CloudNativePG or plain Postgres</b>CloudNativePG restores to any minute (recommended at 8 GB). A plain Postgres with nightly dumps per database is simpler and lighter, but restores only to last night.</li>
+      <li><b>Flapjaw's launch</b>Launch Flapjaw on the shared VM, or on its own 2 GB VM first and move it over later? The deploy files differ only in the cluster pieces, so either works.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>Source: <span class="mono">docs/SHARED_PLATFORM.md</span> on <span class="mono">claude/server-backend-e4288c</span>. Plan only; nothing is built or created.</footer>
+</div>

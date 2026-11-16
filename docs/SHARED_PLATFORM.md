@@ -5,6 +5,9 @@ Flapjaw alone (docs/SERVER_MIGRATION.md, docs/DEPLOY.md): the same Hetzner VM
 with k3s, OpenTofu and Kustomize, grown into a small shared platform. Flapjaw
 becomes its first tenant.
 
+Visual version: <https://claude.ai/artifact/C1HEENqyButMkukokaHo34> (source:
+`docs/mockups/shared_platform.html`). Keep both in step.
+
 ## The idea in one picture
 
 ```
