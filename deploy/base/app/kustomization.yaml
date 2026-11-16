@@ -1,0 +1,8 @@
+# The game itself: the server, its Ingress and the Godot check. Used by the
+# base (a VM of Flapjaw's own) and by overlays/platform (the shared platform).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - server.yaml
+  - ingress.yaml
+  - godot-check.yaml

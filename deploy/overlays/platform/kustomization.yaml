@@ -1,0 +1,37 @@
+# Flapjaw on the shared platform (github.com/Mxndarijn/platform-manager):
+# the namespace app-flapjaw, made there by tools/new-app.ps1 with its quota,
+# network rules and database. So this leaves out what the platform brings:
+# Postgres, the backups (the platform dumps every database nightly),
+# cert-manager and the issuer, and the namespace itself. The server reads
+# DATABASE_URL from the platform's Secret `database`; its own settings
+# (Firebase, MIN_API_VERSION) come from .env.platform here (git-ignored, copy
+# ../../.env.example; only those keys are read).
+# Deploy: tools/deploy.ps1 -Env platform
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: app-flapjaw
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: flapjaw
+resources:
+  - ../../base/app
+secretGenerator:
+  - name: flapjaw-env
+    envs:
+      - .env.platform
+patches:
+  # The database comes from the platform's Secret.
+  - target:
+      kind: Deployment
+      name: flapjaw-server
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: database
+  - target:
+      kind: CronJob
+      name: godot-check
+    patch: |-
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: database

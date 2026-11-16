@@ -8,9 +8,7 @@ labels:
   - pairs:
       app.kubernetes.io/part-of: flapjaw
 resources:
+  - app
   - postgres.yaml
-  - server.yaml
-  - ingress.yaml
-  - godot-check.yaml
   - backup.yaml
   - networkpolicy.yaml

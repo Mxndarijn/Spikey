@@ -8,23 +8,31 @@
 #   -Rollback        deploy the sha before the last one (no build)
 #   -Sha <sha>       deploy an earlier sha that is in the registry (no build)
 #   -Stop            scale the environment to 0 (staging on the 2 GB VM, after testing)
-#   -Check           render both overlays and check them (kubeconform too when it is
+#   -Check           render the overlays and check them (kubeconform too when it is
 #                    installed); touches no cluster
+#   -Env platform    Flapjaw on the shared platform (github.com/Mxndarijn/platform-manager):
+#                    namespace app-flapjaw, no cluster pieces (the platform has them),
+#                    KUBECONFIG_FILE is its deployer kubeconfig from new-app.ps1
+#   -LoadToNode root@<ip>  copy the images straight onto the k3s node over SSH
+#                    instead of pushing to a registry (a first deploy without one)
 # Settings come from deploy/overlays/<env>/.env.<env> (copy deploy/.env.example).
 # No session runs this against a real cluster: the user does.
 param(
-    [ValidateSet("prod", "staging")][string]$Env = "staging",
+    [ValidateSet("prod", "staging", "platform")][string]$Env = "staging",
     [string]$Sha = "",
     [switch]$Rollback,
     [switch]$Stop,
     [switch]$Check,
-    [switch]$AllowDirty
+    [switch]$AllowDirty,
+    [string]$LoadToNode = ""
 )
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 $deploy = Join-Path $repo "deploy"
-$namespaces = @{ prod = "flapjaw"; staging = "flapjaw-staging" }
+$namespaces = @{ prod = "flapjaw"; staging = "flapjaw-staging"; platform = "app-flapjaw" }
+# On the shared platform the cluster pieces, Postgres and the namespace are the platform's.
+$onPlatform = $Env -eq "platform"
 $certManagerDeployments = @("cert-manager", "cert-manager-webhook", "cert-manager-cainjector")
 
 function Fail($text) {
@@ -113,7 +121,7 @@ if ($Check) {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
     Copy-Item -Recurse $deploy $tmp
     $failed = $false
-    foreach ($e in @("staging", "prod")) {
+    foreach ($e in @("staging", "prod", "platform")) {
         Copy-Item (Join-Path $deploy ".env.example") (Join-Path $tmp "overlays/$e/.env.$e")
         $wrap = Join-Path $tmp ".out/$e"
         Write-Wrapper $wrap $e "registry.example/flapjaw" "0123456789ab" "api.example.com"
@@ -124,7 +132,7 @@ if ($Check) {
         $kc = $env:KUBECONFORM
         if (-not $kc -and (Get-Command kubeconform -ErrorAction SilentlyContinue)) { $kc = "kubeconform" }
         if ($kc) {
-            $res = $yaml | & $kc -strict -summary -kubernetes-version 1.31.0 - 2>&1
+            $res = $yaml | & $kc -strict -summary -kubernetes-version 1.37.0 - 2>&1
             if ($LASTEXITCODE -ne 0) { $problems += "kubeconform: $($res -join ' ')" } else { Write-Host "  $e kubeconform: $($res -join ' ')" }
         }
         if ($problems.Count) {
@@ -146,10 +154,12 @@ $overlay = Join-Path $deploy "overlays/$Env"
 $envFile = Join-Path $overlay ".env.$Env"
 if (-not (Test-Path $envFile)) { Fail "No $envFile yet: copy deploy/.env.example there and fill it in (docs/DEPLOY.md)." }
 $settings = Read-EnvFile $envFile
-foreach ($k in @("REGISTRY", "API_HOST", "ACME_EMAIL", "POSTGRES_PASSWORD", "DATABASE_URL")) {
+$required = @("REGISTRY", "API_HOST")
+if (-not $onPlatform) { $required += @("ACME_EMAIL", "POSTGRES_PASSWORD", "DATABASE_URL") }
+foreach ($k in $required) {
     if (-not $settings[$k] -or $settings[$k] -match "<") { Fail "$k is not filled in in $envFile" }
 }
-if (-not $settings.DATABASE_URL.Contains($settings.POSTGRES_PASSWORD)) {
+if (-not $onPlatform -and -not $settings.DATABASE_URL.Contains($settings.POSTGRES_PASSWORD)) {
     Fail "DATABASE_URL must hold the same password as POSTGRES_PASSWORD ($envFile)"
 }
 if ($settings.KUBECONFIG_FILE) {
@@ -164,7 +174,8 @@ $out = Join-Path $deploy ".out/$Env"
 $history = Join-Path $out "history.txt"
 
 if ($Stop) {
-    & kubectl -n $ns scale deployment/flapjaw-server statefulset/postgres --replicas=0
+    $what = if ($onPlatform) { @("deployment/flapjaw-server") } else { @("deployment/flapjaw-server", "statefulset/postgres") }
+    & kubectl -n $ns scale @what --replicas=0
     if ($LASTEXITCODE -ne 0) { Fail "scaling down failed" }
     Write-Host "$Env stopped; deploy it again to start it." -ForegroundColor Green
     exit 0
@@ -198,26 +209,43 @@ if ($build) {
         Write-Host "building $tag"
         & docker build --platform linux/amd64 -f $img[1] --build-arg "GIT_SHA=$Sha" -t $tag .
         if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "building $tag failed" }
-        & docker push $tag
-        if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "pushing $tag failed (docker login to the registry first)" }
+        if ($LoadToNode) {
+            # Through a file: a PowerShell pipe would mangle the image's bytes.
+            $tar = Join-Path ([IO.Path]::GetTempPath()) "$($img[0])-$Sha.tar"
+            & docker save -o $tar $tag
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "saving $tag failed" }
+            & scp -q $tar "${LoadToNode}:/tmp/image.tar"
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "copying $tag to $LoadToNode failed" }
+            & ssh $LoadToNode "k3s ctr -n k8s.io images import /tmp/image.tar >/dev/null && rm /tmp/image.tar"
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "importing $tag on $LoadToNode failed" }
+            Remove-Item $tar -ErrorAction SilentlyContinue
+            Write-Host "loaded $tag onto $LoadToNode"
+        } else {
+            & docker push $tag
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "pushing $tag failed (docker login to the registry first)" }
+        }
     }
     Pop-Location
 }
 
-# 3. Cluster pieces: cert-manager, then its issuer.
-& kubectl apply -k (Join-Path $deploy "cluster")
-if ($LASTEXITCODE -ne 0) { Fail "applying cert-manager failed" }
-foreach ($d in $certManagerDeployments) {
-    & kubectl -n cert-manager rollout status "deployment/$d" --timeout=180s
-    if ($LASTEXITCODE -ne 0) { Fail "cert-manager did not come up" }
+# 3. Cluster pieces: cert-manager, then its issuer (the platform has its own).
+if (-not $onPlatform) {
+    & kubectl apply -k (Join-Path $deploy "cluster")
+    if ($LASTEXITCODE -ne 0) { Fail "applying cert-manager failed" }
+    foreach ($d in $certManagerDeployments) {
+        & kubectl -n cert-manager rollout status "deployment/$d" --timeout=180s
+        if ($LASTEXITCODE -ne 0) { Fail "cert-manager did not come up" }
+    }
+    $issuer = [IO.File]::ReadAllText((Join-Path $deploy "cluster/cluster-issuer.yaml")).Replace("email: ACME_EMAIL", "email: $($settings.ACME_EMAIL)")
+    $issuer | & kubectl apply -f -
+    if ($LASTEXITCODE -ne 0) { Fail "applying the Let's Encrypt issuer failed" }
 }
-$issuer = [IO.File]::ReadAllText((Join-Path $deploy "cluster/cluster-issuer.yaml")).Replace("email: ACME_EMAIL", "email: $($settings.ACME_EMAIL)")
-$issuer | & kubectl apply -f -
-if ($LASTEXITCODE -ne 0) { Fail "applying the Let's Encrypt issuer failed" }
 
-# 4. The environment.
-& kubectl get namespace $ns 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { & kubectl create namespace $ns | Out-Null }
+# 4. The environment (on the platform its namespace exists already).
+if (-not $onPlatform) {
+    & kubectl get namespace $ns 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) { & kubectl create namespace $ns | Out-Null }
+}
 if ($settings.REGISTRY_USER -and $settings.REGISTRY_TOKEN) {
     $server = $registry.Split("/")[0]
     $secret = & kubectl -n $ns create secret docker-registry flapjaw-registry "--docker-server=$server" "--docker-username=$($settings.REGISTRY_USER)" "--docker-password=$($settings.REGISTRY_TOKEN)" --dry-run=client -o yaml

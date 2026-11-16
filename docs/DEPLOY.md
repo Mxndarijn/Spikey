@@ -207,3 +207,23 @@ The DNS record needs a change only when the VM's address changed
   `k3s_version` for new VMs, or follow k3s's upgrade guide on the running one.
 - Who moved to another phone: `select * from backend.transfer_log order by at desc;`
   (`kubectl -n flapjaw exec -it postgres-0 -- psql -U flapjaw`).
+
+## On the shared platform instead
+
+Flapjaw can also run as one app on the shared VM
+([Mxndarijn/platform-manager](https://github.com/Mxndarijn/platform-manager)),
+which brings Postgres, backups and certificates itself. There it uses
+`deploy/overlays/platform` (namespace `app-flapjaw`, only the server, its
+Ingress and the Godot check) and reads `DATABASE_URL` from the platform's
+Secret `database`:
+
+1. In platform-manager: `tools/new-app.ps1 -Name flapjaw -Apply` (namespace,
+   database, `apps/flapjaw/deployer.kubeconfig`).
+2. Here: `deploy/overlays/platform/.env.platform` with `REGISTRY`,
+   `API_HOST=flapjaw.mn-platform.tech`, `KUBECONFIG_FILE` (that deployer
+   kubeconfig) and optionally `FIREBASE_SERVICE_ACCOUNT`.
+3. `tools/deploy.ps1 -Env platform` (or with `-LoadToNode root@<ip>` to copy
+   the images straight onto the node, before there is a registry).
+
+The server runs there as an ordinary role that owns only its database;
+`tools/backend_test.ps1` runs the integration tests that way.

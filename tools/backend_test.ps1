@@ -39,7 +39,25 @@ if ($useDb) {
         docker rm -f $name 2>$null | Out-Null
         exit 1
     }
-    $env:DATABASE_URL = "postgres://postgres:test@127.0.0.1:${Port}/postgres"
+    # The tests run as the shared platform runs the server (platform-manager,
+    # tools/new-app.ps1): an ordinary role that owns only its own database, with
+    # the three Supabase roles made beforehand by the platform. That is stricter
+    # than a superuser, so it covers a server of its own too.
+    $setup = @"
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin;
+create role flapjaw login password 'app' connection limit 20;
+create database flapjaw owner flapjaw;
+revoke connect on database flapjaw from public;
+"@
+    $setup | docker exec -i $name psql -U postgres -d postgres -q -v ON_ERROR_STOP=1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "making the app role failed" -ForegroundColor Red
+        docker rm -f $name 2>$null | Out-Null
+        exit 1
+    }
+    $env:DATABASE_URL = "postgres://flapjaw:app@127.0.0.1:${Port}/flapjaw"
 } else {
     Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
 }
