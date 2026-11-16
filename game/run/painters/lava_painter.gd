@@ -284,6 +284,8 @@ func _ice(c: CanvasItem, h: LavaHazard, look: HazardLook) -> void:
 	var cy := HazardLayer.px(SimConfig.slot_center_y(h.ice_slot))
 	var half := HazardLayer.px(SimConfig.SLOT_SIZE) / 2.0
 	var glow := Color(UiTokens.SUCCESS, 0.35)
-	c.draw_rect(Rect2(cx - half_w - 4.0, cy - half - 4.0, half_w * 2.0 + 8.0, half * 2.0 + 8.0), glow)
+	c.draw_rect(
+		Rect2(cx - half_w - 4.0, cy - half - 4.0, half_w * 2.0 + 8.0, half * 2.0 + 8.0), glow
+	)
 	c.draw_rect(Rect2(cx - half_w, cy - half + 1.0, half_w * 2.0, half * 2.0 - 2.0), UiTokens.PANEL)
 	_frost(c, Vector2(cx, cy), 6.0, look)

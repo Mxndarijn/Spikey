@@ -41,7 +41,9 @@ static func sink_boxes(sim: GameSim) -> Array[PackedInt64Array]:
 		if l.raft_on[i]:
 			var top := l.line - Lava.RAFT_HIGH
 			out.append(
-				PackedInt64Array([l.raft_x[i] - Lava.RAFT_HALF, top, l.raft_x[i] + Lava.RAFT_HALF, l.line])
+				PackedInt64Array(
+					[l.raft_x[i] - Lava.RAFT_HALF, top, l.raft_x[i] + Lava.RAFT_HALF, l.line]
+				)
 			)
 	return out
 
@@ -63,9 +65,7 @@ func _check_clear(sim: GameSim, what: String) -> void:
 	var band := sim.room.max_spike_depth() + 2 * SimConfig.BIRD_RADIUS + MARGIN
 	for b in sink_boxes(sim):
 		var gap := mini(b[0] - sim.room.wall_left(), sim.room.wall_right() - b[2])
-		assert_true(
-			gap >= band, "%s: a sink %d px off a wall" % [what, gap / SimConfig.SUB]
-		)
+		assert_true(gap >= band, "%s: a sink %d px off a wall" % [what, gap / SimConfig.SUB])
 	if l.stone_on or l.ice_on:
 		var bottom := l.stone_y + Lava.STONE_RADIUS if l.stone_on else l.ice_y1()
 		var full := l.line <= SimConfig.KILL_TOP + Lava.STONE_EDGE + Lava.STONE_CLEAR
