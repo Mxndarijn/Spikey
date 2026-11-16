@@ -284,17 +284,12 @@ func bird_touches_rect(x0: int, y0: int, x1: int, y1: int) -> bool:
 
 
 ## Shoves the bird away from (cx, cy): up or down, and back the way it came if
-## it hit the side (then the spikes of the wall it just left go back in).
+## it hit the side. A turn-back is not a wall bounce: the walls keep their
+## spikes (they change only at a bounce, _walls_after_bounce).
 func bump_bird_from(cx: int, cy: int) -> void:
 	state.vy = -BUMP_VY if state.y < cy else BUMP_VY
 	if (state.x < cx) == (state.vx > 0):
 		state.vx = -state.vx
-		if state.vx > 0:
-			state.right_spikes = 0
-			state.right_new = 0
-		else:
-			state.left_spikes = 0
-			state.left_new = 0
 
 
 ## Adds `amount` coins collected at (x, y); the view flies them from there to the

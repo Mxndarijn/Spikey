@@ -169,17 +169,3 @@ func test_new_spikes_never_kill_a_bird_flying_away_from_their_wall() -> void:
 	assert_false(sim._hits_wall(1, wall, -1), "flying away")
 	sim.state.vx = SimConfig.SPEED_X
 	assert_true(sim._hits_wall(1, wall, -1), "heading back to it")
-
-
-func test_a_bump_back_sends_the_wall_just_left_back_in() -> void:
-	var sim := _sim()
-	sim.step(true)
-	var side := _to_bounce(sim)
-	var ahead := _mask(sim, 1 - side)
-	assert_true(_mask(sim, side) != 0, "the wall just left shows its next spikes")
-	# Bumped back from in front: it flies to the wall it just left.
-	var dir := 1 if sim.state.vx > 0 else -1
-	sim.bump_bird_from(sim.state.x + dir * SimConfig.SUB, sim.state.y)
-	assert_eq(1 if sim.state.vx > 0 else 0, side, "turned back")
-	assert_eq(_mask(sim, side), 0, "laid out for later: back in the wall")
-	assert_eq(_mask(sim, 1 - side), ahead, "the other wall keeps its spikes")

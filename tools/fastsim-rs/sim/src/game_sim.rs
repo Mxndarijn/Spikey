@@ -392,13 +392,6 @@ impl GameSim {
         self.state.vy = if self.state.y < cy { -Self::BUMP_VY } else { Self::BUMP_VY };
         if (self.state.x < cx) == (self.state.vx > 0) {
             self.state.vx = -self.state.vx;
-            if self.state.vx > 0 {
-                self.state.right_spikes = 0;
-                self.state.right_new = 0;
-            } else {
-                self.state.left_spikes = 0;
-                self.state.left_new = 0;
-            }
         }
     }
 
