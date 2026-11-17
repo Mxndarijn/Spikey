@@ -12,6 +12,8 @@ pub mod auth;
 pub mod bot;
 pub mod config;
 pub mod db;
+pub mod duel;
+pub mod duel_ws;
 pub mod error;
 pub mod limits;
 pub mod push;

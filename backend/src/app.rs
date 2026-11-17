@@ -3,6 +3,7 @@
 //! - `GET  /v1/ping`, `GET /healthz`: alive, which build, which gameplay version.
 //! - `POST /v1/auth/anon | refresh | device`: sign-in (auth.rs).
 //! - `POST /v1/transfer/create | cancel | preview | redeem`: phone moves (transfer.rs).
+//! - `GET  /v1/duel/ws`: a live Duel over a WebSocket (duel_ws.rs).
 //! - `POST /v1/<op>`: the game's operations (rpc.rs).
 //!
 //! Every /v1 request says which app protocol it speaks (`X-Flapjaw-Api`); an
@@ -48,6 +49,7 @@ pub fn router(state: Shared) -> Router {
         .route("/v1/transfer/cancel", post(transfer_cancel))
         .route("/v1/transfer/preview", post(transfer_preview))
         .route("/v1/transfer/redeem", post(transfer_redeem))
+        .route("/v1/duel/ws", get(crate::duel_ws::upgrade))
         .route("/v1/{op}", post(operation))
         .with_state(state)
 }
