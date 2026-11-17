@@ -32,6 +32,9 @@ extends RefCounted
 ##                   CoinLabel, BigScoreLabel, InkLabel, StatusLabel, OnInkLabel
 
 const TITLE_SIZE := 30
+## A solid surface's ring (px) and the drop under it.
+const RING := 3
+const DROP := 3
 const LOGO_SIZE := 74
 const BIG_SCORE_SIZE := 140
 const SCRIM_TITLE_SIZE := 44
@@ -139,6 +142,22 @@ static func _fields(t: Theme) -> void:
 	t.set_color("font_placeholder_color", "LineEdit", UiTokens.ON_PANEL_MUTED)
 	t.set_color("selection_color", "LineEdit", Color(UiTokens.ACTION, 0.6))
 	t.set_color("font_selected_color", "LineEdit", UiTokens.ON_PANEL)
+
+
+## A solid surface over the room that reads on every world's sky: a fill with
+## a ring of the other UI colour (ink on paper, paper on ink) and a small hard
+## drop. No single fill reaches 3:1 on every sky (ink nearly vanishes on the
+## night worlds, paper on the snow ones); with both, the weaker one still has
+## 6.5:1 or more on every sky stop of every world (tests/unit/test_solid_surfaces.gd).
+static func solid(
+	fill: Color, radius: int = UiTokens.RADIUS_PILL, padding: int = 0, ring_width: int = RING
+) -> StyleBoxFlat:
+	var ring := UiTokens.PANEL if fill.get_luminance() < 0.5 else UiTokens.INK_LINE
+	var s := ringed(fill, radius, padding, ring, ring_width)
+	s.shadow_color = Color(UiTokens.INK_900, 0.45)
+	s.shadow_size = 1
+	s.shadow_offset = Vector2(0, DROP)
+	return s
 
 
 ## A flat box: a fill, round corners, padding. No outline, no drop.

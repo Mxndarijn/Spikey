@@ -12,6 +12,13 @@ const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const PAD_LEFT := 14.0
 const PAD_RIGHT := 18.0
 
+## The pill as a solid surface (UiTheme.solid: an ink ring and a drop), for
+## Home, where it must read on every sky.
+var solid := false:
+	set(value):
+		solid = value
+		queue_redraw()
+
 var _gold := CoinPill.new()
 var _diamonds := CoinPill.new(DIAMOND_ICON)
 ## A tappable wallet draws its paper pill.
@@ -40,7 +47,11 @@ func _init(tappable: bool = true) -> void:
 
 func _draw() -> void:
 	if _paper:
-		var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
+		var box := (
+			UiTheme.solid(UiTokens.PANEL)
+			if solid
+			else UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
+		)
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
 
 

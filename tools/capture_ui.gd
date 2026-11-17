@@ -151,18 +151,12 @@ func _tour() -> void:
 	quit()
 
 
-## Home with each mode chosen (the tabs), or the All modes sheet (the carousel).
+## Home's mode sheet open.
 func _home_modes() -> void:
 	var home := _menus().current() as HomeScreen
-	if home.has_method("open_all_modes"):
-		home.call("open_all_modes")
-		await _shot("02_home_modes")
-		home.call("_close_all_modes")
-		return
-	for m: String in [GameModes.DAILY, GameModes.BATTLE, GameModes.DUEL]:
-		home.modes().choose_id(m)
-		await _shot("02_home_%s" % m, 15)
-	home.modes().choose_id(GameModes.CLASSIC)
+	home.open_modes()
+	await _shot("02_home_modes", 15)
+	home.call("_close_modes")
 	await _frames(5)
 
 

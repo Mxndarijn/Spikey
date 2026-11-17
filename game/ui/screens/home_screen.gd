@@ -1,14 +1,16 @@
 class_name HomeScreen
 extends Control
-## The main menu over the live room, with no boxes, in three places (button
-## system A3): the corners (Settings top left, where other screens have their
-## way back, since Home has none; the wallet top right), the sky line (the
-## "flapjaw" wordmark, "Best 87, #14 today", the mode tabs Classic | Daily |
-## Battle | Duel with the chosen mode's rules under them: the Daily Run's tries
-## and the time to the next map, the battles waiting for your turn), and the
-## cradle dock at the bottom: Rooms, Style | Play | Ranks, Runs. Play starts the
-## chosen mode. The flyer in use bobs big in the middle of the room with its
-## puff trail.
+## The main menu over the live room, calm and solid. Every element is a solid
+## UI surface (UiTheme.solid: paper with an ink ring, ink with a paper ring), so
+## it reads on every world's sky, light or night. From the top: Settings and
+## the wallet in the corners, the "flapjaw" wordmark (white in an ink halo, as
+## the run's HUD), the flyer, then the one big Play for the chosen mode (Classic
+## by default) with the mode beside or under it (a tap there opens ModeSheet),
+## one small battles pill (your turns, See all) and the bottom bar (Rooms,
+## Style, Ranks with today's rank, Runs).
+## Two layouts while the user picks (docs/ui-rework): BAR, a wide ink Play bar
+## with a Mode button at its end; ROUND, a big round Play with the mode on a
+## chip under it.
 
 signal play_pressed
 ## Opens one kind's list in Customize directly (nothing on Home emits it now;
@@ -39,44 +41,61 @@ signal practice_requested(id: String, variant: String)
 ## The debug page's seed picker: play seed `seed_value` in `season` as practice.
 signal seed_requested(seed_value: int, season: int)
 
+enum Layout { BAR, ROUND }
+
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
-const STYLE_ICON := preload("res://assets/ui/icons/customize.svg")
-const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
 const SETTINGS_ICON := preload("res://assets/ui/icons/settings.svg")
-const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
-const HISTORY_ICON := preload("res://assets/ui/icons/history.svg")
-## The wordmark: one word, wide Archivo 900, ending well above the flyer.
+const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
+## The wordmark: one word, wide Archivo 900, white in an ink halo.
 const WORDMARK := "flapjaw"
-const LOGO_TOP := 110.0
-## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
-const LOGO_SIZE := 64
-const STATS_TOP := 192.0
-## The sky line under the stats: the mode tabs with their rules line, and the
-## lost-spot line under them.
-const SKY_LINE_TOP := 230.0
-## The tabs keep the screen's side gutter (the kit's space-4).
-const TABS_SIDE := float(UiTokens.SPACE_4)
-const NOTICE_TOP := SKY_LINE_TOP + ModeTabs.HEIGHT + UiTokens.SPACE_2
-const NOTICE_WIDTH := 300.0
-## The flyer's centre and body size on Home (bigger than in a run).
-const FLYER_CENTER := Vector2(196, 404)
-const FLYER_BODY := 43.0
+const LOGO_TOP := 98.0
+const LOGO_SIZE := 58
+const LOGO_HALO := 10
+const SIDE := float(UiTokens.SPACE_4)
+## The bottom bar, its bottom 14px above the floor spike row.
+const BAR_TOP := float(SimConfig.KILL_BOTTOM / SimConfig.SUB) - 14.0 - HomeBar.HEIGHT
+## BAR layout: the flyer, the Play bar, the battles pill.
+const BAR_FLYER := Vector2(180, 216)
+const PLAY_BAR_TOP := 270.0
+const PLAY_BAR_H := 88.0
+const MODE_BUTTON := Vector2(70, 64)
+const BAR_PILL_TOP := PLAY_BAR_TOP + PLAY_BAR_H + UiTokens.SPACE_4
+## ROUND layout: the battles pill under the wordmark, the flyer, the round
+## Play and the mode chip.
+const ROUND_PILL_TOP := 170.0
+const ROUND_FLYER := Vector2(180, 290)
+const ROUND_PLAY := 128.0
+const ROUND_PLAY_TOP := 342.0
+const CHIP_TOP := ROUND_PLAY_TOP + ROUND_PLAY + UiTokens.SPACE_3
+const CHIP_H := 42.0
+const FLYER_BODY := 38.0
+## The lost-spot line: a small paper pill above the bottom bar.
+const NOTICE_H := 32.0
+
+## Which layout Home draws (the user is picking between the two).
+static var layout := Layout.BAR
 
 var _profile: Profile
 var _services: AppServices
 var _logo: Label
-var _stats: Label
 var _flyer: FlyerArt
-var _dock: Dock
 var _daily_rank := 0
 var _settings: SettingsSheet
 var _settings_button: Button
 var _wallet: Wallet
 var _prizes: DailyPrizePopup
 var _notice: Label
-var _modes: ModeTabs
+var _mode := GameModes.CLASSIC
+var _play: Button
+var _play_text: Label
+var _play_sub: Label
+var _mode_button: Button
+var _pill: BattlesPill
+var _bar: HomeBar
+var _sheet: ModeSheet
 var _daily_info: DailyRunInfo
 var _daily_result: DailyResultPopup
+var _turns := 0
 ## GameModes.changes as last drawn: the server's version changed since.
 var _seen_changes := -1
 
@@ -86,22 +105,23 @@ func _init(profile: Profile, services: AppServices, daily_rank: int = 0) -> void
 	_profile = profile
 	_services = services
 	_daily_rank = daily_rank
+	_mode = GameModes.find(profile.home_mode).id
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _ready() -> void:
-	# Settings in the corner slot: Home has no way back, so its corner holds it.
-	# A cog on a paper disc, the same paper as the wallet's pill opposite it,
-	# so Home's corner never reads as another screen's back arrow.
 	_settings_button = UiKit.disc_button(
 		SETTINGS_ICON, "Settings", UiKit.Disc.PAPER, UiKit.ICON_BUTTON
 	)
 	_settings_button.name = "Settings"
+	for state in ["normal", "hover", "disabled"]:
+		_settings_button.add_theme_stylebox_override(state, UiTheme.solid(UiTokens.PANEL))
+	for state in ["pressed", "hover_pressed"]:
+		_settings_button.add_theme_stylebox_override(state, UiTheme.solid(UiTokens.PANEL_RAISED))
 	_settings_button.pressed.connect(open_settings)
 	UiKit.place_corner(self, _settings_button)
-	# Gold and diamonds on a paper pill, top right, level with the corner; they
-	# open the Wallet (the Shop).
 	_wallet = Wallet.new()
+	_wallet.solid = true
 	_wallet.show_balance(_profile)
 	_wallet.name = "Coins"
 	_wallet.pressed.connect(store_pressed.emit)
@@ -114,9 +134,16 @@ func _ready() -> void:
 	_wallet.offset_top = UiKit.CORNER.y + lift
 	_wallet.offset_bottom = UiKit.CORNER.y + lift + UiTokens.SIZE_TAP_MIN
 
-	_logo = _row_label(WORDMARK, &"LogoLabel", LOGO_TOP)
+	_logo = UiKit.label(WORDMARK, &"LogoLabel")
+	_logo.name = "Logo"
 	_logo.add_theme_font_size_override("font_size", LOGO_SIZE)
-	_stats = _row_label(stats_text(_profile.best_score, _daily_rank), &"SkyCaption", STATS_TOP)
+	_logo.add_theme_color_override("font_color", UiTokens.ON_SCRIM)
+	_logo.add_theme_color_override("font_outline_color", UiTokens.INK_900)
+	_logo.add_theme_constant_override("outline_size", LOGO_HALO)
+	add_child(_logo)
+	_logo.anchor_right = 1.0
+	_logo.offset_top = LOGO_TOP
+	_logo.offset_bottom = LOGO_TOP + _logo.get_combined_minimum_size().y
 
 	var character := Catalog.flyer(_profile.equipped_id(ItemKind.FLYER))
 	if character == null:
@@ -124,58 +151,225 @@ func _ready() -> void:
 	_flyer = FlyerArt.new(character.idle, FLYER_BODY)
 	_flyer.name = "Flyer"
 	var box := _flyer.custom_minimum_size
-	_flyer.position = FLYER_CENTER - Vector2(box.x / 2.0 + FLYER_BODY * 0.3, box.y / 2.0)
+	var at := BAR_FLYER if layout == Layout.BAR else ROUND_FLYER
+	_flyer.position = at - Vector2(box.x / 2.0 + FLYER_BODY * 0.3, box.y / 2.0)
 	_flyer.size = box
 	add_child(_flyer)
 
-	_modes = ModeTabs.new(GameModes.find(_profile.home_mode).id)
-	_modes.name = "Modes"
-	_modes.selected.connect(_on_mode_selected)
-	add_child(_modes)
-	_modes.anchor_right = 1.0
-	_modes.offset_left = TABS_SIDE
-	_modes.offset_right = -TABS_SIDE
-	_modes.offset_top = SKY_LINE_TOP
-	_modes.offset_bottom = SKY_LINE_TOP + ModeTabs.HEIGHT
+	if layout == Layout.BAR:
+		_build_bar()
+	else:
+		_build_round()
+	_pill = BattlesPill.new()
+	_pill.pressed.connect(_on_battles)
+	add_child(_pill)
+	_pill.anchor_right = 1.0
+	var pill_side := SIDE if layout == Layout.BAR else SIDE + 14.0
+	_pill.offset_left = pill_side
+	_pill.offset_right = -pill_side
+	_pill.offset_top = BAR_PILL_TOP if layout == Layout.BAR else ROUND_PILL_TOP
+	_pill.offset_bottom = _pill.offset_top + BattlesPill.HEIGHT
+	_bar = HomeBar.new()
+	_bar.pressed.connect(_on_bar)
+	add_child(_bar)
+	_bar.anchor_right = 1.0
+	_bar.offset_left = SIDE
+	_bar.offset_right = -SIDE
+	_bar.offset_top = BAR_TOP
+	_bar.offset_bottom = BAR_TOP + HomeBar.HEIGHT
+	set_daily_rank(_daily_rank)
 	set_daily_info(null)
 
-	_dock = (
-		Dock
-		. new(
-			[
-				{"id": "rooms", "icon": ROOMS_ICON, "text": "Rooms"},
-				{"id": "style", "icon": STYLE_ICON, "text": "Style"},
-			],
-			[
-				{"id": "rank", "icon": TROPHY_ICON, "text": "Ranks", "tip": "Leaderboards"},
-				{"id": "runs", "icon": HISTORY_ICON, "text": "Runs", "tip": "Your runs"},
-			],
-			{"id": "play", "icon": PLAY_ICON, "text": "Play"}
+
+## BAR: a wide ink Play bar ("Play", the mode and its line), with a paper Mode
+## button at its right end that opens the mode sheet.
+func _build_bar() -> void:
+	var holder := Control.new()
+	holder.name = "PlayBar"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(holder)
+	holder.anchor_right = 1.0
+	holder.offset_left = SIDE
+	holder.offset_right = -SIDE
+	holder.offset_top = PLAY_BAR_TOP
+	holder.offset_bottom = PLAY_BAR_TOP + PLAY_BAR_H
+	_play = _ink_button("Play")
+	holder.add_child(_play)
+	_play.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 26
+	row.offset_right = -(MODE_BUTTON.x + 16)
+	row.add_theme_constant_override("separation", UiTokens.SPACE_4)
+	_play.add_child(row)
+	var icon := TextureRect.new()
+	icon.texture = PLAY_ICON
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(34, 34)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var text := VBoxContainer.new()
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.alignment = BoxContainer.ALIGNMENT_CENTER
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
+	_play_text = _on_ink_label(32, true)
+	text.add_child(_play_text)
+	_play_sub = _on_ink_label(UiTokens.FONT_SIZE_CAPTION, false)
+	text.add_child(_play_sub)
+	_mode_button = Button.new()
+	_mode_button.name = "Mode"
+	_mode_button.tooltip_text = "Choose a mode"
+	_mode_button.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "focus"]:
+		_mode_button.add_theme_stylebox_override(
+			state, UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
 		)
+	for state in ["pressed", "hover_pressed"]:
+		_mode_button.add_theme_stylebox_override(
+			state, UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_PILL, 0)
+		)
+	var stack := VBoxContainer.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 0)
+	stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_mode_button.add_child(stack)
+	var word := UiKit.label("Mode", &"SmallNameLabel")
+	word.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	stack.add_child(word)
+	stack.add_child(_chevron_down(18.0))
+	_mode_button.pressed.connect(open_modes)
+	holder.add_child(_mode_button)
+	_mode_button.anchor_left = 1.0
+	_mode_button.anchor_right = 1.0
+	_mode_button.anchor_top = 0.5
+	_mode_button.anchor_bottom = 0.5
+	_mode_button.offset_left = -MODE_BUTTON.x - 12
+	_mode_button.offset_right = -12
+	_mode_button.offset_top = -MODE_BUTTON.y / 2.0
+	_mode_button.offset_bottom = MODE_BUTTON.y / 2.0
+
+
+## ROUND: a big round ink Play in the middle of the room, and the mode on a
+## paper chip under it that opens the mode sheet.
+func _build_round() -> void:
+	_play = UiKit.primary(PLAY_ICON, "Play")
+	_play.name = "Play"
+	_play.add_theme_font_size_override("font_size", 20)
+	_play.add_theme_constant_override("icon_max_width", 40)
+	var round_box := UiTheme.solid(UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0, 4)
+	round_box.content_margin_top = 22
+	round_box.content_margin_bottom = 18
+	var round_down := round_box.duplicate() as StyleBoxFlat
+	round_down.bg_color = UiTokens.INK_LINE.lightened(0.15)
+	for state in ["normal", "hover", "focus", "disabled"]:
+		_play.add_theme_stylebox_override(state, round_box)
+	for state in ["pressed", "hover_pressed"]:
+		_play.add_theme_stylebox_override(state, round_down)
+	_play.pressed.connect(func() -> void: _start_mode(_mode))
+	_play.custom_minimum_size = Vector2(ROUND_PLAY, ROUND_PLAY)
+	add_child(_play)
+	_play.anchor_left = 0.5
+	_play.anchor_right = 0.5
+	_play.offset_left = -ROUND_PLAY / 2.0
+	_play.offset_right = ROUND_PLAY / 2.0
+	_play.offset_top = ROUND_PLAY_TOP
+	_play.offset_bottom = ROUND_PLAY_TOP + ROUND_PLAY
+	_mode_button = Button.new()
+	_mode_button.name = "Mode"
+	_mode_button.tooltip_text = "Choose a mode"
+	_mode_button.focus_mode = Control.FOCUS_NONE
+	_mode_button.icon = CHEVRON_ICON
+	_mode_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_mode_button.add_theme_constant_override("icon_max_width", 16)
+	_mode_button.add_theme_constant_override("h_separation", UiTokens.SPACE_2)
+	_mode_button.add_theme_font_override("font", GameFonts.ui(900))
+	_mode_button.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_LABEL + 1)
+	for state in [
+		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
+	]:
+		_mode_button.add_theme_color_override(state, UiTokens.ON_PANEL)
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+		_mode_button.add_theme_color_override(state, UiTokens.ON_PANEL)
+	var chip := UiTheme.solid(UiTokens.PANEL)
+	chip.content_margin_left = UiTokens.SPACE_4
+	chip.content_margin_right = UiTokens.SPACE_3
+	var chip_down := UiTheme.solid(UiTokens.PANEL_RAISED)
+	chip_down.content_margin_left = chip.content_margin_left
+	chip_down.content_margin_right = chip.content_margin_right
+	for state in ["normal", "hover", "focus"]:
+		_mode_button.add_theme_stylebox_override(state, chip)
+	for state in ["pressed", "hover_pressed"]:
+		_mode_button.add_theme_stylebox_override(state, chip_down)
+	_mode_button.pressed.connect(open_modes)
+	add_child(_mode_button)
+	_mode_button.anchor_left = 0.5
+	_mode_button.anchor_right = 0.5
+	_mode_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_mode_button.offset_top = CHIP_TOP
+	_mode_button.offset_bottom = CHIP_TOP + CHIP_H
+
+
+## A chevron pointing down (the icon points right): "opens below".
+func _chevron_down(side: float) -> Control:
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.custom_minimum_size = Vector2(side, side)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var icon := TextureRect.new()
+	icon.texture = CHEVRON_ICON
+	icon.modulate = UiTokens.ON_PANEL
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.size = Vector2(side, side)
+	icon.pivot_offset = Vector2(side, side) / 2.0
+	icon.rotation_degrees = 90.0
+	holder.add_child(icon)
+	return holder
+
+
+## The big ink Play with a paper ring: one tap plays the chosen mode.
+func _ink_button(tip: String) -> Button:
+	var b := Button.new()
+	b.name = "Play"
+	b.tooltip_text = tip
+	b.focus_mode = Control.FOCUS_NONE
+	var box := UiTheme.solid(UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0, 4)
+	var down := UiTheme.solid(UiTokens.INK_LINE.lightened(0.15), UiTokens.RADIUS_PILL, 0, 4)
+	for state in ["normal", "hover", "focus", "disabled"]:
+		b.add_theme_stylebox_override(state, box)
+	for state in ["pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, down)
+	b.pressed.connect(func() -> void: _start_mode(_mode))
+	return b
+
+
+func _on_ink_label(size: int, display: bool) -> Label:
+	var l := Label.new()
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_override("font", GameFonts.display() if display else GameFonts.ui(700))
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override(
+		"font_color", UiTokens.ON_PRIMARY if display else Color(UiTokens.PANEL, 0.86)
 	)
-	_dock.pressed.connect(_on_dock)
-	add_child(_dock)
-	_show_play_label()
-
-
-func _process(_delta: float) -> void:
-	if _seen_changes != GameModes.changes and _modes != null:
-		set_daily_info(_daily_info)
-
-
-func _row_label(text: String, variation: StringName, top: float) -> Label:
-	var l := UiKit.label(text, variation)
-	add_child(l)
-	l.anchor_right = 1.0
-	l.offset_top = top
-	l.offset_bottom = top + l.get_combined_minimum_size().y
+	l.clip_text = true
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return l
 
 
-func _on_dock(id: String) -> void:
+func _process(_delta: float) -> void:
+	if _seen_changes != GameModes.changes and _bar != null:
+		set_daily_info(_daily_info)
+
+
+func _on_bar(id: String) -> void:
 	match id:
-		"play":
-			_start_mode(_modes.chosen())
 		"rooms":
 			rooms_pressed.emit()
 		"style":
@@ -184,6 +378,14 @@ func _on_dock(id: String) -> void:
 			leaderboard_pressed.emit()
 		"runs":
 			runs_pressed.emit()
+
+
+func _on_battles() -> void:
+	AudioDirector.ui("tap")
+	if GameModes.needs_update(GameModes.BATTLE):
+		update_pressed.emit()
+	else:
+		battle_pressed.emit()
 
 
 ## "Best 87, #14 today"; just "Best 87" before today's first ranked run.
@@ -259,15 +461,43 @@ func daily_result() -> DailyResultPopup:
 ## A line on the sky line: someone took the player's prize spot (SpotAlert).
 func show_notice(text: String) -> void:
 	if _notice == null:
-		_notice = UiKit.wrapped("", &"SkyCaption", NOTICE_WIDTH)
-		_notice.add_theme_font_size_override("font_size", 13)
+		_notice = UiKit.label("", &"SmallNameLabel")
+		_notice.name = "Notice"
+		_notice.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION + 1)
+		var box := UiTheme.solid(UiTokens.PANEL)
+		box.content_margin_left = UiTokens.SPACE_4
+		box.content_margin_right = UiTokens.SPACE_4
+		_notice.add_theme_stylebox_override("normal", box)
+		_notice.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_notice.clip_text = true
+		_notice.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		add_child(_notice)
-		_notice.anchor_right = 1.0
-		_notice.offset_left = (ScreenLayout.ROOM.x - NOTICE_WIDTH) / 2.0
-		_notice.offset_right = -_notice.offset_left
-		_notice.offset_top = NOTICE_TOP
+		_notice.anchor_left = 0.5
+		_notice.anchor_right = 0.5
+		_notice.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		# BAR: above the bottom bar; ROUND: under the battles pill (the mode chip
+		# sits above the bar there).
+		var top := BAR_TOP - UiTokens.SPACE_3 - NOTICE_H
+		if layout == Layout.ROUND:
+			top = ROUND_PILL_TOP + BattlesPill.HEIGHT + UiTokens.SPACE_3
+		_notice.offset_top = top
+		_notice.offset_bottom = top + NOTICE_H
 	_notice.text = text
 	_notice.visible = not text.is_empty()
+	# As wide as its text, up to the gutters (a longer line trims).
+	var font := _notice.get_theme_font("font")
+	var need := (
+		font
+		. get_string_size(
+			text, HORIZONTAL_ALIGNMENT_LEFT, -1, _notice.get_theme_font_size("font_size")
+		)
+		. x
+	)
+	_notice.custom_minimum_size.x = minf(
+		need + UiTokens.SPACE_4 * 2 + 2, ScreenLayout.ROOM.x - SIDE * 2
+	)
+	_notice.offset_left = 0
+	_notice.offset_right = 0
 
 
 func notice_text() -> String:
@@ -284,42 +514,111 @@ func flyer() -> FlyerArt:
 	return _flyer
 
 
-func dock() -> Dock:
-	return _dock
+## The big Play button: one tap plays the chosen mode.
+func play_button() -> Button:
+	return _play
 
 
-func stats_line() -> String:
-	return _stats.text
+## The Mode button (BAR) or the mode chip (ROUND): opens the mode sheet.
+func mode_button() -> Button:
+	return _mode_button
 
 
-## Today's Daily Run arrived (or null before it does, or offline): its tab
-## shows the tries left and its line the time to the next map.
+func battles_pill() -> BattlesPill:
+	return _pill
+
+
+## Today's Daily Run arrived (or null before it does, or offline).
 func set_daily_info(info: DailyRunInfo) -> void:
 	_daily_info = info
-	if _modes == null:
-		return
 	_seen_changes = GameModes.changes
-	for m in GameModes.all():
-		if m.id == GameModes.BATTLE and not GameModes.needs_update(m.id):
-			continue
-		if m.id == GameModes.DAILY or not m.ready or m.id in GameModes.LATEST_ONLY:
-			_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
-	_show_play_label()
+	_show_mode()
 
 
-## The battles waiting for this player's turn (BattleFlow): the Battle tab's
-## badge and line. An app too old for Battle keeps its UPDATE badge.
+## The battles waiting for this player's turn (BattleFlow): the battles pill.
 func set_battle_turns(n: int) -> void:
-	if _modes == null or GameModes.needs_update(GameModes.BATTLE):
+	_turns = n
+	if _pill != null:
+		_pill.set_turns(n)
+	_show_mode()
+
+
+## The mode sheet over Home (the Mode button or chip).
+func open_modes() -> ModeSheet:
+	if _sheet == null:
+		var lines := {}
+		var badges := {}
+		for m in GameModes.all():
+			lines[m.id] = _mode_line(m.id)
+			badges[m.id] = GameModes.badge(m.id, _daily_info)
+		if _turns > 0 and not GameModes.needs_update(GameModes.BATTLE):
+			badges[GameModes.BATTLE] = str(_turns)
+		_sheet = ModeSheet.new(_mode, lines, badges)
+		_sheet.name = "ModeSheet"
+		_sheet.picked.connect(choose_mode)
+		_sheet.closed.connect(_close_modes)
+		add_child(_sheet)
+	return _sheet
+
+
+func _close_modes() -> void:
+	if _sheet != null:
+		_sheet.queue_free()
+		_sheet = null
+
+
+## Chooses a mode (the sheet, a test): kept in the profile, Play follows it.
+func choose_mode(id: String) -> void:
+	var m := GameModes.find(id)
+	if m.id == _mode:
 		return
-	var line := GameModes.rule_line(GameModes.BATTLE)
-	if n > 0:
-		line = "%d %s your turn" % [n, "battle waits for" if n == 1 else "battles wait for"]
-	_modes.set_line(GameModes.BATTLE, line, str(n) if n > 0 else "")
+	_mode = m.id
+	_profile.home_mode = _mode
+	_show_mode()
+	settings_changed.emit()
 
 
-## Starts a mode: Classic plays a run, the Daily Run opens its screen, a mode
-## not built yet does nothing.
+## One line about a mode now: Classic's best, the Daily Run's tries and clock,
+## the battles waiting, Duel's rules, or Update to play.
+func _mode_line(id: String) -> String:
+	if GameModes.needs_update(id):
+		return GameModes.UPDATE_LINE
+	match id:
+		GameModes.CLASSIC:
+			return "Best %d" % _profile.best_score
+		GameModes.BATTLE:
+			if _turns > 0:
+				return "%d your turn" % _turns
+	return GameModes.rule_line(id, _daily_info)
+
+
+## Play names the chosen mode: "Play" with "Classic · Best 87" (BAR), or
+## "Play" over a "Classic · Best 87" chip (ROUND). An app too old for the mode
+## says Update and opens the store.
+func _show_mode() -> void:
+	if _play == null:
+		return
+	var m := GameModes.find(_mode)
+	var verb := GameModes.UPDATE if GameModes.needs_update(m.id) else "Play"
+	var line := "%s · %s" % [m.tab_title, _mode_line(m.id)]
+	if layout == Layout.BAR:
+		_play_text.text = verb
+		_play_sub.text = line
+	else:
+		_play.text = verb
+		_mode_button.text = line
+	_play.tooltip_text = "%s %s" % [verb, m.title]
+	_play.disabled = not m.ready
+
+
+## Today's rank arrived (or changed): a tag on Ranks.
+func set_daily_rank(rank: int) -> void:
+	_daily_rank = rank
+	if _bar != null:
+		_bar.set_tag("rank", "#%d" % rank if rank > 0 else "")
+
+
+## Starts a mode: Classic plays a run, the Daily Run opens its screen.
 func _start_mode(id: String) -> void:
 	if GameModes.needs_update(id):
 		update_pressed.emit()
@@ -335,29 +634,3 @@ func _start_mode(id: String) -> void:
 			duel_pressed.emit()
 		_:
 			AudioDirector.ui("locked")
-
-
-func _on_mode_selected(id: String) -> void:
-	_profile.home_mode = id
-	_show_play_label()
-	settings_changed.emit()
-
-
-## The dock's main action names the chosen mode; a mode not built yet greys it.
-func _show_play_label() -> void:
-	if _dock == null or _modes == null:
-		return
-	var m := GameModes.find(_modes.chosen())
-	_dock.set_text("play", GameModes.play_label(m.id))
-	_dock.primary().disabled = not m.ready
-
-
-func modes() -> ModeTabs:
-	return _modes
-
-
-## Today's rank arrived (or changed): shows it under the wordmark.
-func set_daily_rank(rank: int) -> void:
-	_daily_rank = rank
-	if _stats != null:
-		_stats.text = stats_text(_profile.best_score, rank)

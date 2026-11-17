@@ -47,6 +47,13 @@ func test_the_room_sits_inside_the_safe_area_on_every_phone() -> void:
 
 
 func test_home_is_clean() -> void:
+	for layout: int in [HomeScreen.Layout.BAR, HomeScreen.Layout.ROUND]:
+		HomeScreen.layout = layout
+		await _home_is_clean()
+	HomeScreen.layout = HomeScreen.Layout.BAR
+
+
+func _home_is_clean() -> void:
 	var p := _profile()
 	await _check(HomeScreen.new(p, AppServices.offline(p), 14), "home")
 	var full := HomeScreen.new(p, AppServices.offline(p), 12345)
@@ -59,6 +66,15 @@ func test_home_is_clean() -> void:
 	await _check(full, "home, every badge and the notice", fill)
 	var sheet := HomeScreen.new(p, AppServices.offline(p))
 	await _check(sheet, "home, settings open", func() -> void: sheet.open_settings())
+	var modes := HomeScreen.new(p, AppServices.offline(p))
+	await _check(modes, "home, mode sheet open", func() -> void: modes.open_modes())
+	var daily := HomeScreen.new(p, AppServices.offline(p))
+	var pick := func() -> void:
+		var info := DailyRunInfo.new()
+		info.resets_in_s = 86399
+		daily.set_daily_info(info)
+		daily.choose_mode(GameModes.DAILY)
+	await _check(daily, "home, Daily Run chosen", pick)
 
 
 func test_boards_are_clean() -> void:
