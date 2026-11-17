@@ -496,21 +496,23 @@ static func round_notice(view: BattleView, number: int) -> String:
 	for r: Dictionary in view.rounds:
 		if int(r.get("number", 0)) != number:
 			continue
-		var mine: Variant = r.get("my_score")
-		var theirs: Variant = r.get("their_score")
+		var mine := _score_text(r.get("my_score"))
+		var theirs := _score_text(r.get("their_score"))
 		match r.get("winner"):
 			"me":
-				return "You win round %d · %s–%s" % [number, str(mine), str(theirs)]
+				return "You win round %d · %s–%s" % [number, mine, theirs]
 			"them":
-				return (
-					"%s wins round %d · %s–%s"
-					% [view.rival_label(), number, str(mine), str(theirs)]
-				)
+				return "%s wins round %d · %s–%s" % [view.rival_label(), number, mine, theirs]
 			"draw":
 				return "Round %d is a draw" % number
 	if view.turn == "them":
 		return SENT % view.rival_label()
 	return CHECKING
+
+
+## A round's score: JSON numbers arrive as floats (9, not 9.0); none is "–".
+static func _score_text(score: Variant) -> String:
+	return str(int(score)) if score is float or score is int else "–"
 
 
 func _on_failed(op: String, message: String) -> void:

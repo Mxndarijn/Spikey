@@ -361,7 +361,8 @@ func test_the_notice_says_how_the_round_went_once_the_run_is_checked() -> void:
 	var notice := screen.find_child("Notice", true, false) as Label
 	assert_eq(notice.text, BattleFlow.CHECKING)
 	var done := checking.duplicate(true)
-	done.rounds = [{"number": 5, "my_score": 9, "their_score": 1, "winner": "me"}]
+	# As JSON has them: floats.
+	done.rounds = [{"number": 5, "my_score": 9.0, "their_score": 1.0, "winner": "me"}]
 	done.play = {"round": 6, "role": "open"}
 	var server := flow.service.client as FakeServer
 	server.answers["battle_get"] = {"ok": true, "code": 200, "data": done}
