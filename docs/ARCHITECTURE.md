@@ -580,3 +580,36 @@ plain headless mode.
   (daily, tiers, all-time, friends), boss rooms, seasonal events, ghosts.
 - **Phase 4, launch**: Android and iOS export, store accounts, listing,
   privacy policy.
+
+## The app (game/main.gd)
+
+The app: the live room and flyer always run in the background; menus
+(home, shop) sit on top, and Play starts a run. Main wires the parts
+together and moves between screens and run modes:
+  AppServices (leaderboards, wallet, store, push, ads), RunLook (what the
+  live room looks like), ReviveFlow (the revive offer), BoardAlerts (prize
+  spot and push alerts), RunController (the sim), Hud and MenuLayer.
+Flow: Home -> Play. A first start goes straight to Home with the first free
+flyer and the default world; players change them in Customize.
+Home -> Rooms -> a room -> Practice repeats that room; practice never touches
+coins, best score, room stats or leaderboards. The debug page's pickers
+practise any room and variant, or a whole run from a typed seed.
+Room stats (Profile: reached, cleared, deaths per room id; a variant counts under its
+room) come from real runs only: practice, replays and the bots never count. A run left
+from the pause menu counts its rooms as reached but neither cleared nor died in.
+Home -> the #rank item in the dock -> Leaderboards: the friends' boards on our
+server when services/backend_config.json exists, else made-up sample boards.
+Home -> the mode carousel's Daily Run card -> Daily Run (DailyRunFlow): today's one map, a
+try at a time from the server's seed, no revive, its own board.
+Home -> Settings (the corner) -> the settings sheet; main applies each change.
+Game over has Home's dock (Rooms, Style | Again | Ranks, Runs) and Home in the corner.
+Leaderboards -> a run -> Replay plays that run back in the live room with the recorded
+player's look; it never touches the save or the boards; Back returns to the boards.
+Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
+(RunStore, on this phone). Watch plays one back the same way, in the look
+it was played in; Back returns to Your runs (or Home, from Home's card).
+Home -> the mode carousel's Battle card -> Battles (BattleFlow): the battle
+list, New battle, one battle's screen and menu; a round's run plays the
+round's seed with no revive and the rival's checked run beside it as a
+see-through bird (RivalGhost, game/match/), and goes to battle_submit instead
+of the Today board (docs/DUEL_MODE.md).

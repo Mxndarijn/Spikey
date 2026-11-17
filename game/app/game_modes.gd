@@ -70,8 +70,8 @@ static func all() -> Array[Mode]:
 				"Battle",
 				"Take turns on one map · first to 6",
 				preload("res://assets/ui/icons/trophy.svg"),
-				SOON,
-				false
+				"Battles",
+				true
 			),
 			Mode.new(
 				DUEL,

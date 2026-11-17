@@ -1,29 +1,8 @@
 extends Node2D
-## The app: the live room and flyer always run in the background; menus
-## (home, shop) sit on top, and Play starts a run. Main wires the parts
-## together and moves between screens and run modes:
-##   AppServices (leaderboards, wallet, store, push, ads), RunLook (what the
-##   live room looks like), ReviveFlow (the revive offer), BoardAlerts (prize
-##   spot and push alerts), RunController (the sim), Hud and MenuLayer.
-## Flow: Home -> Play. A first start goes straight to Home with the first free
-## flyer and the default world; players change them in Customize.
-## Home -> Rooms -> a room -> Practice repeats that room; practice never touches
-## coins, best score, room stats or leaderboards. The debug page's pickers
-## practise any room and variant, or a whole run from a typed seed.
-## Room stats (Profile: reached, cleared, deaths per room id; a variant counts under its
-## room) come from real runs only: practice, replays and the bots never count. A run left
-## from the pause menu counts its rooms as reached but neither cleared nor died in.
-## Home -> the #rank item in the dock -> Leaderboards: the friends' boards on our
-## server when services/backend_config.json exists, else made-up sample boards.
-## Home -> the Daily Run pill -> Daily Run (DailyRunFlow): today's one map, a
-## try at a time from the server's seed, no revive, its own board.
-## Home -> Settings (the corner) -> the settings sheet; main applies each change.
-## Game over has Home's dock (Rooms, Style | Again | Ranks, Runs) and Home in the corner.
-## Leaderboards -> a run -> Replay plays that run back in the live room with the recorded
-## player's look; it never touches the save or the boards; Back returns to the boards.
-## Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
-## (RunStore, on this phone). Watch plays one back the same way, in the look
-## it was played in; Back returns to Your runs (or Home, from Home's card).
+## The app: the live room and flyer always run in the background; menus sit on
+## top, and Play starts a run. Main wires the parts together and moves between
+## screens and run modes (Classic, Daily Run, Battle, practice, replays); the
+## flow screen by screen is in docs/ARCHITECTURE.md, "The app (game/main.gd)".
 
 enum Mode { MENU, RUN, PRACTICE, REPLAY }
 
@@ -73,6 +52,7 @@ var _revive: ReviveFlow
 var _alerts: BoardAlerts
 var _popups: HomePopups
 var _daily: DailyRunFlow
+var _battle: BattleFlow
 var _game_over_at_ms := -1
 var _menus := MenuLayer.new()
 var _audio := AudioDirector.new()
@@ -148,6 +128,8 @@ func _ready() -> void:
 	_daily = DailyRunFlow.new(
 		leaderboard, _menus, _hud, _popups, _start_daily_run, show_home, board, play_replay
 	)
+	_battle = BattleFlow.new(_services.battles, _menus, _hud, self, _bird, _start_battle, show_home)
+	_battle.scores = show_leaderboard
 	_audio.bind(_run)
 	_run.run_started.connect(_hud.show_running)
 	_run.run_started.connect(_trail.start)
@@ -215,6 +197,7 @@ func _make_services() -> void:
 	_services.profile_sync = profile_sync
 	_services.audio = _audio
 	_services.checkout = Checkout.new(_profile, wallet)
+	_services.battles = BattleService.new(_profile, api)
 	_services.checkout.changed.connect(_save_profile)
 	leaderboard.board_loaded.connect(_on_board_loaded)
 	store.purchased.connect(_on_purchased)
@@ -243,11 +226,19 @@ func _start_daily_run(daily_try: DailyTry) -> void:
 	_new_run()
 
 
+## A battle round (BattleFlow): the round's seed and season, no revive.
+func _start_battle(round_in_play: BattleFlow.Round) -> void:
+	start_run()
+	_battle.playing = round_in_play
+	_new_run()
+
+
 ## Starts a run from the menus (Play).
 func start_run() -> void:
 	_drop_replay()
 	mode = Mode.RUN
 	_daily.playing = null
+	_battle.playing = null
 	_practice_seed = -1
 	_menus.clear()
 	_look.show_flyer(true)
@@ -731,6 +722,9 @@ func _new_run() -> void:
 		if mode == Mode.RUN and _daily.playing != null:
 			seed_value = _daily.playing.seed_value
 			run_season = _daily.playing.season
+		elif mode == Mode.RUN and _battle.playing != null:
+			seed_value = _battle.playing.seed_value
+			run_season = _battle.playing.season
 		if mode == Mode.PRACTICE and _practice_seed >= 0:
 			seed_value = _practice_seed
 			run_season = _practice_season
@@ -745,6 +739,7 @@ func _new_run() -> void:
 	_coin.bind(_run)
 	_hud.set_run_coins(0)
 	_trail.bind(_bird, _look.trail_style, _look.theme)
+	_battle.on_new_run(_run)
 	# The HUD shows the score at the top now; the ghost score stays off.
 	_room.show_score = false
 	_rooms_cleared = 0
@@ -769,6 +764,9 @@ func _try_restart() -> void:
 		if Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
 			_daily.again()
 		return
+	if mode == Mode.RUN and _battle.playing != null:
+		_battle.back_to_battle()
+		return
 	if mode == Mode.RUN and Time.get_ticks_msec() - _game_over_at_ms >= RESTART_DELAY_MS:
 		_new_run()
 		_hud.show_ready()
@@ -792,7 +790,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _revive_count:
 		# The end of the revive countdown: not a flap either.
 		pass
-	elif _run.sim.is_over() and _daily.playing == null:
+	elif _run.sim.is_over() and _daily.playing == null and _battle.playing == null:
 		# A Daily Run's next try is only ever its button: tries are few.
 		_try_restart()
 	else:
@@ -925,7 +923,7 @@ func _on_died(replay: Replay) -> void:
 		# from; the revived run can still clear the room.
 		_profile.record_room_death(_room_id)
 		# No revive in a Daily Run: the crash ends the try.
-		if _daily.playing != null:
+		if _daily.playing != null or _battle.playing != null:
 			_finish_run(replay)
 		else:
 			_revive.on_crash(replay)
@@ -978,7 +976,7 @@ func _finish_run(replay: Replay) -> void:
 		)
 	)
 	# Seed and taps go along, so a verification server can check the run later.
-	if _daily.playing == null:
+	if _daily.playing == null and _battle.playing == null:
 		leaderboard.submit_run(replay.score, replay.to_dict())
 	_save_profile()
 	leaderboard.request_board(LeaderboardService.DAILY)
@@ -997,4 +995,5 @@ func _finish_run(replay: Replay) -> void:
 	)
 	_hud.game_over.show_prize(wallet.run_prizes(previous_best, replay.score))
 	_daily.finished(replay, _rooms_cleared)
+	_battle.finished(replay)
 	_stage.show_empty(is_new_best, _hud.reduced_motion)

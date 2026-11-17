@@ -18,6 +18,8 @@ signal play_pressed
 signal daily_run_pressed
 ## The player picked a new leaderboard name (already in the profile).
 signal name_changed(player_name: String)
+## The header's Scores | Wins switch: Wins (BattleFlow opens the wins boards).
+signal wins_pressed
 ## Watch replay was pressed and the run arrived (OnlineLeaderboard.parse_run()
 ## shape; {} when it could not be loaded). main.gd plays it back.
 signal replay_requested(run: Dictionary)
@@ -78,7 +80,9 @@ func _ready() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", UiTokens.SPACE_3)
 	margin.add_child(col)
-	col.add_child(UiKit.header("Leaderboards", closed.emit))
+	var switch := BoardSwitch.new(BoardSwitch.SCORES)
+	switch.picked.connect(func(_i: int) -> void: wins_pressed.emit())
+	col.add_child(UiKit.header("Leaderboards", closed.emit, switch))
 	col.add_child(_tab_bar())
 	col.add_child(_caption())
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL

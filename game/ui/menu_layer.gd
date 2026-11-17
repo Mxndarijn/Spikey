@@ -4,6 +4,9 @@ extends CanvasLayer
 ## the room. One screen at a time; the room keeps animating behind it.
 ## The screens' theme follows the world: white room text on night rooms.
 
+## A screen was put up (BattleFlow wires Home's Battle card and the boards' Wins switch).
+signal screen_shown(screen: Control)
+
 var _root := Control.new()
 var _current: Control
 
@@ -41,6 +44,7 @@ func show_screen(screen: Control) -> void:
 	_current = screen
 	_root.add_child(screen)
 	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen_shown.emit(screen)
 
 
 func clear() -> void:

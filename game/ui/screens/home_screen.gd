@@ -20,6 +20,8 @@ signal rooms_pressed
 signal store_pressed
 ## The Daily Run chosen in the mode carousel and started: opens the Daily Run.
 signal daily_run_pressed
+## Battle chosen and started: opens Battles.
+signal battle_pressed
 ## Runs (the dock): opens Your runs.
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
@@ -294,7 +296,8 @@ func set_daily_info(info: DailyRunInfo) -> void:
 	if _modes == null:
 		return
 	for m in GameModes.all():
-		_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
+		if m.id == GameModes.DAILY or not m.ready:
+			_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
 
 
 ## Starts a mode: Classic plays a run, the Daily Run opens its screen, a mode
@@ -305,6 +308,8 @@ func _start_mode(id: String) -> void:
 			play_pressed.emit()
 		GameModes.DAILY:
 			daily_run_pressed.emit()
+		GameModes.BATTLE:
+			battle_pressed.emit()
 		_:
 			AudioDirector.ui("locked")
 

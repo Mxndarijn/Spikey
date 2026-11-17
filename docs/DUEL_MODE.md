@@ -29,6 +29,21 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   from `fastsim-rs battlebot` (`tools/fastsim-rs/fastsim/src/human/battle_bot.rs`,
   8 levels), the image `backend/Dockerfile.bot`, the pod
   `deploy/base/app/battle-bot.yaml` (500m CPU, 128 Mi). Not deployed.
+- **Battle in the game**: `services/battle_service.gd` + `battle_view.gd`,
+  `meta/match_rules.gd`, `game/app/battle_flow.gd` (the list, New battle, one
+  battle, its menu, a round's run and sending it), the screens
+  `battle_list_screen.gd` (B1), `battle_screen.gd` (B3, B4, B6, B7, K1),
+  `new_battle_sheet.gd` (B2), `battle_menu_sheet.gd` (K2), the rival's bird
+  `game/match/rival_ghost.gd` (B5), the Battle card on Home is live with its
+  your-turn badge. Tests: `test_battle_service.gd`, `test_battle_screens.gd`
+  (with a whole round in the app), `test_battle_fit.gd`.
+- **Wins boards in the game**: the Scores | Wins switch on the leaderboards
+  (`board_switch.gd`), `wins_screen.gd` (L1, and L2 as the record card).
+
+Not built yet: the invite link opening the app (Android App Links, iOS
+Universal Links and the files the server hosts for them), a push opening its
+battle, the Android notification channels created on the phone (alerts use
+the default channel until then), and Duel.
 
 Changed while building (to agree with the user):
 - **No 4-minute cap on Battle runs**: a run flies to its crash, like a Daily Run.

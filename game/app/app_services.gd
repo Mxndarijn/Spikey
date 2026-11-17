@@ -25,6 +25,8 @@ var checkout: Checkout
 var audio: AudioDirector
 ## Move to a new phone; null unless the boards are on our own server.
 var phone_move: PhoneMove
+## Battle and the wins boards (no server: every call says offline).
+var battles: BattleService
 
 
 ## Everything offline: sample boards, the local wallet, a closed store, no
