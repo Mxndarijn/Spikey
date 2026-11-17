@@ -11,6 +11,9 @@ use sqlx::PgPool;
 const SCOPE: &str = "https://www.googleapis.com/auth/firebase.messaging";
 /// The Android notification channel the game creates for these.
 pub const CHANNEL: &str = "board_alerts";
+/// Battle alerts (your turn, nudges, results) have their own channel, so a
+/// player can mute battles and keep board alerts.
+pub const BATTLE_CHANNEL: &str = "battles";
 const BATCH: i32 = 100;
 
 #[derive(Deserialize, Clone)]
@@ -37,12 +40,15 @@ pub fn parse_account(text: &str) -> Option<Account> {
 
 /// What Firebase is asked to deliver for one alert.
 pub fn message(alert: &Value) -> Value {
+    let battle = alert["line"] == "battle";
+    let channel = if battle { BATTLE_CHANNEL } else { CHANNEL };
+    let kind = if battle { "battle_alert" } else { "board_alert" };
     json!({
         "message": {
             "token": alert["token"],
             "notification": {"title": alert["title"], "body": alert["body"]},
-            "data": {"kind": "board_alert"},
-            "android": {"priority": "HIGH", "notification": {"channel_id": CHANNEL}},
+            "data": {"kind": kind},
+            "android": {"priority": "HIGH", "notification": {"channel_id": channel}},
             "apns": {"payload": {"aps": {"sound": "default"}}},
         }
     })
@@ -160,5 +166,8 @@ mod tests {
         let m = message(&json!({"token": "t", "title": "Lost #3", "body": "x"}));
         assert_eq!(m["message"]["android"]["notification"]["channel_id"], CHANNEL);
         assert_eq!(m["message"]["token"], "t");
+        let b = message(&json!({"token": "t", "title": "Your turn!", "body": "x", "line": "battle"}));
+        assert_eq!(b["message"]["android"]["notification"]["channel_id"], BATTLE_CHANNEL);
+        assert_eq!(b["message"]["data"]["kind"], "battle_alert");
     }
 }

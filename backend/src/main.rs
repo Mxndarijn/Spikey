@@ -49,6 +49,7 @@ async fn main() {
 
     let new_run = Arc::new(Notify::new());
     spawn_checker(pool.clone(), new_run.clone(), config.verify_every_s);
+    spawn_battles(pool.clone());
     if let Some(account) = push::parse_account(&config.firebase_service_account) {
         if let Err(e) = push::register_sender(&pool).await {
             tracing::warn!("couldn't register the push sender: {e}");
@@ -84,6 +85,20 @@ fn spawn_checker(pool: sqlx::PgPool, new_run: Arc<Notify>, every_s: u64) {
                 _ = new_run.notified() => {}
                 _ = tokio::time::sleep(Duration::from_secs(every_s.max(1))) => {}
             }
+        }
+    });
+}
+
+/// Battle nudges (after 1 and 3 days without a move), every few minutes.
+fn spawn_battles(pool: sqlx::PgPool) {
+    tokio::spawn(async move {
+        loop {
+            match sqlx::query_scalar::<_, i32>("select public.spikey_battle_reminders()").fetch_one(&pool).await {
+                Ok(n) if n > 0 => tracing::info!("battle nudges: {n} queued"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!("battle nudges failed: {e}"),
+            }
+            tokio::time::sleep(Duration::from_secs(300)).await;
         }
     });
 }

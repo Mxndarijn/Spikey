@@ -109,6 +109,50 @@ pub const OPS: &[Op] = &[
     Op { name: "set_push_enabled", args: &[("p_enabled", Bool)], ret: Ret::Void, new_run: false },
     Op { name: "send_test_push", args: &[], ret: Ret::Text, new_run: false },
     Op { name: "get_my_runs", args: &[("p_limit", Int)], ret: Ret::Json, new_run: false },
+    // Battle (migrations/0110_battles.sql).
+    Op {
+        name: "battle_create",
+        args: &[("p_name", Text), ("p_flyer", Text), ("p_opponent", Text), ("p_gameplay_version", Int)],
+        ret: Ret::Json,
+        new_run: false,
+    },
+    Op {
+        name: "battle_join",
+        args: &[("p_code", Text), ("p_name", Text), ("p_flyer", Text)],
+        ret: Ret::Json,
+        new_run: false,
+    },
+    Op { name: "battle_list", args: &[], ret: Ret::Json, new_run: false },
+    Op { name: "battle_get", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
+    Op {
+        name: "battle_start_run",
+        args: &[("p_battle", BigInt), ("p_round", Int), ("p_gameplay_version", Int)],
+        ret: Ret::Json,
+        new_run: false,
+    },
+    Op {
+        name: "battle_submit",
+        args: &[
+            ("p_battle", BigInt),
+            ("p_round", Int),
+            ("p_name", Text),
+            ("p_flyer", Text),
+            ("p_score", Int),
+            ("p_gameplay_version", Int),
+            ("p_seed", BigInt),
+            ("p_taps", Json),
+            ("p_loadout", Json),
+            ("p_season", Int),
+            ("p_coins", Int),
+            ("p_end_tick", Int),
+        ],
+        ret: Ret::Json,
+        new_run: true,
+    },
+    Op { name: "battle_resign", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
+    Op { name: "battle_close", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
+    Op { name: "battle_nudge", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
+    Op { name: "battle_rematch", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
 ];
 
 pub fn find(name: &str) -> Option<&'static Op> {
