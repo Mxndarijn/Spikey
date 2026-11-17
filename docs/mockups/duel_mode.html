@@ -205,49 +205,349 @@ svg.diag .mut { fill: var(--muted); }
 svg.diag .ln { stroke: var(--line); }
 svg.diag .ink { stroke: var(--ink); }
 @media (prefers-reduced-motion: no-preference) { .spin { animation: sp 1.4s linear infinite; } @keyframes sp { to { transform: rotate(360deg); } } }
+/* Mode picker and Battle additions. */
+.carousel { position: relative; height: 250px; margin-top: 18px; }
+.mcard { position: absolute; top: 10px; width: 228px; height: 220px; left: 66px; background: var(--fj-panel); border-radius: 26px; padding: 18px; display: grid; gap: 8px; align-content: start; box-sizing: border-box; }
+.mcard.side { top: 30px; height: 180px; width: 200px; opacity: .8; }
+.mcard.l { left: -168px; } .mcard.r { left: 328px; }
+.mcard .nm { font-weight: 900; font-stretch: 125%; font-size: 30px; line-height: 32px; }
+.mcard .rl { font-size: 14px; font-weight: 700; color: var(--fj-muted); }
+.mcard .badge { position: absolute; top: -8px; right: -8px; min-width: 30px; height: 30px; border-radius: 999px; background: var(--fj-ink); color: #fff; font-weight: 900; font-size: 16px; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; box-shadow: 0 0 0 3px var(--fj-panel); }
+.micon { height: 56px; position: relative; }
+.micon .bird { top: 10px; }
+.cal { width: 46px; height: 46px; border-radius: 10px; background: #fff; box-shadow: inset 0 9px 0 var(--fj-danger); display: grid; place-items: center; padding-top: 8px; box-sizing: border-box; font-weight: 900; font-size: 20px; }
+.mdots { display: flex; gap: 7px; justify-content: center; }
+.mdots i { width: 8px; height: 8px; border-radius: 50%; background: #ffffff88; display: block; }
+.mdots i.on { background: var(--fj-ink); width: 22px; border-radius: 999px; }
+.linkline { text-align: center; font-weight: 800; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { background: var(--fj-panel-raised); border-radius: 18px; padding: 12px; display: grid; gap: 4px; position: relative; min-height: 112px; align-content: start; }
+.tile.on { background: #fff; box-shadow: inset 0 0 0 3px var(--fj-ink); }
+.tile .nm { font-weight: 900; font-size: 18px; }
+.tile .rl { font-size: 12px; font-weight: 700; color: var(--fj-muted); line-height: 15px; }
+.tile .badge { position: absolute; top: 8px; right: 8px; min-width: 24px; height: 24px; border-radius: 999px; background: var(--fj-ink); color: #fff; font-weight: 900; font-size: 13px; display: grid; place-items: center; padding: 0 5px; box-sizing: border-box; }
+.tile.soon { background: transparent; box-shadow: inset 0 0 0 2px var(--fj-edge); color: var(--fj-muted); }
+.tile .micon { height: 40px; transform: scale(.8); transform-origin: left top; }
+.blist { display: grid; gap: 8px; }
+.brow { background: var(--fj-panel); border-radius: 18px; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.brow .av { width: 36px; height: 36px; position: relative; }
+.brow .av .bird { transform: scale(.9); top: 3px; left: 0; }
+.brow .nm { font-weight: 800; font-size: 15px; }
+.brow small { display: block; font-size: 12px; font-weight: 700; color: var(--fj-muted); }
+.brow .dots { justify-content: flex-start; gap: 5px; margin-top: 3px; }
+.brow .dots i { width: 10px; height: 10px; }
+.pill { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.pill.go { background: var(--fj-ink); color: #fff; }
+.pill.wait { background: var(--fj-panel-raised); color: var(--fj-muted); }
+.pill.warn { background: var(--fj-action); color: var(--fj-ink); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--fj-panel-raised); border-radius: 999px; padding: 4px; }
+.seg span { height: 40px; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: var(--fj-muted); }
+.seg span.on { background: #fff; color: var(--fj-ink); }
+.target { position: absolute; top: 96px; left: 0; right: 0; text-align: center; z-index: 3; }
+.target span { display: inline-block; background: var(--fj-scrim); color: #fff; font-weight: 800; font-size: 14px; padding: 5px 12px; border-radius: 999px; }
+.turnline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.turnline div { border-radius: 10px; padding: 8px; font-size: 13px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 2px; }
+.turnline b { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.who-a { color: var(--accent); font-weight: 700; } .who-b { color: var(--rival); font-weight: 700; }
 </style>
 
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Flapjaw · plan for review · builds on the server move</div>
-  <h1>Duel mode</h1>
-  <p class="lede">A 1v1, best of three rounds. Each round both players fly the same map at the same time and see each other as a see-through rival bird. Only taps travel over the network; each phone rebuilds the rival exactly with the deterministic sim, and the server judges. Text copy: <span class="mono">docs/DUEL_MODE.md</span>.</p>
+  <div class="eyebrow">Flapjaw · plan for review · on the live server</div>
+  <h1>Game modes, Battle and Duel</h1>
+  <p class="lede">A mode picker on Home, then two head-to-head modes on one base. <b>Battle</b> (async, first): take turns on the same seed, each seeing the other's run as a see-through rival bird. <b>Duel</b> (realtime, later): both fly the same seed at once. Text copy: <span class="mono">docs/DUEL_MODE.md</span>.</p>
   <div class="status">
     <span class="chip hold">Plan only · waiting on your answers</span>
     <span class="chip">No sim change, no gameplay-version bump</span>
     <span class="chip">Cosmetic-only monetization kept</span>
-    <span class="chip rival">Phase 1: ghost duel · Phase 2: realtime</span>
+    <span class="chip rival">Modes → Battle → Duel</span>
   </div>
 </header>
 
+<section id="modes">
+  <h2>0. The mode picker</h2>
+  <p>Modes now and soon: Classic (today's endless run), Daily Run, Battle, Duel, and later perhaps Practice or seasonal events. Recommendation: a <b>mode carousel on Home</b> with Play under it, plus an <b>All modes</b> sheet for when there are more than four or five.</p>
+  <div class="screens">
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="home-word" style="padding-top:56px">Flapjaw</div>
+      <div class="carousel">
+        <div class="mcard side l"><div class="micon"><span class="cal">17</span></div><div class="nm">Daily Run</div><div class="rl">One map a day · 3 tries</div></div>
+        <div class="mcard"><span class="badge">2</span><div class="micon"><span class="bird" style="left:0"></span><span class="bird rival" style="left:26px;top:22px;opacity:.7"></span></div><div class="nm">Battle</div><div class="rl">Take turns on one map · best of 3</div><div class="rl" style="color:var(--fj-ink)">2 battles wait for you</div></div>
+        <div class="mcard side r"><div class="micon"><span class="bird"></span></div><div class="nm">Duel</div></div>
+      </div>
+      <div class="mdots"><i></i><i></i><i class="on"></i><i></i></div>
+      <div class="body" style="padding-top:18px">
+        <div class="btn primary">Battles</div>
+        <div class="linkline">All modes</div>
+      </div>
+    </div></div><figcaption><b>M1 · Home with the mode carousel</b>Swipe for a mode; Play names it. The badge counts battles where it is your turn.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="h">Modes</div>
+        <div class="grid2">
+          <div class="tile"><div class="micon"><span class="bird"></span></div><div class="nm">Classic</div><div class="rl">Endless. One life.</div></div>
+          <div class="tile"><span class="badge">2</span><div class="micon"><span class="cal">17</span></div><div class="nm">Daily Run</div><div class="rl">One map a day · 2 tries left</div></div>
+          <div class="tile on"><span class="badge">2</span><div class="micon"><span class="bird"></span><span class="bird rival" style="left:22px;top:18px;opacity:.7"></span></div><div class="nm">Battle</div><div class="rl">Take turns · best of 3</div></div>
+          <div class="tile"><div class="micon"><span class="bird rival" style="opacity:.8"></span></div><div class="nm">Duel <span class="newpill">NEW</span></div><div class="rl">Live 1v1 · best of 3</div></div>
+          <div class="tile soon"><div class="nm">Practice</div><div class="rl">Later: any room you've met</div></div>
+          <div class="tile soon"><div class="nm">Events</div><div class="rl">Later: seasonal modes</div></div>
+        </div>
+      </div>
+    </div></div><figcaption><b>M2 · All modes</b>Every mode as a tile; the chosen one outlined. Grows without changing Home.</figcaption></figure>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>A mode card</h3><ul>
+      <li>Icon, name, its rules in one line</li>
+      <li>Badges: your-turn count (Battle), tries left (Daily Run), NEW for a mode's first week</li>
+      <li>Play names the mode: Play, Play Daily Run, Battles, Find a Duel</li>
+      <li>The mode last played stays chosen; Classic is first and the default</li>
+    </ul></div>
+    <div class="card"><h3>Easy to add a mode</h3><p class="note">A list in <code>game/app/game_modes.gd</code>, one entry per mode: <code>id</code>, <code>title</code>, <code>rule_line</code>, <code>icon</code>, <code>play_label</code>, <code>badge()</code>, <code>open(main)</code>, <code>visible()</code>. Home draws the carousel and the sheet from it. A new mode is one entry plus its flow.</p></div>
+    <div class="card"><h3>Off without an update</h3><p class="note">The server's <code>ping</code> answer can list <code>modes_off: ["duel"]</code>, so a mode can be hidden at once if it misbehaves. Tabs along the top were the alternative: fine for three, crowded at five.</p></div>
+  </div>
+</section>
+
 <section id="rules">
-  <h2>1. Game rules</h2>
-  <p>A Duel round is a normal run: <code>GameSim(seed, season)</code> with the server's seed and no revives. Everything below is about how two such runs are compared.</p>
+  <h2>1. Shared match rules</h2>
+  <p>A round is a normal run, <code>GameSim(seed, season)</code>, with the server's seed and no revives. These rules hold in Battle and in Duel.</p>
   <div class="scroll">
   <table class="wide">
     <thead><tr><th>Rule</th><th>Recommendation</th><th>Why</th></tr></thead>
     <tbody>
-      <tr><td><b>Format</b></td><td>Best of three. First to two round wins. Round 3 only at 1-1.</td><td>Your ask.</td></tr>
-      <tr><td><b>Map</b></td><td>A new server seed each round, sent only at the countdown (like the Daily Run seed). Same seed and season for both.</td><td>Nobody can practise the map; three rounds are three maps.</td></tr>
-      <tr class="pick"><td><b>Who wins a round</b></td><td>Play until it is settled. When one crashes at score S, the other wins the moment they reach S + 1, or loses by crashing below S. Alternative: first crash loses (question 1).</td><td>Both fly at the same sideways speed, so more points also means lasting longer. Ending at S + 1 keeps rounds short and gives a clear "beat 23!" moment.</td></tr>
-      <tr><td><b>Ties</b></td><td>Equal score: more coins wins (coins are a risk to take), then a sudden-death round on a new seed.</td><td>A skill tie-break, nothing bought.</td></tr>
-      <tr><td><b>Time limit</b></td><td>4 minutes a round (about 170 points at 4 px a tick). At the limit: score, then coins, then sudden death.</td><td>A duel should take minutes, not half an hour.</td></tr>
-      <tr><td><b>Revives, pause</b></td><td>Off. Leaving the app counts as a crash after 5 s grace.</td><td>Like the Daily Run. The rival keeps flying.</td></tr>
-      <tr class="pick"><td><b>Fork rooms</b></td><td>Allow the split. Calm and Wild lead to the same door of the same next room, so only that one room differs (Wild's extra spikes), and then the map is the same again. The rival gets a small WILD tag there.</td><td>Fork-free seeds don't exist (a fork every 50 points on every seed). Syncing the choice would be a Duel-only sim rule, a gameplay change. The safe-or-risky pick is a good duel moment, and Wild's 5 coins count in the tie-break.</td></tr>
-      <tr><td><b>Out of step</b></td><td>A bumper turning a bird back or a boss hold can put them a room apart. The rival is drawn only in the same room index, else an edge tag "Mira · room 7".</td><td>The walls on screen are yours.</td></tr>
-      <tr><td><b>Bird-following hazards</b></td><td>Stalker, Dart aim and Echo follow each player's own bird. Only your own hazards are drawn; a rival's crash shows a puff.</td><td>Two sets of hazards would mislead.</td></tr>
-      <tr><td><b>Coins, gold, diamonds</b></td><td>Coins go to gold like any verified run. Nothing extra for a win, no diamonds, no stakes or wagers ever. Later maybe a weekly Duel board with small diamond prizes (question 3).</td><td>Cosmetic only; nothing that looks like betting.</td></tr>
-      <tr><td><b>Boards</b></td><td>Duel runs don't count on Today, Daily Run or All-time.</td><td>In a ghost duel the second player sees the first one fly: a hint.</td></tr>
-      <tr><td><b>Looks</b></td><td>The rival in their own flyer, hat and trail at about 45%, with a name tag. Same hitbox for all.</td><td>Others see what you bought: a cosmetic reason to buy.</td></tr>
-      <tr><td><b>Version</b></td><td>Paired only on the same <code>GAMEPLAY_VERSION</code>.</td><td>Same inputs give the same run only on the same sim.</td></tr>
+      <tr><td><b>Format</b></td><td>Best of three, first to two. Friend battles may pick best of five.</td><td>Short enough to finish.</td></tr>
+      <tr><td><b>Map</b></td><td>A new server seed each round, handed out only when the round's first run starts. Same seed and season for both.</td><td>Nobody can practise the map.</td></tr>
+      <tr><td><b>Round winner</b></td><td>Higher score; equal: more coins. Still equal: sudden death in Duel; in Battle the round is a draw and one more is added (two at most).</td><td>Coins are a risk to take.</td></tr>
+      <tr><td><b>Time limit</b></td><td>4 minutes a run (about 170 points), scored as it stands.</td><td>Keeps both modes short and equal.</td></tr>
+      <tr><td><b>Revives</b></td><td>Off.</td><td>Nothing bought changes a result.</td></tr>
+      <tr class="pick"><td><b>Fork rooms</b></td><td>Allowed to split. Calm and Wild lead into the same next room, so only that room differs, then the map is the same again. The rival shows a WILD tag there.</td><td>Fork-free seeds don't exist (a fork every 50 points); one shared exit would be a sim rule change.</td></tr>
+      <tr><td><b>Rival a room apart</b></td><td>Drawn only in the same room index, else an edge tag "Mira · room 7".</td><td>Bumpers and boss holds put birds out of step.</td></tr>
+      <tr><td><b>Bird-following hazards</b></td><td>Only your own are drawn; a rival crash shows a puff.</td><td>Stalker, Dart aim and Echo follow each bird.</td></tr>
+      <tr><td><b>Coins, gold, diamonds</b></td><td>Coins to gold as in any checked run. Nothing for a win, no diamonds, never stakes or wagers.</td><td>Cosmetic-only monetization.</td></tr>
+      <tr><td><b>Boards</b></td><td>Battle and Duel runs don't count on Today, Daily Run or All-time.</td><td>The second player sees the first one's run.</td></tr>
+      <tr><td><b>Looks</b></td><td>The rival in their own flyer, hat and trail at about 45%, with a name tag. One hitbox.</td><td>Others see what you bought.</td></tr>
+      <tr><td><b>Version</b></td><td>Both players of a round on one <code>GAMEPLAY_VERSION</code>.</td><td>Same inputs, same run only on one sim.</td></tr>
     </tbody>
   </table>
   </div>
 </section>
 
-<section id="live">
-  <h2>2. Seeing each other live</h2>
+<section id="battle">
+  <h2>2. Battle (async, built first)</h2>
+  <p>Pick a friend (code or link) or a random player. Each round is a seed. One plays it and submits; the other plays the same seed with that run as the rival bird, and submits. Nobody needs to be online at the same time.</p>
+
+  <h3>How the turns go</h3>
+  <p class="note">Each turn after the first answers a round and opens the next, so the battle moves on every turn and who goes first alternates for free.</p>
+  <div class="scroll"><div class="turnline" style="min-width:640px">
+    <div><b>Turn 1</b><span class="who-a">Ada</span>Round 1 first, blind</div>
+    <div><b>Turn 2</b><span class="who-b">Mira</span>Round 1 with Ada's run, then Round 2 first, blind</div>
+    <div><b>Turn 3</b><span class="who-a">Ada</span>Round 2 with Mira's run, then Round 3 if 1-1</div>
+    <div><b>Turn 4</b><span class="who-b">Mira</span>Round 3, blind (the decider)</div>
+  </div></div>
+
+  <h3>Fairness: who goes first, and the ghost</h3>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Option</th><th>Fair</th><th>Fun</th></tr></thead>
+    <tbody>
+      <tr class="pick"><td><span class="pick-label">Recommended</span><br/><b>A. Alternate who goes first; the decider blind</b></td><td>Each player gets the ghost once in rounds 1 and 2. In the decider the second player sees no run until they submit. Best of five: rounds 1 to 4 alternate, round 5 blind.</td><td>A ghost race every round but the last; the decider is a clean "who is better".</td></tr>
+      <tr><td><b>B. Alternate, ghost in every round</b></td><td>One player has the ghost one round more, exactly in the round that decides it</td><td>Most ghost racing</td></tr>
+      <tr><td><b>C. Always blind, ghosts after</b></td><td>Fully fair</td><td>Loses watching the rival while you fly</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Until how long?</h3>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Setting</th><th>Options</th><th>Recommendation</th></tr></thead>
+    <tbody>
+      <tr><td><b>Match length</b></td><td>Best of 3 · best of 5 · first to N · a fixed number of rounds</td><td><b>Best of 3</b> for all; <b>best of 5</b> as a choice with friends. First to N is best of 2N−1; a fixed count allows ties, which feels flat.</td></tr>
+      <tr><td><b>Turn timer</b></td><td>8 h · 24 h · 48 h</td><td><b>24 h</b> a turn: fits once-a-day players and time zones.</td></tr>
+      <tr><td><b>Missed turn</b></td><td>Lose the round · lose the match</td><td>That turn's rounds score 0. <b>Two missed turns in a row lose the match.</b></td></tr>
+      <tr><td><b>Match expiry</b></td><td>3 · 7 · 10 days</td><td><b>7 days</b> (best of 3), <b>10</b> (best of 5). The leader wins; level is a draw. Most battles end within a day or two.</td></tr>
+      <tr><td><b>Open at once</b></td><td>5 · 10 · 20</td><td><b>10 battles</b>, at most <b>3 random ones</b> waiting for an opponent.</td></tr>
+      <tr><td><b>Random, nobody came</b></td><td></td><td>Closed quietly after <b>48 h</b>; the run still paid its gold.</td></tr>
+      <tr><td><b>Rematch</b></td><td></td><td>One tap at the result; the other gets a 24 h rematch turn, first player swapped.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="cards">
+    <div class="card"><h3>Starting a battle</h3><ul>
+      <li><b>Friend</b>: a 6-letter code (no look-alikes) and a link <code>https://flapjaw.mn-platform.tech/battle/KD7WQ3</code> that opens the app (App Links, Universal Links). 7 days, used once. You play round 1 at once, so your friend finds a run waiting</li>
+      <li><b>Random</b>: you play round 1 at once and the battle joins a pool. Someone starting a random battle first gets a waiting one (same version, closest hidden rating, never the same pair twice in a row). Nobody waits to play</li>
+      <li><b>Friends list</b>: later, with stable accounts</li>
+    </ul></div>
+    <div class="card"><h3>One try per run</h3><ul>
+      <li>The seed comes only when the run starts (<code>battle_start_run</code>), like a Daily Run try. A started run counts</li>
+      <li>Taps are saved locally as you fly; an app killed mid-run sends what it had, scored as a crash there</li>
+      <li>A run not sent by the deadline scores 0</li>
+      <li>Pause works as in Classic; nobody is waiting live</li>
+    </ul></div>
+    <div class="card"><h3>After an app update</h3><p class="note">A round is pinned to the gameplay version of its first run. If the second player is on a newer version, the open round is dealt again on the new version for both (new seed, the first player plays it again, no turn lost). Finished rounds stand.</p></div>
+  </div>
+
+  <h3>Notifications</h3>
+  <p class="note">Through the server's FCM sender as a new kind in its outbox, on their own Android channel <code>battles</code> (mute battles, keep board alerts), only when push is on. A push opens that battle.</p>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>When</th><th>Text</th></tr></thead>
+    <tbody>
+      <tr><td>Your turn</td><td>"Mira scored 27 in round 2. Your turn!"</td></tr>
+      <tr><td>A random opponent answered round 1</td><td>"Jun answered your battle. Your turn!"</td></tr>
+      <tr><td>12 h left</td><td>"12 hours left to answer Mira"</td></tr>
+      <tr><td>2 h left</td><td>"2 hours left, or round 2 goes to Mira"</td></tr>
+      <tr><td>Match over</td><td>"You beat Mira 2-1" · "Mira won 2-1. Rematch?"</td></tr>
+      <tr><td>Rematch asked</td><td>"Mira wants a rematch"</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Quiet hours: no reminder 22:00–08:00 on the phone's clock (<code>push_devices.utc_offset</code>); sent at 08:00, or earlier when the deadline is in the night. At most one reminder an hour per player across all battles.</p>
+
+  <h3>Battle screens</h3>
+  <div class="screens">
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="topbar"><div class="back">‹</div><div class="title-l">Battles</div></div>
+      <div class="body" style="gap:10px;padding-top:14px">
+        <div class="group-label">Your turn</div>
+        <div class="blist">
+          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Mira</div><small>Round 2 · Mira scored 27</small><div class="dots"><i class="op"></i><i class="now"></i><i></i></div></div><span class="pill go">18 h</span></div>
+          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Jun <small style="display:inline">· random</small></div><small>Round 1 · Jun scored 12</small><div class="dots"><i class="now"></i><i></i><i></i></div></div><span class="pill warn">2 h</span></div>
+        </div>
+        <div class="group-label">Their turn</div>
+        <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Sam</div><small>Waiting for round 1 · 21 h</small></div><span class="pill wait">Nudge</span></div>
+        <div class="group-label">Finished</div>
+        <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Ada</div><small>You won 2-1</small></div><span class="pill wait">Rematch</span></div>
+        <div class="btn primary" style="height:50px">New battle</div>
+      </div>
+    </div></div><figcaption><b>B1 · Battle list</b>Your turn first with the time left, then their turn, then finished. 4 of 10 open.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="h">New battle</div>
+        <p style="font-size:14px;font-weight:600;color:var(--fj-muted);margin:0">You play round 1 now. Your rival answers within 24 h.</p>
+        <div class="btn primary">Invite a friend</div>
+        <div class="btn secondary">Random rival</div>
+        <div class="btn plain">Enter a code</div>
+        <div class="group-label">Length (friends)</div>
+        <div class="seg"><span class="on">Best of 3</span><span>Best of 5</span></div>
+        <div class="timer">4 of 10 battles open</div>
+      </div>
+    </div></div><figcaption><b>B2 · Start a battle</b>Friend or random; best of 5 only for friend battles.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="topbar"><div class="back">‹</div><div class="title-l">Invite a friend</div></div>
+      <div class="body">
+        <div class="card-fj">
+          <div class="h">Send this code</div>
+          <div class="code">KD7·WQ3</div>
+          <div class="timer">Good for 7 days · one friend</div>
+          <div class="btn primary">Share link</div>
+          <div class="btn secondary">Copy code</div>
+        </div>
+        <div class="btn secondary" style="background:var(--fj-action)">Play round 1 now</div>
+        <div class="warnline"><span class="ic">!</span>No need to wait: your friend gets your run when they join.</div>
+      </div>
+    </div></div><figcaption><b>B3 · Invite</b>Share, then fly round 1 straight away.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="body" style="padding-top:60px">
+        <div class="center-h">Round 2</div>
+        <div class="dots"><i class="me"></i><i class="now"></i><i></i></div>
+        <div class="card-fj" style="text-align:center">
+          <div class="lab" style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--fj-muted)">Mira scored</div>
+          <div class="center-h" style="font-size:64px;line-height:64px">27</div>
+          <p>You'll see Mira's run as you fly. Beat 27 to win the round. One try.</p>
+        </div>
+        <div class="btn primary">Play round 2</div>
+        <div class="timer">Your turn · 18 h left</div>
+      </div>
+    </div></div><figcaption><b>B4 · Round intro</b>The target and the one-try rule. A blind decider says "Mira has played. You'll see the run after yours."</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <svg width="360" height="640" viewBox="0 0 360 640" style="position:absolute;inset:0;z-index:0" aria-hidden="true">
+        <rect x="0" y="0" width="360" height="22" fill="var(--fj-spike)"/>
+        <rect x="0" y="618" width="360" height="22" fill="var(--fj-spike)"/>
+        <g fill="var(--fj-spike)">
+          <polygon points="0,99 26,119 0,139"/><polygon points="0,263 26,283 0,303"/><polygon points="0,304 26,324 0,344"/><polygon points="0,509 26,529 0,549"/>
+          <polygon points="360,140 334,160 360,180"/><polygon points="360,181 334,201 360,221"/><polygon points="360,427 334,447 360,467"/><polygon points="360,468 334,488 360,508"/>
+        </g>
+      </svg>
+      <div class="bigscore">24</div>
+      <div class="hudbar">
+        <div class="pscore">You<b>24</b></div>
+        <div class="dots"><i class="me"></i><i class="now"></i><i></i></div>
+        <div class="pscore r">Mira's run<b>24</b></div>
+      </div>
+      <div class="target"><span>Beat 27</span></div>
+      <div class="bird left" style="left:96px;top:330px"></div>
+      <div class="bird rival left" style="left:120px;top:250px"></div>
+      <div class="tag" style="left:110px;top:288px;background:#4b43d6cc">Mira</div>
+    </div></div><figcaption><b>B5 · Playing with Mira's run</b>Mira's run plays in step with yours; its score counts up as it was flown and stops at 27.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="scrim"></div>
+      <div class="popup">
+        <div class="h">You win round 2</div>
+        <div class="dots"><i class="op"></i><i class="me"></i><i class="now"></i></div>
+        <div class="vs"><div class="to"><span class="lab">You</span><span class="num">31</span>checked ✓</div><div><span class="lab">Mira</span><span class="num">27</span>crashed in Saw Ring</div></div>
+        <div class="card-fj" style="background:var(--fj-panel-raised);padding:14px"><p style="color:var(--fj-ink)">1–1. Next: round 3, you go first. It's the decider, so Mira won't see your run until Mira has played.</p></div>
+        <div class="btn primary">Play round 3 now</div>
+        <div class="btn plain">Later</div>
+      </div>
+    </div></div><figcaption><b>B6 · Submit and round result</b>The server checks the run in under a second, then offers the next round you open, now or later.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="body" style="padding-top:56px">
+        <div class="center-h" style="font-size:40px;line-height:44px">You win</div>
+        <div class="center-h" style="font-size:22px">2 – 1 vs Mira</div>
+        <div class="card-fj" style="gap:0">
+          <div class="roundrow"><span>Round 1</span><span>14 – 19</span><span class="w l">Lost</span><span class="chev">›</span></div>
+          <div class="roundrow"><span>Round 2</span><span>31 – 27</span><span class="w">Won</span><span class="chev">›</span></div>
+          <div class="roundrow"><span>Round 3</span><span>42 – 38</span><span class="w">Won</span><span class="chev">›</span></div>
+        </div>
+        <div class="warnline"><span class="coin"></span>+9 gold from coins</div>
+        <div class="btn primary">Rematch</div>
+        <div class="btn secondary">Battles</div>
+      </div>
+    </div></div><figcaption><b>B7 · Match result</b>Each round opens its replay with both birds. Rematch swaps who goes first.</figcaption></figure>
+  </div>
+
+  <h3>Battle on the server</h3>
+  <p class="note">Same pattern as the rest of the live server: Postgres functions behind <code>POST /v1/&lt;op&gt;</code>, one migration, listed in <code>backend/src/rpc.rs</code>.</p>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Op</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="ep">battle_create(opponent, best_of)</td><td>A battle with you as A; <code>"random"</code> joins a waiting battle when there is one. Returns the battle and, for an invite, the code.</td></tr>
+      <tr><td class="ep">battle_join(code)</td><td>Joins an invite battle as B.</td></tr>
+      <tr><td class="ep">battle_list()</td><td>Your turn, their turn, finished (30 days), with scores, deadlines, the rival's name and look.</td></tr>
+      <tr><td class="ep">battle_get(battle)</td><td>One battle and its rounds, plus the rival's run for the round you answer: only once checked <code>ok</code>, never in a blind decider before you submit.</td></tr>
+      <tr><td class="ep">battle_start_run(battle, round)</td><td>Checks the turn, hands out seed and season, records the start.</td></tr>
+      <tr><td class="ep">battle_submit(battle, round, taps, score, coins, end_tick, client_run_id)</td><td>Stores the run in <code>runs</code> with <code>mode = 'battle'</code> (the checker handles it), idempotent on <code>client_run_id</code>; answers with the round result once the Rust check passes.</td></tr>
+      <tr><td class="ep">battle_forfeit(battle)</td><td>Gives up; the other wins.</td></tr>
+      <tr><td class="ep">battle_rematch(battle)</td><td>A new battle, same players, first player swapped.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>Tables</h3><p class="note"><code>battles</code>: id, mode, player_a, player_b, best_of, status, invite code hash, random, gameplay_version, turn_player, turn_deadline, missed_in_a_row, expires_at, created_at, finished_at, winner.<br/><code>battle_rounds</code>: battle, number, seed, season, first_player, blind, run_a, run_b, winner.<br/>The <code>mode</code> column lets Duel use the same tables.</p></div>
+    <div class="card"><h3>Deadlines</h3><p class="note">A background task in the server, like its checker and push loops (<code>spawn_checker</code>, <code>spawn_push</code>), every minute: missed turns score 0, reminders go into the push outbox, expired battles end. Rows are locked with <code>FOR UPDATE SKIP LOCKED</code>, so a second replica never handles one twice. No CronJob needed.</p></div>
+    <div class="card"><h3>Anti-cheat</h3><ul>
+      <li>Every run checked by the Rust sim like a board run, Godot confirming rejections; only <code>ok</code> runs count or are shown</li>
+      <li>Seed known only after the start, one try</li>
+      <li><code>end_tick</code> must fit the wall time between start and submit</li>
+      <li><b>No copied taps</b>: the second player holds the rival's taps, so a modded app could replay them to tie or follow them. Taps matching the rival's within one tick for more than 30 in a row: rejected</li>
+      <li>10 open, 3 random waiting, 20 creates a day</li>
+    </ul></div>
+  </div>
+</section>
+<section id="duel">
+  <h2>3. Duel (realtime, later): seeing each other live</h2><p>Both fly the same seed at the same moment. Round end in Duel: when one crashes at S, the other wins the moment they reach S + 1, or loses by crashing below S.</p>
   <div class="cards">
     <div class="card"><h3>What is sent</h3><p class="note">Every 100 ms (6 ticks) each phone sends "I am at tick T, and these are my taps since last time". The "no taps up to T" part is what lets the other phone step the rival safely up to T.</p><p class="note"><code>u8 type · varint T · u8 n · n × varint tap delta</code></p></div>
     <div class="card"><h3>Bandwidth</h3><ul>
@@ -300,12 +600,11 @@ svg.diag .ink { stroke: var(--ink); }
   </div>
   <p class="note"><code>sim/</code> does not change; it already runs many sims side by side (bots, SurvivalSearch). Your <code>RunController</code> and its sim are untouched; <code>game/</code> writes to neither sim. <code>test_layers.gd</code> holds as it is.</p>
 </section>
-
-<section id="server">
-  <h2>3. Network and server</h2>
+<section id="duel-server">
+  <h3>Duel network and server</h3>
   <div class="cards">
     <div class="card"><h3>Transport</h3><ul>
-      <li><code>wss://api.&lt;domain&gt;/v1/duel/ws</code>, axum WebSockets; Traefik passes them through</li>
+      <li><code>wss://flapjaw.mn-platform.tech/v1/duel/ws</code>, axum WebSockets; Traefik passes them through</li>
       <li>Sign-in: the HTTP API's access token in the first message</li>
       <li>Godot's built-in <code>WebSocketPeer</code>, Android and iOS</li>
       <li>One tokio task per match holds both players' Rust sims</li>
@@ -313,8 +612,8 @@ svg.diag .ink { stroke: var(--ink); }
       <li>Each round's seeds, taps and result go to Postgres (<code>duel_matches</code>, <code>duel_rounds</code>)</li>
     </ul></div>
     <div class="card"><h3>Matchmaking</h3><ul>
-      <li><b>Invite code or link</b> (phase 1 and 2): 6 letters with no look-alikes, <code>https://&lt;domain&gt;/duel/ABC123</code> opens the app; 10 minutes</li>
-      <li><b>Random queue</b> (phase 2): same gameplay version, then a hidden Glicko-2 Duel rating whose range widens every 5 s. Nobody after 30 s: offer a ghost duel against a recent verified run</li>
+      <li><b>Invite code or link</b> : the same 6-letter codes as Battle, with no look-alikes, <code>https://flapjaw.mn-platform.tech/duel/ABC123</code> opens the app; 10 minutes</li>
+      <li><b>Random queue</b> : same gameplay version, then a hidden Glicko-2 Duel rating whose range widens every 5 s. Nobody after 30 s: offer a Battle instead</li>
       <li><b>Friends</b> (later): needs stable accounts, Apple and Google sign-in from the phone-transfer plan</li>
     </ul></div>
     <div class="card"><h3>Rejoin and forfeit</h3><ul>
@@ -332,60 +631,21 @@ svg.diag .ink { stroke: var(--ink); }
       <li>Perfect bots: plausibility checks into a review queue; no money at stake</li>
     </ul></div>
   </div>
-  <div class="card"><h3>Needed from the server move first</h3>
-    <p class="note"><b>Phase 1</b> uses only HTTP ops: 3 Daily-Run-style functions would work on Supabase today, but building them once on the new server after the cutover is the recommendation. <b>Phase 2</b> needs the new server live (rollout step 5): its sessions and device-key sign-in, the Rust sim in the server (built on the branch), the versioned verifier (<code>sim_g24</code>, …), the 426 "please update" answer, WebSockets through the ingress. Supabase can't host the realtime part.</p>
-  </div>
 </section>
 
-<section id="screens">
-  <h2>4. Screens</h2>
-  <p class="note">Drawn at the game's 360 × 640 in the Flapjaw Design Kit style (Archivo, kit colours). The rival's violet is a new UI colour for this mode; its exact token is for the kit (question 9).</p>
+<section id="duel-screens">
+  <h3>Duel screens</h3>
+  <p class="note">Drawn at the game's 360 × 640 in the Flapjaw Design Kit style. The opponent picker, round dots, rival bird and result screens are the same pieces Battle uses.</p>
   <div class="screens">
-
-    <figure class="shot"><div class="frame"><div class="phone">
-      <div class="home-word" style="padding-top:64px">Flapjaw</div>
-      <div class="body" style="padding-top:150px">
-        <div class="btn primary">Play</div>
-        <div class="homecard"><span class="bird big"></span><div style="flex:1"><div class="h">Duel <span class="newpill">NEW</span></div><small style="font-size:13px;font-weight:700;color:var(--fj-muted)">1v1 · best of three</small></div><span class="chev">›</span></div>
-        <div class="btn secondary">Daily Run</div>
-      </div>
-    </div></div><figcaption><b>1a · Duel on Home</b>A card under Play; Daily Run stays where it is.</figcaption></figure>
-
-    <figure class="shot"><div class="frame"><div class="phone">
-      <div class="scrim"></div>
-      <div class="sheet">
-        <div class="h">Duel</div>
-        <p style="font-size:14px;font-weight:600;color:var(--fj-muted);margin:0">Same map, same time, best of three. No revives.</p>
-        <div class="btn primary">Find a rival</div>
-        <div class="btn secondary">Invite a friend</div>
-        <div class="btn plain">Enter a code</div>
-        <div class="vs"><div><span class="lab">Duels won</span><span class="num">12</span></div><div><span class="lab">Win streak</span><span class="num">3</span></div></div>
-      </div>
-    </div></div><figcaption><b>1b · The Duel sheet</b>Random queue, invite link or code; your record.</figcaption></figure>
-
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="topbar"><div class="back">‹</div><div class="title-l">Finding a rival</div></div>
       <div class="body" style="padding-top:70px">
         <div class="spin"></div>
         <div class="center-h" style="font-size:22px">0:12</div>
-        <div class="card-fj"><p>Looking for someone on your version, near your level. After 30 s you can race a ghost of a recent player instead.</p></div>
+        <div class="card-fj"><p>Looking for someone on your version, near your level. After 30 s you can start a Battle instead.</p></div>
         <div class="btn secondary">Cancel</div>
       </div>
-    </div></div><figcaption><b>2a · Matchmaking</b>A timer, a cancel, and the ghost-duel fallback.</figcaption></figure>
-
-    <figure class="shot"><div class="frame"><div class="phone">
-      <div class="topbar"><div class="back">‹</div><div class="title-l">Invite a friend</div></div>
-      <div class="body">
-        <div class="card-fj">
-          <div class="h">Send this code</div>
-          <div class="code">KD7·WQ3</div>
-          <div class="timer">Waiting for your friend · 9:41 left</div>
-          <div class="btn primary">Share link</div>
-          <div class="btn secondary">Copy code</div>
-        </div>
-        <div class="warnline"><span class="ic">!</span>Keep this screen open. The duel starts when they join.</div>
-      </div>
-    </div></div><figcaption><b>2b · Waiting for a friend</b>Code plus a link that opens the app.</figcaption></figure>
+    </div></div><figcaption><b>D1 · Finding a Duel rival</b>A timer, a cancel, and Battle as the fallback.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="body" style="padding-top:60px">
@@ -396,7 +656,7 @@ svg.diag .ink { stroke: var(--ink); }
         <div class="plate op"><span class="bird big rival" style="opacity:1"></span><div><div class="nm">Mira</div><small>Wins 0 · Night Owl</small></div></div>
         <div class="countnum">3</div>
       </div>
-    </div></div><figcaption><b>3 · Pre-round countdown</b>The seed arrives here; 3-2-1 then both fly.</figcaption></figure>
+    </div></div><figcaption><b>D2 · Pre-round countdown</b>The seed arrives here; 3-2-1 then both fly.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
       <svg width="360" height="640" viewBox="0 0 360 640" style="position:absolute;inset:0;z-index:0" aria-hidden="true">
@@ -417,7 +677,7 @@ svg.diag .ink { stroke: var(--ink); }
       <div class="bird" style="left:276px;top:272px"></div>
       <div class="bird rival" style="left:222px;top:330px"></div>
       <div class="tag" style="left:212px;top:368px;background:#4b43d6cc">Mira</div>
-    </div></div><figcaption><b>4 · In round</b>Your bird solid, Mira's see-through and a little behind; both scores and the round dots on top.</figcaption></figure>
+    </div></div><figcaption><b>D3 · In round, live</b>Your bird solid, Mira's see-through and a little behind; both scores and the round dots on top.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="scrim"></div>
@@ -428,7 +688,7 @@ svg.diag .ink { stroke: var(--ink); }
         <div class="timer">Round 3 decides it · starts in 5</div>
         <div class="btn secondary">Watch round</div>
       </div>
-    </div></div><figcaption><b>5 · Between rounds</b>Who won and by how much; 5 s to breathe.</figcaption></figure>
+    </div></div><figcaption><b>D4 · Between rounds</b>Who won and by how much; 5 s to breathe.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="body" style="padding-top:56px">
@@ -443,14 +703,77 @@ svg.diag .ink { stroke: var(--ink); }
         <div class="btn primary">Rematch</div>
         <div class="btn secondary">Home</div>
       </div>
-    </div></div><figcaption><b>6 · Match result</b>Each round opens its replay with both birds. Rematch waits 20 s for the other player.</figcaption></figure>
+    </div></div><figcaption><b>D5 · Match result</b>Each round opens its replay with both birds. Rematch waits 20 s for the other player.</figcaption></figure>
 
   </div>
 </section>
 
+<section id="shared">
+  <h2>4. What Battle and Duel share</h2>
+  <div class="scroll">
+  <table class="wide">
+    <thead><tr><th>Part</th><th>Shared</th><th>Battle only</th><th>Duel only</th></tr></thead>
+    <tbody>
+      <tr><td><b>Rules</b></td><td><code>meta/match_rules.gd</code>: best of N, round winner, ties, time limit, blind decider. The server has the same rules, held together by shared fixtures in the check</td><td>Turn order, deadlines, missed turns</td><td>S + 1 clinch, sudden death</td></tr>
+      <tr><td><b>Rival</b></td><td><code>game/match/rival_view.gd</code>: the see-through bird, name tag, WILD tag, crash puff, on a second <code>GameSim</code></td><td>Fed by the <code>ReplayDriver</code> from a checked run, stepped with your own tick</td><td>Fed by <code>services/duel_link.gd</code> with the jitter buffer</td></tr>
+      <tr><td><b>Screens</b></td><td>Opponent picker (code, link, random), round intro, in-round HUD (both scores, round dots), round result, match result with rematch</td><td>Battle list, your-turn states, submit</td><td>Live countdown, reconnecting</td></tr>
+      <tr><td><b>Services</b></td><td><code>MatchService</code>: create, join, invite codes</td><td><code>BattleService</code> (HTTP ops)</td><td><code>DuelLink</code> (WebSocket)</td></tr>
+      <tr><td><b>Server</b></td><td><code>battles</code>, <code>battle_rounds</code>, invite codes, hidden rating, push kinds, the Rust check</td><td>The ops, the deadline loop, the copied-taps check</td><td>The match actor, the clock check</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Layers hold: <code>sim/</code> unchanged, <code>meta/match_rules</code> pure rules, services carry network only, <code>game/</code> reads both sims and writes neither.</p>
+</section>
+
 <section id="diagrams">
   <h2>5. Diagrams</h2>
-  <h3>Match state machine</h3>
+  <h3>Battle: states</h3>
+  <div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+  [*] --> Round1: A starts (friend or random), plays round 1
+  Round1 --> Waiting: A submits
+  Waiting --> TurnB: friend joins code / random player matched
+  Waiting --> Closed: nobody in 48 h
+  TurnB --> TurnA: B answers, opens the next round
+  TurnA --> TurnB: A answers, opens the next round
+  TurnB --> Finished: someone has the wins
+  TurnA --> Finished: someone has the wins
+  TurnB --> TurnA: 24 h passed, rounds score 0
+  TurnA --> TurnB: 24 h passed, rounds score 0
+  TurnA --> Finished: 2nd miss in a row / forfeit / 7 days
+  TurnB --> Finished: 2nd miss in a row / forfeit / 7 days
+  Finished --> Round1: rematch, first player swapped
+  Finished --> [*]
+  Closed --> [*]
+  </pre></div>
+
+  <h3>Battle: turns, message by message</h3>
+  <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  participant A as Ada's phone
+  participant S as Flapjaw server
+  participant F as Firebase (FCM)
+  participant B as Mira's phone
+  A->>S: battle_create(invite, best_of 3)
+  S-->>A: battle, code KD7WQ3
+  A->>S: battle_start_run(round 1)
+  S-->>A: seed, season
+  Note over A: plays round 1 blind
+  A->>S: battle_submit(round 1, taps, score 19)
+  S->>S: Rust check ok, stored
+  B->>S: battle_join(KD7WQ3)
+  S-->>B: battle, Ada's checked run for round 1
+  B->>S: battle_start_run(round 1)
+  Note over B: plays with Ada's run as the rival
+  B->>S: battle_submit(round 1, score 14)
+  S-->>B: round 1 to Ada, 19 - 14
+  B->>S: battle_start_run(round 2) and submit, score 27
+  S->>S: turn to Ada, deadline +24 h, push queued
+  S->>F: "Mira scored 27 in round 2. Your turn!"
+  F-->>A: push
+  Note over S: deadline loop every minute: reminders at 12 h and 2 h, misses, expiry
+  </pre></div>
+  <h3>Duel: match state machine</h3>
   <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
   [*] --> Queued: Find a rival
@@ -473,7 +796,7 @@ stateDiagram-v2
   MatchOver --> [*]
   </pre></div>
 
-  <h3>One round, message by message</h3>
+  <h3>Duel: one round, message by message</h3>
   <div class="diagram"><pre class="mermaid">
 sequenceDiagram
   participant A as Your phone
@@ -500,63 +823,65 @@ sequenceDiagram
   S->>S: save round to Postgres
   </pre></div>
 
-  <h3>Architecture</h3>
+  <h3>Architecture, both modes</h3>
   <div class="diagram"><pre class="mermaid">
 flowchart LR
-  subgraph PA[Your phone]
+  subgraph PA[Phone]
+    GM[game_modes list] --> HOME[Home carousel]
     RC[RunController + your GameSim] --> V1[RoomView, BirdView]
-    DL1[services/duel_link] --> RD1[game/duel/rival_driver + 2nd GameSim]
-    RD1 --> RV1[rival_view]
-    RC -- your taps --> DL1
+    RD[ReplayDriver: checked rival run] --> RV[rival_view + 2nd GameSim]
+    DL[services/duel_link] --> RV
+    BS[services/battle_service] --> RD
+    MR[meta/match_rules]
   end
-  subgraph K[Hetzner k3s, namespace flapjaw]
-    T[Traefik ingress] --> SRV[Rust server, axum]
-    SRV --> MA[match actor per duel: 2 Rust sims, clock check, DuelRules]
-    SRV --> Q[queue + invites]
-    MA --> PG[(Postgres: duel_matches, duel_rounds)]
-    MA -. disagreement .-> GC[Godot check CronJob]
+  subgraph K[flapjaw.mn-platform.tech, k3s]
+    T[Traefik] --> SRV[Rust server, axum]
+    SRV --> OPS[battle_* ops, Postgres functions]
+    SRV --> CHK[Rust check, Godot confirms rejections]
+    SRV --> DLP[deadline loop, every minute]
+    SRV --> MA[Duel match actor: 2 Rust sims, clock check]
+    OPS --> PG[(Postgres: battles, battle_rounds, runs)]
+    DLP --> OUT[push outbox]
+    OUT --> PUSH[FCM sender]
   end
-  subgraph PB[Mira's phone]
-    DL2[services/duel_link] --> RD2[rival_driver]
-  end
-  DL1 <-- wss tick batches --> T
-  DL2 <-- wss tick batches --> T
+  BS -- HTTPS POST /v1/op --> T
+  DL -- wss tick batches --> T
+  PUSH --> FCM[Firebase] --> PA
   </pre></div>
 </section>
 
 <section id="rollout">
-  <h2>6. Phased rollout</h2>
+  <h2>6. Rollout</h2>
   <div class="cards">
-    <div class="card pick"><span class="pick-label">Phase 1 · about 1.5–2 weeks</span><h3>Ghost duel (async)</h3><ul>
-      <li>The challenger plays three rounds on three server seeds, verified like any run, and sends a code or link</li>
-      <li>The rival plays each seed with the challenger's verified run drawn as the rival bird (the replay driver, stepped in step with their own tick). Decided at two wins</li>
-      <li>The challenger gets a push and watches each round with both birds</li>
-      <li>Server: 3 ops (<code>create_duel</code>, <code>get_duel</code>, <code>submit_duel_round</code>), 2 tables, the <code>submit_daily_run</code> checks. Fits today's backend too</li>
-      <li>Most phase 2 client code (rival view, rules, screens) lands here</li>
+    <div class="card"><span class="pick-label">Step 1 · 3–4 days</span><h3>Mode picker</h3><ul>
+      <li><code>GameMode</code> list, carousel, All modes, badges</li>
+      <li>Classic and Daily Run as the first two cards</li>
+      <li>Server: only <code>modes_off</code> in <code>ping</code></li>
     </ul></div>
-    <div class="card"><span class="pick-label" style="color:var(--rival)">Phase 2 · about 4–5 weeks</span><h3>Realtime</h3><ul>
-      <li>Server WebSocket, match actor, queue, rating, rejoin: 1.5–2 weeks</li>
-      <li>Client DuelLink, jitter buffer, guess-and-correct, live screens: 1.5 weeks</li>
-      <li>Tests: two headless Godot clients over loopback with added delay, loss and reorder; bots playing whole matches against the server; shared fixtures for GDScript and Rust rules: 1 week</li>
-      <li>After the server cutover only</li>
+    <div class="card pick"><span class="pick-label">Step 2 · about 3 weeks</span><h3>Battle</h3><ul>
+      <li>Server, 1 week: one migration (2 tables, 8 functions), deadline loop, push kinds and the <code>battles</code> channel, copied-taps check, App Links / Universal Links files, tests in <code>tools/backend_test.ps1</code></li>
+      <li>Client, 1.5 weeks: <code>MatchRules</code>, <code>BattleService</code>, the rival view on the replay driver, battle list, flows, push deep links, the Home badge</li>
+      <li>Tests, 0.5 week: rules fixtures shared with the server, a bot playing whole battles against a local server, deadline and expiry cases</li>
     </ul></div>
-    <div class="card"><span class="pick-label" style="color:var(--muted)">Later</span><h3>Friends and a Duel board</h3><ul>
-      <li>Friends list once accounts are stable (Apple and Google sign-in)</li>
-      <li>Maybe a weekly Duel board with small diamond prizes, like Today</li>
+    <div class="card"><span class="pick-label" style="color:var(--rival)">Step 3 · 3.5–4 weeks</span><h3>Duel</h3><ul>
+      <li>Rules, rival view, screens and tables carry over from Battle</li>
+      <li>WebSocket and match actor, 1.5 weeks</li>
+      <li><code>DuelLink</code>, jitter buffer, live screens, 1 week</li>
+      <li>Two headless clients over loopback with delay, loss and reorder; bots playing whole matches, 1 week</li>
     </ul></div>
   </div>
   <div class="scroll">
   <table class="mid">
     <thead><tr><th>Risk</th><th>Level</th><th>What we do</th></tr></thead>
     <tbody>
-      <tr><td>Too few players for a random queue</td><td><span class="lvl bad">High</span></td><td>Invite links first; a ghost duel when the queue is empty</td></tr>
-      <tr><td>Phones switching networks; iOS stopping sockets in the background</td><td><span class="lvl mid">Medium</span></td><td>5 s grace, rejoin, 4-minute rounds</td></tr>
-      <tr><td>Slow-motion cheating</td><td><span class="lvl mid">Medium</span></td><td>The server clock check</td></tr>
-      <tr><td>Perfect-tapping bots</td><td><span class="lvl mid">Medium</span></td><td>Review queue; no money at stake</td></tr>
-      <tr><td>Two gameplay versions live after an update</td><td><span class="lvl good">Low</span></td><td>Pair by version; 426 forces updates</td></tr>
-      <tr><td>Server restart during matches</td><td><span class="lvl good">Low</span></td><td>Deploys wait for live matches; at most one round lost</td></tr>
-      <tr><td>GDScript and Rust Duel rules drift apart</td><td><span class="lvl good">Low</span></td><td>Shared fixtures in the check, like the FastSim-RS parity step</td></tr>
-      <tr><td>Rival a room apart (bumper, boss hold)</td><td><span class="lvl good">Low</span></td><td>Edge tag instead of the bird</td></tr>
+      <tr><td>Few players for random matches</td><td><span class="lvl mid">Medium</span></td><td>Battle first: async needs far fewer players online. A random Duel falls back to a Battle</td></tr>
+      <tr><td>Turns forgotten</td><td><span class="lvl mid">Medium</span></td><td>Reminders at 12 h and 2 h, the Home badge; two missed turns end it</td></tr>
+      <tr><td>Copied rival taps</td><td><span class="lvl mid">Medium</span></td><td>The copied-taps check</td></tr>
+      <tr><td>An update in the middle of a battle</td><td><span class="lvl good">Low</span></td><td>The open round is dealt again on the new version</td></tr>
+      <tr><td>Slow-motion play in Duel</td><td><span class="lvl mid">Medium</span></td><td>The clock check</td></tr>
+      <tr><td>Perfect-tapping bots</td><td><span class="lvl mid">Medium</span></td><td>Review queue; nothing of value at stake</td></tr>
+      <tr><td>Phones switching networks in Duel</td><td><span class="lvl mid">Medium</span></td><td>5 s grace, rejoin</td></tr>
+      <tr><td>Rules drifting between client and server</td><td><span class="lvl good">Low</span></td><td>Shared fixtures in the check</td></tr>
     </tbody>
   </table>
   </div>
@@ -566,15 +891,15 @@ flowchart LR
   <div class="qbox">
     <h2>Open questions for you</h2>
     <ol class="questions">
-      <li><b>Round end</b>Play until settled (when one crashes at S, the other wins at S + 1), or first crash loses?</li>
-      <li><b>Forks</b>Allow the split (one room differs, then the map is the same again), or a Duel-only rule that both take the same exit (a sim change and a gameplay-version bump)?</li>
-      <li><b>Rewards</b>Coins to gold as in any run, nothing for winning, no diamonds for now. A weekly Duel board with diamond prizes later?</li>
-      <li><b>Time limit</b>4 minutes a round, with coins as the tie-break?</li>
-      <li><b>Ghost duel fairness</b>The second player sees the first player's bird (recommended), or both fly blind and compare after?</li>
-      <li><b>Seeds</b>A new map each round (recommended), or one map for all three?</li>
-      <li><b>Phase 1 timing</b>Build the ghost duel on Supabase now, or wait for the new server (recommended)?</li>
-      <li><b>Rating</b>Show a Duel rating to players, or keep it hidden for pairing only?</li>
-      <li><b>Rival colour</b>Add a rival violet to the Design Kit as a UI token, or draw the rival only by opacity in its own look?</li>
+      <li><b>Mode picker</b>A carousel on Home with an All modes sheet (recommended), or tabs along the top?</li>
+      <li><b>Battle fairness</b>Alternate who goes first and play the decider blind (recommended), the ghost in every round, or always blind?</li>
+      <li><b>Battle length</b>Best of 3 for all, with best of 5 as a choice with friends (recommended), or always best of 3?</li>
+      <li><b>Turn timer</b>24 h a turn, two missed turns lose the match, 7 days at most (10 for best of 5) (recommended)? Or 48 h for a calmer pace?</li>
+      <li><b>Open battles</b>10 at once, at most 3 random ones waiting (recommended)?</li>
+      <li><b>Duel round end</b>Play until settled, where the survivor wins at S + 1 (recommended), or first crash loses?</li>
+      <li><b>Rewards</b>Coins to gold only, nothing for a win, no diamonds (recommended)? A weekly Battle board with diamond prizes later?</li>
+      <li><b>Rating</b>Hidden, used only for random pairing (recommended), or shown to players?</li>
+      <li><b>Rival colour</b>A rival violet as a new UI token in the Design Kit (recommended), or opacity only in the rival's own look?</li>
     </ol>
   </div>
 </section>
