@@ -108,12 +108,12 @@ var _back_button: Button
 var _score: Label
 var _hint: VBoxContainer
 var _toast: Label
-
-@onready var _root: Control = $Root
 ## Toasts go above the menus (MenuLayer is layer 2), so a screen's cards never
 ## cover one.
 var _toast_layer: CanvasLayer
 var _toast_root: Control
+
+@onready var _root: Control = $Root
 
 
 func _ready() -> void:
