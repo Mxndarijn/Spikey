@@ -26,8 +26,7 @@ func test_every_mode_has_a_card_and_classic_comes_first() -> void:
 	assert_true(GameModes.find(GameModes.CLASSIC).ready)
 	assert_true(GameModes.find(GameModes.DAILY).ready)
 	assert_true(GameModes.find(GameModes.BATTLE).ready)
-	assert_false(GameModes.find(GameModes.DUEL).ready, "Duel is still to come")
-	assert_eq(GameModes.badge(GameModes.DUEL), GameModes.SOON, "Duel says Soon")
+	assert_true(GameModes.find(GameModes.DUEL).ready)
 	assert_eq(GameModes.badge(GameModes.CLASSIC), "", "Classic has no badge")
 
 
@@ -77,6 +76,7 @@ func test_play_starts_the_chosen_mode() -> void:
 	home.play_pressed.connect(func() -> void: got.append("classic"))
 	home.daily_run_pressed.connect(func() -> void: got.append("daily"))
 	home.battle_pressed.connect(func() -> void: got.append("battle"))
+	home.duel_pressed.connect(func() -> void: got.append("duel"))
 	var saved: Array[String] = []
 	home.settings_changed.connect(func() -> void: saved.append(p.home_mode))
 	var play := home.dock().primary()
@@ -94,10 +94,9 @@ func test_play_starts_the_chosen_mode() -> void:
 	play.pressed.emit()
 	assert_eq(got, ["classic", "daily", "battle"], "Battle opens Battles")
 	home.modes().choose_id(GameModes.DUEL)
-	assert_true(play.disabled, "a mode still to come can't be played")
-	assert_eq(play.text, GameModes.SOON)
+	assert_eq(play.text, "Duel")
 	play.pressed.emit()
-	assert_eq(got.size(), 3, "nothing starts")
+	assert_eq(got, ["classic", "daily", "battle", "duel"], "Duel opens Duel")
 	home.free()
 
 
@@ -131,7 +130,7 @@ func test_the_daily_card_shows_todays_tries() -> void:
 	var modes := home.modes()
 	assert_true(modes.rule_text(GameModes.DAILY).begins_with("2 tries left"))
 	assert_eq(modes.badge_text(GameModes.DAILY), "2")
-	assert_eq(modes.badge_text(GameModes.DUEL), GameModes.SOON)
+	assert_eq(modes.badge_text(GameModes.DUEL), "", "Duel has no badge")
 	home.set_daily_info(DailyRunInfo.offline())
 	assert_eq(modes.rule_text(GameModes.DAILY), GameModes.find(GameModes.DAILY).rule)
 	assert_eq(modes.badge_text(GameModes.DAILY), "", "no badge while offline")
@@ -151,7 +150,7 @@ func test_all_modes_lists_every_mode_and_picks_one() -> void:
 	assert_true(on.border_width_left > 0, "the chosen mode is outlined")
 	var off := sheet.tile(GameModes.DAILY).get_theme_stylebox("normal") as StyleBoxFlat
 	assert_eq(off.border_width_left, 0)
-	assert_true(sheet.tile(GameModes.DUEL).find_child("Badge", true, false) != null, "Soon")
+	assert_true(sheet.tile(GameModes.DUEL).find_child("Badge", true, false) == null, "no badge")
 	sheet.tile(GameModes.DAILY).pressed.emit()
 	assert_eq(home.modes().chosen(), GameModes.DAILY, "a tile chooses its mode")
 	assert_eq(p.home_mode, GameModes.DAILY)

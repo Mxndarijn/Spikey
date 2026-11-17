@@ -43,6 +43,13 @@ func kind() -> String:
 	return KIND_FLAPJAW
 
 
+## The Duel socket's address (wss:// for an https server) and the token its
+## hello signs in with (after ensure_session).
+func duel_socket() -> Dictionary:
+	var ws := _url.replace("https://", "wss://").replace("http://", "ws://")
+	return {"url": ws + "/v1/duel/ws", "token": _access}
+
+
 ## This phone's player id ("" before the first sign-in).
 func player_id() -> String:
 	return _player

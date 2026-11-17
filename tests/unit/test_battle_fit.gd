@@ -67,3 +67,19 @@ func test_battle_sheets_fit() -> void:
 				)
 			)
 	)
+
+
+func test_the_duel_screen_fits_in_every_state() -> void:
+	var states: Array[Callable] = [
+		func(s: DuelScreen) -> void: s.show_start(),
+		func(s: DuelScreen) -> void: s.show_finding(),
+		func(s: DuelScreen) -> void: s.show_invite("KD7WQ3"),
+		func(s: DuelScreen) -> void: s.show_countdown(5, "Maximilianus12", 2, 2, 3),
+		func(s: DuelScreen) -> void:
+			s.show_between("Maximilianus12 wins round 5", 150, 149, "Maximilianus12"),
+		func(s: DuelScreen) -> void: s.show_waiting(87, "Maximilianus12"),
+		func(s: DuelScreen) -> void: s.show_result("them", 1, 2, "Maximilianus12", true),
+	]
+	for show in states:
+		var screen := DuelScreen.new()
+		_fits(screen, "duel", func() -> void: show.call(screen))

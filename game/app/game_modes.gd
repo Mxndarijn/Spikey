@@ -78,8 +78,8 @@ static func all() -> Array[Mode]:
 				"Duel",
 				"Live 1v1 · best of 3",
 				preload("res://assets/ui/icons/crown.svg"),
-				SOON,
-				false
+				"Duel",
+				true
 			),
 		]
 	return _all

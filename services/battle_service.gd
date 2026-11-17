@@ -26,11 +26,11 @@ const TOO_MANY := "You have 20 battles going. Finish or close one first."
 const BAD_CODE := "That code doesn't work. Check it and try again."
 
 var client: BackendClient
-var _profile: Profile
+var profile: Profile
 
 
-func _init(profile: Profile, p_client: BackendClient) -> void:
-	_profile = profile
+func _init(p_profile: Profile, p_client: BackendClient) -> void:
+	profile = p_profile
 	client = p_client
 
 
@@ -107,7 +107,7 @@ func start_run(battle: int, round_number: int) -> void:
 
 ## A finished run of a round (Replay.to_dict()).
 func submit(battle: int, round_number: int, score: int, replay: Dictionary) -> void:
-	await _view("battle_submit", submit_body(_profile, battle, round_number, score, replay))
+	await _view("battle_submit", submit_body(profile, battle, round_number, score, replay))
 
 
 ## The arguments of battle_submit.
@@ -143,7 +143,7 @@ func request_record(mode: String, period: String, who: String) -> void:
 
 
 func _me() -> Dictionary:
-	return {"p_name": _profile.leaderboard_name, "p_flyer": _profile.equipped_id(ItemKind.FLYER)}
+	return {"p_name": profile.leaderboard_name, "p_flyer": profile.equipped_id(ItemKind.FLYER)}
 
 
 func _view(op: String, body: Dictionary) -> void:

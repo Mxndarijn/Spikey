@@ -1,8 +1,8 @@
 class_name WinsScreen
 extends Control
 ## The wins boards (docs/DUEL_MODE.md, screens L1 and L2): the leaderboards'
-## header with the Scores | Wins switch on Wins, tabs for Battle and Duel (Duel
-## until it is built says so), This week | All time, then the players ranked by
+## header with the Scores | Wins switch on Wins, tabs for Battle and Duel,
+## This week | All time, then the players ranked by
 ## counted wins with their wins and losses and win rate, and the player's own
 ## row pinned at the bottom. A tap on a row shows that player's record.
 ## Bot matches never count, so no bot is ever on these boards.
@@ -22,7 +22,6 @@ const PERIODS: Array[String] = ["week", "all"]
 const PERIOD_NAMES: Array[String] = ["This week", "All time"]
 const LOADING := "Loading the board"
 const EMPTY := "No counted wins yet. Win a battle to be the first."
-const DUEL_SOON := "Duel is coming soon. Its wins will show here."
 
 var mode := "battle"
 var period := "week"
@@ -124,9 +123,6 @@ func _select() -> void:
 	_periods[PERIODS.find(period)].button_pressed = true
 	_clear()
 	_pinned.visible = false
-	if mode == "duel":
-		_caption.text = DUEL_SOON
-		return
 	_caption.text = LOADING
 	board_requested.emit(mode, period)
 

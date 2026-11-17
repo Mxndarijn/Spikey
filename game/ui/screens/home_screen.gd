@@ -22,6 +22,8 @@ signal store_pressed
 signal daily_run_pressed
 ## Battle chosen and started: opens Battles.
 signal battle_pressed
+## Duel chosen and started: opens Duel.
+signal duel_pressed
 ## Runs (the dock): opens Your runs.
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
@@ -310,6 +312,8 @@ func _start_mode(id: String) -> void:
 			daily_run_pressed.emit()
 		GameModes.BATTLE:
 			battle_pressed.emit()
+		GameModes.DUEL:
+			duel_pressed.emit()
 		_:
 			AudioDirector.ui("locked")
 

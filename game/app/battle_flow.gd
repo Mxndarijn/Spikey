@@ -17,6 +17,10 @@ class Round:
 	var seed_value := 0
 	var season := Seasons.NONE
 	var view: BattleView
+	## A Duel round: its live rival, and what to do when the run ends
+	## (DuelFlow); a Battle round has neither.
+	var ghost: RivalGhost
+	var finish: Callable
 
 
 ## Shown after Copy put the invite on the clipboard.
@@ -31,6 +35,8 @@ var playing: Round
 var service: BattleService
 ## show_leaderboard(): the score boards (the wins boards' Scores switch).
 var scores: Callable
+## Duel, which plays its rounds through this flow's run path.
+var duel: DuelFlow
 var _menus: MenuLayer
 var _hud: Hud
 var _world: Node2D
@@ -39,6 +45,7 @@ var _bird: Node
 var _start: Callable
 var _home: Callable
 var _ghost: RivalGhost
+var _run_in_play: RunController
 var _list: Array[BattleView] = []
 ## Invite codes this phone made (the server never shows one again).
 var _codes := {}
@@ -75,6 +82,9 @@ func _init(
 	service.wins_loaded.connect(_on_wins)
 	service.record_loaded.connect(_on_record)
 	menus.screen_shown.connect(_on_screen_shown)
+	var link := DuelLink.new(service.client)
+	world.add_child(link)
+	duel = DuelFlow.new(link, self, menus, hud, service.profile)
 
 
 ## Home's Battle card opens Battles (and the list's turns fill its badge); the
@@ -82,6 +92,7 @@ func _init(
 func _on_screen_shown(screen: Control) -> void:
 	if screen is HomeScreen:
 		(screen as HomeScreen).battle_pressed.connect(func() -> void: open())
+		(screen as HomeScreen).duel_pressed.connect(func() -> void: duel.open())
 		refresh()
 	elif screen is LeaderboardScreen:
 		(screen as LeaderboardScreen).wins_pressed.connect(func() -> void: open_wins())
@@ -281,6 +292,10 @@ func _view_of(battle: int) -> BattleView:
 ## the rival played this round first and it isn't blind.
 func on_new_run(run: RunController) -> void:
 	_drop_ghost()
+	_run_in_play = run if playing != null else null
+	if playing != null and playing.ghost != null:
+		_attach(playing.ghost, run)
+		return
 	if playing == null or playing.view == null or playing.view.rival.is_empty():
 		return
 	if playing.view.play_round != playing.number or playing.view.play_role != "answer":
@@ -290,13 +305,38 @@ func on_new_run(run: RunController) -> void:
 	var character := Catalog.flyer(str(loadout.get("flyer", playing.view.rival_flyer)))
 	if character == null:
 		character = Catalog.flyers()[0]
-	_ghost = RivalGhost.new(rival, character, playing.view.rival_name)
+	_attach(RivalGhost.new(rival, character, playing.view.rival_name), run)
+
+
+func _attach(ghost_bird: RivalGhost, run: RunController) -> void:
+	_ghost = ghost_bird
 	_ghost.name = "RivalGhost"
 	_world.add_child(_ghost)
 	# Under your own bird.
 	if _bird != null and _bird.get_parent() == _world:
 		_world.move_child(_ghost, _bird.get_index())
 	_ghost.follow(run)
+
+
+## A Duel round's run (DuelFlow): started like a Battle round.
+func start_external(r: Round) -> void:
+	_start.call(r)
+
+
+## The run in play now (a round's), for DuelFlow's ticks.
+func run_in_play() -> RunController:
+	return _run_in_play
+
+
+## A Duel round is over: no round in play any more.
+func end_external() -> void:
+	if playing != null and playing.finish.is_valid():
+		playing = null
+		_drop_ghost()
+
+
+func home() -> void:
+	_home.call()
 
 
 func ghost() -> RivalGhost:
@@ -312,6 +352,9 @@ func _drop_ghost() -> void:
 ## A round's run ended: send it, then show the battle again.
 func finished(replay: Replay) -> void:
 	if playing == null:
+		return
+	if playing.finish.is_valid():
+		playing.finish.call(replay)
 		return
 	var r := playing
 	_unsent = [r.battle, r.number, replay.score, replay.to_dict()]
@@ -332,7 +375,7 @@ func _leave_run(battle: int) -> void:
 
 ## The battle's screen at once (Game over's corner while a round ended).
 func back_to_battle() -> void:
-	if playing != null:
+	if playing != null and not playing.finish.is_valid():
 		_leave_run(playing.battle)
 
 

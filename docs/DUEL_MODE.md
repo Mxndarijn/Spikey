@@ -40,7 +40,22 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
 - **Wins boards in the game**: the Scores | Wins switch on the leaderboards
   (`board_switch.gd`), `wins_screen.gd` (L1, and L2 as the record card).
 
-Not built yet: the invite link opening the app (Android App Links, iOS
+- **Duel on the server**: `backend/src/duel.rs` (the rules: both Rust sims,
+  S + 1, coins, sudden death, the 4-minute cap, 3 s to the first tap, the
+  clock check) and `duel_ws.rs` (`GET /v1/duel/ws`: invite codes, the random
+  queue by version, the match task, rejoin, 30 s away forfeits, leave,
+  rematch), `0113_duel.sql` (results on the Duel wins board). JSON text
+  messages, about 100 bytes each, instead of the binary batches planned.
+  Tests: `src/duel.rs`, `backend/tests/duel.rs` (a real socket).
+- **Duel in the game**: `services/duel_link.gd` (the socket),
+  `game/app/duel_flow.gd`, `game/ui/screens/duel_screen.gd` (D1, D2, D4, D5),
+  the live rival (`RivalGhost.live_on`: a jitter buffer of 100 to 500 ms,
+  holding at the last tick the rival confirmed instead of guessing), the Duel
+  card on Home, the Duel tab of the wins boards. Tests: `test_duel.gd`.
+- **Bot levels calibrated**: `docs/BATTLE_BOT_CALIBRATION.md`.
+
+Not built yet: pausing in a Duel (a paused phone falls behind and is down after
+5 s), the invite link opening the app (Android App Links, iOS
 Universal Links and the files the server hosts for them), a push opening its
 battle, the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
