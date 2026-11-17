@@ -66,8 +66,12 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   and the score stay; both players hear "New game version: round N starts
   over" (`0115_versions.sql`, `spikey_battle_redeal_old`, called at start).
 
-Not built yet: pausing in a Duel (a paused phone falls behind and is down after
-5 s), the invite link opening the app (Android App Links, iOS
+- **No pause in a Duel** (the user's pick): no pause button, P or Back does
+  nothing, and leaving the app doesn't pause. The clock goes on, so a phone
+  that stops is down after 5 s and hears "You left the app" (the server's
+  `you_down`).
+
+Not built yet: the invite link opening the app (Android App Links, iOS
 Universal Links and the files the server hosts for them), a push opening its
 battle, the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
