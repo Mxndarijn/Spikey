@@ -9,7 +9,6 @@ extends RefCounted
 
 ## How often the ticks go out: every 6 ticks, 100 ms.
 const SEND_EVERY := 6
-const COPIED := "Copied. Send it to your friend."
 
 var link: DuelLink
 var _battle: BattleFlow
@@ -73,10 +72,11 @@ func open() -> DuelScreen:
 			link.send({"t": "rematch"})
 			screen.set_line("Asked %s for a rematch." % _rival_name())
 	)
-	screen.copy_pressed.connect(
+	screen.copy_pressed.connect(_battle.copy_invite)
+	screen.share_pressed.connect(
 		func(text: String) -> void:
-			DisplayServer.clipboard_set(text)
-			_hud.show_toast(COPIED)
+			if not ShareSheet.share(text):
+				_battle.copy_invite(text)
 	)
 	_menus.show_screen(screen)
 	if GameModes.needs_update(GameModes.DUEL):

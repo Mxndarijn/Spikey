@@ -111,6 +111,14 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   APPLE_APP_ID (by default `W4N3NH845V.com.mxndarijn.spikey`) and the Associated Domains entitlement
   (CI adds it when the provisioning profile has the capability).
 
+- **Share** on both invite screens (Battle's waiting screen, the Duel's
+  invite), next to Copy: the phone's share sheet (WhatsApp, Messages, anything)
+  with "Battle me in Flapjaw! <link> (code KD7WQ3)", the same text Copy gives.
+  `services/share_sheet.gd`: Android an ACTION_SEND chooser through
+  JavaClassWrapper; iOS opens `flapjaw-share:?text=...`, which
+  FlapjawIntents.m turns into UIActivityViewController. On desktop and in the
+  editor it copies and says so.
+
 Not built yet: the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
 

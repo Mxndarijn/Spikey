@@ -4,7 +4,7 @@ extends Control
 ## where the duel is, the back arrow at the top and one round main action:
 ##   start      Find a rival, Invite a friend, or a friend's code to type
 ##   finding    the time looking, Cancel, and after 30 s a Battle instead
-##   invite     the code to send, Copy, Cancel
+##   invite     the code to send, Share, Copy, Cancel
 ##   countdown  the round, both names and the score, 3-2-1
 ##   between    who won the round and by how much, the next round in 5
 ##   waiting    you're down; the rival still flies
@@ -19,6 +19,8 @@ signal cancel_pressed
 signal rematch_pressed
 signal battle_pressed
 signal copy_pressed(text: String)
+## Share: the phone's share sheet with the invite (DuelFlow; copy off a phone).
+signal share_pressed(text: String)
 
 enum State { START, FINDING, INVITE, COUNTDOWN, BETWEEN, WAITING, RESULT }
 
@@ -177,6 +179,9 @@ func show_invite(code: String) -> void:
 		"Cancel",
 		false
 	)
+	_primary.text = "Share"
+	_primary.icon = null
+	_primary.visible = true
 
 
 func show_countdown(
@@ -270,6 +275,8 @@ func _on_primary() -> void:
 	match state:
 		State.START:
 			find_pressed.emit()
+		State.INVITE:
+			share_pressed.emit(BattleScreen.invite_text(_code, true))
 		State.RESULT:
 			rematch_pressed.emit()
 

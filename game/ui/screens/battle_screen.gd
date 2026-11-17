@@ -7,7 +7,7 @@ extends Control
 ##   your turn   the round's intro: the rival's score to beat (or that the round
 ##               is blind, or that you go first) and Play, one try
 ##   their turn  waiting since when, and Nudge when it may
-##   waiting     an invite's code to send (Copy code), or "looking for a rival"
+##   waiting     an invite's code to send (Share, Copy code), or "looking for a rival"
 ##   finished    who won and Rematch
 ## A line over the card tells what just happened (a round's result, a lost run).
 
@@ -17,6 +17,8 @@ signal menu_pressed
 signal nudge_pressed
 signal rematch_pressed
 signal copy_pressed(text: String)
+## Share: the phone's share sheet with the invite (BattleFlow; copy off a phone).
+signal share_pressed(text: String)
 signal refresh_requested
 
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
@@ -198,6 +200,9 @@ func _show_waiting(v: BattleView) -> void:
 		_big.add_theme_font_size_override("font_size", 34)
 		_big.visible = true
 		_extra_row("Copy code and link")
+		_primary.text = "Share"
+		_primary.icon = null
+		_primary.visible = true
 	elif v.random:
 		_say(
 			"Looking for a rival", "A player takes your battle soon, or a bot when no one is free."
@@ -244,7 +249,9 @@ func set_notice(text: String) -> void:
 
 
 func _on_primary() -> void:
-	if view.status == BattleView.FINISHED:
+	if view.status == BattleView.WAITING and not code.is_empty():
+		share_pressed.emit(invite_text(code))
+	elif view.status == BattleView.FINISHED:
 		rematch_pressed.emit()
 	elif view.my_turn():
 		play_pressed.emit(view.play_round)
@@ -259,11 +266,11 @@ func _on_extra() -> void:
 		nudge_pressed.emit()
 
 
-## What Copy puts on the clipboard for a friend.
+## What Copy and Share send a friend: "Battle me in Flapjaw! <link> (code KD7WQ3)".
 static func invite_text(p_code: String, duel: bool = false) -> String:
 	if duel:
-		return "Duel me in Flapjaw! Code %s · %s" % [p_code, DUEL_LINK % p_code]
-	return "Battle me in Flapjaw! Code %s · %s" % [p_code, LINK % p_code]
+		return "Duel me in Flapjaw! %s (code %s)" % [DUEL_LINK % p_code, p_code]
+	return "Battle me in Flapjaw! %s (code %s)" % [LINK % p_code, p_code]
 
 
 func title_text() -> String:

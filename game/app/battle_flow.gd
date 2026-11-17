@@ -135,6 +135,12 @@ func open_push(data: Dictionary) -> void:
 			duel.open()
 
 
+## An invite on the clipboard, and a toast to say so (also Share off a phone).
+func copy_invite(text: String) -> void:
+	DisplayServer.clipboard_set(text)
+	_hud.show_toast(COPIED)
+
+
 ## An invite link (https://flapjaw.mn-platform.tech/battle/CODE or /duel/CODE)
 ## joins that battle or Duel. Not in the middle of a round.
 func open_link(url: String) -> void:
@@ -260,10 +266,11 @@ func _battle_screen(view: BattleView) -> BattleScreen:
 			_showing = -1
 			service.rematch(screen.view.id)
 	)
-	screen.copy_pressed.connect(
+	screen.copy_pressed.connect(copy_invite)
+	screen.share_pressed.connect(
 		func(text: String) -> void:
-			DisplayServer.clipboard_set(text)
-			_hud.show_toast(COPIED)
+			if not ShareSheet.share(text):
+				copy_invite(text)
 	)
 	screen.refresh_requested.connect(func() -> void: service.request_battle(screen.view.id))
 	_menus.show_screen(screen)

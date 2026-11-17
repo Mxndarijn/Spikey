@@ -172,6 +172,12 @@ func test_an_invite_shows_its_code_to_copy() -> void:
 	screen.copy_pressed.connect(func(t: String) -> void: copied.append(t))
 	screen.extra().pressed.emit()
 	assert_true(copied[0].contains("KD7WQ3") and copied[0].contains("/battle/KD7WQ3"))
+	var shared: Array[String] = []
+	screen.share_pressed.connect(func(t: String) -> void: shared.append(t))
+	assert_eq(screen.primary().text, "Share")
+	assert_true(screen.primary().visible, "Share next to Copy")
+	screen.primary().pressed.emit()
+	assert_eq(shared, [BattleScreen.invite_text("KD7WQ3")])
 	holder.free()
 
 
