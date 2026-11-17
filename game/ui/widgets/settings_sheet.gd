@@ -27,7 +27,8 @@ const BACK_ICON := preload("res://assets/ui/icons/back.svg")
 const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
 const MARGIN_TOP := 40
-const MARGIN_BOTTOM := 30
+## Clear of the floor spike row (SimConfig.KILL_BOTTOM, 34 px from the bottom).
+const MARGIN_BOTTOM := 38
 const SIDE := 14
 const TOGGLE := 44.0
 ## Settings > Play: PlayerSettings.Switch -> [name, hint], in screen order.

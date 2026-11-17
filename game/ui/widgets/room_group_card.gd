@@ -167,7 +167,7 @@ func note_text() -> String:
 ## ("Difficulty 1 to 3").
 static func note_for(profile: Profile, p_group: String) -> String:
 	if p_group == "seasonal":
-		return "In runs during their season"
+		return "In season only"
 	var rooms := RoomInfo.rooms_in(p_group)
 	if rooms.is_empty():
 		return ""

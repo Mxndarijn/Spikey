@@ -34,7 +34,9 @@ func _init(left: Array, right: Array, center: Dictionary, current: String = "") 
 	anchor_top = 1.0
 	anchor_bottom = 1.0
 	offset_top = -HEIGHT
-	custom_minimum_size = Vector2(0, HEIGHT)
+	# The dock ends with its bar, well above the floor spikes.
+	offset_bottom = -(HEIGHT - BAR_TOP - BAR_H)
+	custom_minimum_size = Vector2(0, BAR_TOP + BAR_H)
 	_add_group(left, false, current)
 	_add_group(right, true, current)
 	_primary = UiKit.primary(center.icon, center.text)
