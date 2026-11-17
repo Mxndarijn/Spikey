@@ -3,10 +3,11 @@ extends Control
 ## The main menu over the live room, with no boxes, in three places (button
 ## system A3): the corners (Settings top left, where other screens have their
 ## way back, since Home has none; the wallet top right), the sky line (the
-## "flapjaw" wordmark, "Best 87, #14 today", and Daily Run's paper pill with its
-## tries and the time to the next map), and the cradle dock at the bottom:
-## Rooms, Style | Play | Ranks, Runs. The flyer in use bobs big in the middle of
-## the room with its puff trail.
+## "flapjaw" wordmark, "Best 87, #14 today", the mode carousel with an All modes
+## link: Classic, Daily Run with its tries and the time to the next map, and the
+## modes still to come), and the cradle dock at the bottom: Rooms, Style | Play |
+## Ranks, Runs. Play starts the chosen mode. The flyer in use bobs big in the
+## middle of the room with its puff trail.
 
 signal play_pressed
 ## Opens one kind's list in Customize directly (nothing on Home emits it now;
@@ -17,14 +18,14 @@ signal customize_pressed
 signal rooms_pressed
 ## The wallet (gold and diamonds, top right): opens the Wallet (the Shop).
 signal store_pressed
-## The Daily Run pill on the sky line: opens the Daily Run.
+## The Daily Run chosen in the mode carousel and started: opens the Daily Run.
 signal daily_run_pressed
 ## Runs (the dock): opens Your runs.
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
 signal leaderboard_pressed
-## A setting changed in the settings sheet (already in the profile): main
-## saves it and applies it.
+## A setting changed in the settings sheet, or the mode carousel's chosen
+## mode (already in the profile): main saves it and applies it.
 signal settings_changed
 ## The debug page's room picker: practise `id` with `variant`.
 signal practice_requested(id: String, variant: String)
@@ -37,22 +38,23 @@ const ROOMS_ICON := preload("res://assets/ui/icons/rooms.svg")
 const SETTINGS_ICON := preload("res://assets/ui/icons/settings.svg")
 const TROPHY_ICON := preload("res://assets/ui/icons/trophy.svg")
 const HISTORY_ICON := preload("res://assets/ui/icons/history.svg")
-const CALENDAR_ICON := preload("res://assets/ui/icons/calendar.svg")
 ## The wordmark: one word, wide Archivo 900, ending well above the flyer.
 const WORDMARK := "flapjaw"
 const LOGO_TOP := 110.0
 ## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
 const LOGO_SIZE := 64
 const STATS_TOP := 196.0
-## The sky line under the stats: Daily Run's pill, the lost-spot line under it.
-const SKY_LINE_TOP := 232.0
-const DAILY_PILL_W := 300.0
-const DAILY_PILL_FONT := 14
-const NOTICE_TOP := SKY_LINE_TOP + UiTokens.SIZE_TAP_MIN + 4.0
+## The sky line under the stats: the mode carousel, the All modes link and the
+## lost-spot line under them.
+const SKY_LINE_TOP := 224.0
+const ALL_MODES_TOP := SKY_LINE_TOP + ModeCarousel.HEIGHT - 6.0
+const ALL_MODES_W := 140.0
+const ALL_MODES_H := 34.0
+const NOTICE_TOP := ALL_MODES_TOP + ALL_MODES_H
 const NOTICE_WIDTH := 300.0
 ## The flyer's centre and body size on Home (bigger than in a run).
-const FLYER_CENTER := Vector2(196, 346)
-const FLYER_BODY := 52.0
+const FLYER_CENTER := Vector2(196, 404)
+const FLYER_BODY := 43.0
 
 var _profile: Profile
 var _services: AppServices
@@ -66,7 +68,10 @@ var _settings_button: Button
 var _wallet: Wallet
 var _prizes: DailyPrizePopup
 var _notice: Label
-var _daily_pill: Button
+var _modes: ModeCarousel
+var _all_modes: Button
+var _modes_sheet: ModesSheet
+var _daily_info: DailyRunInfo
 var _daily_result: DailyResultPopup
 
 
@@ -117,34 +122,22 @@ func _ready() -> void:
 	_flyer.size = box
 	add_child(_flyer)
 
-	_daily_pill = Button.new()
-	_daily_pill.name = "DailyRun"
-	_daily_pill.text = daily_pill_text(null)
-	_daily_pill.icon = CALENDAR_ICON
-	_daily_pill.tooltip_text = "Daily Run: today's map"
-	_daily_pill.add_theme_constant_override("icon_max_width", 20)
-	_daily_pill.add_theme_font_size_override("font_size", DAILY_PILL_FONT)
-	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
-		_daily_pill.add_theme_color_override(state, UiTokens.ON_PANEL)
-	_daily_pill.focus_mode = Control.FOCUS_NONE
-	# A paper pill on the room (the kit's one box on Home's sky line).
-	var paper := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_PILL, 0)
-	paper.content_margin_left = UiTokens.SPACE_4
-	paper.content_margin_right = UiTokens.SPACE_4
-	var pushed := paper.duplicate() as StyleBoxFlat
-	pushed.bg_color = UiTokens.PANEL_RAISED
-	for state in ["normal", "hover", "disabled", "focus"]:
-		_daily_pill.add_theme_stylebox_override(state, paper)
-	for state in ["pressed", "hover_pressed"]:
-		_daily_pill.add_theme_stylebox_override(state, pushed)
-	for state in [
-		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
-	]:
-		_daily_pill.add_theme_color_override(state, UiTokens.ON_PANEL)
-	_daily_pill.pressed.connect(daily_run_pressed.emit)
-	add_child(_daily_pill)
-	_daily_pill.position = Vector2((ScreenLayout.ROOM.x - DAILY_PILL_W) / 2.0, SKY_LINE_TOP)
-	_daily_pill.size = Vector2(DAILY_PILL_W, UiTokens.SIZE_TAP_MIN)
+	_modes = ModeCarousel.new(GameModes.find(_profile.home_mode).id)
+	_modes.name = "Modes"
+	_modes.selected.connect(_on_mode_selected)
+	_modes.activated.connect(_start_mode)
+	add_child(_modes)
+	_modes.anchor_right = 1.0
+	_modes.offset_top = SKY_LINE_TOP
+	_modes.offset_bottom = SKY_LINE_TOP + ModeCarousel.HEIGHT
+	_all_modes = UiKit.text_button("All modes", &"PlainButton")
+	_all_modes.name = "AllModes"
+	_all_modes.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_LABEL)
+	_all_modes.pressed.connect(open_all_modes)
+	add_child(_all_modes)
+	_all_modes.position = Vector2((ScreenLayout.ROOM.x - ALL_MODES_W) / 2.0, ALL_MODES_TOP)
+	_all_modes.size = Vector2(ALL_MODES_W, ALL_MODES_H)
+	set_daily_info(null)
 
 	_dock = (
 		Dock
@@ -162,6 +155,7 @@ func _ready() -> void:
 	)
 	_dock.pressed.connect(_on_dock)
 	add_child(_dock)
+	_show_play_label()
 
 
 func _row_label(text: String, variation: StringName, top: float) -> Label:
@@ -176,7 +170,7 @@ func _row_label(text: String, variation: StringName, top: float) -> Label:
 func _on_dock(id: String) -> void:
 	match id:
 		"play":
-			play_pressed.emit()
+			_start_mode(_modes.chosen())
 		"rooms":
 			rooms_pressed.emit()
 		"style":
@@ -293,31 +287,62 @@ func stats_line() -> String:
 	return _stats.text
 
 
-## "Daily Run · 2 tries left · 4h 12m"; just "Daily Run" before today's
-## Daily Run arrives or while offline.
-static func daily_pill_text(info: DailyRunInfo) -> String:
-	if info == null or not info.is_online():
-		return "Daily Run"
-	var parts: Array[String] = ["Daily Run"]
-	if info.tries_left() > 0:
-		parts.append(DailyRunRules.tries_text(info.tries_used, info.tries_max))
-	elif info.rank > 0:
-		parts.append("#%d" % info.rank)
-	else:
-		parts.append("Done")
-	if info.resets_in_s >= 0:
-		parts.append(LeaderboardScreen.duration(info.resets_in_s))
-	return " · ".join(parts)
-
-
-## Today's Daily Run arrived: the pill shows the tries left and the reset.
+## Today's Daily Run arrived (or null before it does, or offline): its card
+## shows the tries left and the time to the next map.
 func set_daily_info(info: DailyRunInfo) -> void:
-	if _daily_pill != null:
-		_daily_pill.text = daily_pill_text(info)
+	_daily_info = info
+	if _modes == null:
+		return
+	for m in GameModes.all():
+		_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
 
 
-func daily_pill() -> Button:
-	return _daily_pill
+## Starts a mode: Classic plays a run, the Daily Run opens its screen, a mode
+## not built yet does nothing.
+func _start_mode(id: String) -> void:
+	match id:
+		GameModes.CLASSIC:
+			play_pressed.emit()
+		GameModes.DAILY:
+			daily_run_pressed.emit()
+		_:
+			AudioDirector.ui("locked")
+
+
+func _on_mode_selected(id: String) -> void:
+	_profile.home_mode = id
+	_show_play_label()
+	settings_changed.emit()
+
+
+## The dock's main action names the chosen mode; a mode not built yet greys it.
+func _show_play_label() -> void:
+	if _dock == null or _modes == null:
+		return
+	var m := GameModes.find(_modes.chosen())
+	_dock.set_text("play", m.play_label)
+	_dock.primary().disabled = not m.ready
+
+
+func modes() -> ModeCarousel:
+	return _modes
+
+
+## The All modes sheet over Home (the link under the carousel).
+func open_all_modes() -> ModesSheet:
+	if _modes_sheet == null:
+		_modes_sheet = ModesSheet.new(_modes.chosen(), _daily_info)
+		_modes_sheet.name = "ModesSheet"
+		_modes_sheet.picked.connect(_modes.choose_id)
+		_modes_sheet.closed.connect(_close_all_modes)
+		add_child(_modes_sheet)
+	return _modes_sheet
+
+
+func _close_all_modes() -> void:
+	if _modes_sheet != null:
+		_modes_sheet.queue_free()
+		_modes_sheet = null
 
 
 ## Today's rank arrived (or changed): shows it under the wordmark.

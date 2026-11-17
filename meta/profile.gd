@@ -34,6 +34,7 @@ const LOCAL_KEYS: Array[String] = [
 	"cloud_revision",
 	"cloud_coins",
 	"backend_server",
+	"home_mode",
 ]
 
 ## Gold: collected in runs (Economy).
@@ -83,6 +84,8 @@ var cloud_coins := 0
 ## The server this save was last used with (the backend config's server_id;
 ## "" for a save from a Supabase build, or none). A new one means a fresh start (BackendReset).
 var backend_server := ""
+## The game mode Home's carousel shows (GameModes ids; this phone only).
+var home_mode := ""
 ## Keys a newer version of the game saved that this one doesn't know: written
 ## back as they were, so opening an older build never deletes them.
 var _unknown := {}
@@ -223,6 +226,7 @@ func to_dict() -> Dictionary:
 				"cloud_revision": cloud_revision,
 				"cloud_coins": cloud_coins,
 				"backend_server": backend_server,
+				"home_mode": home_mode,
 			},
 			true
 		)
@@ -262,6 +266,7 @@ static func from_dict(saved: Dictionary) -> Profile:
 	p.cloud_revision = maxi(int(d.get("cloud_revision", 0)), 0)
 	p.cloud_coins = maxi(int(d.get("cloud_coins", 0)), 0)
 	p.backend_server = str(d.get("backend_server", "")).left(64)
+	p.home_mode = str(d.get("home_mode", "")).left(32)
 	var saved_owned: Variant = d.get("owned", {})
 	if saved_owned is Dictionary:
 		for kind in ItemKind.ALL:

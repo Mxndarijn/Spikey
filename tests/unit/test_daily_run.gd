@@ -240,16 +240,19 @@ func test_sample_tries_run_out() -> void:
 		assert_eq(e.locked, not e.is_me, "only my replay is open today")
 
 
-func test_home_pill_says_tries_and_reset() -> void:
-	assert_eq(HomeScreen.daily_pill_text(null), "Daily Run")
+func test_home_card_says_tries_and_reset() -> void:
+	var rule := "One map a day · %d tries" % DailyRunRules.TRIES_PER_DAY
+	assert_eq(GameModes.rule_line(GameModes.DAILY, null), rule)
 	var info := DailyRunInfo.new()
 	info.tries_used = 1
 	info.resets_in_s = 4 * 3600 + 12 * 60
-	assert_eq(HomeScreen.daily_pill_text(info), "Daily Run · 2 tries left · 4h 12m")
+	assert_eq(GameModes.rule_line(GameModes.DAILY, info), "2 tries left · 4h 12m")
+	assert_eq(GameModes.badge(GameModes.DAILY, info), "2", "the tries left on the badge")
 	info.tries_used = 3
 	info.rank = 12
-	assert_eq(HomeScreen.daily_pill_text(info), "Daily Run · #12 · 4h 12m")
-	assert_eq(HomeScreen.daily_pill_text(DailyRunInfo.offline()), "Daily Run")
+	assert_eq(GameModes.rule_line(GameModes.DAILY, info), "#12 · 4h 12m")
+	assert_eq(GameModes.badge(GameModes.DAILY, info), "", "no badge with no tries left")
+	assert_eq(GameModes.rule_line(GameModes.DAILY, DailyRunInfo.offline()), rule)
 
 
 func test_screen_shows_each_state() -> void:
@@ -295,10 +298,12 @@ func test_a_try_in_the_app() -> void:
 	var main := _make_main(board)
 	await _frames()
 	var home := main._menus.current() as HomeScreen
-	assert_true(home.daily_pill().text.begins_with("Daily Run · 3 tries left"), "Home's pill")
-	home.daily_pill().pressed.emit()
+	var modes := home.modes()
+	assert_true(modes.rule_text(GameModes.DAILY).begins_with("3 tries left"), "Home's Daily card")
+	modes.choose_id(GameModes.DAILY)
+	home.dock().primary().pressed.emit()
 	var screen := main._menus.current() as DailyRunScreen
-	assert_true(screen != null, "the pill opens the Daily Run")
+	assert_true(screen != null, "Play on the Daily Run card opens the Daily Run")
 	await _frames()
 	assert_eq(screen.primary().text, "Try 1")
 	screen.primary().pressed.emit()
