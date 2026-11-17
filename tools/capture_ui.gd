@@ -4,7 +4,7 @@ extends SceneTree
 ## throwaway save, so the player's own profile is untouched. Opens a real window
 ## (rendering needs one): run it through tools/capture_ui.ps1, only when the
 ## user asks for screenshots.
-##   -- <out_dir> [only=name,name]
+##   -- <out_dir> [only=name,name] [world=id]
 
 const PROFILE := "user://capture_ui_profile.json"
 const RIVAL := "Maximilianus12"
@@ -12,6 +12,8 @@ const RIVAL := "Maximilianus12"
 var _main: Node
 var _out := "user://capture_ui"
 var _only: Array[String] = []
+var _world := ""
+var _saved := 0
 ## Gives up after this long, so a script error never leaves the window open.
 var _left_s := 300.0
 
@@ -25,6 +27,8 @@ func _initialize() -> void:
 	if args.size() > 1 and args[1] != "-":
 		for n in args[1].split(","):
 			_only.append(n)
+	if args.size() > 2 and args[2] != "-":
+		_world = args[2]
 	DirAccess.make_dir_recursive_absolute(_out)
 	DirAccess.remove_absolute(PROFILE)
 	DirAccess.remove_absolute(PROFILE.get_basename() + "_runs.json")
@@ -54,6 +58,11 @@ func _shot(name: String, wait: int = 30) -> void:
 	var path: String = _out.path_join(name + ".png")
 	root.get_texture().get_image().save_png(path)
 	print("saved ", path)
+	_saved += 1
+	# Every shot asked for is saved: done, no need to walk the rest.
+	if not _only.is_empty() and _saved >= _only.size():
+		DirAccess.remove_absolute(PROFILE)
+		quit()
 
 
 func _menus() -> MenuLayer:
@@ -65,6 +74,10 @@ func _tour() -> void:
 	var profile: Profile = _main._profile
 	profile.best_score = 87
 	profile.leaderboard_name = "Merry"
+	if not _world.is_empty():
+		_main.set_world(_world)
+		# The world's name shows over the room for a moment: let it go.
+		await _frames(240)
 	_main.show_home()
 	# Two battles wait for this player's turn (BattleFlow fills it online).
 	(_menus().current() as HomeScreen).set_battle_turns(2)
