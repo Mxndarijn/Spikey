@@ -162,7 +162,7 @@ figure.shot figcaption b { color: var(--ink); display: block; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 /* Duel additions: rival colour, birds, round dots, the in-round HUD. */
-:root { --rival: #5b5fd6; --rival-soft: #e8e9fb; --fj-rival: #6C63FF; --fj-spike: #231A33; }
+:root { --rival: #5b5fd6; --rival-soft: #e8e9fb; --fj-rival: #FF7BAC; --fj-spike: #231A33; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --rival: #9da0ff; --rival-soft: #25264a; } }
 :root[data-theme="dark"] { --rival: #9da0ff; --rival-soft: #25264a; }
 .chip.rival { background: var(--rival-soft); color: var(--rival); border-color: transparent; }
@@ -171,7 +171,8 @@ figure.shot figcaption b { color: var(--ink); display: block; font-size: 14px; }
 .bird::after { content: ""; position: absolute; right: -9px; top: 13px; border-left: 11px solid var(--fj-danger); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
 .bird.left::after { right: auto; left: -9px; border-left: none; border-right: 11px solid var(--fj-danger); }
 .bird.left::before { right: auto; left: 6px; }
-.bird.rival { background: var(--fj-rival); box-shadow: inset 0 -4px 0 #4b43d6; opacity: .45; }
+.bird.rival { background: var(--fj-rival); box-shadow: inset 0 -4px 0 #E0548A; opacity: .6; }
+.botpill { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px; background: var(--fj-ink); color: #fff; vertical-align: 2px; }
 .bird.big { position: relative; width: 52px; height: 46px; display: inline-block; }
 .bird.big::before { width: 13px; height: 13px; top: 9px; right: 9px; }
 .bird.big::after { top: 19px; right: -13px; border-left-width: 15px; border-top-width: 7px; border-bottom-width: 7px; }
@@ -179,17 +180,17 @@ figure.shot figcaption b { color: var(--ink); display: block; font-size: 14px; }
 .dots { display: flex; gap: 8px; justify-content: center; align-items: center; }
 .dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--fj-panel); box-shadow: inset 0 0 0 2px var(--fj-edge); display: block; }
 .dots i.me { background: var(--fj-action); box-shadow: inset 0 0 0 2px var(--fj-coin-edge); }
-.dots i.op { background: var(--fj-rival); box-shadow: none; }
+.dots i.op { background: var(--fj-ink); box-shadow: none; }
 .dots i.now { box-shadow: inset 0 0 0 2px var(--fj-ink); }
 .hudbar { position: absolute; top: 40px; left: 16px; right: 16px; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
 .pscore { display: grid; gap: 0; font-weight: 800; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 .pscore b { font-size: 34px; line-height: 36px; font-weight: 900; font-stretch: 125%; letter-spacing: 0; }
-.pscore.r { text-align: right; color: #3a2f8f; }
+.pscore.r { text-align: right; }
 .bigscore { position: absolute; top: 150px; left: 0; right: 0; text-align: center; font-weight: 900; font-stretch: 125%; font-size: 120px; color: #ffffff66; z-index: 0; }
 .plate { display: flex; align-items: center; gap: 12px; background: var(--fj-panel); border-radius: 18px; padding: 12px 14px; }
 .plate .nm { font-weight: 800; font-size: 17px; }
 .plate small { display: block; font-size: 12px; font-weight: 700; color: var(--fj-muted); }
-.plate.op { box-shadow: inset 0 0 0 2px var(--fj-rival); }
+.plate.op { box-shadow: inset 0 0 0 2px var(--fj-edge); }
 .countnum { text-align: center; font-weight: 900; font-stretch: 125%; font-size: 150px; line-height: 1; color: #fff; text-shadow: 0 6px 0 #0000002a; }
 .center-h { text-align: center; font-weight: 900; font-stretch: 125%; font-size: 30px; line-height: 34px; }
 .roundrow { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; font-weight: 800; font-size: 15px; padding: 8px 4px; border-bottom: 1px solid var(--fj-edge); }
@@ -255,7 +256,7 @@ svg.diag .ink { stroke: var(--ink); }
 .rgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .rgrid i { font-style: normal; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 900; font-size: 14px; }
 .rgrid i.me { background: var(--fj-action); color: var(--fj-ink); }
-.rgrid i.op { background: var(--fj-rival); color: #fff; }
+.rgrid i.op { background: var(--fj-ink); color: #fff; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--fj-panel); border-radius: 14px; overflow: hidden; }
 .tabs span { height: 40px; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: var(--fj-muted); }
 .tabs span.on { background: var(--fj-ink); color: #fff; }
@@ -279,7 +280,7 @@ svg.diag .ink { stroke: var(--ink); }
 <header>
   <div class="eyebrow">Flapjaw · plan for review · on the live server</div>
   <h1>Game modes, Battle and Duel</h1>
-  <p class="lede">A mode picker on Home, then two head-to-head modes on one base, with wins leaderboards. <b>Battle</b> (async, first): a long match, first to 6 round wins, taking turns on the same seed, each seeing the other's run as a see-through rival bird. <b>Duel</b> (realtime, later): both fly the same seed at once. Text copy: <span class="mono">docs/DUEL_MODE.md</span>.</p>
+  <p class="lede">A mode picker on Home, then two head-to-head modes on one base, with wins leaderboards and bots to get Battle going. <b>Battle</b> (async, first): a long match, first to 6 round wins, taking turns on the same seed, each seeing the other's run as a see-through rival bird. <b>Duel</b> (realtime, later): both fly the same seed at once. Text copy: <span class="mono">docs/DUEL_MODE.md</span>.</p>
   <div class="status">
     <span class="chip hold">Plan only · waiting on your answers</span>
     <span class="chip">No sim change, no gameplay-version bump</span>
@@ -350,7 +351,7 @@ svg.diag .ink { stroke: var(--ink); }
       <tr><td><b>Bird-following hazards</b></td><td>Only your own are drawn; a rival crash shows a puff.</td><td>Stalker, Dart aim and Echo follow each bird.</td></tr>
       <tr><td><b>Coins, gold, diamonds</b></td><td>Coins to gold as in any checked run. Nothing for a win, no diamonds, never stakes or wagers.</td><td>Cosmetic-only monetization.</td></tr>
       <tr><td><b>Boards</b></td><td>Battle and Duel runs don't count on Today, Daily Run or All-time.</td><td>The second player sees the first one's run.</td></tr>
-      <tr><td><b>Looks</b></td><td>The rival in their own flyer, hat and trail at about 45%, with a name tag. One hitbox.</td><td>Others see what you bought.</td></tr>
+      <tr><td><b>Looks</b></td><td><b>Decided</b>: the rival in their own skin (flyer, hat, trail), slightly see-through (about 60%), with a name tag. No new colour token. One hitbox.</td><td>Others see what you bought.</td></tr>
       <tr><td><b>Version</b></td><td>Both players of a round on one <code>GAMEPLAY_VERSION</code>.</td><td>Same inputs, same run only on one sim.</td></tr>
     </tbody>
   </table>
@@ -367,7 +368,7 @@ svg.diag .ink { stroke: var(--ink); }
   <table class="mid">
     <thead><tr><th>Option</th><th>Rounds</th><th>For</th><th>Against</th></tr></thead>
     <tbody>
-      <tr class="pick"><td><span class="pick-label">Recommended</span><br/><b>First to 6 round wins</b></td><td>6 to 11</td><td>Ends the moment it is decided, so no dead rounds: a 6-1 is over after 7. At 5-5 one decider settles it.</td><td>The length varies.</td></tr>
+      <tr class="pick"><td><span class="pick-label">Decided</span><br/><b>First to 6 round wins</b></td><td>6 to 11</td><td>Ends the moment it is decided, so no dead rounds: a 6-1 is over after 7. At 5-5 one decider settles it.</td><td>The length varies.</td></tr>
       <tr><td><b>10 rounds, then a tie-break</b></td><td>10, or 11 at 5-5</td><td>Always the same length; a clear "round 7 of 10".</td><td>Rounds are still played once it is decided (7-1 after 8), so the trailing player has every reason to stop replying.</td></tr>
     </tbody>
   </table>
@@ -389,38 +390,39 @@ svg.diag .ink { stroke: var(--ink); }
   <table class="mid">
     <thead><tr><th>Option</th><th>Fair</th><th>Fun</th></tr></thead>
     <tbody>
-      <tr class="pick"><td><span class="pick-label">Recommended</span><br/><b>A. Alternate who opens; round 11 blind</b></td><td>Over rounds 1 to 10 each player has the ghost five times. Round 11 (only at 5-5) is blind for both. A battle that ends early can be uneven by one ghost round in six or more.</td><td>A ghost race every round but the decider.</td></tr>
+      <tr class="pick"><td><span class="pick-label">Decided</span><br/><b>A. The starter opens round 1, then alternate; round 11 blind</b></td><td>Over rounds 1 to 10 each player has the ghost five times. Round 11 (only at 5-5) is blind for both. A battle that ends early can be uneven by one ghost round in six or more.</td><td>A ghost race every round but the decider.</td></tr>
       <tr><td><b>B. Alternate, the ghost in every round</b></td><td>One player has the ghost in round 11, the round that decides it</td><td>Most ghost racing</td></tr>
       <tr><td><b>C. Always blind, ghosts after</b></td><td>Fully fair</td><td>Loses watching the rival while you fly</td></tr>
     </tbody>
   </table>
   </div>
 
-  <h3>How long a battle takes, and the timers</h3>
+  <h3>How long a battle takes · no timers (decided)</h3>
   <div class="scroll">
   <table class="mid">
     <thead><tr><th>Pace</th><th>Turns a day</th><th>A full 12-turn battle</th></tr></thead>
     <tbody>
       <tr><td>Both playing now and then through the day (answer within about 2 h)</td><td>6 to 8</td><td><b>1.5 to 2 days</b></td></tr>
       <tr><td>Each plays once or twice a day</td><td>2 to 4</td><td><b>3 to 6 days</b></td></tr>
-      <tr><td>Each uses the full 24 h every turn</td><td>1</td><td><b>12 days</b></td></tr>
+      <tr><td>One player comes back only now and then</td><td></td><td><b>weeks, or never</b></td></tr>
     </tbody>
   </table>
   </div>
+  <p class="note">No turn deadline and no match cap: a battle waits as long as it takes. What keeps that workable:</p>
   <div class="scroll">
   <table class="mid">
-    <thead><tr><th>Setting</th><th>Recommendation</th></tr></thead>
+    <thead><tr><th>Setting</th><th>Decided / recommended</th></tr></thead>
     <tbody>
-      <tr><td><b>Turn timer</b></td><td><b>24 h</b> a turn: fits once-a-day players and time zones.</td></tr>
-      <tr><td><b>Missed turn</b></td><td>You lose the round you had to answer <b>and</b> the round you would have opened (it goes to the other player unplayed). The turn passes back, with "Mira missed a turn: 2 rounds to you".</td></tr>
-      <tr><td><b>Stopped replying</b></td><td><b>Two missed turns in a row end the match</b> as a timeout win for the other player (48 h of silence).</td></tr>
-      <tr><td><b>Match cap</b></td><td><b>14 days</b>: the slowest legal pace with room to spare. At the cap the one with more round wins takes it; level is a draw.</td></tr>
-      <tr><td><b>Open at once</b></td><td><b>10 battles</b>, at most <b>3 random ones</b> waiting for an opponent.</td></tr>
-      <tr><td><b>Random, nobody came</b></td><td>Closed quietly after <b>48 h</b>; the run still paid its gold.</td></tr>
-      <tr><td><b>Rematch</b></td><td>One tap at the result; the other gets a 24 h rematch turn, round 1 opener swapped.</td></tr>
+      <tr><td><b>Open at once</b></td><td><b>20 per player</b> (decided), at most <b>5 random ones</b> waiting for an opponent.</td></tr>
+      <tr><td><b>Reminders</b></td><td>"Your turn" at once, a nudge after 1 day and after 3 days without a move, then no more. The other player may tap <b>Nudge</b> once a day.</td></tr>
+      <tr class="pick"><td><b>Resign</b></td><td>Any time, from the battle's menu, with a confirm. The other player wins. Under rule 12: before round 3 it counts for nobody; from round 3 on a win for them and a loss for you.</td></tr>
+      <tr class="pick"><td><b>Close (no result)</b></td><td>When it has been the other player's turn for <b>7 days</b>: ends the battle for both with no result, not counted, frees your slot. The other sees "Ada closed this battle after 7 days without a move". Against a bot: any time.</td></tr>
+      <tr><td><b>Random, nobody came</b></td><td>A bot takes it (see Bots); later a person when one comes.</td></tr>
+      <tr><td><b>Rematch</b></td><td>One tap at the result; the one who asks is the starter and opens round 1.</td></tr>
     </tbody>
   </table>
   </div>
+  <p class="note">The 7 days for Close is not a deadline: nothing happens on its own. It only stops a battle being ended the moment the other player is slow.</p>
 
   <div class="cards">
     <div class="card"><h3>Starting a battle</h3><ul>
@@ -431,7 +433,7 @@ svg.diag .ink { stroke: var(--ink); }
     <div class="card"><h3>One try per run</h3><ul>
       <li>The seed comes only when the run starts (<code>battle_start_run</code>), like a Daily Run try. A started run counts</li>
       <li>Taps are saved locally as you fly; an app killed mid-run sends what it had, scored as a crash there</li>
-      <li>A run not sent by the deadline scores 0</li>
+      <li>A run that never arrives (phone gone) scores 0 at your next action in that battle</li>
       <li>Pause works as in Classic; nobody is waiting live</li>
     </ul></div>
     <div class="card"><h3>After an app update</h3><p class="note">A round is pinned to the gameplay version of its first run. If the second player is on a newer version, the open round is dealt again on the new version for both (new seed, the first player plays it again, no turn lost). Finished rounds stand.</p></div>
@@ -445,15 +447,15 @@ svg.diag .ink { stroke: var(--ink); }
     <tbody>
       <tr><td>Your turn</td><td>"Mira scored 27 in round 2. Your turn!"</td></tr>
       <tr><td>A random opponent answered round 1</td><td>"Jun answered your battle. Your turn!"</td></tr>
-      <tr><td>12 h left</td><td>"12 hours left to answer Mira"</td></tr>
-      <tr><td>Rival missed a turn</td><td>"Mira missed a turn: 2 rounds to you"</td></tr>
-      <tr><td>2 h left</td><td>"2 hours left, or round 2 goes to Mira"</td></tr>
+      <tr><td>No move for 1 day, and for 3 days</td><td>"Mira is waiting for round 5"</td></tr>
+      <tr><td>Nudged</td><td>"Mira nudged you: round 5 is yours"</td></tr>
+      <tr><td>Resigned or closed</td><td>"Mira resigned. You win the battle"</td></tr>
       <tr><td>Match over</td><td>"You beat Mira 6-4" · "Mira won 6-4. Rematch?"</td></tr>
       <tr><td>Rematch asked</td><td>"Mira wants a rematch"</td></tr>
     </tbody>
   </table>
   </div>
-  <p class="note">Quiet hours: no reminder 22:00–08:00 on the phone's clock (<code>push_devices.utc_offset</code>); sent at 08:00, or earlier when the deadline is in the night. At most one reminder an hour per player across all battles.</p>
+  <p class="note">Quiet hours: no reminder 22:00–08:00 on the phone's clock (<code>push_devices.utc_offset</code>); sent at 08:00. At most one reminder an hour per player across all battles.</p>
 
   <h3>Battle screens</h3>
   <div class="screens">
@@ -462,11 +464,11 @@ svg.diag .ink { stroke: var(--ink); }
       <div class="body" style="gap:10px;padding-top:14px">
         <div class="group-label">Your turn</div>
         <div class="blist">
-          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Mira</div><small>Round 5 · Mira scored 27</small><div class="mscore">You 2 – 2 Mira · first to 6</div></div><span class="pill go">18 h</span></div>
-          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Jun <small style="display:inline">· random</small></div><small>Round 1 · Jun scored 12</small><div class="mscore">0 – 0 · first to 6</div></div><span class="pill warn">2 h</span></div>
+          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Mira</div><small>Round 5 · Mira scored 27</small><div class="mscore">You 2 – 2 Mira · first to 6</div></div><span class="pill go">Play</span></div>
+          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Flapbot <span class="botpill">BOT</span></div><small>Round 3 · Flapbot scored 41</small><div class="mscore">1 – 1 · first to 6</div></div><span class="pill go">Play</span></div>
         </div>
         <div class="group-label">Their turn</div>
-        <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Sam</div><small>Waiting for round 1 · 21 h</small></div><span class="pill wait">Nudge</span></div>
+        <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Sam</div><small>Waiting for round 4 · 8 days</small></div><span class="pill wait">···</span></div>
         <div class="group-label">Finished</div>
         <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Ada</div><small>You won 6-4</small></div><span class="pill wait">Rematch</span></div>
         <div class="btn primary" style="height:50px">New battle</div>
@@ -477,11 +479,12 @@ svg.diag .ink { stroke: var(--ink); }
       <div class="scrim"></div>
       <div class="sheet">
         <div class="h">New battle</div>
-        <p style="font-size:14px;font-weight:600;color:var(--fj-muted);margin:0">You play round 1 now. Your rival answers within 24 h.</p>
+        <p style="font-size:14px;font-weight:600;color:var(--fj-muted);margin:0">You play round 1 now. Your rival answers when they can; a bot within minutes.</p>
         <div class="btn primary">Invite a friend</div>
         <div class="btn secondary">Random rival</div>
+        <div class="timer">A player, or a bot when no one is free</div>
         <div class="btn plain">Enter a code</div>
-        <div class="card-fj" style="background:var(--fj-panel-raised);padding:14px"><p style="color:var(--fj-ink)">First to 6 round wins · 24 h a turn · usually 2 to 6 days</p></div>
+        <div class="card-fj" style="background:var(--fj-panel-raised);padding:14px"><p style="color:var(--fj-ink)">First to 6 round wins · no time limit · usually 2 to 6 days</p></div>
         <div class="timer">4 of 10 battles open</div>
       </div>
     </div></div><figcaption><b>B2 · Start a battle</b>Friend or random; every battle is first to 6.</figcaption></figure>
@@ -511,7 +514,7 @@ svg.diag .ink { stroke: var(--ink); }
           <p>You'll see Mira's run as you fly. Beat 27 to win the round. One try.</p>
         </div>
         <div class="btn primary">Play round 5</div>
-        <div class="timer">Your turn · 18 h left</div>
+        <div class="timer">Your turn · Mira played 2 h ago</div>
       </div>
     </div></div><figcaption><b>B4 · Round intro</b>The target and the one-try rule. A blind decider says "Mira has played. You'll see the run after yours."</figcaption></figure>
 
@@ -533,7 +536,7 @@ svg.diag .ink { stroke: var(--ink); }
       <div class="target"><span>Beat 27</span></div>
       <div class="bird left" style="left:96px;top:330px"></div>
       <div class="bird rival left" style="left:120px;top:250px"></div>
-      <div class="tag" style="left:110px;top:288px;background:#4b43d6cc">Mira</div>
+      <div class="tag" style="left:110px;top:288px;background:var(--fj-scrim)">Mira</div>
     </div></div><figcaption><b>B5 · Playing with Mira's run</b>Mira's run plays in step with yours; its score counts up as it was flown and stops at 27.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
@@ -557,7 +560,7 @@ svg.diag .ink { stroke: var(--ink); }
         <div class="btn primary">Rematch</div>
         <div class="btn secondary">Battles</div>
       </div>
-    </div></div><figcaption><b>B7 · Match result</b>Ten rounds, one square each; tap one for its replay with both birds. Rematch swaps who opens round 1.</figcaption></figure>
+    </div></div><figcaption><b>B7 · Match result</b>Ten rounds, one square each; tap one for its replay with both birds. In a rematch the one who asks opens round 1.</figcaption></figure>
   </div>
 
   <h3>Battle on the server</h3>
@@ -568,24 +571,26 @@ svg.diag .ink { stroke: var(--ink); }
     <tbody>
       <tr><td class="ep">battle_create(opponent)</td><td>A battle with you as A; <code>"random"</code> joins a waiting battle when there is one. Returns the battle and, for an invite, the code.</td></tr>
       <tr><td class="ep">battle_join(code)</td><td>Joins an invite battle as B.</td></tr>
-      <tr><td class="ep">battle_list()</td><td>Your turn, their turn, finished (30 days), with scores, deadlines, the rival's name and look.</td></tr>
+      <tr><td class="ep">battle_list()</td><td>Your turn, their turn, finished (30 days), with scores, days since the last move, the rival's name and look.</td></tr>
       <tr><td class="ep">battle_get(battle)</td><td>One battle and its rounds, plus the rival's run for the round you answer: only once checked <code>ok</code>, never in a blind decider before you submit.</td></tr>
       <tr><td class="ep">battle_start_run(battle, round)</td><td>Checks the turn, hands out seed and season, records the start.</td></tr>
       <tr><td class="ep">battle_submit(battle, round, taps, score, coins, end_tick, client_run_id)</td><td>Stores the run in <code>runs</code> with <code>mode = 'battle'</code> (the checker handles it), idempotent on <code>client_run_id</code>; answers with the round result once the Rust check passes.</td></tr>
-      <tr><td class="ep">battle_forfeit(battle)</td><td>Gives up; the other wins.</td></tr>
+      <tr><td class="ep">battle_resign(battle)</td><td>Gives up; the other wins (rule 12 decides whether it counts).</td></tr>
+      <tr><td class="ep">battle_close(battle)</td><td>Ends with no result; after 7 days waiting on the other player, any time against a bot.</td></tr>
+      <tr><td class="ep">battle_nudge(battle)</td><td>Once a day, a push to the player whose turn it is.</td></tr>
       <tr><td class="ep">battle_rematch(battle)</td><td>A new battle, same players, first player swapped.</td></tr>
     </tbody>
   </table>
   </div>
   <div class="cards">
-    <div class="card"><h3>Tables</h3><p class="note"><code>battles</code>: id, mode, player_a, player_b, first_to, wins_a, wins_b, status, invite code hash, random, gameplay_version, turn_player, turn_deadline, missed_in_a_row, expires_at, created_at, finished_at, winner.<br/><code>battle_rounds</code>: battle, number, seed, season, first_player, blind, run_a, run_b, winner.<br/>The <code>mode</code> column lets Duel use the same tables.</p></div>
-    <div class="card"><h3>Deadlines</h3><p class="note">A background task in the server, like its checker and push loops (<code>spawn_checker</code>, <code>spawn_push</code>), every minute: missed turns score 0, reminders go into the push outbox, expired battles end. Rows are locked with <code>FOR UPDATE SKIP LOCKED</code>, so a second replica never handles one twice. No CronJob needed.</p></div>
+    <div class="card"><h3>Tables</h3><p class="note"><code>battles</code>: id, mode, player_a, player_b, first_to, wins_a, wins_b, status, invite code hash, random, bot_level, gameplay_version, turn_player, last_move_at, created_at, finished_at, ended_by, winner.<br/><code>battle_rounds</code>: battle, number, seed, season, first_player, blind, run_a, run_b, winner.<br/>The <code>mode</code> column lets Duel use the same tables.</p></div>
+    <div class="card"><h3>Reminders, no deadlines</h3><p class="note">A background task in the server, like its checker and push loops (<code>spawn_checker</code>, <code>spawn_push</code>), every few minutes: the 1-day and 3-day nudges go into the push outbox, and random battles waiting past the bot wait get a bot turn queued. Rows are locked with <code>FOR UPDATE SKIP LOCKED</code>, so a second replica never handles one twice. No CronJob needed.</p></div>
     <div class="card"><h3>Anti-cheat</h3><ul>
       <li>Every run checked by the Rust sim like a board run, Godot confirming rejections; only <code>ok</code> runs count or are shown</li>
       <li>Seed known only after the start, one try</li>
       <li><code>end_tick</code> must fit the wall time between start and submit</li>
       <li><b>No copied taps</b>: the second player holds the rival's taps, so a modded app could replay them to tie or follow them. Taps matching the rival's within one tick for more than 30 in a row: rejected</li>
-      <li>10 open, 3 random waiting, 20 creates a day</li>
+      <li>20 open, 5 random waiting, 30 creates a day</li>
     </ul></div>
   </div>
 </section>
@@ -719,7 +724,7 @@ svg.diag .ink { stroke: var(--ink); }
       </div>
       <div class="bird" style="left:276px;top:272px"></div>
       <div class="bird rival" style="left:222px;top:330px"></div>
-      <div class="tag" style="left:212px;top:368px;background:#4b43d6cc">Mira</div>
+      <div class="tag" style="left:212px;top:368px;background:var(--fj-scrim)">Mira</div>
     </div></div><figcaption><b>D3 · In round, live</b>Your bird solid, Mira's see-through and a little behind; both scores and the round dots on top.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
@@ -759,9 +764,9 @@ svg.diag .ink { stroke: var(--ink); }
     <tbody>
       <tr><td><b>Rules</b></td><td><code>meta/match_rules.gd</code>: first to N, round winner, ties, time limit, blind decider. The server has the same rules, held together by shared fixtures in the check</td><td>Turn order, deadlines, missed turns</td><td>S + 1 clinch, sudden death</td></tr>
       <tr><td><b>Rival</b></td><td><code>game/match/rival_view.gd</code>: the see-through bird, name tag, WILD tag, crash puff, on a second <code>GameSim</code></td><td>Fed by the <code>ReplayDriver</code> from a checked run, stepped with your own tick</td><td>Fed by <code>services/duel_link.gd</code> with the jitter buffer</td></tr>
-      <tr><td><b>Screens</b></td><td>Opponent picker (code, link, random), round intro, in-round HUD (both scores, round dots), round result, match result with rematch</td><td>Battle list, your-turn states, submit</td><td>Live countdown, reconnecting</td></tr>
+      <tr><td><b>Screens</b></td><td>Opponent picker (code, link, random), round intro, in-round HUD (both scores, round dots), round result, match result with rematch</td><td>Battle list, your-turn states, submit, Resign and Close, Bot badge</td><td>Live countdown, reconnecting</td></tr>
       <tr><td><b>Services</b></td><td><code>MatchService</code>: create, join, invite codes</td><td><code>BattleService</code> (HTTP ops)</td><td><code>DuelLink</code> (WebSocket)</td></tr>
-      <tr><td><b>Server</b></td><td><code>battles</code>, <code>battle_rounds</code>, invite codes, hidden rating, push kinds, the Rust check</td><td>The ops, the deadline loop, the copied-taps check</td><td>The match actor, the clock check</td></tr>
+      <tr><td><b>Server</b></td><td><code>battles</code>, <code>battle_rounds</code>, invite codes, hidden rating, push kinds, the Rust check</td><td>The ops, the reminder loop, the bot worker, the copied-taps check</td><td>The match actor, the clock check</td></tr>
     </tbody>
   </table>
   </div>
@@ -826,11 +831,12 @@ svg.diag .ink { stroke: var(--ink); }
     <thead><tr><th>Ending</th><th>Winner</th><th>Loser</th></tr></thead>
     <tbody>
       <tr><td>Played out (6 wins; Duel 2)</td><td><span class="lvl good">a win</span></td><td>a loss</td></tr>
-      <tr><td>Opponent leaves after round 3 (Battle) or round 1 (Duel)</td><td><span class="lvl good">a win</span></td><td>a loss</td></tr>
-      <tr><td>A forfeit before that</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
-      <tr><td>Timeout: two missed turns, or the 14-day cap with a lead</td><td><span class="lvl good">a win</span></td><td>a loss, marked timeout in their record</td></tr>
-      <tr><td>Draw: 13 rounds level, or the cap level</td><td><span class="lvl mid">a draw</span></td><td>a draw</td></tr>
-      <tr><td>Duel ended by a server restart; a random battle nobody joined</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
+      <tr><td>Resign from round 3 on (Battle); leaving a Duel after round 1</td><td><span class="lvl good">a win</span></td><td>a loss, marked "resigned"</td></tr>
+      <tr><td>Resign before round 3; leaving a Duel in round 1</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
+      <tr><td>Closed after 7 days without a move</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
+      <tr><td>Against a bot</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
+      <tr><td>Draw: 13 rounds level</td><td><span class="lvl mid">a draw</span></td><td>a draw</td></tr>
+      <tr><td>Duel ended by a server restart</td><td><span class="lvl bad">not counted</span></td><td>not counted</td></tr>
     </tbody>
   </table>
   </div>
@@ -847,24 +853,118 @@ svg.diag .ink { stroke: var(--ink); }
   </div>
 </section>
 
+<section id="bots">
+  <h2>6. Bots kickstart Battle</h2>
+  <p>With few players a random battle waits a long time for a person. Your idea: let the beast-mode bots play Battle turns from the server first, then match active players to each other automatically, and phase the bots out once there are enough players.</p>
+
+  <div class="cards">
+    <div class="card"><h3>The bot</h3><ul>
+      <li>The FastSim-RS human-model bot: <code>BlindPlanner</code> plus a measured human motor model (<code>docs/HUMAN_BOT.md</code>)</li>
+      <li><b>Screen-only sight</b>: it plans on a copy of the sim with the hidden values (next wall, spawns, hidden exits) replaced; the FastSim <code>sight</code> check keeps it honest</li>
+      <li><b>Human limits</b>: the game's 100 ms tap gap, the 8-tick thumb gap, tap timing error, a reaction time to new spikes and tells</li>
+      <li>Plays the seed on its own and never reads your run, so it can't copy</li>
+    </ul></div>
+    <div class="card"><h3>Skill matched to you</h3><ul>
+      <li>Five anchors: beginner 30, normal 60, good 120, expert 250, beast 500+ median points; tap spread and reaction time interpolated between them</li>
+      <li>Level picked from your hidden Battle rating so it wins about half the rounds</li>
+      <li>Moves after every battle: a bot that won 6-1 plays a notch weaker next time</li>
+      <li>Answers 2 to 30 minutes after your turn, never hours</li>
+    </ul></div>
+    <div class="card"><h3>Never misleading</h3><ul>
+      <li>A <b>BOT</b> pill beside its name everywhere: "Flapbot · Good"</li>
+      <li>New battle says: "Random rival: a player, or a bot when no one is free"</li>
+      <li>Free starter looks only</li>
+      <li><b>Bot matches never count</b> on the wins boards; they show in your record as "vs bot". Coins still go to gold. Your hidden rating moves at half weight</li>
+    </ul></div>
+  </div>
+
+  <div class="screens">
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="body" style="padding-top:60px">
+        <div class="center-h">Round 3</div>
+        <div class="mscore big">You 1 – 1 Flapbot</div>
+        <div class="plate"><span class="bird big rival" style="opacity:1"></span><div><div class="nm">Flapbot <span class="botpill">BOT</span></div><small>Level: Good · plays like a person, sees only the screen</small></div></div>
+        <div class="card-fj" style="text-align:center">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--fj-muted)">Flapbot scored</div>
+          <div class="center-h" style="font-size:56px;line-height:56px">41</div>
+          <p>Bot battles don't count on the wins boards.</p>
+        </div>
+        <div class="btn primary">Play round 3</div>
+      </div>
+    </div></div><figcaption><b>K1 · Round intro against a bot</b>The BOT pill, its level, and that it doesn't count on the boards.</figcaption></figure>
+
+    <figure class="shot"><div class="frame"><div class="phone">
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="h">Battle with Sam</div>
+        <p style="font-size:14px;font-weight:600;color:var(--fj-muted);margin:0">Sam's turn · no move for 8 days · You 2 – 1 Sam</p>
+        <div class="btn secondary">Nudge Sam</div>
+        <div class="btn secondary">Close, no result</div>
+        <div class="timer" style="text-align:left">Ends for both; counts for nobody. Possible after 7 days waiting.</div>
+        <div class="btn danger">Resign</div>
+        <div class="timer" style="text-align:left">Sam wins. From round 3 on it counts as your loss.</div>
+      </div>
+    </div></div><figcaption><b>K2 · The battle menu</b>Nudge, Close (no result) after 7 days waiting, Resign with its rule 12 effect spelled out.</figcaption></figure>
+  </div>
+
+  <h3>Three phases</h3>
+  <div class="cards">
+    <div class="card pick"><span class="pick-label">a · bots kickstart</span><h3>Bots fill random battles</h3><p class="note">Every random battle no person takes within <b>10 minutes</b> gets a bot. A player with no battle open sees "Start a battle" on Home; the bot answers within minutes.</p></div>
+    <div class="card"><span class="pick-label">b · auto-matchmaking</span><h3>Players who play get battles</h3><p class="note">After a Classic run or an app open, a player with <b>Auto battles</b> on (Settings, on by default) and fewer than 3 auto battles open gets a waiting random battle of a person near their rating: "New battle from Jun, your turn". People first; a bot only when no person is found in the wait time.</p></div>
+    <div class="card"><span class="pick-label">c · bots out</span><h3>The bot wait grows</h3><p class="note">10 minutes, then 2 hours, then 12 hours, then bots stop filling random battles. Open bot battles finish normally. "Play a bot" can stay in New battle as practice. The wait is <code>bot_wait_s</code> in <code>ping</code>, set by an admin op, so it needs no update.</p></div>
+  </div>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Battle players a day</th><th>Bot wait</th><th>Watch</th></tr></thead>
+    <tbody>
+      <tr><td>under 100</td><td>10 min</td><td>share of random battles a person answered within 2 h</td></tr>
+      <tr><td>100 to 500</td><td>2 h</td><td>plus the median wait for a person</td></tr>
+      <tr><td>500 to 2000</td><td>12 h</td><td></td></tr>
+      <tr><td>over 2000, and 90% answered by a person within 2 h for 2 weeks</td><td>bots off</td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Starting guesses; tune them on real numbers.</p>
+
+  <h3>Where the bots run</h3>
+  <div class="scroll">
+  <table class="mid">
+    <thead><tr><th>Option</th><th>For</th><th>Against</th></tr></thead>
+    <tbody>
+      <tr><td><b>In the server process</b> (a tokio task)</td><td>No new pod</td><td>A bot turn is seconds of CPU, competing with requests and the run check on the same pod</td></tr>
+      <tr class="pick"><td><span class="pick-label">Recommended</span><br/><b>A separate <code>battle-bot</code> worker pod</b></td><td>Its own CPU and memory limits; scale to 0 or stop in phase c without touching the server; crashes stay apart</td><td>One more image and Deployment</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>The worker</h3><p class="note">A small Rust binary on the <code>fastsim</code> crate (human module and sim), polling a <code>bot_turns</code> queue (<code>FOR UPDATE SKIP LOCKED</code>) and submitting through the same database functions as a player. One replica, CPU limit 500m, memory limit 128 MB (beam copies of the sim are about 1 KB each).</p></div>
+    <div class="card"><h3>CPU per turn</h3><p class="note">The BlindPlanner runs about 14,000 ticks/s on 4 threads of a Ryzen 9 9950X, so about 3,500 a core; a VM core is taken as half, about 1,700 ticks/s.</p><ul>
+      <li>Typical round (score about 30, 2,700 ticks): <b>about 1.6 s</b></li>
+      <li>A 4-minute round (14,400 ticks): <b>about 8.5 s</b></li>
+      <li>A bot turn (two runs): <b>3 to 17 s</b>; expert and beast use the fine search (about 3.6x) and sit at the top</li>
+      <li>At 500m: about 2,500 to 14,000 bot turns a day, far more than phase a needs</li>
+    </ul></div>
+  </div>
+</section>
+
 <section id="diagrams">
-  <h2>6. Diagrams</h2>
+  <h2>7. Diagrams</h2>
   <h3>Battle: states</h3>
   <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
   [*] --> Round1: A starts (friend or random), plays round 1
   Round1 --> Waiting: A submits
   Waiting --> TurnB: friend joins code / random player matched
-  Waiting --> Closed: nobody in 48 h
+  Waiting --> TurnB: no person in the bot wait: a bot takes it
   TurnB --> TurnA: B answers, opens the next round
   TurnA --> TurnB: A answers, opens the next round
   TurnB --> Finished: someone has 6 wins
   TurnA --> Finished: someone has 6 wins
-  TurnB --> TurnA: 24 h passed, both rounds of the turn lost
-  TurnA --> TurnB: 24 h passed, both rounds of the turn lost
-  TurnA --> Finished: 2nd miss in a row / forfeit / 14 days
-  TurnB --> Finished: 2nd miss in a row / forfeit / 14 days
-  Finished --> Round1: rematch, first player swapped
+  TurnA --> Finished: resign
+  TurnB --> Finished: resign
+  TurnA --> Closed: closed after 7 days waiting, no result
+  TurnB --> Closed: closed after 7 days waiting, no result
+  Finished --> Round1: rematch, the asker opens round 1
   Finished --> [*]
   Closed --> [*]
   </pre></div>
@@ -890,10 +990,10 @@ sequenceDiagram
   B->>S: battle_submit(round 1, score 14)
   S-->>B: round 1 to Ada, 19 - 14
   B->>S: battle_start_run(round 2) and submit, score 27
-  S->>S: turn to Ada, deadline +24 h, push queued
+  S->>S: turn to Ada, push queued
   S->>F: "Mira scored 27 in round 2. Your turn!"
   F-->>A: push
-  Note over S: deadline loop every minute: reminders at 12 h and 2 h, misses, expiry
+  Note over S: reminder loop: nudges after 1 and 3 days, no deadlines
   </pre></div>
   <h3>Duel: match state machine</h3>
   <div class="diagram"><pre class="mermaid">
@@ -960,7 +1060,8 @@ flowchart LR
     T[Traefik] --> SRV[Rust server, axum]
     SRV --> OPS[battle_* ops, Postgres functions]
     SRV --> CHK[Rust check, Godot confirms rejections]
-    SRV --> DLP[deadline loop, every minute]
+    SRV --> DLP[reminder loop]
+    BOT[battle-bot worker pod: fastsim human bot] --> OPS
     SRV --> MA[Duel match actor: 2 Rust sims, clock check]
     OPS --> PG[(Postgres: battles, battle_rounds, runs)]
     DLP --> OUT[push outbox]
@@ -973,17 +1074,18 @@ flowchart LR
 </section>
 
 <section id="rollout">
-  <h2>7. Rollout</h2>
+  <h2>8. Rollout</h2>
   <div class="cards">
     <div class="card"><span class="pick-label">Step 1 · 3–4 days</span><h3>Mode picker</h3><ul>
       <li><code>GameMode</code> list, carousel, All modes, badges</li>
       <li>Classic and Daily Run as the first two cards</li>
       <li>Server: only <code>modes_off</code> in <code>ping</code></li>
     </ul></div>
-    <div class="card pick"><span class="pick-label">Step 2 · about 3.5 weeks</span><h3>Battle and its wins board</h3><ul>
-      <li>Server, 1 week plus 2–3 days for <code>match_results</code>, the wins board ops and counting rules: one migration (2 tables, 8 functions), deadline loop, push kinds and the <code>battles</code> channel, copied-taps check, App Links / Universal Links files, tests in <code>tools/backend_test.ps1</code></li>
+    <div class="card pick"><span class="pick-label">Step 2 · about 5 weeks</span><h3>Battle, its wins board and the bots</h3><ul>
+      <li>Server, 1 week plus 2–3 days for <code>match_results</code>, the wins board ops and counting rules: one migration (2 tables, 10 functions), reminder loop, push kinds and the <code>battles</code> channel, copied-taps check, App Links / Universal Links files, tests in <code>tools/backend_test.ps1</code></li>
       <li>Client, 1.5 weeks: <code>MatchRules</code>, <code>BattleService</code>, the rival view on the replay driver, battle list, flows, push deep links, the Home badge, the Scores | Wins switch</li>
-      <li>Tests, 0.5 week: rules fixtures shared with the server, a bot playing whole battles against a local server, deadline and expiry cases</li>
+      <li>Tests, 0.5 week: rules fixtures shared with the server, a bot playing whole battles against a local server, resign and close cases</li>
+      <li>Bots phase a, 1 week: the <code>battle-bot</code> worker, <code>bot_turns</code> queue, level matching, Bot badge, <code>bot_wait_s</code>; phase b, 3–4 days: auto battles and its switch; phase c is only numbers</li>
     </ul></div>
     <div class="card"><span class="pick-label" style="color:var(--rival)">Step 3 · 3.5–4 weeks</span><h3>Duel</h3><ul>
       <li>Rules, rival view, screens and tables carry over from Battle</li>
@@ -997,7 +1099,9 @@ flowchart LR
     <thead><tr><th>Risk</th><th>Level</th><th>What we do</th></tr></thead>
     <tbody>
       <tr><td>Few players for random matches</td><td><span class="lvl mid">Medium</span></td><td>Battle first: async needs far fewer players online. A random Duel falls back to a Battle</td></tr>
-      <tr><td>Turns forgotten, long battles stalling</td><td><span class="lvl mid">Medium</span></td><td>Reminders at 12 h and 2 h, the Home badge; a missed turn costs 2 rounds, two in a row end it; 14-day cap</td></tr>
+      <tr><td>Battles stalling (no timers)</td><td><span class="lvl mid">Medium</span></td><td>Nudges at 1 and 3 days, the Nudge button, the Home badge; Close after 7 days waiting; 20 slots</td></tr>
+      <tr><td>Players feel tricked by bots</td><td><span class="lvl mid">Medium</span></td><td>The BOT pill everywhere, the line in New battle, bot matches off the boards</td></tr>
+      <tr><td>Bot CPU on the shared VM</td><td><span class="lvl good">Low</span></td><td>Its own pod, 500m CPU limit, scale to 0 any time</td></tr>
       <tr><td>Win farming with friends or alt accounts</td><td><span class="lvl mid">Medium</span></td><td>Friend wins capped per opponent, tanking and alt-account rules, review queue</td></tr>
       <tr><td>Copied rival taps</td><td><span class="lvl mid">Medium</span></td><td>The copied-taps check</td></tr>
       <tr><td>An update in the middle of a battle</td><td><span class="lvl good">Low</span></td><td>The open round is dealt again on the new version</td></tr>
@@ -1011,21 +1115,27 @@ flowchart LR
 </section>
 
 <section id="questions">
+  <div class="card">
+    <h3>Decided</h3><ul>
+      <li>Battle is <b>first to 6</b> round wins.</li>
+      <li><b>The player who starts the battle opens round 1</b>, then the opener alternates; round 11 (at 5-5) is blind for both. The page assumed this already.</li>
+      <li><b>No battle timers</b>: no turn deadline, no match cap. Instead nudges, Resign, and Close (no result) after 7 days waiting.</li>
+      <li><b>At most 20 open battles</b> per player.</li>
+      <li>The rival is drawn <b>in their own skin, slightly see-through</b>; no new colour token.</li>
+      <li>As recommended: Duel round end at S + 1; coins to gold only, no diamonds; a hidden rating; the wins boards as shown; random matches count in full, friend wins at most 1 per opponent a week; a resign before round 3 counts for nobody, later as a win and a loss.</li>
+    </ul>
+  </div>
   <div class="qbox">
-    <h2>Open questions for you</h2>
+    <h2>Still open</h2>
     <ol class="questions">
-      <li><b>Mode picker</b>A carousel on Home with an All modes sheet (recommended), or tabs along the top?</li>
-      <li><b>Battle length</b>First to 6 round wins, ending as soon as it is decided (recommended), or 10 rounds always played with a round-11 tie-break?</li>
-      <li><b>Battle fairness</b>Alternate who opens each round and play round 11 blind (recommended), the ghost in every round, or always blind?</li>
-      <li><b>Battle timers</b>24 h a turn; a missed turn loses both rounds of that turn; two missed in a row end the match as a timeout; a 14-day cap (recommended)? Or 48 h turns with a 21-day cap?</li>
-      <li><b>Open battles</b>10 at once, at most 3 random ones waiting (recommended)?</li>
-      <li><b>Duel round end</b>Play until settled, where the survivor wins at S + 1 (recommended), or first crash loses?</li>
-      <li><b>Rewards</b>Coins to gold only, nothing for a win, no diamonds (recommended)? Diamond prizes on the weekly wins boards later?</li>
-      <li><b>Rating</b>Hidden, used only for random pairing (recommended), or shown to players?</li>
-      <li><b>Rival colour</b>A rival violet as a new UI token in the Design Kit (recommended), or opacity only in the rival's own look?</li>
-      <li><b>Wins boards</b>A Scores | Wins switch with Battle and Duel tabs and This week | All time, ranked by counted wins with the win rate shown (recommended)? Or a win-rate board?</li>
-      <li><b>Farming</b>Random matches count in full and friend matches at most 1 win per opponent a week (recommended), or only random matches count?</li>
-      <li><b>Forfeits and timeouts</b>A forfeit before round 3 counts for nobody; later forfeits and timeouts count as a win and a loss (recommended)?</li>
+      <li><b>Mode picker</b>A carousel on Home plus an All modes sheet (recommended), tabs along the top, or only an All modes sheet behind one button?</li>
+      <li><b>Close (no result)</b>Allowed after 7 days of waiting on the other player (recommended), or another number of days?</li>
+      <li><b>Bot badge</b>A BOT pill and the name "Flapbot · Good" (recommended), or another name?</li>
+      <li><b>Bot matches on the boards</b>Never counted (recommended)?</li>
+      <li><b>Bot wait</b>10 minutes in phase a, growing to 2 h and 12 h, bots off above 2000 Battle players a day (recommended starting numbers)?</li>
+      <li><b>Auto battles</b>On by default for active players, at most 3 open, a switch in Settings (recommended)?</li>
+      <li><b>"Play a bot" as practice</b>Keep it after bots stop filling random battles (recommended), or remove the bots fully?</li>
+      <li><b>Where bots run</b>A separate <code>battle-bot</code> pod with a 500m CPU limit (recommended), or inside the server process?</li>
     </ol>
   </div>
 </section>
