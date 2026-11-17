@@ -61,9 +61,11 @@ var _showing := 0
 var _notice := ""
 ## A run that wasn't sent yet: [battle, round, score, replay].
 var _unsent: Array = []
-## A sent run the server still checks: [battle, round]; the battle's next
-## answers say how its round went.
+## The round of the last run sent, until it is decided: [battle, round]; the
+## battle's answers say how it goes (Checking, Sent, then who won).
 var _checking: Array = []
+## The server still checks that run.
+var _check_pending := false
 ## One request at a time for a run's start, and the battle it is for.
 var _starting := false
 var _starting_view: BattleView
@@ -265,7 +267,7 @@ func _check_again(battle: int) -> void:
 		var screen := _menus.current() as BattleScreen
 		if screen == null or screen.view.id != battle:
 			return
-		if i > 0 and (_checking.is_empty() or int(_checking[0]) != battle):
+		if i > 0 and not _check_pending:
 			return
 		service.request_battle(battle)
 
@@ -303,6 +305,7 @@ func start_round(view: BattleView, number: int) -> void:
 	_starting = true
 	_starting_view = view
 	_checking = []
+	_check_pending = false
 	_showing = view.id
 	service.start_run(view.id, number)
 
@@ -466,7 +469,8 @@ func _on_battle(view: BattleView) -> void:
 		_unsent = []
 	if not _checking.is_empty() and int(_checking[0]) == view.id:
 		_notice = round_notice(view, int(_checking[1]))
-		if _notice != CHECKING:
+		_check_pending = _notice == CHECKING
+		if _notice != CHECKING and _notice != SENT % view.rival_label():
 			_checking = []
 	if view.lost:
 		_notice = "Your last run of this round was lost: it counts as 0."

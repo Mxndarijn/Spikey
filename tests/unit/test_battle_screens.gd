@@ -343,7 +343,7 @@ func test_after_a_round_only_the_battle_is_live() -> void:
 	SafeFile.remove(TEST_PATH)
 
 
-func test_the_notice_says_how_the_round_went_once_the_run_is_checked() -> void:
+func test_the_notice_follows_the_sent_round_to_its_result() -> void:
 	# The server still checks the run: the round has no result yet.
 	var checking := {
 		"battle": 12,
@@ -360,15 +360,22 @@ func test_the_notice_says_how_the_round_went_once_the_run_is_checked() -> void:
 	var screen := main._menus.current() as BattleScreen
 	var notice := screen.find_child("Notice", true, false) as Label
 	assert_eq(notice.text, BattleFlow.CHECKING)
+	# Checked, the rival's turn; then the rival played and won the round.
+	var sent := checking.duplicate(true)
+	sent.turn = "them"
+	var server := flow.service.client as FakeServer
+	server.answers["battle_get"] = {"ok": true, "code": 200, "data": sent}
+	flow.service.request_battle(12)
+	await _frames()
+	assert_eq(notice.text, BattleFlow.SENT % "Mira")
 	var done := checking.duplicate(true)
 	# As JSON has them: floats.
-	done.rounds = [{"number": 5, "my_score": 9.0, "their_score": 1.0, "winner": "me"}]
+	done.rounds = [{"number": 5, "my_score": 9.0, "their_score": 12.0, "winner": "them"}]
 	done.play = {"round": 6, "role": "open"}
-	var server := flow.service.client as FakeServer
 	server.answers["battle_get"] = {"ok": true, "code": 200, "data": done}
 	flow.service.request_battle(12)
 	await _frames()
-	assert_eq(notice.text, "You win round 5 · 9–1", "the checked round's result replaces Checking")
+	assert_eq(notice.text, "Mira wins round 5 · 9–12", "the round's result replaces Sent")
 	main.free()
 	SafeFile.remove(TEST_PATH)
 
