@@ -260,9 +260,7 @@ func test_a_restored_device_key_can_sign_in() -> void:
 func test_no_answer_never_makes_a_new_player() -> void:
 	_clean()
 	SafeFile.write_json(SESSION, {"access_token": "a", "refresh_token": "r", "expires_at": 1})
-	SafeFile.write_json(
-		DEVICE, {"key": BackendClient.new_device_key(), "player": "p1"}
-	)
+	SafeFile.write_json(DEVICE, {"key": BackendClient.new_device_key(), "player": "p1"})
 	var api := _api()
 	api.restore()
 	assert_false(await api.ensure_session())
