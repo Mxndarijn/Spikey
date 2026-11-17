@@ -42,8 +42,9 @@ signal replay_again_pressed
 signal replay_back_pressed
 
 const TOAST_SECONDS := 1.2
-## The toast's top edge (under the score and Home's corners) and widest line.
-const TOAST_TOP := 124.0
+## The toast's bottom edge: just above the round main button, clear of the
+## titles and tab bars at the top and the score in a run; and its widest line.
+const TOAST_BOTTOM := UiKit.ACTION_TOP - UiTokens.SPACE_3
 const TOAST_MAX_W := 300.0
 const TOAST_LAYER := 3
 ## The run's coin counter (top right); lower in a replay, under its chip.
@@ -167,7 +168,8 @@ func _ready() -> void:
 	_toast.anchor_left = 0.5
 	_toast.anchor_right = 0.5
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.offset_top = TOAST_TOP
+	_toast.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_toast.offset_top = TOAST_BOTTOM
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.visible = false
 	_toast_layer.name = "Toasts"
@@ -563,7 +565,8 @@ func show_toast(text: String) -> void:
 		_toast.custom_minimum_size = Vector2(TOAST_MAX_W, 0)
 	_toast.offset_left = 0
 	_toast.offset_right = 0
-	_toast.offset_bottom = TOAST_TOP
+	_toast.offset_top = TOAST_BOTTOM
+	_toast.offset_bottom = TOAST_BOTTOM
 	_toast.visible = true
 	_toast.modulate.a = 1.0
 	if _toast_tween != null:
