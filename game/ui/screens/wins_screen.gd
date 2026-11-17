@@ -27,7 +27,7 @@ const MODE_NAMES: Array[String] = ["Battle", "Duel"]
 const PERIODS: Array[String] = ["week", "all"]
 const PERIOD_NAMES: Array[String] = ["This week", "All time"]
 const LOADING := "Loading the board"
-const EMPTY := "No counted wins yet. Win a battle to be the first."
+const EMPTY := "No counted wins yet. Win one to be the first."
 
 var mode := "battle"
 var period := "week"
@@ -38,10 +38,15 @@ var _tabs: Array[Button] = []
 var _periods: Array[Button] = []
 var _board := {}
 var _record: Control
+## The boards shown: Duel only while Battle is paused (GameModes.battle_enabled).
+var _modes: Array[String] = []
 
 
 func _init(p_mode: String = "battle", p_period: String = "week") -> void:
-	mode = p_mode if p_mode in MODES else "battle"
+	_modes = MODES.duplicate()
+	if not GameModes.battle_enabled:
+		_modes.erase("battle")
+	mode = p_mode if p_mode in _modes else _modes[0]
 	period = p_period if p_period in PERIODS else "week"
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -63,7 +68,10 @@ func _ready() -> void:
 	var switch := BoardSwitch.new(BoardSwitch.WINS)
 	switch.picked.connect(func(_i: int) -> void: scores_pressed.emit())
 	col.add_child(UiKit.header(TITLE, closed.emit, switch))
-	col.add_child(_strip(MODE_NAMES, _tabs, _pick_mode))
+	var names: Array[String] = []
+	for m in _modes:
+		names.append(MODE_NAMES[MODES.find(m)])
+	col.add_child(_strip(names, _tabs, _pick_mode))
 	# The period is the smaller choice: a short pill under the mode's bar.
 	var periods := _strip(PERIOD_NAMES, _periods, _pick_period)
 	periods.name = "Periods"
@@ -121,7 +129,7 @@ func _strip(names: Array[String], into: Array[Button], pick: Callable) -> PanelC
 
 
 func _pick_mode(i: int) -> void:
-	mode = MODES[i]
+	mode = _modes[i]
 	_select()
 
 
@@ -132,7 +140,7 @@ func _pick_period(i: int) -> void:
 
 ## Shows the chosen tabs, loading, and asks for the board.
 func _select() -> void:
-	_tabs[MODES.find(mode)].button_pressed = true
+	_tabs[_modes.find(mode)].button_pressed = true
 	_periods[PERIODS.find(period)].button_pressed = true
 	_clear()
 	_pinned.visible = false

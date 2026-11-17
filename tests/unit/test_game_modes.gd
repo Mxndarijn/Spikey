@@ -5,6 +5,11 @@ extends TestCase
 const TEST_PATH := "user://test_game_modes_profile.json"
 
 
+## Battle is paused in the app; these tests turn it on.
+func _init() -> void:
+	GameModes.battle_enabled = true
+
+
 func _home(p: Profile = null) -> HomeScreen:
 	var prof := p if p != null else Profile.new()
 	var home := HomeScreen.new(prof, AppServices.offline(prof))

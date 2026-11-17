@@ -34,6 +34,10 @@ pub struct Config {
     pub apple_app_id: String,
     /// The App Store id once the app is listed (APP_STORE_ID); empty: a store search.
     pub app_store_id: String,
+    /// Battle is paused (BATTLE_PAUSED, on unless "0" or "false"): no new
+    /// battles (create, join, rematch), no nudges, no battle alerts sent.
+    /// Running battles can still be played, resigned and closed.
+    pub battle_paused: bool,
 }
 
 impl Config {
@@ -53,6 +57,7 @@ impl Config {
             android_cert_sha256: certs(&env::var("ANDROID_CERT_SHA256").unwrap_or_default()),
             apple_app_id: apple_app_id(&env::var("APPLE_APP_ID").unwrap_or_default()),
             app_store_id: env::var("APP_STORE_ID").unwrap_or_default().trim().to_string(),
+            battle_paused: env::var("BATTLE_PAUSED").map(|v| v != "0" && v != "false").unwrap_or(true),
         })
     }
 
@@ -72,6 +77,7 @@ impl Config {
             android_cert_sha256: Vec::new(),
             apple_app_id: String::new(),
             app_store_id: String::new(),
+            battle_paused: false,
         }
     }
 }

@@ -47,6 +47,7 @@ func _holder(c: Control) -> Control:
 
 
 func test_the_duel_screen_in_each_state() -> void:
+	GameModes.battle_enabled = true
 	var screen := DuelScreen.new()
 	var holder := _holder(screen)
 	assert_eq(screen.state, DuelScreen.State.START)

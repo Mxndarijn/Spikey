@@ -64,7 +64,7 @@ async fn main() {
         if let Err(e) = push::register_sender(&pool).await {
             tracing::warn!("couldn't register the push sender: {e}");
         }
-        spawn_push(pool.clone(), account, config.push_every_s);
+        spawn_push(pool.clone(), account, config.push_every_s, config.battle_paused);
     } else {
         tracing::warn!("no FIREBASE_SERVICE_ACCOUNT: board and battle alerts are not sent");
     }
@@ -113,11 +113,11 @@ fn spawn_battles(pool: sqlx::PgPool) {
     });
 }
 
-fn spawn_push(pool: sqlx::PgPool, account: push::Account, every_s: u64) {
+fn spawn_push(pool: sqlx::PgPool, account: push::Account, every_s: u64, battle_paused: bool) {
     tokio::spawn(async move {
         let http = reqwest::Client::new();
         loop {
-            match push::round(&pool, &http, &account).await {
+            match push::round(&pool, &http, &account, battle_paused).await {
                 Ok((0, 0)) => {}
                 Ok((sent, failed)) => tracing::info!("push alerts: {sent} sent, {failed} failed"),
                 Err(e) => tracing::warn!("push round failed: {e}"),

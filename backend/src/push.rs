@@ -105,20 +105,41 @@ async fn access_token(http: &reqwest::Client, account: &Account) -> Result<Strin
     data["access_token"].as_str().map(str::to_string).ok_or_else(|| "Google sent no access token".into())
 }
 
+/// While Battle is paused its alerts are never sent (marked failed, so they don't wait).
+pub fn held(alert: &Value, battle_paused: bool) -> bool {
+    battle_paused && alert["line"] == "battle"
+}
+
 /// One sender round: (sent, failed).
-pub async fn round(pool: &PgPool, http: &reqwest::Client, account: &Account) -> Result<(usize, usize), String> {
+pub async fn round(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    account: &Account,
+    battle_paused: bool,
+) -> Result<(usize, usize), String> {
     let pending: Value = sqlx::query_scalar("select public.worker_pending_alerts($1)")
         .bind(BATCH)
         .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
-    let alerts = pending.as_array().cloned().unwrap_or_default();
+    let all = pending.as_array().cloned().unwrap_or_default();
+    let mut results = vec![];
+    let mut alerts = vec![];
+    for alert in all {
+        if held(&alert, battle_paused) {
+            results.push(json!({"id": alert["id"], "status": "failed"}));
+        } else {
+            alerts.push(alert);
+        }
+    }
     if alerts.is_empty() {
+        if !results.is_empty() {
+            mark(pool, results).await?;
+        }
         return Ok((0, 0));
     }
     let token = access_token(http, account).await?;
     let url = format!("https://fcm.googleapis.com/v1/projects/{}/messages:send", account.project_id);
-    let mut results = vec![];
     let (mut sent, mut failed) = (0, 0);
     for alert in &alerts {
         let res = http.post(&url).bearer_auth(&token).json(&message(alert)).send().await;
@@ -147,12 +168,17 @@ pub async fn round(pool: &PgPool, http: &reqwest::Client, account: &Account) -> 
             }
         }
     }
+    mark(pool, results).await?;
+    Ok((sent, failed))
+}
+
+async fn mark(pool: &PgPool, results: Vec<Value>) -> Result<(), String> {
     sqlx::query("select public.worker_mark_alerts($1)")
         .bind(Value::Array(results))
         .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
-    Ok((sent, failed))
+    Ok(())
 }
 
 /// send_test_push queues only when the database knows a sender
@@ -195,6 +221,15 @@ mod tests {
             "details": [{"@type": "x", "errorCode": "THIRD_PARTY_AUTH_ERROR"}]}});
         assert_eq!(failure_reason(401, &body), "401 INVALID_ARGUMENT THIRD_PARTY_AUTH_ERROR");
         assert_eq!(failure_reason(500, &Value::Null), "500");
+    }
+
+    #[test]
+    fn battle_alerts_wait_out_the_pause() {
+        let battle = json!({"id": -3, "line": "battle"});
+        let board = json!({"id": 4, "line": "board"});
+        assert!(held(&battle, true));
+        assert!(!held(&battle, false));
+        assert!(!held(&board, true));
     }
 
     #[test]

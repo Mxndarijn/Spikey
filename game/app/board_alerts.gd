@@ -75,7 +75,8 @@ func on_settings_changed() -> void:
 ## A battle loaded (made, joined or opened): the moment your-turn alerts mean
 ## something, so ask for permission if it never was.
 func on_battle() -> void:
-	_ask()
+	if GameModes.battle_enabled:
+		_ask()
 
 
 ## Asks for notification permission once, at the moment it means something:

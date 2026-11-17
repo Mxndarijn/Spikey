@@ -2,6 +2,11 @@ extends ScreenFitCase
 ## Battle's screens and the wins boards fit the narrowest phone (360 x 640).
 
 
+## Battle is paused in the app; these tests turn it on.
+func _init() -> void:
+	GameModes.battle_enabled = true
+
+
 func _view(status: String, turn: String) -> BattleView:
 	return (
 		BattleView

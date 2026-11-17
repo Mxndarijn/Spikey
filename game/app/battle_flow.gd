@@ -127,7 +127,9 @@ func open_push(data: Dictionary) -> void:
 	match str(data.get("kind", "")):
 		"battle_alert":
 			var id := str(data.get("battle", "")).to_int()
-			if id > 0:
+			if not GameModes.battle_enabled:
+				home()
+			elif id > 0:
 				open_battle(id)
 			else:
 				open()
@@ -152,6 +154,9 @@ func open_link(url: String) -> void:
 	var code := parts[parts.size() - 1].to_upper()
 	match parts[parts.size() - 2]:
 		"battle":
+			if not GameModes.battle_enabled:
+				home()
+				return
 			_showing = -1
 			open()
 			service.join(code)
@@ -160,7 +165,9 @@ func open_link(url: String) -> void:
 
 
 ## The wins boards (Leaderboards, Wins).
-func open_wins(mode: String = "battle", period: String = "week") -> WinsScreen:
+func open_wins(mode: String = "", period: String = "week") -> WinsScreen:
+	if mode.is_empty():
+		mode = "battle" if GameModes.battle_enabled else "duel"
 	var screen := WinsScreen.new(mode, period)
 	screen.closed.connect(func() -> void: _home.call())
 	screen.scores_pressed.connect(
@@ -211,7 +218,8 @@ func open() -> BattleListScreen:
 
 
 func refresh() -> void:
-	service.request_list()
+	if GameModes.battle_enabled:
+		service.request_list()
 
 
 ## New battle over the list.

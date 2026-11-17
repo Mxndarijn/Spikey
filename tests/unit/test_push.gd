@@ -197,6 +197,7 @@ func test_android_registers_before_any_prompt() -> void:
 
 
 func test_a_battle_asks_for_permission_once() -> void:
+	GameModes.battle_enabled = true
 	var push := FakePush.new()
 	var main := _make_main(push)
 	var view := BattleView.parse({"battle": 3, "status": "open"})

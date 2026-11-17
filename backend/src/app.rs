@@ -80,6 +80,10 @@ pub async fn note_ip(pool: &PgPool, player: uuid::Uuid, ip: &str) {
     }
 }
 
+/// What Battle's pause refuses (config.battle_paused): anything that starts a
+/// battle or sends an alert. The rest goes on, so battles already running end.
+pub const PAUSED_OPS: [&str; 4] = ["battle_create", "battle_join", "battle_rematch", "battle_nudge"];
+
 /// Battle runs only on the newest gameplay version: a phone says its own in
 /// X-Flapjaw-Gameplay; an older one (or none) is told update_required.
 pub fn check_gameplay(op: &str, headers: &HeaderMap) -> ApiResult<()> {
@@ -213,6 +217,9 @@ async fn operation(
     auth::check_version(&headers, s.config.min_api_version)?;
     let op = rpc::find(&name).ok_or_else(|| ApiError::not_found(format!("no operation {name}")))?;
     check_gameplay(&name, &headers)?;
+    if s.config.battle_paused && PAUSED_OPS.contains(&name.as_str()) {
+        return Err(crate::error::battle_paused());
+    }
     let player = auth::player_of(&s.pool, &headers).await?;
     if name.starts_with("battle_") {
         // The wins boards' shared-IP rule (only a salted hash is kept).

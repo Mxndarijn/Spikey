@@ -75,6 +75,13 @@ pub const UPDATE_REQUIRED: &str = "update_required";
 
 /// 409 for a phone on an older gameplay version than the server's, in Battle
 /// and Duel (Classic and the Daily Run go on working).
+/// What a phone that still shows Battle hears while it is paused.
+pub const PAUSED: &str = "paused";
+
+pub fn battle_paused() -> ApiError {
+    ApiError::new(StatusCode::CONFLICT, PAUSED, "Battles are paused for now. Try a Duel!")
+}
+
 pub fn update_required() -> ApiError {
     ApiError::new(StatusCode::CONFLICT, UPDATE_REQUIRED, "Update the game to play Battle and Duel")
 }

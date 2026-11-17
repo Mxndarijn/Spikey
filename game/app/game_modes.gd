@@ -16,6 +16,11 @@ const UPDATE := "Update"
 const UPDATE_LINE := "Update to play"
 ## The modes that need this phone on the server's gameplay version.
 const LATEST_ONLY: Array[String] = [BATTLE, DUEL]
+## Battle is paused (the user, 2026-11-17): hidden everywhere in the app (its
+## Home tab, the Battles screens, battle pushes and links, the Wins boards'
+## Battle tab, the Duel's "a Battle instead", its permission prompt). Its code
+## and the server's tables stay; tests that need it turn battle_enabled on.
+const BATTLE_ENABLED := false
 
 
 ## One mode: what its tab shows.
@@ -52,14 +57,25 @@ class Mode:
 
 
 static var _all: Array[Mode] = []
+## BATTLE_ENABLED, switchable for tests (tests/run_tests.gd resets it per test).
+static var battle_enabled := BATTLE_ENABLED
 ## The server's gameplay version (0: not known yet), from its ping.
 static var server_version := 0
 ## Counts changes of server_version, so Home redraws its tabs once.
 static var changes := 0
 
 
-## Every mode in tab order; Classic is first and the default.
+## Every mode in tab order (Battle only while enabled); Classic is first and
+## the default.
 static func all() -> Array[Mode]:
+	var out: Array[Mode] = []
+	for m in _every():
+		if m.id != BATTLE or battle_enabled:
+			out.append(m)
+	return out
+
+
+static func _every() -> Array[Mode]:
 	if _all.is_empty():
 		_all = [
 			Mode.new(

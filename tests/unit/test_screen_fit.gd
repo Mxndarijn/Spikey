@@ -243,6 +243,7 @@ func test_home_wordmark_fits_the_width() -> void:
 ## buttons on. It still fits the narrowest phone, and every badge stays on the
 ## screen and off its neighbour tab's name.
 func test_home_fits_at_its_fullest() -> void:
+	GameModes.battle_enabled = true
 	var p := _profile()
 	p.coins = 987654
 	p.diamonds = 99999

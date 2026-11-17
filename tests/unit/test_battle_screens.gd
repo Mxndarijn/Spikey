@@ -6,6 +6,11 @@ extends TestCase
 const TEST_PATH := "user://test_battle_profile.json"
 
 
+## Battle is paused in the app; these tests turn it on.
+func _init() -> void:
+	GameModes.battle_enabled = true
+
+
 ## The server as canned answers per operation; remembers what was sent.
 class FakeServer:
 	extends FlapjawClient

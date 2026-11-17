@@ -119,7 +119,8 @@ func _process(delta: float) -> void:
 		return
 	_finding_s += delta
 	_big.text = "%d:%02d" % [int(_finding_s) / 60, int(_finding_s) % 60]
-	_b.visible = _finding_s >= BATTLE_AFTER_S
+	# No Battle to offer while it is paused (GameModes.battle_enabled).
+	_b.visible = _finding_s >= BATTLE_AFTER_S and GameModes.battle_enabled
 
 
 func _show(title: String, big: String, body: String, a: String, b: String, code_row: bool) -> void:

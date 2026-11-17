@@ -13,6 +13,25 @@ behind `POST /v1/<op>` (listed in `backend/src/rpc.rs`), runs are checked by the
 Rust sim with headless Godot confirming rejections, and push alerts go out
 through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
 
+## Battle is paused (2026-11-17)
+
+The user paused Battle ("we will pick it up another time"); Duel goes on.
+
+- **App:** `GameModes.BATTLE_ENABLED = false` hides it everywhere: Home's mode
+  tabs (GameModes.all() leaves it out; a saved Battle tab opens Classic), the
+  Battles screens, battle pushes and links (they open Home), the Wins boards'
+  Battle tab (Duel only), the Duel's "Play a Battle instead", and the battle
+  permission prompt. The code and its tests stay: tests that need Battle set
+  `GameModes.battle_enabled = true` (tests/run_tests.gd resets it per test).
+- **Server:** `BATTLE_PAUSED` (on unless "0"/"false") refuses battle_create,
+  battle_join, battle_rematch and battle_nudge with `paused` ("Battles are
+  paused for now. Try a Duel!"), and the push sender marks battle alerts failed
+  instead of sending them. `0118_battle_paused.sql` sets the bot wait to -1, so
+  no bot takes a new random battle. Battles already running can still be
+  played, resigned and closed, so phones that show Battle (v0.1.4) keep working.
+- **To resume:** BATTLE_ENABLED true, BATTLE_PAUSED=false,
+  `select public.worker_set_bot_wait(600)`.
+
 ## Built so far
 
 - **Mode picker** (Home's mode tabs): `game/app/game_modes.gd`,

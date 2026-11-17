@@ -81,6 +81,7 @@ func test_android_opens_both_link_kinds_once_verified() -> void:
 
 
 func test_a_duel_link_joins_once_the_server_greets() -> void:
+	GameModes.battle_enabled = true
 	SafeFile.remove(TEST_PATH)
 	var main := _main()
 	await _tree().process_frame

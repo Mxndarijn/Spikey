@@ -259,3 +259,20 @@ async fn a_new_version_replays_the_undecided_round_from_its_opener() {
     assert_eq!(still as i64, V + 1);
     let _ = again;
 }
+
+#[tokio::test]
+async fn while_battle_is_paused_no_battle_starts_and_running_ones_go_on() {
+    let Some((app, pool)) = setup().await else { return };
+    let mut config = Config::for_tests(&std::env::var("DATABASE_URL").unwrap());
+    config.battle_paused = true;
+    let state = Arc::new(AppState { pool, config, limits: Limits::new(), new_run: Arc::new(Notify::new()) });
+    let paused = router(state).layer(MockConnectInfo(SocketAddr::from(([10, 0, 0, 5], 1234))));
+    let (_, t) = player(&app).await;
+    for op in flapjaw_server::app::PAUSED_OPS {
+        let (status, v) = call_as(&paused, op, &t, Some(V), json!({})).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{op}: {v}");
+        assert_eq!(v["error"], json!("paused"), "{op}");
+    }
+    let (status, v) = call_as(&paused, "battle_list", &t, Some(V), json!({})).await;
+    assert_eq!(status, StatusCode::OK, "the battles already running stay reachable: {v}");
+}

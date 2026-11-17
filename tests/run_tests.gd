@@ -244,6 +244,8 @@ func _run_unit(unit: Unit) -> void:
 
 
 func _run_test(script: GDScript, path: String, test_name: String, part: int, parts: int) -> void:
+	# Each test starts with the app's own feature flags (a Battle test turns it on).
+	GameModes.battle_enabled = GameModes.BATTLE_ENABLED
 	var instance: TestCase = script.new()
 	var errors_before := _counter.count
 	# Awaiting lets a test wait for frames (e.g. to run _draw); plain tests return at once.
