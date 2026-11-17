@@ -57,6 +57,7 @@ fn main() {
         "check" => checks::run(&rest[1..], &opts),
         "human" => human::run(&rest[1..], &opts),
         "battlebot" => human::battle_bot::run(&opts),
+        "battlebot-calibrate" => human::battle_bot::calibrate(&opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),
         "measure" => measure::run(&rest[1..], &opts),
         "search" | "searchruns" | "rooms" | "runs" | "reaction" | "odds" | "scan" => modes::run(mode, &rest[1..], &opts),
