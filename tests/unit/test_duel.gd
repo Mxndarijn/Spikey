@@ -168,6 +168,16 @@ func test_a_round_in_the_app_from_countdown_to_result() -> void:
 	assert_eq(screen.title_text(), "Mira wins round 1")
 	assert_true(main._battle.playing == null, "no round in play")
 	assert_false(main._hud.no_pause, "pause is back outside a Duel round")
+	# Between rounds a tap through the screen, or Game over's Again, plays nothing.
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	main._unhandled_input(click)
+	main._hud.play_again_pressed.emit()
+	main._unhandled_input(click)
+	main._run.advance()
+	assert_false(main._run.is_running(), "no run starts beneath the Duel screen")
+	assert_false(main._hud.game_over.visible, "Game over is gone under it")
 	flow.on_message({"t": "match_over", "winner": "them", "ended_by": "played", "wins": [0, 2]})
 	screen = main._menus.current() as DuelScreen
 	assert_eq(screen.state, DuelScreen.State.RESULT)

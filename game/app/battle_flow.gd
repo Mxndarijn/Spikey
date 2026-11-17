@@ -35,6 +35,8 @@ var playing: Round
 var service: BattleService
 ## show_leaderboard(): the score boards (the wins boards' Scores switch).
 var scores: Callable
+## Main leaves play for the menus (a round's run handed over to a screen).
+var to_menus: Callable
 ## Duel, which plays its rounds through this flow's run path.
 var duel: DuelFlow
 ## What the phone opened the game with (a tapped push, a link).
@@ -362,6 +364,7 @@ func end_external() -> void:
 	if playing != null and playing.finish.is_valid():
 		playing = null
 		_drop_ghost()
+		_menus_now()
 
 
 ## The app is still there (a timer may end after the game closed, or after a
@@ -399,7 +402,8 @@ func finished(replay: Replay) -> void:
 	var tree := _world.get_tree() if _world != null and _world.is_inside_tree() else null
 	if tree != null:
 		await tree.create_timer(AFTER_CRASH_S).timeout
-	if not alive():
+	# Again or Home may have left the round already.
+	if not alive() or playing != r:
 		return
 	_leave_run(r.battle)
 
@@ -407,7 +411,13 @@ func finished(replay: Replay) -> void:
 func _leave_run(battle: int) -> void:
 	playing = null
 	_drop_ghost()
+	_menus_now()
 	open_battle(battle)
+
+
+func _menus_now() -> void:
+	if to_menus.is_valid():
+		to_menus.call()
 
 
 ## The battle's screen at once (Game over's corner while a round ended).

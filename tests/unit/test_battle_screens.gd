@@ -280,6 +280,88 @@ func test_a_round_in_the_app_from_its_seed_to_the_server() -> void:
 	SafeFile.remove(TEST_PATH)
 
 
+## Main with a battle round played to its crash on the fake server.
+func _crashed_round() -> Node:
+	var main := _main()
+	await _frames()
+	var server := FakeServer.new()
+	var data := {"battle": 12, "round": 5, "seed": 7, "season": Seasons.NONE, "blind": false}
+	server.answers["battle_start_run"] = {"ok": true, "code": 200, "data": data}
+	var after := {
+		"battle": 12,
+		"status": "open",
+		"wins_me": 3,
+		"wins_them": 2,
+		"turn": "them",
+		"opponent": {"name": "Mira", "flyer": "buzz", "bot": false},
+		"rounds": [{"number": 5, "my_score": 9, "their_score": 1, "winner": "me"}],
+		"play": {"round": 6, "role": "open"},
+	}
+	server.answers["battle_submit"] = {"ok": true, "code": 200, "data": after}
+	server.answers["battle_get"] = {"ok": true, "code": 200, "data": after}
+	var flow: BattleFlow = main._battle
+	flow.service.client = server
+	flow.start_round(_view(), 5)
+	await _frames()
+	main._run.request_tap()
+	main._run.advance()
+	while not main._run.sim.is_over():
+		main._run.advance()
+	await _frames()
+	return main
+
+
+## A tap that falls through the screen to the room, as the mouse sends it.
+func _tap(main: Node) -> void:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	main._unhandled_input(click)
+
+
+func test_after_a_round_only_the_battle_is_live() -> void:
+	var main: Node = await _crashed_round()
+	var flow: BattleFlow = main._battle
+	flow.back_to_battle()
+	await _frames()
+	assert_true(main._menus.current() is BattleScreen, "the battle shows")
+	# A tap through the battle screen, and Game over's Again under it.
+	_tap(main)
+	main._hud.play_again_pressed.emit()
+	_tap(main)
+	main._run.advance()
+	assert_false(main._run.is_running(), "no new run starts beneath the battle")
+	assert_false(main._hud.game_over.visible, "Game over is gone under the battle")
+	# Again already went back: the crash's timer doesn't open the battle twice.
+	var shown: Control = main._menus.current()
+	await _tree().create_timer(BattleFlow.AFTER_CRASH_S + 0.2).timeout
+	assert_true(main._menus.current() == shown, "the same battle screen, not a second one")
+	main.free()
+	SafeFile.remove(TEST_PATH)
+
+
+func test_home_right_after_a_crash_stays_home() -> void:
+	var main: Node = await _crashed_round()
+	main.show_home()
+	await _tree().create_timer(BattleFlow.AFTER_CRASH_S + 0.2).timeout
+	assert_true(main._menus.current() is HomeScreen, "Home stays; the battle doesn't jump over it")
+	main.free()
+	SafeFile.remove(TEST_PATH)
+
+
+func test_the_battle_after_the_crash_timer_is_out_of_play() -> void:
+	var main: Node = await _crashed_round()
+	await _tree().create_timer(BattleFlow.AFTER_CRASH_S + 0.2).timeout
+	assert_true(main._menus.current() is BattleScreen, "the battle shows by itself")
+	_tap(main)
+	main._hud.play_again_pressed.emit()
+	_tap(main)
+	main._run.advance()
+	assert_false(main._run.is_running(), "a tap on it plays nothing")
+	main.free()
+	SafeFile.remove(TEST_PATH)
+
+
 func _board() -> Dictionary:
 	return {
 		"entries":

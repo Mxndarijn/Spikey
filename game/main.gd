@@ -130,6 +130,7 @@ func _ready() -> void:
 	)
 	_battle = BattleFlow.new(_services.battles, _menus, _hud, self, _bird, _start_battle, show_home)
 	_battle.scores = show_leaderboard
+	_battle.to_menus = _menu_mode
 	_audio.bind(_run)
 	_run.run_started.connect(_hud.show_running)
 	_run.run_started.connect(_trail.start)
@@ -255,6 +256,7 @@ func show_home() -> void:
 		_look.use_equipped()
 	mode = Mode.MENU
 	_daily.playing = null
+	_battle.playing = null
 	_audio.menu()
 	_new_run()
 	_hud.show_menu()
@@ -287,9 +289,7 @@ func show_home() -> void:
 ## The leaderboards: Today, Daily Run and All-time.
 func show_leaderboard(board_id: String = LeaderboardService.DAILY) -> void:
 	_drop_replay()
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var screen := LeaderboardScreen.new(_profile, leaderboard, board_id)
 	screen.closed.connect(show_home)
 	screen.play_pressed.connect(start_run)
@@ -308,9 +308,7 @@ func _on_replay_requested(run: Dictionary, screen: LeaderboardScreen) -> void:
 ## Your runs: Latest (the last 100 runs) or Saved.
 func show_runs(tab: String = RunsScreen.LATEST) -> void:
 	_drop_replay()
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var screen := RunsScreen.new(_runs, tab)
 	screen.closed.connect(show_home)
 	screen.watch_requested.connect(
@@ -450,9 +448,7 @@ func show_rooms(group: String = "") -> void:
 
 
 func show_room(id: String) -> void:
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var detail := RoomDetailScreen.new(_profile, id)
 	detail.closed.connect(show_rooms.bind(_rooms_group))
 	detail.practice_pressed.connect(start_practice)
@@ -541,9 +537,7 @@ func _restart_practice() -> void:
 ## Customize starts on "Your look": one card per cosmetic kind with what is in
 ## use. A card opens that kind's list (show_shop); Back goes Home.
 func show_look() -> void:
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	# A world previewed in a list gives way to the one in use.
 	_look.show_own_world()
 	var look := LookScreen.new(_profile)
@@ -556,9 +550,7 @@ func show_look() -> void:
 ## One kind's list in Customize (its shop and the player's own items in one
 ## screen). Back returns to "Your look".
 func show_shop(tab: String = ItemKind.FLYER) -> void:
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var shop := CollectionScreen.new(_services.checkout, CollectionScreen.Mode.SHOP, tab)
 	shop.audio = _audio
 	shop.closed.connect(show_look)
@@ -571,9 +563,7 @@ func show_shop(tab: String = ItemKind.FLYER) -> void:
 ## The Wallet on Get diamonds (the Shop). `back_tab`: a Customize list, BACK_TO_LOOK,
 ## BACK_TO_EARN (Earn free's way back) or "" (Home); Earn free keeps the same way back.
 func show_store(back_tab: String = "") -> void:
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var screen := StoreScreen.new(_services.checkout, store)
 	var back := Callable(show_home)
 	if back_tab == BACK_TO_LOOK:
@@ -592,9 +582,7 @@ func show_store(back_tab: String = "") -> void:
 ## `back`: where its Back goes (Home when empty).
 func _show_earn(back: Callable = Callable()) -> void:
 	_earn_back = back if back.is_valid() else Callable(show_home)
-	mode = Mode.MENU
-	_hud.show_menu()
-	_look.show_flyer(false)
+	_menu_mode()
 	var screen := EarnScreen.new(_profile)
 	screen.closed.connect(_earn_back)
 	screen.store_pressed.connect(show_store.bind(BACK_TO_EARN))
@@ -749,11 +737,22 @@ func _new_run() -> void:
 	_countdown = 0.0
 
 
+## Out of play for a menu screen; the battle after its round and the Duel
+## between rounds too, so no tap or Again beneath them starts another run.
+func _menu_mode() -> void:
+	mode = Mode.MENU
+	_hud.show_menu()
+	_look.show_flyer(false)
+
+
+## A run is in play: a run or practice, with no menu screen over it.
 func _in_play() -> bool:
-	return mode == Mode.RUN or mode == Mode.PRACTICE
+	return (mode == Mode.RUN or mode == Mode.PRACTICE) and _menus.current() == null
 
 
 func _try_restart() -> void:
+	if not _in_play():
+		return
 	if mode == Mode.PRACTICE:
 		_restart_practice()
 		return
