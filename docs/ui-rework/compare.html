@@ -1,0 +1,158 @@
+<title>Flapjaw UI Rework</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,600..900&display=swap">
+<style>
+/* Layout: one column of screens, each a before/after phone pair under its note; the kit's paper and ink. */
+:root {
+  --bg: #FFF4E2; --card: #F4E5CC; --ink: #231A33; --muted: #665C68; --edge: #D8CBBE; --gold: #FFC93C;
+  --display: "Archivo", system-ui, sans-serif; --body: "Archivo", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1F1428; --card: #2C2138; --ink: #FFF4E2; --muted: #C9BFC6; --edge: #47395A; --gold: #FFC93C; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #1F1428; --card: #2C2138; --ink: #FFF4E2; --muted: #C9BFC6; --edge: #47395A; --gold: #FFC93C; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-weight: 600; font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+.intro h1 { font-family: var(--display); font-weight: 900; font-stretch: 125%; font-size: clamp(32px, 7vw, 48px); line-height: 1; margin: 0 0 16px; text-wrap: balance; }
+.intro p { margin: 0 0 10px; max-width: 62ch; }
+.intro .meta { color: var(--muted); font-size: 14px; }
+.screen { display: flex; flex-direction: column; gap: 12px; padding-top: 24px; border-top: 2px solid var(--edge); }
+.screen header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+h2 { font-family: var(--display); font-weight: 900; font-stretch: 125%; font-size: 24px; margin: 0; }
+.tag { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; background: var(--card); color: var(--muted); }
+.tag.on { background: var(--gold); color: #231A33; }
+.note { margin: 0; max-width: 65ch; }
+.screen:not(.changed) .note { color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.screen:not(.changed) .pair { grid-template-columns: 1fr 1fr; max-width: 480px; }
+.shot { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.shot figcaption { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.shot img { width: 100%; height: auto; border-radius: 18px; display: block; background: var(--card); }
+.none { aspect-ratio: 648 / 1404; max-width: 100%; border-radius: 18px; border: 2px dashed var(--edge); display: grid; place-items: center; color: var(--muted); font-size: 14px; text-align: center; padding: 12px; }
+</style>
+<main>
+  <div class="intro">
+    <h1>Flapjaw UI rework</h1>
+    <p>Every screen of the app before and after the rework, shot in the game at phone size (648 × 1404, a 9:19.5 phone). The headline change: Home's mode carousel and the All modes sheet are replaced by mode tabs, Classic | Daily | Battle | Duel, with badges, and Play follows the chosen tab.</p>
+    <p>12 of 29 views changed. Screens that already followed the Flapjaw Design Kit are marked Same and shown smaller. UI only: no change to the game, the hitbox or the shop.</p>
+    <p class="meta">Made with tools/capture_ui.ps1 on branch ui-rework. Fake battles, boards and a Daily Run fill the screens; the app was offline, so the Wins board shows its real offline toast.</p>
+  </div>
+  <section class="screen changed">
+  <header><h2>Home</h2><span class="tag on">Changed</span></header>
+  <p class="note">The mode carousel and its All modes link are gone. A tab bar, Classic | Daily | Battle | Duel, sits under the stats line with the chosen mode's rules under it. Gold badges show the Daily Run's tries left and the battles waiting for your turn. The offline "No connection" toast no longer sits on the wordmark: Home's background battle check stays quiet.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/01_home.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/01_home.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Choosing a mode</h2><span class="tag on">Changed</span></header>
+  <p class="note">Before, the All modes sheet was the only way to see every mode at once. Now all four are always on screen: one tap on a tab chooses it and Play in the dock follows it (Play, Daily, Battles, Duel).</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/02_home_modes.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/02_home_daily.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Battle tab</h2><span class="tag on">Changed</span></header>
+  <p class="note">With Battle chosen, the line under the tabs counts your turns ("2 battles wait for your turn") and Play opens Battles. An app too old for Battle and Duel shows an UPDATE badge there, and Play opens the store.</p>
+  <div class="pair"><figure class="shot empty"><figcaption>Before</figcaption><div class="none">No before: new view</div></figure><figure class="shot"><figcaption>After</figcaption><img src="after/02_home_battle.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Duel tab</h2><span class="tag on">Changed</span></header>
+  <p class="note">Duel chosen: "Live 1v1 · best of 3", Play opens Duel.</p>
+  <div class="pair"><figure class="shot empty"><figcaption>Before</figcaption><div class="none">No before: new view</div></figure><figure class="shot"><figcaption>After</figcaption><img src="after/02_home_duel.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Settings</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged: the sheet already followed the kit.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/03_settings.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/03_settings.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Settings · Account</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged (Move to a new phone).</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/04_settings_account.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/04_settings_account.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Settings · About</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged. The Debug row is still here, at the bottom of About.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/05_settings_about.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/05_settings_about.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Settings · Debug</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged and still reachable from About (or five taps on the Settings title).</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/06_settings_debug.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/06_settings_debug.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Style</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/07_style.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/07_style.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Customize · Flyers</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/08_customize_flyers.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/08_customize_flyers.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Shop (Wallet)</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/09_shop.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/09_shop.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Rooms</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/10_rooms.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/10_rooms.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Room detail</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/11_room_detail.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/11_room_detail.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Ranks · Scores</h2><span class="tag on">Changed</span></header>
+  <p class="note">The header said "Leaderb…" because the Scores | Wins switch shares its row. It now says Ranks, the same word as the dock's button, and fits.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/12_board_scores.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/12_board_scores.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Ranks · Wins</h2><span class="tag on">Changed</span></header>
+  <p class="note">Same header fix. This week | All time is now a short centred pill under the Battle | Duel bar, so the two choices no longer look like two equal bars. The marks beside the Battle tab were a toast hidden behind the menus: toasts are now an ink pill drawn above every screen, just over the round button.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/13_board_wins.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/13_board_wins.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>A player's record</h2><span class="tag on">Changed</span></header>
+  <p class="note">The rival's name was cut ("Maximilian…"). It now shrinks to fit beside the close button.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/14_board_record.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/14_board_record.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Battle list</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/15_battle_list.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/15_battle_list.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>A battle</h2><span class="tag on">Changed</span></header>
+  <p class="note">The card shrinks to its message instead of keeping an empty paper bottom.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/16_battle.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/16_battle.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Round intro</h2><span class="tag on">Changed</span></header>
+  <p class="note">The title was three lines ("Round 5 · Maximilianus12 scored"). Now it reads "Round 5 · to beat" over the big 42, and the line under it names whose score it is. The card is as tall as its text.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/17_round_intro.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/17_round_intro.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Duel</h2><span class="tag on">Changed</span></header>
+  <p class="note">The friend's code field was Godot's default dark grey box. Every text field now uses the kit's form style: a white pill with an ink ring. The card ends under the code row.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/18_duel.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/18_duel.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Duel countdown</h2><span class="tag on">Changed</span></header>
+  <p class="note">The card fits its content instead of reaching down to the hills.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/19_duel_countdown.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/19_duel_countdown.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen changed">
+  <header><h2>Duel result</h2><span class="tag on">Changed</span></header>
+  <p class="note">Same: no empty paper under the line.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/20_duel_result.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/20_duel_result.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Daily Run</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/21_daily_run.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/21_daily_run.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Your runs</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged. (Before was shot before the first run, so it shows the empty state.)</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/22_runs.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/22_runs.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Run HUD</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/23_hud.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/23_hud.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Paused</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/24_paused.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/24_paused.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Revive offer</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged. The before shot missed the offer (the test run scored too little); the after shot shows it.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/25_revive.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/25_revive.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Game over</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/26_game_over.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/26_game_over.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section><section class="screen">
+  <header><h2>Replay</h2><span class="tag">Same</span></header>
+  <p class="note">Unchanged.</p>
+  <div class="pair"><figure class="shot"><figcaption>Before</figcaption><img src="before/27_replay.png" alt="Before screenshot" loading="lazy" width="648" height="1404"></figure><figure class="shot"><figcaption>After</figcaption><img src="after/27_replay.png" alt="After screenshot" loading="lazy" width="648" height="1404"></figure></div>
+</section>
+</main>
