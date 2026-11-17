@@ -23,11 +23,12 @@
 //! between rounds 30 s, then the match is forfeited.
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::{ConnectInfo, State};
 use axum::http::HeaderMap;
 use axum::response::Response;
 use chrono::Datelike;
@@ -174,11 +175,17 @@ pub fn new_code() -> String {
     (0..6).map(|_| ABC[rand::random::<usize>() % ABC.len()] as char).collect()
 }
 
-pub async fn upgrade(ws: WebSocketUpgrade, State(s): State<Shared>) -> Response {
-    ws.on_upgrade(move |socket| connection(socket, s))
+pub async fn upgrade(
+    ws: WebSocketUpgrade,
+    State(s): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response {
+    let ip = crate::app::client_ip(&s, &headers, Some(addr));
+    ws.on_upgrade(move |socket| connection(socket, s, ip))
 }
 
-async fn connection(socket: WebSocket, s: Shared) {
+async fn connection(socket: WebSocket, s: Shared, ip: String) {
     use futures_util::{SinkExt, StreamExt};
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
@@ -202,7 +209,11 @@ async fn connection(socket: WebSocket, s: Shared) {
         let kind = v["t"].as_str().unwrap_or("");
         if kind == "hello" {
             match hello(&s, &v, &tx).await {
-                Ok(who) => me = Some(who),
+                Ok(who) => {
+                    // The wins boards' shared-IP rule (only a salted hash is kept).
+                    crate::app::note_ip(&s.pool, who.0, &ip).await;
+                    me = Some(who)
+                }
                 Err(e) => {
                     let _ = tx.send(json!({"t": "error", "message": e}).to_string());
                     break;

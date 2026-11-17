@@ -41,11 +41,24 @@ async fn setup() -> Option<(Router, PgPool)> {
     Some((app, pool))
 }
 
+/// Each player's own address (from their token), unless a test gave two the same.
+fn address_of(token: &str) -> String {
+    if let Some(ip) = SAME_ADDRESS.lock().unwrap().get(token) {
+        return ip.clone();
+    }
+    let b = flapjaw_server::auth::sha256(token);
+    format!("10.{}.{}.{}", b[0], b[1], b[2])
+}
+
+static SAME_ADDRESS: std::sync::Mutex<std::collections::BTreeMap<String, String>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
 async fn call(app: &Router, path: &str, token: &str, body: Value) -> (StatusCode, Value) {
     let req = Request::post(path)
         .header("content-type", "application/json")
         .header("x-flapjaw-api", "1")
         .header("x-flapjaw-gameplay", sim::sim_config::SimConfig::GAMEPLAY_VERSION.to_string())
+        .header("x-forwarded-for", address_of(token))
         .header("authorization", format!("Bearer {token}"));
     let res = app.clone().oneshot(req.body(Body::from(body.to_string())).unwrap()).await.unwrap();
     let status = res.status();
@@ -248,4 +261,30 @@ async fn the_board_ranks_counted_wins_and_shows_a_record() {
     let _ = (pd, beaten);
     let (status, _) = call(&app, "/v1/get_wins_board", &ta, json!({"p_mode": "battle", "p_period": "month"})).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn two_players_on_one_address_never_count() {
+    let Some((app, pool)) = setup().await else { return };
+    let (_, ta) = player(&app).await;
+    let (pb, tb) = player(&app).await;
+    settled_in(&pool, &pb).await;
+    // Both phones on one home connection (or two accounts on one phone).
+    for t in [&ta, &tb] {
+        SAME_ADDRESS.lock().unwrap().insert(t.to_string(), "10.200.0.1".into());
+    }
+    let battle = quick_battle(&app, &pool, &ta, &tb, 20, 10).await;
+    assert_eq!(result(&pool, battle).await, (false, "shared ip".into()));
+    let stored: Vec<String> = sqlx::query_scalar("select ip_hash from backend.player_ips where player_id = $1::uuid")
+        .bind(&pb)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert!(!stored.is_empty() && stored.iter().all(|h| h.len() == 64 && !h.contains("10.200")), "only a hash");
+    // On their own addresses again, the next match counts.
+    let (_, tc) = player(&app).await;
+    let (pd, td) = player(&app).await;
+    settled_in(&pool, &pd).await;
+    let battle = quick_battle(&app, &pool, &tc, &td, 20, 10).await;
+    assert_eq!(result(&pool, battle).await, (true, String::new()));
 }

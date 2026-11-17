@@ -43,11 +43,24 @@ async fn setup() -> Option<(Router, PgPool)> {
     Some((app, pool))
 }
 
+/// Each player's own address (from their token), unless a test gave two the same.
+fn address_of(token: &str) -> String {
+    if let Some(ip) = SAME_ADDRESS.lock().unwrap().get(token) {
+        return ip.clone();
+    }
+    let b = flapjaw_server::auth::sha256(token);
+    format!("10.{}.{}.{}", b[0], b[1], b[2])
+}
+
+static SAME_ADDRESS: std::sync::Mutex<std::collections::BTreeMap<String, String>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
 async fn call(app: &Router, path: &str, token: &str, body: Value) -> (StatusCode, Value) {
     let req = Request::post(path)
         .header("content-type", "application/json")
         .header("x-flapjaw-api", "1")
         .header("x-flapjaw-gameplay", sim::sim_config::SimConfig::GAMEPLAY_VERSION.to_string())
+        .header("x-forwarded-for", address_of(token))
         .header("authorization", format!("Bearer {token}"));
     let res = app.clone().oneshot(req.body(Body::from(body.to_string())).unwrap()).await.unwrap();
     let status = res.status();

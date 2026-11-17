@@ -66,6 +66,14 @@ pub fn client_ip(state: &AppState, headers: &HeaderMap, peer: Option<SocketAddr>
     peer.map(|p| p.ip().to_string()).unwrap_or_else(|| "unknown".into())
 }
 
+/// Notes a player's address for the wins boards' shared-IP rule
+/// (migrations/0117_shared_ip.sql); a failure here never stops the call.
+pub async fn note_ip(pool: &PgPool, player: uuid::Uuid, ip: &str) {
+    if let Err(e) = sqlx::query("select backend.note_ip($1, $2)").bind(player).bind(ip).execute(pool).await {
+        tracing::warn!("couldn't note an address: {e}");
+    }
+}
+
 /// Battle runs only on the newest gameplay version: a phone says its own in
 /// X-Flapjaw-Gameplay; an older one (or none) is told update_required.
 pub fn check_gameplay(op: &str, headers: &HeaderMap) -> ApiResult<()> {
@@ -192,6 +200,7 @@ async fn transfer_redeem(
 async fn operation(
     State(s): State<Shared>,
     Path(name): Path<String>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     body: Option<Json<Value>>,
 ) -> ApiResult<Json<Value>> {
@@ -199,6 +208,10 @@ async fn operation(
     let op = rpc::find(&name).ok_or_else(|| ApiError::not_found(format!("no operation {name}")))?;
     check_gameplay(&name, &headers)?;
     let player = auth::player_of(&s.pool, &headers).await?;
+    if name.starts_with("battle_") {
+        // The wins boards' shared-IP rule (only a salted hash is kept).
+        note_ip(&s.pool, player, &client_ip(&s, &headers, Some(addr))).await;
+    }
     let body = body.map(|Json(v)| v).unwrap_or(Value::Null);
     let answer = rpc::call(&s.pool, player, op, &body).await?;
     if op.new_run {

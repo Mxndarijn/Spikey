@@ -81,6 +81,12 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   opens the game. Settings > "Board alerts" is now "Alerts" (battles and the
   boards).
 
+- **The shared-IP rule** for the wins boards (`0117_shared_ip.sql`): the
+  server notes a salted hash of the address of every Battle operation and
+  every Duel sign-in (one row per player, address and day, kept 7 days; the
+  address itself is never stored), and a match where both players used one
+  address while it ran never counts ("shared ip").
+
 Not built yet: the iOS side of push taps, the invite link opening the app (Android App Links, iOS
 Universal Links and the files the server hosts for them), a push opening its
 battle, the Android notification channels created on the phone (alerts use
@@ -92,8 +98,8 @@ Changed while building (to agree with the user):
   check; left for later if long rounds turn out to be a problem.
 - The 8 bot levels are set from the measured tiers but not yet calibrated one
   by one (`fastsim-rs human measure` per level): a CPU run for later.
-- The alt-account rule checks the account's age and checked runs; the shared
-  IP rule is not built (the server keeps no IPs per match yet).
+- The alt-account rule checks the account's age and checked runs, and the
+  shared-IP rule (built later, below).
 - The hidden rating is, for now, the bot level per player (from their scores,
   then learned from bot battles); a full rating for random pairing comes with
   more players.
