@@ -108,7 +108,7 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   `/.well-known/assetlinks.json` (ANDROID_CERT_SHA256; by default the upload
   key, `C0:2B:FE:32:...:4E:91`; add Google's app-signing key once Play App
   Signing is on). iOS: `/.well-known/apple-app-site-association` from
-  APPLE_APP_ID (a 404 until it is set) and the Associated Domains entitlement
+  APPLE_APP_ID (by default `W4N3NH845V.com.mxndarijn.spikey`) and the Associated Domains entitlement
   (CI adds it when the provisioning profile has the capability).
 
 Not built yet: the Android notification channels created on the phone (alerts use

@@ -214,8 +214,9 @@ Secret `database`:
    database, `apps/flapjaw/deployer.kubeconfig`).
 2. Here: `deploy/overlays/platform/.env.platform` with `REGISTRY`,
    `API_HOST=flapjaw.mn-platform.tech`, `KUBECONFIG_FILE` (that deployer
-   kubeconfig) and optionally `FIREBASE_SERVICE_ACCOUNT`. For invite links:
-   `APPLE_APP_ID=<TEAMID>.com.mxndarijn.spikey` (iOS), and once Play App
+   kubeconfig) and optionally `FIREBASE_SERVICE_ACCOUNT`. Invite links need
+   nothing here (iOS: `W4N3NH845V.com.mxndarijn.spikey` is built in,
+   `APPLE_APP_ID` overrides it); once Play App
    Signing is on `ANDROID_CERT_SHA256=<upload key>,<Google's app-signing key>`
    (without it the server lists the upload key,
    `C0:2B:FE:32:99:DB:7B:BB:72:5E:8F:F2:B9:4A:F0:AC:21:B1:67:82:C1:C0:BD:63:42:3A:4B:D7:02:FA:4E:91`).

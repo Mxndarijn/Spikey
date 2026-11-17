@@ -43,8 +43,8 @@ spec:
                   optional: true
             - name: TRUST_PROXY
               value: "true"
-            # Invite links (backend/src/links.rs). Missing: Android gets the upload key
-            # (built in), iOS a 404 until APPLE_APP_ID is set.
+            # Invite links (backend/src/links.rs). Missing: the built-in upload key and
+            # W4N3NH845V.com.mxndarijn.spikey.
             - name: ANDROID_CERT_SHA256
               valueFrom:
                 secretKeyRef:

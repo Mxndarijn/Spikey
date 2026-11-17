@@ -10,8 +10,8 @@
 //!   app (APPLE_APP_ID, `TEAMID.com.mxndarijn.spikey`) for /battle/* and /duel/*.
 //! - `GET /battle/{code}`, `GET /duel/{code}`: the page without the app.
 //!
-//! Without APPLE_APP_ID the Apple file is a 404, so nothing wrong is ever
-//! cached by a phone.
+//! Both have built-in defaults (config.rs: the upload key, team W4N3NH845V);
+//! an empty list or id makes that file a 404.
 
 use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
