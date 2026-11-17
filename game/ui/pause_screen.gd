@@ -41,7 +41,7 @@ func _init() -> void:
 	var resume := UiKit.primary(PLAY_ICON, "Resume", true)
 	resume.name = "Resume"
 	resume.pressed.connect(resume_pressed.emit)
-	UiKit.place_primary(self, resume)
+	UiKit.place_primary(self, resume, UiKit.OVERLAY_ACTION_TOP)
 	# One text button that says what it does: the run ends and Home opens.
 	var end := UiKit.text_button(END_RUN)
 	end.name = "EndRun"

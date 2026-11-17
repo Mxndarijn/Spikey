@@ -16,8 +16,8 @@ signal record_requested(mode: String, period: String, who: String)
 ## The header names the boards as the dock does, so it fits beside Scores | Wins.
 const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
-## Clear of the floor spike row with an 8px gap (LayoutQa).
-const BOTTOM := 48
+## Clear of the floor spike row with a 14px gap or more (LayoutQa).
+const BOTTOM := 56
 const ROW_H := 40.0
 ## Each period tab's width in its short pill.
 const PERIOD_TAB_W := 104.0
@@ -307,6 +307,14 @@ func show_offline(message: String) -> void:
 	if _caption != null:
 		_caption.text = message
 	close_record()
+	if _list != null and _list.get_child_count() == 0:
+		var retry := UiKit.text_button("Try again", &"InkButton")
+		retry.name = "Retry"
+		UiKit.soft_button(retry)
+		retry.custom_minimum_size = Vector2(0, UiTokens.SIZE_TAP_MIN)
+		retry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		retry.pressed.connect(_select)
+		_list.add_child(retry)
 
 
 func close_record() -> void:

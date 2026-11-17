@@ -20,8 +20,8 @@ const COLUMNS := 2
 const SIDE := UiKit.SCREEN_SIDE
 const TOP := UiKit.SCREEN_TOP
 ## The list stops this far above the bottom of the screen.
-## Clear of the floor spike row with an 8px gap (LayoutQa).
-const BOTTOM := 48
+## Clear of the floor spike row with a 14px gap or more (LayoutQa).
+const BOTTOM := 56
 const GAP := 10
 ## The group line sits a little further in than the cards (20px from the edge).
 const CAPTION_INSET := 6
@@ -142,7 +142,7 @@ func _clears() -> Control:
 	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(check)
 	_cleared.theme_type_variation = &"SmallNameLabel"
-	_cleared.text = UiKit.thousands(_profile.total_clears())
+	_cleared.text = "%s cleared" % UiKit.thousands(_profile.total_clears())
 	_cleared.tooltip_text = "Rooms cleared in real runs"
 	inner.add_child(_cleared)
 	return row

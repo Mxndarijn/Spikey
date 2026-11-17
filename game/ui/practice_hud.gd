@@ -124,7 +124,7 @@ func _build_over() -> void:
 	var again := UiKit.primary(RESTART_ICON, "Try again", true)
 	again.name = "TryAgain"
 	again.pressed.connect(restart_pressed.emit)
-	UiKit.place_primary(_over, again)
+	UiKit.place_primary(_over, again, UiKit.OVERLAY_ACTION_TOP)
 	var rooms := UiKit.place_text_button(_over, _rooms_button())
 	rooms.name = "BackToRooms"
 	add_child(_over)

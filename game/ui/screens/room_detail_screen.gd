@@ -17,16 +17,16 @@ const PREVIEW := Vector2(200, 150)
 const PREVIEW_RADIUS := 22.0
 const TOP := UiKit.SCREEN_TOP
 ## The Practice button ends this far above the bottom of the screen.
-## Clear of the floor spike row with an 8px gap (LayoutQa).
-const BOTTOM := 48
+## Clear of the floor spike row with a 14px gap or more (LayoutQa).
+const BOTTOM := 56
 const SIDE := 20
 const CARD_PAD_X := 18
 const CARD_PAD_Y := 14
 ## Names longer than this get a smaller title so they clear the back arrow.
 const LONG_NAME := 11
 ## The practice note under the round button.
-const NOTE := "Practice never counts for gold, best score or cleared rooms."
-const NOTE_W := 280.0
+const NOTE := "Practice doesn't count for gold or your best."
+const NOTE_W := 320.0
 ## The stats' numbers: small enough that three fit beside the score.
 const STAT_SIZE := UiTokens.FONT_SIZE_HEADING
 
@@ -82,7 +82,8 @@ func _ready() -> void:
 	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
 	# On a solid paper pill: plain text on the scenery was hard to read on snow.
 	note.add_theme_color_override("font_color", UiTokens.ON_PANEL_MUTED)
-	var box := UiTheme.solid(UiTokens.PANEL, UiTokens.RADIUS_M, 0)
+	# A quiet paper chip (no ring): it is a note, not a button.
+	var box := UiTheme.flat(UiTokens.PANEL, UiTokens.RADIUS_M, 0)
 	box.content_margin_left = UiTokens.SPACE_3
 	box.content_margin_right = UiTokens.SPACE_3
 	box.content_margin_top = 4
@@ -92,7 +93,7 @@ func _ready() -> void:
 	note.offset_left = (UiTokens.SIZE_VIEWPORT_W - NOTE_W) / 2.0
 	note.offset_right = -note.offset_left
 	# Under the Practice button with a gap (it sat on the button's edge).
-	note.offset_top = UiKit.ACTION_TOP + UiKit.PRIMARY + 6.0
+	note.offset_top = UiKit.ACTION_TOP + UiKit.PRIMARY + 10.0
 	add_child(note)
 
 

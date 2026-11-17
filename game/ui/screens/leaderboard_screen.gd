@@ -32,8 +32,8 @@ const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
 ## Clear of the floor spikes (tests/unit/test_screen_fit.gd).
-## Clear of the floor spike row with an 8px gap (LayoutQa).
-const BOTTOM := 48
+## Clear of the floor spike row with a 14px gap or more (LayoutQa).
+const BOTTOM := 56
 const LIST_MIN := 140.0
 const PINNED_FLYER := 32.0
 const PRIZE_LINE := "No diamonds below here"
@@ -295,7 +295,7 @@ func _pinned(board: LeaderboardBoard) -> Control:
 	row.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	panel.add_child(row)
 	var me := board.me
-	_pinned_rank = LeaderboardRow.rank_label(_rank_text(me.rank) if me != null else "–")
+	_pinned_rank = LeaderboardRow.rank_label(_rank_text(me.rank) if me != null else "")
 	row.add_child(_pinned_rank)
 	var flyer := LeaderboardRow.flyer_texture(_profile.equipped_id(ItemKind.FLYER))
 	row.add_child(LeaderboardRow.icon(flyer, PINNED_FLYER))

@@ -79,6 +79,8 @@ func _ready() -> void:
 	_card_col.add_child(_body)
 	_a = UiKit.action_button("")
 	_a.name = "A"
+	# The card's button is the second choice; the round button is the main one.
+	UiKit.soft_button(_a)
 	_a.pressed.connect(_on_a)
 	_card_col.add_child(_a)
 	_b = UiKit.row_button("", UiTokens.PANEL_RAISED)
@@ -109,7 +111,7 @@ func _ready() -> void:
 	margin.add_child(card)
 	UiKit.across(self, margin, CARD_Y)
 	_card_box = margin
-	_primary = UiKit.primary(PLAY_ICON, "Find")
+	_primary = UiKit.primary(PLAY_ICON, "Find rival")
 	_primary.name = "Primary"
 	_primary.pressed.connect(_on_primary)
 	UiKit.place_primary(self, _primary)
@@ -150,7 +152,7 @@ func show_start() -> void:
 		"",
 		true
 	)
-	_primary.text = "Find"
+	_primary.text = "Find rival"
 	_primary.icon = PLAY_ICON
 	_primary.visible = true
 
@@ -195,7 +197,7 @@ func show_countdown(
 	_show(
 		"Round %d" % round_number,
 		str(left_s),
-		"You %d – %d %s. Tap to fly when it starts." % [wins_me, wins_them, rival],
+		"%d–%d with %s. Tap to fly when it starts." % [wins_me, wins_them, rival],
 		"",
 		"",
 		false

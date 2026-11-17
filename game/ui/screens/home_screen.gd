@@ -51,7 +51,7 @@ const LOGO_HALO := 10
 const SIDE := float(UiTokens.SPACE_4)
 ## Home keeps this far off both spike rows (a game about spikes: controls
 ## close to them look cramped).
-const SPIKE_GAP := 18.0
+const SPIKE_GAP := 22.0
 ## The corners' top: SPIKE_GAP under the ceiling spike row.
 const CORNER_TOP := float(SimConfig.KILL_TOP / SimConfig.SUB) + SPIKE_GAP
 ## The bottom bar, SPIKE_GAP above the floor spike row.

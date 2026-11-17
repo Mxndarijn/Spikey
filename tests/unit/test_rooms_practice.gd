@@ -100,7 +100,7 @@ func test_rooms_screen_lists_every_room_and_locks_unmet_ones() -> void:
 	var screen := RoomsScreen.new(p)
 	screen.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(screen)
-	assert_eq(screen.cleared_text(), "2", "the header shows the total clears")
+	assert_eq(screen.cleared_text(), "2 cleared", "the header shows the total clears")
 	assert_eq(screen.group_cards()[0].count_text(), "1 of %d" % RoomInfo.rooms_in("easy").size())
 	screen.free()
 	var cards := _all_room_cards(p)

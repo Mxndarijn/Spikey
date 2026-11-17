@@ -28,7 +28,7 @@ const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
 const MARGIN_TOP := 40
 ## Clear of the floor spike row (SimConfig.KILL_BOTTOM, 34 px from the bottom).
-const MARGIN_BOTTOM := 46
+const MARGIN_BOTTOM := 52
 const SIDE := 14
 const TOGGLE := 44.0
 ## Settings > Play: PlayerSettings.Switch -> [name, hint], in screen order.
@@ -185,7 +185,6 @@ func _build_about() -> void:
 		var choices := _link("AdChoices", "Ad choices")
 		choices.pressed.connect(_services.ads.show_privacy_options)
 		_about_page.add_child(choices)
-	_about_page.add_child(_section("Debug"))
 	var debug := _link("Debug", "Debug")
 	debug.pressed.connect(show_debug.bind(true))
 	_about_page.add_child(debug)

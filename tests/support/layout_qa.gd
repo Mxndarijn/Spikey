@@ -19,7 +19,7 @@ const ROOM := Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
 const TOP := float(SimConfig.KILL_TOP) / SimConfig.SUB
 ## Content keeps CLEAR px off the floor spike row: touching the tips reads as
 ## sitting on them.
-const CLEAR := 8.0
+const CLEAR := 14.0
 const BOTTOM := float(SimConfig.KILL_BOTTOM) / SimConfig.SUB - CLEAR
 ## Archivo's cap and figure height, in em.
 const CAP := 0.74

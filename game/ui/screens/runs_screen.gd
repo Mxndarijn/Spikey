@@ -13,8 +13,8 @@ const LATEST := "latest"
 const SAVED := "saved"
 const SIDE := UiKit.SCREEN_SIDE
 const TOP := UiKit.SCREEN_TOP
-## Clear of the floor spike row with an 8px gap (LayoutQa).
-const BOTTOM := 48
+## Clear of the floor spike row with a 14px gap or more (LayoutQa).
+const BOTTOM := 56
 const GAP := 8
 const LATEST_HINT := "Your last 100 runs stay on this phone. Save one to keep it."
 const SAVED_HINT := "Saved runs stay until you remove them."

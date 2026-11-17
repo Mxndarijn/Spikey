@@ -278,7 +278,7 @@ func test_daily_without_a_run_and_right_after_reset() -> void:
 	var service := SampleLeaderboard.new(p)
 	var screen := _screen(p, service)
 	await _tree().process_frame
-	assert_eq(screen.pinned_rank_text(), "–", "no rank before a run today")
+	assert_eq(screen.pinned_rank_text(), "", "no rank before a run today")
 	assert_eq(screen.pinned_note_text(), "No run today yet")
 	var empty := LeaderboardBoard.make(LeaderboardService.DAILY)
 	screen.show_board(empty)

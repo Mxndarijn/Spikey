@@ -45,10 +45,14 @@ const TITLE_X := 80.0
 const ACTION_Y := 500.0
 const ACTION_TOP := ACTION_Y - PRIMARY / 2.0
 ## The one text button under the round primary on overlays.
-const TEXT_BUTTON_Y := 552.0
-const TEXT_BUTTON_H := 40.0
-## No control reaches lower than this: 8px clear of the floor spikes (606).
-const BOTTOM_LIMIT := 598.0
+## On the overlays (Paused, Revive, a practice crash) the round button sits at
+## OVERLAY_ACTION_TOP, a little higher, so the text button under it keeps its
+## 44px and stays clear of the floor spikes.
+const OVERLAY_ACTION_TOP := ACTION_TOP - 8.0
+const TEXT_BUTTON_Y := 546.0
+const TEXT_BUTTON_H := 44.0
+## No control reaches lower than this: 14px clear of the floor spikes (606).
+const BOTTOM_LIMIT := 592.0
 ## Icon buttons on rows and in cards, and popups' close button.
 const DISC := 44.0
 ## The flat primary in popups and sheets (button-h).

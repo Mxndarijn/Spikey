@@ -63,6 +63,10 @@ const SEED_GAP := 2.0
 ## The stats card behind the stats and the seed: its side inset and padding.
 const STATS_CARD_SIDE := 40.0
 const STATS_CARD_PAD := 6.0
+## Extra room under the seed line inside the card.
+const STATS_CARD_PAD_BOTTOM := 10.0
+## Every stat's value line has this height.
+const STAT_LINE_H := 32.0
 ## The final score shrinks to fit the screen from this many digits.
 const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
 const FINAL_SCORE_MIN := 64
@@ -167,8 +171,14 @@ func _init() -> void:
 	_prize.visible = false
 	UiKit.across(self, _prize, STATS_Y + 56.0)
 	# Home leaves from the corner slot, like every back arrow.
-	_home = UiKit.icon_button(HOME_ICON, "Home")
+	_home = UiKit.disc_button(HOME_ICON, "Home", UiKit.Disc.PAPER, UiKit.ICON_BUTTON)
 	_home.name = "Home"
+	_home.custom_minimum_size = Vector2(UiKit.ICON_BUTTON, UiKit.ICON_BUTTON)
+	# A solid disc, as Home's Settings: a bare glyph read as decoration.
+	for state in ["normal", "hover", "disabled"]:
+		_home.add_theme_stylebox_override(state, UiTheme.solid(UiTokens.PANEL))
+	for state in ["pressed", "hover_pressed"]:
+		_home.add_theme_stylebox_override(state, UiTheme.solid(UiTokens.PANEL_RAISED))
 	_home.pressed.connect(dock_pressed.emit.bind("home"))
 	UiKit.place_corner(self, _home)
 	_dock = (
@@ -260,6 +270,8 @@ func show_result(
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
 	_prize.visible = false
 	visible = true
+	# The corner disc keeps its 48 px (it grew while the screen was hidden).
+	_home.size = _home.custom_minimum_size
 	queue_redraw()
 	_new_best.still = still
 	_time = 0.0 if is_new_best and not still else FX_TIME
@@ -431,6 +443,9 @@ static func _stat(row: HBoxContainer, word: String, icon: Texture2D = null) -> L
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_theme_constant_override("separation", 6)
+	# One height for every value line, so the names under them share a
+	# baseline even when a long rank shrinks its number.
+	line.custom_minimum_size.y = STAT_LINE_H
 	if icon != null:
 		var pic := TextureRect.new()
 		pic.texture = icon
@@ -465,7 +480,7 @@ func _draw() -> void:
 		STATS_CARD_SIDE,
 		_stats.offset_top - STATS_CARD_PAD,
 		size.x - STATS_CARD_SIDE * 2,
-		bottom - _stats.offset_top + STATS_CARD_PAD * 2
+		bottom - _stats.offset_top + STATS_CARD_PAD + STATS_CARD_PAD_BOTTOM
 	)
 	draw_style_box(UiTheme.solid(UiTokens.PANEL, UiTokens.RADIUS_M, 0), rect)
 
