@@ -100,6 +100,38 @@ func test_a_later_start_fetches_the_token_without_a_prompt() -> void:
 	_unplug()
 
 
+func test_ios_starts_through_the_permission_call() -> void:
+	_plug_in()
+	var push := FirebasePush.new()
+	push.os_name = "iOS"
+	assert_false(push.fetches_silently(), "iOS needs the player's answer first")
+	assert_eq(push.platform(), PushService.IOS)
+	push.start()
+	_core.core_initialized.emit(true)
+	assert_eq(
+		_messaging.calls,
+		["initialize", "request_permission"] as Array[String],
+		"a later start registers with Apple again (no prompt once answered)"
+	)
+	_messaging.messaging_error.emit("No APNS token specified before fetching FCM Token")
+	_messaging.messaging_token_received.emit("fcm-token-ios")
+	assert_eq(push.token(), "fcm-token-ios", "the token still arrives")
+	assert_eq(push.last_error, "", "and the early error is gone")
+	push = null
+	_unplug()
+
+
+func test_android_fetches_without_asking() -> void:
+	_plug_in()
+	var push := FirebasePush.new()
+	push.os_name = "Android"
+	assert_true(push.fetches_silently())
+	assert_eq(push.platform(), PushService.ANDROID)
+	push = null
+	_unplug()
+	assert_false(FirebasePush.new().fetches_silently(), "no plugin: nothing to fetch")
+
+
 func test_a_failed_core_or_a_refusal_leaves_the_game_alone() -> void:
 	_plug_in()
 	var push := FirebasePush.new()

@@ -6,9 +6,17 @@ extends PushService
 ## builds: check is_supported() before making one.
 ## Firebase Core starts first; a permission prompt or token asked for before
 ## it is ready waits until it is.
+## Android: the notification channels are made at start (AndroidChannels), and
+## a token needs no permission, so every start fetches one. iOS: every start
+## goes through request_permission, which after the first answer shows no
+## prompt but registers the app with Apple's push service again; without that
+## Firebase has no APNs token and hands out no FCM token.
 
 const CORE := "GodotxFirebaseCore"
 const MESSAGING := "GodotxFirebaseMessaging"
+
+## "Android" or "iOS" (OS.get_name(); tests set it).
+var os_name := OS.get_name()
 
 var _core: Object
 var _messaging: Object
@@ -29,6 +37,7 @@ func _init(api: BackendClient = null) -> void:
 		return
 	_core = Engine.get_singleton(CORE)
 	_messaging = Engine.get_singleton(MESSAGING)
+	AndroidChannels.create()
 	_core.connect(&"core_initialized", _on_core_initialized)
 	_messaging.connect(&"messaging_permission_granted", _on_permission_granted)
 	_messaging.connect(&"messaging_token_received", _on_token)
@@ -50,19 +59,28 @@ func request_permission() -> void:
 	_messaging.call(&"request_permission")
 
 
-## This start's token, without a prompt.
+## This start's token, without a prompt (on iOS only once the player answered
+## the prompt before: BoardAlerts calls this then).
 func start() -> void:
 	if _messaging == null:
 		return
 	if not _started:
 		_want_token = true
 		return
-	_messaging.call(&"get_token")
+	if os_name == "iOS":
+		_messaging.call(&"request_permission")
+	else:
+		_messaging.call(&"get_token")
+
+
+## Android hands out a token without asking.
+func fetches_silently() -> bool:
+	return _messaging != null and os_name != "iOS"
 
 
 ## "android" or "ios", as the server stores it.
-static func platform() -> String:
-	return IOS if OS.get_name() == "iOS" else ANDROID
+func platform() -> String:
+	return IOS if os_name == "iOS" else ANDROID
 
 
 func _on_core_initialized(success: bool) -> void:
@@ -83,6 +101,9 @@ func _on_permission_granted() -> void:
 
 
 func _on_token(token: String) -> void:
+	# On iOS a get_token right after the prompt can fail before Apple's token is
+	# in; the token then still arrives here.
+	last_error = ""
 	accept_token(token, platform())
 
 

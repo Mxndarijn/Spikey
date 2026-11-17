@@ -121,7 +121,7 @@ func _ready() -> void:
 	_revive = ReviveFlow.new(_profile, _run, ads, _hud.revive_offer, _save_profile)
 	_revive.ended.connect(_finish_run)
 	_revive.revived.connect(_on_revive)
-	_alerts = BoardAlerts.new(_profile, push, _save_profile)
+	_alerts = BoardAlerts.new(_profile, push, _save_profile, _services.battles)
 	_popups = HomePopups.new(_profile, wallet, _menus, _save_profile, _show_earn)
 	_backend.watch(_runs, _popups, _services, _first_start, show_home)
 	var board := show_leaderboard.bind(LeaderboardService.DAILY_RUN)

@@ -1,9 +1,12 @@
 class_name PushService
 extends RefCounted
 ## Push notifications, as the game sees them: "Board alerts" when another
-## player's run pushes you past a prize line on the daily board. The server
-## decides and sends (backend/migrations/20261110110000_push_alerts.sql); the
-## phone only has to hand over its push token and say whether alerts are on.
+## player's run pushes you past a prize line on the daily board, and battle
+## alerts (your turn, nudges, results). The server decides and sends
+## (backend/migrations/20261110110000_push_alerts.sql, backend/src/push.rs);
+## the phone only has to hand over its push token and say whether alerts are on.
+## A registration the server didn't take (no network at start, a new player
+## after a transfer) is sent again at the next sign-in or app resume.
 ## This base class has no push: nothing is asked and no token ever arrives
 ## (PC builds, tests, and phones until the native plugin is in). A subclass
 ## per platform plugin asks the OS and calls accept_token().
@@ -29,11 +32,17 @@ var last_error := ""
 var _api: BackendClient
 var _token := ""
 var _platform := ""
+## The server took this phone's token (for the player signed in now).
+var _registered := false
+var _registering := false
 
 
 ## api: the server session to register with, or null (no server).
 func _init(api: BackendClient = null) -> void:
 	_api = api
+	if api != null:
+		api.session_checked.connect(_on_session_checked)
+		api.account_moved.connect(_on_account_moved)
 
 
 ## True when this build can receive push notifications.
@@ -52,14 +61,23 @@ func start() -> void:
 	pass
 
 
+## True when start() can fetch a token before the player was ever asked,
+## without showing a prompt (Android: a token needs no permission).
+func fetches_silently() -> bool:
+	return false
+
+
 ## A platform plugin got a token: remember it and register it on the server.
 func accept_token(token: String, platform: String) -> void:
 	if token.is_empty():
 		return
+	if token != _token or platform != _platform:
+		_registered = false
 	_token = token
 	_platform = platform
 	token_received.emit(token, platform)
-	register()
+	if not _registered:
+		register()
 
 
 func token() -> String:
@@ -69,9 +87,43 @@ func token() -> String:
 ## Sends this phone's token and clock to the server (also after a setting
 ## change, so the offset stays right through summer and winter time).
 func register() -> void:
-	if _api == null or _token.is_empty():
+	if _api == null or _token.is_empty() or _registering:
 		return
-	await _api.call_db("register_push", register_body(_token, _platform, utc_offset_minutes()))
+	_registering = true
+	var token := _token
+	var res := await _api.call_db(
+		"register_push", register_body(token, _platform, utc_offset_minutes())
+	)
+	_registering = false
+	var ok := bool(res.get("ok", false))
+	_registered = ok and token == _token
+	if not ok:
+		last_error = "register_push failed (%d)" % int(res.get("code", 0))
+	elif token != _token:
+		# A newer token arrived while this one was on its way.
+		register()
+
+
+## True when the server holds this phone's current token.
+func is_registered() -> bool:
+	return _registered
+
+
+## The app came back (or signed in again): send a registration the server
+## didn't take yet.
+func retry_register() -> void:
+	if not _registered:
+		register()
+
+
+func _on_session_checked(ok: bool) -> void:
+	if ok:
+		retry_register()
+
+
+## The player moved to another phone: the next player here registers anew.
+func _on_account_moved() -> void:
+	_registered = false
 
 
 ## Settings > Board alerts.
@@ -99,6 +151,7 @@ func debug_rows() -> Array:
 		["Push", "in this build" if is_available() else "not in this build"],
 		["Server", "set up" if _api != null else "none"],
 		["Token", short_token(_token)],
+		["On the server", "yes" if _registered else "not yet"],
 		["Clock", "UTC %+d min" % utc_offset_minutes()],
 	]
 	if not last_error.is_empty():

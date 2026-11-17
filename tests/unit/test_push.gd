@@ -13,9 +13,13 @@ class FakePush:
 	var asked := 0
 	var started := 0
 	var enabled_calls: Array = []
+	var silent := false
 
 	func is_available() -> bool:
 		return true
+
+	func fetches_silently() -> bool:
+		return silent
 
 	func request_permission() -> void:
 		asked += 1
@@ -168,5 +172,39 @@ func test_the_switch_tells_the_server_and_asks_late() -> void:
 	main._profile.settings.board_alerts = false
 	main._on_settings_changed()
 	assert_eq(push.enabled_calls, [true, false])
+	main.free()
+	SafeFile.remove(TEST_PATH)
+
+
+func test_android_registers_before_any_prompt() -> void:
+	var push := FakePush.new()
+	push.silent = true
+	var main := _make_main(push)
+	assert_eq(push.started, 1, "Android: the token is fetched at the first start")
+	assert_eq(push.asked, 0, "without a prompt")
+	main.free()
+	var off := Profile.new()
+	off.settings.board_alerts = false
+	var quiet := FakePush.new()
+	quiet.silent = true
+	var main2 := _make_main(quiet, off)
+	assert_eq(quiet.started, 0, "alerts off: no token")
+	main2._profile.settings.board_alerts = true
+	main2._on_settings_changed()
+	assert_eq(quiet.started, 1, "switched on: fetched now")
+	main2.free()
+	SafeFile.remove(TEST_PATH)
+
+
+func test_a_battle_asks_for_permission_once() -> void:
+	var push := FakePush.new()
+	var main := _make_main(push)
+	var view := BattleView.parse({"battle": 3, "status": "open"})
+	main._services.battles.battle_loaded.emit(view)
+	assert_eq(push.asked, 1, "the first battle: your-turn alerts mean something now")
+	assert_true(Profile.load_or_new(TEST_PATH).push_asked)
+	main._services.battles.battle_loaded.emit(view)
+	main._on_board_loaded(_board(2))
+	assert_eq(push.asked, 1, "only once, battles and board together")
 	main.free()
 	SafeFile.remove(TEST_PATH)

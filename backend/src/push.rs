@@ -54,6 +54,22 @@ pub fn message(alert: &Value) -> Value {
     })
 }
 
+/// Why Firebase refused a message, for the log: the HTTP status, Firebase's
+/// status and its FCM error code, never the token. THIRD_PARTY_AUTH_ERROR on an
+/// iOS phone means the Firebase project has no APNs key (docs/PUSH_SETUP.md).
+pub fn failure_reason(status: u16, body: &Value) -> String {
+    let mut out = status.to_string();
+    if let Some(s) = body["error"]["status"].as_str() {
+        out += &format!(" {s}");
+    }
+    if let Some(details) = body["error"]["details"].as_array() {
+        for code in details.iter().filter_map(|d| d["errorCode"].as_str()) {
+            out += &format!(" {code}");
+        }
+    }
+    out
+}
+
 /// True when Firebase says this phone's token is gone for good.
 pub fn token_is_dead(status: u16, body: &Value) -> bool {
     status == 404
@@ -110,10 +126,17 @@ pub async fn round(pool: &PgPool, http: &reqwest::Client, account: &Account) -> 
                 failed += 1;
                 let status = r.status().as_u16();
                 let body: Value = r.json().await.unwrap_or(Value::Null);
+                tracing::warn!(
+                    "alert {} ({}) not sent: {}",
+                    alert["id"],
+                    alert["platform"].as_str().unwrap_or("?"),
+                    failure_reason(status, &body)
+                );
                 results
                     .push(json!({"id": alert["id"], "status": "failed", "forget_token": token_is_dead(status, &body)}));
             }
-            Err(_) => {
+            Err(e) => {
+                tracing::warn!("alert {} not sent: {e}", alert["id"]);
                 failed += 1;
                 results.push(json!({"id": alert["id"], "status": "failed"}));
             }
@@ -159,6 +182,14 @@ mod tests {
         assert!(token_is_dead(404, &Value::Null));
         assert!(token_is_dead(400, &json!({"error": {"details": [{"errorCode": "UNREGISTERED"}]}})));
         assert!(!token_is_dead(500, &json!({})));
+    }
+
+    #[test]
+    fn failures_say_why_without_the_token() {
+        let body = json!({"error": {"status": "INVALID_ARGUMENT",
+            "details": [{"@type": "x", "errorCode": "THIRD_PARTY_AUTH_ERROR"}]}});
+        assert_eq!(failure_reason(401, &body), "401 INVALID_ARGUMENT THIRD_PARTY_AUTH_ERROR");
+        assert_eq!(failure_reason(500, &Value::Null), "500");
     }
 
     #[test]

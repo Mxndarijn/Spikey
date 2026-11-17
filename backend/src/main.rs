@@ -56,7 +56,7 @@ async fn main() {
         }
         spawn_push(pool.clone(), account, config.push_every_s);
     } else {
-        tracing::info!("no FIREBASE_SERVICE_ACCOUNT: board alerts are not sent");
+        tracing::warn!("no FIREBASE_SERVICE_ACCOUNT: board and battle alerts are not sent");
     }
 
     let listen = config.listen.clone();
@@ -109,7 +109,7 @@ fn spawn_push(pool: sqlx::PgPool, account: push::Account, every_s: u64) {
         loop {
             match push::round(&pool, &http, &account).await {
                 Ok((0, 0)) => {}
-                Ok((sent, failed)) => tracing::info!("board alerts: {sent} sent, {failed} failed"),
+                Ok((sent, failed)) => tracing::info!("push alerts: {sent} sent, {failed} failed"),
                 Err(e) => tracing::warn!("push round failed: {e}"),
             }
             tokio::time::sleep(Duration::from_secs(every_s.max(5))).await;
