@@ -34,7 +34,7 @@ Duel.
 Modes now and soon: **Classic** (today's endless run), **Daily Run**,
 **Battle**, **Duel**, and later perhaps Practice or seasonal events.
 
-Recommendation: a **mode carousel on Home**, with Play under it.
+**Decided**: a **mode carousel on Home**, with Play under it.
 
 - One card per mode, swiped sideways, the chosen one in the middle and its
   neighbours peeking in at the sides. Dots under it show how many modes there
@@ -585,6 +585,7 @@ state machine and round sequence, the shared architecture.
 
 Decided by the user:
 
+- **Mode picker**: the carousel on Home plus the All modes sheet.
 - Battle is **first to 6** round wins.
 - **The player who starts the battle opens round 1**, then the opener
   alternates, and round 11 (at 5-5) is blind for both.
@@ -602,20 +603,17 @@ Decided by the user:
 
 Still open (recommendation first):
 
-1. **Mode picker**: a carousel on Home plus an All modes sheet, tabs along
-   the top, or only an All modes sheet behind one button? (The coordinator
-   explains the options to the user.)
-2. **Close (no result)**: allowed after 7 days of waiting on the other
+1. **Close (no result)**: allowed after 7 days of waiting on the other
    player (recommended), or another number of days?
-3. **Bot badge**: a "BOT" pill and the name "Flapbot · Good" (recommended),
+2. **Bot badge**: a "BOT" pill and the name "Flapbot · Good" (recommended),
    or another name?
-4. **Bot matches on the boards**: never counted (recommended)?
-5. **Bot wait**: a bot takes a random battle after 10 minutes without a
+3. **Bot matches on the boards**: never counted (recommended)?
+4. **Bot wait**: a bot takes a random battle after 10 minutes without a
    person in phase a, growing to 2 h and 12 h, bots off above 2000 Battle
    players a day (recommended starting numbers)?
-6. **Auto battles**: on by default for active players, at most 3 open at
+5. **Auto battles**: on by default for active players, at most 3 open at
    once, with a switch in Settings (recommended)?
-7. **"Play a bot" as practice** after the bots stop filling random battles:
+6. **"Play a bot" as practice** after the bots stop filling random battles:
    keep it (recommended) or remove the bots fully?
-8. **Where bots run**: a separate `battle-bot` pod with a 500m CPU limit on
+7. **Where bots run**: a separate `battle-bot` pod with a 500m CPU limit on
    the VM (recommended), or inside the server process?
