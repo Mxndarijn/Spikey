@@ -3,7 +3,7 @@ extends RefCounted
 ## The ways to earn diamonds besides the daily board (Economy.DAILY_PRIZES):
 ## best-score milestones (the first four, then the ladder to 1000), once each,
 ## and a streak of days with a checked run.
-## The server pays them (supabase/migrations/20261110100000_diamonds.sql);
+## The server pays them (backend/migrations/20261110100000_diamonds.sql);
 ## this holds the same table for the game's own screens.
 
 ## [score, diamonds]: a best score of 25 for the first time wins 1, and so on.
@@ -11,7 +11,7 @@ const MILESTONES: Array[Array] = [[25, 1], [50, 1], [75, 2], [100, 3]]
 ## The ladder after them: every LADDER_STEP from LADDER_FROM to LADDER_TOP
 ## (150, 200, ..., 1000) wins LADDER_PRIZE once. Steps at or below the
 ## player's ladder mark (their best when the ladder came, from the server)
-## never pay (supabase/migrations/20261114120000_score_ladder.sql).
+## never pay (backend/migrations/20261114120000_score_ladder.sql).
 const LADDER_FROM := 150
 const LADDER_STEP := 50
 const LADDER_TOP := 1000

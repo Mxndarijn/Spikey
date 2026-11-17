@@ -8,10 +8,10 @@ const TEST_PATH := "user://test_earn_diamonds_profile.json"
 
 ## A server that never answers.
 class DeadClient:
-	extends SupabaseClient
+	extends FlapjawClient
 
 	func _init() -> void:
-		super(null, "", "")
+		super(null, "")
 
 	func call_db(_function: String, _body: Dictionary) -> Dictionary:
 		return {"ok": false, "code": 0, "data": null}
@@ -19,11 +19,11 @@ class DeadClient:
 
 ## A server that answers get_earn_status with `answer`.
 class FixedClient:
-	extends SupabaseClient
+	extends FlapjawClient
 	var answer: Variant = null
 
 	func _init(p_answer: Variant) -> void:
-		super(null, "", "")
+		super(null, "")
 		answer = p_answer
 
 	func call_db(function: String, _body: Dictionary) -> Dictionary:
@@ -79,7 +79,7 @@ func _free(screen: EarnScreen) -> void:
 
 
 func test_rules_match_the_server() -> void:
-	# supabase/migrations/20261110100000_diamonds.sql: (25, 1), (50, 1), (75, 2), (100, 3).
+	# backend/migrations/20261110100000_diamonds.sql: (25, 1), (50, 1), (75, 2), (100, 3).
 	assert_eq(EarnRules.first_scores(), [25, 50, 75, 100])
 	var prizes: Array[int] = []
 	for score in EarnRules.first_scores():

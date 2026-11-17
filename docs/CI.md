@@ -161,7 +161,7 @@ seconds). Before turning off another module, check that nothing exported uses it
 missing from the engine fails when the game loads on the phone, not in the check.
 The iOS engine also gets Flapjaw's own modules from `tools/engine/modules` (`custom_modules`):
 `flapjaw_keychain`, the `FlapjawKeychain` singleton that keeps the device key in the Keychain
-(`docs/LEADERBOARD_SETUP.md`). Compiled with the engine, it uses exactly its headers and flags,
+(`services/flapjaw_client.gd`). Compiled with the engine, it uses exactly its headers and flags,
 and `#import <Security/Security.h>` with clang modules links Security.framework, so the Xcode
 project needs no change. The build fails if the module is missing from the library.
 
@@ -263,7 +263,8 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
 - **App id / bundle id**: `package/unique_name` (presets "Android" and "Android AAB") and
   `application/bundle_identifier` (preset "iOS") in `export_presets.cfg`, plus `IOS_BUNDLE_ID`
   in `build.yml`. Android ids can never change after the first Play upload.
-- **Godot version**: `GODOT_VERSION` in `check.yml`, `build.yml` and `verify-runs.yml`, plus
+- **Godot version**: `GODOT_VERSION` in `check.yml` and `build.yml`, `ARG GODOT_VERSION` in
+  `deploy/godot-check/Dockerfile` (the server's Godot check), plus
   `godot_version` in the `android_engine` and `ios_engine` jobs of `build.yml` (the builds fail
   if they differ). It must name a release on
   github.com/godotengine/godot-builds (e.g. `4.7.2-stable`). CI downloads the matching export

@@ -1,11 +1,14 @@
-# Tests supabase/migrations against a real Postgres (needs Docker running):
+# Tests the game's SQL (backend/migrations/<timestamp>_*.sql) against a real Postgres
+# (needs Docker running):
 #   powershell -ExecutionPolicy Bypass -File tools/db_test.ps1
-# A fresh throwaway container, small stand-ins for what Supabase adds
-# (supabase/tests/00_stubs.sql), every migration in order, then every
-# supabase/tests/NN_test_*.sql. Nothing touches the live project.
+# A fresh throwaway container, small stand-ins for what the migrations expect from
+# the platform (backend/sql_tests/00_stubs.sql: they were written for Supabase), every
+# timestamped migration in order, then every backend/sql_tests/NN_test_*.sql. The
+# server's own 0001/0100 migrations are covered by tools/backend_test.ps1. Nothing
+# touches a live database.
 param([string]$Repo = (Split-Path -Parent $PSScriptRoot))
 
-$tests = Join-Path $Repo "supabase\tests"
+$tests = Join-Path $Repo "backend\sql_tests"
 $name = "flapjaw-migtest"
 $failed = $false
 
@@ -35,8 +38,9 @@ if ($out | Select-String "ERROR") { $out | Select-Object -Last 8; $failed = $tru
 
 if (-not $failed) {
     $tmp = Join-Path $env:TEMP "flapjaw_migration.sql"
-    foreach ($m in (Get-ChildItem (Join-Path $Repo "supabase\migrations\*.sql") | Sort-Object Name)) {
-        # pg_net only exists on Supabase; the stubs stand in for it.
+    $migrations = Get-ChildItem (Join-Path $Repo "backend\migrations\*.sql") | Where-Object { $_.Name -match '^\d{14}_' }
+    foreach ($m in ($migrations | Sort-Object Name)) {
+        # pg_net is a Supabase extension; the stubs stand in for it.
         $text = [IO.File]::ReadAllText($m.FullName) -replace "create extension if not exists pg_net;", ""
         [IO.File]::WriteAllText($tmp, $text, (New-Object Text.UTF8Encoding $false))
         $out = Invoke-Sql $tmp

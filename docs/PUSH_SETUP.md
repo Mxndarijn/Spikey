@@ -11,10 +11,9 @@ clock. The same words show as a line on Home when the game is open.
    alerts switch (`set_push_enabled`). See `services/push_service.gd`.
 2. When the run checker passes a run, the database compares today's places with
    the ones it remembered and writes an alert for everyone who dropped past a
-   line (`supabase/migrations/20261110110000_push_alerts.sql`).
-3. If an alert was queued, the database calls the Edge Function
-   `supabase/functions/send-alerts`, which sends it through Firebase Cloud
-   Messaging and reports back what was sent.
+   line (`backend/migrations/20261110110000_push_alerts.sql`).
+3. The game server sends the queued alerts through Firebase Cloud Messaging
+   and writes back what was sent (`backend/src/push.rs`).
 
 Without the setup below nothing is sent; the line on Home still works.
 
@@ -27,29 +26,20 @@ Without the setup below nothing is sent; the line on Home still works.
    new private key. This file can send notifications as your app: never commit
    it or share it. If it leaks, delete that key on the same page (Manage
    service account permissions -> Keys) and generate a new one.
-3. **GitHub secrets** (Settings -> Secrets and variables -> Actions):
-
-   | Secret | Value |
-   |---|---|
-   | `FIREBASE_SERVICE_ACCOUNT` | The whole contents of the service account key file |
-   | `PUSH_SEND_SECRET` | Any long random text (for example 40 letters and digits) |
-   | `SUPABASE_ACCESS_TOKEN` | Supabase -> Account -> Access Tokens -> Generate new token |
-   | `SUPABASE_PROJECT_REF` | The id in the project's URL (`https://<this>.supabase.co`) |
-   | `SUPABASE_DB_URL` | Already there from `docs/LEADERBOARD_SETUP.md` |
-
-4. **Deploy**: the workflow `.github/workflows/supabase-functions.yml` runs when
-   `supabase/functions/` changes on `main`, or by hand (Actions -> Supabase
-   functions -> Run workflow). It deploys the function, gives it its secrets and
-   tells the database where it lives.
+3. **The server**: put the key file, in base64, in `FIREBASE_SERVICE_ACCOUNT`
+   of the server's `.env.<env>` (docs/DEPLOY.md, "Settings and secrets") and
+   deploy. Without it the server logs "board alerts are not sent" and sends
+   nothing.
 
 ## Testing without phones
 
 - `powershell -ExecutionPolicy Bypass -File tools/db_test.ps1`: the migrations
-  and `supabase/tests/` against a throwaway Postgres.
-- `powershell -ExecutionPolicy Bypass -File tools/functions_test.ps1`: the Edge
-  Function with stand-ins for Firebase and the database.
+  and `backend/sql_tests/` against a throwaway Postgres.
+- `powershell -ExecutionPolicy Bypass -File tools/backend_test.ps1`: the server,
+  its alert sender's unit tests included (`backend/src/push.rs`).
 
-Both need Docker running. Neither touches the live project.
+Both need Docker running for the database parts. Neither touches the live
+server.
 
 ## Not there yet
 

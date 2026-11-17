@@ -1,10 +1,10 @@
 extends TestCase
 ## Board alerts: the setting, when the game asks for notification permission,
 ## and what it tells the server. Sending is the server's job
-## (supabase/tests/20_test_push.sql).
+## (backend/sql_tests/20_test_push.sql).
 
 const TEST_PATH := "user://test_push_profile.json"
-const MIGRATION := "res://supabase/migrations/20261110110000_push_alerts.sql"
+const MIGRATION := "res://backend/migrations/20261110110000_push_alerts.sql"
 
 
 ## A phone with push: records what the game asks of it.

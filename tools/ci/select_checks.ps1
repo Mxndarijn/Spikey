@@ -23,7 +23,8 @@
                 check when a painter or a view changed (visible.tsv)
     tools       tools/** other files              -> lint and the always set only
     server      backend/**                        -> the server tests (tools/backend_test.ps1)
-                (supabase/migrations/** and the sims add them too: the server runs them)
+                (the sims add them too: the server runs them; backend/migrations/**
+                also the fast tests, which read the SQL)
     anything else (project.godot, workflows ...)  -> the fast tests
 
   Always (when anything but docs changed): lint, format, import, load all.
@@ -67,11 +68,12 @@ function Select-Checks([string[]]$files) {
         if ($f.EndsWith(".uid")) { $f = $f.Substring(0, $f.Length - 4) }
         if ($f -match '\.md$' -or $f -match '^docs/') { continue }
         $s.docs_only = $false
-        # The game server links the Rust sim and applies the Supabase migrations.
-        if ($f -match '^(backend|supabase/migrations|tools/fastsim-rs/sim|sim)/' -or $f -eq 'tools/backend_test.ps1') {
+        # The game server links the Rust sim and applies the migrations.
+        if ($f -match '^(backend|tools/fastsim-rs/sim|sim)/' -or $f -eq 'tools/backend_test.ps1') {
             $s.server = $true
         }
-        if ($f -match '^backend/') {
+        # The game's tests read the migrations too (names and numbers the phone must match).
+        if ($f -match '^backend/' -and $f -notmatch '^backend/migrations/') {
             $s.why += "server: $f"
             continue
         }

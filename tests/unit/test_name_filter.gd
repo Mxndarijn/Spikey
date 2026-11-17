@@ -3,7 +3,7 @@ extends TestCase
 ## repeated letters or dots between them; normal names with short words inside
 ## them pass; and the game's list matches the database migration's.
 
-const MIGRATION := "res://supabase/migrations/20261108210000_name_filter.sql"
+const MIGRATION := "res://backend/migrations/20261108210000_name_filter.sql"
 
 
 func test_bad_names_are_refused() -> void:

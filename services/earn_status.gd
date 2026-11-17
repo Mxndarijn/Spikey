@@ -2,7 +2,7 @@ class_name EarnStatus
 extends RefCounted
 ## What the Earn diamonds screen shows about the player's own progress: their
 ## best checked score, the milestones won and the current streak (EarnRules).
-## Comes from the server (get_earn_status in supabase/migrations/); `known`
+## Comes from the server (get_earn_status in backend/migrations/); `known`
 ## is false when it was guessed on the phone (offline, or no server at all).
 
 ## From the server just now. False: a guess from the save (see from_profile).

@@ -1,8 +1,9 @@
 extends SceneTree
-## Checks a batch of stored leaderboard runs (.github/workflows/verify-runs.yml):
+## Checks a batch of stored leaderboard runs (the server's godot-check CronJob,
+## deploy/godot-check/check.sh):
 ##   godot --headless --path . -s res://server/verify_batch.gd -- pending.json results.json
-## pending.json: the answer of worker_pending_runs (supabase/migrations/).
-## results.json: [{"id", "status", "reason"}, ...] for worker_record_results.
+## pending.json: the answer of backend.godot_pending_runs (backend/migrations/).
+## results.json: [{"id", "status", "reason"}, ...] for backend.godot_record_results.
 ## Runs newer than this checker's sim are left out, so they stay pending.
 ## Exit 0 = results written (whatever they say), 1 = bad input.
 

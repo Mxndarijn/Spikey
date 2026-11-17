@@ -325,7 +325,7 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	p.save(TEST_PATH)
 	var main: Node = load("res://game/main.tscn").instantiate()
 	main.profile_path = TEST_PATH
-	# Sample boards, whatever services/supabase_config.json says on this machine.
+	# Sample boards, whatever services/backend_config.json says on this machine.
 	main.leaderboard = SampleLeaderboard.new(p)
 	_tree().root.add_child(main)
 	var home := main._menus.current() as HomeScreen

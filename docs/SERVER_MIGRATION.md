@@ -1,11 +1,12 @@
 # Moving the backend from Supabase to our own server
 
-Status: **built on this branch, not deployed.** The user said go ("prepare it
-on a branch"). What is in the repository now, and where it differs from the
-plan below, is in "What was built" at the end; the steps to run it are in
-docs/DEPLOY.md. Nothing is deployed, no account or cloud resource exists, and
-the live Supabase project is untouched. Branch: `claude/server-backend-e4288c`,
-cut from `next-features-3` at 6714cff.
+Status: **done.** Every build from v0.1.2 (gameplay v25) talks to our own
+server; Supabase is retired. Its client (`SupabaseClient`), Edge Functions,
+workflows and `supabase/` folder are gone; the migrations moved unchanged to
+`backend/migrations/` and their SQL tests to `backend/sql_tests/`. This file is
+kept as the plan and the record of how the move was made: the names below
+(`services/supabase_client.gd`, `supabase/...`, the Supabase workflows) are as
+they were then. How to run the server today: docs/DEPLOY.md.
 
 Visual version, with the architecture and flow diagrams (old vs new), the
 feature table with endpoints and risk, hosting costs and the rollout timeline:

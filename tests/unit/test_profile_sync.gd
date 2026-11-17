@@ -3,14 +3,14 @@ extends TestCase
 ## sync service against a server stand-in, and the device key that signs a
 ## reinstalled phone in as the same player.
 
-const MIGRATION := "res://supabase/migrations/20261110150000_profiles.sql"
+const MIGRATION := "res://backend/migrations/20261110150000_profiles.sql"
 const SESSION := "user://test_sync_session.json"
 const DEVICE := "user://test_sync_device_key.json"
 
 
 ## sync_profile as the migration does it, in memory.
 class FakeServer:
-	extends SupabaseClient
+	extends FlapjawClient
 	var data := {}
 	var revision := 0
 	var calls := 0
@@ -18,7 +18,7 @@ class FakeServer:
 	var paid: Array = []
 
 	func _init() -> void:
-		super(null, "https://example.supabase.co", "k")
+		super(null, "https://api.example.com")
 
 	func call_db(function: String, body: Dictionary) -> Dictionary:
 		calls += 1
@@ -215,16 +215,14 @@ func test_matches_the_migration() -> void:
 
 
 func test_device_keys_are_long_random_and_checked() -> void:
-	var a := SupabaseClient.new_device_key()
-	var b := SupabaseClient.new_device_key()
-	assert_true(SupabaseClient.is_device_key(a), a)
+	var a := BackendClient.new_device_key()
+	var b := BackendClient.new_device_key()
+	assert_true(BackendClient.is_device_key(a), a)
 	assert_ne(a, b)
 	assert_eq(a.length(), 67)
-	assert_false(SupabaseClient.is_device_key(""))
-	assert_false(SupabaseClient.is_device_key("Fj-" + "AB".repeat(32)), "lower case hex only")
-	assert_false(SupabaseClient.is_device_key(a.substr(0, 66)))
-	var fn := FileAccess.get_file_as_string("res://supabase/functions/device-key/index.ts")
-	assert_true("^Fj-[0-9a-f]{64}$" in fn, "the function checks the same shape")
+	assert_false(BackendClient.is_device_key(""))
+	assert_false(BackendClient.is_device_key("Fj-" + "AB".repeat(32)), "lower case hex only")
+	assert_false(BackendClient.is_device_key(a.substr(0, 66)))
 
 
 func _clean() -> void:
@@ -232,10 +230,11 @@ func _clean() -> void:
 	SafeFile.remove(DEVICE)
 
 
-func _api() -> SupabaseClient:
-	var api := SupabaseClient.new(null, "https://example.supabase.co", "k")
+func _api() -> FlapjawClient:
+	var api := FlapjawClient.new(null, "https://api.example.com")
 	api.session_path = SESSION
 	api.device_path = DEVICE
+	api.keychain = null
 	return api
 
 
@@ -244,12 +243,12 @@ func test_a_restored_device_key_can_sign_in() -> void:
 	var api := _api()
 	api.restore()
 	assert_false(api.has_device_login(), "no key yet")
-	var key := SupabaseClient.new_device_key()
-	SafeFile.write_json(DEVICE, {"key": key, "email": "x@device.flapjaw.invalid"})
+	var key := BackendClient.new_device_key()
+	SafeFile.write_json(DEVICE, {"key": key, "player": "p1"})
 	api = _api()
 	api.restore()
 	assert_true(api.has_device_login())
-	SafeFile.write_json(DEVICE, {"key": "Fj-short", "email": "x@device.flapjaw.invalid"})
+	SafeFile.write_json(DEVICE, {"key": "Fj-short", "player": "p1"})
 	api = _api()
 	api.restore()
 	assert_false(api.has_device_login(), "a broken key is not used")
@@ -262,7 +261,7 @@ func test_no_answer_never_makes_a_new_player() -> void:
 	_clean()
 	SafeFile.write_json(SESSION, {"access_token": "a", "refresh_token": "r", "expires_at": 1})
 	SafeFile.write_json(
-		DEVICE, {"key": SupabaseClient.new_device_key(), "email": "x@device.flapjaw.invalid"}
+		DEVICE, {"key": BackendClient.new_device_key(), "player": "p1"}
 	)
 	var api := _api()
 	api.restore()
@@ -273,7 +272,7 @@ func test_no_answer_never_makes_a_new_player() -> void:
 
 
 func test_only_a_refusal_tries_the_next_way_in() -> void:
-	assert_true(SupabaseClient.refused({"code": 400}))
-	assert_true(SupabaseClient.refused({"code": 429}))
-	assert_false(SupabaseClient.refused({"code": 0}), "no answer")
-	assert_false(SupabaseClient.refused({"code": 503}), "server busy")
+	assert_true(BackendClient.refused({"code": 400}))
+	assert_true(BackendClient.refused({"code": 429}))
+	assert_false(BackendClient.refused({"code": 0}), "no answer")
+	assert_false(BackendClient.refused({"code": 503}), "server busy")

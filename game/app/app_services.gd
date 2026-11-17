@@ -41,10 +41,9 @@ static func offline(profile: Profile) -> AppServices:
 	return s
 
 
-## The online boards when a backend config is there (BackendClient: Supabase,
-## docs/LEADERBOARD_SETUP.md, or our own server, docs/DEPLOY.md), else samples.
-## `host`: a node in the tree for the HTTP requests. The older Supabase-only
-## config is read only next to the default path.
+## The online boards when a backend config is there (BackendClient: our own
+## server, docs/DEPLOY.md), else samples.
+## `host`: a node in the tree for the HTTP requests.
 static func make_leaderboard(
 	profile: Profile, host: Node, config_path: String
 ) -> LeaderboardService:
@@ -60,10 +59,7 @@ static func make_leaderboard(
 ## The backend config at `config_path` ({} for none; see
 ## BackendClient.load_backend_config).
 static func config_at(config_path: String) -> Dictionary:
-	var default := config_path == BackendClient.BACKEND_CONFIG_PATH
-	return BackendClient.load_backend_config(
-		config_path, SupabaseClient.CONFIG_PATH if default else ""
-	)
+	return BackendClient.load_backend_config(config_path)
 
 
 ## The connection the leaderboards use, shared with the wallet and push

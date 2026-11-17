@@ -1,8 +1,8 @@
 //! The game's operations: `POST /v1/<op>` with the same name, arguments and
-//! answer as the Supabase function of that name (supabase/migrations/). Each
+//! answer as the SQL function of that name (backend/migrations/). Each
 //! call runs the SQL function as the signed-in player: the server sets
 //! `request.jwt.claim.sub` for the transaction, which is what `auth.uid()`
-//! reads, exactly as on Supabase.
+//! reads (the functions were written for Supabase, which did the same).
 //!
 //! The body is passed to Postgres as one jsonb value and each argument is
 //! taken out of it with its type, by name (`f(p_board => ($1->>'p_board')::text)`),

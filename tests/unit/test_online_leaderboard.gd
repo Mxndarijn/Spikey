@@ -1,11 +1,11 @@
 extends TestCase
-## The Supabase client without a network: its config file, how it reads boards
-## from the server's answers, what it sends for a run, and that runs it can't
-## send wait on the phone for later.
+## The online leaderboards without a network: how they read boards from the
+## server's answers, what they send for a run, and that runs they can't send
+## wait on the phone for later.
 
-const CONFIG := "user://test_supabase_config.json"
-const SESSION := "user://test_supabase_session.json"
-const QUEUE := "user://test_supabase_queue.json"
+const SESSION := "user://test_online_board_session.json"
+const DEVICE := "user://test_online_board_device.json"
+const QUEUE := "user://test_online_board_queue.json"
 
 
 func _profile() -> Profile:
@@ -24,34 +24,18 @@ func _write(path: String, text: String) -> void:
 
 func _client(p: Profile) -> OnlineLeaderboard:
 	# No host node: every request fails at once, like a phone without internet.
-	var api := SupabaseClient.new(null, "https://example.supabase.co/", "public-key")
+	var api := FlapjawClient.new(null, "https://api.example.com/")
 	api.session_path = SESSION
+	api.device_path = DEVICE
+	api.keychain = null
 	var c := OnlineLeaderboard.new(p, api)
 	c.queue_path = QUEUE
 	return c
 
 
 func _clean() -> void:
-	for path in [CONFIG, SESSION, QUEUE]:
+	for path in [SESSION, DEVICE, QUEUE]:
 		SafeFile.remove(path)
-
-
-func test_config_needs_an_https_url_and_a_key() -> void:
-	_clean()
-	assert_eq(SupabaseClient.load_config(CONFIG), {}, "no file: sample boards")
-	_write(CONFIG, "not json")
-	assert_eq(SupabaseClient.load_config(CONFIG), {}, "broken file")
-	_write(CONFIG, '{"url": "http://insecure.example", "anon_key": "k"}')
-	assert_eq(SupabaseClient.load_config(CONFIG), {}, "https only")
-	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": ""}')
-	assert_eq(SupabaseClient.load_config(CONFIG), {}, "a key is needed")
-	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": "PASTE-THE-KEY-HERE"}')
-	assert_eq(SupabaseClient.load_config(CONFIG), {}, "a placeholder key")
-	_write(CONFIG, '{"url": "https://abc.supabase.co", "anon_key": "k"}')
-	assert_eq(
-		SupabaseClient.load_config(CONFIG), {"url": "https://abc.supabase.co", "anon_key": "k"}
-	)
-	_clean()
 
 
 func test_reads_a_board_from_the_server_answer() -> void:
@@ -234,17 +218,6 @@ func test_a_saved_session_is_restored() -> void:
 		await c.client.ensure_session(), "an unexpired token is used without asking the server"
 	)
 	_clean()
-
-
-## Only an answer that says the session is gone for good makes a new player;
-## a busy server or a refresh token used twice in a race keeps the old one.
-func test_only_a_dead_session_makes_a_new_player() -> void:
-	var gone := {"ok": false, "code": 400, "data": {"error_code": "refresh_token_not_found"}}
-	var raced := {"ok": false, "code": 400, "data": {"error_code": "refresh_token_already_used"}}
-	var busy := {"ok": false, "code": 503, "data": null}
-	assert_true(SupabaseClient.session_gone(gone))
-	assert_false(SupabaseClient.session_gone(raced))
-	assert_false(SupabaseClient.session_gone(busy))
 
 
 ## A broken session file falls back to the last good one.

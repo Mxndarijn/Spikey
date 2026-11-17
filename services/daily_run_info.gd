@@ -1,7 +1,7 @@
 class_name DailyRunInfo
 extends RefCounted
 ## Today's Daily Run for this player, as get_daily_run answers it
-## (supabase/migrations/20261113130000_daily_run.sql): the day's number, its
+## (backend/migrations/20261113130000_daily_run.sql): the day's number, its
 ## season, the time to the reset, the tries used, the best try and its rank,
 ## and how yesterday's Daily Run ended. The seed is not here: it comes with a
 ## try (DailyTry), so the map can't be played before the try is counted.

@@ -21,7 +21,7 @@ flowchart TD
         VIEW["game/run — RoomView, BirdView, hazard painters, world scenes"]
         CTRL["game/run/run_controller — fixed 60 Hz driver, input, recording"]
         META["meta/ — save, settings, money rules, item kinds"]
-        SVC["services/ — Supabase client, leaderboards, wallet, store, ads, push"]
+        SVC["services/ — server client, leaderboards, wallet, store, ads, push"]
     end
     SIM["sim/ — deterministic core (integers only, no Nodes, no time)"]
     SERVER["server/verify_run.gd — headless Godot replay"]
@@ -40,12 +40,12 @@ flowchart TD
 |---|---|---|---|
 | `sim/` | Physics, collision, room generation, scoring, RNG, replay/verify | nothing outside `sim/` | Use floats, `Vector2`, `randf/randi`, `Time`, `OS`, `Engine`, Nodes, frame delta, character/theme data or skins |
 | `meta/` | The save and the rules about money: `Profile` (gold, diamonds, owned and equipped ids, rooms met, per-room reached, cleared and death counts, the leaderboard name) with its parts `PlayerSettings` (the Settings sheet) and `DailyRevives`; `ItemKind` (the kinds and the free starters); `PlayerName` + `NameFilter` (leaderboard name rules); `SafeFile` (crash-proof JSON saves with a backup); `RunRecord` + `RunHistory` (Your runs: the last 100 runs and up to 20 saved, never dropped); `Economy` (1 diamond = 100 gold, one way; daily top-10 prizes), `DiamondPacks`, `SeasonCalendar` | `sim/` | Change gameplay; know how anything looks |
-| `services/` | `LeaderboardService`, `WalletService`, `StoreService`, `AdsService`, `PushService`: each base class is the offline stand-in, with `Sample*`/`Fake*` and the real ones beside it. `SupabaseClient` is the one Supabase connection (session, device key, database calls) that `OnlineLeaderboard`, `OnlineWallet`, `ProfileSync` and push share. `RunStore` keeps Your runs in `user://runs.json` | `sim/`, `meta/` | Hold game rules; grant diamonds without the store's confirmation |
+| `services/` | `LeaderboardService`, `WalletService`, `StoreService`, `AdsService`, `PushService`: each base class is the offline stand-in, with `Sample*`/`Fake*` and the real ones beside it. `FlapjawClient` (a `BackendClient`) is the one connection to our server (session, device key, operation calls) that `OnlineLeaderboard`, `OnlineWallet`, `ProfileSync` and push share; without `services/backend_config.json` the game plays offline with sample boards. `RunStore` keeps Your runs in `user://runs.json` | `sim/`, `meta/` | Hold game rules; grant diamonds without the store's confirmation |
 | `game/` | Scenes, drawing, input, audio, haptics, UI. `game/cosmetics/`: `Catalog` (every look by kind), `Shop` (prices), `Checkout` (buying and converting through the wallet), the style + painter pairs. `game/app/`: `AppServices`, `RunLook`, `ReviveFlow`, `BoardAlerts` | `sim/`, `meta/`, `services/` | Write to sim state; put gameplay rules here |
 | `data/` | `design/`: the design kit's tokens + extra palettes and worlds; `themes/`: generated `ThemeDef` per world. Later: characters, hats, trails | — | Hold hitbox or physics values |
 | `assets/` | SVG icons and UI art, fonts | — | — |
 | `server/` | Headless verifier (the godot-check job on our own server) | `sim/`, `meta/` | Fork the sim (it runs the same files) |
-| `backend/` | The game server in Rust (docs/SERVER_MIGRATION.md, docs/DEPLOY.md): the same operations as the Supabase SQL, sign-in, the replay check with the Rust sim, transfers | `tools/fastsim-rs/sim`, `supabase/migrations/` | Put game rules here (they stay in the SQL and `sim/`) |
+| `backend/` | The game server in Rust (docs/SERVER_MIGRATION.md, docs/DEPLOY.md): the game's SQL functions (`backend/migrations/`, written for Supabase and kept as they are) behind typed operations, sign-in, the replay check with the Rust sim, transfers | `tools/fastsim-rs/sim` | Put game rules in Rust (they stay in the SQL and `sim/`) |
 | `tests/` | Unit tests, golden replays, bot simulations | everything | — |
 | `tools/` | `check.ps1`, CI helpers, golden-replay generator | everything | — |
 
@@ -455,20 +455,20 @@ _process           views draw, interpolating between previous and current tick
 
 ## Verified leaderboards
 
-Live now (supabase/migrations/20261109120000_verified_runs.sql):
+Live now (backend/migrations/20261109120000_verified_runs.sql, backend/src/verify.rs):
 
 1. The client plays and records tap ticks (`Replay`).
 2. On game over it sends `submit_run` the score, coins, end tick, season, seed and
    taps. The run is stored as `pending`.
-3. When a run arrives (the database starts it,
-   supabase/migrations/20261109210000_wake_checker.sql) and every 10 minutes as
-   a safety net, `.github/workflows/verify-runs.yml` fetches pending runs
-   (`worker_pending_runs`), replays them with `server/verify_batch.gd`
-   (`RunChecker` -> `Replay.verify()`, the same `sim/` code) and writes back
-   `worker_record_results`.
+3. The server replays each run as it arrives with the Rust sim
+   (`tools/fastsim-rs/sim`, held tick for tick to `sim/`). A run the Rust check
+   rejects stays `pending` until headless Godot has the last word: the
+   godot-check CronJob (`deploy/godot-check/`) replays it with
+   `server/verify_batch.gd` (`RunChecker` -> `Replay.verify()`, the same `sim/`
+   code), so a difference between the two sims never hides an honest score.
 4. Same score, coins and end tick, and a season that was in play that day: `ok`.
    Anything else: `rejected`. An older gameplay version: `outdated`. A newer one
-   than the checker's stays pending until main has that sim.
+   than the server's stays pending until the server has that sim.
 5. Boards show `ok` runs to everyone, plus the caller's own `pending` runs (so a
    new best shows at once on that phone). Rejected runs never show and can't be
    watched.
@@ -503,7 +503,7 @@ Attest / Play Integrity to confirm a real device.
 | Fair monetization | `services/ads_service.gd` (rewarded revive only, `game/app/revive_flow.gd`), `game/cosmetics/shop.gd` + `checkout.gd` (cosmetics only), the Revive Pass in `meta/diamond_packs.gd` (ad-free revives, still one per run: [REVIVE.md](REVIVE.md)) |
 | Your runs | `meta/run_history.gd` + `run_record.gd` (limits, version check), `services/run_store.gd` (the file), `game/ui/screens/runs_screen.gd`, Home's card; Watch uses the leaderboard replay path (`main.watch_run` -> `play_replay`) |
 | Earn diamonds | `meta/earn_rules.gd` (milestones and the score ladder to 1000, `20261114120000_score_ladder.sql`; streak; the daily tiers stay in `Economy`), `services/earn_status.gd` (`WalletService.earn_status()`, from `get_earn_status` in migration `20261111100000_earn_status.sql`, the last answer or a guess from the save offline), `game/ui/screens/earn_screen.gd`; opens from the wallet on Home, Your look and Customize lists, and from the prize popup's link |
-| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/supabase_*.gd`, `game/ui/screens/leaderboard_screen.gd` |
+| Verified leaderboards | `sim/replay.gd`, `server/`, `services/leaderboard_client.gd` (`LeaderboardService`), `services/backend_client.gd`, `services/flapjaw_client.gd`, `backend/src/verify.rs`, `game/ui/screens/leaderboard_screen.gd` |
 
 A revive changes the run, so it must be recorded in the replay (a `revive_tick`
 input) and replayed by the server. The design draft is in [REVIVE.md](REVIVE.md).
@@ -562,8 +562,9 @@ the git history and in `D:\SoftwareProjects\SpikeCage-coord\research`. The
 bots that stay (BlindPlanner, the human tiers, the yardstick) run on
 FastSim-RS.
 
-The database has its own tests (`tools/db_test.ps1`, needs Docker; CI runs
-them in `.github/workflows/supabase-db.yml`).
+The database has its own tests: `tools/db_test.ps1` (the SQL functions against
+`backend/sql_tests/`) and `tools/backend_test.ps1` (the server, part of
+`tools/check.ps1`). Both need Docker for the database parts.
 
 Planned later: a search-based solvability check per generated room and
 screenshot comparisons of key screens. Both need rendering, so they run outside

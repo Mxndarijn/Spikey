@@ -2,7 +2,7 @@ class_name LeaderboardService
 extends RefCounted
 ## The leaderboards, as the game sees them. The screens only talk to this
 ## interface. OnlineLeaderboard is the real one (friends version, free plan);
-## SampleLeaderboard serves made-up boards when no Supabase project is set up.
+## SampleLeaderboard serves made-up boards when no server is set up.
 ## A verification server can come later (docs/ARCHITECTURE.md, "Verified
 ## leaderboards"). This base class has no server: every board is offline.
 

@@ -2,7 +2,7 @@ class_name DailyRunRules
 extends RefCounted
 ## Daily Run: one map a day, the same for every player. The server hands out
 ## the day's seed and season with each try (start_daily_try,
-## supabase/migrations/20261113130000_daily_run.sql), so the phone's clock and
+## backend/migrations/20261113130000_daily_run.sql), so the phone's clock and
 ## date never pick the map. TRIES_PER_DAY tries a day, the best one counts on
 ## the Daily Run board, a crash ends the try (no revive), and the board's top 10
 ## win Economy.DAILY_RUN_PRIZES when the day is over. Replays of today's map

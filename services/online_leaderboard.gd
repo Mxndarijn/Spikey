@@ -1,8 +1,7 @@
 class_name OnlineLeaderboard
 extends LeaderboardService
-## The real leaderboards, through this phone's BackendClient: the Supabase
-## project (supabase/migrations/, docs/LEADERBOARD_SETUP.md) or our own server
-## (server/, docs/SERVER_MIGRATION.md), which take the same operations.
+## The real leaderboards, through this phone's BackendClient: our own server
+## (backend/, its SQL in backend/migrations/, docs/DEPLOY.md).
 ## Runs are sent with their seed and taps; the server replays each one and the
 ## boards only show runs that passed, plus the player's own runs still waiting.
 ## Runs that can't be sent (offline) wait in user:// and go out with the next
@@ -93,7 +92,7 @@ func submit_daily_run(daily_try: DailyTry, score: int, replay: Dictionary = {}) 
 	_send_queue()
 
 
-## The arguments of submit_daily_run in supabase/migrations/, marked for it.
+## The arguments of submit_daily_run in backend/migrations/, marked for it.
 static func daily_body(
 	profile: Profile, daily_try: DailyTry, score: int, replay: Dictionary
 ) -> Dictionary:
@@ -113,7 +112,7 @@ static func daily_body(
 	}
 
 
-## The arguments of submit_run in supabase/migrations/.
+## The arguments of submit_run in backend/migrations/.
 static func run_body(profile: Profile, score: int, replay: Dictionary, now_s: int) -> Dictionary:
 	var body := {
 		"p_name": profile.leaderboard_name,

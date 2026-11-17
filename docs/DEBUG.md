@@ -41,7 +41,7 @@ The ad and push rows come from `AdsService.debug_rows()` and
   not, to try the free offer without a store. A sync with the server can bring
   a bought pass back.
 - **Send a test notification**: asks the server (`send_test_push`,
-  `supabase/migrations/20261110130000_test_push.sql`) to send one to this
+  `backend/migrations/20261110130000_test_push.sql`) to send one to this
   phone along the same path as a Board alert. Leave the app right after
   tapping: iOS does not show a notification while the app is open. At most one
   per 30 seconds.
@@ -51,4 +51,4 @@ The ad and push rows come from `AdsService.debug_rows()` and
 ## Tests
 
 `tests/unit/test_debug_page.gd` (the page) and
-`supabase/tests/40_test_test_push.sql` (the server function; `tools/db_test.ps1`).
+`backend/sql_tests/40_test_test_push.sql` (the server function; `tools/db_test.ps1`).

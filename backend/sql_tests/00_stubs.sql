@@ -1,4 +1,5 @@
--- What a Supabase project has that plain Postgres lacks, as small stand-ins.
+-- What the migrations expect from the platform (they were written for a Supabase
+-- project) that plain Postgres lacks, as small stand-ins.
 create role anon nologin;
 create role authenticated nologin;
 create role service_role nologin;

@@ -1,9 +1,9 @@
 extends TestCase
 ## The debug screen in the settings sheet: how it opens, what it reports and
 ## what its buttons do. The server side of the test notification is in
-## supabase/tests/40_test_test_push.sql.
+## backend/sql_tests/40_test_test_push.sql.
 
-const MIGRATION := "res://supabase/migrations/20261110130000_test_push.sql"
+const MIGRATION := "res://backend/migrations/20261110130000_test_push.sql"
 
 
 ## A phone with push: records what the debug screen asks of it.

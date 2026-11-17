@@ -46,7 +46,6 @@ func _clean() -> void:
 func test_only_a_new_server_id_resets() -> void:
 	var p := _played()
 	assert_false(BackendReset.needed(p, {}), "no backend config")
-	assert_false(BackendReset.needed(p, {"kind": "supabase", "url": "https://a.co"}), "Supabase")
 	assert_true(BackendReset.needed(p, {"kind": "flapjaw", "server_id": "s1"}))
 	p.backend_server = "s1"
 	assert_false(BackendReset.needed(p, {"kind": "flapjaw", "server_id": "s1"}), "once only")

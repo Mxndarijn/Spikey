@@ -10,7 +10,7 @@ extends RefCounted
 ## bits, high to low: the random part (32 bits, the GameSim seed), the season
 ## (3 bits: 0 none, 1-6 = Seasons.* + 1) and the gameplay version (10 bits).
 ## The sim never sees the code: it gets the random part and the season, and
-## runs keep storing seed, season and version apart (run files, Supabase).
+## runs keep storing seed, season and version apart (run files, the server).
 ##
 ## Typing is forgiving: any case, dashes and spaces skipped, O reads as 0 and
 ## I or L as 1. Old seeds (a plain number up to MAX_RANDOM, maybe with a

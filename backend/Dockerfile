@@ -1,11 +1,10 @@
 # The game server's image. Build from the repository root (it needs the Rust
-# sim and the Supabase migrations next to backend/):
+# sim next to backend/):
 #   docker build -f backend/Dockerfile --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t <REGISTRY>/flapjaw-server:<sha> .
 # tools/deploy.ps1 does this. Only x86-64 (amd64) is built.
 FROM rust:1.90-bookworm AS build
 WORKDIR /src
 COPY tools/fastsim-rs tools/fastsim-rs
-COPY supabase/migrations supabase/migrations
 COPY backend backend
 RUN cargo build --release --locked --manifest-path backend/Cargo.toml
 

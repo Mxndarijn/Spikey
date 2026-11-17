@@ -13,8 +13,8 @@ extends Node2D
 ## Room stats (Profile: reached, cleared, deaths per room id; a variant counts under its
 ## room) come from real runs only: practice, replays and the bots never count. A run left
 ## from the pause menu counts its rooms as reached but neither cleared nor died in.
-## Home -> the #rank item in the dock -> Leaderboards: the friends' Supabase
-## boards when services/supabase_config.json exists, else made-up sample boards.
+## Home -> the #rank item in the dock -> Leaderboards: the friends' boards on our
+## server when services/backend_config.json exists, else made-up sample boards.
 ## Home -> the Daily Run pill -> Daily Run (DailyRunFlow): today's one map, a
 ## try at a time from the server's seed, no revive, its own board.
 ## Home -> Settings (the corner) -> the settings sheet; main applies each change.

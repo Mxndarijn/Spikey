@@ -25,7 +25,7 @@ func _screen(p: Profile) -> EarnScreen:
 
 
 func test_ladder_matches_the_server() -> void:
-	# supabase/migrations/20261114120000_score_ladder.sql: 150 to 1000 by 50, 3 each.
+	# backend/migrations/20261114120000_score_ladder.sql: 150 to 1000 by 50, 3 each.
 	var steps := EarnRules.ladder_scores()
 	assert_eq(steps.size(), 18)
 	assert_eq([steps[0], steps[1], steps[-1]], [150, 200, 1000])

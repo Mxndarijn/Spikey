@@ -13,12 +13,15 @@ extends RefCounted
 ## Kept: this phone's settings and the leaderboard name.
 ## The save is written last, so a crash halfway just runs the reset again.
 
-## The old backend's files on this phone.
+## The old backend's files on this phone: the run queue, and the session and
+## device key a Supabase build (v0.1.1 and older) left.
 const OLD_FILES: Array[String] = [
 	OnlineLeaderboard.QUEUE_PATH,
-	SupabaseClient.SESSION_PATH,
-	SupabaseClient.DEVICE_PATH,
+	"user://supabase_session.json",
+	"user://device_key.json",
 ]
+## The iOS Keychain entry a Supabase build kept its device key under.
+const OLD_KEYCHAIN_ITEM := "device_key"
 
 
 ## Whether this config asks for a fresh start of this save.
@@ -65,7 +68,7 @@ static func apply(
 		# With its .tmp and .bak copies, or a read would bring the backup back.
 		SafeFile.remove(path)
 	if keychain != null:
-		keychain.call("write", SupabaseClient.KEYCHAIN_ITEM, "{}")
+		keychain.call("write", OLD_KEYCHAIN_ITEM, "{}")
 	clear(profile, server_id)
 	profile.save(profile_path)
 

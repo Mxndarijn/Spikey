@@ -1,4 +1,4 @@
--- The server's own tables, next to the game's (public, from supabase/migrations).
+-- The server's own tables, next to the game's (public, the timestamped migrations).
 -- Sign-in: device keys and sessions, kept only as sha-256 hashes. Phone
 -- transfers: one-time codes (docs/ACCOUNT_TRANSFER.md). The replay check: runs
 -- the Rust check rejected wait here for headless Godot's word (godot_queue).

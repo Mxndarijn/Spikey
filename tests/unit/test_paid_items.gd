@@ -2,7 +2,7 @@ extends TestCase
 ## Premium items on the server: its list matches the shop, and the items a
 ## player bought come back to the save with every sync.
 
-const MIGRATION := "res://supabase/migrations/20261110160000_paid_items.sql"
+const MIGRATION := "res://backend/migrations/20261110160000_paid_items.sql"
 
 
 ## The "kind:id" rows the migrations add to premium_items.

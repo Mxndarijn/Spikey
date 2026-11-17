@@ -356,7 +356,7 @@ class Checkout {
   +buy(kind, id) Result
   +convert(diamonds) bool
 }
-class SupabaseClient {
+class BackendClient {
   +ensure_session() bool
   +call_db(function, body) Dictionary
 }
@@ -388,10 +388,11 @@ Checkout ..> Profile
 Catalog ..> Profile : repair()
 LeaderboardService <|-- OnlineLeaderboard
 WalletService <|-- OnlineWallet
-OnlineLeaderboard ..> SupabaseClient
-OnlineWallet ..> SupabaseClient
-PushService ..> SupabaseClient
-ProfileSync ..> SupabaseClient
+BackendClient <|-- FlapjawClient
+OnlineLeaderboard ..> BackendClient
+OnlineWallet ..> BackendClient
+PushService ..> BackendClient
+ProfileSync ..> BackendClient
 ProfileSync ..> Profile : merge_cloud()
 AppServices o-- ProfileSync
 AppServices o-- LeaderboardService
@@ -424,7 +425,7 @@ Notes:
   wallet, a closed store, no ads, no push). `AppServices` picks the real one
   when the build and setup allow it and hands the set to the screens.
 - A diamond spend carries a request id, so a lost answer can be asked again
-  without a second charge (`supabase/migrations/20261110140000_spend_requests.sql`).
+  without a second charge (`backend/migrations/20261110140000_spend_requests.sql`).
 - Planned: server-issued one-time seeds, and frozen copies of older sims
   (for example `sim/versions/g1/`) so old runs keep verifying after an update.
 

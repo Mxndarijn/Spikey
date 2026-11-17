@@ -81,7 +81,7 @@ var daily_run_seen := ""
 var cloud_revision := 0
 var cloud_coins := 0
 ## The server this save was last used with (the backend config's server_id;
-## "" for Supabase or none). A new one means a fresh start (BackendReset).
+## "" for a save from a Supabase build, or none). A new one means a fresh start (BackendReset).
 var backend_server := ""
 ## Keys a newer version of the game saved that this one doesn't know: written
 ## back as they were, so opening an older build never deletes them.

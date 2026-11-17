@@ -1,8 +1,8 @@
 # Tests the game server (backend/, docs/SERVER_MIGRATION.md):
 #   powershell -ExecutionPolicy Bypass -File tools/backend_test.ps1 [-Jobs 4] [-NoDb]
 # Unit tests always; with Docker running also the integration tests in
-# backend/tests/ against a fresh throwaway Postgres 16 (every Supabase migration
-# plus the server's own). Nothing touches a live database. -NoDb: unit tests only.
+# backend/tests/ against a fresh throwaway Postgres 16 (every migration in
+# backend/migrations/). Nothing touches a live database. -NoDb: unit tests only.
 param([int]$Jobs = 4, [switch]$NoDb, [int]$Port = 55432)
 
 $repo = Split-Path -Parent $PSScriptRoot
@@ -41,8 +41,9 @@ if ($useDb) {
     }
     # The tests run as the shared platform runs the server (platform-manager,
     # tools/new-app.ps1): an ordinary role that owns only its own database, with
-    # the three Supabase roles made beforehand by the platform. That is stricter
-    # than a superuser, so it covers a server of its own too.
+    # the three roles the migrations grant to (anon, authenticated, service_role)
+    # made beforehand by the platform. That is stricter than a superuser, so it
+    # covers a server of its own too.
     $setup = @"
 create role anon nologin;
 create role authenticated nologin;

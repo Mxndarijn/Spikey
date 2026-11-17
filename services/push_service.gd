@@ -2,7 +2,7 @@ class_name PushService
 extends RefCounted
 ## Push notifications, as the game sees them: "Board alerts" when another
 ## player's run pushes you past a prize line on the daily board. The server
-## decides and sends (supabase/migrations/20261110110000_push_alerts.sql); the
+## decides and sends (backend/migrations/20261110110000_push_alerts.sql); the
 ## phone only has to hand over its push token and say whether alerts are on.
 ## This base class has no push: nothing is asked and no token ever arrives
 ## (PC builds, tests, and phones until the native plugin is in). A subclass
@@ -31,7 +31,7 @@ var _token := ""
 var _platform := ""
 
 
-## api: the Supabase session to register with, or null (no server).
+## api: the server session to register with, or null (no server).
 func _init(api: BackendClient = null) -> void:
 	_api = api
 
@@ -82,7 +82,7 @@ func set_enabled(on: bool) -> void:
 
 
 ## The debug screen: asks the server to send this phone one test notification
-## (send_test_push in supabase/migrations/). Returns what happened, in words.
+## (send_test_push in backend/migrations/). Returns what happened, in words.
 func send_test() -> String:
 	if _api == null:
 		return "No server in this build"
@@ -115,7 +115,7 @@ static func short_token(value: String) -> String:
 	return "%s...%s (%d characters)" % [value.left(6), value.right(4), value.length()]
 
 
-## The arguments of register_push in supabase/migrations/.
+## The arguments of register_push in backend/migrations/.
 static func register_body(token: String, platform: String, utc_offset_min: int) -> Dictionary:
 	return {
 		"p_token": token,

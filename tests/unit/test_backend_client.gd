@@ -5,7 +5,6 @@ extends TestCase
 ## "please update", and letting go of a player who moved to another phone.
 
 const CONFIG := "user://test_backend_config.json"
-const OLD_CONFIG := "user://test_backend_old_supabase.json"
 const SESSION := "user://test_flapjaw_session.json"
 const DEVICE := "user://test_flapjaw_device.json"
 
@@ -40,7 +39,7 @@ func _write(path: String, text: String) -> void:
 
 
 func _clean() -> void:
-	for path in [CONFIG, OLD_CONFIG, SESSION, DEVICE]:
+	for path in [CONFIG, SESSION, DEVICE]:
 		SafeFile.remove(path)
 
 
@@ -72,28 +71,23 @@ static func _no(code: int, error: String = "") -> Dictionary:
 
 func test_the_config_picks_the_backend() -> void:
 	_clean()
-	assert_eq(BackendClient.load_backend_config(CONFIG, OLD_CONFIG), {}, "no file: sample boards")
-	_write(OLD_CONFIG, '{"url": "https://abc.supabase.co", "anon_key": "k"}')
-	assert_eq(
-		BackendClient.load_backend_config(CONFIG, OLD_CONFIG),
-		{"url": "https://abc.supabase.co", "anon_key": "k", "kind": "supabase"},
-		"the older Supabase file still works"
-	)
+	assert_eq(BackendClient.load_backend_config(CONFIG), {}, "no file: sample boards")
 	_write(CONFIG, '{"kind": "flapjaw", "url": "https://api.flapjaw.example/", "server_id": "s1"}')
 	assert_eq(
-		BackendClient.load_backend_config(CONFIG, OLD_CONFIG),
-		{"kind": "flapjaw", "url": "https://api.flapjaw.example", "server_id": "s1"},
-		"the new file wins"
+		BackendClient.load_backend_config(CONFIG),
+		{"kind": "flapjaw", "url": "https://api.flapjaw.example", "server_id": "s1"}
 	)
+	_write(CONFIG, "{broken")
+	assert_eq(BackendClient.load_backend_config(CONFIG), {}, "a broken file")
 	_write(CONFIG, '{"kind": "flapjaw", "url": "https://<API_HOST>", "server_id": "s1"}')
-	assert_eq(BackendClient.load_backend_config(CONFIG, OLD_CONFIG), {}, "a placeholder host")
+	assert_eq(BackendClient.load_backend_config(CONFIG), {}, "a placeholder host")
 	_write(CONFIG, '{"kind": "flapjaw", "url": "https://api.flapjaw.example"}')
-	assert_eq(BackendClient.load_backend_config(CONFIG, OLD_CONFIG), {}, "a server id is needed")
+	assert_eq(BackendClient.load_backend_config(CONFIG), {}, "a server id is needed")
 	_write(CONFIG, '{"kind": "other", "url": "https://api.flapjaw.example", "server_id": "s"}')
-	assert_eq(BackendClient.load_backend_config(CONFIG, OLD_CONFIG), {}, "an unknown kind")
+	assert_eq(BackendClient.load_backend_config(CONFIG), {}, "an unknown kind")
 	_write(CONFIG, '{"kind": "flapjaw", "url": "http://127.0.0.1:8080", "server_id": "local"}')
 	assert_eq(
-		BackendClient.load_backend_config(CONFIG, "").url,
+		BackendClient.load_backend_config(CONFIG).url,
 		"http://127.0.0.1:8080",
 		"plain http for a server on this PC"
 	)
@@ -102,9 +96,6 @@ func test_the_config_picks_the_backend() -> void:
 
 func test_make_builds_the_kind_asked_for() -> void:
 	assert_true(BackendClient.make(null, {}) == null)
-	var s := BackendClient.make(null, {"kind": "supabase", "url": "https://a.co", "anon_key": "k"})
-	assert_true(s is SupabaseClient)
-	assert_eq(s.kind(), BackendClient.KIND_SUPABASE)
 	var f := BackendClient.make(null, {"kind": "flapjaw", "url": "https://a.co", "server_id": "x"})
 	assert_true(f is FlapjawClient)
 	assert_eq(f.kind(), BackendClient.KIND_FLAPJAW)

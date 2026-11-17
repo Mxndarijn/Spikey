@@ -14,7 +14,7 @@ const GOLD_PER_DIAMOND := 100
 const DAILY_PRIZES: Array[int] = [3, 2, 2, 1, 1, 1, 1, 1, 1, 1]
 ## Diamonds for places 1 to 10 on a finished Daily Run: the same tiers, so the
 ## game pays 28 a day in all. The server's spikey_daily_run_prize holds the same
-## table (supabase/migrations/20261113130000_daily_run.sql); change both.
+## table (backend/migrations/20261113130000_daily_run.sql); change both.
 const DAILY_RUN_PRIZES: Array[int] = DAILY_PRIZES
 
 

@@ -7,7 +7,7 @@ extends RefCounted
 ## is out) and checked with the same replay as the leaderboards.
 
 ## Diamond prices of the premium line (see diamond_price()). The server keeps
-## the same list (premium_items, supabase/migrations/*_paid_items.sql): a new
+## the same list (premium_items, backend/migrations/*_paid_items.sql): a new
 ## premium item or world needs a migration that adds it.
 const DIAMOND_WORLD := 30
 const DIAMOND_SEASONAL := 25

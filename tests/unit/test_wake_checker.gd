@@ -1,26 +1,9 @@
 extends TestCase
-## The database wakes the checker when a run arrives: the migration and the
-## workflow it starts have to agree on names, and a failed wake-up must never
-## stop a run from being saved.
+## The wake-up trigger on new runs (from the Supabase days, when it started
+## the GitHub checker; on our server net.http_post only writes it down): a failed
+## wake-up must never stop a run from being saved, and the game can't call it.
 
-const MIGRATION := "res://supabase/migrations/20261109210000_wake_checker.sql"
-const WORKFLOW := "res://.github/workflows/verify-runs.yml"
-
-
-func test_migration_starts_the_workflow_that_exists() -> void:
-	var sql := FileAccess.get_file_as_string(MIGRATION)
-	var yml := FileAccess.get_file_as_string(WORKFLOW)
-	assert_true(sql.contains("/actions/workflows/verify-runs.yml/dispatches"), "dispatch URL")
-	assert_true(yml.contains("workflow_dispatch:"), "the workflow can be started from outside")
-	assert_true(yml.contains("schedule:"), "the schedule stays as a safety net")
-
-
-func test_workflow_stores_the_token_the_migration_reads() -> void:
-	var sql := FileAccess.get_file_as_string(MIGRATION)
-	var yml := FileAccess.get_file_as_string(WORKFLOW)
-	assert_true(sql.contains("function public.worker_set_wake(p_token text, p_repo text)"))
-	assert_true(yml.contains("public.worker_set_wake(:'token', :'repo')"), "workflow stores it")
-	assert_true(yml.contains("secrets.VERIFY_DISPATCH_TOKEN"), "from the GitHub secret")
+const MIGRATION := "res://backend/migrations/20261109210000_wake_checker.sql"
 
 
 func test_wake_up_is_locked_and_never_blocks_a_run() -> void:

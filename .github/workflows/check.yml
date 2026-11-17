@@ -41,7 +41,7 @@ concurrency:
 
 env:
   # Must match the editor used locally (tools/godot_path.txt). Change it in check.yml,
-  # build.yml and verify-runs.yml together.
+  # build.yml and deploy/godot-check/Dockerfile together.
   GODOT_VERSION: 4.7.2-stable
   # The Rust that builds FastSim-RS, pinned so the cargo cache stays valid until this changes
   # (a moving "stable" made every cached build stale). Keep it equal to the local rustc

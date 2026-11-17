@@ -11,4 +11,3 @@ build
 *.jks
 .env*
 services/backend_config.json
-services/supabase_config.json

@@ -5,11 +5,11 @@ extends RefCounted
 ## answering {"ok", "code", "data"}. The leaderboards, the wallet, the save on
 ## the server and push alerts all go through one client, so a phone is one
 ## player everywhere.
-## Two kinds sit side by side while the game moves servers
-## (docs/SERVER_MIGRATION.md): SupabaseClient (the Supabase project) and
-## FlapjawClient (our own server, server/). Both take the same operation names,
-## arguments and answers, so the services above never know which one runs.
-## The config file names the kind; `make()` builds the right one.
+## The one real backend is FlapjawClient (our own server, backend/); this base
+## class keeps what is not about its sign-in (the config, HTTP, device keys),
+## and tests stand in for a server by overriding `call_db` or `post`. Without
+## a config the game plays offline with sample boards.
+## The config file names the kind; `make()` builds the client.
 
 ## A sign-in or token refresh finished (ok: there is a valid session now).
 signal session_checked(ok: bool)
@@ -20,9 +20,8 @@ signal update_required
 ## code was used there). The client has already let go of the old session.
 signal account_moved
 
-## The config that picks the backend. Missing: the older Supabase-only file.
+## The config that picks the backend. Missing: offline, sample boards.
 const BACKEND_CONFIG_PATH := "res://services/backend_config.json"
-const KIND_SUPABASE := "supabase"
 const KIND_FLAPJAW := "flapjaw"
 ## The version of the request protocol this app speaks; the server refuses
 ## anything older than its MIN_API_VERSION with 426 ("please update").
@@ -46,19 +45,12 @@ var _url := ""
 var _host: Node
 
 
-## The config: {"kind", "url", "anon_key" (Supabase only), "server_id"
-## (Flapjaw only, the one-time reset's marker)}, or {} when there is none or
-## it is incomplete (the game then plays offline with sample boards).
-## `path` is the backend config; without it the older Supabase file is read.
-static func load_backend_config(
-	path: String = BACKEND_CONFIG_PATH, supabase_path: String = SupabaseClient.CONFIG_PATH
-) -> Dictionary:
+## The config: {"kind", "url", "server_id" (the one-time reset's marker)}, or
+## {} when there is none or it is incomplete (the game then plays offline with
+## sample boards). A config of another kind (the retired "supabase") is none.
+static func load_backend_config(path: String = BACKEND_CONFIG_PATH) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		var old := SupabaseClient.load_config(supabase_path)
-		if old.is_empty():
-			return {}
-		old["kind"] = KIND_SUPABASE
-		return old
+		return {}
 	var data: Variant = parse(FileAccess.get_file_as_string(path))
 	if not data is Dictionary:
 		return {}
@@ -74,11 +66,6 @@ static func config_of(d: Dictionary) -> Dictionary:
 		return {}
 	if _is_placeholder(url):
 		return {}
-	if kind == KIND_SUPABASE:
-		var key := str(d.get("anon_key", ""))
-		if key.is_empty() or _is_placeholder(key) or not url.begins_with("https://"):
-			return {}
-		return {"kind": kind, "url": url, "anon_key": key}
 	if kind == KIND_FLAPJAW:
 		var server_id := str(d.get("server_id", ""))
 		if server_id.is_empty() or _is_placeholder(server_id):
@@ -94,8 +81,6 @@ static func _is_placeholder(text: String) -> bool:
 ## The client a config asks for (see load_backend_config), or null for {}.
 static func make(host: Node, config: Dictionary) -> BackendClient:
 	match str(config.get("kind", "")):
-		KIND_SUPABASE:
-			return SupabaseClient.new(host, str(config.url), str(config.anon_key))
 		KIND_FLAPJAW:
 			return FlapjawClient.new(host, str(config.url))
 	return null

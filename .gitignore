@@ -14,8 +14,6 @@
 
 # Local tool config
 tools/godot_path.txt
-# Supabase project address + public key (docs/LEADERBOARD_SETUP.md)
-services/supabase_config.json
 # The backend the game talks to (services/backend_config.example.json, docs/DEPLOY.md)
 services/backend_config.json
 # The game cluster's credentials (docs/DEPLOY.md)

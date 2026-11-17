@@ -1,7 +1,7 @@
 class_name ProfileSync
 extends RefCounted
 ## Keeps a copy of the player's save on the server (sync_profile in
-## supabase/migrations/20261110150000_profiles.sql), so a reinstall that signs
+## backend/migrations/20261110150000_profiles.sql), so a reinstall that signs
 ## in as the same player (the BackendClient's device key) gets its flyers, worlds,
 ## gold and rooms back. The save on the phone stays the one the game plays
 ## from; this only sends it after it changed and takes in the server's copy
@@ -9,7 +9,7 @@ extends RefCounted
 ## Every answer also lists the premium items this player bought with
 ## diamonds (20261110160000_paid_items.sql); they are granted here, so a
 ## reinstall gets them back even without the old save.
-## Without a server (no Supabase config, tests) it does nothing.
+## Without a server (no backend config, tests) it does nothing.
 
 ## A sync finished. merged: the server's copy changed the save (worn items,
 ## gold, settings), so the look and the screens should be drawn again. The

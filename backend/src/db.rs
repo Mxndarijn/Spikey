@@ -2,9 +2,10 @@
 //!
 //! Migrations run in order and once each, under an advisory lock (two servers
 //! starting at once never both migrate). First the platform stand-ins
-//! (`migrations/0001_platform.sql`), then every Supabase migration as it is
-//! (`supabase/migrations/`, the game's rules, already covered by
-//! `tools/db_test.ps1`), then the server's own (`migrations/0100_*`).
+//! (`migrations/0001_platform.sql`), then the game's rules (`migrations/2026*.sql`,
+//! written for Supabase before this server existed and kept as they are,
+//! covered by `tools/db_test.ps1`), then the server's own (`migrations/0100_*`).
+//! Applied migrations are remembered by file name, so a file is never renamed.
 //! They are compiled into the binary, so an image always carries its schema.
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -17,11 +18,11 @@ pub struct Migration {
 
 macro_rules! game {
     ($file:literal) => {
-        Migration { name: $file, sql: include_str!(concat!("../../supabase/migrations/", $file)) }
+        Migration { name: $file, sql: include_str!(concat!("../migrations/", $file)) }
     };
 }
 
-/// Every migration, in the order they run. A new Supabase migration must be
+/// Every migration, in the order they run. A new migration file must be
 /// added here too (tests check the list matches the folder).
 pub const MIGRATIONS: &[Migration] = &[
     Migration { name: "0001_platform.sql", sql: include_str!("../migrations/0001_platform.sql") },
@@ -53,8 +54,8 @@ pub async fn connect(url: &str) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new().max_connections(10).connect(url).await
 }
 
-/// The text to run for a migration: pg_net exists only on Supabase, and the
-/// platform migration stands in for it.
+/// The text to run for a migration: the game's migrations create pg_net (a
+/// Supabase extension), and the platform migration stands in for it.
 pub fn prepared(sql: &str) -> String {
     sql.replace("create extension if not exists pg_net;", "")
 }

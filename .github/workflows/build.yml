@@ -265,24 +265,9 @@ jobs:
             echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android"
           } >> "$GITHUB_ENV"
 
-      - name: Write the Supabase config (leaderboards)
-        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
-        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
-              > services/supabase_config.json
-            echo "Leaderboards: Supabase"
-          else
-            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
-          fi
-
       - name: Write the game server config (our own server)
-        # Optional: with the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks
-        # to our own server instead of Supabase (docs/DEPLOY.md, the cutover). A new
+        # With the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks to our
+        # own server (docs/DEPLOY.md); without them it shows sample leaderboards. A new
         # FLAPJAW_SERVER_ID makes every phone start fresh once (BackendReset).
         env:
           FLAPJAW_API_URL: ${{ secrets.FLAPJAW_API_URL }}
@@ -292,6 +277,8 @@ jobs:
             printf '{"kind": "flapjaw", "url": "%s", "server_id": "%s"}\n' \
               "$FLAPJAW_API_URL" "$FLAPJAW_SERVER_ID" > services/backend_config.json
             echo "Leaderboards: our own server"
+          else
+            echo "::notice::No FLAPJAW_API_URL / FLAPJAW_SERVER_ID secrets, so this build shows sample leaderboards."
           fi
 
       - name: Write the Firebase config (Board alerts)
@@ -584,24 +571,9 @@ jobs:
           bash tools/ci/make_ios_template.sh "$RUNNER_TEMP/engine" "$stock" "$RUNNER_TEMP/flapjaw_ios.zip" "$GODOT_VERSION"
           python3 tools/ci/set_ios_template.py export_presets.cfg "$RUNNER_TEMP/flapjaw_ios.zip"
 
-      - name: Write the Supabase config (leaderboards)
-        # Optional: with the SUPABASE_URL and SUPABASE_ANON_KEY secrets set, the build uses the
-        # friends' leaderboards (docs/LEADERBOARD_SETUP.md); without them, sample boards.
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-            printf '{"url": "%s", "anon_key": "%s"}\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" \
-              > services/supabase_config.json
-            echo "Leaderboards: Supabase"
-          else
-            echo "::notice::No SUPABASE_URL / SUPABASE_ANON_KEY secrets, so this build shows sample leaderboards."
-          fi
-
       - name: Write the game server config (our own server)
-        # Optional: with the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks
-        # to our own server instead of Supabase (docs/DEPLOY.md, the cutover). A new
+        # With the FLAPJAW_API_URL and FLAPJAW_SERVER_ID secrets set, the build talks to our
+        # own server (docs/DEPLOY.md); without them it shows sample leaderboards. A new
         # FLAPJAW_SERVER_ID makes every phone start fresh once (BackendReset).
         env:
           FLAPJAW_API_URL: ${{ secrets.FLAPJAW_API_URL }}
@@ -611,6 +583,8 @@ jobs:
             printf '{"kind": "flapjaw", "url": "%s", "server_id": "%s"}\n' \
               "$FLAPJAW_API_URL" "$FLAPJAW_SERVER_ID" > services/backend_config.json
             echo "Leaderboards: our own server"
+          else
+            echo "::notice::No FLAPJAW_API_URL / FLAPJAW_SERVER_ID secrets, so this build shows sample leaderboards."
           fi
 
       - name: Write the Firebase config (Board alerts)

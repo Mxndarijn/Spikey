@@ -1,7 +1,7 @@
 class_name RunChecker
 extends RefCounted
 ## Decides one stored leaderboard run (a row from worker_pending_runs in
-## supabase/migrations/): replays it with the sim and compares the claimed
+## backend/migrations/): replays it with the sim and compares the claimed
 ## score, coins and end tick. server/verify_batch.gd runs it on every new run.
 
 const OK := "ok"

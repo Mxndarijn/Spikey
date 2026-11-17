@@ -3,8 +3,8 @@ extends TestCase
 ## and the migration the game's calls have to agree with.
 
 const TEST_PATH := "user://test_wallet_profile.json"
-const MIGRATION := "res://supabase/migrations/20261110100000_diamonds.sql"
-const SPEND_MIGRATION := "res://supabase/migrations/20261110140000_spend_requests.sql"
+const MIGRATION := "res://backend/migrations/20261110100000_diamonds.sql"
+const SPEND_MIGRATION := "res://backend/migrations/20261110140000_spend_requests.sql"
 
 
 ## A wallet that answers like the server would, without one.

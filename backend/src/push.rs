@@ -1,5 +1,5 @@
 //! Sends the queued board alerts (lost prize spots) through Firebase Cloud
-//! Messaging. A port of supabase/functions/send-alerts: the database decides
+//! Messaging. A port of the old Edge Function send-alerts: the database decides
 //! who gets an alert and what it says; this only carries the outbox to
 //! Firebase and reports back. Off when FIREBASE_SERVICE_ACCOUNT is empty.
 

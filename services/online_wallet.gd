@@ -1,6 +1,6 @@
 class_name OnlineWallet
 extends WalletService
-## Diamonds kept on the server (Supabase: supabase/migrations/20261110100000_diamonds.sql;
+## Diamonds kept on the server (Supabase: backend/migrations/20261110100000_diamonds.sql;
 ## our own server: server/).
 ## The server holds the balance, pays the daily top-10 prizes and checks every
 ## spend; `Profile.diamonds` is only a copy for the screens. Shares the
@@ -90,7 +90,7 @@ func claim() -> int:
 	return maxi(int(d.get("claimed", 0)), 0)
 
 
-## The arguments of spend_diamonds in supabase/migrations/.
+## The arguments of spend_diamonds in backend/migrations/.
 static func spend_body(amount: int, reason: String, ref: String, request: String) -> Dictionary:
 	return {"p_amount": amount, "p_reason": reason, "p_ref": ref, "p_request": request}
 

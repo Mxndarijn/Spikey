@@ -8,5 +8,4 @@
 !tools/fastsim-rs/Cargo.lock
 !tools/fastsim-rs/sim
 !tools/fastsim-rs/fastsim
-!supabase/migrations
 **/target

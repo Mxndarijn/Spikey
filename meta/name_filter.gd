@@ -2,7 +2,7 @@ class_name NameFilter
 extends RefCounted
 ## The bad-word check for leaderboard names, so the name dialog can say "pick
 ## another" while the player types. The database has the final say
-## (supabase/migrations/20261108210000_name_filter.sql, table banned_words, which
+## (backend/migrations/20261108210000_name_filter.sql, table banned_words, which
 ## can grow in the dashboard); this starter list must match that file's
 ## (tests/unit/test_name_filter.gd checks it).
 ## A look-alike digit standing alone counts as a letter (0 o, 1 i, 3 e, 4 a, 5 s,

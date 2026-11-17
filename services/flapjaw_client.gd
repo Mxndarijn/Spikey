@@ -1,8 +1,8 @@
 class_name FlapjawClient
 extends BackendClient
-## This phone's connection to our own server (server/, docs/SERVER_MIGRATION.md).
-## The operations are the same as Supabase's database functions, same names,
-## arguments and answers, at POST <url>/v1/<op> with a Bearer token.
+## This phone's connection to our own server (backend/, docs/SERVER_MIGRATION.md).
+## The operations are the server's SQL functions (backend/migrations/), same
+## names, arguments and answers, at POST <url>/v1/<op> with a Bearer token.
 ## Sign-in: every player has a device key (32 random bytes) that the server
 ## keeps only as a hash. The phone signs in with its refresh token, then with
 ## the key, and only when the server says both are no good as a new player

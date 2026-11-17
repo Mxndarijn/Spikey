@@ -12,7 +12,7 @@ Hetzner VM with k3s. Everything about it is code in this repository:
 | Settings and secrets | `deploy/overlays/<env>/.env.<env>` | git-ignored; copy `deploy/.env.example` |
 
 You do every step here yourself; no Claude session deploys, creates accounts
-or touches the live Supabase project. Commands are PowerShell on your PC,
+or touches the live server. Commands are PowerShell on your PC,
 from the repository root.
 
 Rough cost: the VM about EUR 4 to 8 a month (2 GB; 4 GB a little more), Object
@@ -101,8 +101,7 @@ host), `ACME_EMAIL`, `KUBECONFIG_FILE`, a database password (in both
 `POSTGRES_PASSWORD` and `DATABASE_URL`; make one with
 `[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))`),
 the bucket from step 1 and, for board alerts, `FIREBASE_SERVICE_ACCOUNT` (the
-Firebase service account JSON in base64, the same one the Supabase
-`send-alerts` function has: docs/PUSH_SETUP.md). The Daily Run secret is made
+Firebase service account JSON in base64: docs/PUSH_SETUP.md). The Daily Run secret is made
 by the database itself on the first start and is in every backup.
 
 ## 7. Deploy staging
@@ -130,7 +129,7 @@ Run the game from the editor or a debug build: it starts fresh once (the
 "Fresh start" card), signs in as a new player and plays against staging. Try a
 few runs (they show on the boards after the replay check, within seconds),
 the Daily Run, the wallet, and Settings > Move to a new phone between two
-devices. Delete the file to go back to Supabase.
+devices. Delete the file to go back to sample boards (offline).
 
 On the 2 GB VM stop staging when you're done:
 `tools/deploy.ps1 -Env staging -Stop`.
@@ -152,26 +151,20 @@ kubectl -n flapjaw logs job/backup-first --all-containers           # "uploaded 
 1. In GitHub > Settings > Secrets and variables > Actions add
    `FLAPJAW_API_URL` (`https://api.example.com`) and `FLAPJAW_SERVER_ID` (for
    example `flapjaw-1`). The phone builds (`.github/workflows/build.yml`) then
-   write `services/backend_config.json`, which wins over the Supabase config.
+   write `services/backend_config.json`; without them a build shows sample
+   boards.
 2. Build and send out the new APK and TestFlight build. On their first launch
    phones start fresh once: new players, empty boards, no diamonds; settings
    and the name stay (BackendReset).
-3. Tell everyone to update: builds from before this one keep talking to
-   Supabase (they have no update prompt). Builds from now on get "Update
-   Flapjaw" when the server's `MIN_API_VERSION` goes past them.
+3. Tell everyone to update: builds from before v0.1.2 talked to Supabase
+   (now switched off) and have no update prompt. Builds from v0.1.2 on get
+   "Update Flapjaw" when the server's `MIN_API_VERSION` goes past them.
 
-To undo the cutover, remove the two secrets and build again: the phones go back
-to Supabase, which kept running untouched.
+The cutover to this server happened with v0.1.2 (gameplay v25). Supabase is
+retired: its project is paused and its client, Edge Functions and workflows
+are gone from the repository. There is no way back to it; a broken server is
+fixed with `tools/deploy.ps1 -Rollback` or a restore (below).
 
-## 11. Switching Supabase off (a few weeks later)
-
-When no old builds call it any more (Supabase's dashboard shows the requests),
-pause or delete the Supabase project in its dashboard and remove the
-`SUPABASE_*` GitHub secrets. A later change then removes the Supabase client,
-`supabase/functions/`, and the workflows `verify-runs.yml`,
-`supabase-db.yml`, `supabase-functions.yml` and `supabase-keepalive.yml`. The
-migrations stay: the server applies them (move them next to
-`backend/migrations/` in that change).
 
 ## Every later deploy
 

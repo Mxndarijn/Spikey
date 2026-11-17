@@ -93,15 +93,17 @@ fn run_body(g: &Value, name: &str) -> Value {
 
 #[test]
 fn the_migration_list_matches_the_folder() {
-    let dir = format!("{}/../supabase/migrations", env!("CARGO_MANIFEST_DIR"));
+    let dir = format!("{}/migrations", env!("CARGO_MANIFEST_DIR"));
     let mut files: Vec<String> = std::fs::read_dir(dir)
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .filter(|n| n.ends_with(".sql"))
         .collect();
     files.sort();
-    let listed: Vec<&str> = db::MIGRATIONS.iter().map(|m| m.name).filter(|n| n.starts_with("2026")).collect();
-    assert_eq!(listed, files, "add the new Supabase migration to db::MIGRATIONS too");
+    // The list's order is the run order (0100_backend.sql last); here only which files.
+    let mut listed: Vec<&str> = db::MIGRATIONS.iter().map(|m| m.name).collect();
+    listed.sort();
+    assert_eq!(listed, files, "add the new migration to db::MIGRATIONS too");
 }
 
 #[tokio::test]
@@ -152,7 +154,7 @@ async fn old_apps_and_strangers_are_turned_away() {
 }
 
 #[tokio::test]
-async fn operations_answer_like_supabase() {
+async fn operations_answer_as_the_sql_functions() {
     let Some((app, _)) = setup().await else { return };
     let p = sign_up(&app).await;
     let t = Some(p.access.as_str());

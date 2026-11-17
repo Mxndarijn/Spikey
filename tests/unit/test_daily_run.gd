@@ -4,7 +4,7 @@ extends TestCase
 ## no revive, its Game over, the next try, Share).
 
 const TEST_PATH := "user://test_daily_run_profile.json"
-const MIGRATION := "res://supabase/migrations/20261113130000_daily_run.sql"
+const MIGRATION := "res://backend/migrations/20261113130000_daily_run.sql"
 
 
 ## The sample boards, keeping what was sent.
@@ -210,7 +210,7 @@ func test_migration_matches_the_game() -> void:
 
 
 func test_migration_runs_after_the_reset() -> void:
-	var names := DirAccess.get_files_at("res://supabase/migrations")
+	var names := DirAccess.get_files_at("res://backend/migrations")
 	var sorted := Array(names)
 	sorted.sort()
 	assert_true(

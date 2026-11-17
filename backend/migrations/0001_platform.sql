@@ -1,5 +1,5 @@
--- What the Supabase migrations expect from the platform, on plain Postgres.
--- The same stand-ins the database tests use (supabase/tests/00_stubs.sql):
+-- What the game's migrations (written for Supabase) expect from the platform, on
+-- plain Postgres. The same stand-ins the database tests use (backend/sql_tests/00_stubs.sql):
 -- the roles the grants name, auth.users and auth.uid(), and net.http_post.
 -- The server signs players in itself (backend.sessions) and sets
 -- request.jwt.claim.sub for each call, so the SQL functions read the player
