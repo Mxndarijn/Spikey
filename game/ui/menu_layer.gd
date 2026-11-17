@@ -4,7 +4,7 @@ extends CanvasLayer
 ## the room. One screen at a time; the room keeps animating behind it.
 ## The screens' theme follows the world: white room text on night rooms.
 
-## A screen was put up (BattleFlow wires Home's Battle card and the boards' Wins switch).
+## A screen was put up (BattleFlow wires Home's Battle tab and the boards' Wins switch).
 signal screen_shown(screen: Control)
 
 var _root := Control.new()

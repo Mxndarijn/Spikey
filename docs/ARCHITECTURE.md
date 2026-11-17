@@ -599,7 +599,7 @@ room) come from real runs only: practice, replays and the bots never count. A ru
 from the pause menu counts its rooms as reached but neither cleared nor died in.
 Home -> the #rank item in the dock -> Leaderboards: the friends' boards on our
 server when services/backend_config.json exists, else made-up sample boards.
-Home -> the mode carousel's Daily Run card -> Daily Run (DailyRunFlow): today's one map, a
+Home -> the Daily tab (mode tabs) and Play -> Daily Run (DailyRunFlow): today's one map, a
 try at a time from the server's seed, no revive, its own board.
 Home -> Settings (the corner) -> the settings sheet; main applies each change.
 Game over has Home's dock (Rooms, Style | Again | Ranks, Runs) and Home in the corner.
@@ -608,7 +608,7 @@ player's look; it never touches the save or the boards; Back returns to the boar
 Home -> Your runs: the player's own last 100 runs and up to 20 saved ones
 (RunStore, on this phone). Watch plays one back the same way, in the look
 it was played in; Back returns to Your runs (or Home, from Home's card).
-Home -> the mode carousel's Battle card -> Battles (BattleFlow): the battle
+Home -> the Battle tab and Play -> Battles (BattleFlow): the battle
 list, New battle, one battle's screen and menu; a round's run plays the
 round's seed with no revive and the rival's checked run beside it as a
 see-through bird (RivalGhost, game/match/), and goes to battle_submit instead

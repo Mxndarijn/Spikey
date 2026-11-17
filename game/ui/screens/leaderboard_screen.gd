@@ -28,6 +28,8 @@ enum View { LOADING, BOARD, EMPTY, OFFLINE, SIGNED_OUT }
 
 const EDIT_ICON := preload("res://assets/ui/icons/edit.svg")
 const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
+## The header names the boards as the dock does, so it fits beside Scores | Wins.
+const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
 ## Clear of the floor spikes (tests/unit/test_screen_fit.gd).
 const BOTTOM := 40
@@ -82,7 +84,7 @@ func _ready() -> void:
 	margin.add_child(col)
 	var switch := BoardSwitch.new(BoardSwitch.SCORES)
 	switch.picked.connect(func(_i: int) -> void: wins_pressed.emit())
-	col.add_child(UiKit.header("Leaderboards", closed.emit, switch))
+	col.add_child(UiKit.header(TITLE, closed.emit, switch))
 	col.add_child(_tab_bar())
 	col.add_child(_caption())
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL

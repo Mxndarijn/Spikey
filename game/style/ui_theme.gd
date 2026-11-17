@@ -109,11 +109,36 @@ static func _build(room_ink_color: Color) -> Theme:
 	_labels(t, room_ink_color)
 	_buttons(t, room_ink_color)
 	_panels(t)
+	_fields(t)
 	t.set_constant("separation", "VBoxContainer", UiTokens.SPACE_3)
 	t.set_constant("separation", "HBoxContainer", UiTokens.SPACE_2)
 	t.set_constant("h_separation", "GridContainer", UiTokens.SPACE_3)
 	t.set_constant("v_separation", "GridContainer", UiTokens.SPACE_3)
 	return t
+
+
+## Text fields (a code, a name, a seed): a white pill with a 3px ink ring, the
+## ring darker while typing, ink 800/16 text and a muted placeholder. The kit's
+## forms are the one place a ring is allowed: it says "type here".
+static func _fields(t: Theme) -> void:
+	var box := ringed(Color.WHITE, UiTokens.RADIUS_PILL, 0, UiTokens.INK_LINE, 3)
+	box.content_margin_left = UiTokens.SPACE_4
+	box.content_margin_right = UiTokens.SPACE_4
+	var focus := box.duplicate() as StyleBoxFlat
+	focus.border_color = UiTokens.INK_900
+	var off := box.duplicate() as StyleBoxFlat
+	off.border_color = UiTokens.EDGE
+	t.set_stylebox("normal", "LineEdit", box)
+	t.set_stylebox("focus", "LineEdit", focus)
+	t.set_stylebox("read_only", "LineEdit", off)
+	t.set_font("font", "LineEdit", GameFonts.ui(800))
+	t.set_font_size("font_size", "LineEdit", UiTokens.FONT_SIZE_BODY)
+	t.set_color("font_color", "LineEdit", UiTokens.ON_PANEL)
+	t.set_color("font_uneditable_color", "LineEdit", UiTokens.ON_PANEL_MUTED)
+	t.set_color("caret_color", "LineEdit", UiTokens.ON_PANEL)
+	t.set_color("font_placeholder_color", "LineEdit", UiTokens.ON_PANEL_MUTED)
+	t.set_color("selection_color", "LineEdit", Color(UiTokens.ACTION, 0.6))
+	t.set_color("font_selected_color", "LineEdit", UiTokens.ON_PANEL)
 
 
 ## A flat box: a fill, round corners, padding. No outline, no drop.

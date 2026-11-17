@@ -236,3 +236,75 @@ func test_home_wordmark_fits_the_width() -> void:
 	)
 	var room := UiTokens.SIZE_VIEWPORT_W - 48.0
 	assert_true(w <= room, "'%s' is %d px wide, room for %d" % [HomeScreen.WORDMARK, w, room])
+
+
+## Home with everything at its biggest: a six-figure wallet, a long lost-spot
+## line, a badge on every tab that has one (UPDATE on Battle and Duel) and Large
+## buttons on. It still fits the narrowest phone, and every badge stays on the
+## screen and off its neighbour tab's name.
+func test_home_fits_at_its_fullest() -> void:
+	var p := _profile()
+	p.coins = 987654
+	p.diamonds = 99999
+	p.best_score = 9999
+	UiKit.large_buttons = true
+	GameModes.set_server_version(SimConfig.GAMEPLAY_VERSION + 1)
+	var home := HomeScreen.new(p, AppServices.offline(p), 12345)
+	var info := DailyRunInfo.new()
+	info.tries_used = 0
+	info.resets_in_s = 86399
+	var fill := func(h: HomeScreen) -> void:
+		h.set_daily_info(info)
+		h.set_battle_turns(12)
+		h.show_notice("Kofi_the_great took your #3 spot on today's board")
+	_fits(home, "home at its fullest", fill.bind(home))
+	home = HomeScreen.new(p, AppServices.offline(p), 12345)
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	holder.add_child(home)
+	home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.call(home)
+	for i in 3:
+		await (Engine.get_main_loop() as SceneTree).process_frame
+	var tabs := home.modes()
+	for id in [GameModes.DAILY, GameModes.BATTLE, GameModes.DUEL]:
+		var tab := tabs.tab(id)
+		var badge := tab.get_node("Badge") as Control
+		assert_true(badge.visible, "%s wears a badge" % id)
+		var r := badge.get_global_rect()
+		assert_true(r.position.x >= 0.0 and r.end.x <= UiTokens.SIZE_VIEWPORT_W, "%s's badge" % id)
+		assert_true(
+			r.end.y <= tab.get_global_rect().position.y + 12.0,
+			"above %s's name (%s, tab %s)" % [id, r, tab.get_global_rect()]
+		)
+	assert_eq(tabs.badge_text(GameModes.BATTLE), "UPDATE", "an old app: the update first")
+	assert_eq(tabs.badge_text(GameModes.DAILY), "3")
+	holder.free()
+	GameModes.set_server_version(0)
+	UiKit.large_buttons = false
+
+
+## The Battle, Duel and Wins screens' cards keep only the room their content
+## needs: a short message leaves no empty paper under it.
+func test_cards_shrink_to_their_content() -> void:
+	var holder := Control.new()
+	holder.theme = UiTheme.get_theme()
+	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
+	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
+	var duel := DuelScreen.new()
+	holder.add_child(duel)
+	duel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	duel.show_start()
+	for i in 3:
+		await (Engine.get_main_loop() as SceneTree).process_frame
+	var card := duel.find_child("Card", true, false) as Control
+	var tall := card.size.y
+	duel.show_countdown(2, "Mira", 1, 0, 3)
+	for i in 3:
+		await (Engine.get_main_loop() as SceneTree).process_frame
+	assert_true(card.size.y < tall, "the countdown card is shorter than the start's")
+	var need := card.get_combined_minimum_size().y
+	assert_true(card.size.y <= need + 1.0, "no empty paper (%d of %d px)" % [card.size.y, need])
+	holder.free()

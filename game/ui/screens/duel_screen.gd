@@ -34,6 +34,7 @@ const RULES := "Live 1v1 · best of 3 · no revives"
 
 var state := State.START
 var _card_col: VBoxContainer
+var _card_box: Control
 var _title: Label
 var _body: Label
 var _big: Label
@@ -103,6 +104,7 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_right", SIDE + 8)
 	margin.add_child(card)
 	UiKit.across(self, margin, CARD_Y)
+	_card_box = margin
 	_primary = UiKit.primary(PLAY_ICON, "Find")
 	_primary.name = "Primary"
 	_primary.pressed.connect(_on_primary)
@@ -129,6 +131,7 @@ func _show(title: String, big: String, body: String, a: String, b: String, code_
 	_b.visible = not b.is_empty()
 	_card_col.get_node("CodeRow").visible = code_row
 	_primary.visible = false
+	UiKit.fit_height(_card_box)
 
 
 func show_start() -> void:

@@ -1,9 +1,9 @@
 class_name GameModes
 extends RefCounted
 ## The game modes Home offers (docs/DUEL_MODE.md, "The mode picker"): one entry
-## per mode, drawn as a card in Home's mode carousel and as a tile in the All
-## modes sheet. A new mode is one entry here plus its own flow; a mode that is
-## not built yet shows as "Soon" and can't be played.
+## per mode, drawn as a tab in Home's mode tabs (ModeTabs). A new mode is one
+## entry here plus its own flow; a mode that is not built yet shows as "Soon"
+## and can't be played.
 
 const CLASSIC := "classic"
 const DAILY := "daily"
@@ -18,12 +18,14 @@ const UPDATE_LINE := "Update to play"
 const LATEST_ONLY: Array[String] = [BATTLE, DUEL]
 
 
-## One mode: what its card and tile show.
+## One mode: what its tab shows.
 class Mode:
 	extends RefCounted
 	var id: String
 	var title: String
-	## Its rules in one line, for the card and the tile.
+	## Its name on the tab (short: four tabs share the bar).
+	var tab_title: String
+	## Its rules in one line, under the tabs while it is chosen.
 	var rule: String
 	var icon: Texture2D
 	## The dock's main action while this mode is chosen.
@@ -34,6 +36,7 @@ class Mode:
 	func _init(
 		p_id: String,
 		p_title: String,
+		p_tab: String,
 		p_rule: String,
 		p_icon: Texture2D,
 		p_play: String,
@@ -41,6 +44,7 @@ class Mode:
 	) -> void:
 		id = p_id
 		title = p_title
+		tab_title = p_tab
 		rule = p_rule
 		icon = p_icon
 		play_label = p_play
@@ -50,16 +54,17 @@ class Mode:
 static var _all: Array[Mode] = []
 ## The server's gameplay version (0: not known yet), from its ping.
 static var server_version := 0
-## Counts changes of server_version, so Home redraws its cards once.
+## Counts changes of server_version, so Home redraws its tabs once.
 static var changes := 0
 
 
-## Every mode in carousel order; Classic is first and the default.
+## Every mode in tab order; Classic is first and the default.
 static func all() -> Array[Mode]:
 	if _all.is_empty():
 		_all = [
 			Mode.new(
 				CLASSIC,
+				"Classic",
 				"Classic",
 				"Endless. One life.",
 				preload("res://assets/ui/icons/play.svg"),
@@ -69,6 +74,7 @@ static func all() -> Array[Mode]:
 			Mode.new(
 				DAILY,
 				"Daily Run",
+				"Daily",
 				"One map a day · %d tries" % DailyRunRules.TRIES_PER_DAY,
 				preload("res://assets/ui/icons/calendar.svg"),
 				"Daily",
@@ -77,6 +83,7 @@ static func all() -> Array[Mode]:
 			Mode.new(
 				BATTLE,
 				"Battle",
+				"Battle",
 				"Take turns on one map · first to 6",
 				preload("res://assets/ui/icons/trophy.svg"),
 				"Battles",
@@ -84,6 +91,7 @@ static func all() -> Array[Mode]:
 			),
 			Mode.new(
 				DUEL,
+				"Duel",
 				"Duel",
 				"Live 1v1 · best of 3",
 				preload("res://assets/ui/icons/crown.svg"),
@@ -127,7 +135,7 @@ static func find(id: String) -> Mode:
 	return all()[0]
 
 
-## The card's line under the name. The Daily Run's shows today's tries and
+## The line under the tabs. The Daily Run's shows today's tries and
 ## the time to the next map once they are known.
 static func rule_line(id: String, daily: DailyRunInfo = null) -> String:
 	if needs_update(id):
@@ -151,7 +159,7 @@ static func daily_line(info: DailyRunInfo) -> String:
 	return " · ".join(parts)
 
 
-## The small badge on the card's corner: "Soon" for a mode not built yet, the
+## The small badge on the tab's corner: "Soon" for a mode not built yet, the
 ## tries left for the Daily Run, else "".
 static func badge(id: String, daily: DailyRunInfo = null) -> String:
 	var m := find(id)

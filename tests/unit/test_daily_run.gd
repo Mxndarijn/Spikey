@@ -299,11 +299,11 @@ func test_a_try_in_the_app() -> void:
 	await _frames()
 	var home := main._menus.current() as HomeScreen
 	var modes := home.modes()
-	assert_true(modes.rule_text(GameModes.DAILY).begins_with("3 tries left"), "Home's Daily card")
-	modes.choose_id(GameModes.DAILY)
+	assert_true(modes.rule_text(GameModes.DAILY).begins_with("3 tries left"), "Home's Daily tab")
+	modes.tab(GameModes.DAILY).pressed.emit()
 	home.dock().primary().pressed.emit()
 	var screen := main._menus.current() as DailyRunScreen
-	assert_true(screen != null, "Play on the Daily Run card opens the Daily Run")
+	assert_true(screen != null, "Play on the Daily tab opens the Daily Run")
 	await _frames()
 	assert_eq(screen.primary().text, "Try 1")
 	screen.primary().pressed.emit()

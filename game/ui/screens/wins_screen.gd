@@ -13,9 +13,15 @@ signal scores_pressed
 signal board_requested(mode: String, period: String)
 signal record_requested(mode: String, period: String, who: String)
 
+## The header names the boards as the dock does, so it fits beside Scores | Wins.
+const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
 const BOTTOM := 40
 const ROW_H := 40.0
+## Each period tab's width in its short pill.
+const PERIOD_TAB_W := 104.0
+## Room for the record card's title beside its close button.
+const RECORD_TITLE_W := 220.0
 const MODES: Array[String] = ["battle", "duel"]
 const MODE_NAMES: Array[String] = ["Battle", "Duel"]
 const PERIODS: Array[String] = ["week", "all"]
@@ -56,9 +62,16 @@ func _ready() -> void:
 	margin.add_child(col)
 	var switch := BoardSwitch.new(BoardSwitch.WINS)
 	switch.picked.connect(func(_i: int) -> void: scores_pressed.emit())
-	col.add_child(UiKit.header("Leaderboards", closed.emit, switch))
+	col.add_child(UiKit.header(TITLE, closed.emit, switch))
 	col.add_child(_strip(MODE_NAMES, _tabs, _pick_mode))
-	col.add_child(_strip(PERIOD_NAMES, _periods, _pick_period))
+	# The period is the smaller choice: a short pill under the mode's bar.
+	var periods := _strip(PERIOD_NAMES, _periods, _pick_period)
+	periods.name = "Periods"
+	periods.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for b in _periods:
+		b.custom_minimum_size.x = PERIOD_TAB_W
+		b.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	col.add_child(periods)
 	_caption = UiKit.label(LOADING, &"RoomMuted")
 	_caption.add_theme_font_size_override("font_size", 13)
 	col.add_child(_caption)
@@ -210,6 +223,13 @@ func show_record(record: Dictionary) -> Control:
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title.custom_minimum_size = Vector2(60, 0)
+	# A long name (up to 16 letters) shrinks to fit beside the close button
+	# before it would trim.
+	var font := UiTheme.get_theme().get_font("font", &"NameLabel")
+	var full := UiTheme.get_theme().get_font_size("font_size", &"NameLabel")
+	title.add_theme_font_size_override(
+		"font_size", UiKit.fit_font_size(title.text, font, full, RECORD_TITLE_W, UiKit.TITLE_MIN)
+	)
 	col.add_child(UiKit.card_head(title, close_record))
 	var sub := UiKit.label(
 		"%s · %s" % [MODE_NAMES[MODES.find(mode)], PERIOD_NAMES[PERIODS.find(period)]],

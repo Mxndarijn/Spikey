@@ -15,8 +15,9 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
 
 ## Built so far
 
-- **Mode picker** (Home's carousel and the All modes sheet): `game/app/game_modes.gd`,
-  `game/ui/widgets/mode_carousel.gd`, `modes_sheet.gd`. Battle and Duel show as Soon.
+- **Mode picker** (Home's mode tabs): `game/app/game_modes.gd`,
+  `game/ui/widgets/mode_tabs.gd`. (The carousel and the All modes sheet were
+  replaced by the tabs in the UI rework, docs/ui-rework/.)
 - **Battle on the server**: `backend/migrations/0110_battles.sql` (tables, the
   battle_* operations, rounds decided by a trigger after the replay check, the
   copied-taps check, the battle alert outbox on the `battles` channel, nudges),
@@ -34,7 +35,7 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   battle, its menu, a round's run and sending it), the screens
   `battle_list_screen.gd` (B1), `battle_screen.gd` (B3, B4, B6, B7, K1),
   `new_battle_sheet.gd` (B2), `battle_menu_sheet.gd` (K2), the rival's bird
-  `game/match/rival_ghost.gd` (B5), the Battle card on Home is live with its
+  `game/match/rival_ghost.gd` (B5), the Battle tab on Home is live with its
   your-turn badge. Tests: `test_battle_service.gd`, `test_battle_screens.gd`
   (with a whole round in the app), `test_battle_fit.gd`.
 - **Wins boards in the game**: the Scores | Wins switch on the leaderboards
@@ -56,8 +57,8 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
 - **Only the newest version** (the user's rule): Battle and Duel run only on
   the server's gameplay version, so the server never needs an old sim. The app
   reads the server's version from `POST /v1/ping`; an older app shows "Update
-  to play" on the Battle and Duel cards (Home, All modes, the Battle and Duel
-  screens) and Play opens the store (`game/app/store_link.gd`). The server
+  to play" under the Battle and Duel tabs, with an UPDATE badge (Home, the
+  Battle and Duel screens) and Play opens the store (`game/app/store_link.gd`). The server
   answers battle operations from an older app (header X-Flapjaw-Gameplay) and
   the Duel hello with `update_required` (409). Classic and the Daily Run go on.
   When the server starts on a newer version, every round not decided yet that
@@ -125,7 +126,15 @@ Duel.
 Modes now and soon: **Classic** (today's endless run), **Daily Run**,
 **Battle**, **Duel**, and later perhaps Practice or seasonal events.
 
-**Decided**: a **mode carousel on Home**, with Play under it.
+**Built now (UI rework, 2026-11-17)**: **mode tabs on Home**, a paper tab bar
+Classic | Daily | Battle | Duel under the stats line, the chosen tab filled
+ink, its rules in one line under the bar; Play in the dock follows the tab. A
+tab's gold badge: the battles waiting for your turn, the Daily Run's tries
+left, UPDATE when the app is too old for that mode. It replaced the carousel
+below, which hid three of the four modes and needed the All modes sheet to
+show them; four tabs fit a 360 px phone with room for their badges.
+
+**Decided first** (replaced by the tabs): a **mode carousel on Home**, with Play under it.
 
 - One card per mode, swiped sideways, the chosen one in the middle and its
   neighbours peeking in at the sides. Dots under it show how many modes there
@@ -157,7 +166,8 @@ open(main)    -> starts the mode's flow (BattleFlow, DailyRunFlow, ...)
 visible()     -> false hides it (server switch, platform, season)
 ```
 
-Home draws the carousel from the list; a new mode is one entry and its flow.
+Home draws the tabs from the list; a new mode is one entry and its flow (a
+fifth tab still fits; past that the bar needs another look).
 The server can hide a mode with a flag in the `ping` answer
 (`modes_off: ["duel"]`), so a mode can be turned off without an update.
 
@@ -311,7 +321,7 @@ alerts), and only when push is on.
 - Quiet hours: no reminder between 22:00 and 08:00 on the phone's clock
   (`push_devices.utc_offset`); it is sent at 08:00 instead.
 - At most one reminder an hour per player for all battles together.
-- A push opens the app on that battle. A badge on the Battle card on Home
+- A push opens the app on that battle. A badge on the Battle tab on Home
   shows the count of your turns.
 
 ### Server
@@ -622,8 +632,7 @@ the server what any run costs (microseconds a tick, the plain sim).
 
 Mockups on the visual page, in the Flapjaw Design Kit style:
 
-- **Modes**: Home with the mode carousel (Battle card with a "2" badge), the
-  All modes sheet.
+- **Modes**: Home with the mode tabs (the Battle tab with a "2" badge).
 - **Battle**: the battle list (your turn, their turn, finished, with Resign and Close), start a
   battle (friend or random, first to 6), the invite code, the round intro
   ("Mira scored 27, beat it"), playing with Mira's run as the rival, submit
@@ -685,7 +694,8 @@ state machine and round sequence, the shared architecture.
 
 Decided by the user:
 
-- **Mode picker**: the carousel on Home plus the All modes sheet.
+- **Mode picker**: the carousel on Home plus the All modes sheet; replaced by
+  the mode tabs on Home in the UI rework (the user's request, 2026-11-17).
 - Battle is **first to 6** round wins.
 - **The player who starts the battle opens round 1**, then the opener
   alternates, and round 11 (at 5-5) is blind for both.

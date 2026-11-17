@@ -3,11 +3,12 @@ extends Control
 ## The main menu over the live room, with no boxes, in three places (button
 ## system A3): the corners (Settings top left, where other screens have their
 ## way back, since Home has none; the wallet top right), the sky line (the
-## "flapjaw" wordmark, "Best 87, #14 today", the mode carousel with an All modes
-## link: Classic, Daily Run with its tries and the time to the next map, and the
-## modes still to come), and the cradle dock at the bottom: Rooms, Style | Play |
-## Ranks, Runs. Play starts the chosen mode. The flyer in use bobs big in the
-## middle of the room with its puff trail.
+## "flapjaw" wordmark, "Best 87, #14 today", the mode tabs Classic | Daily |
+## Battle | Duel with the chosen mode's rules under them: the Daily Run's tries
+## and the time to the next map, the battles waiting for your turn), and the
+## cradle dock at the bottom: Rooms, Style | Play | Ranks, Runs. Play starts the
+## chosen mode. The flyer in use bobs big in the middle of the room with its
+## puff trail.
 
 signal play_pressed
 ## Opens one kind's list in Customize directly (nothing on Home emits it now;
@@ -18,7 +19,7 @@ signal customize_pressed
 signal rooms_pressed
 ## The wallet (gold and diamonds, top right): opens the Wallet (the Shop).
 signal store_pressed
-## The Daily Run chosen in the mode carousel and started: opens the Daily Run.
+## The Daily Run chosen in the mode tabs and started: opens the Daily Run.
 signal daily_run_pressed
 ## Battle chosen and started: opens Battles.
 signal battle_pressed
@@ -30,8 +31,8 @@ signal update_pressed
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
 signal leaderboard_pressed
-## A setting changed in the settings sheet, or the mode carousel's chosen
-## mode (already in the profile): main saves it and applies it.
+## A setting changed in the settings sheet, or the chosen mode tab (already in
+## the profile): main saves it and applies it.
 signal settings_changed
 ## The debug page's room picker: practise `id` with `variant`.
 signal practice_requested(id: String, variant: String)
@@ -49,14 +50,13 @@ const WORDMARK := "flapjaw"
 const LOGO_TOP := 110.0
 ## 64px keeps "flapjaw" (7 wide letters) inside 24px side margins.
 const LOGO_SIZE := 64
-const STATS_TOP := 196.0
-## The sky line under the stats: the mode carousel, the All modes link and the
+const STATS_TOP := 192.0
+## The sky line under the stats: the mode tabs with their rules line, and the
 ## lost-spot line under them.
-const SKY_LINE_TOP := 224.0
-const ALL_MODES_TOP := SKY_LINE_TOP + ModeCarousel.HEIGHT - 6.0
-const ALL_MODES_W := 140.0
-const ALL_MODES_H := 34.0
-const NOTICE_TOP := ALL_MODES_TOP + ALL_MODES_H
+const SKY_LINE_TOP := 230.0
+## The tabs keep the screen's side gutter (the kit's space-4).
+const TABS_SIDE := float(UiTokens.SPACE_4)
+const NOTICE_TOP := SKY_LINE_TOP + ModeTabs.HEIGHT + UiTokens.SPACE_2
 const NOTICE_WIDTH := 300.0
 ## The flyer's centre and body size on Home (bigger than in a run).
 const FLYER_CENTER := Vector2(196, 404)
@@ -74,9 +74,7 @@ var _settings_button: Button
 var _wallet: Wallet
 var _prizes: DailyPrizePopup
 var _notice: Label
-var _modes: ModeCarousel
-var _all_modes: Button
-var _modes_sheet: ModesSheet
+var _modes: ModeTabs
 var _daily_info: DailyRunInfo
 var _daily_result: DailyResultPopup
 ## GameModes.changes as last drawn: the server's version changed since.
@@ -130,21 +128,15 @@ func _ready() -> void:
 	_flyer.size = box
 	add_child(_flyer)
 
-	_modes = ModeCarousel.new(GameModes.find(_profile.home_mode).id)
+	_modes = ModeTabs.new(GameModes.find(_profile.home_mode).id)
 	_modes.name = "Modes"
 	_modes.selected.connect(_on_mode_selected)
-	_modes.activated.connect(_start_mode)
 	add_child(_modes)
 	_modes.anchor_right = 1.0
+	_modes.offset_left = TABS_SIDE
+	_modes.offset_right = -TABS_SIDE
 	_modes.offset_top = SKY_LINE_TOP
-	_modes.offset_bottom = SKY_LINE_TOP + ModeCarousel.HEIGHT
-	_all_modes = UiKit.text_button("All modes", &"PlainButton")
-	_all_modes.name = "AllModes"
-	_all_modes.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_LABEL)
-	_all_modes.pressed.connect(open_all_modes)
-	add_child(_all_modes)
-	_all_modes.position = Vector2((ScreenLayout.ROOM.x - ALL_MODES_W) / 2.0, ALL_MODES_TOP)
-	_all_modes.size = Vector2(ALL_MODES_W, ALL_MODES_H)
+	_modes.offset_bottom = SKY_LINE_TOP + ModeTabs.HEIGHT
 	set_daily_info(null)
 
 	_dock = (
@@ -300,17 +292,30 @@ func stats_line() -> String:
 	return _stats.text
 
 
-## Today's Daily Run arrived (or null before it does, or offline): its card
-## shows the tries left and the time to the next map.
+## Today's Daily Run arrived (or null before it does, or offline): its tab
+## shows the tries left and its line the time to the next map.
 func set_daily_info(info: DailyRunInfo) -> void:
 	_daily_info = info
 	if _modes == null:
 		return
 	_seen_changes = GameModes.changes
 	for m in GameModes.all():
+		if m.id == GameModes.BATTLE and not GameModes.needs_update(m.id):
+			continue
 		if m.id == GameModes.DAILY or not m.ready or m.id in GameModes.LATEST_ONLY:
 			_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
 	_show_play_label()
+
+
+## The battles waiting for this player's turn (BattleFlow): the Battle tab's
+## badge and line. An app too old for Battle keeps its UPDATE badge.
+func set_battle_turns(n: int) -> void:
+	if _modes == null or GameModes.needs_update(GameModes.BATTLE):
+		return
+	var line := GameModes.rule_line(GameModes.BATTLE)
+	if n > 0:
+		line = "%d %s your turn" % [n, "battle waits for" if n == 1 else "battles wait for"]
+	_modes.set_line(GameModes.BATTLE, line, str(n) if n > 0 else "")
 
 
 ## Starts a mode: Classic plays a run, the Daily Run opens its screen, a mode
@@ -347,25 +352,8 @@ func _show_play_label() -> void:
 	_dock.primary().disabled = not m.ready
 
 
-func modes() -> ModeCarousel:
+func modes() -> ModeTabs:
 	return _modes
-
-
-## The All modes sheet over Home (the link under the carousel).
-func open_all_modes() -> ModesSheet:
-	if _modes_sheet == null:
-		_modes_sheet = ModesSheet.new(_modes.chosen(), _daily_info)
-		_modes_sheet.name = "ModesSheet"
-		_modes_sheet.picked.connect(_modes.choose_id)
-		_modes_sheet.closed.connect(_close_all_modes)
-		add_child(_modes_sheet)
-	return _modes_sheet
-
-
-func _close_all_modes() -> void:
-	if _modes_sheet != null:
-		_modes_sheet.queue_free()
-		_modes_sheet = null
 
 
 ## Today's rank arrived (or changed): shows it under the wordmark.

@@ -82,6 +82,15 @@ static func across(parent: Control, c: Control, top: float) -> void:
 	c.offset_bottom = top + c.get_combined_minimum_size().y
 
 
+## Shrinks `c` (placed with across()) back to what its content needs now, so a
+## card that showed more before (a hidden row, a shorter text) doesn't keep an
+## empty bottom. Again after the next layout, when wrapped labels know their
+## height.
+static func fit_height(c: Control) -> void:
+	c.offset_bottom = c.offset_top
+	c.set_deferred("offset_bottom", c.offset_top)
+
+
 ## A bare white button with an icon and text over the dimmed room, and a small
 ## note under it; link_button() gives the button. `back`: it sounds like a way
 ## back (mark_back).

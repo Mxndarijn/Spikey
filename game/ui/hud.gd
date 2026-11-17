@@ -42,6 +42,10 @@ signal replay_again_pressed
 signal replay_back_pressed
 
 const TOAST_SECONDS := 1.2
+## The toast's top edge (under the score and Home's corners) and widest line.
+const TOAST_TOP := 124.0
+const TOAST_MAX_W := 300.0
+const TOAST_LAYER := 3
 ## The run's coin counter (top right); lower in a replay, under its chip.
 const RUN_COINS_TOP := 54.0
 const REPLAY_COINS_TOP := 112.0
@@ -105,6 +109,10 @@ var _hint: VBoxContainer
 var _toast: Label
 
 @onready var _root: Control = $Root
+## Toasts go above the menus (MenuLayer is layer 2), so a screen's cards never
+## cover one.
+var _toast_layer: CanvasLayer
+var _toast_root: Control
 
 
 func _ready() -> void:
@@ -117,6 +125,8 @@ func _ready() -> void:
 	_score = Label.new()
 	_hint = VBoxContainer.new()
 	_toast = Label.new()
+	_toast_layer = CanvasLayer.new()
+	_toast_root = Control.new()
 	pause_screen = PauseScreen.new()
 	countdown = ResumeCountdown.new()
 	game_over = GameOverScreen.new()
@@ -142,14 +152,32 @@ func _ready() -> void:
 	_replay.changed.connect(_on_replay_changed)
 	_root.add_child(revive_offer)
 	revive_offer.shown.connect(_on_revive_offer_shown)
-	_toast.theme_type_variation = &"HudLabel"
+	# An ink pill with white text: it reads over the wordmark, a card or the sky.
+	_toast.name = "Toast"
+	_toast.theme_type_variation = &"OnInkLabel"
+	_toast.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_LABEL)
+	_toast.add_theme_color_override("font_color", UiTokens.ON_PRIMARY)
+	var pill := UiTheme.flat(UiTokens.PRIMARY, UiTokens.RADIUS_PILL, 0)
+	pill.content_margin_left = UiTokens.SPACE_4
+	pill.content_margin_right = UiTokens.SPACE_4
+	pill.content_margin_top = UiTokens.SPACE_2
+	pill.content_margin_bottom = UiTokens.SPACE_2
+	_toast.add_theme_stylebox_override("normal", pill)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.anchor_right = 1.0
-	_toast.offset_top = 124
-	_toast.offset_bottom = 152
+	_toast.anchor_left = 0.5
+	_toast.anchor_right = 0.5
+	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast.offset_top = TOAST_TOP
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.visible = false
-	_root.add_child(_toast)
+	_toast_layer.name = "Toasts"
+	_toast_layer.layer = TOAST_LAYER
+	add_child(_toast_layer)
+	_toast_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast_root.theme = UiTheme.get_theme()
+	_toast_layer.add_child(_toast_root)
+	_apply_room_rect()
+	_toast_root.add_child(_toast)
 	show_ready()
 
 
@@ -294,6 +322,9 @@ func _counter_target() -> Vector2:
 func _apply_room_rect() -> void:
 	_root.position = room_rect.position
 	_root.size = room_rect.size
+	if _toast_root != null:
+		_toast_root.position = room_rect.position
+		_toast_root.size = room_rect.size
 	if _replay != null:
 		_replay.scrubber().set_band_space(_band_space())
 
@@ -523,7 +554,16 @@ func is_new_best_showing() -> bool:
 
 ## A short message on the room, e.g. the world's name after switching.
 func show_toast(text: String) -> void:
+	_toast.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_toast.custom_minimum_size = Vector2.ZERO
 	_toast.text = text
+	# A long message wraps inside the screen's gutters instead of running off it.
+	if _toast.get_minimum_size().x > TOAST_MAX_W:
+		_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_toast.custom_minimum_size = Vector2(TOAST_MAX_W, 0)
+	_toast.offset_left = 0
+	_toast.offset_right = 0
+	_toast.offset_bottom = TOAST_TOP
 	_toast.visible = true
 	_toast.modulate.a = 1.0
 	if _toast_tween != null:

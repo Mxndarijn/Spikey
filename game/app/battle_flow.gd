@@ -103,13 +103,15 @@ func _init(
 	duel = DuelFlow.new(link, self, menus, hud, service.profile)
 
 
-## Home's Battle card opens Battles (and the list's turns fill its badge); the
-## score boards' Wins switch opens the wins boards.
+## Home's Battle tab opens Battles (and the list's turns fill its badge, the
+## last list's at once); the score boards' Wins switch opens the wins boards.
 func _on_screen_shown(screen: Control) -> void:
 	if screen is HomeScreen:
-		(screen as HomeScreen).battle_pressed.connect(func() -> void: open())
-		(screen as HomeScreen).duel_pressed.connect(func() -> void: duel.open())
-		(screen as HomeScreen).update_pressed.connect(StoreLink.open)
+		var home := screen as HomeScreen
+		home.battle_pressed.connect(func() -> void: open())
+		home.duel_pressed.connect(func() -> void: duel.open())
+		home.update_pressed.connect(StoreLink.open)
+		home.set_battle_turns(turns_waiting())
 		refresh()
 		service.request_server_version()
 	elif screen is LeaderboardScreen:
@@ -159,7 +161,7 @@ func _on_record(record: Dictionary) -> void:
 		screen.show_record(record)
 
 
-## How many battles wait for this player (Home's Battle card badge).
+## How many battles wait for this player (Home's Battle tab badge).
 func turns_waiting() -> int:
 	return BattleListScreen.turns_waiting(_list)
 
@@ -454,11 +456,8 @@ func _on_list(battles: Array[BattleView]) -> void:
 	if screen != null:
 		screen.show_battles(battles)
 	var home := _menus.current() as HomeScreen
-	if home != null and home.modes() != null:
-		var n := turns_waiting()
-		home.modes().set_line(
-			GameModes.BATTLE, GameModes.rule_line(GameModes.BATTLE), str(n) if n > 0 else ""
-		)
+	if home != null:
+		home.set_battle_turns(turns_waiting())
 
 
 func _on_battle(view: BattleView) -> void:
@@ -527,6 +526,10 @@ func _on_failed(op: String, message: String) -> void:
 			screen.show_update(message)
 		else:
 			screen.show_offline(message)
+		return
+	# Home asks for the list only for the Battle tab's badge: offline, the tab
+	# just shows no badge, with no toast over the wordmark.
+	if op == "battle_list" and _menus.current() is HomeScreen:
 		return
 	if op == "battle_submit":
 		# The run is kept and sent again when Battles opens.

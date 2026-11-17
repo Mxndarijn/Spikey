@@ -134,7 +134,7 @@ func test_the_list_groups_battles_by_whose_turn() -> void:
 func test_a_battle_says_what_happens_now() -> void:
 	var screen := BattleScreen.new(_view())
 	var holder := _holder(screen)
-	assert_eq(screen.title_text(), "Round 5 · Mira scored")
+	assert_eq(screen.title_text(), "Round 5 · to beat")
 	assert_eq(screen.big_text(), str(_rival_run().score), "the score to beat")
 	assert_true(screen.body_text().contains("One try"))
 	var played: Array[int] = []

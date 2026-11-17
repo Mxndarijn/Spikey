@@ -47,6 +47,7 @@ var _big: Label
 var _extra: Button
 var _primary: Button
 var _pill: Label
+var _card_box: Control
 
 
 func _init(p_view: BattleView, p_code: String = "") -> void:
@@ -91,7 +92,7 @@ func _ready() -> void:
 	_notice.visible = false
 	col.add_child(_notice)
 	_title = UiKit.wrapped("", &"NameLabel", LINE_W)
-	_title.add_theme_font_size_override("font_size", 22)
+	_title.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_HEADING)
 	col.add_child(_title)
 	_big = UiKit.label("", &"NameLabel")
 	_big.name = "Big"
@@ -109,6 +110,7 @@ func _ready() -> void:
 	margin.add_theme_constant_override("margin_right", SIDE + 8)
 	margin.add_child(card)
 	UiKit.across(self, margin, CARD_Y)
+	_card_box = margin
 	_primary = UiKit.primary(PLAY_ICON, "Play")
 	_primary.name = "Primary"
 	_primary.pressed.connect(_on_primary)
@@ -171,11 +173,8 @@ func _show_turn(v: BattleView) -> void:
 		)
 	elif v.play_role == "answer" and v.rival_score() >= 0:
 		_say(
-			"Round %d · %s scored" % [v.play_round, v.rival_name],
-			(
-				"You'll see %s's run as you fly. Beat %d to win the round. One try."
-				% [v.rival_name, v.rival_score()]
-			)
+			"Round %d · to beat" % v.play_round,
+			"%s's score. You'll see their run as you fly. One try." % v.rival_name
 		)
 		_big.text = str(v.rival_score())
 		_big.add_theme_font_size_override("font_size", 48)
@@ -225,11 +224,13 @@ func _show_result(v: BattleView) -> void:
 func _say(title: String, body: String) -> void:
 	_title.text = title
 	_body.text = body
+	UiKit.fit_height(_card_box)
 
 
 func _extra_row(text: String) -> void:
 	_extra.text = text
 	_extra.visible = true
+	UiKit.fit_height(_card_box)
 
 
 ## A line over the card: a round's result, a lost run, a round dealt again.
@@ -238,6 +239,7 @@ func set_notice(text: String) -> void:
 		return
 	_notice.text = text
 	_notice.visible = not text.is_empty()
+	UiKit.fit_height(_card_box)
 
 
 func _on_primary() -> void:
