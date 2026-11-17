@@ -46,6 +46,7 @@ const ACTION_Y := 500.0
 const ACTION_TOP := ACTION_Y - PRIMARY / 2.0
 ## The one text button under the round primary on overlays.
 const TEXT_BUTTON_Y := 552.0
+const TEXT_BUTTON_H := 40.0
 ## No control reaches lower than this: 8px clear of the floor spikes (606).
 const BOTTOM_LIMIT := 598.0
 ## Icon buttons on rows and in cards, and popups' close button.
@@ -80,6 +81,24 @@ static func across(parent: Control, c: Control, top: float) -> void:
 	c.offset_right = 0
 	c.offset_top = top
 	c.offset_bottom = top + c.get_combined_minimum_size().y
+
+
+## A secondary button on a paper card: a paper-raised pill with ink text, so
+## it looks tappable next to the card's one ink action.
+static func soft_button(b: Button) -> void:
+	var box := UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_PILL, 0)
+	box.content_margin_left = UiTokens.SPACE_4
+	box.content_margin_right = UiTokens.SPACE_4
+	var down := box.duplicate() as StyleBoxFlat
+	down.bg_color = UiTokens.EDGE
+	for state in ["normal", "hover", "focus", "disabled"]:
+		b.add_theme_stylebox_override(state, box)
+	for state in ["pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, down)
+	for state in [
+		"font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"
+	]:
+		b.add_theme_color_override(state, UiTokens.ON_PANEL)
 
 
 ## Shrinks `c` (placed with across()) back to what its content needs now, so a
@@ -145,6 +164,18 @@ static func place_primary(parent: Control, b: Button, top: float = ACTION_TOP) -
 ## Puts an overlay's one text button under the action line, centred. Returns
 ## the row that holds it.
 static func place_text_button(parent: Control, b: Button) -> Control:
+	# A solid ink pill with white text: bare text on the dimmed room read
+	# poorly over light scenery (snow).
+	var pill := UiTheme.solid(UiTokens.INK_LINE)
+	pill.content_margin_left = UiTokens.SPACE_5
+	pill.content_margin_right = UiTokens.SPACE_5
+	var down := pill.duplicate() as StyleBoxFlat
+	down.bg_color = UiTokens.INK_LINE.lightened(0.15)
+	for state in ["normal", "hover", "focus"]:
+		b.add_theme_stylebox_override(state, pill)
+	for state in ["pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(state, down)
+	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, TEXT_BUTTON_H)
 	var row := CenterContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(b)

@@ -165,12 +165,14 @@ func _run_shots() -> void:
 	_main.start_run()
 	var run: RunController = _main._run
 	var tapping := true
-	for i in 240:
+	# Early in the run, while the hover bot is surely alive (later it may have
+	# crashed, and Paused would show Game over).
+	for i in 110:
 		var s := run.sim.state
 		if tapping and (not s.started or (s.y > SimConfig.BIRD_START_Y and s.vy >= 0)):
 			run.request_tap()
 		await process_frame
-		if i == 200:
+		if i == 90:
 			await _shot("23_hud", 0)
 	_main._toggle_pause()
 	await _shot("24_paused", 20)

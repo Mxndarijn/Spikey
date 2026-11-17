@@ -96,6 +96,8 @@ func _ready() -> void:
 	_field.text_submitted.connect(func(_t: String) -> void: _join())
 	row.add_child(_field)
 	var join := UiKit.text_button("Join", &"InkButton")
+	UiKit.soft_button(join)
+	join.custom_minimum_size = Vector2(76, UiTokens.SIZE_TAP_MIN)
 	join.name = "Join"
 	join.pressed.connect(_join)
 	row.add_child(join)

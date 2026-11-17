@@ -343,7 +343,9 @@ static func _buttons(t: Theme, room: Color) -> void:
 
 
 static func _primary(t: Theme, type_name: String, fill: Color, text: Color) -> void:
-	var disc := flat(fill, UiTokens.RADIUS_PILL, 8)
+	# A solid surface (paper ring on ink, ink ring on paper), so the one main
+	# action reads on every sky, night worlds included.
+	var disc := solid(fill, UiTokens.RADIUS_PILL, 8, 4)
 	# A Button pins a top icon to the top margin and centres the name in what is
 	# left below it. These margins put the icon and its name together in the
 	# middle of the disc (icon 22..52, name 61..77 of 100); more margin would

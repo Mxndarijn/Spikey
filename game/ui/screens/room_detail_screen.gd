@@ -91,7 +91,8 @@ func _ready() -> void:
 	note.anchor_right = 1.0
 	note.offset_left = (UiTokens.SIZE_VIEWPORT_W - NOTE_W) / 2.0
 	note.offset_right = -note.offset_left
-	note.offset_top = UiKit.TEXT_BUTTON_Y
+	# Under the Practice button with a gap (it sat on the button's edge).
+	note.offset_top = UiKit.ACTION_TOP + UiKit.PRIMARY + 6.0
 	add_child(note)
 
 

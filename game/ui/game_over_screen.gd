@@ -57,12 +57,12 @@ const BEST_Y := 228.0
 const BEST_Y_NEW_BEST := 252.0
 const BEST_SIZE := 18
 const REVIVED_GAP := 26.0
-const FLYER_Y := 344.0
-const STATS_Y := 374.0
-const SEED_GAP := 6.0
+const FLYER_Y := 334.0
+const STATS_Y := 366.0
+const SEED_GAP := 2.0
 ## The stats card behind the stats and the seed: its side inset and padding.
 const STATS_CARD_SIDE := 40.0
-const STATS_CARD_PAD := 8.0
+const STATS_CARD_PAD := 6.0
 ## The final score shrinks to fit the screen from this many digits.
 const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
 const FINAL_SCORE_MIN := 64
@@ -132,9 +132,9 @@ func _init() -> void:
 	_stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stats.add_theme_constant_override("separation", STAT_GAP)
-	_stat_coins = _stat(_stats, "coins", COIN_ICON)
-	_stat_rooms = _stat(_stats, "rooms")
-	_stat_rank = _stat(_stats, "today")
+	_stat_coins = _stat(_stats, "Coins", COIN_ICON)
+	_stat_rooms = _stat(_stats, "Rooms")
+	_stat_rank = _stat(_stats, "Today")
 	_stat_rank_word = _stat_rank.get_parent().get_parent().get_child(1) as Label
 	UiKit.across(self, _stats, STATS_Y)
 	_seed.theme_type_variation = &"RoomMuted"
@@ -285,7 +285,7 @@ func show_daily(number: int, tries_line: String, next: String) -> void:
 func _set_daily(on: bool) -> void:
 	_daily = on
 	_caption.text = CAPTION
-	_stat_rank_word.text = "daily run" if on else "today"
+	_stat_rank_word.text = "Daily Run" if on else "Today"
 	_dock.visible = not on
 	_daily_dock.visible = on
 

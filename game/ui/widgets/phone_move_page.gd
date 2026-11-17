@@ -87,6 +87,7 @@ static func _button(text: String, main: bool = false) -> Button:
 		b.text = text
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UiKit.soft_button(b)
 	b.custom_minimum_size.y = UiTokens.SIZE_TAP_MIN + 8
 	return b
 

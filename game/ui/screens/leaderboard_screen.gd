@@ -284,7 +284,7 @@ func _dash() -> Control:
 
 
 ## The player's own row, a gold pill: rank, flyer, "You (name)" over what the
-## rank means, the pencil and the score. No score yet: "#-" and why.
+## rank means, the pencil and the score. No score yet: "–" and why.
 func _pinned(board: LeaderboardBoard) -> Control:
 	var panel := PanelContainer.new()
 	var box := LeaderboardRow.pill(UiTokens.ACTION)
@@ -295,7 +295,7 @@ func _pinned(board: LeaderboardBoard) -> Control:
 	row.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	panel.add_child(row)
 	var me := board.me
-	_pinned_rank = LeaderboardRow.rank_label(_rank_text(me.rank) if me != null else "#–")
+	_pinned_rank = LeaderboardRow.rank_label(_rank_text(me.rank) if me != null else "–")
 	row.add_child(_pinned_rank)
 	var flyer := LeaderboardRow.flyer_texture(_profile.equipped_id(ItemKind.FLYER))
 	row.add_child(LeaderboardRow.icon(flyer, PINNED_FLYER))

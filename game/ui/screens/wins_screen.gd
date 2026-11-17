@@ -72,7 +72,10 @@ func _ready() -> void:
 	var names: Array[String] = []
 	for m in _modes:
 		names.append(MODE_NAMES[MODES.find(m)])
-	col.add_child(_strip(names, _tabs, _pick_mode))
+	var modes := _strip(names, _tabs, _pick_mode)
+	# One board only (Battle paused): no bar with a single tab that does nothing.
+	modes.visible = _modes.size() > 1
+	col.add_child(modes)
 	# The period is the smaller choice: a short pill under the mode's bar.
 	var periods := _strip(PERIOD_NAMES, _periods, _pick_period)
 	periods.name = "Periods"
@@ -259,7 +262,7 @@ func show_record(record: Dictionary) -> Control:
 	for f: Array in facts:
 		var cell := VBoxContainer.new()
 		cell.add_theme_constant_override("separation", 0)
-		var k := UiKit.label(str(f[0]).to_upper(), &"MutedLabel", false)
+		var k := UiKit.label(str(f[0]), &"MutedLabel", false)
 		k.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_TAG)
 		cell.add_child(k)
 		var v := UiKit.label(str(f[1]), &"NameLabel", false)
@@ -269,7 +272,7 @@ func show_record(record: Dictionary) -> Control:
 	col.add_child(grid)
 	var last: Array = record.get("last", []) if record.get("last") is Array else []
 	if not last.is_empty():
-		var head := UiKit.label("LAST MATCHES", &"MutedLabel", false)
+		var head := UiKit.label("Last matches", &"MutedLabel", false)
 		head.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_TAG)
 		col.add_child(head)
 	for m: Variant in last:

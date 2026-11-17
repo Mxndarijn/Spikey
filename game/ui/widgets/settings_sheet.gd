@@ -39,7 +39,7 @@ const SWITCHES: Dictionary[PlayerSettings.Switch, Array] = {
 	PlayerSettings.Switch.COLOR_BLIND_SPIKES:
 	["Color-blind spikes", "Spikes turn dark with a white edge"],
 	PlayerSettings.Switch.LARGE_BUTTONS: ["Large buttons", "Pause and HUD buttons grow to 56px"],
-	PlayerSettings.Switch.BOARD_ALERTS: ["Alerts", "Your turn in a battle, and a lost prize spot"],
+	PlayerSettings.Switch.BOARD_ALERTS: ["Alerts", "A notification when you lose a prize spot"],
 }
 const CREDITS := [
 	["Font", "Archivo by the Archivo Project Authors, SIL Open Font License 1.1."],
