@@ -69,6 +69,10 @@ func _tour() -> void:
 	# Two battles wait for this player's turn (BattleFlow fills it online).
 	(_menus().current() as HomeScreen).set_battle_turns(2)
 	await _shot("01_home")
+	# The bare room behind Home (for mockups): the menus hidden for one shot.
+	_menus().current().visible = false
+	await _shot("00_room", 10)
+	_menus().current().visible = true
 	await _home_modes()
 	var home := _menus().current() as HomeScreen
 	home.open_settings()
