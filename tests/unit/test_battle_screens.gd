@@ -281,7 +281,8 @@ func test_a_round_in_the_app_from_its_seed_to_the_server() -> void:
 
 
 ## Main with a battle round played to its crash on the fake server.
-func _crashed_round() -> Node:
+## `answer`: the server's answer to the run (default: the round is decided).
+func _crashed_round(answer: Dictionary = {}) -> Node:
 	var main := _main()
 	await _frames()
 	var server := FakeServer.new()
@@ -297,6 +298,8 @@ func _crashed_round() -> Node:
 		"rounds": [{"number": 5, "my_score": 9, "their_score": 1, "winner": "me"}],
 		"play": {"round": 6, "role": "open"},
 	}
+	if not answer.is_empty():
+		after = answer
 	server.answers["battle_submit"] = {"ok": true, "code": 200, "data": after}
 	server.answers["battle_get"] = {"ok": true, "code": 200, "data": after}
 	var flow: BattleFlow = main._battle
@@ -336,6 +339,35 @@ func test_after_a_round_only_the_battle_is_live() -> void:
 	var shown: Control = main._menus.current()
 	await _tree().create_timer(BattleFlow.AFTER_CRASH_S + 0.2).timeout
 	assert_true(main._menus.current() == shown, "the same battle screen, not a second one")
+	main.free()
+	SafeFile.remove(TEST_PATH)
+
+
+func test_the_notice_says_how_the_round_went_once_the_run_is_checked() -> void:
+	# The server still checks the run: the round has no result yet.
+	var checking := {
+		"battle": 12,
+		"status": "open",
+		"turn": "me",
+		"opponent": {"name": "Mira", "flyer": "buzz", "bot": false},
+		"rounds": [{"number": 5, "my_score": 9, "their_score": 1}],
+		"play": {"round": 5, "role": "answer"},
+	}
+	var main: Node = await _crashed_round(checking)
+	var flow: BattleFlow = main._battle
+	flow.back_to_battle()
+	await _frames()
+	var screen := main._menus.current() as BattleScreen
+	var notice := screen.find_child("Notice", true, false) as Label
+	assert_eq(notice.text, BattleFlow.CHECKING)
+	var done := checking.duplicate(true)
+	done.rounds = [{"number": 5, "my_score": 9, "their_score": 1, "winner": "me"}]
+	done.play = {"round": 6, "role": "open"}
+	var server := flow.service.client as FakeServer
+	server.answers["battle_get"] = {"ok": true, "code": 200, "data": done}
+	flow.service.request_battle(12)
+	await _frames()
+	assert_eq(notice.text, "You win round 5 · 9–1", "the checked round's result replaces Checking")
 	main.free()
 	SafeFile.remove(TEST_PATH)
 

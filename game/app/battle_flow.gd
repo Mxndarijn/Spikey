@@ -27,6 +27,9 @@ class Round:
 const COPIED := "Copied. Send it to your friend."
 const SENT := "Sent. %s's turn."
 const CHECKING := "Checking your run…"
+## Asking again while a sent run is checked: how often, how many times.
+const CHECK_EVERY_S := 3.0
+const CHECK_TRIES := 5
 ## Seconds after a crash before the battle shows again.
 const AFTER_CRASH_S := 1.2
 
@@ -58,6 +61,9 @@ var _showing := 0
 var _notice := ""
 ## A run that wasn't sent yet: [battle, round, score, replay].
 var _unsent: Array = []
+## A sent run the server still checks: [battle, round]; the battle's next
+## answers say how its round went.
+var _checking: Array = []
 ## One request at a time for a run's start, and the battle it is for.
 var _starting := false
 var _starting_view: BattleView
@@ -246,16 +252,21 @@ func _battle_screen(view: BattleView) -> BattleScreen:
 	return screen
 
 
-## The checker takes a moment: ask once more a little later.
+## The checker takes a moment: ask again a little later, a few times, while
+## the run is still being checked and its battle shows.
 func _check_again(battle: int) -> void:
 	var tree := _world.get_tree() if _world != null and _world.is_inside_tree() else null
 	if tree == null:
 		return
-	await tree.create_timer(3.0).timeout
-	if not alive():
-		return
-	var screen := _menus.current() as BattleScreen
-	if screen != null and screen.view.id == battle:
+	for i in CHECK_TRIES:
+		await tree.create_timer(CHECK_EVERY_S).timeout
+		if not alive():
+			return
+		var screen := _menus.current() as BattleScreen
+		if screen == null or screen.view.id != battle:
+			return
+		if i > 0 and (_checking.is_empty() or int(_checking[0]) != battle):
+			return
 		service.request_battle(battle)
 
 
@@ -291,6 +302,7 @@ func start_round(view: BattleView, number: int) -> void:
 		return
 	_starting = true
 	_starting_view = view
+	_checking = []
 	_showing = view.id
 	service.start_run(view.id, number)
 
@@ -450,8 +462,12 @@ func _on_battle(view: BattleView) -> void:
 	if not view.code.is_empty():
 		_codes[view.id] = view.code
 	if not _unsent.is_empty() and int(_unsent[0]) == view.id:
-		_notice = round_notice(view, int(_unsent[1]))
+		_checking = [view.id, int(_unsent[1])]
 		_unsent = []
+	if not _checking.is_empty() and int(_checking[0]) == view.id:
+		_notice = round_notice(view, int(_checking[1]))
+		if _notice != CHECKING:
+			_checking = []
 	if view.lost:
 		_notice = "Your last run of this round was lost: it counts as 0."
 	elif view.redealt:
