@@ -61,7 +61,7 @@ static var _all: Array[Mode] = []
 static var battle_enabled := BATTLE_ENABLED
 ## The server's gameplay version (0: not known yet), from its ping.
 static var server_version := 0
-## Counts changes of server_version, so Home redraws its tabs once.
+## Counts changes of server_version, so Home redraws its Play bar once.
 static var changes := 0
 
 
@@ -116,6 +116,11 @@ static func _every() -> Array[Mode]:
 			),
 		]
 	return _all
+
+
+## Whether a mode is shown at all (Battle only while battle_enabled).
+static func shown(id: String) -> bool:
+	return id != BATTLE or battle_enabled
 
 
 static func ids() -> Array[String]:

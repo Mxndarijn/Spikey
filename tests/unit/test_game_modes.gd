@@ -5,11 +5,6 @@ extends TestCase
 const TEST_PATH := "user://test_game_modes_profile.json"
 
 
-## Battle is paused in the app; these tests turn it on.
-func _init() -> void:
-	GameModes.battle_enabled = true
-
-
 func _home(p: Profile = null) -> HomeScreen:
 	var prof := p if p != null else Profile.new()
 	var home := HomeScreen.new(prof, AppServices.offline(prof))
@@ -29,7 +24,10 @@ func _play_lines(home: HomeScreen) -> Array[String]:
 
 func test_every_mode_has_a_name_and_classic_comes_first() -> void:
 	var ids := GameModes.ids()
-	assert_eq(ids, [GameModes.CLASSIC, GameModes.DAILY, GameModes.BATTLE, GameModes.DUEL])
+	assert_eq(ids, [GameModes.CLASSIC, GameModes.DAILY, GameModes.DUEL], "Battle is paused")
+	assert_false(GameModes.battle_enabled, "Battle stays hidden until it is picked up again")
+	assert_false(GameModes.shown(GameModes.BATTLE))
+	assert_eq(GameModes.find(GameModes.BATTLE).id, GameModes.CLASSIC, "a saved Battle is Classic")
 	for m in GameModes.all():
 		assert_false(m.title.is_empty(), "%s has a name" % m.id)
 		assert_false(m.tab_title.is_empty(), "%s has a short name" % m.id)
@@ -59,12 +57,10 @@ func test_one_tap_on_play_starts_the_chosen_mode() -> void:
 	assert_eq(got, ["classic", "daily"], "Play starts the chosen mode")
 	assert_eq(p.home_mode, GameModes.DAILY, "the chosen mode is kept in the profile")
 	assert_eq(saved, [GameModes.DAILY], "and main is told to save it")
-	home.choose_mode(GameModes.BATTLE)
-	home.play_button().pressed.emit()
 	home.choose_mode(GameModes.DUEL)
 	assert_eq(_play_lines(home)[1], "Duel · Live 1v1")
 	home.play_button().pressed.emit()
-	assert_eq(got, ["classic", "daily", "battle", "duel"], "Battle opens Battles, Duel Duel")
+	assert_eq(got, ["classic", "daily", "duel"], "Duel opens Duel")
 	home.free()
 
 
@@ -123,31 +119,46 @@ func test_the_daily_run_shows_todays_tries() -> void:
 	home.free()
 
 
-## The battles waiting for your turn: in words on the pill (no bare number on
-## the Mode button), and on the Battle row of the sheet.
-func test_the_battles_pill_counts_your_turns() -> void:
+## Battle is paused: Home has no battles pill and the sheet no Battle row. The
+## pill itself still says the turns in words, for when Battle comes back.
+func test_battle_is_hidden_from_home() -> void:
+	var home := _home()
+	assert_true(home.find_child("Battles", true, false) == null, "no battles pill")
+	home.set_battle_turns(2)
+	var sheet := home.open_modes()
+	assert_true(sheet.row(GameModes.BATTLE) == null, "no Battle row in the mode sheet")
+	home.free()
+	var pill := BattlesPill.new()
+	assert_eq(pill.line_text(), "Battle a friend", "none waiting: start one")
+	pill.set_turns(2)
+	assert_eq(pill.line_text(), "Your turn in 2 battles")
+	pill.set_turns(1)
+	assert_eq(pill.line_text(), "Your turn in 1 battle")
+	pill.free()
+
+
+## With Battle back on (battle_enabled), Home gets its battles pill and the
+## sheet its Battle row again, saying the turns in words.
+func test_battle_comes_back_with_its_flag() -> void:
+	GameModes.battle_enabled = true
 	var home := _home()
 	var pill := home.find_child("Battles", true, false) as BattlesPill
-	assert_eq(pill.line_text(), "Battle a friend", "none waiting: start one")
+	assert_true(pill != null, "the battles pill is back")
 	home.set_battle_turns(2)
 	assert_eq(pill.line_text(), "Your turn in 2 battles")
-	home.set_battle_turns(1)
-	assert_eq(pill.line_text(), "Your turn in 1 battle")
-	var mode := home.find_child("Mode", true, false) as Button
-	assert_true(mode.find_child("Badge", true, false) == null, "no count on the Mode button")
-	var sheet := home.open_modes()
-	var line := sheet.row(GameModes.BATTLE).find_child("Line", true, false) as Label
-	assert_eq(line.text, "Your turn in 1 battle")
+	var line := home.open_modes().row(GameModes.BATTLE).find_child("Line", true, false) as Label
+	assert_eq(line.text, "Your turn in 2 battles", "and the sheet's Battle row")
 	var got: Array[String] = []
 	home.battle_pressed.connect(func() -> void: got.append("battle"))
 	pill.pressed.emit()
 	assert_eq(got, ["battle"], "the pill opens Battles")
 	home.free()
+	GameModes.battle_enabled = false
 
 
-## Battle and Duel run only on the server's gameplay version: an older app
-## says Update on Play and in the sheet, and Play opens the store; Classic and
-## the Daily Run go on.
+## Duel (and Battle, when it is back) runs only on the server's gameplay
+## version: an older app says Update on Play and in the sheet, and Play opens
+## the store; Classic and the Daily Run go on.
 func test_battle_and_duel_wait_for_an_update() -> void:
 	var p := Profile.new()
 	var home := _home(p)
@@ -163,11 +174,11 @@ func test_battle_and_duel_wait_for_an_update() -> void:
 	home._process(0.0)
 	var got: Array[String] = []
 	home.update_pressed.connect(func() -> void: got.append("store"))
-	home.battle_pressed.connect(func() -> void: got.append("battle"))
-	home.choose_mode(GameModes.BATTLE)
-	assert_eq(_play_lines(home), ["Update", "Battle · Update to play"])
+	home.duel_pressed.connect(func() -> void: got.append("duel"))
+	home.choose_mode(GameModes.DUEL)
+	assert_eq(_play_lines(home), ["Update", "Duel · Update to play"])
 	home.play_button().pressed.emit()
-	assert_eq(got, ["store"], "Play opens the store, not Battle")
+	assert_eq(got, ["store"], "Play opens the store, not Duel")
 	var sheet := home.open_modes()
 	var badge := sheet.row(GameModes.DUEL).find_child("Badge", true, false) as Label
 	assert_true(badge != null and badge.text == "UPDATE", "the sheet's Duel row says UPDATE")

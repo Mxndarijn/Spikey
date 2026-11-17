@@ -45,7 +45,7 @@ const SETTINGS_ICON := preload("res://assets/ui/icons/settings.svg")
 const CHEVRON_ICON := preload("res://assets/ui/icons/chevron.svg")
 ## The wordmark: one word, wide Archivo 900, white in an ink halo.
 const WORDMARK := "flapjaw"
-const LOGO_TOP := 108.0
+const LOGO_TOP := 112.0
 const LOGO_SIZE := 58
 const LOGO_HALO := 10
 const SIDE := float(UiTokens.SPACE_4)
@@ -57,12 +57,12 @@ const CORNER_TOP := float(SimConfig.KILL_TOP / SimConfig.SUB) + SPIKE_GAP
 ## The bottom bar, SPIKE_GAP above the floor spike row.
 const BAR_TOP := float(SimConfig.KILL_BOTTOM / SimConfig.SUB) - SPIKE_GAP - HomeBar.HEIGHT
 ## The flyer, the Play bar, the battles pill.
-const BAR_FLYER := Vector2(180, 246)
-const PLAY_BAR_TOP := 306.0
+const BAR_FLYER := Vector2(180, 266)
+const PLAY_BAR_TOP := 340.0
 const PLAY_BAR_H := 88.0
 const MODE_BUTTON := Vector2(76, 64)
 const BAR_PILL_TOP := PLAY_BAR_TOP + PLAY_BAR_H + UiTokens.SPACE_4
-const FLYER_BODY := 43.0
+const FLYER_BODY := 50.0
 ## The lost-spot line: a small paper pill above the bottom bar.
 const NOTICE_H := 32.0
 
@@ -155,14 +155,10 @@ func _ready() -> void:
 
 	_night = get_theme_color("font_color", &"SkyLabel").get_luminance() > 0.5
 	_build_bar()
-	_pill = BattlesPill.new()
-	_pill.pressed.connect(_on_battles)
-	add_child(_pill)
-	_pill.anchor_right = 1.0
-	_pill.offset_left = SIDE
-	_pill.offset_right = -SIDE
-	_pill.offset_top = BAR_PILL_TOP
-	_pill.offset_bottom = _pill.offset_top + BattlesPill.HEIGHT
+	# Battle is paused (GameModes.battle_enabled): no battles pill then, and the
+	# Play bar and flyer sit a little lower to keep Home balanced.
+	if GameModes.battle_enabled:
+		_add_battles_pill()
 	_bar = HomeBar.new()
 	_bar.pressed.connect(_on_bar)
 	add_child(_bar)
@@ -173,6 +169,17 @@ func _ready() -> void:
 	_bar.offset_bottom = BAR_TOP + HomeBar.HEIGHT
 	set_daily_rank(_daily_rank)
 	set_daily_info(null)
+
+
+func _add_battles_pill() -> void:
+	_pill = BattlesPill.new()
+	_pill.pressed.connect(_on_battles)
+	add_child(_pill)
+	_pill.anchor_right = 1.0
+	_pill.offset_left = SIDE
+	_pill.offset_right = -SIDE
+	_pill.offset_top = BAR_PILL_TOP
+	_pill.offset_bottom = _pill.offset_top + BattlesPill.HEIGHT
 
 
 ## BAR: a wide ink Play bar ("Play", the mode and its line), with a paper Mode
@@ -417,7 +424,10 @@ func show_notice(text: String) -> void:
 		_notice.anchor_right = 1.0
 		_notice.offset_left = SIDE
 		_notice.offset_right = -SIDE
-		var top := BAR_PILL_TOP + BattlesPill.HEIGHT + UiTokens.SPACE_2
+		# Under the battles pill, or under Play while Battle is paused.
+		var top := PLAY_BAR_TOP + PLAY_BAR_H + UiTokens.SPACE_4
+		if _pill != null:
+			top = BAR_PILL_TOP + BattlesPill.HEIGHT + UiTokens.SPACE_2
 		_notice.offset_top = top
 		_notice.offset_bottom = top + NOTICE_H
 	_notice.text = text

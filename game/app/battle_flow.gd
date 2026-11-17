@@ -112,8 +112,11 @@ func _on_screen_shown(screen: Control) -> void:
 		home.battle_pressed.connect(func() -> void: open())
 		home.duel_pressed.connect(func() -> void: duel.open())
 		home.update_pressed.connect(StoreLink.open)
-		home.set_battle_turns(turns_waiting())
-		refresh()
+		# The battle list is only for Home's battles pill: not while Battle is
+		# paused. The server's version still matters to Duel.
+		if GameModes.battle_enabled:
+			home.set_battle_turns(turns_waiting())
+			refresh()
 		service.request_server_version()
 	elif screen is LeaderboardScreen:
 		(screen as LeaderboardScreen).wins_pressed.connect(func() -> void: open_wins())
