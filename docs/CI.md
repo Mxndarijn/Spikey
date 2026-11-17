@@ -142,15 +142,23 @@ so a release (Phone builds) takes about 7 to 8 minutes.
    (also delete the tag) when the list gets long.
 6. Posts a Discord embed whose button downloads that APK (when `DISCORD_WEBHOOK_URL` is set).
 
-**Phone builds, iOS** (jobs `ios_*` and `testflight`)
+**Phone builds, iOS** (jobs `ios_*`, `testflight` and `testflight_upload`)
 
 1. Linux job: stamps the build number (commit count), version, team id and bundle id into the
    iOS preset, then runs Godot's iOS export with "Export Project Only", which writes a complete
    Xcode project. It removes transparency from the app icons (App Store Connect rejects icons
    with alpha) and uploads the project as an artifact (about 100 MB).
-2. macOS job, once the export is done and the tests have passed: fastlane (`.github/ios/fastlane/Fastfile`) imports the certificate and profile,
-   switches the project to manual signing, builds a Release archive, uploads it to TestFlight,
-   and keeps the IPA as an artifact for 7 days. Capped at 25 minutes.
+2. macOS job `testflight`, once the export is done and the tests have passed: fastlane lane
+   `build` (`.github/ios/fastlane/Fastfile`) imports the certificate and profile, switches the
+   project to manual signing, builds a Release archive and keeps the IPA as an artifact for
+   7 days. Capped at 15 minutes (a good build takes about 2).
+3. macOS job `testflight_upload` (skipped when "upload" is off): fastlane lane `upload` sends
+   that IPA to TestFlight. Each try gets 5 minutes, 3 tries a minute apart, because App Store
+   Connect sometimes stalls or answers 500. Before each try it asks App Store Connect whether
+   this version and build number are there already, and Apple's "Redundant Binary Upload"
+   answer also counts as done, so a try that timed out but got through is not an error.
+   Capped at 20 minutes. Then it posts on Discord. If all tries fail, re-run only this job
+   ("Re-run failed jobs"): it uses the same IPA and builds nothing.
 
 **Engine** (`engine.yml`, called by Phone builds for each platform) builds the small engine: Godot from
 source at the exact `GODOT_VERSION`, 2D only, without the modules the game doesn't use
@@ -277,7 +285,7 @@ On Windows, base64-encode a file with the PowerShell line from the Android secti
   `launcher_icons/*` options (Android adaptive icon) in `export_presets.cfg`.
 - **Devices**: iOS is iPhone-only (`application/targeted_device_family=0`); set 2 for iPhone and
   iPad. Android ships arm64 only.
-- **macOS image**: the `testflight` job in `build.yml` uses `macos-15` with the newest stable Xcode. Apple needs
+- **macOS image**: the `testflight` and `testflight_upload` jobs in `build.yml` use `macos-15` with the newest stable Xcode. Apple needs
   the iOS 26 SDK for uploads; if that build step reports an old SDK, switch to a newer image.
 
 ## Project setting changed for exports

@@ -11,9 +11,10 @@ name: Phone builds
 #     Builds an installable APK (and, for releases, an AAB for the Play Console).
 #   * iOS: ios_export (Linux) runs Godot's iOS export with "Export Project Only", which writes a
 #     ready Xcode project, and uploads it as an artifact. testflight (macOS) only does what
-#     needs a Mac: signing, xcodebuild and the upload, via fastlane
-#     (.github/ios/fastlane/Fastfile). It waits for the tests, so a failing check never
-#     reaches TestFlight (or spends macOS minutes).
+#     needs a Mac: signing and xcodebuild, via fastlane (.github/ios/fastlane/Fastfile), and
+#     keeps the IPA. It waits for the tests, so a failing check never reaches TestFlight (or
+#     spends macOS minutes). testflight_upload (macOS) sends that IPA to TestFlight with
+#     retries and announces it; when Apple stalls or errors, re-run only that job.
 #
 # Android signing:
 #   * With the ANDROID_KEYSTORE_* secrets set: release-signed APK, plus an AAB on `v*` tags or
@@ -103,8 +104,8 @@ jobs:
             | "\($ok | length) \([.[] | select(.status != "completed")] | length) \($ok[0].html_url // "-")"'
           passed=false
           errors=0
-          # Up to 40 minutes, the check's own limit.
-          for _ in $(seq 1 120); do
+          # Up to 40 minutes, the check's own limit. Once a minute: a Check run takes about 11.
+          for _ in $(seq 1 40); do
             if ! line="$(gh api "repos/$REPO/actions/workflows/check.yml/runs?head_sha=$SHA&per_page=20" \
                 --jq "$query")"; then
               # The API fails now and then: try again a few times, then run the tests here.
@@ -127,7 +128,7 @@ jobs:
               break
             fi
             echo "A Check run of $SHA is still going, waiting for it."
-            sleep 20
+            sleep 60
           done
           echo "passed=$passed" >> "$GITHUB_OUTPUT"
 
@@ -672,7 +673,7 @@ jobs:
           retention-days: 1
 
   testflight:
-    name: iOS build & upload to TestFlight
+    name: iOS build & sign
     needs: [check_reuse, check, ios_export]
     # Uploads only after the tests passed for this commit: here, or in a Check run of the
     # same commit (check_reuse). A manual run can skip them ("skip_check"), and a
@@ -684,26 +685,26 @@ jobs:
     # macOS is required to build iOS. Apple requires the iOS 26 SDK (Xcode 26) for App Store
     # Connect uploads since 2026-04-28; bump the image if latest-stable resolves lower.
     runs-on: macos-15
-    # Hard cap on the expensive macOS runner. Godot links one large static library, so this
-    # is higher than a typical small app; raise it if a clean build needs longer.
-    timeout-minutes: 25
+    # Hard cap on the macOS runner. A good build takes about 2 minutes (the whole job about 4);
+    # Godot links one large static library, so leave room for a slow clean build.
+    timeout-minutes: 15
 
     env:
       # Read by .github/ios/fastlane/Fastfile.
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       IOS_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
       IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_CONTENT_BASE64: ${{ secrets.ASC_KEY_CONTENT_BASE64 }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       XCODE_PROJECT: ${{ github.workspace }}/build/ios/Flapjaw.xcodeproj
       SIGNING_DIR: ${{ github.workspace }}/signing
 
     steps:
       - name: Checkout repository
-        # For the fastlane files under .github/ios and our native piece, tools/ios.
+        # Only the fastlane files under .github/ios and our native piece, tools/ios.
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/ios
+            tools/ios
 
       - name: Download Xcode project
         uses: actions/download-artifact@v4
@@ -822,20 +823,73 @@ jobs:
         env:
           IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
 
-      - name: Build & upload to TestFlight
-        run: bundle exec fastlane beta
+      - name: Build & sign
+        run: bundle exec fastlane build
         working-directory: .github/ios
-        env:
-          # A manual run with "upload" off stops after building and signing.
-          SKIP_UPLOAD: ${{ (github.event_name != 'push' && !inputs.upload) && 'true' || 'false' }}
 
       - name: Keep the IPA
-        if: success()
+        # Also what testflight_upload sends to Apple.
         uses: actions/upload-artifact@v4
         with:
           name: flapjaw-${{ needs.ios_export.outputs.version }}-${{ needs.ios_export.outputs.build }}-ipa
           path: .github/ios/output/*.ipa
+          if-no-files-found: error
           retention-days: 7
+
+      - name: Clean up signing assets
+        if: always()
+        run: rm -rf "$SIGNING_DIR"
+
+  testflight_upload:
+    name: iOS upload to TestFlight
+    needs: [ios_export, testflight]
+    # Not for a build-only trial ("upload" off): nothing leaves GitHub then.
+    if: github.event_name == 'push' || inputs.upload
+    # Needs a Mac for Apple's upload tool. A good upload takes under 2 minutes; the Fastfile
+    # gives each try 5 minutes and tries 3 times, a minute apart.
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    env:
+      # Read by .github/ios/fastlane/Fastfile.
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT_BASE64: ${{ secrets.ASC_KEY_CONTENT_BASE64 }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      IPA_PATH: ${{ github.workspace }}/ipa/Flapjaw.ipa
+      IOS_VERSION: ${{ needs.ios_export.outputs.version }}
+      IOS_BUILD_NUMBER: ${{ needs.ios_export.outputs.build }}
+
+    steps:
+      - name: Checkout repository
+        # Only the fastlane files under .github/ios and the Discord action.
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/ios
+            .github/actions
+
+      - name: Download the IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: flapjaw-${{ needs.ios_export.outputs.version }}-${{ needs.ios_export.outputs.build }}-ipa
+          path: ipa
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up Ruby + fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: .github/ios
+
+      - name: Upload to TestFlight
+        run: bundle exec fastlane upload
+        working-directory: .github/ios
 
       - name: Read the commit message
         id: commit
@@ -846,7 +900,7 @@ jobs:
       - name: Announce on Discord
         # Optional, same DISCORD_WEBHOOK_URL secret as the Android workflow. No file: an IPA
         # only installs through TestFlight.
-        if: success() && env.DISCORD_WEBHOOK_URL != '' && (github.event_name == 'push' || inputs.upload)
+        if: success() && env.DISCORD_WEBHOOK_URL != ''
         uses: ./.github/actions/discord-embed
         with:
           webhook: ${{ env.DISCORD_WEBHOOK_URL }}
@@ -861,7 +915,3 @@ jobs:
             Type|${{ startsWith(github.ref, 'refs/tags/v') && '🚀 Release' || '🧪 Test build' }}
             Install|TestFlight app on iPhone
             Commit|[`${{ steps.commit.outputs.short }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-
-      - name: Clean up signing assets
-        if: always()
-        run: rm -rf "$SIGNING_DIR"

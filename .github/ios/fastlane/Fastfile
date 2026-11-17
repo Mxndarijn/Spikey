@@ -21,13 +21,51 @@ def add_flapjaw_intents(project_path)
   UI.message("Added FlapjawIntents.m to the Flapjaw target")
 end
 
-# Signs the Xcode project that Godot exported (build/ios/Flapjaw.xcodeproj) and uploads it to
-# TestFlight. Runs on a GitHub-hosted macOS runner; every credential comes from environment
-# variables that .github/workflows/build.yml (testflight job) fills from repository secrets.
-# The version and build number are already stamped in by Godot's export (see the workflow).
+require "timeout"
+
+# Two lanes, run by two jobs of .github/workflows/build.yml on GitHub-hosted macOS runners:
+#   build   (testflight job) signs the Xcode project that Godot exported
+#           (build/ios/Flapjaw.xcodeproj) and builds the IPA.
+#   upload  (testflight_upload job) sends that IPA to TestFlight, with retries.
+# Apart, so a stall or error on Apple's side is retried, or the upload job re-run, without
+# building again. Every credential comes from environment variables the workflow fills from
+# repository secrets. The version and build number are already stamped in by Godot's export.
+
+# The App Store Connect API key (no Apple ID / 2FA needed). The .p8 contents are passed
+# base64-encoded so they survive a single-line GitHub secret.
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    key_content: ENV.fetch("ASC_KEY_CONTENT_BASE64"),
+    is_key_content_base64: true,
+  )
+end
+
+# True when App Store Connect already has this exact version and build number (in any
+# processing state): a try that timed out may still have got through. Any error here counts
+# as "not known", so the upload is tried (again).
+def build_on_testflight?(bundle_id, version, build)
+  app = Spaceship::ConnectAPI::App.find(bundle_id)
+  return false unless app
+  builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: build)
+  !builds.empty?
+rescue StandardError => e
+  UI.important("Could not ask App Store Connect for build #{build}: #{e.message}")
+  false
+end
+
+# Apple's answer when this version and build number were uploaded already.
+REDUNDANT_UPLOAD = /ITMS-90189|Redundant Binary Upload|already uploaded a build with/i
+
+# Stops an upload tool a timed-out try left running, so it can't race the next try.
+def stop_upload_tools
+  %w[iTMSTransporter altool].each { |name| system("pkill", "-f", name) }
+end
+
 platform :ios do
-  desc "Build the Godot iOS export and upload it to TestFlight"
-  lane :beta do
+  desc "Sign and build the Godot iOS export into output/Flapjaw.ipa"
+  lane :build do
     project = ENV.fetch("XCODE_PROJECT")
     signing = ENV.fetch("SIGNING_DIR")
     bundle_id = ENV.fetch("IOS_BUNDLE_ID")
@@ -35,15 +73,6 @@ platform :ios do
 
     # Isolated temporary keychain for CI, made the default for signing.
     setup_ci
-
-    # App Store Connect API key (no Apple ID / 2FA needed). The .p8 contents are passed
-    # base64-encoded so they survive a single-line GitHub secret.
-    api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("ASC_KEY_ID"),
-      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_content: ENV.fetch("ASC_KEY_CONTENT_BASE64"),
-      is_key_content_base64: true,
-    )
 
     import_certificate(
       certificate_path: File.join(signing, "dist_cert.p12"),
@@ -82,14 +111,56 @@ platform :ios do
         },
       },
     )
+  end
 
-    # A trial run (SKIP_UPLOAD=true) only proves the app builds and signs.
-    next if ENV["SKIP_UPLOAD"] == "true"
+  desc "Upload the IPA to TestFlight, retrying when Apple stalls or errors"
+  lane :upload do
+    ipa = ENV.fetch("IPA_PATH")
+    bundle_id = ENV.fetch("IOS_BUNDLE_ID")
+    version = ENV.fetch("IOS_VERSION")
+    build = ENV.fetch("IOS_BUILD_NUMBER")
+    tries = Integer(ENV.fetch("UPLOAD_TRIES", "3"))
+    # A good upload takes under 2 minutes; a stalled one never ends on its own.
+    try_seconds = Integer(ENV.fetch("UPLOAD_TRY_MINUTES", "5")) * 60
+    pause_seconds = Integer(ENV.fetch("UPLOAD_PAUSE_SECONDS", "60"))
+    UI.user_error!("#{ipa} is missing") unless File.exist?(ipa)
 
-    upload_to_testflight(
-      api_key: api_key,
-      # Don't block the runner waiting for Apple's server-side processing.
-      skip_waiting_for_build_processing: true,
-    )
+    api_key = asc_api_key
+
+    done = false
+    1.upto(tries) do |n|
+      # Also before the first try: a re-run of this job after an upload that did get through.
+      if build_on_testflight?(bundle_id, version, build)
+        UI.success("App Store Connect already has #{version} (#{build}): nothing to upload.")
+        done = true
+        break
+      end
+      UI.message("Upload try #{n} of #{tries} (#{try_seconds / 60} min)")
+      begin
+        Timeout.timeout(try_seconds) do
+          upload_to_testflight(
+            api_key: api_key,
+            ipa: ipa,
+            # Don't block the runner waiting for Apple's server-side processing.
+            skip_waiting_for_build_processing: true,
+          )
+        end
+        UI.success("Uploaded #{version} (#{build}) on try #{n}.")
+        done = true
+        break
+      rescue Timeout::Error
+        stop_upload_tools
+        UI.important("Try #{n} stalled for #{try_seconds / 60} minutes and was stopped.")
+      rescue StandardError => e
+        if e.message =~ REDUNDANT_UPLOAD
+          UI.success("App Store Connect already has #{version} (#{build}).")
+          done = true
+          break
+        end
+        UI.important("Try #{n} failed: #{e.message}")
+      end
+      sleep(pause_seconds) if n < tries
+    end
+    UI.user_error!("TestFlight upload failed #{tries} times; re-run the upload job later.") unless done
   end
 end
