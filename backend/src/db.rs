@@ -46,6 +46,7 @@ pub const MIGRATIONS: &[Migration] = &[
     game!("20261114120000_score_ladder.sql"),
     Migration { name: "0100_backend.sql", sql: include_str!("../migrations/0100_backend.sql") },
     Migration { name: "0110_battles.sql", sql: include_str!("../migrations/0110_battles.sql") },
+    Migration { name: "0111_wins_boards.sql", sql: include_str!("../migrations/0111_wins_boards.sql") },
 ];
 
 /// Some lock number only the migrator uses.

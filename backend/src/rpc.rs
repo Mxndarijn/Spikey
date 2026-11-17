@@ -153,6 +153,14 @@ pub const OPS: &[Op] = &[
     Op { name: "battle_close", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
     Op { name: "battle_nudge", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
     Op { name: "battle_rematch", args: &[("p_battle", BigInt)], ret: Ret::Json, new_run: false },
+    // The wins boards (migrations/0111_wins_boards.sql).
+    Op { name: "get_wins_board", args: &[("p_mode", Text), ("p_period", Text)], ret: Ret::Json, new_run: false },
+    Op {
+        name: "get_match_record",
+        args: &[("p_mode", Text), ("p_period", Text), ("p_who", Text)],
+        ret: Ret::Json,
+        new_run: false,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static Op> {
