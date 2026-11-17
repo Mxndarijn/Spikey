@@ -403,6 +403,7 @@ async fn reminders_go_out_by_day_and_through_the_sender() {
     let mine: Vec<&Value> = pending.as_array().unwrap().iter().filter(|a| a["token"] == "tok-battle-1234").collect();
     assert!(!mine.is_empty(), "{pending}");
     assert!(mine.iter().all(|a| a["line"] == "battle" && a["id"].as_i64().unwrap() < 0));
+    assert!(mine.iter().all(|a| a["battle"] == json!(battle.to_string())), "each says its battle: {pending}");
     let results: Vec<Value> = mine.iter().map(|a| json!({"id": a["id"], "status": "sent"})).collect();
     let n: i32 = sqlx::query_scalar("select public.worker_mark_alerts($1)")
         .bind(Value::Array(results))

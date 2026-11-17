@@ -186,7 +186,7 @@ func _ads_rows() -> Array:
 func _push_rows() -> Array:
 	var push := _services.push
 	var out: Array = push.debug_rows()
-	out.append(["Board alerts", "on" if _profile.settings.board_alerts else "off"])
+	out.append(["Alerts", "on" if _profile.settings.board_alerts else "off"])
 	out.append(["Asked permission", "yes" if _profile.push_asked else "not yet"])
 	return out
 

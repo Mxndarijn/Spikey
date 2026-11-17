@@ -37,6 +37,8 @@ var service: BattleService
 var scores: Callable
 ## Duel, which plays its rounds through this flow's run path.
 var duel: DuelFlow
+## What the phone opened the game with (a tapped push, a link).
+var intents: AppIntents
 var _menus: MenuLayer
 var _hud: Hud
 var _world: Node2D
@@ -85,6 +87,9 @@ func _init(
 	menus.screen_shown.connect(_on_screen_shown)
 	var link := DuelLink.new(service.client)
 	world.add_child(link)
+	intents = AppIntents.new()
+	world.add_child(intents)
+	intents.push_opened.connect(open_push)
 	duel = DuelFlow.new(link, self, menus, hud, service.profile)
 
 
@@ -99,6 +104,22 @@ func _on_screen_shown(screen: Control) -> void:
 		service.request_server_version()
 	elif screen is LeaderboardScreen:
 		(screen as LeaderboardScreen).wins_pressed.connect(func() -> void: open_wins())
+
+
+## A tapped battle push opens its battle (a Duel push the Duel screen). Not
+## in the middle of a round: that round's run goes on.
+func open_push(data: Dictionary) -> void:
+	if playing != null:
+		return
+	match str(data.get("kind", "")):
+		"battle_alert":
+			var id := str(data.get("battle", "")).to_int()
+			if id > 0:
+				open_battle(id)
+			else:
+				open()
+		"duel_alert":
+			duel.open()
 
 
 ## The wins boards (Leaderboards, Wins).

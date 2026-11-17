@@ -30,6 +30,16 @@ func _tree() -> SceneTree:
 	return Engine.get_main_loop() as SceneTree
 
 
+func _main() -> Node:
+	SafeFile.remove(TEST_PATH)
+	var main: Node = load("res://game/main.tscn").instantiate()
+	main.profile_path = TEST_PATH
+	main.ads = FakeAds.new()
+	main.season = Seasons.NONE
+	_tree().root.add_child(main)
+	return main
+
+
 func _frames(n: int = 2) -> void:
 	for i in n:
 		await _tree().process_frame
@@ -222,12 +232,7 @@ func test_the_rival_flies_in_step_with_your_run() -> void:
 
 
 func test_a_round_in_the_app_from_its_seed_to_the_server() -> void:
-	SafeFile.remove(TEST_PATH)
-	var main: Node = load("res://game/main.tscn").instantiate()
-	main.profile_path = TEST_PATH
-	main.ads = FakeAds.new()
-	main.season = Seasons.NONE
-	_tree().root.add_child(main)
+	var main := _main()
 	await _frames()
 	var server := FakeServer.new()
 	var view := _view()
@@ -339,3 +344,24 @@ func test_the_score_boards_switch_to_wins() -> void:
 	sw.button(BoardSwitch.WINS).pressed.emit()
 	assert_eq(switched.size(), 1)
 	holder.free()
+
+
+func test_a_tapped_battle_push_opens_its_battle() -> void:
+	var main := _main()
+	await _frames()
+	var flow: BattleFlow = main._battle
+	var intents := flow.intents
+	assert_true(intents != null, "the app looks at what the phone opened it with")
+	# Android hands the push's data on as strings.
+	intents.deliver({"push": {"kind": "battle_alert", "battle": "12"}})
+	var screen := main._menus.current() as BattleScreen
+	assert_true(screen != null and screen.view.id == 12, "battle 12 opens")
+	intents.deliver({"push": {"kind": "battle_alert"}})
+	assert_true(main._menus.current() is BattleListScreen, "no id: the battle list")
+	intents.deliver({"push": {"kind": "board_alert"}})
+	assert_true(main._menus.current() is BattleListScreen, "a board alert opens nothing new")
+	intents.deliver({"push": {"kind": "duel_alert"}})
+	assert_true(main._menus.current() is DuelScreen, "a Duel push: the Duel screen")
+	intents.deliver("nonsense")
+	main.free()
+	SafeFile.remove(TEST_PATH)

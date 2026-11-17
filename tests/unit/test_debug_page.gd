@@ -115,7 +115,7 @@ func test_report_lists_app_ads_and_notifications() -> void:
 	assert_true(text.contains("Token: abcdef...wxyz (29 characters)"), "never the whole token")
 	assert_false(text.contains("a-long-push-token"))
 	assert_true(text.contains("Last error: no APNs token"))
-	assert_true(text.contains("Board alerts: on"))
+	assert_true(text.contains("Alerts: on"))
 	page.free()
 	_reset()
 

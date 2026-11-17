@@ -43,11 +43,16 @@ pub fn message(alert: &Value) -> Value {
     let battle = alert["line"] == "battle";
     let channel = if battle { BATTLE_CHANNEL } else { CHANNEL };
     let kind = if battle { "battle_alert" } else { "board_alert" };
+    // Data values are strings in FCM. A tapped battle alert opens its battle.
+    let mut data = json!({"kind": kind});
+    if let Some(id) = alert["battle"].as_str().filter(|s| !s.is_empty()) {
+        data["battle"] = json!(id);
+    }
     json!({
         "message": {
             "token": alert["token"],
             "notification": {"title": alert["title"], "body": alert["body"]},
-            "data": {"kind": kind},
+            "data": data,
             "android": {"priority": "HIGH", "notification": {"channel_id": channel}},
             "apns": {"payload": {"aps": {"sound": "default"}}},
         }
@@ -200,5 +205,7 @@ mod tests {
         let b = message(&json!({"token": "t", "title": "Your turn!", "body": "x", "line": "battle"}));
         assert_eq!(b["message"]["android"]["notification"]["channel_id"], BATTLE_CHANNEL);
         assert_eq!(b["message"]["data"]["kind"], "battle_alert");
+        let t = message(&json!({"token": "t", "title": "Your turn!", "body": "x", "line": "battle", "battle": "12"}));
+        assert_eq!(t["message"]["data"]["battle"], "12", "the tap opens battle 12");
     }
 }

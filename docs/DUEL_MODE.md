@@ -71,7 +71,17 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   that stops is down after 5 s and hears "You left the app" (the server's
   `you_down`).
 
-Not built yet: the invite link opening the app (Android App Links, iOS
+- **Tapping a battle push opens its battle** (Android): the server sends the
+  battle id with each battle alert (`0116_push_data.sql`, push.rs), and
+  `services/app_intents.gd` reads the tapped notification's data from the
+  launch intent (AndroidRuntime and JavaClassWrapper, no plugin) when the game
+  starts or comes back; BattleFlow opens that battle (a Duel push the Duel
+  screen), never in the middle of a round. iOS needs a small native piece
+  (Godot gives GDScript no notification data there): until then a tap only
+  opens the game. Settings > "Board alerts" is now "Alerts" (battles and the
+  boards).
+
+Not built yet: the iOS side of push taps, the invite link opening the app (Android App Links, iOS
 Universal Links and the files the server hosts for them), a push opening its
 battle, the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
