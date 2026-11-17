@@ -223,6 +223,8 @@ func _check_again(battle: int) -> void:
 	if tree == null:
 		return
 	await tree.create_timer(3.0).timeout
+	if not alive():
+		return
 	var screen := _menus.current() as BattleScreen
 	if screen != null and screen.view.id == battle:
 		service.request_battle(battle)
@@ -335,6 +337,12 @@ func end_external() -> void:
 		_drop_ghost()
 
 
+## The app is still there (a timer may end after the game closed, or after a
+## test freed it).
+func alive() -> bool:
+	return is_instance_valid(_menus) and is_instance_valid(_world)
+
+
 func home() -> void:
 	_home.call()
 
@@ -364,6 +372,8 @@ func finished(replay: Replay) -> void:
 	var tree := _world.get_tree() if _world != null and _world.is_inside_tree() else null
 	if tree != null:
 		await tree.create_timer(AFTER_CRASH_S).timeout
+	if not alive():
+		return
 	_leave_run(r.battle)
 
 

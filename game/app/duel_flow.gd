@@ -177,6 +177,8 @@ func _count_down(left_ms: int) -> void:
 	while left > 0:
 		var step := mini(left, 1000)
 		await tree.create_timer(step / 1000.0).timeout
+		if not _battle.alive():
+			return
 		left -= step
 		if _round != at:
 			return
@@ -232,6 +234,8 @@ func _on_run_finished(replay: Replay) -> void:
 	if not _round_over:
 		var tree := Engine.get_main_loop() as SceneTree
 		await tree.create_timer(1.0).timeout
+		if not _battle.alive():
+			return
 		if not _round_over and _down:
 			_show_screen().show_waiting(replay.score, _rival_name())
 
