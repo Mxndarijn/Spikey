@@ -436,12 +436,17 @@ model on top.
 - **Human limits**: the game's own tap gap (`SimConfig.TAP_GAP`, 100 ms) and
   the motor model's 8-tick thumb gap, tap timing error, and a reaction time
   to new spikes and tells.
-- **Skill matched to the player**: the five tiers (beginner 30, normal 60,
-  good 120, expert 250, beast 500+ median points) are anchors; between them
-  the tap-timing spread and reaction time are interpolated. The level is
-  picked from the player's hidden Battle rating so the bot wins about half
-  the rounds, and moves after every finished battle (a bot that won 6-1 plays
-  a notch weaker next time).
+- **Skill matched to the player** (decided: more levels): **8 bot levels**
+  from beginner to beast, so a match stays close to 50%. The motor model's
+  five measured tiers (beginner 30, normal 60, good 120, expert 250, beast
+  500+ median points) are anchors, with three levels between them where the
+  gaps are widest (between beginner and normal, normal and good, good and
+  expert), the tap-timing spread and reaction time interpolated. Each level
+  is calibrated once with `fastsim-rs human measure` to a median score. The
+  level is picked from the player's hidden Battle rating so the bot wins
+  about half the rounds, and moves after every finished battle (a bot that
+  won 6-1 plays a level weaker next time). **The level is hidden**, like the
+  player's rating: never shown, never in a name.
 - **It plays real runs**: the bot's taps go through the same `battle_submit`
   path and the same Rust check, so its runs replay and show as the rival
   like anyone's. It never reads the player's run (its rival ghost): it plays
@@ -454,9 +459,13 @@ model on top.
 
 ### Never misleading
 
-- The bot has a **Bot badge** everywhere its name shows (battle list, round
-  intro, rival tag, result): a small ink "BOT" pill beside a name like
-  "Flapbot", with its level ("Flapbot · Good").
+- The bot has a **BOT pill** everywhere its name shows (battle list, round
+  intro, rival tag, result): a small ink pill beside its name. Required, so
+  players always know.
+- **Friendly names, no skill words** (decided): each bot battle gets a name
+  from a small pool (Pip, Juno, Milo, Kiki, Bram, Nova, Tess, Oli, Rumi, Zed,
+  Lola, Finn), drawn from the battle id, so one battle keeps its bot's name.
+  A name never says how good the bot is ("Good" and the like can demotivate).
 - The New battle sheet says it: "Random rival: a player, or a bot when no one
   is free".
 - Its looks are the free starter flyers, so a bot never shows off a paid skin.
@@ -532,7 +541,7 @@ Mockups on the visual page, in the Flapjaw Design Kit style:
 - **Wins boards**: Scores | Wins with the Battle tab this week, and a
   player's record sheet.
 - **Bots**: a bot battle in the list with its Bot badge, and the round intro
-  against Flapbot.
+  against a bot (Pip, with the BOT pill).
 - **Duel**: finding a rival, the pre-round countdown, in round with the live
   rival, between rounds, the match result.
 
@@ -601,19 +610,11 @@ Decided by the user:
   week; a resign before round 3 counts for nobody, later resigns as a win and
   a loss.
 
-Still open (recommendation first):
+Also decided (the user, "rest is fine, start building"): Close (no result)
+after 7 days waiting; bot matches never count on the boards; bot waits of
+10 min, 2 h, 12 h, then off above 2000 Battle players a day; auto battles on
+by default, at most 3, with a Settings switch; "Play a bot" stays as
+practice; bots in a separate `battle-bot` pod with a 500m CPU limit; 8 bot
+levels, hidden; friendly bot names with the BOT pill, no skill words.
 
-1. **Close (no result)**: allowed after 7 days of waiting on the other
-   player (recommended), or another number of days?
-2. **Bot badge**: a "BOT" pill and the name "Flapbot · Good" (recommended),
-   or another name?
-3. **Bot matches on the boards**: never counted (recommended)?
-4. **Bot wait**: a bot takes a random battle after 10 minutes without a
-   person in phase a, growing to 2 h and 12 h, bots off above 2000 Battle
-   players a day (recommended starting numbers)?
-5. **Auto battles**: on by default for active players, at most 3 open at
-   once, with a switch in Settings (recommended)?
-6. **"Play a bot" as practice** after the bots stop filling random battles:
-   keep it (recommended) or remove the bots fully?
-7. **Where bots run**: a separate `battle-bot` pod with a 500m CPU limit on
-   the VM (recommended), or inside the server process?
+Nothing is open. Building: phase 1 the mode picker, then Battle.

@@ -465,7 +465,7 @@ svg.diag .ink { stroke: var(--ink); }
         <div class="group-label">Your turn</div>
         <div class="blist">
           <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Mira</div><small>Round 5 · Mira scored 27</small><div class="mscore">You 2 – 2 Mira · first to 6</div></div><span class="pill go">Play</span></div>
-          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Flapbot <span class="botpill">BOT</span></div><small>Round 3 · Flapbot scored 41</small><div class="mscore">1 – 1 · first to 6</div></div><span class="pill go">Play</span></div>
+          <div class="brow"><div class="av"><span class="bird rival" style="opacity:.9"></span></div><div><div class="nm">Pip <span class="botpill">BOT</span></div><small>Round 3 · Pip scored 41</small><div class="mscore">1 – 1 · first to 6</div></div><span class="pill go">Play</span></div>
         </div>
         <div class="group-label">Their turn</div>
         <div class="brow"><div class="av"><span class="bird rival" style="opacity:.5"></span></div><div><div class="nm">Sam</div><small>Waiting for round 4 · 8 days</small></div><span class="pill wait">···</span></div>
@@ -865,13 +865,14 @@ svg.diag .ink { stroke: var(--ink); }
       <li>Plays the seed on its own and never reads your run, so it can't copy</li>
     </ul></div>
     <div class="card"><h3>Skill matched to you</h3><ul>
-      <li>Five anchors: beginner 30, normal 60, good 120, expert 250, beast 500+ median points; tap spread and reaction time interpolated between them</li>
+      <li><b>8 hidden levels</b> from beginner to beast: the five measured tiers (30, 60, 120, 250, 500+ median points) plus three in the widest gaps, tap spread and reaction time interpolated, each calibrated to a median score</li>
       <li>Level picked from your hidden Battle rating so it wins about half the rounds</li>
-      <li>Moves after every battle: a bot that won 6-1 plays a notch weaker next time</li>
+      <li>Moves after every battle: a bot that won 6-1 plays a level weaker next time</li>
       <li>Answers 2 to 30 minutes after your turn, never hours</li>
     </ul></div>
     <div class="card"><h3>Never misleading</h3><ul>
-      <li>A <b>BOT</b> pill beside its name everywhere: "Flapbot · Good"</li>
+      <li>A <b>BOT</b> pill beside its name everywhere, always</li>
+      <li><b>Friendly names, no skill words</b>: Pip, Juno, Milo, Kiki, Bram, Nova, Tess, Oli, Rumi, Zed, Lola, Finn; the level stays hidden</li>
       <li>New battle says: "Random rival: a player, or a bot when no one is free"</li>
       <li>Free starter looks only</li>
       <li><b>Bot matches never count</b> on the wins boards; they show in your record as "vs bot". Coins still go to gold. Your hidden rating moves at half weight</li>
@@ -882,16 +883,16 @@ svg.diag .ink { stroke: var(--ink); }
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="body" style="padding-top:60px">
         <div class="center-h">Round 3</div>
-        <div class="mscore big">You 1 – 1 Flapbot</div>
-        <div class="plate"><span class="bird big rival" style="opacity:1"></span><div><div class="nm">Flapbot <span class="botpill">BOT</span></div><small>Level: Good · plays like a person, sees only the screen</small></div></div>
+        <div class="mscore big">You 1 – 1 Pip</div>
+        <div class="plate"><span class="bird big rival" style="opacity:1"></span><div><div class="nm">Pip <span class="botpill">BOT</span></div><small>Plays like a person, sees only the screen</small></div></div>
         <div class="card-fj" style="text-align:center">
-          <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--fj-muted)">Flapbot scored</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--fj-muted)">Pip scored</div>
           <div class="center-h" style="font-size:56px;line-height:56px">41</div>
           <p>Bot battles don't count on the wins boards.</p>
         </div>
         <div class="btn primary">Play round 3</div>
       </div>
-    </div></div><figcaption><b>K1 · Round intro against a bot</b>The BOT pill, its level, and that it doesn't count on the boards.</figcaption></figure>
+    </div></div><figcaption><b>K1 · Round intro against a bot</b>The BOT pill, a friendly name with no skill word, and that it doesn't count on the boards.</figcaption></figure>
 
     <figure class="shot"><div class="frame"><div class="phone">
       <div class="scrim"></div>
@@ -1127,16 +1128,9 @@ flowchart LR
     </ul>
   </div>
   <div class="qbox">
-    <h2>Still open</h2>
-    <ol class="questions">
-      <li><b>Close (no result)</b>Allowed after 7 days of waiting on the other player (recommended), or another number of days?</li>
-      <li><b>Bot badge</b>A BOT pill and the name "Flapbot · Good" (recommended), or another name?</li>
-      <li><b>Bot matches on the boards</b>Never counted (recommended)?</li>
-      <li><b>Bot wait</b>10 minutes in phase a, growing to 2 h and 12 h, bots off above 2000 Battle players a day (recommended starting numbers)?</li>
-      <li><b>Auto battles</b>On by default for active players, at most 3 open, a switch in Settings (recommended)?</li>
-      <li><b>"Play a bot" as practice</b>Keep it after bots stop filling random battles (recommended), or remove the bots fully?</li>
-      <li><b>Where bots run</b>A separate <code>battle-bot</code> pod with a 500m CPU limit (recommended), or inside the server process?</li>
-    </ol>
+    <h2>Nothing open: building</h2>
+    <p>Also decided ("rest is fine, start building"): Close after 7 days waiting; bot matches never count on the boards; bot waits 10 min, 2 h, 12 h, then off above 2000 Battle players a day; auto battles on, at most 3, with a switch; "Play a bot" stays as practice; bots in their own pod at 500m CPU; 8 hidden bot levels; friendly bot names with the BOT pill, no skill words.</p>
+    <p class="note">Building now: phase 1 the mode picker, then Battle.</p>
   </div>
 </section>
 
