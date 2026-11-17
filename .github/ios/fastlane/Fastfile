@@ -1,5 +1,26 @@
 default_platform(:ios)
 
+# Our own native piece, tools/ios/FlapjawIntents.m (a tapped notification's data
+# and Universal Links for the game, docs/DUEL_MODE.md): added to the exported
+# project's app target, compiled with ARC. Plain Objective-C, no Godot headers.
+def add_flapjaw_intents(project_path)
+  require "xcodeproj"
+  source = File.expand_path("../../../tools/ios/FlapjawIntents.m", __dir__)
+  UI.user_error!("#{source} is missing") unless File.exist?(source)
+  xp = Xcodeproj::Project.open(project_path)
+  target = xp.targets.find { |t| t.name == "Flapjaw" }
+  UI.user_error!("The exported project has no Flapjaw target") unless target
+  if target.source_build_phase.files_references.any? { |r| r && r.path.to_s.end_with?("FlapjawIntents.m") }
+    return
+  end
+  group = xp.main_group["FlapjawNative"] || xp.main_group.new_group("FlapjawNative")
+  ref = group.new_reference(source)
+  build_file = target.source_build_phase.add_file_reference(ref, true)
+  build_file.settings = { "COMPILER_FLAGS" => "-fobjc-arc" }
+  xp.save
+  UI.message("Added FlapjawIntents.m to the Flapjaw target")
+end
+
 # Signs the Xcode project that Godot exported (build/ios/Flapjaw.xcodeproj) and uploads it to
 # TestFlight. Runs on a GitHub-hosted macOS runner; every credential comes from environment
 # variables that .github/workflows/build.yml (testflight job) fills from repository secrets.
@@ -34,6 +55,8 @@ platform :ios do
     )
 
     install_provisioning_profile(path: File.join(signing, "AppStore.mobileprovision"))
+
+    add_flapjaw_intents(project)
 
     # Godot's project uses automatic signing; switch to the imported certificate + profile.
     update_code_signing_settings(

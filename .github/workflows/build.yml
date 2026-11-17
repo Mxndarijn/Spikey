@@ -702,7 +702,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        # Only for the fastlane files under .github/ios.
+        # For the fastlane files under .github/ios and our native piece, tools/ios.
         uses: actions/checkout@v4
 
       - name: Download Xcode project
@@ -763,6 +763,28 @@ jobs:
           if [ "$push" = "none" ]; then
             echo "::error::This provisioning profile has no push permission. Regenerate it after turning on Push Notifications for the app id, and set IOS_PROVISIONING_PROFILE_BASE64 again (docs/PUSH_SETUP.md)."
             exit 1
+          fi
+          rm -f "$plist"
+
+      - name: Universal Links when the profile allows them
+        # Invite links (https://flapjaw.mn-platform.tech/battle/CODE) open the app only with the
+        # Associated Domains entitlement, and a profile without that capability can't sign an
+        # app that asks for it. So it goes in only when the profile has it; otherwise the build
+        # stays as it was and links open the web page with the store buttons.
+        run: |
+          plist="$RUNNER_TEMP/profile_links.plist"
+          security cms -D -i "$SIGNING_DIR/AppStore.mobileprovision" > "$plist"
+          if /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.associated-domains' "$plist" >/dev/null 2>&1; then
+            ent="$(find build/ios -maxdepth 2 -name '*.entitlements' | head -1)"
+            if [ -z "$ent" ]; then
+              echo "::error::The exported Xcode project has no .entitlements file."
+              exit 1
+            fi
+            /usr/libexec/PlistBuddy -c 'Delete :com.apple.developer.associated-domains' "$ent" 2>/dev/null || true
+            /usr/libexec/PlistBuddy               -c 'Add :com.apple.developer.associated-domains array'               -c 'Add :com.apple.developer.associated-domains:0 string applinks:flapjaw.mn-platform.tech' "$ent"
+            echo "Universal Links: on ($ent)"
+          else
+            echo "::notice::The provisioning profile has no Associated Domains, so invite links open the web page, not the app (docs/DUEL_MODE.md)."
           fi
           rm -f "$plist"
 

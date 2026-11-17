@@ -8,9 +8,10 @@ extends Node
 ## Android: read from the activity's intent through Godot's AndroidRuntime
 ## singleton and JavaClassWrapper (no plugin of our own): a tapped Firebase
 ## notification puts its data in the intent's extras, an App Link its address
-## in the intent's data. iOS: Godot shows neither, so a native piece is needed
-## (a singleton FLAPJAW_IOS with take() -> {"push": {...}} or {"link": "..."});
-## until it exists, iOS opens the game without routing.
+## in the intent's data. iOS: Godot shows neither, so our native piece
+## (tools/ios/FlapjawIntents.m, built into the iOS export by CI) writes what the
+## phone opened the game with to HANDOFF ({"push": {...}} and/or {"link": "..."});
+## it is read and deleted here, so each one is handed on once.
 
 ## A tapped push's data (string values).
 signal push_opened(data: Dictionary)
@@ -18,12 +19,19 @@ signal push_opened(data: Dictionary)
 signal link_opened(url: String)
 
 const RUNTIME := "AndroidRuntime"
-const FLAPJAW_IOS := "FlapjawIntents"
+## Written by tools/ios/FlapjawIntents.m (user:// is the app's Documents on iOS).
+const HANDOFF := "user://flapjaw_intent.json"
+## How often the handoff is looked for besides start and resume: on iOS a tap's
+## data can arrive just after the app is back in front.
+const HANDOFF_EVERY := 1.0
 ## The push data keys the server sends (backend/src/push.rs).
 const KEYS: Array[String] = ["kind", "battle"]
 
+## Where the native piece leaves its handoff (tests point it elsewhere).
+var handoff_path := HANDOFF
 ## The intent handled last (its hash), so one is never handed on twice.
 var _handled := 0
+var _since := 0.0
 
 
 func _ready() -> void:
@@ -36,12 +44,28 @@ func _notification(what: int) -> void:
 		check()
 
 
+func _process(delta: float) -> void:
+	_since += delta
+	if _since >= HANDOFF_EVERY:
+		_since = 0.0
+		if not Engine.has_singleton(RUNTIME):
+			_check_handoff()
+
+
 ## Looks for a new push or link and hands it on.
 func check() -> void:
 	if Engine.has_singleton(RUNTIME):
 		_check_android()
-	elif Engine.has_singleton(FLAPJAW_IOS):
-		deliver(Engine.get_singleton(FLAPJAW_IOS).call(&"take"))
+	else:
+		_check_handoff()
+
+
+func _check_handoff() -> void:
+	if not FileAccess.file_exists(handoff_path):
+		return
+	var found: Variant = SafeFile.read_json(handoff_path)
+	SafeFile.remove(handoff_path)
+	deliver(found)
 
 
 func _check_android() -> void:

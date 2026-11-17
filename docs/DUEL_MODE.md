@@ -77,9 +77,7 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   `services/app_intents.gd` reads the tapped notification's data from the
   launch intent (AndroidRuntime and JavaClassWrapper, no plugin) when the game
   starts or comes back; BattleFlow opens that battle (a Duel push the Duel
-  screen), never in the middle of a round. iOS needs a small native piece
-  (Godot gives GDScript no notification data there): until then a tap only
-  opens the game. Settings > "Board alerts" is now "Alerts" (battles and the
+  screen), never in the middle of a round. Settings > "Board alerts" is now "Alerts" (battles and the
   boards).
 
 - **The shared-IP rule** for the wins boards (`0117_shared_ip.sql`): the
@@ -88,7 +86,20 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   address itself is never stored), and a match where both players used one
   address while it ran never counts ("shared ip").
 
-Not built yet: the iOS side of push taps, the invite link opening the app (Android App Links, iOS
+- **iOS: our own native piece** `tools/ios/FlapjawIntents.m` (plain
+  Objective-C, no Godot headers). It joins Godot's app delegate as a service
+  (cold start: the launch options or the scene's notification response and
+  user activities; a link while running: `scene:continueUserActivity:`) and
+  wraps the Firebase plugin's tap handler (GodotxAPNDelegate, which drops the
+  data), and writes `{"push": {...}, "link": "..."}` to
+  `Documents/flapjaw_intent.json` (Godot's user://). AppIntents reads and
+  deletes that file at start, on resume and once a second. CI adds the file to
+  the exported Xcode project (Fastfile `add_flapjaw_intents`, ARC on), and
+  adds the Associated Domains entitlement (`applinks:flapjaw.mn-platform.tech`)
+  only when the provisioning profile has that capability, so the build never
+  breaks on signing.
+
+Not built yet: the invite link opening the app (Android App Links, iOS
 Universal Links and the files the server hosts for them), a push opening its
 battle, the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
