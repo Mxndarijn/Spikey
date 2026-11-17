@@ -83,6 +83,12 @@ static void FJSaveActivity(NSUserActivity *activity) {
 	return NO;
 }
 
+// A link while the app runs, when the app has no scenes.
+- (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)activity restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> *))restorationHandler {
+	FJSaveActivity(activity);
+	return NO;
+}
+
 // A cold start with scenes: from a tapped notification, or from a link.
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options API_AVAILABLE(ios(13.0)) {
 	if (options.notificationResponse) {
