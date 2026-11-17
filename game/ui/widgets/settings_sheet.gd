@@ -28,7 +28,7 @@ const MUSIC_ICON := preload("res://assets/ui/icons/music.svg")
 const SOUND_ICON := preload("res://assets/ui/icons/sound.svg")
 const MARGIN_TOP := 40
 ## Clear of the floor spike row (SimConfig.KILL_BOTTOM, 34 px from the bottom).
-const MARGIN_BOTTOM := 38
+const MARGIN_BOTTOM := 46
 const SIDE := 14
 const TOGGLE := 44.0
 ## Settings > Play: PlayerSettings.Switch -> [name, hint], in screen order.
@@ -91,7 +91,8 @@ func _init(profile: Profile, services: AppServices) -> void:
 	card.add_child(pages)
 	for page: VBoxContainer in [_main_page, _about_page, _debug_page, _move_page]:
 		page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		page.add_theme_constant_override("separation", UiTokens.SPACE_2)
+		# 6px between rows keeps every row on the card on the smallest phone.
+		page.add_theme_constant_override("separation", 6)
 		pages.add_child(page)
 	_build_main()
 	_build_about()

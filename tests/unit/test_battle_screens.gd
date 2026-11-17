@@ -139,7 +139,7 @@ func test_the_list_groups_battles_by_whose_turn() -> void:
 func test_a_battle_says_what_happens_now() -> void:
 	var screen := BattleScreen.new(_view())
 	var holder := _holder(screen)
-	assert_eq(screen.title_text(), "Round 5 · to beat")
+	assert_eq(screen.title_text(), "Round 5 · To beat")
 	assert_eq(screen.big_text(), str(_rival_run().score), "the score to beat")
 	assert_true(screen.body_text().contains("One try"))
 	var played: Array[int] = []
@@ -152,7 +152,7 @@ func test_a_battle_says_what_happens_now() -> void:
 	screen.show_view(_view({"play": {"round": 5, "role": "answer", "rival_pending": true}}))
 	assert_true(screen.primary().disabled, "the rival's run is still being checked")
 	screen.show_view(_view({"play": {"round": 6, "role": "open"}}))
-	assert_eq(screen.title_text(), "Round 6 · you go first")
+	assert_eq(screen.title_text(), "Round 6 · You go first")
 	screen.show_view(_view({"turn": "them", "play": null, "can_nudge": true}))
 	assert_false(screen.primary().visible, "nothing to play on their turn")
 	assert_eq(screen.extra().text, "Nudge Mira")
@@ -455,7 +455,7 @@ func test_the_wins_board_ranks_and_opens_a_record() -> void:
 	}
 	screen.show_record(record)
 	assert_true(screen.record() != null)
-	assert_eq(WinsScreen.match_line(record.last[0]), "Won 6–3 vs Jun · random")
+	assert_eq(WinsScreen.match_line(record.last[0]), "Won 6–3 vs Jun · Random")
 	screen.close_record()
 	assert_true(screen.record() == null)
 	screen.show_board("battle", "all", _board())

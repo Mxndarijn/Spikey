@@ -16,7 +16,8 @@ signal record_requested(mode: String, period: String, who: String)
 ## The header names the boards as the dock does, so it fits beside Scores | Wins.
 const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
-const BOTTOM := 40
+## Clear of the floor spike row with an 8px gap (LayoutQa).
+const BOTTOM := 48
 const ROW_H := 40.0
 ## Each period tab's width in its short pill.
 const PERIOD_TAB_W := 104.0
@@ -281,7 +282,7 @@ func show_record(record: Dictionary) -> Control:
 	return _record
 
 
-## "Won 6–3 vs Jun · random", "Lost 4–6 vs Ada · friend · not counted".
+## "Won 6–3 vs Jun · Random", "Lost 4–6 vs Ada · Friend · Not counted".
 static func match_line(m: Dictionary) -> String:
 	var result := str(m.get("result", "")).capitalize()
 	var line := (
@@ -290,12 +291,19 @@ static func match_line(m: Dictionary) -> String:
 			result,
 			str(m.get("score", "")).replace("-", "–"),
 			str(m.get("opponent", "")),
-			str(m.get("how", ""))
+			str(m.get("how", "")).capitalize()
 		]
 	)
 	if not bool(m.get("counted", true)):
-		line += " · not counted"
+		line += " · Not counted"
 	return line
+
+
+## The board couldn't load (offline): the caption says so, the list stays empty.
+func show_offline(message: String) -> void:
+	if _caption != null:
+		_caption.text = message
+	close_record()
 
 
 func close_record() -> void:

@@ -240,7 +240,7 @@ func test_sample_tries_run_out() -> void:
 		assert_eq(e.locked, not e.is_me, "only my replay is open today")
 
 
-func test_home_card_says_tries_and_reset() -> void:
+func test_the_mode_line_says_tries_and_reset() -> void:
 	var rule := "One map a day · %d tries" % DailyRunRules.TRIES_PER_DAY
 	assert_eq(GameModes.rule_line(GameModes.DAILY, null), rule)
 	var info := DailyRunInfo.new()
@@ -279,7 +279,7 @@ func test_screen_shows_each_state() -> void:
 	info.yesterday = past
 	screen.show_info(info)
 	assert_eq(screen.primary().text, "Try 2")
-	assert_eq(screen.caption(), "No. 7 · one map for everyone")
+	assert_eq(screen.caption(), "No. 7 · One map for everyone")
 	assert_eq(screen.best_line(), "Best 31 · #12 of 2,140")
 	assert_eq(screen.pips().get_child_count(), 3, "a disc per try")
 	assert_eq(screen.yesterday_line(), "Yesterday, No. 6: you were #4 of 1,980.")
@@ -298,12 +298,13 @@ func test_a_try_in_the_app() -> void:
 	var main := _make_main(board)
 	await _frames()
 	var home := main._menus.current() as HomeScreen
-	var modes := home.modes()
-	assert_true(modes.rule_text(GameModes.DAILY).begins_with("3 tries left"), "Home's Daily tab")
-	modes.tab(GameModes.DAILY).pressed.emit()
-	home.dock().primary().pressed.emit()
+	var sheet := home.open_modes()
+	var row_line := sheet.row(GameModes.DAILY).find_child("Line", true, false) as Label
+	assert_true(row_line.text.begins_with("3 tries left"), "the mode sheet's Daily Run row")
+	sheet.row(GameModes.DAILY).pressed.emit()
+	home.play_button().pressed.emit()
 	var screen := main._menus.current() as DailyRunScreen
-	assert_true(screen != null, "Play on the Daily tab opens the Daily Run")
+	assert_true(screen != null, "Play with the Daily Run chosen opens it")
 	await _frames()
 	assert_eq(screen.primary().text, "Try 1")
 	screen.primary().pressed.emit()

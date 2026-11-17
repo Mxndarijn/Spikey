@@ -176,7 +176,7 @@ func _show_turn(v: BattleView) -> void:
 		)
 	elif v.play_role == "answer" and v.rival_score() >= 0:
 		_say(
-			"Round %d · to beat" % v.play_round,
+			"Round %d · To beat" % v.play_round,
 			"%s's score. You'll see their run as you fly. One try." % v.rival_name
 		)
 		_big.text = str(v.rival_score())
@@ -189,7 +189,7 @@ func _show_turn(v: BattleView) -> void:
 		)
 	else:
 		var who := v.rival_label() if v.rival_name != "" else "Your rival"
-		_say("Round %d · you go first" % v.play_round, "%s will see your run. One try." % who)
+		_say("Round %d · You go first" % v.play_round, "%s will see your run. One try." % who)
 
 
 func _show_waiting(v: BattleView) -> void:

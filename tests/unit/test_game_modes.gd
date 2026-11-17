@@ -1,6 +1,6 @@
 extends TestCase
-## Home's mode picker: the mode list, the mode tabs with their badges, and
-## what Play does for each mode.
+## Home's mode picker: the mode list, the Play bar that plays the chosen mode,
+## the mode sheet behind the Mode button, and the battles pill.
 
 const TEST_PATH := "user://test_game_modes_profile.json"
 
@@ -19,68 +19,30 @@ func _home(p: Profile = null) -> HomeScreen:
 	return home
 
 
-func test_every_mode_has_a_tab_and_classic_comes_first() -> void:
+## The Play bar's two lines: "Play" (or "Update") and the mode's line.
+func _play_lines(home: HomeScreen) -> Array[String]:
+	var out: Array[String] = []
+	for l in home.play_button().find_children("*", "Label", true, false):
+		out.append((l as Label).text)
+	return out
+
+
+func test_every_mode_has_a_name_and_classic_comes_first() -> void:
 	var ids := GameModes.ids()
 	assert_eq(ids, [GameModes.CLASSIC, GameModes.DAILY, GameModes.BATTLE, GameModes.DUEL])
 	for m in GameModes.all():
 		assert_false(m.title.is_empty(), "%s has a name" % m.id)
-		assert_false(m.tab_title.is_empty(), "%s has a name for its tab" % m.id)
+		assert_false(m.tab_title.is_empty(), "%s has a short name" % m.id)
 		assert_false(m.rule.is_empty(), "%s has its rules in one line" % m.id)
 		assert_true(m.icon != null, "%s has an icon" % m.id)
-		assert_false(m.play_label.is_empty(), "%s names its Play" % m.id)
+		assert_true(m.ready, "%s is built" % m.id)
 	assert_eq(GameModes.find("gone").id, GameModes.CLASSIC, "an unknown mode is Classic")
-	assert_true(GameModes.find(GameModes.CLASSIC).ready)
-	assert_true(GameModes.find(GameModes.DAILY).ready)
-	assert_true(GameModes.find(GameModes.BATTLE).ready)
-	assert_true(GameModes.find(GameModes.DUEL).ready)
 	assert_eq(GameModes.badge(GameModes.CLASSIC), "", "Classic has no badge")
 
 
-func test_the_tabs_choose_a_mode() -> void:
-	var c := ModeTabs.new()
-	(Engine.get_main_loop() as SceneTree).root.add_child(c)
-	var picked: Array[String] = []
-	c.selected.connect(func(id: String) -> void: picked.append(id))
-	assert_eq(c.chosen(), GameModes.CLASSIC, "Classic by default")
-	assert_eq(c.tab_ids(), GameModes.ids(), "a tab per mode, in order")
-	assert_true(c.tab(GameModes.CLASSIC).button_pressed, "the chosen tab is filled")
-	c.tab(GameModes.DAILY).pressed.emit()
-	assert_eq(c.chosen(), GameModes.DAILY, "a tap on a tab chooses it")
-	assert_true(c.tab(GameModes.DAILY).button_pressed)
-	assert_false(c.tab(GameModes.CLASSIC).button_pressed, "one tab at a time")
-	assert_eq(c.line_text(), GameModes.find(GameModes.DAILY).rule, "its rules under the bar")
-	c.tab(GameModes.DAILY).pressed.emit()
-	assert_eq(picked, [GameModes.DAILY], "a tap on the chosen tab changes nothing")
-	c.tab(GameModes.DUEL).pressed.emit()
-	assert_eq(picked, [GameModes.DAILY, GameModes.DUEL])
-	c.choose(99)
-	assert_eq(c.chosen(), GameModes.DUEL, "kept to the last mode")
-	c.free()
-
-
-## Each tab shows its short name in full, with room for its badge, on the
-## narrowest phone.
-func test_the_tab_names_fit() -> void:
-	var home := _home()
-	for i in 3:
-		await (Engine.get_main_loop() as SceneTree).process_frame
-	var tabs := home.modes()
-	assert_eq(tabs.size.x, UiTokens.SIZE_VIEWPORT_W - HomeScreen.TABS_SIDE * 2)
-	for id in tabs.tab_ids():
-		var t := tabs.tab(id)
-		var font := t.get_theme_font("font")
-		var need := font.get_string_size(
-			t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, t.get_theme_font_size("font_size")
-		)
-		assert_true(
-			need.x + 16.0 <= t.size.x, "%s fits its tab (%d of %d px)" % [id, need.x, t.size.x]
-		)
-		assert_true(t.size.y >= UiTokens.SIZE_TAP_MIN, "%s is big enough to tap" % id)
-	home.free()
-
-
-func test_play_starts_the_chosen_mode() -> void:
+func test_one_tap_on_play_starts_the_chosen_mode() -> void:
 	var p := Profile.new()
+	p.best_score = 87
 	var home := _home(p)
 	var got: Array[String] = []
 	home.play_pressed.connect(func() -> void: got.append("classic"))
@@ -89,24 +51,37 @@ func test_play_starts_the_chosen_mode() -> void:
 	home.duel_pressed.connect(func() -> void: got.append("duel"))
 	var saved: Array[String] = []
 	home.settings_changed.connect(func() -> void: saved.append(p.home_mode))
-	var play := home.dock().primary()
-	assert_eq(play.text, "Play")
-	play.pressed.emit()
-	home.modes().tab(GameModes.DAILY).pressed.emit()
-	assert_eq(play.text, "Daily", "Play follows the tab: the Daily Run")
-	assert_false(play.disabled)
-	play.pressed.emit()
+	assert_eq(_play_lines(home), ["Play", "Classic · Best 87"], "Classic by default")
+	home.play_button().pressed.emit()
+	home.choose_mode(GameModes.DAILY)
+	assert_eq(_play_lines(home)[1], "Daily · One map a day", "Play follows the chosen mode")
+	home.play_button().pressed.emit()
 	assert_eq(got, ["classic", "daily"], "Play starts the chosen mode")
 	assert_eq(p.home_mode, GameModes.DAILY, "the chosen mode is kept in the profile")
 	assert_eq(saved, [GameModes.DAILY], "and main is told to save it")
-	home.modes().choose_id(GameModes.BATTLE)
-	assert_eq(play.text, "Battles")
-	play.pressed.emit()
-	assert_eq(got, ["classic", "daily", "battle"], "Battle opens Battles")
-	home.modes().choose_id(GameModes.DUEL)
-	assert_eq(play.text, "Duel")
-	play.pressed.emit()
-	assert_eq(got, ["classic", "daily", "battle", "duel"], "Duel opens Duel")
+	home.choose_mode(GameModes.BATTLE)
+	home.play_button().pressed.emit()
+	home.choose_mode(GameModes.DUEL)
+	assert_eq(_play_lines(home)[1], "Duel · Live 1v1")
+	home.play_button().pressed.emit()
+	assert_eq(got, ["classic", "daily", "battle", "duel"], "Battle opens Battles, Duel Duel")
+	home.free()
+
+
+func test_the_mode_sheet_lists_every_mode_and_picks_one() -> void:
+	var p := Profile.new()
+	var home := _home(p)
+	var mode := home.find_child("Mode", true, false) as Button
+	mode.pressed.emit()
+	var sheet := home.find_child("ModeSheet", true, false) as ModeSheet
+	assert_true(sheet != null, "the Mode button opens the sheet")
+	assert_eq(home.open_modes(), sheet, "one sheet at a time")
+	assert_eq(sheet.row_ids(), GameModes.ids(), "every mode, in order")
+	assert_true(sheet.row(GameModes.CLASSIC).find_child("Tick", true, false) != null, "chosen")
+	assert_true(sheet.row(GameModes.DAILY).find_child("Tick", true, false) == null)
+	sheet.row(GameModes.DAILY).pressed.emit()
+	assert_eq(p.home_mode, GameModes.DAILY, "a row chooses its mode")
+	assert_true(sheet.is_queued_for_deletion(), "and closes the sheet")
 	home.free()
 
 
@@ -114,12 +89,11 @@ func test_home_opens_on_the_last_mode_chosen() -> void:
 	var p := Profile.new()
 	p.home_mode = GameModes.DAILY
 	var home := _home(p)
-	assert_eq(home.modes().chosen(), GameModes.DAILY)
-	assert_eq(home.dock().primary().text, "Daily")
+	assert_true(_play_lines(home)[1].begins_with("Daily"))
 	home.free()
 	p.home_mode = "a mode taken out"
 	home = _home(p)
-	assert_eq(home.modes().chosen(), GameModes.CLASSIC, "an unknown mode opens on Classic")
+	assert_true(_play_lines(home)[1].begins_with("Classic"), "an unknown mode opens on Classic")
 	home.free()
 
 
@@ -131,65 +105,49 @@ func test_the_home_mode_is_kept_on_this_phone_only() -> void:
 	assert_true("home_mode" in Profile.LOCAL_KEYS, "never sent to the server")
 
 
-func test_the_daily_tab_shows_todays_tries() -> void:
-	var home := _home()
+func test_the_daily_run_shows_todays_tries() -> void:
+	var p := Profile.new()
+	p.home_mode = GameModes.DAILY
+	var home := _home(p)
 	var info := DailyRunInfo.new()
 	info.tries_used = 1
 	info.resets_in_s = 3600
 	home.set_daily_info(info)
-	var modes := home.modes()
-	assert_true(modes.rule_text(GameModes.DAILY).begins_with("2 tries left"))
-	assert_eq(modes.badge_text(GameModes.DAILY), "2", "the tries left on the tab's badge")
-	assert_eq(modes.line_text(), GameModes.find(GameModes.CLASSIC).rule, "Classic's line shows")
-	modes.choose_id(GameModes.DAILY)
-	assert_true(modes.line_text().ends_with("1h 0m"), "the chosen tab's line: " + modes.line_text())
-	assert_eq(modes.badge_text(GameModes.DUEL), "", "Duel has no badge")
+	assert_eq(_play_lines(home)[1], "Daily · 2 tries left")
+	var sheet := home.open_modes()
+	var line := sheet.row(GameModes.DAILY).find_child("Line", true, false) as Label
+	assert_eq(line.text, "2 tries left · 1h 0m", "the sheet has the clock too")
+	assert_true(sheet.row(GameModes.DAILY).find_child("Badge", true, false) == null, "no badge")
 	home.set_daily_info(DailyRunInfo.offline())
-	assert_eq(modes.rule_text(GameModes.DAILY), GameModes.find(GameModes.DAILY).rule)
-	assert_eq(modes.badge_text(GameModes.DAILY), "", "no badge while offline")
+	assert_eq(_play_lines(home)[1], "Daily · One map a day", "offline: the rules")
 	home.free()
 
 
-## The battles waiting for your turn show on the Battle tab, and go when
-## there are none.
-func test_the_battle_tab_counts_your_turns() -> void:
+## The battles waiting for your turn: in words on the pill (no bare number on
+## the Mode button), and on the Battle row of the sheet.
+func test_the_battles_pill_counts_your_turns() -> void:
 	var home := _home()
-	var modes := home.modes()
+	var pill := home.find_child("Battles", true, false) as BattlesPill
+	assert_eq(pill.line_text(), "Battle a friend", "none waiting: start one")
 	home.set_battle_turns(2)
-	assert_eq(modes.badge_text(GameModes.BATTLE), "2")
-	assert_eq(modes.rule_text(GameModes.BATTLE), "2 battles wait for your turn")
+	assert_eq(pill.line_text(), "Your turn in 2 battles")
 	home.set_battle_turns(1)
-	assert_eq(modes.rule_text(GameModes.BATTLE), "1 battle waits for your turn")
-	home.set_daily_info(DailyRunInfo.offline())
-	assert_eq(modes.badge_text(GameModes.BATTLE), "1", "the Daily Run's news keeps it")
-	home.set_battle_turns(0)
-	assert_eq(modes.badge_text(GameModes.BATTLE), "", "no badge with no turn waiting")
-	assert_eq(modes.rule_text(GameModes.BATTLE), GameModes.find(GameModes.BATTLE).rule)
+	assert_eq(pill.line_text(), "Your turn in 1 battle")
+	var mode := home.find_child("Mode", true, false) as Button
+	assert_true(mode.find_child("Badge", true, false) == null, "no count on the Mode button")
+	var sheet := home.open_modes()
+	var line := sheet.row(GameModes.BATTLE).find_child("Line", true, false) as Label
+	assert_eq(line.text, "Your turn in 1 battle")
+	var got: Array[String] = []
+	home.battle_pressed.connect(func() -> void: got.append("battle"))
+	pill.pressed.emit()
+	assert_eq(got, ["battle"], "the pill opens Battles")
 	home.free()
 
 
-## The tabs, their rules line and the lost-spot line sit between the stats
-## line and the flyer, and fit the narrowest phone.
-func test_the_sky_line_clears_the_stats_and_the_flyer() -> void:
-	var home := _home()
-	var modes := home.modes()
-	assert_true(HomeScreen.STATS_TOP + 24.0 <= modes.offset_top, "under the stats line")
-	var flyer := home.flyer()
-	var art := flyer.art_size()
-	var flyer_top := flyer.position.y + flyer.size.y / 2.0 - art / 2.0 - flyer.bob_height
-	assert_true(modes.offset_bottom <= HomeScreen.NOTICE_TOP, "the tabs end above the notice")
-	home.show_notice("Someone took your #3 spot")
-	assert_true(HomeScreen.NOTICE_TOP + 18.0 <= flyer_top, "the lost-spot line clears the flyer")
-	assert_true(
-		modes.get_combined_minimum_size().x <= UiTokens.SIZE_VIEWPORT_W - HomeScreen.TABS_SIDE * 2,
-		"the tabs keep to the screen's gutters"
-	)
-	home.free()
-
-
-## Battle and Duel run only on the server's gameplay version: an older app shows
-## "Update to play" under their tabs, an UPDATE badge, and Play opens the store;
-## Classic and the Daily Run go on.
+## Battle and Duel run only on the server's gameplay version: an older app
+## says Update on Play and in the sheet, and Play opens the store; Classic and
+## the Daily Run go on.
 func test_battle_and_duel_wait_for_an_update() -> void:
 	var p := Profile.new()
 	var home := _home(p)
@@ -203,18 +161,36 @@ func test_battle_and_duel_wait_for_an_update() -> void:
 	assert_false(GameModes.needs_update(GameModes.CLASSIC), "Classic goes on")
 	assert_false(GameModes.needs_update(GameModes.DAILY), "and the Daily Run")
 	home._process(0.0)
-	assert_eq(home.modes().rule_text(GameModes.BATTLE), GameModes.UPDATE_LINE, "the tab says so")
-	assert_eq(home.modes().badge_text(GameModes.DUEL), "UPDATE")
-	home.set_battle_turns(3)
-	assert_eq(home.modes().badge_text(GameModes.BATTLE), "UPDATE", "turns never hide the update")
 	var got: Array[String] = []
 	home.update_pressed.connect(func() -> void: got.append("store"))
 	home.battle_pressed.connect(func() -> void: got.append("battle"))
-	home.modes().choose_id(GameModes.BATTLE)
-	assert_eq(home.dock().primary().text, GameModes.UPDATE)
-	home.dock().primary().pressed.emit()
+	home.choose_mode(GameModes.BATTLE)
+	assert_eq(_play_lines(home), ["Update", "Battle · Update to play"])
+	home.play_button().pressed.emit()
 	assert_eq(got, ["store"], "Play opens the store, not Battle")
+	var sheet := home.open_modes()
+	var badge := sheet.row(GameModes.DUEL).find_child("Badge", true, false) as Label
+	assert_true(badge != null and badge.text == "UPDATE", "the sheet's Duel row says UPDATE")
 	assert_true(StoreLink.url("Android").contains("com.mxndarijn.spikey"))
 	assert_true(StoreLink.url("iOS").begins_with("https://apps.apple.com/"))
 	GameModes.set_server_version(0)
 	home.free()
+
+
+## On a night world Play turns paper with ink text: ink on the dark sky would
+## vanish (UiTheme.solid's rule).
+func test_play_turns_paper_on_night_worlds() -> void:
+	var home := HomeScreen.new(Profile.new(), AppServices.offline(Profile.new()))
+	var dark := UiTheme.get_theme().duplicate() as Theme
+	dark.set_color("font_color", "SkyLabel", UiTokens.ON_SCRIM)
+	home.theme = dark
+	(Engine.get_main_loop() as SceneTree).root.add_child(home)
+	var box := home.play_button().get_theme_stylebox("normal") as StyleBoxFlat
+	assert_eq(box.bg_color, UiTokens.PANEL, "paper Play at night")
+	assert_eq(box.border_color, UiTokens.INK_LINE, "with an ink ring")
+	home.free()
+	var day := _home()
+	box = day.play_button().get_theme_stylebox("normal") as StyleBoxFlat
+	assert_eq(box.bg_color, UiTokens.PRIMARY, "ink Play by day")
+	assert_eq(box.border_color, UiTokens.PANEL, "with a paper ring")
+	day.free()

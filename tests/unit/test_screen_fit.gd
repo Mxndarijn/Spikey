@@ -17,9 +17,9 @@ func test_home_fits() -> void:
 	_fits(HomeScreen.new(_profile(), AppServices.offline(_profile())), "home")
 
 
-## Home stacks the wordmark, the stats line, the big flyer and the dock with
-## no overlaps, all above the floor spikes.
-func test_home_logo_clears_the_flyer() -> void:
+## Home stacks the wordmark, the flyer, the Play bar, the battles pill and the
+## bottom bar top to bottom with no overlaps, all clear of the spike rows.
+func test_home_stacks_without_overlaps() -> void:
 	var home := HomeScreen.new(_profile(), AppServices.offline(_profile()))
 	var holder := Control.new()
 	holder.theme = UiTheme.get_theme()
@@ -33,19 +33,19 @@ func test_home_logo_clears_the_flyer() -> void:
 	var art := flyer.art_size()
 	var flyer_top := flyer.position.y + flyer.size.y / 2.0 - art / 2.0 - flyer.bob_height
 	var flyer_bottom := flyer.position.y + flyer.size.y / 2.0 + art / 2.0 + flyer.bob_height
+	assert_true(logo_bottom <= flyer_top, "the wordmark ends above the flyer (%d px)" % flyer_top)
 	assert_true(
-		logo_bottom <= HomeScreen.STATS_TOP,
-		"logo ends at %d px, the stats line starts at %d px" % [logo_bottom, HomeScreen.STATS_TOP]
+		flyer_bottom <= HomeScreen.PLAY_BAR_TOP, "the flyer ends above Play (%d)" % flyer_bottom
 	)
+	assert_true(HomeScreen.PLAY_BAR_TOP + HomeScreen.PLAY_BAR_H <= HomeScreen.BAR_PILL_TOP)
 	assert_true(
-		HomeScreen.STATS_TOP + 24.0 <= flyer_top,
-		"the stats line ends above the flyer (%d px)" % flyer_top
+		HomeScreen.BAR_PILL_TOP + BattlesPill.HEIGHT <= HomeScreen.BAR_TOP, "pill above the bar"
 	)
-	var dock_top := UiTokens.SIZE_VIEWPORT_H - Dock.HEIGHT
-	assert_true(flyer_bottom <= dock_top, "the flyer ends above the dock (%d px)" % flyer_bottom)
-	var bar_bottom := dock_top + Dock.BAR_TOP + Dock.BAR_H
+	var floor_top := float(SimConfig.KILL_BOTTOM) / SimConfig.SUB
+	assert_true(HomeScreen.BAR_TOP + HomeBar.HEIGHT + 16.0 <= floor_top, "the bar clears the floor")
 	assert_true(
-		bar_bottom <= UiTokens.SIZE_VIEWPORT_H - FLOOR_CLEARANCE, "the dock clears the floor"
+		HomeScreen.CORNER_TOP >= float(SimConfig.KILL_TOP) / SimConfig.SUB + 16.0,
+		"the corners clear the ceiling"
 	)
 	holder.free()
 
@@ -239,9 +239,8 @@ func test_home_wordmark_fits_the_width() -> void:
 
 
 ## Home with everything at its biggest: a six-figure wallet, a long lost-spot
-## line, a badge on every tab that has one (UPDATE on Battle and Duel) and Large
-## buttons on. It still fits the narrowest phone, and every badge stays on the
-## screen and off its neighbour tab's name.
+## line, every battle waiting, Battle and Duel waiting for an update, and Large
+## buttons on. It still fits the narrowest phone (LayoutQa checks the rest).
 func test_home_fits_at_its_fullest() -> void:
 	GameModes.battle_enabled = true
 	var p := _profile()
@@ -252,37 +251,12 @@ func test_home_fits_at_its_fullest() -> void:
 	GameModes.set_server_version(SimConfig.GAMEPLAY_VERSION + 1)
 	var home := HomeScreen.new(p, AppServices.offline(p), 12345)
 	var info := DailyRunInfo.new()
-	info.tries_used = 0
 	info.resets_in_s = 86399
 	var fill := func(h: HomeScreen) -> void:
 		h.set_daily_info(info)
 		h.set_battle_turns(12)
 		h.show_notice("Kofi_the_great took your #3 spot on today's board")
 	_fits(home, "home at its fullest", fill.bind(home))
-	home = HomeScreen.new(p, AppServices.offline(p), 12345)
-	var holder := Control.new()
-	holder.theme = UiTheme.get_theme()
-	holder.size = Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
-	(Engine.get_main_loop() as SceneTree).root.add_child(holder)
-	holder.add_child(home)
-	home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fill.call(home)
-	for i in 3:
-		await (Engine.get_main_loop() as SceneTree).process_frame
-	var tabs := home.modes()
-	for id in [GameModes.DAILY, GameModes.BATTLE, GameModes.DUEL]:
-		var tab := tabs.tab(id)
-		var badge := tab.get_node("Badge") as Control
-		assert_true(badge.visible, "%s wears a badge" % id)
-		var r := badge.get_global_rect()
-		assert_true(r.position.x >= 0.0 and r.end.x <= UiTokens.SIZE_VIEWPORT_W, "%s's badge" % id)
-		assert_true(
-			r.end.y <= tab.get_global_rect().position.y + 12.0,
-			"above %s's name (%s, tab %s)" % [id, r, tab.get_global_rect()]
-		)
-	assert_eq(tabs.badge_text(GameModes.BATTLE), "UPDATE", "an old app: the update first")
-	assert_eq(tabs.badge_text(GameModes.DAILY), "3")
-	holder.free()
 	GameModes.set_server_version(0)
 	UiKit.large_buttons = false
 

@@ -250,9 +250,9 @@ func _fill_pips(info: DailyRunInfo) -> void:
 		_pips.add_child(pip)
 
 
-## "No. 47 · one map for everyone".
+## "No. 47 · One map for everyone".
 static func caption_text(info: DailyRunInfo) -> String:
-	return "No. %d · one map for everyone" % info.number
+	return "No. %d · One map for everyone" % info.number
 
 
 ## 15129 -> "4:12:09".

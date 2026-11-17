@@ -198,7 +198,7 @@ func test_a_finished_run_is_kept_and_opens_from_home() -> void:
 	assert_true(FileAccess.file_exists(STORE_PATH), "written at once")
 	main.show_home()
 	var home := main._menus.current() as HomeScreen
-	home.dock().button("runs").pressed.emit()
+	(home.find_child("Bar", true, false) as HomeBar).button("runs").pressed.emit()
 	assert_true(main._menus.current() is RunsScreen, "the dock's Runs opens Your runs")
 	_free_main(main)
 

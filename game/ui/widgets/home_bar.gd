@@ -38,6 +38,17 @@ func _init() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, HEIGHT - UiTheme.RING * 2)
+		# Icon and name centred in the bar, not pushed to its top edge.
+		var cell := UiTheme.flat(Color(UiTokens.PANEL, 0.0), UiTokens.RADIUS_M - 6, 0)
+		cell.content_margin_top = 7
+		cell.content_margin_bottom = 5
+		var down := UiTheme.flat(UiTokens.PANEL_RAISED, UiTokens.RADIUS_M - 6, 0)
+		down.content_margin_top = 7
+		down.content_margin_bottom = 5
+		for state in ["normal", "hover", "focus", "disabled"]:
+			b.add_theme_stylebox_override(state, cell)
+		for state in ["pressed", "hover_pressed"]:
+			b.add_theme_stylebox_override(state, down)
 		b.pressed.connect(pressed.emit.bind(item[0] as String))
 		row.add_child(b)
 		_buttons[item[0]] = b

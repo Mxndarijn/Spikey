@@ -49,11 +49,17 @@ func _init(profile: Profile, services: AppServices) -> void:
 	_services = services
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var scroll := SmoothScroll.new()
-	add_child(scroll)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Fades out at the card's bottom edge instead of cutting a row in half.
+	add_child(FadeMask.new(scroll))
+	var pad := MarginContainer.new()
+	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pad.add_theme_constant_override("margin_bottom", int(FadeMask.FADE))
+	scroll.add_child(pad)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", UiTokens.SPACE_2)
-	scroll.add_child(list)
+	pad.add_child(list)
 	# The room picker comes first, in every build: it's what playtests use most.
 	list.add_child(_section(ROOMS))
 	_picker = RoomPicker.new()

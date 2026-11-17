@@ -4,7 +4,8 @@ extends RefCounted
 ## tests/unit/test_layout_qa.gd. Returns a list of problems, empty when the
 ## screen is clean:
 ##   - "outside": a visible element reaches past the room's sides or into the
-##     ceiling or floor spike rows (above SimConfig.KILL_TOP, below KILL_BOTTOM).
+##     ceiling or floor spike rows (above SimConfig.KILL_TOP, or within CLEAR px
+##     of KILL_BOTTOM).
 ##   - "text": a one-line Label or Button whose text is wider than its rect (cut
 ##     off or trimmed), or a wrapped Label taller than its rect.
 ##   - "overlap": two visible siblings placed by hand (their parent is not a
@@ -16,7 +17,10 @@ extends RefCounted
 
 const ROOM := Vector2(UiTokens.SIZE_VIEWPORT_W, UiTokens.SIZE_VIEWPORT_H)
 const TOP := float(SimConfig.KILL_TOP) / SimConfig.SUB
-const BOTTOM := float(SimConfig.KILL_BOTTOM) / SimConfig.SUB
+## Content keeps CLEAR px off the floor spike row: touching the tips reads as
+## sitting on them.
+const CLEAR := 8.0
+const BOTTOM := float(SimConfig.KILL_BOTTOM) / SimConfig.SUB - CLEAR
 ## Archivo's cap and figure height, in em.
 const CAP := 0.74
 ## Rounding slack, px.

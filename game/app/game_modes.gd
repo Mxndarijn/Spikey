@@ -100,8 +100,8 @@ static func _every() -> Array[Mode]:
 				BATTLE,
 				"Battle",
 				"Battle",
-				"Take turns on one map · first to 6",
-				preload("res://assets/ui/icons/trophy.svg"),
+				"Take turns on one map · First to 6",
+				preload("res://assets/ui/icons/battle.svg"),
 				"Battles",
 				true
 			),
@@ -109,7 +109,7 @@ static func _every() -> Array[Mode]:
 				DUEL,
 				"Duel",
 				"Duel",
-				"Live 1v1 · best of 3",
+				"Live 1v1 · Best of 3",
 				preload("res://assets/ui/icons/crown.svg"),
 				"Duel",
 				true

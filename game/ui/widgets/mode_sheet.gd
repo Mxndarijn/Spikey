@@ -1,7 +1,7 @@
 class_name ModeSheet
 extends Control
-## The mode picker over Home: the dimmed room and a paper sheet from the
-## bottom with a row per game mode (its icon, name, one line of its rules or
+## The mode picker over Home: the dimmed room and a solid paper card under the
+## wordmark with a row per game mode (its icon, name, one line of its rules or
 ## news, a gold badge, a tick on the chosen one). A tap on a row chooses that
 ## mode and closes; the close button or a tap on the dimmed room just closes.
 ## Home's big Play button then plays the chosen mode.
@@ -11,9 +11,9 @@ signal closed
 
 const ROW_H := 60.0
 const ICON := 40.0
+## The card's top edge: under Home's wordmark.
+const TOP := 178.0
 const SIDE := 12
-## The sheet's top edge, clear of the floor spikes at its bottom.
-const BOTTOM_GAP := 40.0
 
 var _rows := {}
 
@@ -36,14 +36,15 @@ func _init(chosen: String, lines: Dictionary, badges: Dictionary) -> void:
 	box.content_margin_bottom = 16
 	card.add_theme_stylebox_override("panel", box)
 	add_child(card)
+	# Under Home's wordmark, well clear of the ceiling and floor spikes.
 	card.anchor_left = 0.0
 	card.anchor_right = 1.0
-	card.anchor_top = 1.0
-	card.anchor_bottom = 1.0
+	card.anchor_top = 0.0
+	card.anchor_bottom = 0.0
+	card.offset_top = TOP
 	card.offset_left = SIDE
 	card.offset_right = -SIDE
-	card.offset_bottom = -BOTTOM_GAP
-	card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	card.grow_vertical = Control.GROW_DIRECTION_END
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", UiTokens.SPACE_1)
 	card.add_child(col)

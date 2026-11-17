@@ -41,16 +41,23 @@ func _ready() -> void:
 	head.offset_bottom = TOP + UiKit.HEADER_HEIGHT
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
-	scroll.anchor_right = 1.0
-	scroll.offset_left = SIDE
-	scroll.offset_right = -SIDE
-	scroll.offset_top = LIST_TOP
-	scroll.offset_bottom = UiKit.ACTION_TOP - 12.0
+	# The list fades out at its bottom (a hard edge read as cut off), and ends
+	# with the fade's height of padding so its last row scrolls clear of it.
+	var mask := FadeMask.new(scroll)
+	add_child(mask)
+	mask.anchor_right = 1.0
+	mask.offset_left = SIDE
+	mask.offset_right = -SIDE
+	mask.offset_top = LIST_TOP
+	mask.offset_bottom = UiKit.ACTION_TOP - 12.0
+	var pad := MarginContainer.new()
+	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pad.add_theme_constant_override("margin_bottom", int(FadeMask.FADE))
+	scroll.add_child(pad)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", UiTokens.SPACE_2)
-	scroll.add_child(_list)
+	pad.add_child(_list)
 	_note = UiKit.wrapped(LOADING, &"RoomMuted", 300)
 	_list.add_child(_note)
 	_primary = UiKit.primary(NEW_ICON, "New")

@@ -47,13 +47,6 @@ func test_the_room_sits_inside_the_safe_area_on_every_phone() -> void:
 
 
 func test_home_is_clean() -> void:
-	for layout: int in [HomeScreen.Layout.BAR, HomeScreen.Layout.ROUND]:
-		HomeScreen.layout = layout
-		await _home_is_clean()
-	HomeScreen.layout = HomeScreen.Layout.BAR
-
-
-func _home_is_clean() -> void:
 	var p := _profile()
 	await _check(HomeScreen.new(p, AppServices.offline(p), 14), "home")
 	var full := HomeScreen.new(p, AppServices.offline(p), 12345)

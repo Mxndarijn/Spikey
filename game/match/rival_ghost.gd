@@ -166,7 +166,7 @@ func _draw() -> void:
 			UiTokens.ON_SKY
 		)
 	else:
-		var tag := "%s · room %d" % [rival_name, _run.sim.state.room_index + 1]
+		var tag := "%s · Room %d" % [rival_name, _run.sim.state.room_index + 1]
 		var tw := _font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x
 		draw_string(
 			_font,

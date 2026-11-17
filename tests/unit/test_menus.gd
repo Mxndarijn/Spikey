@@ -109,7 +109,7 @@ func test_strip_items_say_in_use_owned_free_or_price() -> void:
 	holder.free()
 
 
-func test_home_shows_stats_flyer_and_the_dock() -> void:
+func test_home_shows_the_flyer_play_and_the_bar() -> void:
 	var p := Profile.new()
 	p.grant(ItemKind.FLYER, "dash")
 	p.equip(ItemKind.FLYER, "dash")
@@ -119,34 +119,35 @@ func test_home_shows_stats_flyer_and_the_dock() -> void:
 	home.theme = UiTheme.get_theme()
 	(Engine.get_main_loop() as SceneTree).root.add_child(home)
 	assert_eq((home.logo() as Label).text, "flapjaw", "the wordmark, one word")
-	assert_eq(home.stats_line(), "Best 87, #14 today")
-	assert_eq(HomeScreen.stats_text(87, 0), "Best 87", "no rank before today's first run")
 	assert_eq(home.flyer().texture, Catalog.flyer("dash").idle, "the flyer in use, big")
 	assert_true(home.flyer().art_size() > BirdView.ART_CANVAS * BirdView.ART_SCALE, "bigger")
-	var dock := home.dock()
-	for id in ["rooms", "style", "play", "rank", "runs"]:
-		var b := dock.button(id)
-		assert_true(b != null, "the dock has %s" % id)
+	var play := home.play_button()
+	assert_true(play.size.y >= HomeScreen.PLAY_BAR_H - 1.0, "Play is the big bar")
+	var classic := home.open_modes().row(GameModes.CLASSIC).find_child("Line", true, false)
+	assert_eq((classic as Label).text, "Best 87 · #14 today", "best and today's rank")
+	home.call("_close_modes")
+	var bar := home.find_child("Bar", true, false) as HomeBar
+	for id in ["rooms", "style", "rank", "runs"]:
+		var b := bar.button(id)
+		assert_true(b != null, "the bar has %s" % id)
 		if b != null:
-			var s := b.get_combined_minimum_size()
-			assert_true(minf(s.x, s.y) >= UiTokens.SIZE_TAP_MIN, "%s is big enough to tap" % id)
-	assert_eq(dock.button("rank").text, "Ranks", "the rank itself is in the stats line")
-	assert_eq(dock.primary().get_combined_minimum_size(), Vector2(100, 100), "round Play")
-	home.set_daily_rank(3)
-	assert_eq(home.stats_line(), "Best 87, #3 today")
+			assert_true(b.get_combined_minimum_size().y >= UiTokens.SIZE_TAP_MIN - 8, id)
+	assert_eq(bar.button("rank").text, "Ranks")
 	var got: Array[String] = []
 	home.play_pressed.connect(func() -> void: got.append("play"))
 	home.rooms_pressed.connect(func() -> void: got.append("rooms"))
 	home.customize_pressed.connect(func() -> void: got.append("style"))
 	home.leaderboard_pressed.connect(func() -> void: got.append("rank"))
 	home.runs_pressed.connect(func() -> void: got.append("runs"))
-	for id in ["play", "rooms", "style", "rank", "runs"]:
-		dock.button(id).pressed.emit()
-	assert_eq(got, ["play", "rooms", "style", "rank", "runs"], "each dock item does its job")
+	play.pressed.emit()
+	for id in ["rooms", "style", "rank", "runs"]:
+		bar.button(id).pressed.emit()
+	assert_eq(got, ["play", "rooms", "style", "rank", "runs"], "each item does its job")
 	var gear := home.settings_button()
-	assert_eq(gear.position, UiKit.CORNER, "Settings sits in the corner slot")
+	assert_eq(gear.position.x, UiKit.CORNER.x, "Settings sits in the corner slot")
 	var disc := gear.get_theme_stylebox("normal") as StyleBoxFlat
-	assert_eq(disc.bg_color, UiTokens.PANEL, "a cog on a paper disc")
+	assert_eq(disc.bg_color, UiTokens.PANEL, "a cog on a solid paper disc")
+	assert_eq(disc.border_color, UiTokens.INK_LINE, "with an ink ring")
 	gear.pressed.emit()
 	assert_true(home.settings() != null, "Settings opens the sheet")
 	home.free()

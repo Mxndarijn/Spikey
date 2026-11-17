@@ -140,14 +140,14 @@ func finished(replay: Replay, cleared: int) -> void:
 	_leaderboard.request_board(LeaderboardService.DAILY_RUN)
 
 
-## "1 try left · new map in 4h 12m".
+## "1 try left · New map in 4h 12m".
 func tries_line() -> String:
 	if playing == null:
 		return ""
 	var line := DailyRunRules.tries_text(playing.n, playing.tries_max)
 	var left := resets_in_s()
 	if left >= 0:
-		line += " · new map in %s" % LeaderboardScreen.duration(left)
+		line += " · New map in %s" % LeaderboardScreen.duration(left)
 	return line
 
 

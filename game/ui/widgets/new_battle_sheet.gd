@@ -11,7 +11,7 @@ signal join_pressed(code: String)
 signal closed
 
 const RANDOM_NOTE := "A player, or a bot when no one is free"
-const RULES := "First to 6 round wins · no time limit"
+const RULES := "First to 6 round wins · No time limit"
 const CODE_LENGTH := 6
 
 var _field := LineEdit.new()

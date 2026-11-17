@@ -142,10 +142,10 @@ func test_game_over_pill_text() -> void:
 	var two: Array[int] = [150, 200]
 	var three: Array[int] = [150, 200, 250]
 	var mixed: Array[int] = [100, 150]
-	assert_eq(GameOverScreen.prize_text(one), "+3 for Best 150 · yours once checked")
-	assert_eq(GameOverScreen.prize_text(two), "+6 for Best 150 and 200 · yours once checked")
-	assert_eq(GameOverScreen.prize_text(three), "+9 for Best 150 to 250 · yours once checked")
-	assert_eq(GameOverScreen.prize_text(mixed), "+6 for Best 100 and 150 · yours once checked")
+	assert_eq(GameOverScreen.prize_text(one), "+3 for Best 150 · Yours once checked")
+	assert_eq(GameOverScreen.prize_text(two), "+6 for Best 150 and 200 · Yours once checked")
+	assert_eq(GameOverScreen.prize_text(three), "+9 for Best 150 to 250 · Yours once checked")
+	assert_eq(GameOverScreen.prize_text(mixed), "+6 for Best 100 and 150 · Yours once checked")
 
 
 func _game_over(revived_at: int) -> GameOverScreen:
@@ -170,7 +170,7 @@ func test_game_over_pill_place() -> void:
 		var screen := _game_over(revived_at)
 		assert_true(screen.seed_line() != "", "the seed shows without a prize")
 		screen.show_prize(many)
-		assert_eq(screen.prize_line(), "+54 for Best 150 to 1,000 · yours once checked")
+		assert_eq(screen.prize_line(), "+54 for Best 150 to 1,000 · Yours once checked")
 		assert_eq(screen.seed_line(), "", "the pill takes the seed's place")
 		var r := screen.prize_rect()
 		assert_true(r.position.y >= flyer_bottom, "below the flyer (%d)" % r.position.y)

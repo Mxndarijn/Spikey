@@ -17,7 +17,8 @@ const PREVIEW := Vector2(200, 150)
 const PREVIEW_RADIUS := 22.0
 const TOP := UiKit.SCREEN_TOP
 ## The Practice button ends this far above the bottom of the screen.
-const BOTTOM := 40
+## Clear of the floor spike row with an 8px gap (LayoutQa).
+const BOTTOM := 48
 const SIDE := 20
 const CARD_PAD_X := 18
 const CARD_PAD_Y := 14
@@ -79,6 +80,14 @@ func _ready() -> void:
 	var note := UiKit.wrapped(NOTE, &"SkyCaption", NOTE_W)
 	note.name = "Note"
 	note.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
+	# On a solid paper pill: plain text on the scenery was hard to read on snow.
+	note.add_theme_color_override("font_color", UiTokens.ON_PANEL_MUTED)
+	var box := UiTheme.solid(UiTokens.PANEL, UiTokens.RADIUS_M, 0)
+	box.content_margin_left = UiTokens.SPACE_3
+	box.content_margin_right = UiTokens.SPACE_3
+	box.content_margin_top = 4
+	box.content_margin_bottom = 4
+	note.add_theme_stylebox_override("normal", box)
 	note.anchor_right = 1.0
 	note.offset_left = (UiTokens.SIZE_VIEWPORT_W - NOTE_W) / 2.0
 	note.offset_right = -note.offset_left

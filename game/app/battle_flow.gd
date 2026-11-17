@@ -561,6 +561,12 @@ func _on_failed(op: String, message: String) -> void:
 		else:
 			screen.show_offline(message)
 		return
+	# The wins boards say it in their own caption line, not in a toast over
+	# their rows.
+	var wins := _menus.current() as WinsScreen
+	if wins != null and op in ["get_wins_board", "get_match_record"]:
+		wins.show_offline(message)
+		return
 	# Home asks for the list only for the Battle tab's badge: offline, the tab
 	# just shows no badge, with no toast over the wordmark.
 	if op == "battle_list" and _menus.current() is HomeScreen:

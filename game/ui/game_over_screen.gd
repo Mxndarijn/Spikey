@@ -7,7 +7,7 @@ extends Control
 ## Runs). A new best gets the gold ribbon, the score counting up, three sparkles and confetti that
 ## falls through once (still with reduced motion).
 ## A run that reaches best-score milestones (show_prize) gets a cream pill in the seed's place:
-## "+6 for Best 150 and 200 · yours once checked" (the server pays them after its check;
+## "+6 for Best 150 and 200 · Yours once checked" (the server pays them after its check;
 ## the seed is still in Your runs). A Daily Run try keeps its tries line there instead.
 ## A Daily Run try (show_daily) says "Daily Run" instead of "Game over", its
 ## place on the Daily Run board in the stats, the day's number, the tries left
@@ -30,7 +30,7 @@ const SHARE_ICON := preload("res://assets/ui/icons/share.svg")
 const DIAMOND_ICON := preload("res://assets/ui/diamond.svg")
 const CAPTION := "Game over"
 ## After the prize pill's diamonds: the server pays once it has checked the run.
-const PRIZE_AFTER := "yours once checked"
+const PRIZE_AFTER := "Yours once checked"
 ## A new best counts the score up over COUNT_TIME; the effect runs FX_TIME.
 const COUNT_TIME := 1.1
 const FX_TIME := 2.6
@@ -60,6 +60,9 @@ const REVIVED_GAP := 26.0
 const FLYER_Y := 344.0
 const STATS_Y := 374.0
 const SEED_GAP := 6.0
+## The stats card behind the stats and the seed: its side inset and padding.
+const STATS_CARD_SIDE := 40.0
+const STATS_CARD_PAD := 8.0
 ## The final score shrinks to fit the screen from this many digits.
 const FINAL_SCORE_W := UiTokens.SIZE_VIEWPORT_W - 48.0
 const FINAL_SCORE_MIN := 64
@@ -135,6 +138,7 @@ func _init() -> void:
 	_stat_rank_word = _stat_rank.get_parent().get_parent().get_child(1) as Label
 	UiKit.across(self, _stats, STATS_Y)
 	_seed.theme_type_variation = &"RoomMuted"
+	_seed.add_theme_color_override("font_color", UiTokens.ON_PANEL_MUTED)
 	_seed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_seed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiKit.across(self, _seed, STATS_Y + 56.0)
@@ -256,6 +260,7 @@ func show_result(
 	_seed.offset_bottom = _seed.offset_top + _seed.get_combined_minimum_size().y
 	_prize.visible = false
 	visible = true
+	queue_redraw()
 	_new_best.still = still
 	_time = 0.0 if is_new_best and not still else FX_TIME
 	_step_new_best()
@@ -265,6 +270,7 @@ func show_result(
 ## Daily Run, `tries_line` ("1 try left · new map in 4h 12m") in place of the
 ## seed, `next` the main action's label ("Try 3", "Board").
 func show_daily(number: int, tries_line: String, next: String) -> void:
+	queue_redraw()
 	_set_daily(true)
 	_caption.text = "Daily Run"
 	_seed.text = "No. %d · %s" % [number, tries_line]
@@ -304,6 +310,7 @@ func seed_line() -> String:
 ## After show_result: the milestones this run reached that weren't won yet
 ## (EarnRules.new_prizes). Shows the pill in the seed's place; none: nothing.
 func show_prize(scores: Array[int]) -> void:
+	queue_redraw()
 	if scores.is_empty() or _daily:
 		_prize.visible = false
 		return
@@ -326,7 +333,7 @@ func prize_rect() -> Rect2:
 	return Rect2((UiTokens.SIZE_VIEWPORT_W - w) / 2.0, _prize.offset_top, w, min_size.y)
 
 
-## "+3 for Best 150 · yours once checked"; two: "+6 for Best 150
+## "+3 for Best 150 · Yours once checked"; two: "+6 for Best 150
 ## and 200 · ..."; more: "+9 for Best 150 to 250 · ...".
 static func prize_text(scores: Array[int]) -> String:
 	var total := EarnRules.prizes_total(scores)
@@ -433,12 +440,34 @@ static func _stat(row: HBoxContainer, word: String, icon: Texture2D = null) -> L
 		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		line.add_child(pic)
+	# On the stats card (paper), so ink in every world.
 	var value := UiKit.label("", &"RoomStat")
+	value.add_theme_color_override("font_color", UiTokens.ON_PANEL)
 	line.add_child(value)
 	col.add_child(line)
-	col.add_child(UiKit.label(word, &"RoomMuted"))
+	var name_label := UiKit.label(word, &"RoomMuted")
+	name_label.add_theme_color_override("font_color", UiTokens.ON_PANEL_MUTED)
+	col.add_child(name_label)
 	row.add_child(col)
 	return value
+
+
+## The stats card: one solid paper surface behind the stats row and the seed
+## (or prize) line, so they read on every world, busy night skylines too.
+func _draw() -> void:
+	if _stats == null or not _stats.is_inside_tree():
+		return
+	var bottom := _stats.offset_bottom
+	for line: Control in [_seed, _prize]:
+		if line.visible:
+			bottom = maxf(bottom, line.offset_top + line.get_combined_minimum_size().y)
+	var rect := Rect2(
+		STATS_CARD_SIDE,
+		_stats.offset_top - STATS_CARD_PAD,
+		size.x - STATS_CARD_SIDE * 2,
+		bottom - _stats.offset_top + STATS_CARD_PAD * 2
+	)
+	draw_style_box(UiTheme.solid(UiTokens.PANEL, UiTokens.RADIUS_M, 0), rect)
 
 
 ## A stat's number shrinks to stay inside its column ("+1240", "#1234").

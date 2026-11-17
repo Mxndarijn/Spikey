@@ -1,11 +1,11 @@
 class_name BattlesPill
 extends Button
 ## Home's battle log, kept small: one solid paper pill. With battles waiting
-## for your turn: a gold count, "battles: your turn" and See all; with none
-## waiting: "Battle a friend" and New. Either way a tap opens Battles.
+## for your turn: "Your turn in 2 battles" and See all; with none
+## waiting: "Battle a friend" and Start. Either way a tap opens Battles.
 
 const HEIGHT := 50.0
-const TROPHY := preload("res://assets/ui/icons/trophy.svg")
+const BATTLE_ICON := preload("res://assets/ui/icons/battle.svg")
 const CHEVRON := preload("res://assets/ui/icons/chevron.svg")
 
 var _count: Label
@@ -39,7 +39,7 @@ func _init() -> void:
 		"panel", UiTheme.flat(UiTokens.INK_LINE, UiTokens.RADIUS_PILL, 0)
 	)
 	var icon := TextureRect.new()
-	icon.texture = TROPHY
+	icon.texture = BATTLE_ICON
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.custom_minimum_size = Vector2(18, 18)
@@ -58,12 +58,12 @@ func _init() -> void:
 	_text.clip_text = true
 	_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(_text)
-	_more = UiKit.label("", &"MutedLabel", false)
+	_more = UiKit.label("", &"SmallNameLabel", false)
 	_more.add_theme_font_size_override("font_size", UiTokens.FONT_SIZE_CAPTION)
 	row.add_child(_more)
 	var chev := TextureRect.new()
 	chev.texture = CHEVRON
-	chev.modulate = UiTokens.ON_PANEL_MUTED
+	chev.modulate = UiTokens.ON_PANEL
 	chev.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	chev.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	chev.custom_minimum_size = Vector2(12, 12)
@@ -75,15 +75,21 @@ func _init() -> void:
 
 ## n battles wait for this player's turn.
 func set_turns(n: int) -> void:
-	_count.visible = n > 0
+	# The count is in the words; a separate number badge read as a fragment.
+	_count.visible = false
 	_count.text = str(n)
 	if n > 0:
-		_text.text = "%s: your turn" % ("battle" if n == 1 else "battles")
+		_text.text = turns_text(n)
 		_more.text = "See all"
 	else:
 		_text.text = "Battle a friend"
-		_more.text = "New"
+		_more.text = "Start"
+
+
+## "Your turn in 1 battle", "Your turn in 2 battles".
+static func turns_text(n: int) -> String:
+	return "Your turn in %d %s" % [n, "battle" if n == 1 else "battles"]
 
 
 func line_text() -> String:
-	return ("%s %s" % [_count.text, _text.text]) if _count.visible else _text.text
+	return _text.text

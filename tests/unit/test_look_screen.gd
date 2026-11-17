@@ -92,7 +92,12 @@ func test_flow_from_home_and_back() -> void:
 	main.profile_path = TEST_PATH
 	(Engine.get_main_loop() as SceneTree).root.add_child(main)
 	main._profile.coins = Shop.price(ItemKind.CRASH, "firework")
-	(main._menus.current() as HomeScreen).dock().button("style").pressed.emit()
+	(
+		((main._menus.current() as HomeScreen).find_child("Bar", true, false) as HomeBar)
+		. button("style")
+		. pressed
+		. emit()
+	)
 	var look := main._menus.current() as LookScreen
 	assert_true(look != null, "Style opens Your look")
 	assert_false(main._bird.visible, "the overview draws the flyer itself")

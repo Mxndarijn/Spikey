@@ -59,7 +59,12 @@ func _init(checkout: Checkout, store: StoreService) -> void:
 
 
 func _ready() -> void:
-	_wallet = Wallet.new(false)
+	# The balance on a solid paper pill, as on every other screen (bare numbers
+	# on the sky read poorly on sunset and night worlds). It opens nothing here.
+	_wallet = Wallet.new()
+	_wallet.solid = true
+	_wallet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wallet.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	_message = Label.new()
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)

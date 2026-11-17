@@ -86,6 +86,7 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", UiTokens.SPACE_2)
 	margin.add_child(col)
 	_wallet = Wallet.new()
+	_wallet.solid = true
 	_wallet.pressed.connect(earn_pressed.emit)
 	_header = UiKit.header(title_for(kind), closed.emit, _wallet)
 	col.add_child(_header)

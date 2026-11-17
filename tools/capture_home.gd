@@ -1,7 +1,7 @@
 extends SceneTree
-## Home in both candidate layouts (HomeScreen.Layout) on one world, for the
-## design page in docs/ui-rework: Home with two battles on your turn, the mode
-## sheet, no battles, many battles with the lost-spot line. Opens a real window
+## Home on one world, for the design page in docs/ui-rework: Home with two
+## battles on your turn, the mode sheet, no battles, many battles with the
+## lost-spot line. Opens a real window
 ## (rendering needs one): only when the user asks for screenshots.
 ##   -- <out_dir> <world>
 
@@ -42,13 +42,10 @@ func _tour() -> void:
 	profile.diamonds = 12
 	_main.set_world(args[1])
 	await _frames(240)
-	for layout: int in [HomeScreen.Layout.BAR, HomeScreen.Layout.ROUND]:
-		HomeScreen.layout = layout
-		var tag := "bar" if layout == HomeScreen.Layout.BAR else "round"
-		await _home(out, tag + "_home", 2, false, false)
-		await _home(out, tag + "_sheet", 2, true, false)
-		await _home(out, tag + "_none", 0, false, false)
-		await _home(out, tag + "_many", 5, false, true)
+	await _home(out, "home", 2, false, false)
+	await _home(out, "sheet", 2, true, false)
+	await _home(out, "none", 0, false, false)
+	await _home(out, "many", 5, false, true)
 	DirAccess.remove_absolute(PROFILE)
 	quit()
 

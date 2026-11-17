@@ -32,7 +32,7 @@ const CARD_Y := 120.0
 const LINE_W := 280.0
 ## After this long in the queue, offer a Battle instead.
 const BATTLE_AFTER_S := 30.0
-const RULES := "Live 1v1 · best of 3 · no revives"
+const RULES := "Live 1v1 · Best of 3 · No revives"
 
 var state := State.START
 var _card_col: VBoxContainer

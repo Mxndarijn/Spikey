@@ -32,7 +32,8 @@ const PLAY_ICON := preload("res://assets/ui/icons/play.svg")
 const TITLE := "Ranks"
 const SIDE := UiKit.SCREEN_SIDE
 ## Clear of the floor spikes (tests/unit/test_screen_fit.gd).
-const BOTTOM := 40
+## Clear of the floor spike row with an 8px gap (LayoutQa).
+const BOTTOM := 48
 const LIST_MIN := 140.0
 const PINNED_FLYER := 32.0
 const PRIZE_LINE := "No diamonds below here"
@@ -222,7 +223,8 @@ func _set_caption(left: String, right: String) -> void:
 	for part in [left, right]:
 		if not (part as String).is_empty():
 			parts.append(part)
-	_caption_label.text = ", ".join(parts)
+	# The same separator as the wins boards: "Resets in 9h 30m · 8,930 players".
+	_caption_label.text = " · ".join(parts)
 
 
 func _list(board: LeaderboardBoard) -> Control:

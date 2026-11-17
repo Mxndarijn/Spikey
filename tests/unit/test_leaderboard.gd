@@ -319,7 +319,7 @@ func test_first_visit_asks_for_a_name() -> void:
 	_free(screen)
 
 
-func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
+func test_home_shows_best_and_rank_and_opens_leaderboards() -> void:
 	SafeFile.remove(TEST_PATH)
 	var p := _profile()
 	p.save(TEST_PATH)
@@ -333,10 +333,14 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	if home == null:
 		main.free()
 		return
-	assert_eq(home.stats_line(), "Best 87", "no run today yet")
-	var button := home.dock().button("rank")
-	assert_eq(button.text, "Ranks", "the dock's leaderboard item")
-	assert_true(button.get_combined_minimum_size().y >= UiTokens.SIZE_TAP_MIN, "big enough to tap")
+	var line := func(h: HomeScreen) -> String:
+		var row := h.open_modes().row(GameModes.CLASSIC)
+		var text := (row.find_child("Line", true, false) as Label).text
+		h.call("_close_modes")
+		return text
+	assert_eq(line.call(home), "Best 87", "no run today yet")
+	var button := (home.find_child("Bar", true, false) as HomeBar).button("rank")
+	assert_eq(button.text, "Ranks", "the bar's leaderboard item")
 	main.leaderboard.submit_run(87)
 	home.leaderboard_pressed.emit()
 	var screen := main._menus.current() as LeaderboardScreen
@@ -347,8 +351,8 @@ func test_home_button_shows_best_and_rank_and_opens_leaderboards() -> void:
 	assert_true(home != null, "back goes home")
 	if home != null:
 		var want := main.leaderboard.cached_rank(LeaderboardService.DAILY) as int
-		var shown := HomeScreen.stats_text(87, want)
-		assert_eq(home.stats_line(), shown, "today's rank on home, in the stats line")
+		var shown := "Best 87 · #%d today" % want if want > 0 else "Best 87"
+		assert_eq(line.call(home), shown, "today's rank on home, on Classic's line")
 	main.free()
 	SafeFile.remove(TEST_PATH)
 

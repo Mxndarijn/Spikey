@@ -227,12 +227,12 @@ func _on_get_code() -> void:
 	show_step(Step.CODE)
 
 
-## "Works once · expires in 23:58".
+## "Works once · Expires in 23:58".
 func _show_expiry() -> void:
 	var left := maxi(_expires_at - int(Time.get_unix_time_from_system()), 0)
 	var hours := floori(left / 3600.0)
 	var minutes := floori((left % 3600) / 60.0)
-	_expires.text = "Works once · expires in %d:%02d" % [hours, minutes]
+	_expires.text = "Works once · Expires in %d:%02d" % [hours, minutes]
 
 
 func _on_cancel_code() -> void:

@@ -20,7 +20,8 @@ const COLUMNS := 2
 const SIDE := UiKit.SCREEN_SIDE
 const TOP := UiKit.SCREEN_TOP
 ## The list stops this far above the bottom of the screen.
-const BOTTOM := 40
+## Clear of the floor spike row with an 8px gap (LayoutQa).
+const BOTTOM := 48
 const GAP := 10
 ## The group line sits a little further in than the cards (20px from the edge).
 const CAPTION_INSET := 6
@@ -115,19 +116,35 @@ func _clears() -> Control:
 	if DevMode.enabled():
 		row.add_child(_dev_tag())
 		row.add_child(UiKit.spacer())
+	# A solid paper pill, so the count reads on every sky (a bare ink check
+	# vanished on the night worlds).
+	var pill := PanelContainer.new()
+	pill.name = "Clears"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := UiTheme.solid(UiTokens.PANEL)
+	box.content_margin_left = 10
+	box.content_margin_right = 12
+	box.content_margin_top = 4
+	box.content_margin_bottom = 4
+	pill.add_theme_stylebox_override("panel", box)
+	var inner := HBoxContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_theme_constant_override("separation", 4)
+	pill.add_child(inner)
+	row.add_child(pill)
 	var check := TextureRect.new()
 	check.texture = CHECK_ICON
 	check.custom_minimum_size = Vector2(16, 16)
 	check.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	check.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	check.modulate = UiTokens.ON_SKY
+	check.modulate = UiTokens.ON_PANEL
 	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(check)
-	_cleared.theme_type_variation = &"SkyCaption"
+	inner.add_child(check)
+	_cleared.theme_type_variation = &"SmallNameLabel"
 	_cleared.text = UiKit.thousands(_profile.total_clears())
 	_cleared.tooltip_text = "Rooms cleared in real runs"
-	row.add_child(_cleared)
+	inner.add_child(_cleared)
 	return row
 
 
