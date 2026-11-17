@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flapjaw Privacy Policy</title>
+<meta name="description" content="What the Flapjaw game and its server store, why, for how long, and how to have it deleted.">
+<!--
+  Flapjaw privacy policy. Source: docs/store/privacy.html. Hosting and the placeholders to fill
+  in ({{...}}) are in docs/store/README.md. No external fonts or scripts on purpose: a privacy
+  page that loads Google Fonts would send every visitor's address to Google.
+  Keep this page in step with docs/store/data_safety.md when the game's data use changes.
+-->
+<style>
+  :root {
+    --bg: #fffaf2;
+    --surface: #ffffff;
+    --ink: #1d1a2b;
+    --muted: #5b566d;
+    --line: #e6dfd2;
+    --accent: #6a3df0;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15131f;
+      --surface: #1f1c2c;
+      --ink: #f3f0fa;
+      --muted: #b4aec6;
+      --line: #34304a;
+      --accent: #b49cff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 Archivo, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 4px; }
+  h2 { font-size: 1.25rem; margin: 40px 0 8px; }
+  h3 { font-size: 1rem; margin: 24px 0 4px; }
+  p, li { color: var(--ink); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px; border-top: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Flapjaw Privacy Policy</h1>
+<p class="muted">Last updated: {{EFFECTIVE_DATE}}. Applies to the Flapjaw app for Android and iOS
+and its game server at flapjaw.mn-platform.tech.</p>
+
+<div class="box">
+  <strong>In short.</strong> Flapjaw has no sign-up: no email, no password, no real name. Your phone
+  gets a random key that is your account. Our server keeps your player name, your runs (score and
+  replay), your Battles and Duels, your game save and, if you allow notifications, a push token. We
+  use no analytics. The only ads are the rewarded ads you choose to watch for a revive, served by
+  Google AdMob. We don't sell your data. Mail <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>
+  to have everything deleted.
+</div>
+
+<h2>Who we are</h2>
+<p>Flapjaw is made by {{COMPANY_NAME}}, {{COMPANY_ADDRESS}}, the Netherlands
+(Chamber of Commerce no. {{KVK_NUMBER}}). We are the controller of the personal data described
+here. Contact: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>.</p>
+
+<h2>What our server stores</h2>
+<div class="scroll">
+<table>
+  <tr><th>Data</th><th>What it is</th><th>Why</th></tr>
+  <tr>
+    <td>Account</td>
+    <td>A random player id, and a key your phone makes the first time you play. We keep only a
+      one-way hash of that key and of your sign-in tokens, plus when they were made.</td>
+    <td>So your phone can sign in to the boards, Battles and Duels without a password.</td>
+  </tr>
+  <tr>
+    <td>Player name and look</td>
+    <td>The name you pick (3 to 14 letters, digits, dots or underscores) and the flyer and
+      cosmetics you use. Names pass a word filter.</td>
+    <td>Shown to other players on the leaderboards, in replays, Battles and Duels.</td>
+  </tr>
+  <tr>
+    <td>Runs and replays</td>
+    <td>For each run you send: score, coins, the day, the map seed, the game version, the moments
+      you tapped (that is the replay), revives used, the cosmetics you wore and whether the run
+      passed our check.</td>
+    <td>Leaderboards, the Daily Run, replays other players can watch, and replaying each run on
+      our server to keep cheated scores off the boards.</td>
+  </tr>
+  <tr>
+    <td>Battles and Duels</td>
+    <td>Who played whom, each round's map, runs, scores and winner, your wins and losses, and
+      for bots their level. In a Duel your taps are passed to your rival live while you play.</td>
+    <td>Running the match and the Wins boards.</td>
+  </tr>
+  <tr>
+    <td>Game save</td>
+    <td>Your settings, coins, diamonds and their history (what you won, spent or bought),
+      cosmetics you own, and Daily Run tries and prizes.</td>
+    <td>So a new phone or a reinstall gets your progress back, and so prizes and purchases
+      are counted once.</td>
+  </tr>
+  <tr>
+    <td>Push token</td>
+    <td>Only if notifications are on: the token Google (Firebase Cloud Messaging) or Apple gives
+      your phone, the platform, your time zone offset and the on/off switch, plus the alerts
+      queued for you.</td>
+    <td>Telling you it's your turn in a Battle or that someone passed you on a board, at a
+      sensible hour. Turn it off with Board alerts in the game's settings, or in your phone's settings.</td>
+  </tr>
+  <tr>
+    <td>Account transfer</td>
+    <td>When you move your account to another phone: a hash of the code, when it was made and
+      used, and the IP address of the phone that used it.</td>
+    <td>Moving your account safely, and spotting someone trying to take over an account.</td>
+  </tr>
+  <tr>
+    <td>IP address</td>
+    <td>Your phone's internet address reaches our server with every request. We use it in memory
+      to limit abuse (for example, too many new accounts from one address) and don't store it,
+      except for account transfers as above. {{PROXY_LOG_SENTENCE}}</td>
+    <td>Keeping the server safe.</td>
+  </tr>
+</table>
+</div>
+
+<p>We don't ask for or store your email, phone number, real name, contacts, photos or precise
+location. Purchases (once they open) are handled by Google Play or the App Store; we never see
+your payment details, only which product was bought.</p>
+
+<h2>What stays on your phone</h2>
+<p>Your game save, settings and recent runs are also kept on your phone. Deleting the app
+removes them from the phone (your server copy stays until you ask us to delete it).</p>
+
+<h2>Other companies involved</h2>
+<h3>Google AdMob (ads)</h3>
+<p>The only ads in Flapjaw are rewarded ads you choose to watch to revive. They come from Google
+AdMob. In the EEA, the UK and Switzerland you are first asked for consent through Google's
+consent form; you can change your choice later in the game under Settings → About → Ad choices. Without consent no ads
+are loaded and you keep the free revives. When ads are on, Google's SDK collects data such as
+your device's advertising id, IP address, device and app information and how you interact with
+the ad, to show and measure ads and prevent fraud. We set ads to suit a general audience
+(no content above "parental guidance"). See
+<a href="https://policies.google.com/technologies/partner-sites">how Google uses data from
+apps</a>. On iPhone, Apple asks whether the app may track you; saying no still lets you watch
+ads.</p>
+<p>On Android you can reset or delete your advertising id in your phone's settings
+(Settings → Privacy → Ads).</p>
+
+<h3>Google Firebase Cloud Messaging and Apple Push Notification service</h3>
+<p>Deliver our notifications to your phone. They handle the push token described above. We use
+no other Firebase services: Firebase Analytics and Crashlytics are switched off.</p>
+
+<h3>Hetzner (hosting)</h3>
+<p>Our server and its backups run at Hetzner Online GmbH in Germany. Your data stays in the
+European Union.</p>
+
+<h3>Google Play and Apple App Store</h3>
+<p>Distribute the app and handle purchases under their own privacy policies.</p>
+
+<h2>What other players see</h2>
+<p>Your player name, your look, your scores and your replays are public to other Flapjaw
+players on the leaderboards, and your rival sees your run in a Battle or Duel. Pick a name that
+isn't your real name.</p>
+
+<h2>Legal basis (GDPR)</h2>
+<ul>
+  <li><strong>Providing the game you asked for</strong> (contract): account, name, runs, Battles,
+    Duels, game save, prizes.</li>
+  <li><strong>Legitimate interest</strong>: checking runs for cheating, rate limits and the
+    transfer IP to stop abuse, backups.</li>
+  <li><strong>Consent</strong>: notifications, and ads where the law requires consent. You can
+    withdraw it at any time in the game's or your phone's settings.</li>
+</ul>
+
+<h2>How long we keep it</h2>
+<ul>
+  <li>Account, name, runs, Battles, Duels and game save: as long as your account exists. Delete
+    it any time (below).</li>
+  <li>Push token: until you turn notifications off, Google or Apple tell us it no longer works,
+    or your account is deleted. Queued alerts older than 30 minutes are never sent.</li>
+  <li>Transfer codes expire quickly; the transfer record (with the IP address) stays with your
+    account.</li>
+  <li>Backups of the database are kept for 14 days, so deleted data is gone from backups within
+    14 days.</li>
+  <li>{{INACTIVE_RETENTION_SENTENCE}}</li>
+</ul>
+
+<h2 id="delete">Deleting your account and data</h2>
+<p>Mail <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a> with the subject "Delete my
+Flapjaw account" and your player name. To prove the account is yours, open Settings → Move to a
+new phone in the game, make a transfer code and put it in the mail (the code lets nobody else in
+once we've deleted the account). We delete your account and everything linked to it (name,
+runs, replays, Battles, Duels, save, push token, transfer records) within 30 days and mail you
+when it's done. Your name then disappears from the boards. Results your rivals keep (for
+example "won against a deleted player") stay without your name.</p>
+<p>You can also ask for a copy of your data, to correct it, or to stop a use based on
+legitimate interest, the same way.</p>
+
+<h2>Children</h2>
+<p>Flapjaw is not directed at children under 13 and we don't knowingly collect data from them.
+If you believe a child under 13 has used Flapjaw, mail us and we'll delete the account.</p>
+
+<h2>Your rights</h2>
+<p>Under the GDPR you may ask for access, correction, deletion, restriction, portability and
+object to processing. If you think we handle your data wrongly, you can complain to the Dutch
+Data Protection Authority (<a href="https://autoriteitpersoonsgegevens.nl">Autoriteit
+Persoonsgegevens</a>) or the authority where you live.</p>
+
+<h2>Changes</h2>
+<p>When the game starts using data in a new way we update this page and the date at the top,
+and say so in the release notes.</p>
+
+</main>
+</body>
+</html>
