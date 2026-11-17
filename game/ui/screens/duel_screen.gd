@@ -43,6 +43,7 @@ var _field := LineEdit.new()
 var _primary: Button
 var _finding_s := 0.0
 var _code := ""
+var _updating := false
 
 
 func _init() -> void:
@@ -240,11 +241,24 @@ func show_result(winner: String, wins_me: int, wins_them: int, rival: String, le
 	_primary.visible = true
 
 
+## This app is older than the server's game: Duel waits for the update.
+func show_update() -> void:
+	_big.add_theme_font_size_override("font_size", 56)
+	state = State.START
+	_show(GameModes.UPDATE_LINE, "", BattleService.UPDATE, "", "", false)
+	_primary.text = GameModes.UPDATE
+	_primary.visible = true
+	_updating = true
+
+
 func set_line(text: String) -> void:
 	_body.text = text
 
 
 func _on_primary() -> void:
+	if _updating:
+		StoreLink.open()
+		return
 	match state:
 		State.START:
 			find_pressed.emit()

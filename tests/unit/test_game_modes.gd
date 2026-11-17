@@ -176,3 +176,37 @@ func test_the_sky_line_clears_the_stats_and_the_flyer() -> void:
 		var w := (c as Control).get_combined_minimum_size().x
 		assert_true(w <= ModeCarousel.CARD_W, "%s keeps to its card's width" % c.name)
 	home.free()
+
+
+## Battle and Duel run only on the server's gameplay version: an older app shows
+## "Update to play" on their cards and Play opens the store; Classic and the
+## Daily Run go on.
+func test_battle_and_duel_wait_for_an_update() -> void:
+	var p := Profile.new()
+	var home := _home(p)
+	GameModes.set_server_version(SimConfig.GAMEPLAY_VERSION)
+	assert_false(GameModes.needs_update(GameModes.BATTLE), "the same version plays")
+	GameModes.set_server_version(SimConfig.GAMEPLAY_VERSION + 1)
+	for id in [GameModes.BATTLE, GameModes.DUEL]:
+		assert_true(GameModes.needs_update(id))
+		assert_eq(GameModes.rule_line(id), GameModes.UPDATE_LINE)
+		assert_eq(GameModes.play_label(id), GameModes.UPDATE)
+	assert_false(GameModes.needs_update(GameModes.CLASSIC), "Classic goes on")
+	assert_false(GameModes.needs_update(GameModes.DAILY), "and the Daily Run")
+	home._process(0.0)
+	assert_eq(home.modes().rule_text(GameModes.BATTLE), GameModes.UPDATE_LINE, "the card says so")
+	assert_eq(home.modes().badge_text(GameModes.DUEL), "UPDATE")
+	var got: Array[String] = []
+	home.update_pressed.connect(func() -> void: got.append("store"))
+	home.battle_pressed.connect(func() -> void: got.append("battle"))
+	home.modes().choose_id(GameModes.BATTLE)
+	assert_eq(home.dock().primary().text, GameModes.UPDATE)
+	home.dock().primary().pressed.emit()
+	assert_eq(got, ["store"], "Play opens the store, not Battle")
+	var sheet := home.open_all_modes()
+	var tile := sheet.tile(GameModes.DUEL)
+	assert_true(tile.find_child("Badge", true, false) != null, "the All modes tile too")
+	assert_true(StoreLink.url("Android").contains("com.mxndarijn.spikey"))
+	assert_true(StoreLink.url("iOS").begins_with("https://apps.apple.com/"))
+	GameModes.set_server_version(0)
+	home.free()

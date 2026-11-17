@@ -20,10 +20,13 @@ signal wins_loaded(mode: String, period: String, board: Dictionary)
 signal record_loaded(record: Dictionary)
 ## Something didn't work: the operation and a line to show.
 signal failed(op: String, message: String)
+## The server's gameplay version (its ping), or this phone was told update_required.
+signal version_known(gameplay_version: int)
 
 const OFFLINE := "No connection. Try again in a moment."
 const TOO_MANY := "You have 20 battles going. Finish or close one first."
 const BAD_CODE := "That code doesn't work. Check it and try again."
+const UPDATE := "Update Flapjaw to play Battle and Duel."
 
 var client: BackendClient
 var profile: Profile
@@ -36,6 +39,15 @@ func _init(p_profile: Profile, p_client: BackendClient) -> void:
 
 func is_online() -> bool:
 	return client != null
+
+
+## Asks the server which gameplay version it runs (Battle and Duel need it).
+func request_server_version() -> void:
+	if client == null:
+		return
+	var res := await client.post("/v1/ping", {}, false)
+	if res.ok and res.data is Dictionary:
+		version_known.emit(int((res.data as Dictionary).get("gameplay_version", 0)))
 
 
 func request_list() -> void:
@@ -159,13 +171,23 @@ func _call(op: String, body: Dictionary) -> Dictionary:
 		return {"ok": false, "code": 0, "data": null}
 	var res := await client.call_db(op, body)
 	if not res.ok:
+		if is_update_required(res):
+			# Older than the server's game: Battle waits for the update.
+			version_known.emit(SimConfig.GAMEPLAY_VERSION + 1)
 		failed.emit(op, message_for(op, res))
 	return res
+
+
+static func is_update_required(res: Dictionary) -> bool:
+	var data: Variant = res.get("data")
+	return data is Dictionary and str((data as Dictionary).get("error", "")) == "update_required"
 
 
 ## What to tell the player when the server says no.
 static func message_for(op: String, res: Dictionary) -> String:
 	var code := int(res.get("code", 0))
+	if is_update_required(res):
+		return UPDATE
 	if code == 0 or code >= 500:
 		return OFFLINE
 	var text := ""

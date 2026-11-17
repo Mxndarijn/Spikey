@@ -49,6 +49,9 @@ impl From<sqlx::Error> for ApiError {
             let code = db.code().map(|c| c.to_string()).unwrap_or_default();
             // raise exception in the game's functions ('no tries left', 'invalid taps').
             if code == "P0001" {
+                if db.message() == UPDATE_REQUIRED {
+                    return update_required();
+                }
                 return ApiError::new(StatusCode::BAD_REQUEST, "refused", db.message());
             }
             // Bad input: a wrong type, a value out of range, a broken constraint.
@@ -66,3 +69,12 @@ impl From<sqlx::Error> for ApiError {
 }
 
 pub type ApiResult<T> = Result<T, ApiError>;
+
+/// Battle and Duel run only on the newest gameplay version.
+pub const UPDATE_REQUIRED: &str = "update_required";
+
+/// 409 for a phone on an older gameplay version than the server's, in Battle
+/// and Duel (Classic and the Daily Run go on working).
+pub fn update_required() -> ApiError {
+    ApiError::new(StatusCode::CONFLICT, UPDATE_REQUIRED, "Update the game to play Battle and Duel")
+}

@@ -37,6 +37,16 @@ async fn main() {
         std::process::exit(1);
     });
     tracing::info!("database ready ({} migrations applied now)", applied.len());
+    // Battle rounds not decided yet on an older gameplay version start over.
+    match sqlx::query_scalar::<_, i32>("select public.spikey_battle_redeal_old($1)")
+        .bind(sim::sim_config::SimConfig::GAMEPLAY_VERSION as i32)
+        .fetch_one(&pool)
+        .await
+    {
+        Ok(n) if n > 0 => tracing::info!("new gameplay version: {n} battle rounds start over"),
+        Ok(_) => {}
+        Err(e) => tracing::warn!("couldn't redeal old battle rounds: {e}"),
+    }
     match mode.as_str() {
         "migrate" => return,
         "check" => {

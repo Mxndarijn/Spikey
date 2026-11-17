@@ -146,3 +146,18 @@ func test_what_the_player_is_told_when_it_fails() -> void:
 	var code := {"ok": false, "code": 400, "data": {"message": "unknown code"}}
 	assert_eq(BattleService.message_for("battle_join", code), BattleService.BAD_CODE)
 	assert_eq(BattleService.message_for("battle_get", {"code": 0}), BattleService.OFFLINE)
+
+
+func test_an_older_app_hears_update_required() -> void:
+	var server := FakeServer.new()
+	var refused := {"ok": false, "code": 409, "data": {"error": "update_required", "message": "x"}}
+	server.answers["battle_list"] = refused
+	var service := BattleService.new(Profile.new(), server)
+	var versions: Array[int] = []
+	var told: Array[String] = []
+	service.version_known.connect(func(v: int) -> void: versions.append(v))
+	service.failed.connect(func(_op: String, m: String) -> void: told.append(m))
+	await service.request_list()
+	assert_eq(versions, [SimConfig.GAMEPLAY_VERSION + 1], "the server's game is newer")
+	assert_eq(told, [BattleService.UPDATE])
+	assert_true(BattleService.is_update_required(refused))

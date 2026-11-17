@@ -47,6 +47,7 @@ async fn call(app: &Router, path: &str, token: &str, body: Value) -> (StatusCode
     let req = Request::post(path)
         .header("content-type", "application/json")
         .header("x-flapjaw-api", "1")
+        .header("x-flapjaw-gameplay", sim::sim_config::SimConfig::GAMEPLAY_VERSION.to_string())
         .header("authorization", format!("Bearer {token}"));
     let res = app.clone().oneshot(req.body(Body::from(body.to_string())).unwrap()).await.unwrap();
     let status = res.status();

@@ -24,6 +24,8 @@ signal daily_run_pressed
 signal battle_pressed
 ## Duel chosen and started: opens Duel.
 signal duel_pressed
+## Battle or Duel on an app older than the server's game: the store page.
+signal update_pressed
 ## Runs (the dock): opens Your runs.
 signal runs_pressed
 ## Ranks (the dock): opens the leaderboards.
@@ -77,6 +79,8 @@ var _all_modes: Button
 var _modes_sheet: ModesSheet
 var _daily_info: DailyRunInfo
 var _daily_result: DailyResultPopup
+## GameModes.changes as last drawn: the server's version changed since.
+var _seen_changes := -1
 
 
 ## daily_rank: the player's place on today's board, 0 for none yet.
@@ -160,6 +164,11 @@ func _ready() -> void:
 	_dock.pressed.connect(_on_dock)
 	add_child(_dock)
 	_show_play_label()
+
+
+func _process(_delta: float) -> void:
+	if _seen_changes != GameModes.changes and _modes != null:
+		set_daily_info(_daily_info)
 
 
 func _row_label(text: String, variation: StringName, top: float) -> Label:
@@ -297,14 +306,19 @@ func set_daily_info(info: DailyRunInfo) -> void:
 	_daily_info = info
 	if _modes == null:
 		return
+	_seen_changes = GameModes.changes
 	for m in GameModes.all():
-		if m.id == GameModes.DAILY or not m.ready:
+		if m.id == GameModes.DAILY or not m.ready or m.id in GameModes.LATEST_ONLY:
 			_modes.set_line(m.id, GameModes.rule_line(m.id, info), GameModes.badge(m.id, info))
+	_show_play_label()
 
 
 ## Starts a mode: Classic plays a run, the Daily Run opens its screen, a mode
 ## not built yet does nothing.
 func _start_mode(id: String) -> void:
+	if GameModes.needs_update(id):
+		update_pressed.emit()
+		return
 	match id:
 		GameModes.CLASSIC:
 			play_pressed.emit()
@@ -329,7 +343,7 @@ func _show_play_label() -> void:
 	if _dock == null or _modes == null:
 		return
 	var m := GameModes.find(_modes.chosen())
-	_dock.set_text("play", m.play_label)
+	_dock.set_text("play", GameModes.play_label(m.id))
 	_dock.primary().disabled = not m.ready
 
 

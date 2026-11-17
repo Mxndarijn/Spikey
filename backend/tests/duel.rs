@@ -174,3 +174,14 @@ async fn a_bad_token_is_turned_away() {
     let e = until(&mut ws, "error").await;
     assert_eq!(e["message"], json!("session_gone"));
 }
+
+#[tokio::test]
+async fn an_older_app_is_told_to_update() {
+    let Some((host, _)) = server().await else { return };
+    let (_, t) = player(&host).await;
+    let (mut ws, _) = connect_async(format!("ws://{host}/v1/duel/ws")).await.unwrap();
+    let old = sim::sim_config::SimConfig::GAMEPLAY_VERSION - 1;
+    send(&mut ws, json!({"t": "hello", "token": t, "version": old, "name": "OldApp"})).await;
+    let e = until(&mut ws, "error").await;
+    assert_eq!(e["message"], json!("update_required"), "Duel runs only on the newest version");
+}

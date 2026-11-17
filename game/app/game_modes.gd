@@ -11,6 +11,11 @@ const BATTLE := "battle"
 const DUEL := "duel"
 ## Shown on a mode that isn't built yet.
 const SOON := "Soon"
+## Battle and Duel run only on the newest gameplay version (the server's).
+const UPDATE := "Update"
+const UPDATE_LINE := "Update to play"
+## The modes that need this phone on the server's gameplay version.
+const LATEST_ONLY: Array[String] = [BATTLE, DUEL]
 
 
 ## One mode: what its card and tile show.
@@ -43,6 +48,10 @@ class Mode:
 
 
 static var _all: Array[Mode] = []
+## The server's gameplay version (0: not known yet), from its ping.
+static var server_version := 0
+## Counts changes of server_version, so Home redraws its cards once.
+static var changes := 0
 
 
 ## Every mode in carousel order; Classic is first and the default.
@@ -92,6 +101,24 @@ static func ids() -> Array[String]:
 	return out
 
 
+## The server said its gameplay version (or that this phone is too old).
+static func set_server_version(v: int) -> void:
+	if v != server_version:
+		server_version = v
+		changes += 1
+
+
+## This mode needs a newer app: Battle and Duel on an older gameplay version
+## than the server's. Classic and the Daily Run go on working.
+static func needs_update(id: String) -> bool:
+	return id in LATEST_ONLY and server_version > SimConfig.GAMEPLAY_VERSION
+
+
+## The dock's main action for this mode now.
+static func play_label(id: String) -> String:
+	return UPDATE if needs_update(id) else find(id).play_label
+
+
 ## The mode with this id, or Classic for an unknown one (an old save).
 static func find(id: String) -> Mode:
 	for m in all():
@@ -103,6 +130,8 @@ static func find(id: String) -> Mode:
 ## The card's line under the name. The Daily Run's shows today's tries and
 ## the time to the next map once they are known.
 static func rule_line(id: String, daily: DailyRunInfo = null) -> String:
+	if needs_update(id):
+		return UPDATE_LINE
 	if id == DAILY and daily != null and daily.is_online():
 		return daily_line(daily)
 	return find(id).rule
@@ -128,6 +157,8 @@ static func badge(id: String, daily: DailyRunInfo = null) -> String:
 	var m := find(id)
 	if not m.ready:
 		return SOON
+	if needs_update(id):
+		return UPDATE.to_upper()
 	if id == DAILY and daily != null and daily.is_online() and daily.tries_left() > 0:
 		return str(daily.tries_left())
 	return ""

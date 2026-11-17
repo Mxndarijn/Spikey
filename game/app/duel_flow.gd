@@ -77,6 +77,9 @@ func open() -> DuelScreen:
 			_hud.show_toast(COPIED)
 	)
 	_menus.show_screen(screen)
+	if GameModes.needs_update(GameModes.DUEL):
+		screen.show_update()
+		return screen
 	link.open(_profile.leaderboard_name, _profile.equipped_id(ItemKind.FLYER))
 	return screen
 
@@ -143,6 +146,12 @@ func on_message(msg: Dictionary) -> void:
 			if s != null:
 				s.set_line("%s wants a rematch. Tap Rematch to play." % _rival_name())
 		"error":
+			if str(msg.get("message", "")) == "update_required":
+				GameModes.set_server_version(SimConfig.GAMEPLAY_VERSION + 1)
+				var s := _screen()
+				if s != null:
+					s.show_update()
+				return
 			_hud.show_toast(str(msg.get("message", "")).capitalize())
 
 

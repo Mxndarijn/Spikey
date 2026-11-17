@@ -230,6 +230,9 @@ async fn hello(s: &Shared, v: &Value, tx: &Tx) -> Result<(Uuid, Value, i64), Str
     headers.insert("authorization", format!("Bearer {token}").parse().map_err(|_| "bad token".to_string())?);
     let player = auth::player_of(&s.pool, &headers).await.map_err(|e| e.code.to_string())?;
     let version = v["version"].as_i64().unwrap_or(0);
+    if version < sim::sim_config::SimConfig::GAMEPLAY_VERSION {
+        return Err(crate::error::UPDATE_REQUIRED.to_string());
+    }
     let mut db = s.pool.begin().await.map_err(|e| e.to_string())?;
     sqlx::query("select set_config('request.jwt.claim.sub', $1, true)")
         .bind(player.to_string())

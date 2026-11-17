@@ -81,6 +81,7 @@ func _init(
 	service.failed.connect(_on_failed)
 	service.wins_loaded.connect(_on_wins)
 	service.record_loaded.connect(_on_record)
+	service.version_known.connect(GameModes.set_server_version)
 	menus.screen_shown.connect(_on_screen_shown)
 	var link := DuelLink.new(service.client)
 	world.add_child(link)
@@ -93,7 +94,9 @@ func _on_screen_shown(screen: Control) -> void:
 	if screen is HomeScreen:
 		(screen as HomeScreen).battle_pressed.connect(func() -> void: open())
 		(screen as HomeScreen).duel_pressed.connect(func() -> void: duel.open())
+		(screen as HomeScreen).update_pressed.connect(StoreLink.open)
 		refresh()
+		service.request_server_version()
 	elif screen is LeaderboardScreen:
 		(screen as LeaderboardScreen).wins_pressed.connect(func() -> void: open_wins())
 
@@ -139,6 +142,9 @@ func open() -> BattleListScreen:
 	screen.new_pressed.connect(open_new)
 	screen.refresh_requested.connect(service.request_list)
 	_menus.show_screen(screen)
+	if GameModes.needs_update(GameModes.BATTLE):
+		screen.show_update(BattleService.UPDATE)
+		return screen
 	if not _list.is_empty():
 		screen.show_battles(_list)
 	_send_unsent()
@@ -464,7 +470,10 @@ func _on_failed(op: String, message: String) -> void:
 	_starting = false
 	var screen := _menus.current() as BattleListScreen
 	if screen != null and op == "battle_list":
-		screen.show_offline(message)
+		if message == BattleService.UPDATE:
+			screen.show_update(message)
+		else:
+			screen.show_offline(message)
 		return
 	if op == "battle_submit":
 		# The run is kept and sent again when Battles opens.

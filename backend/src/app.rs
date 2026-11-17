@@ -41,7 +41,7 @@ pub type Shared = Arc<AppState>;
 pub fn router(state: Shared) -> Router {
     Router::new()
         .route("/healthz", get(ping))
-        .route("/v1/ping", get(ping))
+        .route("/v1/ping", get(ping).post(ping))
         .route("/v1/auth/anon", post(auth_anon))
         .route("/v1/auth/refresh", post(auth_refresh))
         .route("/v1/auth/device", post(auth_device))
@@ -64,6 +64,23 @@ pub fn client_ip(state: &AppState, headers: &HeaderMap, peer: Option<SocketAddr>
         }
     }
     peer.map(|p| p.ip().to_string()).unwrap_or_else(|| "unknown".into())
+}
+
+/// Battle runs only on the newest gameplay version: a phone says its own in
+/// X-Flapjaw-Gameplay; an older one (or none) is told update_required.
+pub fn check_gameplay(op: &str, headers: &HeaderMap) -> ApiResult<()> {
+    if !op.starts_with("battle_") {
+        return Ok(());
+    }
+    let phone: i64 = headers
+        .get("x-flapjaw-gameplay")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(0);
+    if phone < sim::sim_config::SimConfig::GAMEPLAY_VERSION {
+        return Err(crate::error::update_required());
+    }
+    Ok(())
 }
 
 async fn ping(State(s): State<Shared>) -> ApiResult<Json<Value>> {
@@ -180,6 +197,7 @@ async fn operation(
 ) -> ApiResult<Json<Value>> {
     auth::check_version(&headers, s.config.min_api_version)?;
     let op = rpc::find(&name).ok_or_else(|| ApiError::not_found(format!("no operation {name}")))?;
+    check_gameplay(&name, &headers)?;
     let player = auth::player_of(&s.pool, &headers).await?;
     let body = body.map(|Json(v)| v).unwrap_or(Value::Null);
     let answer = rpc::call(&s.pool, player, op, &body).await?;

@@ -53,6 +53,18 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   holding at the last tick the rival confirmed instead of guessing), the Duel
   card on Home, the Duel tab of the wins boards. Tests: `test_duel.gd`.
 - **Bot levels calibrated**: `docs/BATTLE_BOT_CALIBRATION.md`.
+- **Only the newest version** (the user's rule): Battle and Duel run only on
+  the server's gameplay version, so the server never needs an old sim. The app
+  reads the server's version from `POST /v1/ping`; an older app shows "Update
+  to play" on the Battle and Duel cards (Home, All modes, the Battle and Duel
+  screens) and Play opens the store (`game/app/store_link.gd`). The server
+  answers battle operations from an older app (header X-Flapjaw-Gameplay) and
+  the Duel hello with `update_required` (409). Classic and the Daily Run go on.
+  When the server starts on a newer version, every round not decided yet that
+  was dealt on an older one starts over: same round, new seed, its runs
+  dropped (also with only one player's run), from its opener; decided rounds
+  and the score stay; both players hear "New game version: round N starts
+  over" (`0115_versions.sql`, `spikey_battle_redeal_old`, called at start).
 
 Not built yet: pausing in a Duel (a paused phone falls behind and is down after
 5 s), the invite link opening the app (Android App Links, iOS

@@ -103,6 +103,19 @@ func show_offline(message: String) -> void:
 	_list.add_child(retry)
 
 
+## This app is older than the server's game: Battle waits for the update.
+func show_update(message: String) -> void:
+	for c in _list.get_children():
+		c.queue_free()
+	_note = UiKit.wrapped(message, &"RoomMuted", 300)
+	_list.add_child(_note)
+	var update := UiKit.text_button(GameModes.UPDATE_LINE, &"PlainButton")
+	update.name = "Update"
+	update.pressed.connect(StoreLink.open)
+	_list.add_child(update)
+	_primary.disabled = true
+
+
 func battles() -> Array[BattleView]:
 	return _battles
 
