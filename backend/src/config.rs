@@ -25,6 +25,14 @@ pub struct Config {
     pub push_every_s: u64,
     /// Trust X-Forwarded-For (behind Traefik); off when the server faces the internet itself.
     pub trust_proxy: bool,
+    /// Invite links on Android: the app's signing certificates' SHA-256
+    /// (ANDROID_CERT_SHA256, comma-separated; unset or blank: the upload key,
+    /// UPLOAD_CERT_SHA256). With Play App Signing, list Google's key too.
+    pub android_cert_sha256: Vec<String>,
+    /// Invite links on iOS: `TEAMID.com.mxndarijn.spikey` (APPLE_APP_ID); empty: none.
+    pub apple_app_id: String,
+    /// The App Store id once the app is listed (APP_STORE_ID); empty: a store search.
+    pub app_store_id: String,
 }
 
 impl Config {
@@ -41,6 +49,9 @@ impl Config {
             firebase_service_account: env::var("FIREBASE_SERVICE_ACCOUNT").unwrap_or_default(),
             push_every_s: int("PUSH_EVERY_S", 30) as u64,
             trust_proxy: env::var("TRUST_PROXY").map(|v| v != "0" && v != "false").unwrap_or(true),
+            android_cert_sha256: certs(&env::var("ANDROID_CERT_SHA256").unwrap_or_default()),
+            apple_app_id: env::var("APPLE_APP_ID").unwrap_or_default().trim().to_string(),
+            app_store_id: env::var("APP_STORE_ID").unwrap_or_default().trim().to_string(),
         })
     }
 
@@ -57,7 +68,35 @@ impl Config {
             firebase_service_account: String::new(),
             push_every_s: 3600,
             trust_proxy: true,
+            android_cert_sha256: Vec::new(),
+            apple_app_id: String::new(),
+            app_store_id: String::new(),
         }
+    }
+}
+
+/// The SHA-256 of the app's upload key (public: it is in every APK).
+pub const UPLOAD_CERT_SHA256: &str =
+    "C0:2B:FE:32:99:DB:7B:BB:72:5E:8F:F2:B9:4A:F0:AC:21:B1:67:82:C1:C0:BD:63:42:3A:4B:D7:02:FA:4E:91";
+
+/// `"AA:BB, CC:DD"` -> ["AA:BB", "CC:DD"] (blanks dropped); none: the upload key.
+pub fn certs(value: &str) -> Vec<String> {
+    let given: Vec<String> = value.split(',').map(|v| v.trim().to_uppercase()).filter(|v| !v.is_empty()).collect();
+    if given.is_empty() {
+        vec![UPLOAD_CERT_SHA256.to_string()]
+    } else {
+        given
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_upload_key_unless_the_certificates_are_given() {
+        assert_eq!(certs(""), vec![UPLOAD_CERT_SHA256.to_string()]);
+        assert_eq!(certs(" aa:bb , ,CC:DD"), vec!["AA:BB".to_string(), "CC:DD".to_string()]);
     }
 }
 

@@ -43,6 +43,26 @@ spec:
                   optional: true
             - name: TRUST_PROXY
               value: "true"
+            # Invite links (backend/src/links.rs). Missing: Android gets the upload key
+            # (built in), iOS a 404 until APPLE_APP_ID is set.
+            - name: ANDROID_CERT_SHA256
+              valueFrom:
+                secretKeyRef:
+                  name: flapjaw-env
+                  key: ANDROID_CERT_SHA256
+                  optional: true
+            - name: APPLE_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: flapjaw-env
+                  key: APPLE_APP_ID
+                  optional: true
+            - name: APP_STORE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: flapjaw-env
+                  key: APP_STORE_ID
+                  optional: true
           ports:
             - name: http
               containerPort: 8080

@@ -99,9 +99,19 @@ through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
   only when the provisioning profile has that capability, so the build never
   breaks on signing.
 
-Not built yet: the invite link opening the app (Android App Links, iOS
-Universal Links and the files the server hosts for them), a push opening its
-battle, the Android notification channels created on the phone (alerts use
+- **Invite links** (`backend/src/links.rs`): `/battle/CODE` and `/duel/CODE`
+  on flapjaw.mn-platform.tech open the game, which joins that battle or Duel
+  (BattleFlow.open_link; a Duel joins once the server says welcome), and the
+  Duel's Copy now gives a /duel/ link. Without the app the server shows a page
+  with the code and both stores. Android: an App Links intent filter with
+  autoVerify (addon `flapjaw_links`, an export plugin) and the server's
+  `/.well-known/assetlinks.json` (ANDROID_CERT_SHA256; by default the upload
+  key, `C0:2B:FE:32:...:4E:91`; add Google's app-signing key once Play App
+  Signing is on). iOS: `/.well-known/apple-app-site-association` from
+  APPLE_APP_ID (a 404 until it is set) and the Associated Domains entitlement
+  (CI adds it when the provisioning profile has the capability).
+
+Not built yet: the Android notification channels created on the phone (alerts use
 the default channel until then), and Duel.
 
 Changed while building (to agree with the user):

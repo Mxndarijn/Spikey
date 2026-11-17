@@ -100,6 +100,7 @@ func _init(
 	intents = AppIntents.new()
 	world.add_child(intents)
 	intents.push_opened.connect(open_push)
+	intents.link_opened.connect(open_link)
 	duel = DuelFlow.new(link, self, menus, hud, service.profile)
 
 
@@ -132,6 +133,24 @@ func open_push(data: Dictionary) -> void:
 				open()
 		"duel_alert":
 			duel.open()
+
+
+## An invite link (https://flapjaw.mn-platform.tech/battle/CODE or /duel/CODE)
+## joins that battle or Duel. Not in the middle of a round.
+func open_link(url: String) -> void:
+	if playing != null:
+		return
+	var parts := url.split("?")[0].split("#")[0].split("/", false)
+	if parts.size() < 2:
+		return
+	var code := parts[parts.size() - 1].to_upper()
+	match parts[parts.size() - 2]:
+		"battle":
+			_showing = -1
+			open()
+			service.join(code)
+		"duel":
+			duel.open_joining(code)
 
 
 ## The wins boards (Leaderboards, Wins).

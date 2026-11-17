@@ -5,6 +5,7 @@
 //! - `POST /v1/transfer/create | cancel | preview | redeem`: phone moves (transfer.rs).
 //! - `GET  /v1/duel/ws`: a live Duel over a WebSocket (duel_ws.rs).
 //! - `POST /v1/<op>`: the game's operations (rpc.rs).
+//! - `GET  /battle/{code}`, `/duel/{code}`, `/.well-known/...`: invite links (links.rs).
 //!
 //! Every /v1 request says which app protocol it speaks (`X-Flapjaw-Api`); an
 //! older one than MIN_API_VERSION gets 426 and the game asks to update.
@@ -51,6 +52,11 @@ pub fn router(state: Shared) -> Router {
         .route("/v1/transfer/redeem", post(transfer_redeem))
         .route("/v1/duel/ws", get(crate::duel_ws::upgrade))
         .route("/v1/{op}", post(operation))
+        .route("/.well-known/assetlinks.json", get(crate::links::assetlinks_file))
+        .route("/.well-known/apple-app-site-association", get(crate::links::apple_file))
+        .route("/apple-app-site-association", get(crate::links::apple_file))
+        .route("/battle/{code}", get(crate::links::battle_page))
+        .route("/duel/{code}", get(crate::links::duel_page))
         .with_state(state)
 }
 

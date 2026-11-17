@@ -16,6 +16,7 @@ pub mod duel;
 pub mod duel_ws;
 pub mod error;
 pub mod limits;
+pub mod links;
 pub mod push;
 pub mod rpc;
 pub mod transfer;

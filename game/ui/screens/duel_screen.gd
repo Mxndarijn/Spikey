@@ -281,7 +281,7 @@ func _on_a() -> void:
 		State.FINDING:
 			cancel_pressed.emit()
 		State.INVITE:
-			copy_pressed.emit(BattleScreen.invite_text(_code).replace("Battle me", "Duel me"))
+			copy_pressed.emit(BattleScreen.invite_text(_code, true))
 
 
 func _on_b() -> void:

@@ -32,6 +32,7 @@ const CARD_Y := 250.0
 const LINE_W := 280.0
 ## The link a friend's phone opens (App Links, Universal Links).
 const LINK := "https://flapjaw.mn-platform.tech/battle/%s"
+const DUEL_LINK := "https://flapjaw.mn-platform.tech/duel/%s"
 
 var view: BattleView
 ## An invite's code, known only to the phone that made it.
@@ -259,7 +260,9 @@ func _on_extra() -> void:
 
 
 ## What Copy puts on the clipboard for a friend.
-static func invite_text(p_code: String) -> String:
+static func invite_text(p_code: String, duel: bool = false) -> String:
+	if duel:
+		return "Duel me in Flapjaw! Code %s · %s" % [p_code, DUEL_LINK % p_code]
 	return "Battle me in Flapjaw! Code %s · %s" % [p_code, LINK % p_code]
 
 

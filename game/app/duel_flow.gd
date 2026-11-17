@@ -30,6 +30,8 @@ var _sent_taps := 0
 var _down := false
 var _countdown_until_ms := 0
 var _round_over := false
+## A friend's code from an invite link, sent once the server says welcome.
+var _join_code := ""
 
 
 func _init(
@@ -84,8 +86,16 @@ func open() -> DuelScreen:
 	return screen
 
 
+## The Duel screen, joining a friend's code once the server greets us (an
+## invite link).
+func open_joining(code: String) -> DuelScreen:
+	_join_code = code
+	return open()
+
+
 ## Back from the Duel screen: out of the queue, and out of a match.
 func leave_screen() -> void:
+	_join_code = ""
 	link.send({"t": "cancel"})
 	if _round > 0 and not _over():
 		link.send({"t": "leave"})
@@ -115,6 +125,10 @@ func _show_screen() -> DuelScreen:
 ## Every message from the server.
 func on_message(msg: Dictionary) -> void:
 	match str(msg.get("t", "")):
+		"welcome":
+			if not _join_code.is_empty():
+				link.send({"t": "join", "code": _join_code})
+				_join_code = ""
 		"invite":
 			var s := _screen()
 			if s != null:
