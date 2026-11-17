@@ -4,6 +4,7 @@
 //! HumanBot.cs and Reflex.cs (the `human` and `reflex` bots), RunFile (`runfile`),
 //! the RL policy (`baseline --bot rl`).
 pub mod atlas;
+pub mod battle_bot;
 pub mod human_main;
 pub mod motor_player;
 pub mod trace;

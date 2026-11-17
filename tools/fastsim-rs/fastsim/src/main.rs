@@ -4,6 +4,8 @@
 //!                                                      BlindPlanner runs: ticks/s and the taps
 //!                                                      fingerprint of C# `rl review speed`
 //!   fastsim-rs bench                                   sim copy / step time (Program.cs Bench)
+//!   fastsim-rs battlebot --seed S [--season X] [--level 1..8] [--bot-seed B]
+//!                                                      one Battle bot run as JSON (the server's battle-bot)
 mod bots;
 mod checks;
 mod human;
@@ -54,6 +56,7 @@ fn main() {
         "simspeed" => speed::simspeed(&opts),
         "check" => checks::run(&rest[1..], &opts),
         "human" => human::run(&rest[1..], &opts),
+        "battlebot" => human::battle_bot::run(&opts),
         "yardstick" => yardstick::run(&rest[1..], &opts),
         "measure" => measure::run(&rest[1..], &opts),
         "search" | "searchruns" | "rooms" | "runs" | "reaction" | "odds" | "scan" => modes::run(mode, &rest[1..], &opts),

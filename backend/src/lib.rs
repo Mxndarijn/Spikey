@@ -9,6 +9,7 @@
 
 pub mod app;
 pub mod auth;
+pub mod bot;
 pub mod config;
 pub mod db;
 pub mod error;

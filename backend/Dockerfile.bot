@@ -1,0 +1,22 @@
+# The Battle bots' worker image (docs/DUEL_MODE.md, section 6): the battle-bot
+# worker and the FastSim-RS program whose human-model bot plays the runs.
+# Build from the repository root:
+#   docker build -f backend/Dockerfile.bot --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t <REGISTRY>/flapjaw-battle-bot:<sha> .
+# tools/deploy.ps1 does this. Only x86-64 (amd64) is built.
+FROM rust:1.90-bookworm AS build
+WORKDIR /src
+COPY tools/fastsim-rs tools/fastsim-rs
+COPY backend backend
+RUN cargo build --release --locked --manifest-path backend/Cargo.toml --bin battle-bot \
+ && cargo build --release --locked --manifest-path tools/fastsim-rs/Cargo.toml -p fastsim
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/backend/target/release/battle-bot /usr/local/bin/battle-bot
+COPY --from=build /src/tools/fastsim-rs/target/release/fastsim-rs /usr/local/bin/fastsim-rs
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA FASTSIM_BIN=/usr/local/bin/fastsim-rs RUST_LOG=info
+USER 10001
+ENTRYPOINT ["battle-bot"]

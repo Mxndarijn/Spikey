@@ -29,6 +29,13 @@ patches:
         path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
         value: database
   - target:
+      kind: Deployment
+      name: flapjaw-battle-bot
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: database
+  - target:
       kind: CronJob
       name: godot-check
     patch: |-

@@ -9,6 +9,11 @@ publish = false
 name = "flapjaw-server"
 path = "src/main.rs"
 
+# The Battle bots' worker (its own pod).
+[[bin]]
+name = "battle-bot"
+path = "src/bin/battle_bot.rs"
+
 [dependencies]
 # The deterministic sim, the same crate the bots use (a line-by-line port of sim/).
 sim = { path = "../tools/fastsim-rs/sim" }

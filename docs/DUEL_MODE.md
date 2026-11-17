@@ -13,6 +13,35 @@ behind `POST /v1/<op>` (listed in `backend/src/rpc.rs`), runs are checked by the
 Rust sim with headless Godot confirming rejections, and push alerts go out
 through its FCM sender (`backend/src/push.rs`, an outbox the database fills).
 
+## Built so far
+
+- **Mode picker** (Home's carousel and the All modes sheet): `game/app/game_modes.gd`,
+  `game/ui/widgets/mode_carousel.gd`, `modes_sheet.gd`. Battle and Duel show as Soon.
+- **Battle on the server**: `backend/migrations/0110_battles.sql` (tables, the
+  battle_* operations, rounds decided by a trigger after the replay check, the
+  copied-taps check, the battle alert outbox on the `battles` channel, nudges),
+  tests in `backend/tests/battles.rs`.
+- **Wins boards on the server**: `0111_wins_boards.sql` (`match_results`, the
+  counting rules, `get_wins_board`, `get_match_record`), `backend/tests/wins.rs`.
+- **Battle bots**: `0112_battle_bots.sql` (bot players, the bot wait in
+  `worker_settings.bot_wait_s`, `worker_set_bot_wait`, levels learned per
+  player), the worker `backend/src/bot.rs` + `src/bin/battle_bot.rs`, the run
+  from `fastsim-rs battlebot` (`tools/fastsim-rs/fastsim/src/human/battle_bot.rs`,
+  8 levels), the image `backend/Dockerfile.bot`, the pod
+  `deploy/base/app/battle-bot.yaml` (500m CPU, 128 Mi). Not deployed.
+
+Changed while building (to agree with the user):
+- **No 4-minute cap on Battle runs**: a run flies to its crash, like a Daily Run.
+  The replay check plays a run to its end, so a cap needs its own rule in the
+  check; left for later if long rounds turn out to be a problem.
+- The 8 bot levels are set from the measured tiers but not yet calibrated one
+  by one (`fastsim-rs human measure` per level): a CPU run for later.
+- The alt-account rule checks the account's age and checked runs; the shared
+  IP rule is not built (the server keeps no IPs per match yet).
+- The hidden rating is, for now, the bot level per player (from their scores,
+  then learned from bot battles); a full rating for random pairing comes with
+  more players.
+
 ## The idea
 
 Two head-to-head modes on one shared base:

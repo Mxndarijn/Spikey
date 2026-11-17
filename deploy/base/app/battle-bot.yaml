@@ -1,0 +1,42 @@
+# The Battle bots' worker (backend/src/bin/battle_bot.rs, docs/DUEL_MODE.md
+# section 6): gives bots to random battles nobody took within the bot wait and
+# plays their turns with the FastSim-RS human-model bot. Its own pod, so its
+# CPU never competes with the server; scale it to 0 to stop the bots at once
+# (and worker_set_bot_wait(-1) to stop new bot battles for good).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flapjaw-battle-bot
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: flapjaw-battle-bot
+  template:
+    metadata:
+      labels:
+        app: flapjaw-battle-bot
+        db-client: "true"
+    spec:
+      imagePullSecrets:
+        - name: flapjaw-registry
+      containers:
+        - name: bot
+          image: flapjaw-battle-bot
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: flapjaw-env
+                  key: DATABASE_URL
+            - name: BOT_EVERY_S
+              value: "30"
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 50m
+            limits:
+              memory: 128Mi
+              cpu: 500m

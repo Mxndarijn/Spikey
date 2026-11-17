@@ -1,6 +1,6 @@
 # Nothing reaches a pod here unless allowed below: Traefik reaches the server
 # (and cert-manager's HTTP-01 solver while a certificate is issued); only the
-# server, the Godot check and the backup reach Postgres.
+# server, the Godot check, the Battle bots and the backup reach Postgres.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

@@ -1,0 +1,11 @@
+# Only what the battle-bot image is built from (backend/Dockerfile.bot).
+*
+!backend/Cargo.toml
+!backend/Cargo.lock
+!backend/src
+!backend/migrations
+!tools/fastsim-rs/Cargo.toml
+!tools/fastsim-rs/Cargo.lock
+!tools/fastsim-rs/sim
+!tools/fastsim-rs/fastsim
+**/target

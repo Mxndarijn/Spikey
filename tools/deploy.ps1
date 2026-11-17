@@ -72,6 +72,9 @@ images:
   - name: flapjaw-godot-check
     newName: $registry/flapjaw-godot-check
     newTag: "$tag"
+  - name: flapjaw-battle-bot
+    newName: $registry/flapjaw-battle-bot
+    newTag: "$tag"
 patches:
   - target:
       kind: Ingress
@@ -176,7 +179,7 @@ $out = Join-Path $deploy ".out/$Env"
 $history = Join-Path $out "history.txt"
 
 if ($Stop) {
-    $what = if ($onPlatform) { @("deployment/flapjaw-server") } else { @("deployment/flapjaw-server", "statefulset/postgres") }
+    $what = if ($onPlatform) { @("deployment/flapjaw-server", "deployment/flapjaw-battle-bot") } else { @("deployment/flapjaw-server", "deployment/flapjaw-battle-bot", "statefulset/postgres") }
     & kubectl -n $ns scale @what --replicas=0
     if ($LASTEXITCODE -ne 0) { Fail "scaling down failed" }
     Write-Host "$Env stopped; deploy it again to start it." -ForegroundColor Green
@@ -206,7 +209,7 @@ if ($Rollback) {
 if ($build) {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Fail "docker is not installed." }
     Push-Location $repo
-    foreach ($img in @(@("flapjaw-server", "backend/Dockerfile"), @("flapjaw-godot-check", "deploy/godot-check/Dockerfile"))) {
+    foreach ($img in @(@("flapjaw-server", "backend/Dockerfile"), @("flapjaw-godot-check", "deploy/godot-check/Dockerfile"), @("flapjaw-battle-bot", "backend/Dockerfile.bot"))) {
         $tag = "$registry/$($img[0]):$Sha"
         Write-Host "building $tag"
         & docker build --platform linux/amd64 -f $img[1] --build-arg "GIT_SHA=$Sha" -t $tag .
