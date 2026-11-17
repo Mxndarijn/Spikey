@@ -65,6 +65,13 @@ const FLY_ARC := 60.0
 
 ## Settings > Reduced flashing: the new-best moment stays still.
 var reduced_motion := false
+## A Duel round: no pause (the rival flies on; a phone that stops is down after
+## 5 s by the server's clock). DuelFlow sets it for the round.
+var no_pause := false:
+	set(value):
+		no_pause = value
+		if _pause_button != null:
+			_pause_button.visible = _pause_button.visible and not value
 ## The room on screen (ScreenLayout); the HUD is laid out over it. Main sets
 ## it when the screen changes shape.
 ## The revive offer after a crash. Main shows it (show_offer) and listens to
@@ -443,8 +450,8 @@ func show_running() -> void:
 	revive_offer.visible = false
 	_hint.visible = false
 	_back_button.visible = false
-	# A replay has no pause; its exit sits where pause would be.
-	_pause_button.visible = not _replaying
+	# A replay has no pause; its exit sits where pause would be. Nor has a Duel.
+	_pause_button.visible = not _replaying and not no_pause
 	_score.visible = true
 	# Practice never pays coins, so no counter. A replay shows the coins the
 	# recorded player picked up (they are not paid to the watcher).
@@ -460,7 +467,7 @@ func show_paused(value: bool, music_on: bool = true, sfx_on: bool = true) -> voi
 	if _replaying:
 		return
 	pause_screen.visible = value
-	_pause_button.visible = not value
+	_pause_button.visible = not value and not no_pause
 	_back_button.visible = false
 	_score.visible = not value
 	_run_coins.visible = not value and not _practicing

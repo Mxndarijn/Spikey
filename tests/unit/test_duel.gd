@@ -130,7 +130,17 @@ func test_a_round_in_the_app_from_countdown_to_result() -> void:
 	assert_true(flow.playing() != null, "the round's run started")
 	assert_eq(main._run.sim.seed_value, 7, "on the server's seed")
 	assert_true(main._battle.ghost() == flow.ghost(), "with Mira's live bird")
+	# No pause in a Duel round: not the button, not the keyboard, not leaving the app.
+	assert_true(main._hud.no_pause)
+	main._hud.show_running()
+	var pause := main._hud.find_child("Pause", true, false) as Button
+	assert_false(pause.visible, "no pause button in a Duel round")
 	main._run.request_tap()
+	main._run.advance()
+	main._toggle_pause()
+	assert_false(main._run.paused, "P or Back doesn't pause either")
+	main._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	assert_false(main._run.paused, "leaving the app doesn't pause: the clock goes on")
 	for i in 12:
 		main._run.advance()
 		flow._on_ticked()
@@ -157,6 +167,7 @@ func test_a_round_in_the_app_from_countdown_to_result() -> void:
 	assert_true(screen != null and screen.state == DuelScreen.State.BETWEEN, "between rounds")
 	assert_eq(screen.title_text(), "Mira wins round 1")
 	assert_true(main._battle.playing == null, "no round in play")
+	assert_false(main._hud.no_pause, "pause is back outside a Duel round")
 	flow.on_message({"t": "match_over", "winner": "them", "ended_by": "played", "wins": [0, 2]})
 	screen = main._menus.current() as DuelScreen
 	assert_eq(screen.state, DuelScreen.State.RESULT)
@@ -164,3 +175,17 @@ func test_a_round_in_the_app_from_countdown_to_result() -> void:
 	assert_eq(link.kinds().back(), "rematch")
 	main.free()
 	SafeFile.remove(TEST_PATH)
+
+
+func test_a_phone_that_left_the_app_hears_why_it_is_down() -> void:
+	var link := FakeLink.new()
+	_tree().root.add_child(link)
+	var screen := DuelScreen.new()
+	var holder := _holder(screen)
+	screen.show_waiting(4, "Mira", true)
+	assert_true(screen.body_text().begins_with("You left the app"), screen.body_text())
+	assert_true(screen.body_text().contains("needs 5"))
+	screen.show_waiting(4, "Mira")
+	assert_false(screen.body_text().contains("left the app"), "a crash says nothing of it")
+	holder.free()
+	link.free()

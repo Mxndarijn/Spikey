@@ -129,6 +129,12 @@ func on_message(msg: Dictionary) -> void:
 		"rival":
 			if _ghost != null:
 				_ghost.feed(int(msg.get("tick", 0)), msg.get("taps", []) as Array)
+		"you_down":
+			# This phone stopped (the app left, the connection): the server has it down.
+			_down = true
+			var score := int(msg.get("score", 0))
+			_end_run()
+			_show_screen().show_waiting(score, _rival_name(), true)
 		"rival_down":
 			if _ghost != null:
 				_ghost.set_down(int(msg.get("score", 0)))
@@ -214,6 +220,8 @@ func start_round_run() -> void:
 	_down = false
 	_battle.start_external(_playing)
 	_run = _battle.run_in_play()
+	# No pause in a Duel: the rival flies on.
+	_hud.no_pause = true
 
 
 func _on_ticked() -> void:
@@ -282,6 +290,7 @@ func _on_match_over(msg: Dictionary) -> void:
 
 
 func _end_run() -> void:
+	_hud.no_pause = false
 	_playing = null
 	_ghost = null
 	_battle.end_external()

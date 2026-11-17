@@ -812,13 +812,13 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
 		# A replay just keeps playing; it has no pause button to resume with.
-		if _run != null and _run.is_running() and mode != Mode.REPLAY:
+		if _run != null and _run.is_running() and mode != Mode.REPLAY and not _hud.no_pause:
 			_set_paused(true)
 
 
 ## Pause, or Resume: pause again during the countdown and it stops there.
 func _toggle_pause() -> void:
-	if not (_run.is_running() or _run.paused):
+	if _hud.no_pause or not (_run.is_running() or _run.paused):
 		return
 	if _run.paused and _countdown <= 0.0:
 		_resume()

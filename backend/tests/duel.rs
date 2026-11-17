@@ -185,3 +185,26 @@ async fn an_older_app_is_told_to_update() {
     let e = until(&mut ws, "error").await;
     assert_eq!(e["message"], json!("update_required"), "Duel runs only on the newest version");
 }
+
+#[tokio::test]
+async fn a_phone_that_stops_is_down_after_five_seconds_and_hears_it() {
+    let Some((host, _)) = server().await else { return };
+    let (_, ta) = player(&host).await;
+    let (_, tb) = player(&host).await;
+    let mut a = open(&host, &ta, "AwayAda", 7201).await;
+    let mut b = open(&host, &tb, "AwayMira", 7201).await;
+    send(&mut a, json!({"t": "invite"})).await;
+    let code = until(&mut a, "invite").await["code"].as_str().unwrap().to_string();
+    send(&mut b, json!({"t": "join", "code": code})).await;
+    until(&mut a, "countdown").await;
+    // B keeps flying; A's app went to the background and sends nothing.
+    for t in (6..=480).step_by(6) {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        send(&mut b, json!({"t": "ticks", "tick": t.min(180), "taps": if t == 6 { json!([0]) } else { json!([]) }}))
+            .await;
+    }
+    let down = until(&mut a, "you_down").await;
+    assert_eq!(down["why"], json!("left_app"), "{down}");
+    let theirs = until(&mut b, "rival_down").await;
+    assert_eq!(theirs["why"], json!("fellbehind"));
+}

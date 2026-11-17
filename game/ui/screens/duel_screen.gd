@@ -204,13 +204,18 @@ func show_between(text: String, my_score: int, their_score: int, rival: String) 
 	)
 
 
-func show_waiting(my_score: int, rival: String) -> void:
+## `left_app`: the server put this bird down because the phone stopped
+## (the app went to the background, or the connection).
+func show_waiting(my_score: int, rival: String, left_app: bool = false) -> void:
 	_big.add_theme_font_size_override("font_size", 56)
 	state = State.WAITING
+	var why := ""
+	if left_app:
+		why = "You left the app, so your bird is down: a Duel doesn't pause. "
 	_show(
 		"You're down at %d" % my_score,
 		"",
-		"%s is still flying. Beat %d is what %s needs." % [rival, my_score, rival],
+		why + "%s is still flying and needs %d to win the round." % [rival, my_score + 1],
 		"",
 		"",
 		false

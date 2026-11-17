@@ -460,6 +460,11 @@ fn step(l: &mut Live, pool: &PgPool) -> bool {
                 if let (Some(why), score) = downs[who] {
                     if !l.told_down[who] {
                         l.told_down[who] = true;
+                        // A phone that stopped (the app in the background, the
+                        // connection) hears it too: it may not know.
+                        if why == Down::FellBehind {
+                            l.send(who, json!({"t": "you_down", "score": score, "why": "left_app"}));
+                        }
                         let why = format!("{why:?}").to_lowercase();
                         l.send(1 - who, json!({"t": "rival_down", "score": score, "why": why}));
                     }
